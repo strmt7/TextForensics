@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, Iterable
 
 from .detectors import Detector, DetectorPrediction, discover_detectors, text_sha256
+from .consensus import family_balanced_consensus
 from .features import extract_features
 from .provenance import verify_ledger
 from .robustness import benign_variants
@@ -29,6 +30,7 @@ class ForensicBundle:
     content_sha256: str
     input: dict[str, Any]
     detector_results: list[dict[str, Any]]
+    consensus: dict[str, Any]
     verdict_integrity: VerdictIntegrity
     robustness: dict[str, Any]
     provenance: dict[str, Any] | None
@@ -36,14 +38,6 @@ class ForensicBundle:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
-
-
-def _agreement(predictions: list[DetectorPrediction]) -> float | None:
-    labels = [p.verdict for p in predictions if p.verdict in {"ai_like", "human_like"}]
-    if len(labels) < 2:
-        return None
-    majority = max(set(labels), key=labels.count)
-    return labels.count(majority) / len(labels)
 
 
 def _robustness_for_detector(detector: Detector, text: str) -> dict[str, Any]:
@@ -78,8 +72,9 @@ def _integrity(
     robustness: list[dict[str, Any]],
 ) -> VerdictIntegrity:
     families = {p.detector_family for p in predictions}
-    agreement = _agreement(predictions)
-    calibrated = sum(p.calibrated_ai_probability is not None for p in predictions)
+    consensus = family_balanced_consensus(predictions)
+    agreement = consensus.family_agreement
+    calibrated_families = sum(v.calibrated_ai_probability is not None for v in consensus.family_votes)
     stability_values = [
         r["score_stability"] for r in robustness if r.get("score_stability") is not None
     ]
@@ -105,9 +100,9 @@ def _integrity(
         score += 0.05
         factors.append("single_detector_family")
 
-    if calibrated >= 2:
+    if calibrated_families >= 2:
         score += 0.22
-    elif calibrated == 1:
+    elif calibrated_families == 1:
         score += 0.10
     else:
         factors.append("no_probability_calibration")
@@ -142,7 +137,7 @@ def _integrity(
         detector_count=len(predictions),
         independent_families=len(families),
         verdict_agreement=round(agreement, 4) if agreement is not None else None,
-        calibrated_detector_count=calibrated,
+        calibrated_detector_count=calibrated_families,
         robustness_stability=round(robustness_stability, 4) if robustness_stability is not None else None,
         factors=factors,
     )
@@ -165,6 +160,7 @@ def build_forensic_bundle(
     robustness = [_robustness_for_detector(detector, text) for detector in detector_list]
     features = extract_features(text)
     provenance = verify_ledger(ledger_path) if ledger_path else None
+    consensus = family_balanced_consensus(predictions)
     integrity = _integrity(predictions, int(features["word_count"]), robustness)
 
     return ForensicBundle(
@@ -177,6 +173,7 @@ def build_forensic_bundle(
             "paragraph_count": features["paragraph_count"],
         },
         detector_results=[prediction.to_dict() for prediction in predictions],
+        consensus=consensus.to_dict(),
         verdict_integrity=integrity,
         robustness={"detectors": robustness},
         provenance=provenance,
