@@ -11,6 +11,7 @@ def create_app():
     from .compare import compare_texts
     from .engine import analyze_text
     from .naturalness import audit_naturalness
+    from .report import build_forensic_bundle
 
     app = FastAPI(title="TextForensics", version="0.1.0")
 
@@ -24,6 +25,10 @@ def create_app():
     @app.post("/v1/analyze")
     def analyze(req: TextRequest):
         return analyze_text(req.text).to_dict()
+
+    @app.post("/v1/report")
+    def report(req: TextRequest):
+        return build_forensic_bundle(req.text).to_dict()
 
     @app.post("/v1/audit")
     def audit(req: TextRequest):
