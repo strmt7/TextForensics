@@ -50,3 +50,28 @@ RAID, DetectRL, M4, or other benchmark material should be obtained and used acco
 ## Release review
 
 The release checklist includes a licensing review. A technically green build is not sufficient for commercial distribution if a newly introduced dependency, model, dataset, or asset has incompatible terms.
+
+
+## Bundled adapter model provenance
+
+TextForensics source does **not** redistribute these model weights. Optional adapters download them separately from pinned upstream revisions.
+
+### Desklib AI text detector v1.01
+- model: `desklib/ai-text-detector-v1.01`
+- license: MIT
+- pinned revision: `5fdea974cd4287c61674951ec78803aa274e2fb7`
+- expected `model.safetensors` SHA-256: `c024a1704c65f5a4bffeda58745c58fc0ed67d6ca07b158b068a257238815265`
+- upstream: https://huggingface.co/desklib/ai-text-detector-v1.01
+
+### Qwen2.5-0.5B RAI pair
+- base model: `Qwen/Qwen2.5-0.5B`
+- base license: Apache-2.0
+- base revision: `060db6499f32faf8b98477b0a26969ef7d8b9987`
+- base weight SHA-256: `88c142557820ccad55bb59756bfcfcf891de9cc6202816bd346445188a0ed342`
+- aligned model: `Qwen/Qwen2.5-0.5B-Instruct`
+- aligned license: Apache-2.0
+- aligned revision: `7ae557604adf67be50417f59c2c2f167def9a775`
+- aligned weight SHA-256: `fdf756fa7fcbe7404d5c60e26bff1a0c8b8aa1f72ced49e7dd0210fe288fb7fe`
+- upstream: https://huggingface.co/Qwen/Qwen2.5-0.5B and https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct
+
+A commercial distributor must re-check the upstream license and artifact identity at the pinned revisions before bundling or mirroring weights.

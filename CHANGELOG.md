@@ -7,6 +7,10 @@ The project is pre-1.0. Public schemas and detector/calibration semantics are tr
 ## [Unreleased]
 
 ### Added
+- pinned optional Desklib supervised-transformer detector adapter with real-weight CPU integration CI;
+- pinned optional Qwen2.5 Raw Alignment Imprint detector family with categorical abstention until independent threshold validation;
+- detector-agnostic benchmark/calibration execution with coverage, AUROC and average precision;
+- explicit detector selection across CLI/API/MCP/browser configuration;
 - strict TFDP/1 runtime result validation;
 - detector plugin-health reporting with redacted failure messages;
 - qualitative `textforensics.trust-map/v1`;

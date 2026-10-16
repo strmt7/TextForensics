@@ -1,0 +1,33 @@
+services:
+  textforensics:
+    build:
+      context: .
+      args:
+        TEXTFORENSICS_EXTRAS: "api,ml"
+    image: textforensics:ml
+    ports:
+      - "127.0.0.1:${TEXTFORENSICS_HOST_PORT:-8765}:8765"
+    environment:
+      TEXTFORENSICS_HOST: "0.0.0.0"
+      TEXTFORENSICS_PORT: "8765"
+      TEXTFORENSICS_ALLOW_REMOTE: "1"
+      TEXTFORENSICS_ACCESS_LOG: "0"
+      TEXTFORENSICS_LOG_LEVEL: "INFO"
+      TEXTFORENSICS_MAX_INPUT_BYTES: "2000000"
+      TEXTFORENSICS_DETECTORS: "desklib/ai-text-detector-v1.01,textforensics/qwen2.5-0.5b-rai"
+      TEXTFORENSICS_DESKLIB_CACHE_DIR: "/models/hf"
+      TEXTFORENSICS_RAI_CACHE_DIR: "/models/hf"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+    volumes:
+      - textforensics-model-cache:/models
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+volumes:
+  textforensics-model-cache:

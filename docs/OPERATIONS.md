@@ -87,6 +87,8 @@ Scale based on adapter characteristics:
 - use queueing at the platform layer if requests become long-running;
 - do not share a mutable global detector object unless the adapter documents thread safety.
 
+The bundled Desklib and Qwen-RAI adapters lazy-load pinned model weights and serialize inference per adapter instance. The Desklib weight file is roughly 1.7 GB; the RAI pair is roughly 2 GB of published weights. Budget additional RAM/VRAM for activations and framework overhead.
+
 ## Filesystem
 
 The container image supports a read-only root filesystem.
@@ -96,7 +98,9 @@ Writable paths are only needed when a user explicitly asks to create:
 - benchmark/calibration artifacts;
 - case files.
 
-For API-only deployments, no persistent application data directory is required.
+For API-only deployments using only the dependency-free baseline, no persistent application data directory is required.
+
+Model-backed containers need a writable model-cache mount. Keep the root filesystem read-only and mount only the cache path, for example `/models/hf`. Set the adapter-specific cache variables to that location. The supplied `compose.models.yaml` demonstrates this pattern.
 
 ## Backup and restore
 
@@ -142,3 +146,20 @@ Run:
 `textforensics detectors --health`
 
 Plugin load errors are reported without exposing raw exception messages that could contain document text.
+
+
+## Model-backed OCI deployments
+
+The default image installs only the API extra.
+
+Build an image with model runtime dependencies:
+
+```bash
+docker build \
+  --build-arg TEXTFORENSICS_EXTRAS="api,ml" \
+  -t textforensics:ml .
+```
+
+Model weights are still downloaded separately at first use. Mount a persistent cache rather than baking mutable caches into the image. This keeps code/runtime layers reproducible and model artifacts independently governable.
+
+For air-gapped production, populate and verify the cache before deployment, then enable the adapters' offline modes.

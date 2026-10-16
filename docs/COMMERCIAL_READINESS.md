@@ -61,9 +61,9 @@ A release candidate is operationally acceptable only when all of the following a
 
 The following remain required before advertising detector accuracy or parity with commercial systems:
 
-1. at least one serious supervised open-model detector;
-2. at least one methodologically different likelihood/cross-model detector;
-3. reproducible RAID, DetectRL, and M4 benchmark adapters/runs;
+1. **implemented, validation pending:** pinned Desklib supervised-transformer adapter with real-weight integration smoke tests;
+2. **implemented, validation pending:** independent Qwen Raw Alignment Imprint likelihood-family adapter, which abstains categorically until calibrated;
+3. reproducible RAID, DetectRL, and M4 benchmark adapters/runs for the exact pinned detector versions;
 4. held-out threshold/calibration/evaluation separation;
 5. confidence intervals and human false-positive operating points;
 6. language/domain/length/revision slices;
@@ -72,7 +72,7 @@ The following remain required before advertising detector accuracy or parity wit
 9. benchmark-backed Trust Map applicability evidence;
 10. longitudinal detector/provider drift evidence where provider adapters are used.
 
-Until those exist, the built-in detector remains a transparent **development baseline**, not a commercial detection-performance claim.
+Until the benchmark/calibration gates are satisfied, the built-in detector remains a transparent development baseline and the two model-backed adapters remain **experimental detector instruments**, not a commercial detection-performance claim.
 
 ## Commercial claims that are currently acceptable
 

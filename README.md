@@ -165,13 +165,43 @@ python -m pip install ".[mcp]"
 textforensics-mcp
 ```
 
-### All optional surfaces
+### All lightweight optional surfaces
 
 ```bash
 python -m pip install ".[all]"
 ```
 
-See [Installation](docs/INSTALLATION.md) for pip, uv, pipx, offline wheelhouses, Docker, Podman, Compose, VM, Kubernetes/Nomad/ECS-style deployments, and configuration.
+The `all` extra intentionally excludes heavyweight local ML runtimes.
+
+### Optional local detector models
+
+Install the supervised Desklib adapter:
+
+```bash
+python -m pip install ".[desklib]"
+textforensics report \
+  --detector desklib/ai-text-detector-v1.01 \
+  --file essay.txt
+```
+
+Install the independent Raw Alignment Imprint (RAI) adapter:
+
+```bash
+python -m pip install ".[rai]"
+textforensics report \
+  --detector textforensics/qwen2.5-0.5b-rai \
+  --file essay.txt
+```
+
+Or install the shared ML dependency set for both adapters:
+
+```bash
+python -m pip install ".[ml]"
+```
+
+Model weights are not bundled. They are downloaded from pinned immutable Hugging Face revisions on first use unless an offline cache is configured. The RAI adapter deliberately returns a continuous score with an `abstain` verdict until a separately validated threshold exists for the exact model pair and operating regime.
+
+See [Model adapters](docs/MODELS.md) and [Installation](docs/INSTALLATION.md) for pip, uv, pipx, offline wheelhouses, Docker, Podman, Compose, VM, Kubernetes/Nomad/ECS-style deployments, and configuration.
 
 ## Use
 
@@ -302,6 +332,9 @@ Environment variables:
 | `TEXTFORENSICS_ALLOW_REMOTE` | `0` | Permit non-loopback bind |
 | `TEXTFORENSICS_ACCESS_LOG` | `0` | Enable Uvicorn access log |
 | `TEXTFORENSICS_LOG_LEVEL` | `INFO` | Process log level |
+| `TEXTFORENSICS_DETECTORS` | empty | Comma-separated explicit detector IDs |
+
+Model adapters also expose adapter-specific device/cache/offline variables documented in [Model adapters](docs/MODELS.md).
 
 Invalid configuration fails fast.
 
@@ -360,8 +393,8 @@ See:
 
 ## Scientific roadmap
 
-Before TextForensics can claim detector-performance parity with major commercial products, the project still needs:
-- serious independent detector-family adapters;
+TextForensics now includes a pinned supervised-transformer adapter and an independent Raw Alignment Imprint adapter. Before it can claim detector-performance parity with major commercial products, the project still needs:
+- reproducible held-out validation of those detector families and any future families;
 - RAID/DetectRL/M4 evaluation;
 - held-out calibration and final evaluation;
 - human false-positive operating points and confidence intervals;

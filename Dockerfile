@@ -1,14 +1,16 @@
 # syntax=docker/dockerfile:1
 
 FROM python:3.12-slim AS builder
+ARG TEXTFORENSICS_EXTRAS=api
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1
 WORKDIR /build
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
-RUN python -m pip wheel --wheel-dir /wheels ".[api]"
+RUN python -m pip wheel --wheel-dir /wheels ".[${TEXTFORENSICS_EXTRAS}]"
 
 FROM python:3.12-slim AS runtime
+ARG TEXTFORENSICS_EXTRAS=api
 LABEL org.opencontainers.image.source="https://github.com/strmt7/TextForensics" \
       org.opencontainers.image.title="TextForensics" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
@@ -24,7 +26,7 @@ ENV PYTHONUNBUFFERED=1 \
     HOME=/tmp
 
 COPY --from=builder /wheels /wheels
-RUN python -m pip install --no-index --find-links=/wheels "textforensics[api]" \
+RUN python -m pip install --no-index --find-links=/wheels "textforensics[${TEXTFORENSICS_EXTRAS}]" \
     && rm -rf /wheels
 
 WORKDIR /app
