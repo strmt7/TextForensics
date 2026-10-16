@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "textforensics"
+version = "0.1.0"
+description = "Local, evidence-first AI-text forensics with uncertainty, robustness testing, provenance, CLI and MCP."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "AGPL-3.0-or-later"}
+authors = [{name = "Stratos Mitridis"}]
+keywords = ["ai-detection", "text-forensics", "authorship", "provenance", "mcp", "stylometry"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Text Processing :: Linguistic",
+]
+dependencies = []
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.0"]
+api = ["fastapi>=0.115", "uvicorn>=0.30"]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+textforensics = "textforensics.cli:main"
+textforensics-mcp = "textforensics.mcp_server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
