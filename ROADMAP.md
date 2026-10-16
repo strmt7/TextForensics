@@ -16,6 +16,7 @@
 - [x] TFDP/1 detector protocol
 - [x] explicit raw-score vs calibrated-probability semantics
 - [x] detector-family metadata
+- [x] family-balanced consensus that prevents duplicate-family vote inflation
 - [x] Python entry-point discovery
 - [x] portable forensic bundle with content hash
 - [x] per-document Verdict Integrity grade
