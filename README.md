@@ -1,73 +1,79 @@
 # TextForensics
 
-**Cross-examine AI-text detectors instead of trusting a single percentage.**
+## **AI-text detection, audited.**
 
-TextForensics is a local, evidence-first workbench and interoperability layer for AI-text detection. It gives different detectors one explicit output contract, preserves their individual verdicts, measures disagreement and benign-edit stability, and produces a reproducible forensic bundle with an **evidence-quality grade**.
+TextForensics is a local-first framework for treating AI-text detectors as **fallible measurement instruments**. It preserves what detectors actually report, then asks the more important question:
 
-> **Early alpha.** The repository currently ships a transparent, zero-dependency heuristic baseline to exercise the protocol and forensic pipeline. It is **not** claimed to match state-of-the-art commercial detectors yet. The architecture is deliberately ready for independent open-model and API adapters.
+> **How trustworthy is this detector evidence for this exact kind of text, from this detector version, under these conditions?**
 
-## The actual problem
+That makes the long-term product an **independent reliability and forensic audit layer around AI-text detection**, rather than another opaque "AI percentage".
 
-Most detector products answer a difficult question with a deceptively simple number. But detector scores often have incompatible meanings, thresholds change, methods disagree, short or out-of-domain text is fragile, and an uncalibrated `0.82` is not necessarily an 82% probability of AI authorship.
+> **Early alpha.** The repository already has a working local baseline, TFDP/1 detector protocol, forensic reports, stability probes, CLI, browser UI, MCP and HTTP surfaces. The built-in heuristic is development scaffolding and is **not claimed to match leading commercial detectors**.
 
-TextForensics asks a different question first:
+## Why this direction
 
-> **How trustworthy is the detector evidence for this specific document?**
+AI-text detectors can differ in score semantics, training distributions, supported languages, minimum usable length and failure modes. Performance can change across domains, generators and revised text. Provider models can also change over time.
 
-That turns AI detection from a single-model classification problem into a forensic measurement problem.
+TextForensics therefore separates four things that should not be collapsed into one number:
 
-## What is different
+1. **Detector observations** — what each instrument said.
+2. **Validation evidence** — where that detector/version has actually been tested.
+3. **Applicability and stability** — whether that evidence covers the current input and remains stable.
+4. **Process provenance** — draft/history evidence kept separate from linguistic inference.
 
-### 1. TFDP/1: a detector interoperability contract
+The planned flagship output is a **Trust Map** plus a reproducible case file.
 
-Every detector adapter returns the same explicit fields:
+See:
+- [Product north star](docs/PRODUCT.md)
+- [Landscape and differentiation](docs/NOVELTY.md)
+- [Architecture](ARCHITECTURE.md)
+- [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
+- [Benchmarking standard](docs/BENCHMARKING.md)
+- [Quality gates](docs/QUALITY_GATES.md)
+- [Agent development contract](AGENTS.md)
 
-- detector/model ID and version
-- method family
-- local vs remote execution
-- raw score **and its semantics**
-- verdict (`ai_like`, `human_like`, `abstain`)
-- threshold, if one exists
-- calibrated probability **only when real calibration exists**
-- reliability/limitations
-- evidence and runtime metadata
+## What works today
 
-See [SPEC.md](SPEC.md) and [the JSON schema](schemas/detector-result.schema.json).
+### TFDP/1 detector interoperability
 
-### 2. Verdict Integrity, not fake certainty
+Every detector adapter can expose:
+- detector/model identity and version,
+- method family,
+- local vs remote execution,
+- native score **and its semantics**,
+- verdict (`ai_like`, `human_like`, `abstain`),
+- threshold if defined,
+- calibrated probability only when calibration exists,
+- declared limitations,
+- evidence/runtime metadata.
 
-`textforensics report` grades the **quality of the available evidence**, not the authorship of the text. The grade considers:
+See [SPEC.md](SPEC.md) and [schemas/detector-result.schema.json](schemas/detector-result.schema.json).
 
-- text length
-- number of independent detector families
-- availability of calibration
-- cross-detector verdict agreement
-- **family-balanced consensus**, so ten correlated variants do not get ten votes
-- stability under harmless normalization
+### Forensic reports
 
-With only the built-in heuristic installed, TextForensics intentionally produces a weak/insufficient evidence grade. Adding more copies of the same model family should not magically create confidence.
+`textforensics report` currently records:
+- SHA-256 of analyzed content,
+- detector observations,
+- detector family metadata,
+- benign-normalization probes,
+- consensus/integrity diagnostics,
+- optional provenance-ledger verification,
+- limitations.
 
-### 3. Reproducible forensic bundles
+The current `Verdict Integrity` A–D/INSUFFICIENT grade is an **alpha engineering heuristic with hand-designed weights**. It is not a probability, not a validated reliability estimate, and not the project's long-term trust model. The roadmap replaces it with the benchmark-backed qualitative Trust Map.
 
-A report records:
+### Local provenance
 
-- SHA-256 of the analyzed text
-- exact detector versions
-- each detector's untouched result
-- benign-normalization probes
-- agreement and integrity factors
-- optional provenance-ledger verification
-- limitations and abstentions
+`textforensics snapshot` appends document hashes to a chained local ledger. It can support a record of draft evolution, but a local ledger is not an independent trusted timestamp and process provenance remains separate from text detection.
 
-The bundle schema is in [schemas/forensic-bundle.schema.json](schemas/forensic-bundle.schema.json).
+### Interfaces
 
-### 4. Local provenance is separate from text detection
-
-`textforensics snapshot` can append document hashes to a chained local ledger. That can help establish how a draft evolved, but TextForensics does **not** pretend a text classifier and process evidence answer the same question.
-
-### 5. CLI, Python, MCP and HTTP
-
-The same core can be used by a person, script, IDE agent or local automation.
+The same project can be used through:
+- Python,
+- CLI,
+- local browser UI,
+- optional MCP server,
+- optional localhost HTTP API.
 
 ## Quick start
 
@@ -85,82 +91,53 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-### Open the local browser UI
+Open the local browser interface:
 
 ```bash
 textforensics web
 ```
 
-This opens a local-only interface on `127.0.0.1:8765` by default. The built-in detector performs its analysis on the same machine; no text is uploaded.
+By default it binds locally. The built-in detector runs on the same machine.
 
-### Build a forensic report
+Build a forensic report:
 
 ```bash
 textforensics report --file essay.txt --output report.json
 ```
 
-Example structure:
-
-```json
-{
-  "schema": "textforensics.forensic-bundle/v1",
-  "content_sha256": "...",
-  "detector_results": [
-    {
-      "detector_id": "textforensics/builtin-heuristic",
-      "detector_family": "stylometric-heuristic",
-      "score": 0.68,
-      "score_semantics": "higher_means_more_machine_like; uncalibrated pattern score",
-      "verdict": "abstain",
-      "calibrated_ai_probability": null
-    }
-  ],
-  "verdict_integrity": {
-    "grade": "INSUFFICIENT",
-    "independent_families": 1,
-    "factors": [
-      "single_detector_family",
-      "no_probability_calibration"
-    ]
-  }
-}
-```
-
-That `INSUFFICIENT` result is a feature, not a failure: the current evidence does not justify a confident authorship claim.
-
-### Inspect installed detectors
+Inspect installed detectors:
 
 ```bash
 textforensics detectors
 ```
 
-### Basic pattern scan
+Basic pattern scan:
 
 ```bash
 textforensics scan --file essay.txt
 ```
 
-### Locate heterogeneous regions
+Locate heterogeneous regions:
 
 ```bash
 textforensics localize --file paper.txt --sentences 4
 ```
 
-### Audit formulaic writing
+Audit formulaic writing:
 
 ```bash
 textforensics audit --file draft.txt
 ```
 
-The audit gives transparent editing observations. It does not silently rewrite text or promise detector evasion.
+The audit provides transparent writing observations. It does not silently rewrite the document or guarantee any detector result.
 
-### Compare versions
+Compare versions:
 
 ```bash
 textforensics compare draft-v1.txt draft-v2.txt --json
 ```
 
-### Preserve draft-history evidence
+Preserve draft-history evidence:
 
 ```bash
 textforensics snapshot draft.txt
@@ -169,42 +146,38 @@ textforensics snapshot draft.txt
 textforensics verify-ledger
 ```
 
-The ledger is tamper-evident local evidence, **not** an independent trusted timestamp because the local clock can be changed.
-
 ## Detector plugins
 
-Third-party packages can register a detector without changing TextForensics itself:
+Third-party packages can register detectors through Python entry points:
 
 ```toml
 [project.entry-points."textforensics.detectors"]
 my_detector = "my_package:MyDetector"
 ```
 
-A detector implements the TFDP/1 Python protocol and returns a `DetectorPrediction`. See [SPEC.md](SPEC.md).
+A serious adapter should expose explicit version/score semantics and eventually satisfy the benchmark/calibration gates in [AGENTS.md](AGENTS.md).
 
-The planned first serious adapters span **different method families**, not several near-identical classifiers:
+The planned detector set prioritizes **methodological diversity**, for example:
+- supervised open classifier,
+- likelihood/cross-model method,
+- transparent structural/stylometric baseline,
+- provenance/watermark evidence when actually available,
+- user-enabled official provider APIs.
 
-- supervised transformer classifier
-- likelihood/curvature detector
-- alignment-imprint / representation method
-- watermark/provenance evidence where available
-- commercial API adapters only when explicitly configured by the user
+Several correlated variants of one classifier family should not create artificial confidence.
 
-## Benchmark and calibrate
+## Benchmarking
 
-Dataset format:
-
-```json
-{"label":"human","text":"..."}
-{"label":"ai","text":"..."}
-```
+The existing commands are exploratory alpha scaffolding:
 
 ```bash
 textforensics benchmark data.jsonl --threshold 0.50
 textforensics calibrate data.jsonl --target-fpr 0.01
 ```
 
-A threshold learned on one corpus must not be presented as universal. Domain, language, length and generator shift matter.
+Do **not** interpret the current `calibrate` command as a complete scientific validation pipeline: threshold fitting and final held-out evaluation must be separated before release-quality claims are made.
+
+The planned benchmark substrate targets RAID, DetectRL and M4 with versioned run manifests, human-FPR-first operating points, calibration metrics, confidence intervals and domain/language/length/revision slices.
 
 ## MCP
 
@@ -213,13 +186,7 @@ pip install -e ".[mcp]"
 textforensics-mcp
 ```
 
-Current tools include:
-
-- `analyze_ai_text`
-- `build_forensic_report`
-- `localize_text_patterns`
-- `compare_text_versions`
-- `audit_writing_naturalness`
+The MCP surface is an integration mechanism, not the project's novelty. It should expose structured evidence and limitations from the same core used by the CLI/API.
 
 ## HTTP API
 
@@ -228,32 +195,58 @@ pip install -e ".[api]"
 uvicorn textforensics.api:app --host 127.0.0.1 --port 8765
 ```
 
-Endpoints include `/v1/analyze`, `/v1/report`, `/v1/audit` and `/v1/compare`.
+## The capability TextForensics is building toward
+
+### Trust Map
+
+For the current analysis, show whether evidence is:
+- **supported**
+- **partial**
+- **unknown**
+- **out_of_scope**
+
+across:
+- language,
+- length,
+- domain,
+- revision/editing regime,
+- nearest human false-positive evidence,
+- detector diversity/disagreement,
+- benign stability,
+- temporal/provider-version stability.
+
+No fake 0–100 trust score is planned until such an aggregation can be empirically validated.
+
+### Detector observatory
+
+Run a stable probe corpus against versioned detectors/providers over time and surface:
+- score-distribution drift,
+- verdict flips,
+- calibration/FPR regressions,
+- model/provider version changes.
+
+### Reproducible case files
+
+Export what was observed, the input hash, exact detector/calibration versions, Trust Map, applicable benchmark evidence, stability/drift and optional process provenance. Raw text should be omitted by default.
+
+## What TextForensics will not claim
+
+- A detector score proves authorship.
+- A clean detector result proves human authorship.
+- Raw scores from different detectors are automatically comparable.
+- A locally calibrated component probability automatically makes an ensemble calibrated.
+- The current heuristic baseline is state of the art.
+- The current integrity grade is a validated trust score.
+- Text-only evidence should be the sole basis for high-stakes punishment.
+- Rewriting can guarantee a particular detector outcome.
 
 ## Development
-
-The dependency-free core can be tested without downloading model weights:
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-## What TextForensics will not claim
-
-- A detector score proves authorship.
-- A clean score proves human authorship.
-- Raw scores from different detectors are automatically comparable.
-- The current heuristic baseline is state of the art.
-- A forensic evidence grade is an AI-authorship probability.
-- Any rewriting process can guarantee "undetectable" text.
-
-For high-stakes disputes, detector outputs should be reviewed alongside provenance, drafts, citations, policy and other contextual evidence.
-
-## Roadmap
-
-The immediate goal is to make TextForensics the **interoperability and reliability layer around AI-text detectors**, then add strong open detector adapters and reproducible evaluation rather than hiding one classifier behind a polished UI.
-
-See [ROADMAP.md](ROADMAP.md) and [ARCHITECTURE.md](ARCHITECTURE.md).
+Contributors and coding agents should read [AGENTS.md](AGENTS.md) first.
 
 ## License
 
