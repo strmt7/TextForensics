@@ -37,6 +37,10 @@ The current grade is deliberately conservative. It considers:
 
 It does **not** use the direction of the detector verdict when deciding the grade. A highly trustworthy `human_like` conclusion and a highly trustworthy `ai_like` conclusion should be judged by the same evidence-quality rules.
 
+## Family-balanced consensus
+
+TextForensics groups detector outputs by methodological family before forming a categorical consensus. Multiple variants of one transformer family therefore contribute one family vote rather than multiplying their influence. If two independent families split, the consensus abstains. Calibrated probabilities are only aggregated when every contributing family supplies calibrated values.
+
 The grade is an engineering heuristic in v0.2 and will be replaced/validated against held-out reliability studies as adapters and datasets are added.
 
 ## Forensic bundle
