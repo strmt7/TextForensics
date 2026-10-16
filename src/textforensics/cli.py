@@ -8,6 +8,8 @@ from pathlib import Path
 from .benchmark import benchmark_jsonl, calibrate_threshold_jsonl
 from .compare import compare_texts
 from .engine import analyze_text
+from .detectors import list_detector_metadata
+from .report import build_forensic_bundle
 from .naturalness import audit_naturalness
 from .localize import localize_text
 from .provenance import snapshot_file, verify_ledger
@@ -75,6 +77,13 @@ def build_parser() -> argparse.ArgumentParser:
     bench.add_argument("dataset")
     bench.add_argument("--threshold", type=float, default=0.5)
 
+    detectors = sub.add_parser("detectors", help="List installed TFDP/1 detector adapters.")
+
+    report = sub.add_parser("report", help="Build a reproducible forensic evidence bundle.")
+    report.add_argument("--file", "-f")
+    report.add_argument("--ledger", help="Optional provenance ledger to verify and include.")
+    report.add_argument("--output", "-o", help="Write JSON bundle to a file instead of stdout.")
+
     return parser
 
 
@@ -107,6 +116,16 @@ def main() -> None:
         print(json.dumps(calibrate_threshold_jsonl(args.dataset, target_fpr=args.target_fpr), indent=2))
     elif args.command == "benchmark":
         print(json.dumps(benchmark_jsonl(args.dataset, threshold=args.threshold), indent=2))
+    elif args.command == "detectors":
+        print(json.dumps(list_detector_metadata(), indent=2, ensure_ascii=False))
+    elif args.command == "report":
+        bundle = build_forensic_bundle(_read_text(args.file), ledger_path=args.ledger)
+        payload = json.dumps(bundle.to_dict(), indent=2, ensure_ascii=False)
+        if args.output:
+            Path(args.output).write_text(payload + "\n", encoding="utf-8")
+            print(args.output)
+        else:
+            print(payload)
 
 
 if __name__ == "__main__":
