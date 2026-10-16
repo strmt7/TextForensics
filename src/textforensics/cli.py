@@ -13,6 +13,7 @@ from .report import build_forensic_bundle
 from .naturalness import audit_naturalness
 from .localize import localize_text
 from .provenance import snapshot_file, verify_ledger
+from .webapp import serve as serve_webapp
 
 
 def _read_text(path: str | None) -> str:
@@ -84,6 +85,11 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--ledger", help="Optional provenance ledger to verify and include.")
     report.add_argument("--output", "-o", help="Write JSON bundle to a file instead of stdout.")
 
+    web = sub.add_parser("web", help="Open the zero-dependency local browser UI.")
+    web.add_argument("--host", default="127.0.0.1")
+    web.add_argument("--port", type=int, default=8765)
+    web.add_argument("--no-browser", action="store_true")
+
     return parser
 
 
@@ -126,6 +132,8 @@ def main() -> None:
             print(args.output)
         else:
             print(payload)
+    elif args.command == "web":
+        serve_webapp(args.host, args.port, open_browser=not args.no_browser)
 
 
 if __name__ == "__main__":
