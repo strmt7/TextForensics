@@ -9,3 +9,5 @@ build/
 .ruff_cache/
 .textforensics-ledger.jsonl
 .DS_Store
+
+.textforensics-ledger.jsonl.lock

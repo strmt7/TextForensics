@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from textforensics import analyze_text, compare_texts
@@ -77,6 +78,26 @@ class CoreTests(unittest.TestCase):
             self.assertFalse(verify_ledger(ledger)["valid"])
             with self.assertRaises(ValueError):
                 snapshot_file(file, ledger)
+
+    def test_ledger_concurrent_writers_keep_one_valid_chain(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            file = Path(tmp) / "draft.txt"
+            ledger = Path(tmp) / "ledger.jsonl"
+            file.write_text("concurrent snapshot source", encoding="utf-8")
+
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                records = list(
+                    pool.map(
+                        lambda _: snapshot_file(file, ledger),
+                        range(8),
+                    )
+                )
+
+            verified = verify_ledger(ledger)
+            self.assertTrue(verified["valid"], verified["errors"])
+            self.assertEqual(verified["records"], 8)
+            self.assertEqual(len(records), 8)
+            self.assertTrue(Path(str(ledger) + ".lock").exists())
 
     def test_localize_validates_segment_size(self):
         segments = localize_text(
