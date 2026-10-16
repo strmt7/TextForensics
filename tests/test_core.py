@@ -10,6 +10,7 @@ from textforensics.benchmark import calibrate_threshold_jsonl
 from textforensics.detectors import BuiltinHeuristicDetector, DetectorPrediction, list_detector_metadata
 from textforensics.consensus import family_balanced_consensus
 from textforensics.report import build_forensic_bundle
+from textforensics.webapp import HTML, analyze_payload
 
 
 HUMANISH = """
@@ -115,6 +116,14 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(result.independent_families, 2)
         self.assertEqual(result.verdict, "abstain")
         self.assertEqual(len(result.family_votes), 2)
+
+    def test_local_web_ui_payload(self):
+        self.assertIn("TextForensics", HTML)
+        self.assertIn("Evidence grade", HTML)
+        result = analyze_payload({"text": HUMANISH})
+        self.assertEqual(result["schema"], "textforensics.forensic-bundle/v1")
+        with self.assertRaises(ValueError):
+            analyze_payload({"text": ""})
 
 
 if __name__ == "__main__":
