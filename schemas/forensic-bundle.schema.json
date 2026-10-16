@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/strmt7/TextForensics/schemas/forensic-bundle.schema.json",
+  "title": "TextForensics Forensic Bundle v1",
+  "type": "object",
+  "required": ["schema", "generated_at_utc", "content_sha256", "input", "detector_results", "verdict_integrity", "robustness", "limitations"],
+  "properties": {
+    "schema": {"const": "textforensics.forensic-bundle/v1"},
+    "generated_at_utc": {"type": "string"},
+    "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "input": {"type": "object"},
+    "detector_results": {"type": "array", "items": {"$ref": "detector-result.schema.json"}},
+    "verdict_integrity": {"type": "object"},
+    "robustness": {"type": "object"},
+    "provenance": {"type": ["object", "null"]},
+    "limitations": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}
