@@ -30,7 +30,7 @@ Never upload confidential material just to demonstrate a detector disagreement.
 
 ## Compatibility
 
-The project targets Python 3.10–3.13 and validates the core on Linux, macOS, and Windows in CI. OCI deployment is validated on Linux.
+The project targets Python 3.11–3.15 and validates the core on Linux, macOS, and Windows in CI. OCI deployment is validated on Linux.
 
 Optional detector plugins may have narrower hardware/platform requirements; those requirements belong to the plugin.
 

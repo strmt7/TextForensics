@@ -330,7 +330,7 @@ See [AGENTS.md](AGENTS.md) and [Contributing](CONTRIBUTING.md).
 ## Quality and release engineering
 
 CI validates:
-- Python 3.10–3.13;
+- Python 3.11–3.15;
 - Linux, Windows, and macOS CLI/install smoke paths;
 - unit/integration tests;
 - critical Ruff checks;

@@ -18,7 +18,7 @@ The enterprise-hardening work targets **platform/runtime readiness**. Scientific
 
 A release candidate is operationally acceptable only when all of the following are green:
 
-- Python 3.10, 3.11, 3.12, 3.13 CI;
+- Python 3.11, 3.12, 3.13, 3.14, 3.15 CI;
 - Linux, macOS, Windows installation/CLI smoke tests;
 - source/editable installation;
 - wheel build and clean wheel install;

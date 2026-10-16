@@ -20,13 +20,13 @@ The project is pre-1.0. Public schemas and detector/calibration semantics are tr
 - packaged JSON schemas;
 - multi-stage non-root OCI image and Compose example;
 - Linux/macOS/Windows smoke CI;
-- Python 3.10–3.13 test matrix;
+- Python 3.11–3.15 test matrix;
 - wheel build/install validation;
 - CodeQL, dependency-review, dependency-audit, Dependabot and release-build workflows;
 - installation, operations, support and commercial-readiness documentation.
 
 ### Changed
-- the legacy `confidence` value is explicitly labeled an **uncalibrated diagnostic reliability heuristic**;
+- Python 3.10 is no longer supported after its upstream end-of-life; CI now covers Python 3.11–3.15.\n- the legacy `confidence` value is explicitly labeled an **uncalibrated diagnostic reliability heuristic**;
 - the legacy Verdict Integrity grade is explicitly marked an unvalidated alpha compatibility diagnostic;
 - the browser UI now leads with Trust Map evidence coverage rather than the legacy grade;
 - consensus no longer averages detector-local probabilities into an ensemble probability;

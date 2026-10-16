@@ -5,7 +5,7 @@ TextForensics is designed to avoid coupling to one package manager, operating sy
 ## Requirements
 
 Core:
-- Python 3.10–3.13
+- Python 3.11–3.15
 - no mandatory runtime dependencies
 
 Optional surfaces:
