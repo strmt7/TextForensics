@@ -31,6 +31,17 @@ class AnalysisResult:
     analyzers: list[AnalyzerResult]
     features: dict[str, Any]
     warnings: list[str] = field(default_factory=list)
+    confidence_semantics: str = (
+        "Uncalibrated heuristic diagnostic reliability for the built-in baseline; "
+        "not an authorship probability or validated confidence."
+    )
+
+    @property
+    def diagnostic_reliability(self) -> float:
+        """Preferred name for the legacy alpha `confidence` field."""
+        return self.confidence
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        data = asdict(self)
+        data["diagnostic_reliability"] = self.confidence
+        return data

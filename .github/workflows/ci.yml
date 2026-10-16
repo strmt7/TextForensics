@@ -8,30 +8,96 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  core:
+    name: Core Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-
-      - name: Install package
-        run: python -m pip install -e .
-
+      - name: Install development dependencies
+        run: python -m pip install -e ".[dev]"
       - name: Compile sources
         run: python -m compileall -q src tests
-
-      - name: Run unit tests
+      - name: Lint critical errors
+        run: ruff check src tests
+      - name: Unit tests
         run: python -m unittest discover -s tests -v
+      - name: Dependency consistency
+        run: python -m pip check
+      - name: CLI smoke
+        run: textforensics --version
 
-      - name: CLI smoke test
-        run: textforensics --help
+  os-smoke:
+    name: OS smoke ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e .
+      - run: textforensics --version
+      - name: JSON CLI smoke
+        shell: bash
+        run: |
+          printf 'I tested this yesterday and wrote down what happened.' | textforensics scan --json > output.json
+          python -c "import json; json.load(open('output.json', encoding='utf-8'))"
+
+  package:
+    name: Build and wheel-install
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install "build>=1.2,<2"
+      - run: python -m build
+      - run: python -m pip install --force-reinstall dist/*.whl
+      - run: python -m pip check
+      - run: textforensics --version
+      - name: Verify packaged schemas
+        run: python -c "from textforensics.schema import load_schema; assert load_schema('case-file')['type'] == 'object'"
+
+  api:
+    name: Optional API surface
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e ".[dev,api]"
+      - run: python -m unittest tests.test_api -v
+      - run: python -c "from textforensics.api import create_app; assert create_app() is not None"
+
+  mcp:
+    name: Optional MCP surface
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e ".[mcp]"
+      - run: python -c "from textforensics.mcp_server import _server; assert _server() is not None"

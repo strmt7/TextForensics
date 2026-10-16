@@ -4,15 +4,30 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Iterable
 
-from .detectors import Detector, DetectorPrediction, discover_detectors, text_sha256
 from .consensus import family_balanced_consensus
+from .detectors import (
+    Detector,
+    DetectorFailure,
+    DetectorPrediction,
+    discover_detector_registry,
+    execute_detector,
+    text_sha256,
+)
 from .features import extract_features
 from .provenance import verify_ledger
 from .robustness import benign_variants
+from .trust import build_trust_map
 
 
 @dataclass(slots=True)
 class VerdictIntegrity:
+    """Legacy alpha diagnostic retained for compatibility.
+
+    The hand-weighted score/grade is not calibrated and must not be interpreted
+    as the probability that a detector verdict is correct.
+    """
+
+    status: str
     grade: str
     score: float
     detector_count: int
@@ -30,7 +45,10 @@ class ForensicBundle:
     content_sha256: str
     input: dict[str, Any]
     detector_results: list[dict[str, Any]]
+    detector_failures: list[dict[str, Any]]
+    plugin_health: list[dict[str, Any]]
     consensus: dict[str, Any]
+    trust_map: dict[str, Any]
     verdict_integrity: VerdictIntegrity
     robustness: dict[str, Any]
     provenance: dict[str, Any] | None
@@ -44,25 +62,41 @@ def _robustness_for_detector(detector: Detector, text: str) -> dict[str, Any]:
     probes: dict[str, Any] = {}
     scores: list[float] = []
     labels: list[str] = []
+    failures: list[dict[str, Any]] = []
+
     for name, variant in benign_variants(text).items():
-        prediction = detector.detect(variant)
+        prediction, failure = execute_detector(detector, variant)
+        if failure is not None:
+            failures.append({"probe": name, **failure.to_dict()})
+            probes[name] = {"score": None, "verdict": "error"}
+            continue
+        assert prediction is not None
         probes[name] = {
             "score": prediction.score,
             "verdict": prediction.verdict,
         }
         if prediction.score is not None:
-            scores.append(prediction.score)
+            scores.append(float(prediction.score))
         labels.append(prediction.verdict)
 
     score_stability = None
-    if scores:
+    if len(scores) >= 2:
         score_stability = max(0.0, 1.0 - (max(scores) - min(scores)))
-    verdict_stability = max(labels.count(label) for label in set(labels)) / len(labels) if labels else None
+
+    verdict_stability = None
+    if labels:
+        verdict_stability = max(labels.count(label) for label in set(labels)) / len(labels)
+
     return {
-        "detector_id": detector.detector_id,
-        "score_stability": round(score_stability, 4) if score_stability is not None else None,
-        "verdict_stability": round(verdict_stability, 4) if verdict_stability is not None else None,
+        "detector_id": str(getattr(detector, "detector_id", "unknown")),
+        "score_stability": (
+            round(score_stability, 4) if score_stability is not None else None
+        ),
+        "verdict_stability": (
+            round(verdict_stability, 4) if verdict_stability is not None else None
+        ),
         "probes": probes,
+        "failures": failures,
     }
 
 
@@ -71,18 +105,31 @@ def _integrity(
     word_count: int,
     robustness: list[dict[str, Any]],
 ) -> VerdictIntegrity:
-    families = {p.detector_family for p in predictions}
+    """Return the legacy alpha evidence-grade diagnostic.
+
+    Kept only for compatibility while the Trust Map becomes the primary
+    applicability surface.
+    """
+    families = {prediction.detector_family for prediction in predictions}
     consensus = family_balanced_consensus(predictions)
     agreement = consensus.family_agreement
-    calibrated_families = sum(v.calibrated_ai_probability is not None for v in consensus.family_votes)
+    calibrated_families = sum(
+        vote.calibrated_ai_probability is not None
+        for vote in consensus.family_votes
+    )
     stability_values = [
-        r["score_stability"] for r in robustness if r.get("score_stability") is not None
+        float(row["score_stability"])
+        for row in robustness
+        if row.get("score_stability") is not None
     ]
-    robustness_stability = sum(stability_values) / len(stability_values) if stability_values else None
+    robustness_stability = (
+        sum(stability_values) / len(stability_values)
+        if stability_values
+        else None
+    )
 
-    # Evidence-quality score, NOT authorship probability.
     score = 0.0
-    factors: list[str] = []
+    factors: list[str] = ["legacy_unvalidated_integrity_heuristic"]
 
     if word_count >= 250:
         score += 0.18
@@ -132,13 +179,18 @@ def _integrity(
         grade = "INSUFFICIENT"
 
     return VerdictIntegrity(
+        status="alpha_unvalidated_heuristic",
         grade=grade,
         score=round(score, 4),
         detector_count=len(predictions),
         independent_families=len(families),
         verdict_agreement=round(agreement, 4) if agreement is not None else None,
         calibrated_detector_count=calibrated_families,
-        robustness_stability=round(robustness_stability, 4) if robustness_stability is not None else None,
+        robustness_stability=(
+            round(robustness_stability, 4)
+            if robustness_stability is not None
+            else None
+        ),
         factors=factors,
     )
 
@@ -149,19 +201,74 @@ def build_forensic_bundle(
     detectors: Iterable[Detector] | None = None,
     ledger_path: str | None = None,
 ) -> ForensicBundle:
-    if not text or not text.strip():
+    if not isinstance(text, str) or not text.strip():
         raise ValueError("Text must not be empty.")
 
-    detector_list = list(detectors) if detectors is not None else list(discover_detectors().values())
-    if not detector_list:
-        raise ValueError("No detectors are available.")
+    if detectors is None:
+        registry = discover_detector_registry()
+        detector_list = list(registry.detectors.values())
+        plugin_health = [row.to_dict() for row in registry.plugin_health]
+    else:
+        detector_list = list(detectors)
+        plugin_health = []
 
-    predictions = [detector.detect(text) for detector in detector_list]
-    robustness = [_robustness_for_detector(detector, text) for detector in detector_list]
+    if not detector_list:
+        raise ValueError("No detectors are configured.")
+
+    predictions: list[DetectorPrediction] = []
+    failures: list[DetectorFailure] = []
+    successful_detectors: list[Detector] = []
+
+    for detector in detector_list:
+        prediction, failure = execute_detector(detector, text)
+        if prediction is not None:
+            predictions.append(prediction)
+            successful_detectors.append(detector)
+        if failure is not None:
+            failures.append(failure)
+
+    robustness = [
+        _robustness_for_detector(detector, text)
+        for detector in successful_detectors
+    ]
     features = extract_features(text)
     provenance = verify_ledger(ledger_path) if ledger_path else None
     consensus = family_balanced_consensus(predictions)
-    integrity = _integrity(predictions, int(features["word_count"]), robustness)
+    trust_map = build_trust_map(
+        predictions,
+        word_count=int(features["word_count"]),
+        robustness=robustness,
+        failure_count=len(failures),
+    )
+    integrity = _integrity(
+        predictions,
+        int(features["word_count"]),
+        robustness,
+    )
+
+    limitations = [
+        (
+            "Text-only detector evidence is not proof of authorship. False "
+            "positives and false negatives remain possible."
+        ),
+        (
+            "Detector-native scores are not treated as comparable probabilities "
+            "unless explicit calibration evidence exists."
+        ),
+        (
+            "The Trust Map describes evidence coverage; it is not an authorship "
+            "probability."
+        ),
+        (
+            "Verdict Integrity is a deprecated alpha heuristic retained for "
+            "compatibility and is not a validated trust score."
+        ),
+    ]
+    if failures:
+        limitations.append(
+            f"{len(failures)} configured detector(s) failed and were excluded "
+            "from consensus."
+        )
 
     return ForensicBundle(
         schema="textforensics.forensic-bundle/v1",
@@ -171,15 +278,15 @@ def build_forensic_bundle(
             "word_count": features["word_count"],
             "sentence_count": features["sentence_count"],
             "paragraph_count": features["paragraph_count"],
+            "raw_text_included": False,
         },
         detector_results=[prediction.to_dict() for prediction in predictions],
+        detector_failures=[failure.to_dict() for failure in failures],
+        plugin_health=plugin_health,
         consensus=consensus.to_dict(),
+        trust_map=trust_map.to_dict(),
         verdict_integrity=integrity,
         robustness={"detectors": robustness},
         provenance=provenance,
-        limitations=[
-            "Verdict integrity measures the quality of the available evidence; it is not the probability that AI wrote the text.",
-            "Detector scores are not treated as comparable probabilities unless explicitly calibrated.",
-            "Text-only evidence cannot prove authorship. Provenance and contextual evidence should be considered separately.",
-        ],
+        limitations=limitations,
     )

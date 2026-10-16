@@ -1,0 +1,50 @@
+name: Container
+
+on:
+  push:
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "compose.yaml"
+      - "pyproject.toml"
+      - "src/**"
+      - ".github/workflows/container.yml"
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "compose.yaml"
+      - "pyproject.toml"
+      - "src/**"
+      - ".github/workflows/container.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build OCI image
+        run: docker build --tag textforensics-ci .
+      - name: Start container
+        run: docker run -d --name textforensics-ci -p 127.0.0.1:8765:8765 textforensics-ci
+      - name: Health check
+        run: |
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8765/healthz; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs textforensics-ci
+          exit 1
+      - name: Inspect runtime identity
+        run: |
+          test "$(docker exec textforensics-ci id -u)" != "0"
+          docker exec textforensics-ci textforensics --version
+      - name: Stop container
+        if: always()
+        run: docker rm -f textforensics-ci || true
