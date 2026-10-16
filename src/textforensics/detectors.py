@@ -346,6 +346,20 @@ _OPTIONAL_DETECTORS: dict[str, OptionalDetectorSpec] = {
             "Pinned local DeBERTa-v3-large detector adapter. Model weights "
             "download on first use unless already cached/offline."
         ),
+    ),
+    "textforensics/qwen2.5-0.5b-rai": OptionalDetectorSpec(
+        detector_id="textforensics/qwen2.5-0.5b-rai",
+        detector_version="rai-qwen2.5-0.5b@060db649+7ae55760",
+        detector_family="alignment-likelihood",
+        module="textforensics.detector_rai",
+        factory="QwenRAIDetector",
+        extra="rai",
+        required_modules=("torch", "transformers"),
+        description=(
+            "Raw Alignment Imprint using pinned Apache-2.0 Qwen2.5-0.5B "
+            "base/instruct models. Continuous score; categorical verdict "
+            "withheld until independently calibrated."
+        ),
     )
 }
 

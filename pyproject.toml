@@ -53,6 +53,15 @@ desklib = [
   "sentencepiece>=0.2,<1",
   "torch>=2.14,<3; python_version<'3.15'",
 ]
+rai = [
+  "transformers>=4.48,<6",
+  "torch>=2.14,<3; python_version<'3.15'",
+]
+ml = [
+  "transformers>=4.48,<6",
+  "sentencepiece>=0.2,<1",
+  "torch>=2.14,<3; python_version<'3.15'",
+]
 all = [
   "fastapi>=0.115,<1",
   "uvicorn>=0.30,<1",
