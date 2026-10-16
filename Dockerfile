@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1
 WORKDIR /build
@@ -8,7 +8,7 @@ COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
 RUN python -m pip wheel --wheel-dir /wheels ".[api]"
 
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
 LABEL org.opencontainers.image.source="https://github.com/strmt7/TextForensics" \
       org.opencontainers.image.title="TextForensics" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
