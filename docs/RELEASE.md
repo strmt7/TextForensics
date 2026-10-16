@@ -35,6 +35,13 @@ Use this checklist for every tagged release.
 - [ ] Relevant domain/language/length/revision limitations are adjacent to the claim.
 - [ ] Any top-level probability has an explicit calibration artifact for the exact detector/ensemble version.
 
+## Licensing
+- [ ] Core license/version is intentional for this release.
+- [ ] Third-party dependency licenses have been reviewed.
+- [ ] Detector/model/checkpoint licenses permit the intended distribution/use.
+- [ ] Benchmark/data licenses permit the intended use.
+- [ ] Required notices/attributions are included.
+
 ## Packaging
 - [ ] `python -m build` succeeds.
 - [ ] `twine check dist/*` succeeds.

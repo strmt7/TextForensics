@@ -95,3 +95,10 @@ Do not claim:
 - production-ready calibrated authorship probability.
 
 Those require evidence that does not yet exist in this repository.
+
+
+## Licensing gate
+
+The repository is currently AGPL-3.0-or-later. Commercial use is possible, but distribution/hosted-use obligations and third-party/model licenses must be reviewed before a commercial offering.
+
+See [Licensing and commercial distribution](LICENSING.md).

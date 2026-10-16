@@ -27,10 +27,17 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate Compose definition
+        run: docker compose config --quiet
+
       - name: Build OCI image
         run: docker build --tag textforensics-ci .
-      - name: Start container
-        run: docker run -d --name textforensics-ci -p 127.0.0.1:8765:8765 textforensics-ci
+
+      - name: Start hardened container
+        run: |
+          docker run -d             --name textforensics-ci             --read-only             --tmpfs /tmp:rw,nosuid,nodev,size=64m             --cap-drop ALL             --security-opt no-new-privileges:true             -p 127.0.0.1:8765:8765             textforensics-ci
+
       - name: Health check
         run: |
           for i in {1..30}; do
@@ -41,10 +48,24 @@ jobs:
           done
           docker logs textforensics-ci
           exit 1
+
+      - name: Exercise report API
+        run: |
+          curl --fail --silent             -H 'content-type: application/json'             --data '{"text":"I repeated the test yesterday after replacing one cable, then wrote down the second result."}'             http://127.0.0.1:8765/v1/report > report.json
+          python - <<'PY'
+          import json
+          with open("report.json", encoding="utf-8") as handle:
+              data = json.load(handle)
+          assert data["schema"] == "textforensics.forensic-bundle/v1"
+          assert data["input"]["raw_text_included"] is False
+          assert "trust_map" in data
+          PY
+
       - name: Inspect runtime identity
         run: |
           test "$(docker exec textforensics-ci id -u)" != "0"
           docker exec textforensics-ci textforensics --version
+
       - name: Stop container
         if: always()
         run: docker rm -f textforensics-ci || true
