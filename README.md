@@ -42,6 +42,7 @@ See [SPEC.md](SPEC.md) and [the JSON schema](schemas/detector-result.schema.json
 - number of independent detector families
 - availability of calibration
 - cross-detector verdict agreement
+- **family-balanced consensus**, so ten correlated variants do not get ten votes
 - stability under harmless normalization
 
 With only the built-in heuristic installed, TextForensics intentionally produces a weak/insufficient evidence grade. Adding more copies of the same model family should not magically create confidence.
