@@ -22,9 +22,17 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: Install all supported runtime surfaces
-        run: python -m pip install -e ".[all]"
-      - name: Install audit tool
-        run: python -m pip install pip-audit
-      - name: Audit dependencies
-        run: pip-audit --strict --skip-editable
+
+      - name: Resolve isolated runtime dependency set
+        run: |
+          python -m venv .runtime-audit
+          .runtime-audit/bin/python -m pip install ".[all]"
+          .runtime-audit/bin/python -m pip check
+          .runtime-audit/bin/python -m pip freeze             | grep -viE '^textforensics([= @]|$)'             > runtime-requirements.txt
+          test -s runtime-requirements.txt
+          ! grep -qiE '^textforensics([= @]|$)' runtime-requirements.txt
+
+      - name: Audit exact runtime dependencies
+        run: |
+          python -m pip install pip-audit
+          pip-audit --strict --no-deps -r runtime-requirements.txt
