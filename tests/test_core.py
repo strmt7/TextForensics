@@ -123,6 +123,21 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(data["trust_map"]["overall"], "insufficient")
         self.assertTrue(data["trust_map"]["dimensions"])
 
+    def test_local_web_ui_forwards_detector_selection(self):
+        from unittest.mock import patch
+
+        with patch("textforensics.webapp.build_forensic_bundle") as build:
+            build.return_value.to_dict.return_value = {"ok": True}
+            result = analyze_payload(
+                {"text": HUMANISH},
+                detector_ids=("textforensics/builtin-heuristic",),
+            )
+        self.assertEqual(result, {"ok": True})
+        build.assert_called_once_with(
+            HUMANISH,
+            detector_ids=("textforensics/builtin-heuristic",),
+        )
+
     def test_local_web_ui_uses_evidence_coverage(self):
         self.assertIn("TextForensics", HTML)
         self.assertIn("Evidence coverage", HTML)

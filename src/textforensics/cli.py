@@ -351,6 +351,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             open_browser=not args.no_browser,
             allow_remote=active.allow_remote,
             max_input_bytes=active.max_input_bytes,
+            detector_ids=active.detector_ids or None,
         )
 
     elif args.command == "serve":

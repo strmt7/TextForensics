@@ -79,16 +79,24 @@ def analyze_payload(
     payload: dict[str, Any],
     *,
     max_input_bytes: int = 2_000_000,
+    detector_ids: tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     text = payload.get("text")
     validated = validate_text_input(
         text,
         max_input_bytes=max_input_bytes,
     )
-    return build_forensic_bundle(validated).to_dict()
+    return build_forensic_bundle(
+        validated,
+        detector_ids=detector_ids,
+    ).to_dict()
 
 
-def make_handler(*, max_input_bytes: int = 2_000_000):
+def make_handler(
+    *,
+    max_input_bytes: int = 2_000_000,
+    detector_ids: tuple[str, ...] | None = None,
+):
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
 
@@ -166,6 +174,7 @@ def make_handler(*, max_input_bytes: int = 2_000_000):
                 result = analyze_payload(
                     payload,
                     max_input_bytes=max_input_bytes,
+                    detector_ids=detector_ids,
                 )
                 body = json.dumps(
                     result,
@@ -193,11 +202,15 @@ def serve(
     open_browser: bool = True,
     allow_remote: bool = False,
     max_input_bytes: int = 2_000_000,
+    detector_ids: tuple[str, ...] | None = None,
 ) -> None:
     ensure_bind_allowed(host, allow_remote=allow_remote)
     server = TextForensicsHTTPServer(
         (host, port),
-        make_handler(max_input_bytes=max_input_bytes),
+        make_handler(
+            max_input_bytes=max_input_bytes,
+            detector_ids=detector_ids,
+        ),
     )
     display_host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
     url = f"http://{display_host}:{port}/"
