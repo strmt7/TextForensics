@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/strmt7/TextForensics/schemas/case-file.schema.json",
+  "title": "TextForensics Case File v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "tool",
+    "forensic_bundle",
+    "raw_text_included",
+    "case_sha256"
+  ],
+  "properties": {
+    "schema": {"const": "textforensics.case-file/v1"},
+    "tool": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": {"const": "TextForensics"},
+        "version": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "forensic_bundle": {"type": "object"},
+    "raw_text_included": {"const": false},
+    "case_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "additionalProperties": false
+}

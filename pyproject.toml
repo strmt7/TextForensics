@@ -4,37 +4,77 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "textforensics"
-version = "0.1.0"
-description = "Local, evidence-first AI-text forensics with uncertainty, robustness testing, provenance, CLI and MCP."
+version = "0.2.0"
+description = "Local-first AI-text detector reliability auditing, provenance, CLI, API and MCP."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {text = "AGPL-3.0-or-later"}
 authors = [{name = "Stratos Mitridis"}]
-keywords = ["ai-detection", "text-forensics", "authorship", "provenance", "mcp", "stylometry"]
+keywords = [
+  "ai-detection",
+  "text-forensics",
+  "authorship",
+  "provenance",
+  "mcp",
+  "stylometry",
+  "detector-audit",
+  "ai-safety",
+]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
   "Topic :: Text Processing :: Linguistic",
 ]
 dependencies = []
 
+[project.urls]
+Homepage = "https://github.com/strmt7/TextForensics"
+Repository = "https://github.com/strmt7/TextForensics"
+Issues = "https://github.com/strmt7/TextForensics/issues"
+Documentation = "https://github.com/strmt7/TextForensics#readme"
+
 [project.optional-dependencies]
-mcp = ["mcp>=1.0"]
-api = ["fastapi>=0.115", "uvicorn>=0.30"]
-dev = ["pytest>=8", "ruff>=0.6"]
+api = [
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.30,<1",
+]
+mcp = [
+  "mcp>=2,<3",
+]
+all = [
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.30,<1",
+  "mcp>=2,<3",
+]
+dev = [
+  "build>=1.2,<2",
+  "httpx>=0.27,<1",
+  "jsonschema>=4.23,<5",
+  "pytest>=8,<9",
+  "ruff>=0.8,<1",
+]
 
 [project.scripts]
 textforensics = "textforensics.cli:main"
+textforensics-api = "textforensics.server:main"
 textforensics-mcp = "textforensics.mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+textforensics = ["schemas/*.json"]
+
 [tool.ruff]
 line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]

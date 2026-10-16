@@ -9,52 +9,57 @@
     "content_sha256",
     "input",
     "detector_results",
+    "detector_failures",
+    "plugin_health",
     "consensus",
+    "trust_map",
     "verdict_integrity",
     "robustness",
+    "provenance",
     "limitations"
   ],
   "properties": {
-    "schema": {
-      "const": "textforensics.forensic-bundle/v1"
-    },
-    "generated_at_utc": {
-      "type": "string"
-    },
+    "schema": {"const": "textforensics.forensic-bundle/v1"},
+    "generated_at_utc": {"type": "string", "minLength": 1},
     "content_sha256": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
     },
     "input": {
-      "type": "object"
+      "type": "object",
+      "required": [
+        "word_count",
+        "sentence_count",
+        "paragraph_count",
+        "raw_text_included"
+      ],
+      "properties": {
+        "word_count": {"type": "integer", "minimum": 0},
+        "sentence_count": {"type": "integer", "minimum": 0},
+        "paragraph_count": {"type": "integer", "minimum": 0},
+        "raw_text_included": {"const": false}
+      },
+      "additionalProperties": true
     },
-    "detector_results": {
-      "type": "array",
-      "items": {
-        "$ref": "detector-result.schema.json"
-      }
+    "detector_results": {"type": "array", "items": {"type": "object"}},
+    "detector_failures": {"type": "array", "items": {"type": "object"}},
+    "plugin_health": {"type": "array", "items": {"type": "object"}},
+    "consensus": {"type": "object"},
+    "trust_map": {
+      "type": "object",
+      "required": ["schema", "overall", "dimensions", "limitations"],
+      "properties": {
+        "schema": {"const": "textforensics.trust-map/v1"},
+        "overall": {"enum": ["strong", "mixed", "insufficient"]},
+        "dimensions": {"type": "array", "items": {"type": "object"}},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
     },
-    "verdict_integrity": {
-      "type": "object"
-    },
-    "robustness": {
-      "type": "object"
-    },
-    "provenance": {
-      "type": [
-        "object",
-        "null"
-      ]
-    },
-    "limitations": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
-    "consensus": {
-      "type": "object"
-    }
+    "verdict_integrity": {"type": "object"},
+    "robustness": {"type": "object"},
+    "provenance": {"type": ["object", "null"]},
+    "limitations": {"type": "array", "items": {"type": "string"}}
   },
   "additionalProperties": false
 }

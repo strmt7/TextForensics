@@ -72,3 +72,10 @@ A value such as `0.82` can mean a classifier logit mapping, a heuristic score, a
 - an **evidence-quality grade** (`A`–`D` or `INSUFFICIENT`)
 
 The evidence-quality grade answers **“how strong is the detector evidence available for this document?”**, not **“what is the probability AI wrote it?”**.
+
+
+## Privacy requirement for evidence
+
+Detector adapters MUST NOT place submitted source-text excerpts in `evidence`, `warnings`, or error messages returned to the forensic pipeline. Use offsets, hashes, aggregate features, or non-source diagnostic descriptions instead.
+
+The runtime rejects common raw-text evidence fields and source-echo patterns. Adapter authors should still treat this as a contract requirement rather than relying on heuristic leak detection.

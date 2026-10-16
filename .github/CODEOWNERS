@@ -1,0 +1,6 @@
+* @strmt7
+/.github/ @strmt7
+/schemas/ @strmt7
+/src/textforensics/detectors.py @strmt7
+/src/textforensics/consensus.py @strmt7
+/src/textforensics/report.py @strmt7
