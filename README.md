@@ -1,81 +1,140 @@
 # TextForensics
 
-## **AI-text detection, audited.**
+## AI-text detection, audited
 
-TextForensics is a local-first framework for treating AI-text detectors as **fallible measurement instruments**. It preserves what detectors actually report, then asks the more important question:
+TextForensics is a **local-first reliability and forensic layer for AI-text detectors**. It preserves what each detector actually reports, keeps score semantics explicit, exposes disagreement and failures, checks basic stability, and asks the more important question:
 
-> **How trustworthy is this detector evidence for this exact kind of text, from this detector version, under these conditions?**
+> **How well does the available validation evidence cover this exact text and detector configuration?**
 
-That makes the long-term product an **independent reliability and forensic audit layer around AI-text detection**, rather than another opaque "AI percentage".
+The project is deliberately different from a single "AI percentage" and from a rewrite-until-a-detector-passes loop.
 
-> **Early alpha.** The repository already has a working local baseline, TFDP/1 detector protocol, forensic reports, stability probes, CLI, browser UI, MCP and HTTP surfaces. The built-in heuristic is development scaffolding and is **not claimed to match leading commercial detectors**.
+> **Status: pre-1.0 alpha.** The platform/runtime has a tested CLI, browser UI, API, MCP surface, detector protocol, Trust Map, case artifacts, packaging, and OCI deployment. The built-in detector is a transparent development baseline. **TextForensics does not yet claim parity with leading commercial AI-text detectors.** See [Commercial readiness](docs/COMMERCIAL_READINESS.md).
 
-## Why this direction
+## Why TextForensics
 
-AI-text detectors can differ in score semantics, training distributions, supported languages, minimum usable length and failure modes. Performance can change across domains, generators and revised text. Provider models can also change over time.
+AI-text detector results can vary with:
+- detector/model version;
+- language and genre;
+- document length;
+- generator/model family;
+- human revision or mixed-origin writing;
+- score calibration and decision threshold;
+- provider/model drift over time.
 
-TextForensics therefore separates four things that should not be collapsed into one number:
+TextForensics therefore keeps these evidence classes separate:
 
-1. **Detector observations** — what each instrument said.
-2. **Validation evidence** — where that detector/version has actually been tested.
-3. **Applicability and stability** — whether that evidence covers the current input and remains stable.
-4. **Process provenance** — draft/history evidence kept separate from linguistic inference.
+1. **Detector observations** — native scores, verdicts, versions, method families, failures.
+2. **Validation evidence** — where a detector/version has actually been benchmarked.
+3. **Applicability and stability** — whether that evidence covers the current input.
+4. **Process provenance** — draft/history evidence, kept separate from linguistic inference.
 
-The planned flagship output is a **Trust Map** plus a reproducible case file.
+A detector score is not automatically a probability. Agreement is not independence. Text-only evidence is not proof of authorship.
 
-See:
-- [Product north star](docs/PRODUCT.md)
-- [Landscape and differentiation](docs/NOVELTY.md)
-- [Architecture](ARCHITECTURE.md)
-- [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
-- [Benchmarking standard](docs/BENCHMARKING.md)
-- [Quality gates](docs/QUALITY_GATES.md)
-- [Agent development contract](AGENTS.md)
+## Current capabilities
 
-## What works today
+### TFDP/1 detector protocol
 
-### TFDP/1 detector interoperability
+Detector adapters expose explicit fields for:
+- detector/model identity and version;
+- methodological family;
+- local vs remote execution;
+- native score and **score semantics**;
+- verdict: `ai_like`, `human_like`, or `abstain`;
+- threshold when defined;
+- calibrated probability only with calibration provenance;
+- declared language/length limits;
+- warnings, evidence, and runtime metadata.
 
-Every detector adapter can expose:
-- detector/model identity and version,
-- method family,
-- local vs remote execution,
-- native score **and its semantics**,
-- verdict (`ai_like`, `human_like`, `abstain`),
-- threshold if defined,
-- calibrated probability only when calibration exists,
-- declared limitations,
-- evidence/runtime metadata.
+Malformed plugin outputs are rejected. Plugin-loading failures are visible through health metadata instead of being silently swallowed.
 
-See [SPEC.md](SPEC.md) and [schemas/detector-result.schema.json](schemas/detector-result.schema.json).
+See [SPEC.md](SPEC.md).
+
+### Trust Map
+
+Reports include a conservative qualitative `textforensics.trust-map/v1`.
+
+Current dimensions include:
+- language coverage;
+- text-length coverage;
+- domain/genre coverage;
+- editing/revision evidence;
+- nearest-slice human false-positive evidence;
+- detector-family diversity;
+- benign representation stability;
+- detector/provider temporal stability.
+
+States are:
+- `supported`
+- `partial`
+- `unknown`
+- `out_of_scope`
+
+The overall state is `strong`, `mixed`, or `insufficient`.
+
+**The Trust Map is not an authorship probability.** In the current alpha, several benchmark-backed dimensions are intentionally `unknown`, so evidence coverage is commonly `insufficient`.
+
+### Safe consensus semantics
+
+TextForensics can form family-balanced categorical consensus, but it does **not** average detector-local calibrated probabilities and pretend the result is a calibrated ensemble probability.
+
+A top-level probability requires a separately validated ensemble calibration for the exact detector set and missing-detector policy.
 
 ### Forensic reports
 
-`textforensics report` currently records:
-- SHA-256 of analyzed content,
-- detector observations,
-- detector family metadata,
-- benign-normalization probes,
-- consensus/integrity diagnostics,
-- optional provenance-ledger verification,
-- limitations.
+`textforensics report` records:
+- SHA-256 of the analyzed text;
+- detector observations and failures;
+- plugin health;
+- method-family-aware consensus;
+- Trust Map;
+- benign-normalization probes;
+- optional provenance-ledger verification;
+- explicit limitations.
 
-The current `Verdict Integrity` A–D/INSUFFICIENT grade is an **alpha engineering heuristic with hand-designed weights**. It is not a probability, not a validated reliability estimate, and not the project's long-term trust model. The roadmap replaces it with the benchmark-backed qualitative Trust Map.
+Raw submitted text is not included in the report.
+
+### Sealed case files
+
+Case files add deterministic integrity sealing around a forensic bundle:
+
+```bash
+textforensics case export --file essay.txt --output case.json
+textforensics case verify case.json
+```
+
+Case files omit raw text by default. Verification checks artifact structure and integrity; it does **not** prove the underlying authorship conclusion.
 
 ### Local provenance
 
-`textforensics snapshot` appends document hashes to a chained local ledger. It can support a record of draft evolution, but a local ledger is not an independent trusted timestamp and process provenance remains separate from text detection.
+```bash
+textforensics snapshot draft.txt
+# edit draft.txt
+textforensics snapshot draft.txt
+textforensics verify-ledger
+```
 
-### Interfaces
+The ledger is tamper-evident and refuses to append to an already-invalid chain.
 
-The same project can be used through:
-- Python,
-- CLI,
-- local browser UI,
-- optional MCP server,
-- optional localhost HTTP API.
+A local hash ledger is **not** an independent trusted timestamp.
 
-## Quick start
+### Split-aware calibration diagnostics
+
+The built-in baseline can fit a threshold artifact on one dataset and evaluate it on a different dataset:
+
+```bash
+textforensics calibrate calibration.jsonl --target-fpr 0.01 --output calibration.json
+textforensics benchmark held-out.jsonl --calibration calibration.json
+```
+
+By default, TextForensics rejects evaluation when the evaluation file has the same SHA-256 fingerprint as the calibration file.
+
+This prevents one easy form of in-sample performance inflation; it is not a complete replacement for source/near-duplicate leakage control on serious benchmarks.
+
+## Install
+
+### Core
+
+The core has **no mandatory third-party runtime dependency**.
 
 ```bash
 git clone https://github.com/strmt7/TextForensics.git
@@ -88,165 +147,252 @@ python -m venv .venv
 # macOS/Linux
 source .venv/bin/activate
 
-pip install -e .
+python -m pip install .
+textforensics --version
 ```
 
-Open the local browser interface:
+### API
+
+```bash
+python -m pip install ".[api]"
+textforensics serve
+```
+
+### MCP
+
+```bash
+python -m pip install ".[mcp]"
+textforensics-mcp
+```
+
+### All optional surfaces
+
+```bash
+python -m pip install ".[all]"
+```
+
+See [Installation](docs/INSTALLATION.md) for pip, uv, pipx, offline wheelhouses, Docker, Podman, Compose, VM, Kubernetes/Nomad/ECS-style deployments, and configuration.
+
+## Use
+
+### Local browser UI
 
 ```bash
 textforensics web
 ```
 
-By default it binds locally. The built-in detector runs on the same machine.
+The browser UI binds to `127.0.0.1` by default and leads with Trust Map evidence coverage rather than a giant certainty percentage.
 
-Build a forensic report:
+### CLI report
 
 ```bash
 textforensics report --file essay.txt --output report.json
 ```
 
-Inspect installed detectors:
+### Inspect detector/plugin health
 
 ```bash
-textforensics detectors
+textforensics detectors --health
 ```
 
-Basic pattern scan:
+### Pattern baseline
 
 ```bash
 textforensics scan --file essay.txt
 ```
 
-Locate heterogeneous regions:
+The built-in pattern score and diagnostic reliability are **uncalibrated alpha diagnostics**.
+
+### Locate heterogeneous regions
 
 ```bash
 textforensics localize --file paper.txt --sentences 4
 ```
 
-Audit formulaic writing:
+Chunk values are diagnostic baseline outputs, not sentence-level authorship probabilities.
+
+### Audit formulaic writing
 
 ```bash
 textforensics audit --file draft.txt
 ```
 
-The audit provides transparent writing observations. It does not silently rewrite the document or guarantee any detector result.
+This identifies writing patterns and quality suggestions. It does not guarantee or optimize for a particular third-party detector outcome.
 
-Compare versions:
+### Compare versions
 
 ```bash
 textforensics compare draft-v1.txt draft-v2.txt --json
 ```
 
-Preserve draft-history evidence:
+## HTTP API
+
+Install the API extra and run:
 
 ```bash
-textforensics snapshot draft.txt
-# edit the file
-textforensics snapshot draft.txt
-textforensics verify-ledger
+textforensics serve
 ```
+
+Default bind: `127.0.0.1:8765`.
+
+Selected endpoints:
+- `GET /healthz`
+- `GET /readyz`
+- `GET /version`
+- `GET /v1/detectors`
+- `POST /v1/analyze`
+- `POST /v1/report`
+- `POST /v1/case`
+- `POST /v1/audit`
+- `POST /v1/compare`
+
+Non-loopback binding requires explicit acknowledgement:
+
+```bash
+textforensics serve --host 0.0.0.0 --allow-remote
+```
+
+That flag is **not authentication**. Shared/public deployments need an appropriate external TLS/authentication/rate-limiting layer.
+
+## MCP
+
+The MCP surface uses the same core semantics as the CLI/API and includes tools for:
+- alpha pattern analysis;
+- forensic reports;
+- sealed case files;
+- detector/plugin health;
+- diagnostic localization;
+- version comparison;
+- naturalness auditing.
+
+MCP is an integration surface, not the project's scientific novelty.
+
+## OCI containers
+
+Build and run with Docker:
+
+```bash
+docker build -t textforensics:local .
+docker run --rm -p 127.0.0.1:8765:8765 textforensics:local
+```
+
+The same image is intended for OCI-compatible runtimes such as rootless Podman.
+
+The supplied image:
+- is multi-stage;
+- runs as an unprivileged numeric UID/GID;
+- exposes a health check;
+- contains the API runtime but not build tools;
+- disables API access logging by default;
+- requires no cloud-provider SDK.
+
+A hardened `compose.yaml` example uses loopback publishing, a read-only root filesystem, dropped Linux capabilities, `no-new-privileges`, and tmpfs for `/tmp`.
+
+See [Operations](docs/OPERATIONS.md).
+
+## Configuration
+
+Environment variables:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `TEXTFORENSICS_HOST` | `127.0.0.1` | Bind host |
+| `TEXTFORENSICS_PORT` | `8765` | Bind port |
+| `TEXTFORENSICS_MAX_INPUT_BYTES` | `2000000` | Maximum input size |
+| `TEXTFORENSICS_ALLOW_REMOTE` | `0` | Permit non-loopback bind |
+| `TEXTFORENSICS_ACCESS_LOG` | `0` | Enable Uvicorn access log |
+| `TEXTFORENSICS_LOG_LEVEL` | `INFO` | Process log level |
+
+Invalid configuration fails fast.
 
 ## Detector plugins
 
-Third-party packages can register detectors through Python entry points:
+Packages can register adapters through Python entry points:
 
 ```toml
 [project.entry-points."textforensics.detectors"]
 my_detector = "my_package:MyDetector"
 ```
 
-A serious adapter should expose explicit version/score semantics and eventually satisfy the benchmark/calibration gates in [AGENTS.md](AGENTS.md).
+Third-party detector plugins are trusted Python code. TextForensics validates their result contract but does not sandbox arbitrary plugin packages.
 
-The planned detector set prioritizes **methodological diversity**, for example:
-- supervised open classifier,
-- likelihood/cross-model method,
-- transparent structural/stylometric baseline,
-- provenance/watermark evidence when actually available,
-- user-enabled official provider APIs.
+A serious detector adapter must document:
+- immutable model/provider version where possible;
+- method family;
+- license;
+- language/domain/length constraints;
+- local/remote data flow;
+- hardware/dependency requirements;
+- benchmark and calibration status.
 
-Several correlated variants of one classifier family should not create artificial confidence.
+See [AGENTS.md](AGENTS.md) and [Contributing](CONTRIBUTING.md).
 
-## Benchmarking
+## Quality and release engineering
 
-The existing commands are exploratory alpha scaffolding:
+CI validates:
+- Python 3.10–3.13;
+- Linux, Windows, and macOS CLI/install smoke paths;
+- unit/integration tests;
+- critical Ruff checks;
+- wheel build + clean wheel installation;
+- packaged schemas;
+- optional API surface;
+- optional MCP surface;
+- OCI build/start/health/non-root runtime.
 
-```bash
-textforensics benchmark data.jsonl --threshold 0.50
-textforensics calibrate data.jsonl --target-fpr 0.01
-```
+The repository also includes:
+- CodeQL;
+- dependency review;
+- scheduled dependency audit;
+- Dependabot;
+- release build/checksum workflow;
+- CODEOWNERS;
+- structured issue templates;
+- security/support/release policies.
 
-Do **not** interpret the current `calibrate` command as a complete scientific validation pipeline: threshold fitting and final held-out evaluation must be separated before release-quality claims are made.
+See:
+- [Security](SECURITY.md)
+- [Support](SUPPORT.md)
+- [Release checklist](docs/RELEASE.md)
+- [Commercial readiness](docs/COMMERCIAL_READINESS.md)
+- [Threat model](docs/THREAT_MODEL.md)
+- [Quality gates](docs/QUALITY_GATES.md)
 
-The planned benchmark substrate targets RAID, DetectRL and M4 with versioned run manifests, human-FPR-first operating points, calibration metrics, confidence intervals and domain/language/length/revision slices.
+## Scientific roadmap
 
-## MCP
+Before TextForensics can claim detector-performance parity with major commercial products, the project still needs:
+- serious independent detector-family adapters;
+- RAID/DetectRL/M4 evaluation;
+- held-out calibration and final evaluation;
+- human false-positive operating points and confidence intervals;
+- language/domain/length/revision slices;
+- empirical detector-correlation/ablation work;
+- versioned calibration registry;
+- benchmark-backed Trust Map dimensions;
+- detector/provider drift observatory.
 
-```bash
-pip install -e ".[mcp]"
-textforensics-mcp
-```
-
-The MCP surface is an integration mechanism, not the project's novelty. It should expose structured evidence and limitations from the same core used by the CLI/API.
-
-## HTTP API
-
-```bash
-pip install -e ".[api]"
-uvicorn textforensics.api:app --host 127.0.0.1 --port 8765
-```
-
-## The capability TextForensics is building toward
-
-### Trust Map
-
-For the current analysis, show whether evidence is:
-- **supported**
-- **partial**
-- **unknown**
-- **out_of_scope**
-
-across:
-- language,
-- length,
-- domain,
-- revision/editing regime,
-- nearest human false-positive evidence,
-- detector diversity/disagreement,
-- benign stability,
-- temporal/provider-version stability.
-
-No fake 0–100 trust score is planned until such an aggregation can be empirically validated.
-
-### Detector observatory
-
-Run a stable probe corpus against versioned detectors/providers over time and surface:
-- score-distribution drift,
-- verdict flips,
-- calibration/FPR regressions,
-- model/provider version changes.
-
-### Reproducible case files
-
-Export what was observed, the input hash, exact detector/calibration versions, Trust Map, applicable benchmark evidence, stability/drift and optional process provenance. Raw text should be omitted by default.
+See [Roadmap](ROADMAP.md).
 
 ## What TextForensics will not claim
 
 - A detector score proves authorship.
-- A clean detector result proves human authorship.
-- Raw scores from different detectors are automatically comparable.
-- A locally calibrated component probability automatically makes an ensemble calibrated.
-- The current heuristic baseline is state of the art.
-- The current integrity grade is a validated trust score.
-- Text-only evidence should be the sole basis for high-stakes punishment.
-- Rewriting can guarantee a particular detector outcome.
+- A clean score proves human authorship.
+- Raw scores from different instruments are directly comparable.
+- Component probabilities automatically create a calibrated ensemble.
+- The built-in heuristic baseline is state of the art.
+- The legacy alpha integrity grade is a validated trust score.
+- Text-only evidence should be the sole basis for high-stakes sanctions.
+- Rewriting can guarantee a specific detector outcome.
 
 ## Development
 
 ```bash
+python -m pip install -e ".[dev]"
 python -m unittest discover -s tests -v
+ruff check src tests
 ```
 
-Contributors and coding agents should read [AGENTS.md](AGENTS.md) first.
+Coding agents and human contributors should read [AGENTS.md](AGENTS.md) first.
 
 ## License
 
