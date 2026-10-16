@@ -8,7 +8,8 @@ from .version import get_version
 
 def create_app(settings: Settings | None = None):
     try:
-        from fastapi import FastAPI, HTTPException
+        from fastapi import FastAPI, HTTPException, Request
+        from fastapi.responses import JSONResponse
         from pydantic import BaseModel
     except ImportError as exc:  # pragma: no cover - optional dependency
         raise RuntimeError(
@@ -51,7 +52,38 @@ def create_app(settings: Settings | None = None):
             ) from exc
 
     @app.middleware("http")
-    async def security_headers(request, call_next):
+    async def request_guard_and_security_headers(request: Request, call_next):
+        if request.method in {"POST", "PUT", "PATCH"}:
+            if request.headers.get("transfer-encoding"):
+                return JSONResponse(
+                    status_code=411,
+                    content={"detail": "Streaming request bodies are not accepted."},
+                )
+            raw_length = request.headers.get("content-length")
+            if raw_length is None:
+                return JSONResponse(
+                    status_code=411,
+                    content={"detail": "Content-Length is required."},
+                )
+            try:
+                body_length = int(raw_length)
+            except ValueError:
+                return JSONResponse(
+                    status_code=400,
+                    content={"detail": "Invalid Content-Length."},
+                )
+            if body_length < 0:
+                return JSONResponse(
+                    status_code=400,
+                    content={"detail": "Invalid Content-Length."},
+                )
+            max_body_bytes = active_settings.max_input_bytes * 2 + 65_536
+            if body_length > max_body_bytes:
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": "Request body is too large."},
+                )
+
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"

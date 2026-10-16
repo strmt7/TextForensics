@@ -126,3 +126,18 @@ def validate_text_input(
             f"{max_input_bytes} bytes."
         )
     return text
+
+
+def read_text_file(path: str | os.PathLike[str], *, max_input_bytes: int) -> str:
+    from pathlib import Path
+
+    target = Path(path)
+    size = target.stat().st_size
+    if size > max_input_bytes:
+        raise ValueError(
+            f"File exceeds the configured input limit of {max_input_bytes} bytes."
+        )
+    return validate_text_input(
+        target.read_text(encoding="utf-8"),
+        max_input_bytes=max_input_bytes,
+    )

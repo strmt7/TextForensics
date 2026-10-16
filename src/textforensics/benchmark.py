@@ -19,7 +19,11 @@ class DatasetFormatError(ValueError):
 
 
 def dataset_sha256(path: str | Path) -> str:
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _load_scores(
@@ -29,41 +33,44 @@ def _load_scores(
 ) -> tuple[list[tuple[str, float]], int]:
     rows: list[tuple[str, float]] = []
     skipped = 0
-    for line_number, line in enumerate(
-        Path(path).read_text(encoding="utf-8").splitlines(),
-        start=1,
-    ):
-        if not line.strip():
-            continue
-        try:
-            row = json.loads(line)
-        except json.JSONDecodeError as exc:
-            if strict:
-                raise DatasetFormatError(
-                    f"Line {line_number} is not valid JSON."
-                ) from exc
-            skipped += 1
-            continue
-        if not isinstance(row, dict):
-            if strict:
-                raise DatasetFormatError(
-                    f"Line {line_number} must be a JSON object."
-                )
-            skipped += 1
-            continue
+    with Path(path).open("r", encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, start=1):
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError as exc:
+                if strict:
+                    raise DatasetFormatError(
+                        f"Line {line_number} is not valid JSON."
+                    ) from exc
+                skipped += 1
+                continue
+            if not isinstance(row, dict):
+                if strict:
+                    raise DatasetFormatError(
+                        f"Line {line_number} must be a JSON object."
+                    )
+                skipped += 1
+                continue
 
-        label = str(row.get("label", "")).strip().lower()
-        text = row.get("text")
-        if label not in {"human", "ai"} or not isinstance(text, str) or not text.strip():
-            if strict:
-                raise DatasetFormatError(
-                    f"Line {line_number} requires label 'human'/'ai' and non-empty text."
-                )
-            skipped += 1
-            continue
+            label = str(row.get("label", "")).strip().lower()
+            text = row.get("text")
+            if (
+                label not in {"human", "ai"}
+                or not isinstance(text, str)
+                or not text.strip()
+            ):
+                if strict:
+                    raise DatasetFormatError(
+                        f"Line {line_number} requires label 'human'/'ai' "
+                        "and non-empty text."
+                    )
+                skipped += 1
+                continue
 
-        score = analyze_text(text, include_robustness=False).score
-        rows.append((label, float(score)))
+            score = analyze_text(text, include_robustness=False).score
+            rows.append((label, float(score)))
     return rows, skipped
 
 

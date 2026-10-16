@@ -14,7 +14,7 @@ from .benchmark import (
 )
 from .casefile import verify_case_file_path, write_case_file
 from .compare import compare_texts
-from .config import Settings, validate_text_input
+from .config import Settings, read_text_file, validate_text_input
 from .detectors import list_detector_health, list_detector_metadata
 from .engine import analyze_text
 from .localize import localize_text
@@ -27,17 +27,22 @@ from .webapp import serve as serve_webapp
 
 def _read_text(path: str | None, settings: Settings) -> str:
     if path:
-        text = Path(path).read_text(encoding="utf-8")
-    else:
-        if sys.stdin.isatty():
-            raise ValueError("Provide --file or pipe text through stdin.")
-        text = sys.stdin.read()
-    return validate_text_input(text, max_input_bytes=settings.max_input_bytes)
+        return read_text_file(
+            path,
+            max_input_bytes=settings.max_input_bytes,
+        )
+    if sys.stdin.isatty():
+        raise ValueError("Provide --file or pipe text through stdin.")
+    text = sys.stdin.read(settings.max_input_bytes + 1)
+    return validate_text_input(
+        text,
+        max_input_bytes=settings.max_input_bytes,
+    )
 
 
 def _read_file_text(path: str, settings: Settings) -> str:
-    return validate_text_input(
-        Path(path).read_text(encoding="utf-8"),
+    return read_text_file(
+        path,
         max_input_bytes=settings.max_input_bytes,
     )
 

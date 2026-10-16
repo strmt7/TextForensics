@@ -39,28 +39,26 @@ def verify_ledger(ledger_path: str | Path) -> dict[str, Any]:
     errors: list[str] = []
     previous = None
     records = 0
-    for index, line in enumerate(
-        ledger_path.read_text(encoding="utf-8").splitlines(),
-        start=1,
-    ):
-        if not line.strip():
-            continue
-        records += 1
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError:
-            errors.append(f"line_{index}:invalid_json")
-            continue
-        if not isinstance(record, dict):
-            errors.append(f"line_{index}:record_not_object")
-            continue
+    with ledger_path.open("r", encoding="utf-8") as handle:
+        for index, line in enumerate(handle, start=1):
+            if not line.strip():
+                continue
+            records += 1
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                errors.append(f"line_{index}:invalid_json")
+                continue
+            if not isinstance(record, dict):
+                errors.append(f"line_{index}:record_not_object")
+                continue
 
-        expected = sha256_bytes(_canonical_record_payload(record))
-        if record.get("record_sha256") != expected:
-            errors.append(f"line_{index}:record_hash_mismatch")
-        if record.get("previous_record_sha256") != previous:
-            errors.append(f"line_{index}:chain_mismatch")
-        previous = record.get("record_sha256")
+            expected = sha256_bytes(_canonical_record_payload(record))
+            if record.get("record_sha256") != expected:
+                errors.append(f"line_{index}:record_hash_mismatch")
+            if record.get("previous_record_sha256") != previous:
+                errors.append(f"line_{index}:chain_mismatch")
+            previous = record.get("record_sha256")
 
     return {
         "valid": not errors,
@@ -88,15 +86,12 @@ def snapshot_file(
             raise ValueError(
                 "Refusing to append to an invalid provenance ledger."
             )
-        lines = [
-            line
-            for line in ledger_path.read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        ]
-        if lines:
-            previous_record_sha256 = json.loads(lines[-1])[
-                "record_sha256"
-            ]
+        with ledger_path.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                if line.strip():
+                    previous_record_sha256 = json.loads(line)[
+                        "record_sha256"
+                    ]
 
     record: dict[str, Any] = {
         "schema": "textforensics-ledger/v1",
