@@ -57,7 +57,7 @@ dev = [
   "build>=1.2,<2",
   "httpx>=0.27,<1",
   "jsonschema>=4.23,<5",
-  "pytest>=8,<9",
+  "pytest>=8,<10",
   "ruff>=0.8,<1",
 ]
 
