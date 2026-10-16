@@ -85,6 +85,14 @@ source .venv/bin/activate
 pip install -e .
 ```
 
+### Open the local browser UI
+
+```bash
+textforensics web
+```
+
+This opens a local-only interface on `127.0.0.1:8765` by default. The built-in detector performs its analysis on the same machine; no text is uploaded.
+
 ### Build a forensic report
 
 ```bash
