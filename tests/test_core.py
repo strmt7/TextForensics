@@ -7,6 +7,8 @@ from textforensics.naturalness import audit_naturalness
 from textforensics.provenance import snapshot_file, verify_ledger
 from textforensics.localize import localize_text
 from textforensics.benchmark import calibrate_threshold_jsonl
+from textforensics.detectors import BuiltinHeuristicDetector, list_detector_metadata
+from textforensics.report import build_forensic_bundle
 
 
 HUMANISH = """
@@ -68,6 +70,26 @@ class CoreTests(unittest.TestCase):
             )
             result = calibrate_threshold_jsonl(dataset, target_fpr=0.0)
             self.assertIn("recommended_threshold", result)
+
+    def test_detector_protocol_result(self):
+        result = BuiltinHeuristicDetector().detect(HUMANISH)
+        self.assertEqual(result.schema, "textforensics.detector-result/v1")
+        self.assertEqual(result.detector_family, "stylometric-heuristic")
+        self.assertIsNone(result.calibrated_ai_probability)
+        self.assertIn(result.verdict, {"ai_like", "human_like", "abstain"})
+
+    def test_detector_discovery_lists_builtin(self):
+        ids = {row["detector_id"] for row in list_detector_metadata()}
+        self.assertIn("textforensics/builtin-heuristic", ids)
+
+    def test_forensic_bundle_is_evidence_grade_not_probability(self):
+        bundle = build_forensic_bundle(HUMANISH)
+        data = bundle.to_dict()
+        self.assertEqual(data["schema"], "textforensics.forensic-bundle/v1")
+        self.assertEqual(len(data["content_sha256"]), 64)
+        self.assertEqual(data["verdict_integrity"]["detector_count"], 1)
+        self.assertIn(data["verdict_integrity"]["grade"], {"D", "INSUFFICIENT"})
+        self.assertIn("single_detector_family", data["verdict_integrity"]["factors"])
 
 
 if __name__ == "__main__":
