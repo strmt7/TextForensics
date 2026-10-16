@@ -115,6 +115,25 @@ class ApiTests(unittest.TestCase):
         payload = response.json()
         self.assertTrue(payload["detectors"])
         self.assertTrue(payload["plugin_health"])
+        self.assertTrue(payload["optional_detectors"])
+        self.assertEqual(
+            payload["optional_detectors"][0]["detector_id"],
+            "desklib/ai-text-detector-v1.01",
+        )
+
+    def test_unknown_detector_is_rejected_without_internal_error(self):
+        response = self.client.post(
+            "/v1/report",
+            json={
+                "text": "A valid input document for detector-selection testing.",
+                "detectors": ["does/not-exist"],
+            },
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(
+            response.json()["detail"],
+            "Requested detector configuration is unavailable.",
+        )
 
 
 if __name__ == "__main__":

@@ -15,7 +15,12 @@ from .benchmark import (
 from .casefile import verify_case_file_path, write_case_file
 from .compare import compare_texts
 from .config import Settings, read_text_file, validate_text_input
-from .detectors import list_detector_health, list_detector_metadata
+from .detectors import (
+    list_detector_health,
+    list_detector_metadata,
+    list_optional_detector_metadata,
+    load_detector,
+)
 from .engine import analyze_text
 from .localize import localize_text
 from .naturalness import audit_naturalness
@@ -77,6 +82,30 @@ def _pretty_analysis(result) -> None:
             print(f"  - {warning}")
 
 
+def _configured_detector_ids(
+    cli_ids: list[str] | None,
+    settings: Settings,
+) -> tuple[str, ...] | None:
+    if cli_ids:
+        return tuple(cli_ids)
+    return settings.detector_ids or None
+
+
+def _benchmark_detector(
+    detector_id: str | None,
+    settings: Settings,
+):
+    selected = detector_id
+    if selected is None and len(settings.detector_ids) == 1:
+        selected = settings.detector_ids[0]
+    elif selected is None and len(settings.detector_ids) > 1:
+        raise ValueError(
+            "Benchmark/calibrate operate on one detector at a time. "
+            "Pass --detector explicitly."
+        )
+    return load_detector(selected) if selected else None
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="textforensics",
@@ -131,13 +160,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     calibrate.add_argument("dataset")
     calibrate.add_argument("--target-fpr", type=float, default=0.01)
+    calibrate.add_argument("--detector")
     calibrate.add_argument("--output", "-o")
 
     bench = sub.add_parser(
         "benchmark",
-        help="Evaluate the built-in baseline on labeled JSONL.",
+        help="Evaluate one detector on labeled JSONL.",
     )
     bench.add_argument("dataset")
+    bench.add_argument("--detector")
     group = bench.add_mutually_exclusive_group()
     group.add_argument("--threshold", type=float)
     group.add_argument("--calibration", help="Calibration artifact JSON.")
@@ -149,7 +180,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     detectors = sub.add_parser(
         "detectors",
-        help="List installed detector adapters.",
+        help="List installed and optional detector adapters.",
     )
     detectors.add_argument("--health", action="store_true")
 
@@ -159,6 +190,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     report.add_argument("--file", "-f")
     report.add_argument("--ledger")
+    report.add_argument("--detector", action="append")
     report.add_argument("--output", "-o")
 
     case = sub.add_parser("case", help="Export or verify a sealed case file.")
@@ -166,6 +198,7 @@ def build_parser() -> argparse.ArgumentParser:
     case_export = case_sub.add_parser("export", help="Export a sealed case file.")
     case_export.add_argument("--file", "-f")
     case_export.add_argument("--ledger")
+    case_export.add_argument("--detector", action="append")
     case_export.add_argument("--output", "-o", required=True)
     case_verify = case_sub.add_parser("verify", help="Verify case-file integrity.")
     case_verify.add_argument("case_file")
@@ -202,6 +235,7 @@ def _settings_with_overrides(
         ),
         access_log=access_log if access_log is not None else base.access_log,
         log_level=base.log_level,
+        detector_ids=base.detector_ids,
     )
 
 
@@ -252,27 +286,32 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         artifact = calibrate_threshold_jsonl(
             args.dataset,
             target_fpr=args.target_fpr,
+            detector=_benchmark_detector(args.detector, settings),
         )
         _write_json(args.output, artifact)
 
     elif args.command == "benchmark":
+        explicit = _benchmark_detector(args.detector, settings)
         if args.calibration:
             calibration = load_calibration_artifact(args.calibration)
             result = benchmark_with_calibration_jsonl(
                 args.dataset,
                 calibration,
+                detector=explicit,
                 allow_same_dataset=args.allow_same_dataset,
             )
         else:
             result = benchmark_jsonl(
                 args.dataset,
                 threshold=args.threshold if args.threshold is not None else 0.5,
+                detector=explicit,
             )
         _write_json(None, result)
 
     elif args.command == "detectors":
         payload = {
             "detectors": list_detector_metadata(),
+            "optional_detectors": list_optional_detector_metadata(),
             "plugin_health": list_detector_health() if args.health else [],
         }
         _write_json(None, payload)
@@ -280,6 +319,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
     elif args.command == "report":
         bundle = build_forensic_bundle(
             _read_text(args.file, settings),
+            detector_ids=_configured_detector_ids(args.detector, settings),
             ledger_path=args.ledger,
         )
         _write_json(args.output, bundle.to_dict())
@@ -288,6 +328,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         if args.case_command == "export":
             bundle = build_forensic_bundle(
                 _read_text(args.file, settings),
+                detector_ids=_configured_detector_ids(args.detector, settings),
                 ledger_path=args.ledger,
             )
             write_case_file(args.output, bundle.to_dict())

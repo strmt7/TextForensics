@@ -5,7 +5,11 @@ from typing import Any
 
 from .casefile import seal_case_file
 from .config import Settings, validate_text_input
-from .detectors import list_detector_health, list_detector_metadata
+from .detectors import (
+    list_detector_health,
+    list_detector_metadata,
+    list_optional_detector_metadata,
+)
 
 
 def _server():
@@ -41,6 +45,9 @@ def _server():
             allow_nan=False,
         )
 
+    def detector_ids() -> tuple[str, ...] | None:
+        return settings.detector_ids or None
+
     @mcp.tool()
     def analyze_ai_text(text: str) -> str:
         """Run the local alpha text-pattern baseline with explicit limitations."""
@@ -49,12 +56,20 @@ def _server():
     @mcp.tool()
     def build_forensic_report(text: str) -> str:
         """Build detector observations, Trust Map, stability, and limitations."""
-        return dumped(build_forensic_bundle(checked(text)).to_dict())
+        return dumped(
+            build_forensic_bundle(
+                checked(text),
+                detector_ids=detector_ids(),
+            ).to_dict()
+        )
 
     @mcp.tool()
     def build_case_file(text: str) -> str:
         """Build a sealed, raw-text-free case artifact for the supplied text."""
-        bundle = build_forensic_bundle(checked(text)).to_dict()
+        bundle = build_forensic_bundle(
+            checked(text),
+            detector_ids=detector_ids(),
+        ).to_dict()
         return dumped(seal_case_file(bundle))
 
     @mcp.tool()
@@ -63,6 +78,7 @@ def _server():
         return dumped(
             {
                 "detectors": list_detector_metadata(),
+                "optional_detectors": list_optional_detector_metadata(),
                 "plugin_health": list_detector_health(),
             }
         )

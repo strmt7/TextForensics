@@ -34,6 +34,26 @@ class CliTests(unittest.TestCase):
         self.assertIn("diagnostic_reliability", payload)
         self.assertIn("confidence_semantics", payload)
 
+    def test_detectors_lists_optional_model_without_enabling_it(self):
+        result = self.run_cli("detectors", "--health")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        ids = {
+            row["detector_id"]
+            for row in payload["optional_detectors"]
+        }
+        self.assertIn("desklib/ai-text-detector-v1.01", ids)
+
+    def test_unknown_report_detector_fails_cleanly(self):
+        result = self.run_cli(
+            "report",
+            "--detector",
+            "does/not-exist",
+            input_text=TEXT,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("Unknown detector_id", result.stderr)
+
     def test_case_export_verify_and_tamper(self):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "source.txt"

@@ -5,12 +5,15 @@ from pathlib import Path
 
 from textforensics.benchmark import (
     DatasetFormatError,
+    _average_precision,
+    _roc_auc,
     benchmark_jsonl,
     benchmark_with_calibration_jsonl,
     calibrate_threshold_jsonl,
     dataset_sha256,
     validate_calibration_artifact,
 )
+from textforensics.detectors import DetectorPrediction
 
 
 HUMAN = (
@@ -34,6 +37,26 @@ def write_dataset(path: Path, human_suffix: str = "", ai_suffix: str = "") -> No
         "".join(json.dumps(row) + "\n" for row in rows),
         encoding="utf-8",
     )
+
+
+class KeywordDetector:
+    detector_id = "test/keyword"
+    detector_version = "1"
+    detector_family = "test-family"
+
+    def detect(self, text):
+        score = 0.9 if "robust" in text.lower() else 0.1
+        return DetectorPrediction(
+            schema="textforensics.detector-result/v1",
+            detector_id=self.detector_id,
+            detector_version=self.detector_version,
+            detector_family=self.detector_family,
+            execution="local",
+            score=score,
+            score_semantics="higher_means_more_machine_like; test score",
+            verdict="ai_like" if score >= 0.5 else "human_like",
+            threshold=0.5,
+        )
 
 
 class BenchmarkTests(unittest.TestCase):
@@ -98,6 +121,8 @@ class BenchmarkTests(unittest.TestCase):
             )
             self.assertIn("false_positive_rate", result)
             self.assertIn("true_positive_rate", result)
+            self.assertIn("auroc", result)
+            self.assertIn("average_precision", result)
 
     def test_mismatched_detector_version_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -115,6 +140,51 @@ class BenchmarkTests(unittest.TestCase):
             result = benchmark_jsonl(path, threshold=0.5)
             self.assertEqual(result["mode"], "diagnostic_fixed_threshold")
             self.assertEqual(result["evaluated"], 4)
+            self.assertEqual(result["coverage"], 1.0)
+
+    def test_detector_specific_calibration_and_evaluation(self):
+        detector = KeywordDetector()
+        with tempfile.TemporaryDirectory() as tmp:
+            calibration = Path(tmp) / "calibration.jsonl"
+            evaluation = Path(tmp) / "evaluation.jsonl"
+            write_dataset(calibration)
+            write_dataset(
+                evaluation,
+                human_suffix=" held out",
+                ai_suffix=" held out",
+            )
+            artifact = calibrate_threshold_jsonl(
+                calibration,
+                target_fpr=0.0,
+                detector=detector,
+            )
+            self.assertEqual(artifact["detector_id"], detector.detector_id)
+            validate_calibration_artifact(artifact, detector=detector)
+            result = benchmark_with_calibration_jsonl(
+                evaluation,
+                artifact,
+                detector=detector,
+            )
+            self.assertEqual(result["auroc"], 1.0)
+            self.assertEqual(result["average_precision"], 1.0)
+
+    def test_tied_ranking_metrics_are_order_independent(self):
+        first = [("ai", 0.5), ("human", 0.5)]
+        second = list(reversed(first))
+        self.assertEqual(_roc_auc(first), 0.5)
+        self.assertEqual(_roc_auc(second), 0.5)
+        self.assertEqual(_average_precision(first), 0.5)
+        self.assertEqual(_average_precision(second), 0.5)
+
+    def test_perfect_ranking_metrics(self):
+        rows = [
+            ("human", 0.1),
+            ("human", 0.2),
+            ("ai", 0.8),
+            ("ai", 0.9),
+        ]
+        self.assertEqual(_roc_auc(rows), 1.0)
+        self.assertEqual(_average_precision(rows), 1.0)
 
 
 if __name__ == "__main__":

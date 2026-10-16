@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import importlib.metadata
+import importlib.util
 import math
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Iterable, Protocol, runtime_checkable
 
 from .engine import analyze_text
 
@@ -18,8 +20,8 @@ class DetectorContractError(ValueError):
 class DetectorPrediction:
     """Portable detector output for the TextForensics Detector Protocol (TFDP/1).
 
-    `score` is an instrument output, not automatically a probability.
-    `calibrated_ai_probability` may only be populated with a calibration ID.
+    score is an instrument output, not automatically a probability.
+    calibrated_ai_probability may only be populated with a calibration ID.
     """
 
     schema: str
@@ -77,6 +79,18 @@ class PluginHealth:
 class DetectorRegistry:
     detectors: dict[str, "Detector"] = field(default_factory=dict)
     plugin_health: list[PluginHealth] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
+class OptionalDetectorSpec:
+    detector_id: str
+    detector_version: str
+    detector_family: str
+    module: str
+    factory: str
+    extra: str
+    required_modules: tuple[str, ...]
+    description: str
 
 
 @runtime_checkable
@@ -319,6 +333,22 @@ _BUILTINS: dict[str, type[Detector]] = {
     BuiltinHeuristicDetector.detector_id: BuiltinHeuristicDetector,
 }
 
+_OPTIONAL_DETECTORS: dict[str, OptionalDetectorSpec] = {
+    "desklib/ai-text-detector-v1.01": OptionalDetectorSpec(
+        detector_id="desklib/ai-text-detector-v1.01",
+        detector_version="1.01@5fdea974cd42",
+        detector_family="supervised-transformer",
+        module="textforensics.detector_desklib",
+        factory="DesklibDetector",
+        extra="desklib",
+        required_modules=("torch", "transformers", "sentencepiece"),
+        description=(
+            "Pinned local DeBERTa-v3-large detector adapter. Model weights "
+            "download on first use unless already cached/offline."
+        ),
+    )
+}
+
 
 def _entry_points() -> list[Any]:
     try:
@@ -385,6 +415,88 @@ def discover_detector_registry() -> DetectorRegistry:
 
 def discover_detectors() -> dict[str, Detector]:
     return discover_detector_registry().detectors
+
+
+def list_optional_detector_metadata() -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for spec in sorted(_OPTIONAL_DETECTORS.values(), key=lambda row: row.detector_id):
+        missing = [
+            module
+            for module in spec.required_modules
+            if importlib.util.find_spec(module) is None
+        ]
+        rows.append(
+            {
+                "detector_id": spec.detector_id,
+                "detector_version": spec.detector_version,
+                "detector_family": spec.detector_family,
+                "installed": not missing,
+                "missing_modules": missing,
+                "install_extra": spec.extra,
+                "enabled_by_default": False,
+                "description": spec.description,
+            }
+        )
+    return rows
+
+
+def get_known_detector_metadata(detector_id: str) -> dict[str, str] | None:
+    if detector_id in _BUILTINS:
+        instance = _BUILTINS[detector_id]()
+        return {
+            "detector_id": instance.detector_id,
+            "detector_version": instance.detector_version,
+            "detector_family": instance.detector_family,
+        }
+    spec = _OPTIONAL_DETECTORS.get(detector_id)
+    if spec is None:
+        return None
+    return {
+        "detector_id": spec.detector_id,
+        "detector_version": spec.detector_version,
+        "detector_family": spec.detector_family,
+    }
+
+
+def load_detector(detector_id: str) -> Detector:
+    detector_id = detector_id.strip()
+    if not detector_id:
+        raise ValueError("detector_id must not be empty.")
+
+    registry = discover_detector_registry()
+    if detector_id in registry.detectors:
+        return registry.detectors[detector_id]
+
+    spec = _OPTIONAL_DETECTORS.get(detector_id)
+    if spec is None:
+        known = sorted([*registry.detectors.keys(), *_OPTIONAL_DETECTORS.keys()])
+        raise ValueError(
+            f"Unknown detector_id: {detector_id}. Known detectors: "
+            + ", ".join(known)
+        )
+
+    module = importlib.import_module(spec.module)
+    factory = getattr(module, spec.factory)
+    detector = factory()
+    if not isinstance(detector, Detector):
+        raise DetectorContractError(
+            f"Optional detector {detector_id} does not implement the Detector protocol."
+        )
+    return detector
+
+
+def resolve_detectors(detector_ids: Iterable[str] | None) -> list[Detector]:
+    if detector_ids is None:
+        return list(discover_detector_registry().detectors.values())
+
+    normalized: list[str] = []
+    for detector_id in detector_ids:
+        value = str(detector_id).strip()
+        if value and value not in normalized:
+            normalized.append(value)
+    if not normalized:
+        raise ValueError("At least one detector_id must be configured.")
+    return [load_detector(detector_id) for detector_id in normalized]
 
 
 def list_detector_metadata() -> list[dict[str, str]]:

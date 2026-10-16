@@ -41,6 +41,22 @@ def _env_int(
     return value
 
 
+def _env_csv(name: str) -> tuple[str, ...]:
+    raw = os.getenv(_ENV_PREFIX + name)
+    if raw is None or not raw.strip():
+        return ()
+    values: list[str] = []
+    for item in raw.split(","):
+        value = item.strip()
+        if not value:
+            raise ValueError(
+                f"{_ENV_PREFIX}{name} contains an empty comma-separated value."
+            )
+        if value not in values:
+            values.append(value)
+    return tuple(values)
+
+
 def is_loopback_host(host: str) -> bool:
     normalized = host.strip().lower()
     if normalized in {"localhost", "ip6-localhost"}:
@@ -67,6 +83,7 @@ class Settings:
     allow_remote: bool = False
     access_log: bool = False
     log_level: str = "INFO"
+    detector_ids: tuple[str, ...] = ()
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -109,6 +126,7 @@ class Settings:
             allow_remote=allow_remote,
             access_log=access_log,
             log_level=log_level,
+            detector_ids=_env_csv("DETECTORS"),
         )
 
 

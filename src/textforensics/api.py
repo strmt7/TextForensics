@@ -2,7 +2,11 @@ from typing import Any
 
 from .casefile import seal_case_file
 from .config import Settings, validate_text_input
-from .detectors import list_detector_health, list_detector_metadata
+from .detectors import (
+    list_detector_health,
+    list_detector_metadata,
+    list_optional_detector_metadata,
+)
 from .version import get_version
 
 
@@ -33,6 +37,7 @@ def create_app(settings: Settings | None = None):
 
     class TextRequest(BaseModel):
         text: str
+        detectors: list[str] | None = None
 
     class CompareRequest(BaseModel):
         before: str
@@ -49,6 +54,23 @@ def create_app(settings: Settings | None = None):
             raise HTTPException(
                 status_code=status,
                 detail="Invalid text input.",
+            ) from exc
+
+    def selected(requested: list[str] | None) -> tuple[str, ...] | None:
+        if requested is not None:
+            return tuple(requested)
+        return active_settings.detector_ids or None
+
+    def forensic(text: str, requested: list[str] | None):
+        try:
+            return build_forensic_bundle(
+                checked(text),
+                detector_ids=selected(requested),
+            )
+        except (ValueError, RuntimeError) as exc:
+            raise HTTPException(
+                status_code=422,
+                detail="Requested detector configuration is unavailable.",
             ) from exc
 
     def secure_response(response):
@@ -119,6 +141,7 @@ def create_app(settings: Settings | None = None):
     def detectors() -> dict[str, Any]:
         return {
             "detectors": list_detector_metadata(),
+            "optional_detectors": list_optional_detector_metadata(),
             "plugin_health": list_detector_health(),
         }
 
@@ -128,12 +151,11 @@ def create_app(settings: Settings | None = None):
 
     @app.post("/v1/report")
     def report(req: TextRequest):
-        return build_forensic_bundle(checked(req.text)).to_dict()
+        return forensic(req.text, req.detectors).to_dict()
 
     @app.post("/v1/case")
     def case(req: TextRequest):
-        bundle = build_forensic_bundle(checked(req.text)).to_dict()
-        return seal_case_file(bundle)
+        return seal_case_file(forensic(req.text, req.detectors).to_dict())
 
     @app.post("/v1/audit")
     def audit(req: TextRequest):
@@ -149,7 +171,7 @@ def create_app(settings: Settings | None = None):
 
 
 app = None
-try:  # Lets `uvicorn textforensics.api:app` work when extras are installed.
+try:  # Lets uvicorn textforensics.api:app work when extras are installed.
     app = create_app()
 except (RuntimeError, ValueError):
     pass

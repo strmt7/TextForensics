@@ -11,6 +11,7 @@ from .detectors import (
     DetectorPrediction,
     discover_detector_registry,
     execute_detector,
+    resolve_detectors,
     text_sha256,
 )
 from .features import extract_features
@@ -118,11 +119,6 @@ def _integrity(
     word_count: int,
     robustness: list[dict[str, Any]],
 ) -> VerdictIntegrity:
-    """Return the legacy alpha evidence-grade diagnostic.
-
-    Kept only for compatibility while the Trust Map becomes the primary
-    applicability surface.
-    """
     families = {prediction.detector_family for prediction in predictions}
     consensus = family_balanced_consensus(predictions)
     agreement = consensus.family_agreement
@@ -212,17 +208,23 @@ def build_forensic_bundle(
     text: str,
     *,
     detectors: Iterable[Detector] | None = None,
+    detector_ids: Iterable[str] | None = None,
     ledger_path: str | None = None,
 ) -> ForensicBundle:
     if not isinstance(text, str) or not text.strip():
         raise ValueError("Text must not be empty.")
+    if detectors is not None and detector_ids is not None:
+        raise ValueError("Provide detectors or detector_ids, not both.")
 
-    if detectors is None:
+    if detectors is None and detector_ids is None:
         registry = discover_detector_registry()
         detector_list = list(registry.detectors.values())
         plugin_health = [row.to_dict() for row in registry.plugin_health]
+    elif detector_ids is not None:
+        detector_list = resolve_detectors(detector_ids)
+        plugin_health = []
     else:
-        detector_list = list(detectors)
+        detector_list = list(detectors or ())
         plugin_health = []
 
     if not detector_list:

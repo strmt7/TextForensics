@@ -20,6 +20,7 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(settings.host, "127.0.0.1")
         self.assertFalse(settings.allow_remote)
         self.assertFalse(settings.access_log)
+        self.assertEqual(settings.detector_ids, ())
 
     def test_environment_overrides(self):
         env = {
@@ -29,6 +30,11 @@ class ConfigTests(unittest.TestCase):
             "TEXTFORENSICS_ALLOW_REMOTE": "true",
             "TEXTFORENSICS_ACCESS_LOG": "yes",
             "TEXTFORENSICS_LOG_LEVEL": "debug",
+            "TEXTFORENSICS_DETECTORS": (
+                "textforensics/builtin-heuristic,"
+                "desklib/ai-text-detector-v1.01,"
+                "textforensics/builtin-heuristic"
+            ),
         }
         with patch.dict(os.environ, env, clear=True):
             settings = Settings.from_env()
@@ -38,11 +44,27 @@ class ConfigTests(unittest.TestCase):
         self.assertTrue(settings.allow_remote)
         self.assertTrue(settings.access_log)
         self.assertEqual(settings.log_level, "DEBUG")
+        self.assertEqual(
+            settings.detector_ids,
+            (
+                "textforensics/builtin-heuristic",
+                "desklib/ai-text-detector-v1.01",
+            ),
+        )
 
     def test_invalid_environment_fails_fast(self):
         with patch.dict(
             os.environ,
             {"TEXTFORENSICS_PORT": "70000"},
+            clear=True,
+        ):
+            with self.assertRaises(ValueError):
+                Settings.from_env()
+
+    def test_invalid_detector_csv_fails_fast(self):
+        with patch.dict(
+            os.environ,
+            {"TEXTFORENSICS_DETECTORS": "one,,two"},
             clear=True,
         ):
             with self.assertRaises(ValueError):
