@@ -19,14 +19,32 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: python -m pip install -e ".[dev,api]"
-      - run: ruff check src tests
-      - run: python -m unittest discover -s tests -v
-      - run: python -m build
-      - run: python -m pip install twine
-      - run: python -m twine check dist/*
+
+      - name: Install release test environment
+        run: python -m pip install -e ".[dev,all]"
+
+      - name: Lint
+        run: ruff check src tests
+
+      - name: Test
+        run: python -m unittest discover -s tests -v
+
+      - name: Build distributions
+        run: python -m build
+
+      - name: Validate distributions
+        run: |
+          python -m pip install twine
+          python -m twine check dist/*
+
+      - name: Generate dependency SBOM
+        run: |
+          python -m pip install pip-audit
+          pip-audit --strict --format cyclonedx-json --output dist/sbom.cdx.json
+
       - name: Create checksums
         run: sha256sum dist/* > dist/SHA256SUMS
+
       - uses: actions/upload-artifact@v4
         with:
           name: textforensics-release-${{ github.ref_name }}

@@ -1,6 +1,10 @@
 name: Dependency Audit
 
 on:
+  pull_request:
+    paths:
+      - "pyproject.toml"
+      - ".github/workflows/dependency-audit.yml"
   workflow_dispatch:
   schedule:
     - cron: "41 5 * * 2"
@@ -18,6 +22,9 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: python -m pip install -e ".[api,mcp]"
-      - run: python -m pip install pip-audit
-      - run: pip-audit
+      - name: Install all supported runtime surfaces
+        run: python -m pip install -e ".[all]"
+      - name: Install audit tool
+        run: python -m pip install pip-audit
+      - name: Audit dependencies
+        run: pip-audit --strict
