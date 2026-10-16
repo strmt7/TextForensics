@@ -13,6 +13,7 @@ def _server():
     from .engine import analyze_text
     from .naturalness import audit_naturalness
     from .localize import localize_text
+    from .report import build_forensic_bundle
 
     mcp = FastMCP("TextForensics")
 
@@ -34,6 +35,11 @@ def _server():
     def compare_text_versions(before: str, after: str) -> str:
         """Compare two versions and report textual similarity plus forensic score change."""
         return json.dumps(compare_texts(before, after).to_dict(), indent=2, ensure_ascii=False)
+
+    @mcp.tool()
+    def build_forensic_report(text: str) -> str:
+        """Build a local detector-evidence bundle with verdict-integrity grading."""
+        return json.dumps(build_forensic_bundle(text).to_dict(), indent=2, ensure_ascii=False)
 
     @mcp.tool()
     def audit_writing_naturalness(text: str) -> str:
