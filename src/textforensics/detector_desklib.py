@@ -132,7 +132,10 @@ def _build_runtime(
             super().__init__(model_config)
             self.model = AutoModel.from_config(model_config)
             self.classifier = nn.Linear(model_config.hidden_size, 1)
-            self.init_weights()
+            # Transformers 5 requires post_init() for composite custom models.
+            # It initializes weights and collects tied-weight/static metadata
+            # used by from_pretrained().
+            self.post_init()
 
         def forward(self, input_ids, attention_mask=None, labels=None):
             outputs = self.model(
