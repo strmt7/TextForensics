@@ -9,6 +9,7 @@ _SCHEMA_NAMES = {
     "detector-result": "detector-result.schema.json",
     "forensic-bundle": "forensic-bundle.schema.json",
     "case-file": "case-file.schema.json",
+    "benchmark-example": "benchmark-example.schema.json",
 }
 
 

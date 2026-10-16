@@ -12,6 +12,11 @@ from .benchmark import (
     calibrate_threshold_jsonl,
     load_calibration_artifact,
 )
+from .benchmark_data import (
+    normalize_detectrlx_json,
+    normalize_m4_jsonl,
+    normalize_raid_csv,
+)
 from .casefile import verify_case_file_path, write_case_file
 from .compare import compare_texts
 from .config import Settings, read_text_file, validate_text_input
@@ -178,6 +183,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="Diagnostic only: permit evaluation on the calibration dataset.",
     )
 
+    dataset = sub.add_parser(
+        "dataset",
+        help="Normalize external benchmark datasets to TextForensics JSONL.",
+    )
+    dataset_sub = dataset.add_subparsers(dest="dataset_command", required=True)
+
+    raid = dataset_sub.add_parser("raid", help="Normalize an official RAID CSV export.")
+    raid.add_argument("input")
+    raid.add_argument("--output", "-o", required=True)
+    raid.add_argument("--revision", required=True)
+    raid.add_argument("--split", required=True)
+
+    m4 = dataset_sub.add_parser("m4", help="Normalize official M4 JSONL files.")
+    m4.add_argument("inputs", nargs="+")
+    m4.add_argument("--output", "-o", required=True)
+    m4.add_argument("--revision", required=True)
+    m4.add_argument("--split", required=True)
+
+    detectrlx = dataset_sub.add_parser(
+        "detectrlx",
+        help="Normalize a public DetectRL-X binary/ternary JSON array.",
+    )
+    detectrlx.add_argument("input")
+    detectrlx.add_argument("--output", "-o", required=True)
+    detectrlx.add_argument("--revision", required=True)
+    detectrlx.add_argument("--subset", choices=["binary", "ternary"], default="binary")
+    detectrlx.add_argument("--include-refined-as-ai", action="store_true")
+
     detectors = sub.add_parser(
         "detectors",
         help="List installed and optional detector adapters.",
@@ -305,6 +338,31 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
                 args.dataset,
                 threshold=args.threshold if args.threshold is not None else 0.5,
                 detector=explicit,
+            )
+        _write_json(None, result)
+
+    elif args.command == "dataset":
+        if args.dataset_command == "raid":
+            result = normalize_raid_csv(
+                args.input,
+                args.output,
+                dataset_revision=args.revision,
+                split=args.split,
+            )
+        elif args.dataset_command == "m4":
+            result = normalize_m4_jsonl(
+                args.inputs,
+                args.output,
+                dataset_revision=args.revision,
+                split=args.split,
+            )
+        else:
+            result = normalize_detectrlx_json(
+                args.input,
+                args.output,
+                dataset_revision=args.revision,
+                subset=args.subset,
+                include_refined_as_ai=args.include_refined_as_ai,
             )
         _write_json(None, result)
 
