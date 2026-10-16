@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/strmt7/TextForensics/schemas/detector-result.schema.json",
+  "title": "TextForensics Detector Result v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "detector_id",
+    "detector_version",
+    "detector_family",
+    "execution",
+    "score",
+    "score_semantics",
+    "verdict",
+    "threshold",
+    "calibrated_ai_probability",
+    "calibration_id",
+    "reliability",
+    "supported_languages",
+    "min_words",
+    "evidence",
+    "warnings",
+    "runtime_ms"
+  ],
+  "properties": {
+    "schema": {"const": "textforensics.detector-result/v1"},
+    "detector_id": {"type": "string", "minLength": 1},
+    "detector_version": {"type": "string", "minLength": 1},
+    "detector_family": {"type": "string", "minLength": 1},
+    "execution": {"enum": ["local", "remote"]},
+    "score": {"type": ["number", "null"]},
+    "score_semantics": {"type": "string", "minLength": 1},
+    "verdict": {"enum": ["ai_like", "human_like", "abstain"]},
+    "threshold": {"type": ["number", "null"]},
+    "calibrated_ai_probability": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "calibration_id": {"type": ["string", "null"]},
+    "reliability": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "supported_languages": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "min_words": {"type": ["integer", "null"], "minimum": 0},
+    "evidence": {"type": "array", "items": {"type": "object"}},
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "runtime_ms": {"type": ["number", "null"], "minimum": 0}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "calibrated_ai_probability": {"type": "number"}
+        },
+        "required": ["calibrated_ai_probability"]
+      },
+      "then": {
+        "properties": {
+          "calibration_id": {"type": "string", "minLength": 1}
+        },
+        "required": ["calibration_id"]
+      }
+    }
+  ],
+  "additionalProperties": false
+}
