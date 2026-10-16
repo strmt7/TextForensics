@@ -61,6 +61,20 @@ class LargeScaleDetector:
         )
 
 
+class EchoWarningDetector:
+    detector_id = "fake/echo-warning"
+    detector_version = "1"
+    detector_family = "echo-family"
+
+    def detect(self, text):
+        result = prediction(
+            detector_id=self.detector_id,
+            family=self.detector_family,
+        )
+        result.warnings = [f"Provider response: {text}"]
+        return result
+
+
 class FailingDetector:
     detector_id = "fake/failing"
     detector_version = "1"
@@ -99,6 +113,22 @@ class DetectorContractTests(unittest.TestCase):
         result.evidence = [{"snippet": "private source text"}]
         with self.assertRaises(DetectorContractError):
             validate_prediction(result)
+
+    def test_nested_raw_text_evidence_fields_are_rejected(self):
+        result = prediction()
+        result.evidence = [{"details": {"snippet": "private source text"}}]
+        with self.assertRaises(DetectorContractError):
+            validate_prediction(result)
+
+    def test_source_echo_in_warning_fails_closed(self):
+        submitted = (
+            "This is private submitted source text with enough length "
+            "to trigger source-echo protection."
+        )
+        _, failure = execute_detector(EchoWarningDetector(), submitted)
+        self.assertIsNotNone(failure)
+        self.assertEqual(failure.error_type, "DetectorContractError")
+        self.assertNotIn(submitted, failure.message)
 
     def test_detector_identity_must_match_adapter(self):
         result = prediction(detector_id="wrong")

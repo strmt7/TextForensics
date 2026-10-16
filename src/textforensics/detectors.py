@@ -100,6 +100,68 @@ def _require_finite_number(value: Any, field_name: str) -> None:
         raise DetectorContractError(f"{field_name} must be finite.")
 
 
+_FORBIDDEN_EVIDENCE_KEYS = {
+    "text",
+    "raw_text",
+    "source_text",
+    "document_text",
+    "content",
+    "snippet",
+    "quote",
+    "excerpt",
+}
+
+
+def _forbidden_evidence_paths(value: Any, path: str = "evidence") -> list[str]:
+    found: list[str] = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            key_string = str(key)
+            child_path = f"{path}.{key_string}"
+            if key_string.strip().lower() in _FORBIDDEN_EVIDENCE_KEYS:
+                found.append(child_path)
+            found.extend(_forbidden_evidence_paths(child, child_path))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            found.extend(_forbidden_evidence_paths(child, f"{path}[{index}]"))
+    return found
+
+
+def _iter_strings(value: Any):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for child in value.values():
+            yield from _iter_strings(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _iter_strings(child)
+
+
+def _normalize_for_echo_check(value: str) -> str:
+    return " ".join(value.split())
+
+
+def _validate_no_source_echo(prediction: DetectorPrediction, source_text: str) -> None:
+    source = _normalize_for_echo_check(source_text)
+    if not source:
+        return
+
+    candidates = list(prediction.warnings)
+    candidates.extend(_iter_strings(prediction.evidence))
+    for candidate in candidates:
+        normalized = _normalize_for_echo_check(candidate)
+        if not normalized:
+            continue
+        exact_source = normalized == source and len(source) >= 8
+        long_excerpt = len(normalized) >= 32 and normalized in source
+        source_embedded = len(source) >= 32 and source in normalized
+        if exact_source or long_excerpt or source_embedded:
+            raise DetectorContractError(
+                "Detector output appears to echo submitted source text."
+            )
+
+
 def validate_prediction(
     prediction: DetectorPrediction,
     *,
@@ -185,24 +247,11 @@ def validate_prediction(
     ):
         raise DetectorContractError("evidence must be a list of objects.")
 
-    forbidden_evidence_keys = {
-        "text",
-        "raw_text",
-        "source_text",
-        "document_text",
-        "content",
-        "snippet",
-        "quote",
-        "excerpt",
-    }
-    for item in prediction.evidence:
-        if any(
-            str(key).strip().lower() in forbidden_evidence_keys
-            for key in item
-        ):
-            raise DetectorContractError(
-                "Detector evidence must not embed raw source-text fields."
-            )
+    forbidden_paths = _forbidden_evidence_paths(prediction.evidence)
+    if forbidden_paths:
+        raise DetectorContractError(
+            "Detector evidence must not embed raw source-text fields."
+        )
 
     if detector is not None:
         for attr in ("detector_id", "detector_version", "detector_family"):
@@ -362,6 +411,7 @@ def execute_detector(
     try:
         prediction = detector.detect(text)
         validate_prediction(prediction, detector=detector)
+        _validate_no_source_echo(prediction, text)
         if prediction.runtime_ms is None:
             prediction.runtime_ms = round((time.perf_counter() - started) * 1000, 3)
         return prediction, None
