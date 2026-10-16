@@ -7,7 +7,8 @@ from textforensics.naturalness import audit_naturalness
 from textforensics.provenance import snapshot_file, verify_ledger
 from textforensics.localize import localize_text
 from textforensics.benchmark import calibrate_threshold_jsonl
-from textforensics.detectors import BuiltinHeuristicDetector, list_detector_metadata
+from textforensics.detectors import BuiltinHeuristicDetector, DetectorPrediction, list_detector_metadata
+from textforensics.consensus import family_balanced_consensus
 from textforensics.report import build_forensic_bundle
 
 
@@ -90,6 +91,30 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(data["verdict_integrity"]["detector_count"], 1)
         self.assertIn(data["verdict_integrity"]["grade"], {"D", "INSUFFICIENT"})
         self.assertIn("single_detector_family", data["verdict_integrity"]["factors"])
+
+    def test_family_balanced_consensus_prevents_duplicate_family_votes(self):
+        def pred(detector_id, family, verdict, probability=None):
+            return DetectorPrediction(
+                schema="textforensics.detector-result/v1",
+                detector_id=detector_id,
+                detector_version="1",
+                detector_family=family,
+                execution="local",
+                score=0.8 if verdict == "ai_like" else 0.2,
+                score_semantics="test",
+                verdict=verdict,
+                threshold=0.5,
+                calibrated_ai_probability=probability,
+            )
+
+        result = family_balanced_consensus([
+            pred("a1", "transformer", "ai_like"),
+            pred("a2", "transformer", "ai_like"),
+            pred("b1", "likelihood", "human_like"),
+        ])
+        self.assertEqual(result.independent_families, 2)
+        self.assertEqual(result.verdict, "abstain")
+        self.assertEqual(len(result.family_votes), 2)
 
 
 if __name__ == "__main__":
