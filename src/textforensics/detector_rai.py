@@ -136,8 +136,11 @@ def _build_runtime(
     )
     if base_model.config.vocab_size != aligned_model.config.vocab_size:
         raise RuntimeError("RAI model pair has incompatible vocabulary sizes.")
-    if int(base_model.config.vocab_size) != len(tokenizer):
-        raise RuntimeError("RAI tokenizer/model vocabulary mismatch.")
+    # Qwen reserves model vocabulary slots that are not necessarily exposed
+    # as tokenizer entries. A smaller tokenizer is valid; only tokenizer IDs
+    # outside the model vocabulary would be unsafe.
+    if len(tokenizer) > int(base_model.config.vocab_size):
+        raise RuntimeError("RAI tokenizer vocabulary exceeds model vocabulary.")
 
     base_model.to(device)
     aligned_model.to(device)
