@@ -185,6 +185,25 @@ def validate_prediction(
     ):
         raise DetectorContractError("evidence must be a list of objects.")
 
+    forbidden_evidence_keys = {
+        "text",
+        "raw_text",
+        "source_text",
+        "document_text",
+        "content",
+        "snippet",
+        "quote",
+        "excerpt",
+    }
+    for item in prediction.evidence:
+        if any(
+            str(key).strip().lower() in forbidden_evidence_keys
+            for key in item
+        ):
+            raise DetectorContractError(
+                "Detector evidence must not embed raw source-text fields."
+            )
+
     if detector is not None:
         for attr in ("detector_id", "detector_version", "detector_family"):
             if getattr(prediction, attr) != getattr(detector, attr):

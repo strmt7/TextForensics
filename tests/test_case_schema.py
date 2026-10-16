@@ -24,6 +24,20 @@ class CaseAndSchemaTests(unittest.TestCase):
         self.assertFalse(result["valid"])
         self.assertIn("case_hash_mismatch", result["errors"])
 
+    def test_case_file_rejects_obvious_raw_text_fields(self):
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        bundle["raw_text"] = TEXT
+        with self.assertRaises(ValueError):
+            seal_case_file(bundle)
+
+    def test_case_file_rejects_raw_text_inside_detector_evidence(self):
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        bundle["detector_results"][0]["evidence"].append(
+            {"snippet": TEXT}
+        )
+        with self.assertRaises(ValueError):
+            seal_case_file(bundle)
+
     def test_packaged_schemas_are_available(self):
         detector = load_schema("detector-result")
         forensic = load_schema("forensic-bundle")

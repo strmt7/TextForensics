@@ -58,14 +58,21 @@ class ForensicBundle:
         return asdict(self)
 
 
-def _robustness_for_detector(detector: Detector, text: str) -> dict[str, Any]:
+def _robustness_for_detector(
+    detector: Detector,
+    text: str,
+    original_prediction: DetectorPrediction,
+) -> dict[str, Any]:
     probes: dict[str, Any] = {}
     scores: list[float] = []
     labels: list[str] = []
     failures: list[dict[str, Any]] = []
 
     for name, variant in benign_variants(text).items():
-        prediction, failure = execute_detector(detector, variant)
+        if name == "original":
+            prediction, failure = original_prediction, None
+        else:
+            prediction, failure = execute_detector(detector, variant)
         if failure is not None:
             failures.append({"probe": name, **failure.to_dict()})
             probes[name] = {"score": None, "verdict": "error"}
@@ -79,9 +86,9 @@ def _robustness_for_detector(detector: Detector, text: str) -> dict[str, Any]:
             scores.append(float(prediction.score))
         labels.append(prediction.verdict)
 
-    score_stability = None
+    native_score_range = None
     if len(scores) >= 2:
-        score_stability = max(0.0, 1.0 - (max(scores) - min(scores)))
+        native_score_range = max(scores) - min(scores)
 
     verdict_stability = None
     if labels:
@@ -89,8 +96,14 @@ def _robustness_for_detector(detector: Detector, text: str) -> dict[str, Any]:
 
     return {
         "detector_id": str(getattr(detector, "detector_id", "unknown")),
-        "score_stability": (
-            round(score_stability, 4) if score_stability is not None else None
+        "native_score_range": (
+            round(native_score_range, 6)
+            if native_score_range is not None
+            else None
+        ),
+        "score_range_semantics": (
+            "Raw movement in this detector's native score units; "
+            "not normalized and not comparable across detectors."
         ),
         "verdict_stability": (
             round(verdict_stability, 4) if verdict_stability is not None else None
@@ -118,9 +131,9 @@ def _integrity(
         for vote in consensus.family_votes
     )
     stability_values = [
-        float(row["score_stability"])
+        float(row["verdict_stability"])
         for row in robustness
-        if row.get("score_stability") is not None
+        if row.get("verdict_stability") is not None
     ]
     robustness_stability = (
         sum(stability_values) / len(stability_values)
@@ -164,7 +177,7 @@ def _integrity(
     if robustness_stability is not None:
         score += 0.15 * robustness_stability
         if robustness_stability < 0.9:
-            factors.append("verdict_sensitive_to_benign_normalization")
+            factors.append("categorical_verdict_sensitive_to_benign_normalization")
 
     score = min(1.0, score)
     if score >= 0.85:
@@ -228,8 +241,8 @@ def build_forensic_bundle(
             failures.append(failure)
 
     robustness = [
-        _robustness_for_detector(detector, text)
-        for detector in successful_detectors
+        _robustness_for_detector(detector, text, prediction)
+        for detector, prediction in zip(successful_detectors, predictions)
     ]
     features = extract_features(text)
     provenance = verify_ledger(ledger_path) if ledger_path else None

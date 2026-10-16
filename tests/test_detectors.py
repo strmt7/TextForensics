@@ -47,6 +47,20 @@ class FakeDetector:
         )
 
 
+class LargeScaleDetector:
+    detector_id = "fake/large-scale"
+    detector_version = "1"
+    detector_family = "large-native-scale"
+
+    def detect(self, text):
+        return prediction(
+            detector_id=self.detector_id,
+            family=self.detector_family,
+            verdict="human_like",
+            score=float(len(text) * 10),
+        )
+
+
 class FailingDetector:
     detector_id = "fake/failing"
     detector_version = "1"
@@ -80,6 +94,12 @@ class DetectorContractTests(unittest.TestCase):
         )
         validate_prediction(result)
 
+    def test_raw_text_evidence_fields_are_rejected(self):
+        result = prediction()
+        result.evidence = [{"snippet": "private source text"}]
+        with self.assertRaises(DetectorContractError):
+            validate_prediction(result)
+
     def test_detector_identity_must_match_adapter(self):
         result = prediction(detector_id="wrong")
         with self.assertRaises(DetectorContractError):
@@ -92,6 +112,22 @@ class DetectorContractTests(unittest.TestCase):
         )
         self.assertIsNotNone(failure)
         self.assertNotIn("secret submitted", failure.message)
+
+    def test_native_score_stability_is_not_normalized_implicitly(self):
+        data = build_forensic_bundle(
+            "A stable test sentence with enough variation for representation probes.",
+            detectors=[LargeScaleDetector()],
+        ).to_dict()
+        robustness = data["robustness"]["detectors"][0]
+        self.assertIn("native_score_range", robustness)
+        self.assertNotIn("score_stability", robustness)
+        self.assertGreaterEqual(robustness["native_score_range"], 0)
+        stability = next(
+            row
+            for row in data["trust_map"]["dimensions"]
+            if row["dimension"] == "benign_stability"
+        )
+        self.assertEqual(stability["state"], "supported")
 
     def test_report_survives_detector_failure(self):
         data = build_forensic_bundle(

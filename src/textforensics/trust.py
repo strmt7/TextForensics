@@ -127,8 +127,7 @@ def _stability_dimension(
     usable = [
         row
         for row in robustness
-        if row.get("score_stability") is not None
-        and row.get("verdict_stability") is not None
+        if row.get("verdict_stability") is not None
     ]
     if not usable:
         return TrustDimension(
@@ -137,16 +136,17 @@ def _stability_dimension(
             reason="No usable benign-transformation stability evidence is available.",
         )
 
-    score_floor = min(float(row["score_stability"]) for row in usable)
     verdict_floor = min(float(row["verdict_stability"]) for row in usable)
-
-    if score_floor >= 0.95 and verdict_floor == 1.0:
+    if verdict_floor == 1.0:
         state = "supported"
-        reason = "All usable detectors were stable under the current benign probes."
+        reason = (
+            "All usable detectors kept the same categorical verdict under "
+            "the current benign probes."
+        )
     else:
         state = "partial"
         reason = (
-            "At least one detector changed materially under a benign "
+            "At least one detector changed categorical verdict under a benign "
             "representation probe."
         )
 
@@ -155,11 +155,19 @@ def _stability_dimension(
         state=state,
         reason=reason,
         observed={
-            "minimum_score_stability": round(score_floor, 4),
-            "minimum_verdict_stability": round(verdict_floor, 4),
+            "detectors": [
+                {
+                    "detector_id": row.get("detector_id"),
+                    "verdict_stability": row.get("verdict_stability"),
+                    "native_score_range": row.get("native_score_range"),
+                }
+                for row in usable
+            ]
         },
         limitations=[
-            "Current probes cover representation stability, not semantic rewriting."
+            "Native score ranges remain in each detector's own units and are "
+            "not compared across detectors.",
+            "Current probes cover representation stability, not semantic rewriting.",
         ],
     )
 
