@@ -24,7 +24,7 @@ ENV PYTHONUNBUFFERED=1 \
     HOME=/tmp
 
 COPY --from=builder /wheels /wheels
-RUN python -m pip install --no-index --find-links=/wheels textforensics \
+RUN python -m pip install --no-index --find-links=/wheels "textforensics[api]" \
     && rm -rf /wheels
 
 WORKDIR /app
