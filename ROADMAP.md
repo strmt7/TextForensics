@@ -10,6 +10,7 @@
 - [x] CLI
 - [x] MCP server (optional extra)
 - [x] HTTP API (optional extra)
+- [x] zero-dependency local browser UI
 - [x] baseline JSONL benchmark and calibration commands
 
 ## v0.2 — detector interoperability and forensic bundles
