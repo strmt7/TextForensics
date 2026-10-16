@@ -67,8 +67,24 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: python -m pip install "build>=1.2,<2"
+      - run: python -m pip install "build>=1.2,<2" twine
       - run: python -m build
+      - run: python -m twine check dist/*
+      - name: Inspect wheel contents
+        run: |
+          python - <<'PY'
+          import glob
+          import zipfile
+
+          wheel = glob.glob("dist/*.whl")
+          assert len(wheel) == 1, wheel
+          with zipfile.ZipFile(wheel[0]) as archive:
+              names = archive.namelist()
+          assert any(name.endswith("schemas/case-file.schema.json") for name in names)
+          assert any(name.endswith("schemas/detector-result.schema.json") for name in names)
+          assert any(name.endswith("schemas/forensic-bundle.schema.json") for name in names)
+          assert any("/licenses/LICENSE" in name for name in names), names
+          PY
       - run: python -m pip install --force-reinstall dist/*.whl
       - run: python -m pip check
       - run: textforensics --version

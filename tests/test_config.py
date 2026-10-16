@@ -1,11 +1,14 @@
 import os
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from textforensics.config import (
     Settings,
     ensure_bind_allowed,
     is_loopback_host,
+    read_text_file,
     validate_text_input,
 )
 
@@ -56,6 +59,13 @@ class ConfigTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ensure_bind_allowed("0.0.0.0", allow_remote=False)
         ensure_bind_allowed("0.0.0.0", allow_remote=True)
+
+    def test_file_limit_is_checked_before_reading(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "large.txt"
+            path.write_bytes(b"x" * 100)
+            with self.assertRaises(ValueError):
+                read_text_file(path, max_input_bytes=64)
 
     def test_input_limit_uses_utf8_bytes(self):
         validate_text_input("é", max_input_bytes=2)

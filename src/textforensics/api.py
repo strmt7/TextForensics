@@ -51,45 +51,57 @@ def create_app(settings: Settings | None = None):
                 detail="Invalid text input.",
             ) from exc
 
-    @app.middleware("http")
-    async def request_guard_and_security_headers(request: Request, call_next):
-        if request.method in {"POST", "PUT", "PATCH"}:
-            if request.headers.get("transfer-encoding"):
-                return JSONResponse(
-                    status_code=411,
-                    content={"detail": "Streaming request bodies are not accepted."},
-                )
-            raw_length = request.headers.get("content-length")
-            if raw_length is None:
-                return JSONResponse(
-                    status_code=411,
-                    content={"detail": "Content-Length is required."},
-                )
-            try:
-                body_length = int(raw_length)
-            except ValueError:
-                return JSONResponse(
-                    status_code=400,
-                    content={"detail": "Invalid Content-Length."},
-                )
-            if body_length < 0:
-                return JSONResponse(
-                    status_code=400,
-                    content={"detail": "Invalid Content-Length."},
-                )
-            max_body_bytes = active_settings.max_input_bytes * 2 + 65_536
-            if body_length > max_body_bytes:
-                return JSONResponse(
-                    status_code=413,
-                    content={"detail": "Request body is too large."},
-                )
-
-        response = await call_next(request)
+    def secure_response(response):
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["X-TextForensics-Version"] = get_version()
         return response
+
+    @app.middleware("http")
+    async def request_guard_and_security_headers(request: Request, call_next):
+        if request.method in {"POST", "PUT", "PATCH"}:
+            if request.headers.get("transfer-encoding"):
+                return secure_response(
+                    JSONResponse(
+                        status_code=411,
+                        content={"detail": "Streaming request bodies are not accepted."},
+                    )
+                )
+            raw_length = request.headers.get("content-length")
+            if raw_length is None:
+                return secure_response(
+                    JSONResponse(
+                        status_code=411,
+                        content={"detail": "Content-Length is required."},
+                    )
+                )
+            try:
+                body_length = int(raw_length)
+            except ValueError:
+                return secure_response(
+                    JSONResponse(
+                        status_code=400,
+                        content={"detail": "Invalid Content-Length."},
+                    )
+                )
+            if body_length < 0:
+                return secure_response(
+                    JSONResponse(
+                        status_code=400,
+                        content={"detail": "Invalid Content-Length."},
+                    )
+                )
+            max_body_bytes = active_settings.max_input_bytes * 2 + 65_536
+            if body_length > max_body_bytes:
+                return secure_response(
+                    JSONResponse(
+                        status_code=413,
+                        content={"detail": "Request body is too large."},
+                    )
+                )
+
+        return secure_response(await call_next(request))
 
     @app.get("/healthz", include_in_schema=False)
     def health() -> dict[str, str]:

@@ -39,6 +39,34 @@ class ApiTests(unittest.TestCase):
         )
         self.assertEqual(response.headers["cache-control"], "no-store")
 
+    def test_oversized_content_length_is_rejected_before_parsing(self):
+        response = self.client.post(
+            "/v1/report",
+            content=b'{"text":"small"}',
+            headers={
+                "content-type": "application/json",
+                "content-length": "100000",
+            },
+        )
+        self.assertEqual(response.status_code, 413)
+        self.assertEqual(response.headers["cache-control"], "no-store")
+        self.assertEqual(
+            response.headers["x-content-type-options"],
+            "nosniff",
+        )
+
+    def test_streaming_transfer_encoding_is_rejected(self):
+        response = self.client.post(
+            "/v1/report",
+            content=b'{"text":"small"}',
+            headers={
+                "content-type": "application/json",
+                "transfer-encoding": "chunked",
+            },
+        )
+        self.assertEqual(response.status_code, 411)
+        self.assertEqual(response.headers["cache-control"], "no-store")
+
     def test_report_endpoint(self):
         response = self.client.post(
             "/v1/report",
