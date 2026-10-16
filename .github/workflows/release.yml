@@ -40,7 +40,7 @@ jobs:
       - name: Generate dependency SBOM
         run: |
           python -m pip install pip-audit
-          pip-audit --strict --format cyclonedx-json --output dist/sbom.cdx.json
+          pip-audit --strict --skip-editable --format cyclonedx-json --output dist/sbom.cdx.json
 
       - name: Create checksums
         run: sha256sum dist/* > dist/SHA256SUMS
