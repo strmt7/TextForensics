@@ -45,7 +45,7 @@ api = [
   "uvicorn>=0.30,<1",
 ]
 mcp = [
-  "mcp>=1.0",
+  "mcp>=2,<3",
 ]
 all = [
   "fastapi>=0.115,<1",

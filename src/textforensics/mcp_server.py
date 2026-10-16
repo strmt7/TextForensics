@@ -10,7 +10,7 @@ from .detectors import list_detector_health, list_detector_metadata
 
 def _server():
     try:
-        from mcp.server.fastmcp import FastMCP
+        from mcp.server import MCPServer
     except ImportError as exc:  # pragma: no cover - optional dependency
         raise SystemExit(
             "Install MCP support with: pip install 'textforensics[mcp]'"
@@ -23,7 +23,9 @@ def _server():
     from .report import build_forensic_bundle
 
     settings = Settings.from_env()
-    mcp = FastMCP("TextForensics")
+    from .version import get_version
+
+    mcp = MCPServer("TextForensics", version=get_version())
 
     def checked(text: str) -> str:
         return validate_text_input(
