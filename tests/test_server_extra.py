@@ -1,17 +1,22 @@
 from __future__ import annotations
 
+import importlib.util
 import unittest
 from unittest.mock import patch
 
 from textforensics.config import Settings
 
+# Check if optional dependencies are available
+FASTAPI_AVAILABLE = importlib.util.find_spec("fastapi") is not None
+UVICORN_AVAILABLE = importlib.util.find_spec("uvicorn") is not None
+
 
 class ServerModuleTests(unittest.TestCase):
     """Tests for server.py uncovered lines (10-19)."""
 
+    @unittest.skipUnless(FASTAPI_AVAILABLE, "fastapi not installed")
     def test_create_app_returns_fastapi_instance(self):
         """Test that create_app returns a FastAPI instance."""
-        # Import the api module which contains create_app
         from fastapi import FastAPI
 
         from textforensics.api import create_app
@@ -30,6 +35,7 @@ class ServerModuleTests(unittest.TestCase):
         self.assertIsInstance(app, FastAPI)
         self.assertEqual(app.title, "TextForensics")
 
+    @unittest.skipUnless(FASTAPI_AVAILABLE, "fastapi not installed")
     def test_create_app_with_none_settings(self):
         """Test that create_app works with None settings (uses defaults)."""
         from fastapi import FastAPI
@@ -68,6 +74,7 @@ class ServerModuleTests(unittest.TestCase):
                 # This is complex - let's simplify
                 pass
 
+    @unittest.skipUnless(UVICORN_AVAILABLE, "uvicorn not installed")
     def test_serve_api_uses_settings(self):
         """Test that serve_api accepts settings parameter."""
         from textforensics.server import serve_api
@@ -95,6 +102,7 @@ class ServerModuleTests(unittest.TestCase):
 class EnsureBindAllowedTests(unittest.TestCase):
     """Tests for ensure_bind_allowed function."""
 
+    @unittest.skipUnless(UVICORN_AVAILABLE, "uvicorn not installed")
     def test_serve_api_refuses_remote_without_opt_in(self):
         """Test that serve_api raises when binding to non-loopback without allow_remote."""
         from textforensics.server import serve_api
