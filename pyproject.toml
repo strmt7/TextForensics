@@ -1,6 +1,12 @@
 [build-system]
-requires = ["setuptools>=70"]
+# Pinned versions for reproducible builds
+requires = ["setuptools>=75,<80", "wheel>=0.45"]
 build-backend = "setuptools.build_meta"
+
+# Reproducible build configuration
+# - setuptools<80: Known stable versions for reproducible builds
+# - wheel>=0.45: Ensures consistent wheel building
+# These versions are tested for deterministic output with SOURCE_DATE_EPOCH
 
 [project]
 name = "textforensics"
