@@ -215,11 +215,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
 
     elif args.command == "audit":
         result = audit_naturalness(_read_text(args.file, settings))
-        if args.json:
-            _write_json(None, result)
-        else:
-            for item in result:
-                print(f"- {item['issue']}: {item['suggestion']}")
+        _write_json(None, result)
 
     elif args.command == "localize":
         if args.sentences < 1:
@@ -238,7 +234,10 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             _read_file_text(args.before, settings),
             _read_file_text(args.after, settings),
         )
-        _write_json(None, result.to_dict()) if args.json else print(result)
+        if args.json:
+            _write_json(None, result.to_dict())
+        else:
+            print(result)
 
     elif args.command == "snapshot":
         _write_json(None, snapshot_file(args.file, args.ledger))
