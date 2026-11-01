@@ -20,7 +20,7 @@ def TestOneInput(data: bytes) -> None:
 
     # Test verify_ledger with fuzzed input
     try:
-        from textforensics.provenance import verify_ledger, _verify_ledger_unlocked
+        from textforensics.provenance import _verify_ledger_unlocked, verify_ledger
 
         with tempfile.TemporaryDirectory() as tmpdir:
             ledger_path = Path(tmpdir) / "test_ledger.jsonl"
@@ -29,7 +29,7 @@ def TestOneInput(data: bytes) -> None:
             ledger_path.write_text(text, encoding="utf-8")
 
             try:
-                result = verify_ledger(ledger_path)
+                verify_ledger(ledger_path)
                 # Result always returned, no exception expected
             except Exception:
                 pass
@@ -39,8 +39,8 @@ def TestOneInput(data: bytes) -> None:
     # Test _verify_ledger_unlocked with individual JSON lines
     try:
         from textforensics.provenance import (
-            _verify_ledger_unlocked,
             _canonical_record_payload,
+            _verify_ledger_unlocked,
             sha256_bytes,
         )
 

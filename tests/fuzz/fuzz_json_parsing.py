@@ -5,6 +5,7 @@ Fuzz target for JSON parsing in api.py, casefile.py, benchmark.py
 
 import json
 import sys
+
 import atheris
 
 
@@ -21,7 +22,7 @@ def TestOneInput(data: bytes) -> None:
 
     # Test api.py JSON handling (TextRequest, CompareRequest)
     try:
-        from textforensics.api import TextRequest, CompareRequest
+        from textforensics.api import CompareRequest, TextRequest
 
         if "text" in parsed:
             TextRequest(text=str(parsed.get("text", "")))
@@ -32,7 +33,7 @@ def TestOneInput(data: bytes) -> None:
 
     # Test casefile.py JSON handling
     try:
-        from textforensics.casefile import verify_case_file, seal_case_file
+        from textforensics.casefile import seal_case_file, verify_case_file
 
         verify_case_file(parsed)
 
@@ -44,10 +45,10 @@ def TestOneInput(data: bytes) -> None:
 
     # Test benchmark.py JSONL line parsing
     try:
-        from textforensics.benchmark import _load_scores
-
         # Create a temporary file with this JSON line
         import tempfile
+
+        from textforensics.benchmark import _load_scores
         with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
             f.write(json.dumps(parsed) + "\n")
             temp_path = f.name

@@ -33,9 +33,9 @@ def TestOneInput(data: bytes) -> None:
 
     # Test with malformed JSON that looks like schema files
     try:
-        from textforensics.schema import load_schema
         from importlib.resources import files
-        from textforensics import schemas
+
+        from textforensics.schema import load_schema
 
         # Try various malformed payload attempts
         try:

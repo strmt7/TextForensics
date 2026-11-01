@@ -7,9 +7,7 @@ Orchestrates atheris-based fuzzing across multiple targets.
 from __future__ import annotations
 
 import argparse
-import json
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -49,6 +47,7 @@ TARGET_MODULES = {
 def load_and_run_target(module_name: str, corpus_dir: Path, artifacts_dir: Path, duration_seconds: int) -> bool:
     """Load and run a fuzz target, return True if crashes found."""
     import importlib.util
+
     import atheris
 
     # Load the target module
@@ -58,7 +57,7 @@ def load_and_run_target(module_name: str, corpus_dir: Path, artifacts_dir: Path,
     spec.loader.exec_module(module)
 
     crashes_dir = artifacts_dir / "crashes"
-    corpus_output_dir = artifacts_dir / "corpus"
+    artifacts_dir / "corpus"
     crashes_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Running fuzz target: {module_name}")
@@ -195,7 +194,6 @@ atheris.Fuzz()
 
 def simple_run_all_targets():
     """Run all targets using pytest for CI compatibility."""
-    import pytest
 
     print("Running fuzz tests via pytest...")
 
