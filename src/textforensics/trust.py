@@ -5,7 +5,6 @@ from typing import Any
 
 from .detectors import DetectorPrediction
 
-
 TRUST_STATES = {"supported", "partial", "unknown", "out_of_scope"}
 
 

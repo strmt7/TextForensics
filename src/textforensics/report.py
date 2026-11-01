@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Iterable
+from typing import Any
 
 from .consensus import family_balanced_consensus
 from .detectors import (
@@ -77,7 +78,10 @@ def _robustness_for_detector(
             failures.append({"probe": name, **failure.to_dict()})
             probes[name] = {"score": None, "verdict": "error"}
             continue
-        assert prediction is not None
+        if prediction is None:  # defensive: execute_detector pairs (prediction, None)
+            raise ValueError(
+                "Detector returned neither a prediction nor a failure."
+            )
         probes[name] = {
             "score": prediction.score,
             "verdict": prediction.verdict,
@@ -242,7 +246,7 @@ def build_forensic_bundle(
 
     robustness = [
         _robustness_for_detector(detector, text, prediction)
-        for detector, prediction in zip(successful_detectors, predictions)
+        for detector, prediction in zip(successful_detectors, predictions, strict=False)
     ]
     features = extract_features(text)
     provenance = verify_ledger(ledger_path) if ledger_path else None

@@ -4,7 +4,6 @@ import json
 from importlib.resources import files
 from typing import Any
 
-
 _SCHEMA_NAMES = {
     "detector-result": "detector-result.schema.json",
     "forensic-bundle": "forensic-bundle.schema.json",
