@@ -25,7 +25,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install pip-audit
-        run: python -m pip install pip-audit==2.8.2 --break-system-packages
+        run: python -m pip install pip-audit==2.10.1 --break-system-packages
       - name: Security audit
         run: |
           pip-audit --prefer-binary --fail-on=high || exit 1
@@ -40,7 +40,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install pip-audit
-        run: python -m pip install pip-audit==2.8.2 --break-system-packages
+        run: python -m pip install pip-audit==2.10.1 --break-system-packages
       - name: Dependency policy check
         run: pip-audit --only-binary --fail-on=severity=critical
 
