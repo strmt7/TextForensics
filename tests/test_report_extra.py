@@ -4,10 +4,11 @@ from __future__ import annotations
 import unittest
 from unittest.mock import MagicMock, patch
 
-from textforensics.detectors import DetectorPrediction
+from textforensics.detectors import DetectorFailure, DetectorPrediction
 from textforensics.report import (
     _integrity,
     _robustness_for_detector,
+    build_forensic_bundle,
 )
 
 
@@ -444,6 +445,99 @@ class RobustnessForDetectorEdgeTests(unittest.TestCase):
             # So native_score_range is None (only 1 score at most)
             self.assertIn("probes", row)
             self.assertIn("failures", row)
+
+
+class FakeFailingDetector:
+    detector_id = "fake/failing"
+    detector_version = "1"
+    detector_family = "fail-family"
+
+    def detect(self, text):
+        raise RuntimeError("boom")
+
+
+class FakeOkDetector:
+    detector_id = "fake/ok"
+    detector_version = "1"
+    detector_family = "ok-family"
+
+    def detect(self, text):
+        return DetectorPrediction(
+            schema="textforensics.detector-result/v1",
+            detector_id=self.detector_id,
+            detector_version=self.detector_version,
+            detector_family=self.detector_family,
+            execution="local",
+            score=0.5,
+            score_semantics="test",
+            verdict="ai_like",
+            threshold=0.5,
+        )
+
+
+class BuildForensicBundleDeterministicTests(unittest.TestCase):
+    """Tests for deterministic mode in build_forensic_bundle (lines 269-289)."""
+
+    def test_deterministic_with_fixed_timestamp_and_runtime_stripping(self):
+        text = (
+            "I ran this test yesterday and wrote down what changed. "
+            "The second run was warmer, so I repeated it."
+        )
+        bundle = build_forensic_bundle(
+            text,
+            detectors=[FakeOkDetector(), FakeFailingDetector()],
+            deterministic=True,
+            fixed_timestamp="2025-03-03T08:00:00+00:00",
+        )
+        self.assertEqual(bundle.generated_at_utc, "2025-03-03T08:00:00+00:00")
+        for result in bundle.detector_results:
+            self.assertNotIn("runtime_ms", result)
+        for failure in bundle.detector_failures:
+            self.assertNotIn("runtime_ms", failure)
+        for rob in bundle.robustness["detectors"]:
+            for f in rob["failures"]:
+                self.assertNotIn("runtime_ms", f)
+        self.assertTrue(len(bundle.detector_failures) >= 1)
+
+    def test_non_deterministic_keeps_runtime_ms(self):
+        text = (
+            "I ran this test yesterday and wrote down what changed. "
+            "The second run was warmer, so I repeated it."
+        )
+        bundle = build_forensic_bundle(
+            text,
+            detectors=[FakeOkDetector(), FakeFailingDetector()],
+            deterministic=False,
+        )
+        self.assertIn("runtime_ms", bundle.detector_results[0])
+        self.assertIn("runtime_ms", bundle.detector_failures[0])
+
+    def test_deterministic_timestamp_is_reproducible(self):
+        text = (
+            "I ran this test yesterday and wrote down what changed. "
+            "The second run was warmer, so I repeated it."
+        )
+        b1 = build_forensic_bundle(
+            text, detectors=[FakeOkDetector()], deterministic=True,
+            fixed_timestamp="2025-01-01T00:00:00+00:00",
+        )
+        b2 = build_forensic_bundle(
+            text, detectors=[FakeOkDetector()], deterministic=True,
+            fixed_timestamp="2025-01-01T00:00:00+00:00",
+        )
+        self.assertEqual(b1.generated_at_utc, b2.generated_at_utc)
+        self.assertNotIn("runtime_ms", b1.detector_results[0])
+
+    def test_deterministic_without_fixed_timestamp_uses_now(self):
+        text = (
+            "I ran this test yesterday and wrote down what changed. "
+            "The second run was warmer, so I repeated it."
+        )
+        bundle = build_forensic_bundle(
+            text, detectors=[FakeOkDetector()], deterministic=True,
+        )
+        self.assertIn("T", bundle.generated_at_utc)
+        self.assertNotIn("runtime_ms", bundle.detector_results[0])
 
 
 if __name__ == "__main__":
