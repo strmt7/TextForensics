@@ -28,7 +28,7 @@ jobs:
         run: python -m pip install pip-audit --break-system-packages
       - name: Security audit
         run: |
-          pip-audit --exit-code=high || exit 1
+          pip-audit || exit 1
 
   dependencies:
     name: Dependency policy
@@ -42,7 +42,7 @@ jobs:
       - name: Install pip-audit
         run: python -m pip install pip-audit --break-system-packages
       - name: Dependency policy check
-        run: pip-audit --exit-code=severity=critical || exit 1
+        run: pip-audit || exit 1
 
   secrets:
     name: Full-history secret scan
