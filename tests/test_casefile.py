@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -9,6 +10,7 @@ from textforensics.casefile import (
     CASE_SCHEMA,
     _forbidden_paths,
     _hash_without_seal,
+    _strip_runtime_ms_from_bundle,
     canonical_json_bytes,
     seal_case_file,
     verify_case_file,
@@ -194,6 +196,175 @@ class BundleValidationTests(unittest.TestCase):
         bundle["input"]["raw_text_included"] = True
         with self.assertRaises(ValueError):
             seal_case_file(bundle)
+
+
+class StripRuntimeMsTests(unittest.TestCase):
+    """Tests for _strip_runtime_ms_from_bundle."""
+
+    def test_strip_runtime_ms_from_detector_results(self):
+        bundle = {
+            "schema": "textforensics.forensic-bundle/v1",
+            "content_sha256": "a" * 64,
+            "detector_results": [
+                {"detector_id": "d1", "runtime_ms": 12.3, "score": 0.8},
+                {"detector_id": "d2", "runtime_ms": 45.6, "score": 0.5},
+            ],
+            "detector_failures": [],
+        }
+        result = _strip_runtime_ms_from_bundle(bundle)
+        for r in result["detector_results"]:
+            self.assertNotIn("runtime_ms", r)
+        self.assertEqual(result["detector_results"][0]["score"], 0.8)
+        # Original untouched
+        self.assertEqual(bundle["detector_results"][0]["runtime_ms"], 12.3)
+
+    def test_strip_runtime_ms_from_detector_failures(self):
+        bundle = {
+            "schema": "textforensics.forensic-bundle/v1",
+            "content_sha256": "a" * 64,
+            "detector_results": [],
+            "detector_failures": [
+                {"detector_id": "d1", "runtime_ms": 1.0, "error_type": "RuntimeError"},
+            ],
+        }
+        result = _strip_runtime_ms_from_bundle(bundle)
+        self.assertNotIn("runtime_ms", result["detector_failures"][0])
+        self.assertEqual(result["detector_failures"][0]["error_type"], "RuntimeError")
+
+    def test_strip_runtime_ms_handles_missing_fields(self):
+        bundle = {
+            "schema": "textforensics.forensic-bundle/v1",
+            "content_sha256": "a" * 64,
+        }
+        result = _strip_runtime_ms_from_bundle(bundle)
+        self.assertNotIn("detector_results", result)
+        self.assertNotIn("detector_failures", result)
+
+    def test_strip_runtime_ms_handles_non_dict_entries(self):
+        bundle = {
+            "schema": "textforensics.forensic-bundle/v1",
+            "content_sha256": "a" * 64,
+            "detector_results": ["not-a-dict", {"detector_id": "d1", "runtime_ms": 1.0}],
+            "detector_failures": [],
+        }
+        result = _strip_runtime_ms_from_bundle(bundle)
+        self.assertNotIn("runtime_ms", result["detector_results"][1])
+
+
+class DeterministicSealTests(unittest.TestCase):
+    """Tests for seal_case_file and write_case_file in deterministic mode."""
+
+    def test_seal_deterministic_strips_runtime_ms(self):
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        # Ensure runtime_ms is present in detector_results
+        for r in bundle["detector_results"]:
+            r["runtime_ms"] = 1.0
+        for f in bundle["detector_failures"]:
+            f["runtime_ms"] = 1.0
+        case = seal_case_file(bundle, deterministic=True)
+        for r in case["forensic_bundle"]["detector_results"]:
+            self.assertNotIn("runtime_ms", r)
+        for f in case["forensic_bundle"]["detector_failures"]:
+            self.assertNotIn("runtime_ms", f)
+
+    def test_seal_deterministic_with_fixed_timestamp(self):
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        case = seal_case_file(
+            bundle, deterministic=True, fixed_timestamp="2025-01-01T00:00:00+00:00"
+        )
+        self.assertEqual(
+            case["forensic_bundle"]["generated_at_utc"], "2025-01-01T00:00:00+00:00"
+        )
+
+    def test_seal_deterministic_without_fixed_timestamp_keeps_generated(self):
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        case = seal_case_file(bundle, deterministic=True)
+        self.assertIn("generated_at_utc", case["forensic_bundle"])
+
+    def test_seal_non_deterministic_preserves_runtime_ms(self):
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        for r in bundle["detector_results"]:
+            r["runtime_ms"] = 1.0
+        case = seal_case_file(bundle, deterministic=False)
+        for r in case["forensic_bundle"]["detector_results"]:
+            self.assertIn("runtime_ms", r)
+
+    def test_write_case_file_deterministic_with_fixed_timestamp(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "case.json"
+            bundle = build_forensic_bundle(TEXT).to_dict()
+            for r in bundle["detector_results"]:
+                r["runtime_ms"] = 1.0
+            case = write_case_file(
+                path,
+                bundle,
+                deterministic=True,
+                fixed_timestamp="2025-06-01T12:00:00+00:00",
+            )
+            self.assertTrue(path.exists())
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                payload["forensic_bundle"]["generated_at_utc"],
+                "2025-06-01T12:00:00+00:00",
+            )
+            for r in payload["forensic_bundle"]["detector_results"]:
+                self.assertNotIn("runtime_ms", r)
+            self.assertEqual(payload["case_sha256"], case["case_sha256"])
+
+    def test_write_case_file_deterministic_reproducible(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path1 = Path(tmp) / "case1.json"
+            path2 = Path(tmp) / "case2.json"
+            bundle = build_forensic_bundle(TEXT).to_dict()
+            c1 = write_case_file(path1, bundle, deterministic=True, fixed_timestamp="2025-01-01T00:00:00+00:00")
+            c2 = write_case_file(path2, bundle, deterministic=True, fixed_timestamp="2025-01-01T00:00:00+00:00")
+            self.assertEqual(c1["case_sha256"], c2["case_sha256"])
+
+    def test_write_case_file_cleans_up_temp_file_on_failure(self):
+        # Lines 204-207: finally block unlinks the temp file if os.replace fails.
+        import unittest.mock as mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "case.json"
+            bundle = build_forensic_bundle(TEXT).to_dict()
+            real_replace = os.replace
+
+            def failing_replace(src, dst):
+                real_replace(src, dst)
+                raise OSError("simulated replace failure")
+
+            with mock.patch("textforensics.casefile.os.replace", side_effect=failing_replace):
+                with self.assertRaises(OSError):
+                    write_case_file(path, bundle)
+
+            # No stray temp files remain in the directory
+            leftovers = [p for p in Path(tmp).iterdir() if p.name != path.name]
+            self.assertEqual(leftovers, [])
+            # The original path was replaced before the failure, so the case file exists
+            self.assertTrue(path.exists())
+
+    def test_write_case_file_cleans_up_temp_file_on_failure(self):
+        # Lines 204-207: finally block unlinks the temp file if os.replace fails.
+        import unittest.mock as mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "case.json"
+            bundle = build_forensic_bundle(TEXT).to_dict()
+            real_replace = os.replace
+
+            def failing_replace(src, dst):
+                real_replace(src, dst)
+                raise OSError("simulated replace failure")
+
+            with mock.patch("textforensics.casefile.os.replace", side_effect=failing_replace):
+                with self.assertRaises(OSError):
+                    write_case_file(path, bundle)
+
+            # No stray temp files remain in the directory
+            leftovers = [p for p in Path(tmp).iterdir() if p.name != path.name]
+            self.assertEqual(leftovers, [])
+            # The original path was replaced before the failure, so the case file exists
+            self.assertTrue(path.exists())
 
 
 class HashWithoutSealTests(unittest.TestCase):

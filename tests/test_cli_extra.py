@@ -12,6 +12,7 @@ from textforensics.cli import (
     _pretty_analysis,
     _read_text,
     _settings_with_overrides,
+    _strip_runtime_ms,
     build_parser,
     main,
 )
@@ -196,6 +197,180 @@ class TestBenchmarkThreshold(unittest.TestCase):
             payload = json.loads(output)
             # When using --threshold (implicit default 0.5) without calibration
             self.assertEqual(payload["mode"], "diagnostic_fixed_threshold")
+
+
+class TestStripRuntimeMs(unittest.TestCase):
+    """Tests for _strip_runtime_ms helper (lines 80-90)."""
+
+    def test_strip_runtime_ms_removes_from_results_and_failures(self):
+        data = {
+            "detector_results": [
+                {"detector_id": "d1", "runtime_ms": 1.0},
+                {"detector_id": "d2", "runtime_ms": 2.0},
+            ],
+            "detector_failures": [
+                {"detector_id": "d3", "runtime_ms": 3.0, "error_type": "RuntimeError"},
+            ],
+        }
+        result = _strip_runtime_ms(data)
+        for r in result["detector_results"]:
+            self.assertNotIn("runtime_ms", r)
+        for f in result["detector_failures"]:
+            self.assertNotIn("runtime_ms", f)
+
+    def test_strip_runtime_ms_noop_without_fields(self):
+        data = {"schema": "x"}
+        result = _strip_runtime_ms(data)
+        self.assertEqual(result, data)
+
+    def test_strip_runtime_ms_handles_non_dict_entries(self):
+        data = {"detector_results": ["not-a-dict"], "detector_failures": []}
+        result = _strip_runtime_ms(data)
+        self.assertEqual(result["detector_results"], ["not-a-dict"])
+
+
+class TestScanDeterministic(unittest.TestCase):
+    """Tests for scan --deterministic (line 232)."""
+
+    def test_scan_deterministic_json_strips_runtime_ms(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            text_file = Path(tmp) / "input.txt"
+            text_file.write_text(FORMULAIC, encoding="utf-8")
+
+            from textforensics.cli import _run, build_parser
+            parser = build_parser()
+            args = parser.parse_args(['scan', '--file', str(text_file), '--json', '--deterministic'])
+
+            old_stdout = sys.stdout
+            old_stderr = sys.stderr
+            sys.stdout = StringIO()
+            sys.stderr = StringIO()
+            try:
+                from textforensics.config import Settings
+                result = _run(args, Settings())
+                output = sys.stdout.getvalue()
+            finally:
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
+
+            self.assertEqual(result, 0)
+            payload = json.loads(output)
+            for r in payload.get("detector_results", []):
+                self.assertNotIn("runtime_ms", r)
+            for f in payload.get("detector_failures", []):
+                self.assertNotIn("runtime_ms", f)
+
+
+class TestReportDeterministic(unittest.TestCase):
+    """Tests for report --deterministic (line 309)."""
+
+    def test_report_deterministic_with_fixed_timestamp(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            text_file = Path(tmp) / "input.txt"
+            out_file = Path(tmp) / "bundle.json"
+            text_file.write_text(FORMULAIC, encoding="utf-8")
+
+            from textforensics.cli import _run, build_parser
+            parser = build_parser()
+            args = parser.parse_args([
+                'report',
+                '--file', str(text_file),
+                '--output', str(out_file),
+                '--deterministic',
+                '--fixed-timestamp', '2025-01-01T00:00:00+00:00',
+            ])
+
+            old_stdout = sys.stdout
+            old_stderr = sys.stderr
+            sys.stdout = StringIO()
+            sys.stderr = StringIO()
+            try:
+                from textforensics.config import Settings
+                result = _run(args, Settings())
+            finally:
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
+
+            self.assertEqual(result, 0)
+            payload = json.loads(out_file.read_text(encoding="utf-8"))
+            self.assertEqual(payload["generated_at_utc"], "2025-01-01T00:00:00+00:00")
+            for r in payload.get("detector_results", []):
+                self.assertNotIn("runtime_ms", r)
+            for f in payload.get("detector_failures", []):
+                self.assertNotIn("runtime_ms", f)
+
+
+class TestCaseExportDeterministic(unittest.TestCase):
+    """Tests for case export --deterministic (lines 322-323)."""
+
+    def test_case_export_deterministic_with_fixed_timestamp(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            text_file = Path(tmp) / "input.txt"
+            out_file = Path(tmp) / "case.json"
+            text_file.write_text(FORMULAIC, encoding="utf-8")
+
+            from textforensics.cli import _run, build_parser
+            parser = build_parser()
+            args = parser.parse_args([
+                'case', 'export',
+                '--file', str(text_file),
+                '--output', str(out_file),
+                '--deterministic',
+                '--fixed-timestamp', '2025-02-02T10:00:00+00:00',
+            ])
+
+            old_stdout = sys.stdout
+            old_stderr = sys.stderr
+            sys.stdout = StringIO()
+            sys.stderr = StringIO()
+            try:
+                from textforensics.config import Settings
+                result = _run(args, Settings())
+            finally:
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
+
+            self.assertEqual(result, 0)
+            payload = json.loads(out_file.read_text(encoding="utf-8"))
+            self.assertEqual(
+                payload["forensic_bundle"]["generated_at_utc"],
+                "2025-02-02T10:00:00+00:00",
+            )
+            for r in payload["forensic_bundle"].get("detector_results", []):
+                self.assertNotIn("runtime_ms", r)
+            for f in payload["forensic_bundle"].get("detector_failures", []):
+                self.assertNotIn("runtime_ms", f)
+
+    def test_case_export_deterministic_is_reproducible(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            text_file = Path(tmp) / "input.txt"
+            out1 = Path(tmp) / "case1.json"
+            out2 = Path(tmp) / "case2.json"
+            text_file.write_text(FORMULAIC, encoding="utf-8")
+
+            from textforensics.cli import _run, build_parser
+            from textforensics.config import Settings
+            parser = build_parser()
+
+            for out in (out1, out2):
+                args = parser.parse_args([
+                    'case', 'export',
+                    '--file', str(text_file),
+                    '--output', str(out),
+                    '--deterministic',
+                    '--fixed-timestamp', '2025-02-02T10:00:00+00:00',
+                ])
+                old_stdout, old_stderr = sys.stdout, sys.stderr
+                sys.stdout, sys.stderr = StringIO(), StringIO()
+                try:
+                    self.assertEqual(_run(args, Settings()), 0)
+                finally:
+                    sys.stdout, sys.stderr = old_stdout, old_stderr
+
+            self.assertEqual(
+                json.loads(out1.read_text(encoding="utf-8"))["case_sha256"],
+                json.loads(out2.read_text(encoding="utf-8"))["case_sha256"],
+            )
 
 
 class TestServeParser(unittest.TestCase):

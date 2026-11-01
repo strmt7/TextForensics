@@ -87,6 +87,63 @@ class TestRequestBodyTooLarge(unittest.TestCase):
 class TestServeFunction(unittest.TestCase):
     """Tests for serve() function (lines 203-217)."""
 
+    def test_serve_runs_and_shuts_down_on_interrupt(self):
+        """Serve binds, prints the UI URL, and closes cleanly on KeyboardInterrupt."""
+        import io
+        import unittest.mock as mock
+
+        from textforensics.webapp import serve
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+        sock.close()
+
+        stdout = io.StringIO()
+
+        def interrupting_serve_forever(self, *args, **kwargs):
+            raise KeyboardInterrupt
+
+        with mock.patch("sys.stdout", stdout), mock.patch(
+            "textforensics.webapp.webbrowser.open"
+        ), mock.patch.object(
+            TextForensicsHTTPServer, "serve_forever", interrupting_serve_forever
+        ):
+            # open_browser=True covers the timer line; the browser itself is mocked
+            serve("127.0.0.1", port, open_browser=True, allow_remote=False)
+
+        output = stdout.getvalue()
+        self.assertIn(f"http://127.0.0.1:{port}/", output)
+        self.assertIn("Press Ctrl+C to stop.", output)
+
+    def test_serve_warns_when_network_visible(self):
+        """Non-loopback host with allow_remote=True prints the network warning (line 205)."""
+        import io
+        import unittest.mock as mock
+
+        from textforensics.webapp import serve
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+        sock.close()
+
+        stdout = io.StringIO()
+
+        def interrupting_serve_forever(self, *args, **kwargs):
+            raise KeyboardInterrupt
+
+        with mock.patch("sys.stdout", stdout), mock.patch(
+            "textforensics.webapp.webbrowser.open"
+        ), mock.patch.object(
+            TextForensicsHTTPServer, "serve_forever", interrupting_serve_forever
+        ):
+            serve("0.0.0.0", port, open_browser=False, allow_remote=True)
+
+        output = stdout.getvalue()
+        self.assertIn("network-visible browser UI", output)
+        self.assertIn(f"http://127.0.0.1:{port}/", output)
+
     def test_serve_prints_url(self):
         """Test that serve() can start and print URL (lines 203-204).
 
