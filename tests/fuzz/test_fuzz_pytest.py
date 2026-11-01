@@ -191,3 +191,84 @@ class TestTrustMapComputation:
             TestOneInput(input_data)
         except ImportError:
             pass
+
+
+# ============================================================================
+# Engine Analysis Tests (engine.py)
+# ============================================================================
+
+class TestEngineAnalysis:
+    """Fuzz tests for engine.analysis functions."""
+
+    @pytest.mark.parametrize("input_data", [
+        pytest.param(b"", id="empty"),
+        pytest.param(b"test", id="simple"),
+        pytest.param(b"x" * 100, id="short"),
+        pytest.param(b"x" * 1000, id="medium"),
+        pytest.param(b"x" * 10000, id="long"),
+        pytest.param(b"\x00\x01\x02", id="control_chars"),
+        pytest.param("🚀🌟🎉💯".encode(), id="emoji"),
+        pytest.param(b"A" * 5000, id="substantial"),
+        pytest.param("Text with\nmany\nlines\nand\ttabs.\n\n\nMore paragraphs.".encode(), id="multi_paragraph"),
+    ])
+    def test_engine_analysis(self, input_data):
+        """Test engine analysis functions."""
+        try:
+            from tests.fuzz.fuzz_engine_analysis import TestOneInput
+            TestOneInput(input_data)
+        except ImportError:
+            pass
+
+
+# ============================================================================
+# API Validation Tests (api.py)
+# ============================================================================
+
+class TestApiValidation:
+    """Fuzz tests for API validation middleware."""
+
+    @pytest.mark.parametrize("input_data", [
+        pytest.param(b"", id="empty"),
+        pytest.param(b"test", id="simple"),
+        pytest.param(b"x" * 100, id="short"),
+        pytest.param(b"x" * 1000, id="medium"),
+        pytest.param(b"x" * 10000, id="long"),
+        pytest.param(b"\x00\x01\x02", id="control_chars"),
+        pytest.param("🚀🌟🎉".encode(), id="emoji"),
+        pytest.param(b'{"text":"test"}', id="json_request"),
+        pytest.param(b'{"text":"' + b"x" * 10000 + b'"}', id="oversized_json"),
+    ])
+    def test_api_validation(self, input_data):
+        """Test API request validation."""
+        try:
+            from tests.fuzz.fuzz_api_validation import TestOneInput
+            TestOneInput(input_data)
+        except ImportError:
+            pass
+
+
+# ============================================================================
+# Detector Registry Tests (detectors.py)
+# ============================================================================
+
+class TestDetectorRegistryFuzz:
+    """Fuzz tests for detector registry and plugin discovery."""
+
+    @pytest.mark.parametrize("input_data", [
+        pytest.param(b"", id="empty"),
+        pytest.param(b"test", id="simple"),
+        pytest.param(b"x" * 100, id="short"),
+        pytest.param(b"x" * 1000, id="medium"),
+        pytest.param(b"x" * 10000, id="long"),
+        pytest.param(b"\x00\x01\x02", id="control_chars"),
+        pytest.param("🚀🌟🎉".encode(), id="emoji"),
+        pytest.param(b"textforensics/builtin-heuristic", id="builtin_id"),
+        pytest.param(("a" * 200).encode(), id="long_id"),
+    ])
+    def test_detector_registry(self, input_data):
+        """Test detector registry discovery with fuzzed inputs."""
+        try:
+            from tests.fuzz.fuzz_detector_registry import TestOneInput
+            TestOneInput(input_data)
+        except ImportError:
+            pass
