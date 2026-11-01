@@ -217,6 +217,8 @@ def build_forensic_bundle(
     *,
     detectors: Iterable[Detector] | None = None,
     ledger_path: str | None = None,
+    deterministic: bool = False,
+    fixed_timestamp: str | None = None,
 ) -> ForensicBundle:
     if not isinstance(text, str) or not text.strip():
         raise ValueError("Text must not be empty.")
@@ -263,6 +265,12 @@ def build_forensic_bundle(
         robustness,
     )
 
+    # Deterministic timestamp for reproducible outputs
+    if deterministic and fixed_timestamp:
+        generated_at_utc = fixed_timestamp
+    else:
+        generated_at_utc = datetime.now(timezone.utc).isoformat()
+
     limitations = [
         (
             "Text-only detector evidence is not proof of authorship. False "
@@ -289,7 +297,7 @@ def build_forensic_bundle(
 
     return ForensicBundle(
         schema="textforensics.forensic-bundle/v1",
-        generated_at_utc=datetime.now(timezone.utc).isoformat(),
+        generated_at_utc=generated_at_utc,
         content_sha256=text_sha256(text),
         input={
             "word_count": features["word_count"],

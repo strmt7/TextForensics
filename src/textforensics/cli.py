@@ -160,6 +160,8 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--file", "-f")
     report.add_argument("--ledger")
     report.add_argument("--output", "-o")
+    report.add_argument("--deterministic", action="store_true", help="Use fixed timestamp for reproducible output")
+    report.add_argument("--fixed-timestamp", help="Fixed ISO timestamp for reproducible output")
 
     case = sub.add_parser("case", help="Export or verify a sealed case file.")
     case_sub = case.add_subparsers(dest="case_command", required=True)
@@ -167,6 +169,8 @@ def build_parser() -> argparse.ArgumentParser:
     case_export.add_argument("--file", "-f")
     case_export.add_argument("--ledger")
     case_export.add_argument("--output", "-o", required=True)
+    case_export.add_argument("--deterministic", action="store_true", help="Use fixed timestamp for reproducible output")
+    case_export.add_argument("--fixed-timestamp", help="Fixed ISO timestamp for reproducible output")
     case_verify = case_sub.add_parser("verify", help="Verify case-file integrity.")
     case_verify.add_argument("case_file")
 
@@ -280,6 +284,8 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         bundle = build_forensic_bundle(
             _read_text(args.file, settings),
             ledger_path=args.ledger,
+            deterministic=args.deterministic,
+            fixed_timestamp=args.fixed_timestamp,
         )
         _write_json(args.output, bundle.to_dict())
 
@@ -288,8 +294,10 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             bundle = build_forensic_bundle(
                 _read_text(args.file, settings),
                 ledger_path=args.ledger,
+                deterministic=args.deterministic,
+                fixed_timestamp=args.fixed_timestamp,
             )
-            write_case_file(args.output, bundle.to_dict())
+            write_case_file(args.output, bundle.to_dict(), deterministic=args.deterministic, fixed_timestamp=args.fixed_timestamp)
             print(args.output)
         else:
             result = verify_case_file_path(args.case_file)

@@ -87,9 +87,19 @@ def _validate_portable_bundle(bundle: Mapping[str, Any]) -> None:
         )
 
 
-def seal_case_file(forensic_bundle: Mapping[str, Any]) -> dict[str, Any]:
+def seal_case_file(
+    forensic_bundle: Mapping[str, Any],
+    deterministic: bool = False,
+    fixed_timestamp: str | None = None,
+) -> dict[str, Any]:
     bundle = deepcopy(dict(forensic_bundle))
     _validate_portable_bundle(bundle)
+    
+    # Handle deterministic timestamp
+    if deterministic and fixed_timestamp:
+        bundle = dict(bundle)
+        bundle["generated_at_utc"] = fixed_timestamp
+    
     case = {
         "schema": CASE_SCHEMA,
         "tool": {
@@ -145,8 +155,10 @@ def verify_case_file(payload: Mapping[str, Any]) -> dict[str, Any]:
 def write_case_file(
     path: str | Path,
     forensic_bundle: Mapping[str, Any],
+    deterministic: bool = False,
+    fixed_timestamp: str | None = None,
 ) -> dict[str, Any]:
-    case = seal_case_file(forensic_bundle)
+    case = seal_case_file(forensic_bundle, deterministic=deterministic, fixed_timestamp=fixed_timestamp)
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     rendered = (
