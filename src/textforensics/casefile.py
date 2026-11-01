@@ -61,19 +61,19 @@ def _forbidden_paths(value: Any, path: str = "$") -> list[str]:
 def _strip_runtime_ms_from_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
     """Remove runtime_ms from all detector results and failures in the bundle."""
     bundle = deepcopy(bundle)
-    
+
     # Strip runtime_ms from detector_results
     if "detector_results" in bundle and isinstance(bundle["detector_results"], list):
         for result in bundle["detector_results"]:
             if isinstance(result, dict):
                 result.pop("runtime_ms", None)
-    
+
     # Strip runtime_ms from detector_failures
     if "detector_failures" in bundle and isinstance(bundle["detector_failures"], list):
         for failure in bundle["detector_failures"]:
             if isinstance(failure, dict):
                 failure.pop("runtime_ms", None)
-    
+
     return bundle
 
 
