@@ -5,7 +5,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 TEXT = (
     "I ran this test yesterday. The first result looked odd, so I "
     "changed one cable, repeated it, and wrote down the second result."

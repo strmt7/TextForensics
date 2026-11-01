@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from contextlib import suppress
 from typing import Any
 
 from .casefile import seal_case_file
@@ -5,17 +8,26 @@ from .config import Settings, validate_text_input
 from .detectors import list_detector_health, list_detector_metadata
 from .version import get_version
 
+try:
+    from fastapi import FastAPI, HTTPException, Request
+    from fastapi.responses import JSONResponse
+    from pydantic import BaseModel
+except ImportError as exc:  # pragma: no cover - optional dependency
+    raise RuntimeError(
+        "Install API support with: pip install 'textforensics[api]'"
+    ) from exc
+
+
+class TextRequest(BaseModel):
+    text: str
+
+
+class CompareRequest(BaseModel):
+    before: str
+    after: str
+
 
 def create_app(settings: Settings | None = None):
-    try:
-        from fastapi import FastAPI, HTTPException, Request
-        from fastapi.responses import JSONResponse
-        from pydantic import BaseModel
-    except ImportError as exc:  # pragma: no cover - optional dependency
-        raise RuntimeError(
-            "Install API support with: pip install 'textforensics[api]'"
-        ) from exc
-
     from .compare import compare_texts
     from .engine import analyze_text
     from .naturalness import audit_naturalness
@@ -30,13 +42,6 @@ def create_app(settings: Settings | None = None):
         ),
     )
     app.state.textforensics_settings = active_settings
-
-    class TextRequest(BaseModel):
-        text: str
-
-    class CompareRequest(BaseModel):
-        before: str
-        after: str
 
     def checked(text: str) -> str:
         try:
@@ -149,7 +154,6 @@ def create_app(settings: Settings | None = None):
 
 
 app = None
-try:  # Lets `uvicorn textforensics.api:app` work when extras are installed.
+# Lets `uvicorn textforensics.api:app` work when extras are installed.
+with suppress(RuntimeError, ValueError):
     app = create_app()
-except (RuntimeError, ValueError):
-    pass

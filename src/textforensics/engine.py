@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import statistics
 
 from .analyzers import run_builtin_analyzers
@@ -12,7 +13,7 @@ def _weighted_score(results: list[AnalyzerResult]) -> float:
     weights = [max(0.05, result.reliability) for result in results]
     return sum(
         result.score * weight
-        for result, weight in zip(results, weights)
+        for result, weight in zip(results, weights, strict=False)
     ) / sum(weights)
 
 
@@ -34,6 +35,10 @@ def _base_score(
 
 
 def _verdict(score: float, diagnostic_reliability: float) -> str:
+    if not math.isfinite(float(score)):
+        raise ValueError("score must be finite.")
+    if not math.isfinite(float(diagnostic_reliability)):
+        raise ValueError("diagnostic_reliability must be finite.")
     if diagnostic_reliability < 0.28:
         return "insufficient_evidence"
     if score >= 0.68:
