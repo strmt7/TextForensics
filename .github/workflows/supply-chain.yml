@@ -69,7 +69,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Generate Python SBOM
-        uses: anchore/sbom-action@v0.21.2
+        uses: anchore/sbom-action@v5.0.0
         with:
           path: .
           format: syft-json
