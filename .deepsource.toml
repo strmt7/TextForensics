@@ -7,5 +7,17 @@ language = { name = "python", version = "3.11" }
 [analyzers.meta]
 runtime_version = "3.11"
 
+[[analyzers]]
+name = "security"
+language = { name = "python" }
+
+[[analyzers]]
+name = "secrets"
+language = { name = "python" }
+
+[[analyzers]]
+name = "test-coverage"
+language = { name = "python" }
+
 [[infrastructure]]
 name = "github-actions"
