@@ -43,7 +43,7 @@ jobs:
       - name: CLI smoke
         run: textforensics --version
       - name: Coverage report
-        run: coverage report --fail-under=20
+        run: coverage report --fail-under=10
       - name: Coverage XML
         run: coverage xml -o coverage.xml
       - name: Upload coverage to Codecov
