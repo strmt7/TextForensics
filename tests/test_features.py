@@ -46,6 +46,11 @@ class HelperTests(unittest.TestCase):
     def test_cv_returns_zero_for_constant_values(self):
         self.assertAlmostEqual(_cv([3, 3, 3]), 0.0)
 
+    def test_cv_returns_zero_for_zero_mean(self):
+        # Line 38: return 0.0 when mean is zero
+        # Values [-1, 1] have mean 0
+        self.assertEqual(_cv([-1, 1]), 0.0)
+
     def test_cv_is_positive_for_varying_values(self):
         self.assertGreater(_cv([1, 2, 3]), 0.0)
 
@@ -129,6 +134,12 @@ class FeatureExtractionTests(unittest.TestCase):
     def test_unicode_text_is_accepted(self):
         f = extract_features("Café naïve résumé. Héllo wörld!")
         self.assertGreater(f["word_count"], 0)
+
+    def test_text_without_sentence_punctuation_treated_as_single_sentence(self):
+        # Line 65: sentences = [clean] when no sentences but clean text exists
+        f = extract_features("just words without punctuation")
+        self.assertEqual(f["sentence_count"], 1)
+        self.assertEqual(f["word_count"], 4)
 
 
 if __name__ == "__main__":

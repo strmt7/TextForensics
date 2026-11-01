@@ -226,6 +226,33 @@ class CliInProcessTests(unittest.TestCase):
         code, out, err = self._run_main(["scan", "--json"], stdin="hi")
         self.assertEqual(code, 0, err)
 
+    def test_scan_pretty_analysis_output(self):
+        # Run scan without --json to test _pretty_analysis output (lines 60-77)
+        code, out, err = self._run_main(["scan"], stdin="hi")
+        self.assertEqual(code, 0, err)
+        self.assertIn("TextForensics", out)
+        self.assertIn("Verdict", out)
+        self.assertIn("Pattern score", out)
+        self.assertIn("Warnings", out)
+
+    def test_read_text_no_file_stdin_tty(self):
+        # Line 35: _read_text raises ValueError when no --file and stdin is a tty
+        import unittest.mock as mock
+        with mock.patch.object(sys.stdin, 'isatty', return_value=True):
+            code, out, err = self._run_main(["scan"])
+            self.assertEqual(code, 2, out)
+            self.assertIn("Provide --file or pipe text through stdin", err)
+
+    def test_localize_sentences_zero(self):
+        # Line 222: localize with --sentences 0 raises ValueError
+        import unittest.mock as mock
+        # Patch _read_text to return valid text (localize uses --file or stdin)
+        with mock.patch('textforensics.cli._read_text', return_value="test text"):
+            with mock.patch('textforensics.cli.localize_text', return_value=[]):
+                code, out, err = self._run_main(["localize", "--sentences", "0"])
+                self.assertEqual(code, 2, out)
+                self.assertIn("--sentences must be at least 1", err)
+
 
 class CliParserTests(unittest.TestCase):
     def test_parser_has_all_subcommands(self):

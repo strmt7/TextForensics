@@ -81,6 +81,23 @@ class ConsensusContractTests(unittest.TestCase):
             any("separately" in warning.lower() for warning in result.warnings)
         )
 
+    def test_family_with_probability_and_without_probability_warns(self):
+        # Line 57: Warning when a family has mixed probability availability
+        # (multiple predictions, at least one with probability, but not all)
+        result = family_balanced_consensus(
+            [
+                prediction("a1", "transformer", "ai_like", probability=0.9, calibration_id="a1-cal"),
+                prediction("a2", "transformer", "human_like"),  # No probability
+                prediction("b1", "likelihood", "ai_like"),
+            ]
+        )
+        # No ensemble probability since only one family has votes
+        self.assertIsNone(result.calibrated_ai_probability)
+        # Should have warning about probability not being fused
+        self.assertTrue(
+            any("probability" in w.lower() for w in result.warnings)
+        )
+
     def test_top_level_probability_requires_ensemble_calibration(self):
         with self.assertRaises(ValueError):
             family_balanced_consensus(

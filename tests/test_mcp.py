@@ -95,6 +95,26 @@ class McpServerTests(unittest.TestCase):
                 sentences_per_segment=0,
             )
 
+    def test_localize_tool_rejects_negative_segment_size(self):
+        # Line 78: ValueError when sentences_per_segment < 1
+        with self.assertRaises(Exception):
+            self._call(
+                "localize_text_patterns",
+                text="A test sentence for localization.",
+                sentences_per_segment=-1,
+            )
+
+    def test_localize_tool_with_valid_input(self):
+        # Line 78: return dumped(...) for valid input
+        result = self._call(
+            "localize_text_patterns",
+            text="First sentence. Second sentence. Third sentence. Fourth sentence.",
+            sentences_per_segment=2,
+        )
+        payload = json.loads(self._text(result))
+        self.assertIsInstance(payload, list)
+        self.assertGreater(len(payload), 0)
+
     def test_compare_tool_returns_delta(self):
         result = self._call(
             "compare_text_versions",

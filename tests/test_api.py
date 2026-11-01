@@ -80,6 +80,44 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 411)
         self.assertEqual(response.headers["cache-control"], "no-store")
 
+    def test_oversized_content_length_is_rejected_before_parsing(self):
+        response = self.client.post(
+            "/v1/report",
+            content=b'{"text":"small"}',
+            headers={
+                "content-type": "application/json",
+                "content-length": "100000",
+            },
+        )
+        self.assertEqual(response.status_code, 413)
+        self.assertEqual(response.headers["cache-control"], "no-store")
+        self.assertEqual(response.headers["x-content-type-options"], "nosniff")
+
+    def test_invalid_content_length_is_rejected(self):
+        # Non-numeric Content-Length should return 400
+        response = self.client.post(
+            "/v1/report",
+            content=b'{"text":"small"}',
+            headers={
+                "content-type": "application/json",
+                "content-length": "not-a-number",
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.headers["cache-control"], "no-store")
+
+    def test_negative_content_length_is_rejected(self):
+        response = self.client.post(
+            "/v1/report",
+            content=b'{"text":"small"}',
+            headers={
+                "content-type": "application/json",
+                "content-length": "-1",
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.headers["cache-control"], "no-store")
+
     def test_report_endpoint(self):
         response = self._post(
             "/v1/report",
