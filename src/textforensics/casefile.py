@@ -4,12 +4,13 @@ import hashlib
 import json
 import os
 import tempfile
+from collections.abc import Mapping
+from contextlib import suppress
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from .version import get_version
-
 
 CASE_SCHEMA = "textforensics.case-file/v1"
 _FORBIDDEN_RAW_KEYS = frozenset(
@@ -170,10 +171,8 @@ def write_case_file(
         temp_path = None
     finally:
         if temp_path is not None:
-            try:
+            with suppress(FileNotFoundError):
                 os.unlink(temp_path)
-            except FileNotFoundError:
-                pass
     return case
 
 

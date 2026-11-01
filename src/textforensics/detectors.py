@@ -40,7 +40,7 @@ class DetectorPrediction:
     warnings: list[str] = field(default_factory=list)
     runtime_ms: float | None = None
 
-    def validate(self, *, detector: "Detector | None" = None) -> "DetectorPrediction":
+    def validate(self, *, detector: Detector | None = None) -> DetectorPrediction:
         validate_prediction(self, detector=detector)
         return self
 
@@ -75,7 +75,7 @@ class PluginHealth:
 
 @dataclass(slots=True)
 class DetectorRegistry:
-    detectors: dict[str, "Detector"] = field(default_factory=dict)
+    detectors: dict[str, Detector] = field(default_factory=dict)
     plugin_health: list[PluginHealth] = field(default_factory=list)
 
 

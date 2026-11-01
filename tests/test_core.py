@@ -10,7 +10,6 @@ from textforensics.provenance import snapshot_file, verify_ledger
 from textforensics.report import build_forensic_bundle
 from textforensics.webapp import HTML, analyze_payload
 
-
 HUMANISH = """
 I tried the new setup on Tuesday and hit two problems. The first was mundane: the cable was too short.
 The second took longer to understand. After three runs, I noticed the sensor drifted only when the enclosure

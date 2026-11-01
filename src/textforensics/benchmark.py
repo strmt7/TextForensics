@@ -10,7 +10,6 @@ from typing import Any
 from .detectors import BuiltinHeuristicDetector
 from .engine import analyze_text
 
-
 CALIBRATION_SCHEMA = "textforensics.calibration/v1"
 
 
@@ -231,6 +230,8 @@ def validate_calibration_artifact(artifact: dict[str, Any]) -> None:
 
     fingerprint = artifact["calibration_dataset_sha256"]
     if not isinstance(fingerprint, str) or len(fingerprint) != 64:
+        raise ValueError("Invalid calibration dataset fingerprint.")
+    if any(char not in "0123456789abcdef" for char in fingerprint):
         raise ValueError("Invalid calibration dataset fingerprint.")
 
 
