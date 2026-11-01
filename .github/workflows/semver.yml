@@ -14,12 +14,9 @@ concurrency:
 
 jobs:
   semver:
-    name: Semantic Versioning
+    name: Semantic Versioning Check
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    outputs:
-      version: ${{ steps.semver.outputs.version }}
-      changed: ${{ steps.semver.outputs.changed }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -33,9 +30,21 @@ jobs:
           cache: pip
       - name: Install semantic-release
         run: pip install python-semantic-release
-      - name: Determine version
-        id: semver
+      - name: Check version format
         run: |
-          semantic-release version --print --noop
-      - name: Print version
-        run: echo "Next version would be: ${{ steps.semver.outputs.version }}"
+          python -c "
+import re
+with open('pyproject.toml', 'r') as f:
+    content = f.read()
+match = re.search(r'version = \"([^\"]+)\"', content)
+if match:
+    version = match.group(1)
+    print(f'Current version: {version}')
+    # Validate semver format
+    import re
+    if re.match(r'^\d+\.\d+\.\d+(?:-[a-zA-Z0-9]+)?(?:\+[a-zA-Z0-9]+)?$', version):
+        print('Version format is valid semver')
+    else:
+        print('Warning: version may not follow semver strictly')
+        exit(1)
+"

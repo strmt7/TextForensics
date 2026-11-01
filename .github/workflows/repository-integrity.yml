@@ -45,7 +45,15 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Generate provenance
-        uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.9.0
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
         with:
-          provenance-name: textforensics
+          path: .
+          format: spdx-json
+          output-file: sbom.spdx.json
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.sha }}
+          path: sbom.spdx.json
+          retention-days: 30

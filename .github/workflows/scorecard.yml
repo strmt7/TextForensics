@@ -28,7 +28,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run Scorecard
-        uses: ossf/scorecard-action@f4f24649c43b9c441f0d0b0f9e3f8d9a0371a1f3 # v2.4.1
+        uses: ossf/scorecard-action@v2.4.1
         with:
           results_file: scorecard-results.sarif
           repo: ${{ github.repository }}
