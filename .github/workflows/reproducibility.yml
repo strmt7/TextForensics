@@ -12,6 +12,7 @@ env:
   PIP_NO_WARN_SCRIPT_LOCATION: 1
   PYTHONHASHSEED: 0
   PYTHONFAULTHANDLER: 1
+  SOURCE_DATE_EPOCH: 1704067200  # Fixed timestamp for reproducible builds: 2024-01-01 00:00:00 UTC
 
 jobs:
   build-reproducibility:
@@ -162,7 +163,7 @@ jobs:
         run: |
           mkdir -p evidence
           for i in 1 2 3 4 5; do
-            python -m textforensics.cli scan --file testdata/sample.txt --json > evidence/scan_run_$i.json
+            python -m textforensics.cli scan --file testdata/sample.txt --json > evidence/scan_run_$i.json --deterministic
           done
         shell: bash
     
@@ -197,7 +198,7 @@ jobs:
       - name: Run CLI report 3 times
         run: |
           for i in 1 2 3; do
-            python -m textforensics.cli report --file testdata/sample.txt --output evidence/report_run_$i.json
+            python -m textforensics.cli report --file testdata/sample.txt --output evidence/report_run_$i.json --deterministic
           done
         shell: bash
     
@@ -279,8 +280,8 @@ jobs:
       - name: Generate case files twice
         run: |
           mkdir -p evidence
-          python -m textforensics.cli case export --file testdata/sample.txt --output evidence/case_run_1.json
-          python -m textforensics.cli case export --file testdata/sample.txt --output evidence/case_run_2.json
+          python -m textforensics.cli case export --file testdata/sample.txt --output evidence/case_run_1.json --deterministic
+          python -m textforensics.cli case export --file testdata/sample.txt --output evidence/case_run_2.json --deterministic
         shell: bash
     
       - name: Verify case file determinism
@@ -359,7 +360,7 @@ jobs:
           mkdir -p evidence
           for i in 1 2 3 4 5; do
             python -m textforensics.cli detectors --json > evidence/detector_run_$i.json
-            python -m textforensics.cli report --file testdata/sample.txt --output evidence/report_run_$i.json
+            python -m textforensics.cli report --file testdata/sample.txt --output evidence/report_run_$i.json --deterministic
           done
         shell: bash
     
@@ -471,7 +472,7 @@ jobs:
         run: |
           mkdir -p evidence
           for i in 1 2 3 4 5; do
-            python -m textforensics.cli report --file testdata/sample.txt --output evidence/trust_run_$i.json
+            python -m textforensics.cli report --file testdata/sample.txt --output evidence/trust_run_$i.json --deterministic
           done
         shell: bash
     
