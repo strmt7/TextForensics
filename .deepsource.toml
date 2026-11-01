@@ -1,0 +1,11 @@
+version = 1
+
+[[analyzers]]
+name = "python"
+language = { name = "python", version = "3.11" }
+
+[analyzers.meta]
+runtime_version = "3.11"
+
+[[infrastructure]]
+name = "github-actions"
