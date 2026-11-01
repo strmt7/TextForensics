@@ -107,6 +107,16 @@ class CaseFileVerifyTests(unittest.TestCase):
         case = seal_case_file(bundle)
         self.assertIn("does not prove", verify_case_file(case)["note"].lower())
 
+    def test_verify_detects_tampered_bundle_schema(self):
+        # Lines 130-131: verify_case_file catches invalid forensic bundle
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        # Create case with tampered bundle schema
+        case = seal_case_file(bundle)
+        case["forensic_bundle"]["schema"] = "wrong-schema"
+        result = verify_case_file(case)
+        self.assertFalse(result["valid"])
+        self.assertIn("invalid_or_nonportable_forensic_bundle", result["errors"])
+
 
 class CaseFileIOTests(unittest.TestCase):
     def test_write_and_verify_round_trip(self):
@@ -152,6 +162,38 @@ class ForbiddenPathTests(unittest.TestCase):
 
     def test_forbidden_paths_ignore_safe_keys(self):
         self.assertEqual(_forbidden_paths({"evidence": [{"feature": "x"}]}), [])
+
+
+class BundleValidationTests(unittest.TestCase):
+    def test_validate_portable_bundle_rejects_missing_input_metadata(self):
+        # Line 78: raise ValueError when input metadata has raw_text_included != False
+        from textforensics.casefile import _validate_portable_bundle
+
+        bundle = {"schema": "textforensics.forensic-bundle/v1", "content_sha256": "a" * 64}
+        # No 'input' field at all
+        with self.assertRaises(ValueError) as ctx:
+            _validate_portable_bundle(bundle)
+        self.assertIn("raw_text_included", str(ctx.exception))
+
+    def test_validate_portable_bundle_rejects_raw_text_included_true(self):
+        # Line 78: raise ValueError when raw_text_included is True (not False)
+        from textforensics.casefile import _validate_portable_bundle
+
+        bundle = {
+            "schema": "textforensics.forensic-bundle/v1",
+            "content_sha256": "a" * 64,
+            "input": {"raw_text_included": True},
+        }
+        with self.assertRaises(ValueError) as ctx:
+            _validate_portable_bundle(bundle)
+        self.assertIn("raw_text_included", str(ctx.exception))
+
+    def test_seal_case_file_propagates_validation_error(self):
+        # Test that seal_case_file raises ValueError when input validation fails
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        bundle["input"]["raw_text_included"] = True
+        with self.assertRaises(ValueError):
+            seal_case_file(bundle)
 
 
 class HashWithoutSealTests(unittest.TestCase):

@@ -7,6 +7,7 @@ from textforensics.analyzers import (
     _clamp,
     _high_when_high,
     _high_when_low,
+    _require_finite,
     analyze_formulaic_language,
     analyze_lexical_profile,
     analyze_uniformity,
@@ -52,6 +53,15 @@ class HelperTests(unittest.TestCase):
     def test_clamp_rejects_non_finite(self):
         with self.assertRaises(ValueError):
             _clamp(math.inf)
+
+    def test_require_finite_rejects_boolean(self):
+        # Line 20: _require_finite rejects bool (which is a subclass of int)
+        from textforensics.analyzers import _NonFiniteValueError
+
+        with self.assertRaises(_NonFiniteValueError):
+            _require_finite(True)
+        with self.assertRaises(_NonFiniteValueError):
+            _require_finite(False)
 
 
 class AnalyzerContractTests(unittest.TestCase):
