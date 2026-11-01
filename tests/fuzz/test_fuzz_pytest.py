@@ -32,7 +32,7 @@ class TestJsonParsing:
         pytest.param(b'{"nested": {"deep": {"structure": "' + b'x' * 500 + b'"}}}', id="nested_json"),
         pytest.param(b'not json at all', id="not_json"),
         pytest.param(b'{invalid json}', id="malformed_json"),
-        pytest.param(b'{"text": "🚀🌟🎉💯"}', id="unicode_text"),
+        pytest.param('{"text": "🚀🌟🎉💯"}'.encode("utf-8"), id="unicode_text"),
         pytest.param(b'{"text": "' + b'A' * 100000 + b'"}', id="very_long_text"),
     ])
     def test_api_parsing(self, input_data):
@@ -88,7 +88,7 @@ class TestTextInputValidation:
         pytest.param(b"x" * 10000, id="long_text"),
         pytest.param(b"x" * 2000000, id="oversized_text"),
         pytest.param(b"\x00\x01\x02\x03", id="control_chars"),
-        pytest.param(b"🚀🌟🎉💯", id="emoji_text"),
+        pytest.param("🚀🌟🎉💯".encode("utf-8"), id="emoji_text"),
         pytest.param(b"A" * 100000, id="large_text"),
     ])
     def test_validation(self, input_data):
@@ -114,7 +114,7 @@ class TestDetectorInputHandling:
         pytest.param(b"x" * 1000, id="medium"),
         pytest.param(b"x" * 10000, id="long"),
         pytest.param(b"\x00\x01\x02", id="control_chars"),
-        pytest.param(b"🚀🌟🎉", id="emoji"),
+        pytest.param("🚀🌟🎉".encode("utf-8"), id="emoji"),
         pytest.param(b"A" * 5000, id="substantial"),
     ])
     def test_detector_handling(self, input_data):
@@ -184,7 +184,7 @@ class TestTrustMapComputation:
         pytest.param(b"x" * 100, id="short"),
         pytest.param(b"x" * 1000, id="medium"),
         pytest.param(b"\x00\x01\x02", id="control_chars"),
-        pytest.param(b"🚀🌟🎉", id="emoji"),
+        pytest.param("🚀🌟🎉".encode("utf-8"), id="emoji"),
     ])
     def test_trust_map(self, input_data):
         """Test trust map computation."""
