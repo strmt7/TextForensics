@@ -22,9 +22,9 @@ def TestOneInput(data: bytes) -> None:
     try:
         # Try to parse as JSON for request body
         text = data.decode("utf-8", errors="replace")
-        parsed = json.loads(text) if text.strip() else None
+        json.loads(text) if text.strip() else None
     except (json.JSONDecodeError, UnicodeDecodeError):
-        parsed = None
+        pass
 
     # Test validate_text_input from config.py
     try:
@@ -51,7 +51,7 @@ def TestOneInput(data: bytes) -> None:
         from textforensics.config import Settings
 
         # Create app with small limits for testing
-        app = create_app(
+        create_app(
             Settings(
                 host="127.0.0.1",
                 port=8765,
@@ -83,7 +83,7 @@ def test_checked_function_edge_cases():
         from textforensics.api import create_app
         from textforensics.config import Settings
 
-        app = create_app(Settings(max_input_bytes=1024, allow_remote=False))
+        create_app(Settings(max_input_bytes=1024, allow_remote=False))
 
         # Access the checked function from the module
         # This tests the input validation paths

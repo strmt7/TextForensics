@@ -27,7 +27,7 @@ def TestOneInput(data: bytes) -> None:
 
     # Test analyze_text with various inputs
     try:
-        from textforensics.engine import analyze_text, _verdict, _weighted_score, _disagreement
+        from textforensics.engine import _disagreement, _verdict, _weighted_score, analyze_text
 
         # Test analyze_text with different text sizes
         if text:
@@ -62,7 +62,6 @@ def TestOneInput(data: bytes) -> None:
 
     # Test _verdict directly with edge case inputs
     try:
-        import math
 
         # Test with NaN score (line 41 - non-finite score)
         try:
@@ -104,14 +103,14 @@ def TestOneInput(data: bytes) -> None:
         # Empty list
         try:
             _weighted_score([])
-        except:
+        except Exception:
             pass
 
         # Single result
         try:
             result = _weighted_score([AnalyzerResult(name="test", score=0.5, reliability=0.5)])
             assert 0.0 <= result <= 1.0
-        except:
+        except Exception:
             pass
 
         # Mixed reliabilities
@@ -122,7 +121,7 @@ def TestOneInput(data: bytes) -> None:
             ]
             score = _weighted_score(results)
             assert 0.0 <= score <= 1.0
-        except:
+        except Exception:
             pass
     except Exception:
         pass
@@ -133,21 +132,21 @@ def TestOneInput(data: bytes) -> None:
         try:
             d = _disagreement([0.5])
             assert d == 0.0
-        except:
+        except Exception:
             pass
 
         # Matching scores
         try:
             d = _disagreement([0.5, 0.5, 0.5])
             assert d == 0.0
-        except:
+        except Exception:
             pass
 
         # Disparate scores
         try:
             d = _disagreement([0.0, 1.0])
             assert 0.0 <= d <= 1.0
-        except:
+        except Exception:
             pass
     except Exception:
         pass

@@ -333,32 +333,9 @@ class DeterministicSealTests(unittest.TestCase):
                 real_replace(src, dst)
                 raise OSError("simulated replace failure")
 
-            with mock.patch("textforensics.casefile.os.replace", side_effect=failing_replace):
-                with self.assertRaises(OSError):
-                    write_case_file(path, bundle)
-
-            # No stray temp files remain in the directory
-            leftovers = [p for p in Path(tmp).iterdir() if p.name != path.name]
-            self.assertEqual(leftovers, [])
-            # The original path was replaced before the failure, so the case file exists
-            self.assertTrue(path.exists())
-
-    def test_write_case_file_cleans_up_temp_file_on_failure(self):
-        # Lines 204-207: finally block unlinks the temp file if os.replace fails.
-        import unittest.mock as mock
-
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "case.json"
-            bundle = build_forensic_bundle(TEXT).to_dict()
-            real_replace = os.replace
-
-            def failing_replace(src, dst):
-                real_replace(src, dst)
-                raise OSError("simulated replace failure")
-
-            with mock.patch("textforensics.casefile.os.replace", side_effect=failing_replace):
-                with self.assertRaises(OSError):
-                    write_case_file(path, bundle)
+            with mock.patch("textforensics.casefile.os.replace", side_effect=failing_replace), \
+                 self.assertRaises(OSError):
+                write_case_file(path, bundle)
 
             # No stray temp files remain in the directory
             leftovers = [p for p in Path(tmp).iterdir() if p.name != path.name]

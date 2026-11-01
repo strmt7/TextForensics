@@ -209,7 +209,7 @@ class TestEngineAnalysis:
         pytest.param(b"\x00\x01\x02", id="control_chars"),
         pytest.param("🚀🌟🎉💯".encode(), id="emoji"),
         pytest.param(b"A" * 5000, id="substantial"),
-        pytest.param("Text with\nmany\nlines\nand\ttabs.\n\n\nMore paragraphs.".encode(), id="multi_paragraph"),
+        pytest.param(b"Text with\nmany\nlines\nand\ttabs.\n\n\nMore paragraphs.", id="multi_paragraph"),
     ])
     def test_engine_analysis(self, input_data):
         """Test engine analysis functions."""
