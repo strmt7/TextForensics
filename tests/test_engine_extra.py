@@ -166,31 +166,28 @@ class StabilityEdgeCaseTests(unittest.TestCase):
 
         Since natural texts don't produce low stability, we mock the condition.
         """
-        with patch('textforensics.engine._base_score') as mock_base:
-            with patch('textforensics.engine.run_builtin_analyzers',
-                        return_value=[AnalyzerResult(name="x", score=0.5, reliability=0.5)]):
-                with patch('textforensics.engine.benign_variants') as mock_vars:
-                    # Return variants that will create score variance
-                    mock_vars.return_value = {"o": "text", "a": "a", "b": "b", "c": "c"}
+        call_idx = [0]
+        def base_side_effect(txt):
+            call_idx[0] += 1
+            if call_idx[0] == 1:
+                return 0.5, [AnalyzerResult(name="x", score=0.5, reliability=0.5)], {'word_count': 200}
+            else:
+                # Return highly variable scores for variants
+                return [0.5, 0.85, 0.2][call_idx[0] % 3], [AnalyzerResult(name="x", score=0.5, reliability=0.5)], {'word_count': 200}
 
-                    # First call (original): score 0.5
-                    # Subsequent calls (variants): different scores
-                    idx = [0]
-                    def base_side_effect(txt):
-                        idx[0] += 1
-                        if idx[0] == 1:
-                            return 0.5, [AnalyzerResult(name="x", score=0.5, reliability=0.5)], {'word_count': 200}
-                        else:
-                            # Return highly variable scores for variants
-                            return [0.5, 0.85, 0.2][idx[0] % 3], [AnalyzerResult(name="x", score=0.5, reliability=0.5)], {'word_count': 200}
+        with patch('textforensics.engine._base_score', side_effect=base_side_effect), \
+             patch('textforensics.engine.run_builtin_analyzers',
+                     return_value=[AnalyzerResult(name="x", score=0.5, reliability=0.5)]), \
+             patch('textforensics.engine.benign_variants') as mock_vars:
+            # Return variants that will create score variance
+            mock_vars.return_value = {"o": "text", "a": "a", "b": "b", "c": "c"}
 
-                    mock_base.side_effect = base_side_effect
-                    result = analyze_text("A test document for stability checking.", include_robustness=True)
+            result = analyze_text("A test document for stability checking.", include_robustness=True)
 
-                    # Check for stability warning if applicable
-                    if result.robustness_stability < 0.85:
-                        stability_warnings = [w for w in result.warnings if "stability" in w.lower() or "sensitive" in w.lower()]
-                        self.assertTrue(stability_warnings, f"Expected stability warning but got: {result.warnings}")
+            # Check for stability warning if applicable
+            if result.robustness_stability < 0.85:
+                stability_warnings = [w for w in result.warnings if "stability" in w.lower() or "sensitive" in w.lower()]
+                self.assertTrue(stability_warnings, f"Expected stability warning but got: {result.warnings}")
 
 
 class IncludeRobustnessFalseTests(unittest.TestCase):

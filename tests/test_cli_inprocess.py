@@ -232,12 +232,13 @@ class CliInProcessTests(unittest.TestCase):
     def test_localize_sentences_zero(self):
         # Line 222: localize with --sentences 0 raises ValueError
         import unittest.mock as mock
+
         # Patch _read_text to return valid text (localize uses --file or stdin)
-        with mock.patch('textforensics.cli._read_text', return_value="test text"):
-            with mock.patch('textforensics.cli.localize_text', return_value=[]):
-                code, out, err = self._run_main(["localize", "--sentences", "0"])
-                self.assertEqual(code, 2, out)
-                self.assertIn("--sentences must be at least 1", err)
+        with mock.patch('textforensics.cli._read_text', return_value="test text"), \
+             mock.patch('textforensics.cli.localize_text', return_value=[]):
+            code, out, err = self._run_main(["localize", "--sentences", "0"])
+            self.assertEqual(code, 2, out)
+            self.assertIn("--sentences must be at least 1", err)
 
 
 class CliParserTests(unittest.TestCase):

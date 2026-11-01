@@ -73,16 +73,16 @@ class TestLocalizeSentencesValidation(unittest.TestCase):
         import unittest.mock as mock
 
         # Patch _read_text to return valid text
-        with mock.patch('textforensics.cli._read_text', return_value="test text"):
-            with mock.patch('textforensics.cli.localize_text', return_value=[]):
-                parser = build_parser()
-                args = parser.parse_args(['localize', '--sentences', '0'])
+        with mock.patch('textforensics.cli._read_text', return_value="test text"), \
+             mock.patch('textforensics.cli.localize_text', return_value=[]):
+            parser = build_parser()
+            args = parser.parse_args(['localize', '--sentences', '0'])
 
-                with self.assertRaises(ValueError) as ctx:
-                    # Need to call _run, but we can test the condition directly
-                    if args.sentences < 1:
-                        raise ValueError("--sentences must be at least 1.")
-                self.assertIn("--sentences must be at least 1", str(ctx.exception))
+            with self.assertRaises(ValueError) as ctx:
+                # Need to call _run, but we can test the condition directly
+                if args.sentences < 1:
+                    raise ValueError("--sentences must be at least 1.")
+            self.assertIn("--sentences must be at least 1", str(ctx.exception))
 
     def test_localize_sentences_negative_raises(self):
         """Negative --sentences should also raise ValueError."""

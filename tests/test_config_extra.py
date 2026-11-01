@@ -88,12 +88,12 @@ class SettingsEnvTests(unittest.TestCase):
 
     def test_env_int_out_of_range(self):
         """Test that _env_int with out-of-range value raises ValueError."""
-        with patch.dict(os.environ, {"TEXTFORENSICS_PORT": "0"}, clear=True):
-            with self.assertRaises(ValueError):
-                Settings.from_env()
-        with patch.dict(os.environ, {"TEXTFORENSICS_PORT": "70000"}, clear=True):
-            with self.assertRaises(ValueError):
-                Settings.from_env()
+        with patch.dict(os.environ, {"TEXTFORENSICS_PORT": "0"}, clear=True), \
+             self.assertRaises(ValueError):
+            Settings.from_env()
+        with patch.dict(os.environ, {"TEXTFORENSICS_PORT": "70000"}, clear=True), \
+             self.assertRaises(ValueError):
+            Settings.from_env()
 
 
 if __name__ == "__main__":
