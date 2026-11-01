@@ -116,8 +116,7 @@ def seal_case_file(
 
     # Handle deterministic timestamp and runtime_ms removal
     if deterministic:
-        if fixed_timestamp:
-            bundle["generated_at_utc"] = fixed_timestamp
+        bundle["generated_at_utc"] = fixed_timestamp or "1970-01-01T00:00:00+00:00"
         bundle = _strip_runtime_ms_from_bundle(bundle)
 
     case = {
