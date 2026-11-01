@@ -1,0 +1,313 @@
+# Mutation testing workflow for TextForensics
+# Modeled after rejection-rejector's mutation.yml but using mutmut for Python
+#
+# Two complementary modes:
+# - push-evidence: Fast feedback on changed lines only (run on push to main)
+# - deep-pass: Weekly exhaustive mutation testing on safety-critical modules
+#
+# Both modes fail on surviving mutants (exit code 2) and upload evidence artifacts.
+
+name: Mutation Testing
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "tests/**"
+  schedule:
+    # Weekly on Sunday at 03:00 UTC — quiet window for GitHub Actions runners
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "Mutation scope"
+        type: choice
+        required: true
+        default: "safety-critical"
+        options:
+          - "safety-critical"  # detectors, analyzers, trust, provenance, casefile, engine, report
+          - "full"             # entire src/textforensics tree
+
+permissions:
+  contents: read
+
+env:
+  # Pin mutmut version from verified releases (mutmut 3.x requires POSIX fork; run on ubuntu-latest)
+  MUTMUT_VERSION: "3.6.0"
+  # Timeout multiplier for CI environments (slower than local)
+  MUTMUT_TIMEOUT_MULTIPLIER: "3"
+  # Parallelism for mutation runs
+  MUTMUT_JOBS: "4"
+
+concurrency:
+  # Per-SHA concurrency group; do NOT cancel in-progress runs
+  # Each push gets its own evidence trail
+  group: mutation-testing-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # push-evidence: Fast feedback on changed lines only
+  # Runs on push to main when src/** or tests/** change
+  # ---------------------------------------------------------------------------
+  push-evidence:
+    name: Push Evidence (changed lines)
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0  # Need full history for git diff
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+          python -m pip install "mutmut==${MUTMUT_VERSION}"
+
+      - name: Verify test suite passes (baseline)
+        run: |
+          # If the baseline test suite is broken, mutmut reports every mutation
+          # as "survived" because every test fails for the wrong reason.
+          python -m pytest -x -q --no-header
+
+      - name: Compute changed files from push
+        id: changed-files
+        run: |
+          # Get list of Python files changed in this push (compared to previous commit on main)
+          # Handle first commit case where there's no parent
+          if git rev-parse HEAD^ >/dev/null 2>&1; then
+            CHANGED=$(git diff --name-only HEAD^ HEAD -- "*.py" | grep -E "^src/textforensics/" || true)
+          else
+            CHANGED=$(git diff --name-only HEAD -- "*.py" | grep -E "^src/textforensics/" || true)
+          fi
+          if [ -z "$CHANGED" ]; then
+            echo "No Python source files changed in this push; skipping mutation testing."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "files=" >> "$GITHUB_OUTPUT"
+          else
+            # Convert to comma-separated list for mutmut --paths-to-mutate
+            FILES=$(echo "$CHANGED" | tr '\n' ',' | sed 's/,$//')
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "files=$FILES" >> "$GITHUB_OUTPUT"
+            echo "Changed files to mutate:"
+            echo "$CHANGED"
+          fi
+
+      - name: Run mutmut on changed lines (push-evidence)
+        if: steps.changed-files.outputs.skip == 'false'
+        id: mutmut_run
+        run: |
+          set +e
+          # Run mutmut only on the changed files
+          # --runner specifies the test command
+          # --timeout-multiplier accounts for CI slowness
+          # --jobs enables parallelism
+          mutmut run \
+            --paths-to-mutate "${{ steps.changed-files.outputs.files }}" \
+            --runner "python -m pytest -x -q --no-header" \
+            --timeout-multiplier "${MUTMUT_TIMEOUT_MULTIPLIER}" \
+            --jobs "${MUTMUT_JOBS}" \
+            --no-progress
+          MUTMUT_EXIT=$?
+          set -e
+          echo "mutmut_exit=$MUTMUT_EXIT" >> "$GITHUB_OUTPUT"
+          # mutmut exit codes: 0 = all killed, 2 = survivors, 1/other = error
+          if [ $MUTMUT_EXIT -eq 2 ]; then
+            echo "::warning::Surviving mutants detected in changed code"
+          elif [ $MUTMUT_EXIT -ne 0 ]; then
+            echo "::error::mutmut exited with code $MUTMUT_EXIT"
+          fi
+
+      - name: Collect mutation results
+        if: steps.changed-files.outputs.skip == 'false'
+        run: |
+          mutmut results 2>&1 | tee mutmut-results.txt
+          mutmut junitxml > mutmut-junit.xml 2>&1 || true
+
+      - name: Upload mutation evidence artifact
+        if: steps.changed-files.outputs.skip == 'false' && always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-evidence-push-${{ github.sha }}
+          path: |
+            mutmut-results.txt
+            mutmut-junit.xml
+            .mutmut-cache
+            mutants/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Summarize results in job summary
+        if: steps.changed-files.outputs.skip == 'false' && always()
+        run: |
+          SURVIVED=$(grep -c ': survived' mutmut-results.txt 2>/dev/null || echo 0)
+          KILLED=$(grep -c ': killed' mutmut-results.txt 2>/dev/null || echo 0)
+          TIMEOUT=$(grep -c ': timeout' mutmut-results.txt 2>/dev/null || echo 0)
+          ERROR=$(grep -c ': error' mutmut-results.txt 2>/dev/null || echo 0)
+          {
+            echo "### Push-Evidence Mutation Testing"
+            echo ""
+            echo "| Outcome | Count |"
+            echo "|---|---|"
+            echo "| Killed | ${KILLED} |"
+            echo "| Survived | ${SURVIVED} |"
+            echo "| Timeout | ${TIMEOUT} |"
+            echo "| Error | ${ERROR} |"
+            echo ""
+            echo "Scope: Changed files in push ${{ github.sha }}"
+            echo ""
+            if [ "${SURVIVED}" -gt 0 ]; then
+              echo "#### Surviving mutants"
+              echo '```'
+              grep ': survived' mutmut-results.txt | head -20
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail on surviving mutants
+        if: steps.changed-files.outputs.skip == 'false'
+        run: |
+          SURVIVED=$(grep -c ': survived' mutmut-results.txt 2>/dev/null || echo 0)
+          if [ "${SURVIVED}" -gt 0 ]; then
+            echo "::error::${SURVIVED} surviving mutant(s) in changed code — tests do not catch these mutations"
+            exit 2
+          fi
+
+  # ---------------------------------------------------------------------------
+  # deep-pass: Weekly exhaustive mutation testing on safety-critical modules
+  # Runs on schedule (weekly) and workflow_dispatch
+  # ---------------------------------------------------------------------------
+  deep-pass:
+    name: Deep Pass (safety-critical modules)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+          python -m pip install "mutmut==${MUTMUT_VERSION}"
+
+      - name: Verify test suite passes (baseline)
+        run: |
+          python -m pytest -x -q --no-header
+
+      - name: Determine mutation scope
+        id: scope
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SCOPE="${{ github.event.inputs.scope }}"
+          else
+            # Scheduled run defaults to safety-critical
+            SCOPE="safety-critical"
+          fi
+          echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
+          
+          if [ "$SCOPE" = "safety-critical" ]; then
+            # Safety-critical modules per TextForensics architecture
+            FILES="src/textforensics/detectors.py,src/textforensics/analyzers.py,src/textforensics/trust.py,src/textforensics/provenance.py,src/textforensics/casefile.py,src/textforensics/engine.py,src/textforensics/report.py"
+          else
+            # Full src tree
+            FILES="src/textforensics"
+          fi
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+          echo "Mutation scope: $SCOPE"
+          echo "Files to mutate: $FILES"
+
+      - name: Run mutmut on safety-critical modules (deep-pass)
+        id: mutmut_run
+        run: |
+          set +e
+          mutmut run \
+            --paths-to-mutate "${{ steps.scope.outputs.files }}" \
+            --runner "python -m pytest -x -q --no-header" \
+            --timeout-multiplier "${MUTMUT_TIMEOUT_MULTIPLIER}" \
+            --jobs "${MUTMUT_JOBS}" \
+            --no-progress
+          MUTMUT_EXIT=$?
+          set -e
+          echo "mutmut_exit=$MUTMUT_EXIT" >> "$GITHUB_OUTPUT"
+          if [ $MUTMUT_EXIT -eq 2 ]; then
+            echo "::warning::Surviving mutants detected in safety-critical modules"
+          elif [ $MUTMUT_EXIT -ne 0 ]; then
+            echo "::error::mutmut exited with code $MUTMUT_EXIT"
+          fi
+
+      - name: Collect mutation results
+        run: |
+          mutmut results 2>&1 | tee mutmut-results.txt
+          mutmut junitxml > mutmut-junit.xml 2>&1 || true
+
+      - name: Upload mutation evidence artifact
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-evidence-deep-${{ github.sha }}-${{ steps.scope.outputs.scope }}
+          path: |
+            mutmut-results.txt
+            mutmut-junit.xml
+            .mutmut-cache
+            mutants/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Summarize results in job summary
+        if: always()
+        run: |
+          SURVIVED=$(grep -c ': survived' mutmut-results.txt 2>/dev/null || echo 0)
+          KILLED=$(grep -c ': killed' mutmut-results.txt 2>/dev/null || echo 0)
+          TIMEOUT=$(grep -c ': timeout' mutmut-results.txt 2>/dev/null || echo 0)
+          ERROR=$(grep -c ': error' mutmut-results.txt 2>/dev/null || echo 0)
+          {
+            echo "### Deep-Pass Mutation Testing"
+            echo ""
+            echo "| Outcome | Count |"
+            echo "|---|---|"
+            echo "| Killed | ${KILLED} |"
+            echo "| Survived | ${SURVIVED} |"
+            echo "| Timeout | ${TIMEOUT} |"
+            echo "| Error | ${ERROR} |"
+            echo ""
+            echo "Scope: ${{ steps.scope.outputs.scope }}"
+            echo "Files: ${{ steps.scope.outputs.files }}"
+            echo ""
+            if [ "${SURVIVED}" -gt 0 ]; then
+              echo "#### Surviving mutants by module"
+              echo '```'
+              grep ': survived' mutmut-results.txt \
+                | sed 's/.*textforensics\.\([a-z_]*\)\..*/\1/' \
+                | sort | uniq -c | sort -rn
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail on surviving mutants
+        run: |
+          SURVIVED=$(grep -c ': survived' mutmut-results.txt 2>/dev/null || echo 0)
+          if [ "${SURVIVED}" -gt 0 ]; then
+            echo "::error::${SURVIVED} surviving mutant(s) in ${{ steps.scope.outputs.scope }} modules — tests do not catch these mutations"
+            exit 2
+          fi
