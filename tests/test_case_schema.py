@@ -5,7 +5,6 @@ from textforensics.casefile import seal_case_file, verify_case_file
 from textforensics.report import build_forensic_bundle
 from textforensics.schema import load_schema
 
-
 TEXT = (
     "I tested the device twice yesterday and wrote down what changed. "
     "The second run was warmer, so I plan to repeat it before drawing conclusions."

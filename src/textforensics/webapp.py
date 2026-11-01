@@ -6,9 +6,8 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
-from .config import ensure_bind_allowed, is_loopback_host, validate_text_input
+from .config import ensure_bind_allowed, is_loopback_host, is_unspecified_host, validate_text_input
 from .report import build_forensic_bundle
-
 
 HTML = r"""<!doctype html>
 <html lang="en">
@@ -199,7 +198,7 @@ def serve(
         (host, port),
         make_handler(max_input_bytes=max_input_bytes),
     )
-    display_host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
+    display_host = "127.0.0.1" if is_unspecified_host(host) else host
     url = f"http://{display_host}:{port}/"
     print(f"TextForensics UI: {url}")
     if not is_loopback_host(host):

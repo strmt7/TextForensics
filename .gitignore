@@ -9,5 +9,9 @@ build/
 .ruff_cache/
 .textforensics-ledger.jsonl
 .DS_Store
+.coverage
+Cov.xml
+bandit_report.json
+.tmp/
 
 .textforensics-ledger.jsonl.lock

@@ -12,7 +12,6 @@ from textforensics.benchmark import (
     validate_calibration_artifact,
 )
 
-
 HUMAN = (
     "I ran the test twice this morning. The first result looked wrong, "
     "so I changed the cable and wrote the new values in my notebook."

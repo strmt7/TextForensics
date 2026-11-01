@@ -4,7 +4,6 @@ import ipaddress
 import os
 from dataclasses import dataclass
 
-
 _ENV_PREFIX = "TEXTFORENSICS_"
 
 
@@ -51,6 +50,21 @@ def is_loopback_host(host: str) -> bool:
         return False
 
 
+def is_unspecified_host(host: str) -> bool:
+    """Return True when the host means "every interface" (e.g. 0.0.0.0 or ::).
+
+    Wildcard binds cannot be opened directly in a browser, so callers use
+    this to substitute a concrete loopback address for display purposes.
+    """
+    normalized = host.strip().lower().strip("[]")
+    if normalized == "*":
+        return True
+    try:
+        return ipaddress.ip_address(normalized).is_unspecified
+    except ValueError:
+        return False
+
+
 def ensure_bind_allowed(host: str, *, allow_remote: bool) -> None:
     if not is_loopback_host(host) and not allow_remote:
         raise ValueError(
@@ -69,7 +83,7 @@ class Settings:
     log_level: str = "INFO"
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls) -> Settings:
         defaults = cls()
         host = os.getenv(_ENV_PREFIX + "HOST", defaults.host).strip()
         host = host or defaults.host

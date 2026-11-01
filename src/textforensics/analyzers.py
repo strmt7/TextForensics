@@ -1,13 +1,34 @@
 from __future__ import annotations
 
+import math
+
 from .models import AnalyzerResult, Evidence
 
 
+class _NonFiniteValueError(ValueError):
+    """Raised when a feature value is NaN or infinite."""
+
+
+def _require_finite(value: float, field_name: str = "value") -> float:
+    """Reject NaN/inf so non-finite values cannot propagate into scores.
+
+    A NaN feature would otherwise survive every branch of the linear
+    interpolators below and surface as a NaN aggregate score, which is
+    silently misrepresentative rather than loudly invalid.
+    """
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise _NonFiniteValueError(f"{field_name} must be a finite number.")
+    if not math.isfinite(float(value)):
+        raise _NonFiniteValueError(f"{field_name} must be a finite number.")
+    return float(value)
+
+
 def _clamp(value: float, lo: float = 0.0, hi: float = 1.0) -> float:
-    return max(lo, min(hi, value))
+    return max(lo, min(hi, _require_finite(value)))
 
 
 def _high_when_low(value: float, low: float, high: float) -> float:
+    value = _require_finite(value, "feature value")
     if value <= low:
         return 1.0
     if value >= high:
@@ -16,6 +37,7 @@ def _high_when_low(value: float, low: float, high: float) -> float:
 
 
 def _high_when_high(value: float, low: float, high: float) -> float:
+    value = _require_finite(value, "feature value")
     if value <= low:
         return 0.0
     if value >= high:
