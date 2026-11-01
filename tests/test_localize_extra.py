@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import unittest
 
-from textforensics.localize import localize_text, SegmentResult
+from textforensics.localize import SegmentResult, localize_text
 
 
 class LocalizeEdgeCasesTests(unittest.TestCase):

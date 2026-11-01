@@ -65,12 +65,12 @@ class TestRequestBodyTooLarge(unittest.TestCase):
     def test_negative_content_length_returns_400(self):
         """Test that negative Content-Length returns 400."""
         http_request = (
-            f"POST /api/report HTTP/1.1\r\n"
-            f"Host: 127.0.0.1\r\n"
-            f"Content-Type: application/json\r\n"
-            f"Content-Length: -1\r\n"
-            f"\r\n"
-        ).encode()
+            b"POST /api/report HTTP/1.1\r\n"
+            b"Host: 127.0.0.1\r\n"
+            b"Content-Type: application/json\r\n"
+            b"Content-Length: -1\r\n"
+            b"\r\n"
+        )
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:

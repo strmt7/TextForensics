@@ -373,7 +373,6 @@ class RobustnessForDetectorEdgeTests(unittest.TestCase):
         )
 
         # Make original pass (it's used directly), but all variants fail
-        from textforensics.detectors import DetectorFailure
 
         def mock_execute(det, text):
             return (
@@ -418,7 +417,6 @@ class RobustnessForDetectorEdgeTests(unittest.TestCase):
         )
 
         # Only one probe variant (besides original), and it fails
-        from textforensics.detectors import DetectorFailure
 
         call_count = [0]
 
