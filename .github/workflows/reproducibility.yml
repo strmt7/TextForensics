@@ -42,7 +42,7 @@ jobs:
     
       - name: Build wheel and sdist (first pass)
         run: |
-          python -m build --outdir dist_first
+          SOURCE_DATE_EPOCH=1704067200 python -m build --no-isolation --outdir dist_first
           sha256sum dist_first/* 2>/dev/null || sha256sum dist_first/*
           mkdir -p artifacts
           cp dist_first/* artifacts/
@@ -51,7 +51,7 @@ jobs:
       - name: Clean and rebuild (second pass)
         run: |
           rm -rf dist_first build *.egg-info src/*.egg-info
-          python -m build --outdir dist_second
+          SOURCE_DATE_EPOCH=1704067200 python -m build --no-isolation --outdir dist_second
           sha256sum dist_second/* 2>/dev/null || sha256sum dist_second/*
           cp dist_second/* artifacts/
         shell: bash
