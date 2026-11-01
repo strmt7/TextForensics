@@ -4,6 +4,7 @@ Fuzz target for text input validation in config.py and cli.py
 """
 
 import sys
+
 import atheris
 
 
@@ -16,7 +17,7 @@ def TestOneInput(data: bytes) -> None:
 
     # Test validate_text_input from config.py
     try:
-        from textforensics.config import validate_text_input, Settings, read_text_file
+        from textforensics.config import Settings, read_text_file, validate_text_input
 
         # With various max_input_bytes settings
         for max_bytes in [64, 256, 1024, 2_000_000]:
@@ -29,8 +30,9 @@ def TestOneInput(data: bytes) -> None:
 
     # Test read_text_file from config.py
     try:
-        from textforensics.config import read_text_file
         import tempfile
+
+        from textforensics.config import read_text_file
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
             f.write(text)
@@ -56,7 +58,7 @@ def TestOneInput(data: bytes) -> None:
 
     # Test is_loopback_host and is_unspecified_host with fuzzer input
     try:
-        from textforensics.config import is_loopback_host, is_unspecified_host, ensure_bind_allowed
+        from textforensics.config import ensure_bind_allowed, is_loopback_host, is_unspecified_host
 
         host = text.strip()
         if host:

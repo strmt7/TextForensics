@@ -6,19 +6,14 @@ This script extracts realistic inputs from test files to seed the fuzzer.
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from textforensics.casefile import seal_case_file
 from textforensics.detectors import BuiltinHeuristicDetector
-from textforensics.engine import analyze_text
 from textforensics.provenance import snapshot_file
-from textforensics.report import build_forensic_bundle
-from textforensics.trust import build_trust_map
 
 
 def generate_json_corpus(output_dir: Path) -> None:

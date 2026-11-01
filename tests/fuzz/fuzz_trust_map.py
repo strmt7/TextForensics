@@ -4,11 +4,10 @@ Fuzz target for trust map computation in trust.py
 """
 
 import sys
-import json
+from pathlib import Path
 
 import atheris
 
-from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 
@@ -19,13 +18,13 @@ def TestOneInput(data: bytes) -> None:
     except UnicodeDecodeError:
         return
 
-    from textforensics.trust import (
-        build_trust_map,
-        TrustMap,
-        TrustDimension,
-        TRUST_STATES,
-    )
     from textforensics.detectors import DetectorPrediction
+    from textforensics.trust import (
+        TRUST_STATES,
+        TrustDimension,
+        TrustMap,
+        build_trust_map,
+    )
 
     # Test with fuzzed prediction inputs
     try:

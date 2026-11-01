@@ -4,6 +4,7 @@ Fuzz target for detector input handling in detectors.py
 """
 
 import sys
+
 import atheris
 
 
@@ -29,7 +30,11 @@ def TestOneInput(data: bytes) -> None:
 
     # Test DetectorPrediction validation with various inputs
     try:
-        from textforensics.detectors import DetectorPrediction, validate_prediction, DetectorContractError
+        from textforensics.detectors import (
+            DetectorContractError,
+            DetectorPrediction,
+            validate_prediction,
+        )
 
         # Create predictions with fuzzer-derived values
         verdicts = ["ai_like", "human_like", "abstain"]
@@ -60,7 +65,7 @@ def TestOneInput(data: bytes) -> None:
 
     # Test validate_prediction with edge cases
     try:
-        from textforensics.detectors import validate_prediction, DetectorContractError
+        from textforensics.detectors import DetectorContractError, validate_prediction
 
         # Test with various verdict values
         for verdict in ["ai_like", "human_like", "abstain", "invalid", "", "AI_LIKE"]:
@@ -85,7 +90,7 @@ def TestOneInput(data: bytes) -> None:
 
     # Test _validate_no_source_echo
     try:
-        from textforensics.detectors import _validate_no_source_echo, DetectorContractError
+        from textforensics.detectors import DetectorContractError, _validate_no_source_echo
 
         prediction = DetectorPrediction(
             schema="textforensics.detector-result/v1",
