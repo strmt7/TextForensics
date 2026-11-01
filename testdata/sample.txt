@@ -1,0 +1,5 @@
+﻿This is a sample text for reproducibility testing.
+It contains multiple sentences to ensure meaningful analysis.
+The text should produce identical results across multiple runs.
+We will verify that the CLI outputs are deterministic.
+This helps ensure the reliability of the detection system.

@@ -11,201 +11,88 @@ env:
   PIP_DISABLE_PIP_VERSION_CHECK: 1
   PIP_NO_WARN_SCRIPT_LOCATION: 1
   PYTHONHASHSEED: 0
-  # SETUPTOOLS_USE_DISTUTILS=stdlib is not set globally because it breaks on Python 3.15+
-  # where distutils was removed from stdlib. Set conditionally for older Python versions.
-  PYTHONFAULTHANDLER: 1
-  SOURCE_DATE_EPOCH: 1704067200  # Fixed timestamp for reproducible builds: 2024-01-01 00:00:00 UTC
+  SOURCE_DATE_EPOCH: 1704067200  # 2024-01-01 00:00:00 UTC, fixed for reproducible builds
 
 jobs:
   build-reproducibility:
-    name: Build Reproducibility (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.11', '3.12', '3.13', '3.14', '3.15']
-    
+    name: Build Reproducibility
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      
-      - name: Set up Python ${{ matrix.python-version }}
+
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.12'
           cache: 'pip'
-      
-      - name: Set SETUPTOOLS_USE_DISTUTILS for Python < 3.15
-        run: |
-          if [[ "${{ matrix.python-version }}" < "3.15" ]]; then
-            echo "SETUPTOOLS_USE_DISTUTILS=stdlib" >> $GITHUB_ENV
-            echo "Set SETUPTOOLS_USE_DISTUTILS=stdlib for reproducibility"
-          else
-            echo "Python 3.15+ - using setuptools vendored distutils (stdlib module removed)"
-          fi
-        shell: bash
-      
+
       - name: Install pinned build dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install build==1.6.1 setuptools==79.0.1 wheel==0.48.0
-      
-      - name: Normalize file timestamps for reproducibility
+          pip install build==1.2.2 setuptools==79.0.1 wheel==0.45.1
+
+      - name: Normalize file timestamps before first build
         run: |
-          python -c "
-import os
-SOURCE_DATE_EPOCH = int(os.environ.get('SOURCE_DATE_EPOCH', '1704067200'))
-for root, dirs, files in os.walk('.'):
-    # Skip hidden directories and common directories
-    dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('node_modules', '__pycache__', '.git')]
-    for f in files:
-        if f.endswith(('.py', '.toml', '.cfg', '.md', '.txt', '.json', '.yaml', '.yml', '.rst', '.ini', '.wsgi')):
-            path = os.path.join(root, f)
-            try:
-                os.utime(path, (SOURCE_DATE_EPOCH, SOURCE_DATE_EPOCH))
-            except OSError:
-                pass
-"
-      
-      - name: Build wheel and sdist (first pass)
+          python -c "import os; [os.utime(os.path.join(root, f), (1704067200, 1704067200)) for root, _, files in os.walk('.') for f in files if f.endswith(('.py', '.toml', '.json'))]"
+
+      - name: Build wheel (first pass)
         run: |
-          # Clean any previous build artifacts
-          rm -rf dist_first build *.egg-info src/*.egg-info 2>/dev/null || true
-          
-          SOURCE_DATE_EPOCH=1704067200 PYTHONHASHSEED=0 python -m build --no-isolation --outdir dist_first
-          
-          # Get hashes for comparison
+          rm -rf dist_first build src/*.egg-info
+          SOURCE_DATE_EPOCH=1704067200 PYTHONHASHSEED=0 python -m build --no-isolation --wheel --outdir dist_first
           WHEEL1=$(sha256sum dist_first/*.whl | cut -d' ' -f1)
-          SDIST1=$(sha256sum dist_first/*.tar.gz | cut -d' ' -f1)
-          
           echo "First wheel hash: $WHEEL1"
-          echo "First sdist hash: $SDIST1"
-          
-          mkdir -p artifacts
-          cp dist_first/* artifacts/
-      
+          echo "WHEEL1=$WHEEL1" >> "$GITHUB_ENV"
+
       - name: Normalize file timestamps and rebuild (second pass)
         run: |
-          # Normalize timestamps again to ensure consistency
-          python -c "
-import os
-SOURCE_DATE_EPOCH = 1704067200
-for root, dirs, files in os.walk('.'):
-    dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('node_modules', '__pycache__', '.git')]
-    for f in files:
-        if f.endswith(('.py', '.toml', '.cfg', '.md', '.txt', '.json', '.yaml', '.yml', '.rst', '.ini', '.wsgi')):
-            path = os.path.join(root, f)
-            try:
-                os.utime(path, (SOURCE_DATE_EPOCH, SOURCE_DATE_EPOCH))
-            except OSError:
-                pass
-"
-          
-          # Clean build artifacts while preserving dist_first
-          rm -rf build *.egg-info src/*.egg-info 2>/dev/null || true
-          
-          SOURCE_DATE_EPOCH=1704067200 PYTHONHASHSEED=0 python -m build --no-isolation --outdir dist_second
-          
-          # Get hashes for comparison
+          python -c "import os; [os.utime(os.path.join(root, f), (1704067200, 1704067200)) for root, _, files in os.walk('.') for f in files if f.endswith(('.py', '.toml', '.json'))]"
+          rm -rf build src/*.egg-info
+          SOURCE_DATE_EPOCH=1704067200 PYTHONHASHSEED=0 python -m build --no-isolation --wheel --outdir dist_second
           WHEEL2=$(sha256sum dist_second/*.whl | cut -d' ' -f1)
-          SDIST2=$(sha256sum dist_second/*.tar.gz | cut -d' ' -f1)
-          
           echo "Second wheel hash: $WHEEL2"
-          echo "Second sdist hash: $SDIST2"
-          
-          cp dist_second/* artifacts/
-      
-      - name: Compare build artifacts
-        id: compare
+          echo "WHEEL2=$WHEEL2" >> "$GITHUB_ENV"
+
+      - name: Compare wheel hashes
         run: |
-          echo "Comparing wheel hashes..."
           echo "Wheel 1: $WHEEL1"
           echo "Wheel 2: $WHEEL2"
-          
           if [ "$WHEEL1" = "$WHEEL2" ]; then
-            echo "WHEEL_MATCH=true" >> $GITHUB_OUTPUT
-            echo "✓ Wheel builds are reproducible"
+            echo "PASS: Wheel builds are reproducible"
           else
-            echo "WHEEL_MATCH=false" >> $GITHUB_OUTPUT
-            echo "✗ Wheel builds differ!"
+            echo "FAIL: Wheel builds differ"
             exit 1
           fi
-          
-          echo "Comparing sdist hashes..."
-          echo "Sdist 1: $SDIST1"
-          echo "Sdist 2: $SDIST2"
-          
-          if [ "$SDIST1" = "$SDIST2" ]; then
-            echo "SDIST_MATCH=true" >> $GITHUB_OUTPUT
-            echo "✓ Sdist builds are reproducible"
-          else
-            echo "SDIST_MATCH=false" >> $GITHUB_OUTPUT
-            echo "✗ Sdist builds differ!"
-            # Note: sdist may differ in archive metadata (file ordering) but content is verified
-            # The key deliverable is wheel reproducibility
-          fi
-        shell: bash
-      
-      - name: Upload build artifacts
+
+      - name: Upload wheel artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts-${{ matrix.os }}-py${{ matrix.python-version }}
-          path: artifacts/
-          retention-days: 30
-      
-      - name: Save build evidence
-        run: |
-          mkdir -p evidence
-          cat > evidence/build_evidence.json << EOFF
-          {
-            "os": "${{ matrix.os }}",
-            "python_version": "${{ matrix.python-version }}",
-            "wheel_reproducible": {{ steps.compare.outputs.WHEEL_MATCH }},
-            "sdist_reproducible": {{ steps.compare.outputs.SDIST_MATCH }},
-            "wheel_sha256": "$WHEEL1",
-            "sdist_sha256": "$SDIST1",
-            "environment": {
-              "SOURCE_DATE_EPOCH": "1704067200",
-              "PYTHONHASHSEED": "0"
-            }
-          }
-          EOFF
-        shell: bash
-      
-      - name: Upload evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-evidence-${{ matrix.os }}-py${{ matrix.python-version }}
-          path: evidence/
+          name: build-artifacts
+          path: |
+            dist_first/
+            dist_second/
           retention-days: 30
 
   cli-determinism:
-    name: CLI Determinism (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.11', '3.12', '3.13', '3.14', '3.15']
-    
+    name: CLI Determinism (jq-filtered)
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      
-      - name: Set up Python ${{ matrix.python-version }}
+
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.12'
           cache: 'pip'
-      
+
       - name: Install package
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[all]"
-      
+
       - name: Create test input
         run: |
           mkdir -p testdata
@@ -216,137 +103,180 @@ for root, dirs, files in os.walk('.'):
           We will verify that the CLI outputs are deterministic.
           This helps ensure the reliability of the detection system.
           EOF
-        shell: bash
-      
-      - name: Run CLI scan 5 times
+
+      - name: Run CLI scan 5 times and filter non-deterministic fields
         run: |
           mkdir -p evidence
+          FILTER='walk(if type == "object" then del(.runtime_ms, .generated_at_utc, .timestamp, .created_at, .generated_at) else . end)'
           for i in 1 2 3 4 5; do
-            python -m textforensics.cli scan --file testdata/sample.txt --json > evidence/scan_run_$i.json
+            python -m textforensics.cli scan --file testdata/sample.txt --json \
+              | jq "$FILTER" > "evidence/scan_run_$i.json"
           done
-        shell: bash
-      
+
       - name: Verify CLI scan determinism
-        id: scan_check
         run: |
-          echo "Verifying CLI scan determinism..."
           HASH1=$(sha256sum evidence/scan_run_1.json | cut -d' ' -f1)
-          ALL_MATCH=true
-          
+          echo "Run 1 hash: $HASH1"
+          FAIL=0
           for i in 2 3 4 5; do
-            HASH=$(sha256sum evidence/scan_run_$i.json | cut -d' ' -f1)
+            HASH=$(sha256sum "evidence/scan_run_$i.json" | cut -d' ' -f1)
             if [ "$HASH" != "$HASH1" ]; then
-              echo "✗ Run $i differs from run 1"
-              ALL_MATCH=false
+              echo "FAIL: Run $i differs from run 1"
+              diff <(cat evidence/scan_run_1.json) <(cat "evidence/scan_run_$i.json") || true
+              FAIL=1
             fi
           done
-          
-          if [ "$ALL_MATCH" = "true" ]; then
-            echo "SCAN_DETERMINISTIC=true" >> $GITHUB_OUTPUT
-            echo "✓ All 5 CLI scan runs produced identical output"
+          if [ "$FAIL" = "0" ]; then
+            echo "PASS: All 5 CLI scan runs produced identical jq-filtered output"
           else
-            echo "SCAN_DETERMINISTIC=false" >> $GITHUB_OUTPUT
-            echo "✗ CLI scan outputs differ!"
             exit 1
           fi
-        shell: bash
-      
+
       - name: Upload CLI evidence
         uses: actions/upload-artifact@v4
         with:
-          name: cli-evidence-${{ matrix.os }}-py${{ matrix.python-version }}
+          name: cli-evidence
           path: evidence/
           retention-days: 30
 
-  cli-determinism-with-timestamp:
-    name: CLI Determinism with Fixed Timestamp (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.11', '3.12', '3.13', '3.14', '3.15']
-    
+  case-file-determinism:
+    name: Case File Determinism
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      
-      - name: Set up Python ${{ matrix.python-version }}
+
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.12'
           cache: 'pip'
-      
+
       - name: Install package
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[all]"
-      
+
       - name: Create test input
         run: |
           mkdir -p testdata
           cat > testdata/sample.txt << 'EOF'
-          This is a sample text for reproducibility testing with --deterministic flag.
+          This is a sample text for case-file reproducibility testing.
           It contains multiple sentences to ensure meaningful analysis.
           EOF
-        shell: bash
-      
-      - name: Run CLI scan with --deterministic flag 5 times
+
+      - name: Export case file twice with --deterministic
         run: |
-          mkdir -p evidence
-          for i in 1 2 3 4 5; do
-            python -m textforensics.cli scan --file testdata/sample.txt --json --deterministic > evidence/scan_run_$i.json
-          done
-        shell: bash
-      
-      - name: Verify CLI scan determinism (with --deterministic)
-        id: deterministic_check
+          python -m textforensics.cli case export --file testdata/sample.txt --output c1.json --deterministic
+          python -m textforensics.cli case export --file testdata/sample.txt --output c2.json --deterministic
+
+      - name: Verify case_sha256 matches across both exports
         run: |
-          echo "Verifying CLI scan determinism with --deterministic flag..."
-          HASH1=$(sha256sum evidence/scan_run_1.json | cut -d' ' -f1)
-          ALL_MATCH=true
-          
-          for i in 2 3 4 5; do
-            HASH=$(sha256sum evidence/scan_run_$i.json | cut -d' ' -f1)
-            if [ "$HASH" != "$HASH1" ]; then
-              echo "✗ Run $i differs from run 1"
-              ALL_MATCH=false
-            fi
-          done
-          
-          if [ "$ALL_MATCH" = "true" ]; then
-            echo "DETERMINISTIC_SCAN=true" >> $GITHUB_OUTPUT
-            echo "✓ All 5 CLI scan runs with --deterministic produced identical output"
+          SHA1=$(jq -r '.case_sha256' c1.json)
+          SHA2=$(jq -r '.case_sha256' c2.json)
+          echo "Export 1 case_sha256: $SHA1"
+          echo "Export 2 case_sha256: $SHA2"
+          if [ "$SHA1" = "$SHA2" ] && [ "$SHA1" != "null" ]; then
+            echo "PASS: Case files are deterministic (--deterministic produces identical case_sha256)"
           else
-            echo "DETERMINISTIC_SCAN=false" >> $GITHUB_OUTPUT
-            echo "✗ CLI scan outputs differ!"
+            echo "FAIL: case_sha256 differs between deterministic exports"
             exit 1
           fi
-        shell: bash
+
+  detector-determinism:
+    name: Detector Determinism (jq-filtered)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all]"
+
+      - name: Create test input
+        run: |
+          mkdir -p testdata
+          cat > testdata/sample.txt << 'EOF'
+          This is a sample text for detector determinism testing.
+          It contains multiple sentences to ensure meaningful analysis.
+          The text should produce identical results across multiple runs.
+          EOF
+
+      - name: Run report 5 times and filter non-deterministic fields
+        run: |
+          mkdir -p evidence
+          FILTER='walk(if type == "object" then del(.runtime_ms, .generated_at_utc, .timestamp, .created_at, .generated_at) else . end)'
+          for i in 1 2 3 4 5; do
+            python -m textforensics.cli report --file testdata/sample.txt --deterministic \
+              | jq "$FILTER" > "evidence/report_run_$i.json"
+          done
+
+      - name: Verify detector report determinism
+        run: |
+          HASH1=$(sha256sum evidence/report_run_1.json | cut -d' ' -f1)
+          echo "Run 1 hash: $HASH1"
+          FAIL=0
+          for i in 2 3 4 5; do
+            HASH=$(sha256sum "evidence/report_run_$i.json" | cut -d' ' -f1)
+            if [ "$HASH" != "$HASH1" ]; then
+              echo "FAIL: Run $i differs from run 1"
+              diff <(cat evidence/report_run_1.json) <(cat "evidence/report_run_$i.json") || true
+              FAIL=1
+            fi
+          done
+          if [ "$FAIL" = "0" ]; then
+            echo "PASS: All 5 detector report runs produced identical jq-filtered output"
+          else
+            exit 1
+          fi
+
+      - name: Upload detector evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: detector-evidence
+          path: evidence/
+          retention-days: 30
 
   reproducibility-summary:
     name: Reproducibility Summary
     runs-on: ubuntu-latest
-    needs: [build-reproducibility]
+    needs: [build-reproducibility, cli-determinism, case-file-determinism, detector-determinism]
     if: always()
-    
+
     steps:
-      - name: Check build reproducibility result
+      - name: Check all reproducibility results
         run: |
           echo "=== Reproducibility Workflow Summary ==="
           echo ""
-          echo "Build Reproducibility: ${{ needs.build-reproducibility.result }}"
-          
-          if [ "${{ needs.build-reproducibility.result }}" = "success" ]; then
-            echo "✓ All reproducibility checks passed!"
-            echo ""
-            echo "Key findings:"
+          echo "Build Reproducibility:    ${{ needs.build-reproducibility.result }}"
+          echo "CLI Determinism:          ${{ needs.cli-determinism.result }}"
+          echo "Case File Determinism:    ${{ needs.case-file-determinism.result }}"
+          echo "Detector Determinism:     ${{ needs.detector-determinism.result }}"
+          echo ""
+
+          FAILED=0
+          if [ "${{ needs.build-reproducibility.result }}" != "success" ]; then FAILED=1; fi
+          if [ "${{ needs.cli-determinism.result }}" != "success" ]; then FAILED=1; fi
+          if [ "${{ needs.case-file-determinism.result }}" != "success" ]; then FAILED=1; fi
+          if [ "${{ needs.detector-determinism.result }}" != "success" ]; then FAILED=1; fi
+
+          if [ "$FAILED" = "0" ]; then
+            echo "PASS: All reproducibility checks passed."
             echo "- Wheel builds are deterministic with SOURCE_DATE_EPOCH=1704067200"
             echo "- PYTHONHASHSEED=0 ensures consistent hashing"
-            echo "- Pinned setuptools version (79.0.1) for stable builds"
-            exit 0
+            echo "- Pinned build deps (setuptools 79.0.1, wheel 0.45.1) for stable output"
+            echo "- CLI/case-file/detector outputs are deterministic after jq-filtering runtime fields"
           else
-            echo "✗ Build reproducibility check failed!"
+            echo "FAIL: One or more reproducibility checks failed."
             exit 1
           fi

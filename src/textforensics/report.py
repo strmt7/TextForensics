@@ -266,8 +266,8 @@ def build_forensic_bundle(
     )
 
     # Deterministic timestamp for reproducible outputs
-    if deterministic and fixed_timestamp:
-        generated_at_utc = fixed_timestamp
+    if deterministic:
+        generated_at_utc = fixed_timestamp or "1970-01-01T00:00:00+00:00"
     else:
         generated_at_utc = datetime.now(timezone.utc).isoformat()
 
