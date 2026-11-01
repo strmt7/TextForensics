@@ -29,9 +29,8 @@ class EnvParsingTests(unittest.TestCase):
                 self.assertFalse(_env_bool("X", True), raw)
 
     def test_env_bool_invalid_fails_fast(self):
-        with patch.dict(os.environ, {"TEXTFORENSICS_X": "maybe"}, clear=True):
-            with self.assertRaises(ValueError):
-                _env_bool("X", False)
+        with patch.dict(os.environ, {"TEXTFORENSICS_X": "maybe"}, clear=True), self.assertRaises(ValueError):
+            _env_bool("X", False)
 
     def test_env_bool_default_when_unset(self):
         with patch.dict(os.environ, {}, clear=True):
@@ -47,9 +46,8 @@ class EnvParsingTests(unittest.TestCase):
             self.assertEqual(_env_int("X", 42, minimum=1, maximum=100), 42)
 
     def test_env_int_out_of_bounds_fails(self):
-        with patch.dict(os.environ, {"TEXTFORENSICS_X": "0"}, clear=True):
-            with self.assertRaises(ValueError):
-                _env_int("X", 1, minimum=1, maximum=100)
+        with patch.dict(os.environ, {"TEXTFORENSICS_X": "0"}, clear=True), self.assertRaises(ValueError):
+            _env_int("X", 1, minimum=1, maximum=100)
 
 
 class SettingsTests(unittest.TestCase):
@@ -82,14 +80,12 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.log_level, "DEBUG")
 
     def test_invalid_environment_fails_fast(self):
-        with patch.dict(os.environ, {"TEXTFORENSICS_PORT": "70000"}, clear=True):
-            with self.assertRaises(ValueError):
-                Settings.from_env()
+        with patch.dict(os.environ, {"TEXTFORENSICS_PORT": "70000"}, clear=True), self.assertRaises(ValueError):
+            Settings.from_env()
 
     def test_invalid_log_level_fails_fast(self):
-        with patch.dict(os.environ, {"TEXTFORENSICS_LOG_LEVEL": "trace"}, clear=True):
-            with self.assertRaises(ValueError):
-                Settings.from_env()
+        with patch.dict(os.environ, {"TEXTFORENSICS_LOG_LEVEL": "trace"}, clear=True), self.assertRaises(ValueError):
+            Settings.from_env()
 
     def test_settings_is_frozen(self):
         settings = Settings()
