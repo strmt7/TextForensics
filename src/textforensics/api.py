@@ -8,7 +8,6 @@ from .config import Settings, validate_text_input
 from .detectors import list_detector_health, list_detector_metadata
 from .version import get_version
 
-
 try:
     from fastapi import FastAPI, HTTPException, Request
     from fastapi.responses import JSONResponse
