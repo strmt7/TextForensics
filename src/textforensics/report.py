@@ -271,6 +271,26 @@ def build_forensic_bundle(
     else:
         generated_at_utc = datetime.now(timezone.utc).isoformat()
 
+    # Strip runtime_ms from detector_results and detector_failures in deterministic mode
+    if deterministic:
+        detector_results = [
+            {k: v for k, v in pred.to_dict().items() if k != "runtime_ms"}
+            for pred in predictions
+        ]
+        detector_failures = [
+            {k: v for k, v in fail.to_dict().items() if k != "runtime_ms"}
+            for fail in failures
+        ]
+        # Also strip runtime_ms from robustness failures
+        for rob in robustness:
+            rob["failures"] = [
+                {k: v for k, v in f.items() if k != "runtime_ms"}
+                for f in rob["failures"]
+            ]
+    else:
+        detector_results = [pred.to_dict() for pred in predictions]
+        detector_failures = [fail.to_dict() for fail in failures]
+
     limitations = [
         (
             "Text-only detector evidence is not proof of authorship. False "
@@ -305,8 +325,8 @@ def build_forensic_bundle(
             "paragraph_count": features["paragraph_count"],
             "raw_text_included": False,
         },
-        detector_results=[prediction.to_dict() for prediction in predictions],
-        detector_failures=[failure.to_dict() for failure in failures],
+        detector_results=detector_results,
+        detector_failures=detector_failures,
         plugin_health=plugin_health,
         consensus=consensus.to_dict(),
         trust_map=trust_map.to_dict(),

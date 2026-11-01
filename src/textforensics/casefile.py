@@ -58,6 +58,25 @@ def _forbidden_paths(value: Any, path: str = "$") -> list[str]:
     return found
 
 
+def _strip_runtime_ms_from_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
+    """Remove runtime_ms from all detector results and failures in the bundle."""
+    bundle = deepcopy(bundle)
+    
+    # Strip runtime_ms from detector_results
+    if "detector_results" in bundle and isinstance(bundle["detector_results"], list):
+        for result in bundle["detector_results"]:
+            if isinstance(result, dict):
+                result.pop("runtime_ms", None)
+    
+    # Strip runtime_ms from detector_failures
+    if "detector_failures" in bundle and isinstance(bundle["detector_failures"], list):
+        for failure in bundle["detector_failures"]:
+            if isinstance(failure, dict):
+                failure.pop("runtime_ms", None)
+    
+    return bundle
+
+
 def _validate_portable_bundle(bundle: Mapping[str, Any]) -> None:
     if bundle.get("schema") != "textforensics.forensic-bundle/v1":
         raise ValueError("Case files require a TextForensics forensic-bundle/v1 object.")
@@ -95,10 +114,11 @@ def seal_case_file(
     bundle = deepcopy(dict(forensic_bundle))
     _validate_portable_bundle(bundle)
 
-    # Handle deterministic timestamp
-    if deterministic and fixed_timestamp:
-        bundle = dict(bundle)
-        bundle["generated_at_utc"] = fixed_timestamp
+    # Handle deterministic timestamp and runtime_ms removal
+    if deterministic:
+        if fixed_timestamp:
+            bundle["generated_at_utc"] = fixed_timestamp
+        bundle = _strip_runtime_ms_from_bundle(bundle)
 
     case = {
         "schema": CASE_SCHEMA,

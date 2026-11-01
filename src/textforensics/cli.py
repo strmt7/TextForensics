@@ -77,6 +77,19 @@ def _pretty_analysis(result) -> None:
             print(f"  - {warning}")
 
 
+def _strip_runtime_ms(data: dict) -> dict:
+    """Remove runtime_ms from all dicts in detector_results recursively."""
+    if "detector_results" in data and isinstance(data["detector_results"], list):
+        for result in data["detector_results"]:
+            if isinstance(result, dict):
+                result.pop("runtime_ms", None)
+    if "detector_failures" in data and isinstance(data["detector_failures"], list):
+        for failure in data["detector_failures"]:
+            if isinstance(failure, dict):
+                failure.pop("runtime_ms", None)
+    return data
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="textforensics",
@@ -92,6 +105,7 @@ def build_parser() -> argparse.ArgumentParser:
     scan = sub.add_parser("scan", help="Run the local alpha pattern baseline.")
     scan.add_argument("--file", "-f")
     scan.add_argument("--json", action="store_true")
+    scan.add_argument("--deterministic", action="store_true", help="Use fixed timestamp and remove runtime_ms for reproducible output")
 
     natural = sub.add_parser(
         "audit",
@@ -213,7 +227,10 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
     if args.command == "scan":
         result = analyze_text(_read_text(args.file, settings))
         if args.json:
-            _write_json(None, result.to_dict())
+            data = result.to_dict()
+            if hasattr(args, "deterministic") and args.deterministic:
+                data = _strip_runtime_ms(data)
+            _write_json(None, data)
         else:
             _pretty_analysis(result)
 
@@ -287,7 +304,10 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             deterministic=args.deterministic,
             fixed_timestamp=args.fixed_timestamp,
         )
-        _write_json(args.output, bundle.to_dict())
+        data = bundle.to_dict()
+        if args.deterministic:
+            data = _strip_runtime_ms(data)
+        _write_json(args.output, data)
 
     elif args.command == "case":
         if args.case_command == "export":
@@ -297,7 +317,10 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
                 deterministic=args.deterministic,
                 fixed_timestamp=args.fixed_timestamp,
             )
-            write_case_file(args.output, bundle.to_dict(), deterministic=args.deterministic, fixed_timestamp=args.fixed_timestamp)
+            bundle_dict = bundle.to_dict()
+            if args.deterministic:
+                bundle_dict = _strip_runtime_ms(bundle_dict)
+            write_case_file(args.output, bundle_dict, deterministic=args.deterministic, fixed_timestamp=args.fixed_timestamp)
             print(args.output)
         else:
             result = verify_case_file_path(args.case_file)
