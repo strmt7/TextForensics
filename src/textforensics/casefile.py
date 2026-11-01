@@ -94,12 +94,12 @@ def seal_case_file(
 ) -> dict[str, Any]:
     bundle = deepcopy(dict(forensic_bundle))
     _validate_portable_bundle(bundle)
-    
+
     # Handle deterministic timestamp
     if deterministic and fixed_timestamp:
         bundle = dict(bundle)
         bundle["generated_at_utc"] = fixed_timestamp
-    
+
     case = {
         "schema": CASE_SCHEMA,
         "tool": {
