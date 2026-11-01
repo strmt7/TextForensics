@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from textforensics.config import Settings
 
@@ -12,9 +12,10 @@ class ServerModuleTests(unittest.TestCase):
     def test_create_app_returns_fastapi_instance(self):
         """Test that create_app returns a FastAPI instance."""
         # Import the api module which contains create_app
-        from textforensics.api import create_app
         from fastapi import FastAPI
-        
+
+        from textforensics.api import create_app
+
         settings = Settings(
             host="127.0.0.1",
             port=8765,
@@ -23,27 +24,28 @@ class ServerModuleTests(unittest.TestCase):
             access_log=False,
             log_level="INFO",
         )
-        
+
         app = create_app(settings)
-        
+
         self.assertIsInstance(app, FastAPI)
         self.assertEqual(app.title, "TextForensics")
 
     def test_create_app_with_none_settings(self):
         """Test that create_app works with None settings (uses defaults)."""
-        from textforensics.api import create_app
         from fastapi import FastAPI
-        
+
+        from textforensics.api import create_app
+
         app = create_app(None)
         self.assertIsInstance(app, FastAPI)
 
     def test_serve_api_with_uvicorn(self):
         """Test that serve_api imports and uses uvicorn."""
         from textforensics.server import serve_api
-        
+
         # Since uvicorn imports raise ImportError when not installed,
         # we need to mock it or test the path that raises the error
-        
+
         # For testing coverage, we'll import and verify the function exists
         self.assertTrue(callable(serve_api))
 
@@ -52,16 +54,15 @@ class ServerModuleTests(unittest.TestCase):
         with patch.dict('sys.modules', {'uvicorn': None}):
             # Now when the server module tries to import uvicorn, it will fail
             # We need to re-import the module to trigger the import
-            import importlib
             import sys
-            
+
             # Remove uvicorn from available modules if present
-            old_uvicorn = sys.modules.get('uvicorn')
+            sys.modules.get('uvicorn')
             if 'uvicorn' in sys.modules:
                 del sys.modules['uvicorn']
-            
+
             # Mock uvicorn import to raise ImportError
-            with patch('builtins.__import__', side_effect=lambda mod, *args, **kwargs: 
+            with patch('builtins.__import__', side_effect=lambda mod, *args, **kwargs:
                          (_ for _ in ()).throw(ImportError("No module named 'uvicorn'"))
                          if mod == 'uvicorn' else __import__(mod, *args, **kwargs)):
                 # This is complex - let's simplify
@@ -70,7 +71,7 @@ class ServerModuleTests(unittest.TestCase):
     def test_serve_api_uses_settings(self):
         """Test that serve_api accepts settings parameter."""
         from textforensics.server import serve_api
-        
+
         settings = Settings(
             host="127.0.0.1",
             port=9999,
@@ -79,7 +80,7 @@ class ServerModuleTests(unittest.TestCase):
             access_log=False,
             log_level="DEBUG",
         )
-        
+
         # serve_api will try to run uvicorn, but we can test it accepts the settings
         # by mocking uvicorn
         with patch('uvicorn.run') as mock_run:
@@ -97,7 +98,7 @@ class EnsureBindAllowedTests(unittest.TestCase):
     def test_serve_api_refuses_remote_without_opt_in(self):
         """Test that serve_api raises when binding to non-loopback without allow_remote."""
         from textforensics.server import serve_api
-        
+
         settings = Settings(
             host="0.0.0.0",  # Not loopback
             port=8765,
@@ -106,7 +107,7 @@ class EnsureBindAllowedTests(unittest.TestCase):
             access_log=False,
             log_level="INFO",
         )
-        
+
         with patch('uvicorn.run'):
             with self.assertRaises(ValueError) as ctx:
                 serve_api(settings)

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 import unittest
 from unittest.mock import patch
 
@@ -107,14 +106,14 @@ class StabilityEdgeCaseTests(unittest.TestCase):
         self.assertLess(result.word_count, 80)
         self.assertTrue(
             any("short" in w.lower() for w in result.warnings),
-            f"Expected short text warning"
+            "Expected short text warning"
         )
 
     def test_high_disagreement_warning_triggered(self):
         """Test that high disagreement triggers a warning (line 91)."""
         # Create analyzers that will produce high variance
         call_count = [0]
-        
+
         def mock_analyzer(*args):
             call_count[0] = 0
             return [
@@ -122,7 +121,7 @@ class StabilityEdgeCaseTests(unittest.TestCase):
                 AnalyzerResult(name="formulaic_language", score=1.0, reliability=0.5),
                 AnalyzerResult(name="lexical_profile", score=0.5, reliability=0.5),
             ]
-        
+
         with patch('textforensics.engine.run_builtin_analyzers', side_effect=mock_analyzer):
             result = analyze_text("Some test text here.", include_robustness=False)
             self.assertGreater(result.disagreement, 0.45)
@@ -137,11 +136,11 @@ class StabilityEdgeCaseTests(unittest.TestCase):
                 "v2": "another variation",
                 "v3": "yet another example",
             }
-            
+
             # Track calls to mock
             call_idx = [0]
             base_results = [AnalyzerResult(name="test", score=0.5, reliability=0.5)]
-            
+
             def mock_base_score(text):
                 call_idx[0] += 1
                 # First call is the original, subsequent are variants
@@ -152,7 +151,7 @@ class StabilityEdgeCaseTests(unittest.TestCase):
                     # Variants have score variance
                     scores = [0.6, 0.9, 0.45, 0.85, 0.7][call_idx[0] % 5]
                     return scores, base_results, {'word_count': 200}
-            
+
             with patch('textforensics.engine._base_score', side_effect=mock_base_score):
                 result = analyze_text("Long enough text for stability analysis purposes.", include_robustness=True)
                 # If stability is low enough, warning should be triggered
@@ -164,16 +163,16 @@ class StabilityEdgeCaseTests(unittest.TestCase):
 
     def test_stability_warning_covered(self):
         """Ensure line 96 (stability < 0.85 warning) is executed via direct test.
-        
+
         Since natural texts don't produce low stability, we mock the condition.
         """
         with patch('textforensics.engine._base_score') as mock_base:
-            with patch('textforensics.engine.run_builtin_analyzers', 
+            with patch('textforensics.engine.run_builtin_analyzers',
                         return_value=[AnalyzerResult(name="x", score=0.5, reliability=0.5)]):
                 with patch('textforensics.engine.benign_variants') as mock_vars:
                     # Return variants that will create score variance
                     mock_vars.return_value = {"o": "text", "a": "a", "b": "b", "c": "c"}
-                    
+
                     # First call (original): score 0.5
                     # Subsequent calls (variants): different scores
                     idx = [0]
@@ -184,10 +183,10 @@ class StabilityEdgeCaseTests(unittest.TestCase):
                         else:
                             # Return highly variable scores for variants
                             return [0.5, 0.85, 0.2][idx[0] % 3], [AnalyzerResult(name="x", score=0.5, reliability=0.5)], {'word_count': 200}
-                    
+
                     mock_base.side_effect = base_side_effect
                     result = analyze_text("A test document for stability checking.", include_robustness=True)
-                    
+
                     # Check for stability warning if applicable
                     if result.robustness_stability < 0.85:
                         stability_warnings = [w for w in result.warnings if "stability" in w.lower() or "sensitive" in w.lower()]

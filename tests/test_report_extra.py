@@ -2,11 +2,10 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from textforensics.detectors import DetectorPrediction
 from textforensics.report import (
-    VerdictIntegrity,
     _integrity,
     _robustness_for_detector,
 )
@@ -234,7 +233,7 @@ class IntegrityGradeTests(unittest.TestCase):
 
     def test_integrity_grade_d(self):
         """Low score → grade D (>= 0.35).
-        
+
         Score calculation for this setup:
         - word_count 100-249: +0.10
         - 2 families: +0.18
@@ -348,11 +347,10 @@ class RobustnessForDetectorEdgeTests(unittest.TestCase):
         with patch("textforensics.report.benign_variants", return_value={
             "original": "text",
             "normalized_whitespace": " text ",
-        }):
-            with patch("textforensics.report.execute_detector", return_value=(None, None)):
-                with self.assertRaises(ValueError) as ctx:
-                    _robustness_for_detector(detector, "text", original)
-                self.assertIn("neither a prediction nor a failure", str(ctx.exception))
+        }), patch("textforensics.report.execute_detector", return_value=(None, None)):
+            with self.assertRaises(ValueError) as ctx:
+                _robustness_for_detector(detector, "text", original)
+            self.assertIn("neither a prediction nor a failure", str(ctx.exception))
 
     def test_robustness_all_probes_fail(self):
         """When all variant probes fail, labels is empty → verdict_stability None."""
@@ -392,12 +390,11 @@ class RobustnessForDetectorEdgeTests(unittest.TestCase):
         with patch("textforensics.report.benign_variants", return_value={
             "original": "text",
             "normalized_whitespace": "text ",
-        }):
-            with patch("textforensics.report.execute_detector", side_effect=mock_execute):
-                row = _robustness_for_detector(detector, "text", original)
-                # Original probe uses original_prediction directly, so it succeeds
-                # But if we make it so ALL probes fail including original...
-                pass  # covered below
+        }), patch("textforensics.report.execute_detector", side_effect=mock_execute):
+            _robustness_for_detector(detector, "text", original)
+            # Original probe uses original_prediction directly, so it succeeds
+            # But if we make it so ALL probes fail including original...
+            pass  # covered below
 
     def test_robustness_all_probes_fail_including_original(self):
         """Force all probes including original to have failures via mocking."""
@@ -441,13 +438,12 @@ class RobustnessForDetectorEdgeTests(unittest.TestCase):
         with patch("textforensics.report.benign_variants", return_value={
             "original": "text",
             "normalized_whitespace": " text ",
-        }):
-            with patch("textforensics.report.execute_detector", side_effect=mock_execute):
-                row = _robustness_for_detector(detector, "text", original)
-                # Original succeeds with score=None → 1 label, 0 scores with values
-                # So native_score_range is None (only 1 score at most)
-                self.assertIn("probes", row)
-                self.assertIn("failures", row)
+        }), patch("textforensics.report.execute_detector", side_effect=mock_execute):
+            row = _robustness_for_detector(detector, "text", original)
+            # Original succeeds with score=None → 1 label, 0 scores with values
+            # So native_score_range is None (only 1 score at most)
+            self.assertIn("probes", row)
+            self.assertIn("failures", row)
 
 
 if __name__ == "__main__":
