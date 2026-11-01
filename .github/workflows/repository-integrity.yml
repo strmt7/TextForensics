@@ -1,0 +1,51 @@
+name: Repository Integrity
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '27 6 * * 3'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repo-integrity-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  sigstore:
+    name: Sigstore Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install cosign
+        uses: sigstore/cosign-installer@main
+      - name: Verify signatures
+        run: |
+          echo "Verifying release signatures..."
+          # This would verify cosign signatures on releases
+          echo "Sigstore verification placeholder - requires signed releases"
+      - name: Verify attestations
+        run: |
+          echo "Verifying SLSA attestations..."
+          echo "Attestation verification placeholder"
+
+  provenance:
+    name: Build Provenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Generate provenance
+        uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.9.0
+        with:
+          provenance-name: textforensics

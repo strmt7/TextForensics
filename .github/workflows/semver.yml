@@ -1,0 +1,41 @@
+name: Semver
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: semver-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  semver:
+    name: Semantic Versioning
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.semver.outputs.version }}
+      changed: ${{ steps.semver.outputs.changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install semantic-release
+        run: pip install python-semantic-release
+      - name: Determine version
+        id: semver
+        run: |
+          semantic-release version --print --noop
+      - name: Print version
+        run: echo "Next version would be: ${{ steps.semver.outputs.version }}"
