@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-import json
 import tempfile
 import unittest
 from pathlib import Path
 
-from textforensics.provenance import _verify_ledger_unlocked, sha256_bytes, snapshot_file, verify_ledger
+from textforensics.provenance import (
+    _verify_ledger_unlocked,
+    sha256_bytes,
+    snapshot_file,
+    verify_ledger,
+)
 
 
 class ProvenanceEdgeCaseTests(unittest.TestCase):
@@ -16,9 +20,9 @@ class ProvenanceEdgeCaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             file_path = Path(tmp) / "empty.txt"
             ledger_path = Path(tmp) / "ledger.jsonl"
-            
+
             file_path.write_text("", encoding="utf-8")
-            
+
             record = snapshot_file(file_path, ledger_path)
             self.assertEqual(record["file_size"], 0)
             self.assertEqual(record["file_sha256"], sha256_bytes(b""))
@@ -45,13 +49,13 @@ class ProvenanceEdgeCaseTests(unittest.TestCase):
             file = Path(tmp) / "draft.txt"
             ledger = Path(tmp) / "ledger.jsonl"
             file.write_text("test content", encoding="utf-8")
-            
-            record1 = snapshot_file(file, ledger)
-            
+
+            snapshot_file(file, ledger)
+
             # Add only empty lines
             content = ledger.read_text(encoding="utf-8")
             ledger.write_text(content + "\n\n\n\n", encoding="utf-8")
-            
+
             result = verify_ledger(ledger)
             self.assertTrue(result["valid"], result["errors"])
 
@@ -78,7 +82,7 @@ class ProvenanceEdgeCaseTests(unittest.TestCase):
 
     def test_second_record_gets_previous_hash(self):
         """Test that second record correctly links to first.
-        
+
         This covers the snapshot_file code path where ledger exists
         and we read the previous_record_sha256.
         """
@@ -86,16 +90,16 @@ class ProvenanceEdgeCaseTests(unittest.TestCase):
             file1 = Path(tmp) / "file1.txt"
             file2 = Path(tmp) / "file2.txt"
             ledger = Path(tmp) / "ledger.jsonl"
-            
+
             file1.write_text("first file content", encoding="utf-8")
             file2.write_text("second file content", encoding="utf-8")
-            
+
             record1 = snapshot_file(file1, ledger)
             record2 = snapshot_file(file2, ledger)
-            
+
             # Second record should link to first
             self.assertEqual(record2["previous_record_sha256"], record1["record_sha256"])
-            
+
             # Verify the chain
             result = verify_ledger(ledger)
             self.assertTrue(result["valid"], result["errors"])
@@ -107,16 +111,16 @@ class ProvenanceEdgeCaseTests(unittest.TestCase):
             file1 = Path(tmp) / "file1.txt"
             file2 = Path(tmp) / "file2.txt"
             ledger = Path(tmp) / "ledger.jsonl"
-            
+
             file1.write_text("content one", encoding="utf-8")
             file2.write_text("content two", encoding="utf-8")
-            
+
             snapshot_file(file1, ledger)
-            
+
             # Read and write ledger with empty lines interspersed
             lines = ledger.read_text(encoding="utf-8").strip().split("\n")
             ledger.write_text("\n".join([lines[0], "", lines[0], ""] * 2), encoding="utf-8")
-            
+
             # This should still work - valid JSON lines are processed
             result = verify_ledger(ledger)
             # The ledger has duplicate entries with same hash - that's a chain mismatch
@@ -126,23 +130,23 @@ class ProvenanceEdgeCaseTests(unittest.TestCase):
 
     def test_snapshot_reading_ledger_with_empty_lines(self):
         """Test snapshot_file when reading an existing ledger that has empty lines.
-        
+
         This tests the 142->141 branch where the for loop continues over empty lines.
         """
         with tempfile.TemporaryDirectory() as tmp:
             file1 = Path(tmp) / "file1.txt"
             file2 = Path(tmp) / "file2.txt"
             ledger = Path(tmp) / "ledger.jsonl"
-            
+
             file1.write_text("first content", encoding="utf-8")
             file2.write_text("second content", encoding="utf-8")
-            
+
             # Create first snapshot
             record1 = snapshot_file(file1, ledger)
-            
+
             # Manually create a ledger file with empty lines before the next record
             ledger.write_text(ledger.read_text(encoding="utf-8") + "\n\n\n", encoding="utf-8")
-            
+
             # Now snapshot file2 - it should read the previous_record_sha256 from record1
             # and ignore the empty lines
             record2 = snapshot_file(file2, ledger)

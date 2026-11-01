@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import io
 import json
 import socket
 import threading
@@ -193,7 +192,6 @@ class TestHTTPHandler(unittest.TestCase):
 
     def test_post_api_report_no_content_length_returns_411(self):
         """POST /api/report without Content-Length returns 411."""
-        url = f"http://127.0.0.1:{self.port}/api/report"
         # Use raw socket to send a request without Content-Length header
         data = json.dumps({"text": "test"})
         http_request = (
@@ -202,7 +200,7 @@ class TestHTTPHandler(unittest.TestCase):
             f"Content-Type: application/json\r\n"
             f"\r\n"
             f"{data}"
-        ).encode("utf-8")
+        ).encode()
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:

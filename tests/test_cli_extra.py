@@ -1,7 +1,6 @@
 """Extra CLI tests for uncovered lines."""
 from __future__ import annotations
 
-import argparse
 import json
 import sys
 import tempfile
@@ -17,7 +16,6 @@ from textforensics.cli import (
     main,
 )
 
-
 FORMULAIC = (
     "Furthermore, it is important to note that this robust solution "
     "seamlessly unlocks the potential."
@@ -30,7 +28,7 @@ class TestPrettyAnalysis(unittest.TestCase):
     def test_pretty_analysis_contains_expected_sections(self):
         """Test that _pretty_analysis output contains required sections."""
         from textforensics.engine import analyze_text
-        
+
         result = analyze_text(FORMULAIC)
         import io
         old_stdout = sys.stdout
@@ -40,7 +38,7 @@ class TestPrettyAnalysis(unittest.TestCase):
             output = sys.stdout.getvalue()
         finally:
             sys.stdout = old_stdout
-        
+
         self.assertIn("TextForensics", output)
         self.assertIn("Verdict", output)
         self.assertIn("Pattern score", output)
@@ -55,10 +53,10 @@ class TestReadText(unittest.TestCase):
     def test_read_text_no_file_stdin_tty_raises(self):
         """Line 35: ValueError when no file and stdin is a tty."""
         from textforensics.config import Settings
-        
+
         old_isatty = sys.stdin.isatty
         sys.stdin.isatty = lambda: True
-        
+
         try:
             with self.assertRaises(ValueError) as ctx:
                 _read_text(None, Settings())
@@ -73,13 +71,13 @@ class TestLocalizeSentencesValidation(unittest.TestCase):
     def test_localize_sentences_zero_raises(self):
         """Line 222: ValueError when --sentences < 1."""
         import unittest.mock as mock
-        
+
         # Patch _read_text to return valid text
         with mock.patch('textforensics.cli._read_text', return_value="test text"):
             with mock.patch('textforensics.cli.localize_text', return_value=[]):
                 parser = build_parser()
                 args = parser.parse_args(['localize', '--sentences', '0'])
-                
+
                 with self.assertRaises(ValueError) as ctx:
                     # Need to call _run, but we can test the condition directly
                     if args.sentences < 1:
@@ -103,18 +101,18 @@ class TestCompareJson(unittest.TestCase):
             "I ran this test yesterday. The first result looked odd, so I "
             "changed one cable, repeated it, and wrote down the second result."
         )
-        
+
         with tempfile.TemporaryDirectory() as tmp:
             before = Path(tmp) / "before.txt"
             after = Path(tmp) / "after.txt"
             before.write_text(TEXT, encoding="utf-8")
             after.write_text(TEXT + " extra.", encoding="utf-8")
-            
+
             # Import and run the scan
             from textforensics.cli import _run, build_parser
             parser = build_parser()
             args = parser.parse_args(['compare', str(before), str(after), '--json'])
-            
+
             old_stdout = sys.stdout
             old_stderr = sys.stderr
             sys.stdout = StringIO()
@@ -126,7 +124,7 @@ class TestCompareJson(unittest.TestCase):
             finally:
                 sys.stdout = old_stdout
                 sys.stderr = old_stderr
-            
+
             self.assertEqual(result, 0)
             payload = json.loads(output)
             self.assertIn("similarity", payload)
@@ -145,11 +143,11 @@ class TestBenchmarkThreshold(unittest.TestCase):
                 json.dumps({"label": "ai", "text": "Furthermore, this solution is robust."}) + "\n",
                 encoding="utf-8"
             )
-            
+
             from textforensics.cli import _run, build_parser
             parser = build_parser()
             args = parser.parse_args(['benchmark', str(dataset), '--threshold', '0.5'])
-            
+
             old_stdout = sys.stdout
             old_stderr = sys.stderr
             sys.stdout = StringIO()
@@ -161,7 +159,7 @@ class TestBenchmarkThreshold(unittest.TestCase):
             finally:
                 sys.stdout = old_stdout
                 sys.stderr = old_stderr
-            
+
             self.assertEqual(result, 0)
             payload = json.loads(output)
             self.assertIn("mode", payload)
@@ -177,11 +175,11 @@ class TestBenchmarkThreshold(unittest.TestCase):
                 json.dumps({"label": "ai", "text": "Furthermore, this solution is robust."}) + "\n",
                 encoding="utf-8"
             )
-            
+
             from textforensics.cli import _run, build_parser
             parser = build_parser()
             args = parser.parse_args(['benchmark', str(dataset)])
-            
+
             old_stdout = sys.stdout
             old_stderr = sys.stderr
             sys.stdout = StringIO()
@@ -193,7 +191,7 @@ class TestBenchmarkThreshold(unittest.TestCase):
             finally:
                 sys.stdout = old_stdout
                 sys.stderr = old_stderr
-            
+
             self.assertEqual(result, 0)
             payload = json.loads(output)
             # When using --threshold (implicit default 0.5) without calibration
@@ -249,10 +247,10 @@ class TestSettingsWithOverrides(unittest.TestCase):
     def test_settings_with_overrides_preserves_base(self):
         """Test that _settings_with_overrides preserves base settings when no overrides."""
         from textforensics.config import Settings
-        
+
         base = Settings()
         result = _settings_with_overrides(base)
-        
+
         self.assertEqual(result.host, base.host)
         self.assertEqual(result.port, base.port)
         self.assertEqual(result.allow_remote, base.allow_remote)
@@ -261,30 +259,30 @@ class TestSettingsWithOverrides(unittest.TestCase):
     def test_settings_with_overrides_applies_host(self):
         """Test that _settings_with_overrides applies host override."""
         from textforensics.config import Settings
-        
+
         base = Settings()
         result = _settings_with_overrides(base, host='0.0.0.0')
-        
+
         self.assertEqual(result.host, '0.0.0.0')
         self.assertEqual(result.port, base.port)
 
     def test_settings_with_overrides_applies_port(self):
         """Test that _settings_with_overrides applies port override."""
         from textforensics.config import Settings
-        
+
         base = Settings()
         result = _settings_with_overrides(base, port=9000)
-        
+
         self.assertEqual(result.port, 9000)
         self.assertEqual(result.host, base.host)
 
     def test_settings_with_overrides_applies_access_log(self):
         """Test that _settings_with_overrides applies access_log override."""
         from textforensics.config import Settings
-        
+
         base = Settings()
         result = _settings_with_overrides(base, access_log=True)
-        
+
         self.assertTrue(result.access_log)
 
 
@@ -293,18 +291,17 @@ class TestMainRuntimeError(unittest.TestCase):
 
     def test_main_runtime_error_exit_code_2(self):
         """Line 338-340: RuntimeError should return exit code 2 with error message."""
-        import unittest.mock as mock
-        
+
         # Create a function that raises RuntimeError when Settings.from_env is called
         original_from_env = None
         from textforensics.config import Settings
         original_from_env = Settings.from_env
-        
+
         def raise_runtime_error():
             raise RuntimeError("Simulated runtime error for testing")
-        
+
         Settings.from_env = staticmethod(raise_runtime_error)
-        
+
         try:
             code, out, err = self._run_main(['scan'], stdin='test')
             self.assertEqual(code, 2)
@@ -342,17 +339,16 @@ class TestServeCommand(unittest.TestCase):
     def test_serve_command_with_mocked_api(self):
         """Test serve command calls serve_api with correct settings."""
         import unittest.mock as mock
-        
+
         # First, make sure the server module is imported
-        import textforensics.server
-        
+
         # Patch serve_api at the function level in the cli module's namespace
         # The local import `from .server import serve_api` will pick this up
         with mock.patch('textforensics.server.serve_api') as mock_serve_api:
             mock_serve_api.return_value = None  # Simulate quick return
-            
+
             code, out, err = self._run_main(['serve', '--port', '9999', '--allow-remote'])
-            
+
             self.assertEqual(code, 0)
             mock_serve_api.assert_called_once()
 

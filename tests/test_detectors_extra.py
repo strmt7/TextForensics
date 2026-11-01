@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from textforensics.detectors import (
     DetectorContractError,
@@ -167,7 +167,6 @@ class ValidatePredictionEdgeTests(unittest.TestCase):
             validate_prediction(p)
 
     def test_score_is_infinity(self):
-        import math
         p = make_prediction()
         p.score = float("inf")
         with self.assertRaises(DetectorContractError):
@@ -735,7 +734,7 @@ class EmptyScoreInProbesTests(unittest.TestCase):
         """Test that execute_detector returning (None, None) raises ValueError."""
         # This is already covered by test_robustness_defensive_prediction_none_raises
         # but let's also test it more directly
-        from textforensics.detectors import execute_detector, DetectorFailure
+        from textforensics.detectors import execute_detector
 
         class BrokenDetector:
             detector_id = "fake/broken"
@@ -798,8 +797,8 @@ class BuiltinHeuristicDetectorAbstainTests(unittest.TestCase):
 
     def test_builtin_abstain_verdict(self):
         """When engine verdict is neither pattern type, output is abstain (line 277)."""
-        from textforensics.detectors import BuiltinHeuristicDetector
         import textforensics.detectors as det_module
+        from textforensics.detectors import BuiltinHeuristicDetector
 
         detector = BuiltinHeuristicDetector()
         original_analyze = det_module.analyze_text

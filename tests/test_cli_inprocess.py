@@ -94,20 +94,6 @@ class CliInProcessTests(unittest.TestCase):
             self.assertIn("before_verdict", out)
             self.assertIn("after_verdict", out)
 
-    def test_compare_output(self):
-        # compare outputs human-readable text (no --json flag)
-        with tempfile.TemporaryDirectory() as tmp:
-            before = Path(tmp) / "before.txt"
-            after = Path(tmp) / "after.txt"
-            before.write_text(TEXT, encoding="utf-8")
-            after.write_text(TEXT + " extra.", encoding="utf-8")
-            code, out, err = self._run_main(["compare", str(before), str(after)])
-            self.assertEqual(code, 0, err)
-            self.assertIn("similarity", out)
-            self.assertIn("score_delta", out)
-            self.assertIn("before_verdict", out)
-            self.assertIn("after_verdict", out)
-
     def test_snapshot_verify_ledger(self):
         with tempfile.TemporaryDirectory() as tmp:
             ledger = Path(tmp) / "ledger.jsonl"

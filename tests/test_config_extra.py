@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import os
 import unittest
-from pathlib import Path
 from unittest.mock import patch
 
 from textforensics.config import (
+    Settings,
     _env_int,
     is_unspecified_host,
     read_text_file,
-    Settings,
     validate_text_input,
 )
 

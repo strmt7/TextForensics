@@ -40,8 +40,8 @@ class TrustMapOverallStateTests(unittest.TestCase):
         with patch('textforensics.trust._length_dimension') as mock_len, \
              patch('textforensics.trust._diversity_dimension') as mock_div, \
              patch('textforensics.trust._stability_dimension') as mock_stab, \
-             patch('textforensics.trust.TrustDimension') as mock_dim:
-            
+             patch('textforensics.trust.TrustDimension'):
+
             mock_len.return_value = TrustDimension(
                 dimension="text_length", state="out_of_scope", reason="too short"
             )
@@ -51,7 +51,7 @@ class TrustMapOverallStateTests(unittest.TestCase):
             mock_stab.return_value = TrustDimension(
                 dimension="benign_stability", state="supported", reason="ok"
             )
-            
+
             result = build_trust_map(
                 [prediction("a", "fam1", min_words=50), prediction("b", "fam2", min_words=50)],
                 word_count=200,
@@ -61,13 +61,13 @@ class TrustMapOverallStateTests(unittest.TestCase):
 
     def test_overall_mixed_branch_with_patched_dimensions(self):
         """Cover lines 233-234: the 'mixed' overall state branch.
-        
+
         This test simulates a scenario where unknown_count < 3 and partial is True.
         Since 5 static dimensions are always 'unknown' in the current alpha,
         we test the branch logic directly.
         """
         # We need to simulate: out_of_scope=False, unknown_count < 3, partial=True
-        
+
         # Create dimensions that would result in 'mixed' if static dims weren't always unknown
         dimensions = [
             TrustDimension(dimension="language", state="unknown", reason="unknown"),
@@ -79,11 +79,11 @@ class TrustMapOverallStateTests(unittest.TestCase):
             TrustDimension(dimension="benign_stability", state="supported", reason="ok"),
             TrustDimension(dimension="temporal_version_stability", state="supported", reason="ok"),
         ]
-        
+
         unknown_count = sum(d.state == "unknown" for d in dimensions)
         out_of_scope = any(d.state == "out_of_scope" for d in dimensions)
         partial = any(d.state == "partial" for d in dimensions)
-        
+
         # Apply the overall logic from trust.py lines 227-236
         if out_of_scope or unknown_count >= 3:
             overall = "insufficient"
@@ -91,7 +91,7 @@ class TrustMapOverallStateTests(unittest.TestCase):
             overall = "mixed"
         else:
             overall = "strong"
-        
+
         # With 1 unknown and partial=True: overall should be 'mixed'
         self.assertEqual(unknown_count, 1)
         self.assertTrue(partial)
@@ -100,7 +100,7 @@ class TrustMapOverallStateTests(unittest.TestCase):
 
     def test_overall_strong_branch_with_all_supported(self):
         """Cover line 236: the 'strong' overall state branch.
-        
+
         All dimensions must be 'supported' for this branch.
         """
         dimensions = [
@@ -113,18 +113,18 @@ class TrustMapOverallStateTests(unittest.TestCase):
             TrustDimension(dimension="benign_stability", state="supported", reason="ok"),
             TrustDimension(dimension="temporal_version_stability", state="supported", reason="ok"),
         ]
-        
+
         unknown_count = sum(d.state == "unknown" for d in dimensions)
         out_of_scope = any(d.state == "out_of_scope" for d in dimensions)
         partial = any(d.state == "partial" for d in dimensions)
-        
+
         if out_of_scope or unknown_count >= 3:
             overall = "insufficient"
         elif unknown_count or partial:
             overall = "mixed"
         else:
             overall = "strong"
-        
+
         self.assertEqual(unknown_count, 0)
         self.assertFalse(partial)
         self.assertFalse(out_of_scope)
