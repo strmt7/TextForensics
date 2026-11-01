@@ -13,6 +13,9 @@ tests/fuzz/
 ├── fuzz_ledger_parsing.py   # Ledger parsing fuzz targets (provenance)
 ├── fuzz_schema_validation.py  # Schema validation fuzz targets
 ├── fuzz_trust_map.py        # Trust map computation fuzz targets
+├── fuzz_engine_analysis.py  # Engine analysis and verdict computation fuzz targets
+├── fuzz_api_validation.py   # API request validation middleware fuzz targets
+├── fuzz_detector_registry.py  # Detector registry and plugin discovery fuzz targets
 ├── run_fuzz.py              # Main fuzz test runner
 ├── generate_corpus.py       # Corpus generation from test data
 └── test_fuzz_pytest.py      # Pytest-compatible wrapper tests
@@ -63,6 +66,9 @@ python tests/fuzz/fuzz_json_parsing.py -runs=0 -max_total_time=300
 | `ledger_parsing_provenance` | `fuzz_ledger_parsing.py` | Ledger verification, snapshotting |
 | `schema_validation` | `fuzz_schema_validation.py` | Schema loading, validation |
 | `trust_map_computation` | `fuzz_trust_map.py` | Trust map building, dimension calculation |
+| `engine_analysis` | `fuzz_engine_analysis.py` | Text analysis, verdict computation, stability |
+| `api_validation` | `fuzz_api_validation.py` | Request validation, Content-Length checks |
+| `detector_registry` | `fuzz_detector_registry.py` | Plugin discovery, duplicate ID detection |
 
 ## Initial Corpus Generation
 
