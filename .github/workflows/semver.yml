@@ -28,23 +28,5 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: Install semantic-release
-        run: pip install python-semantic-release
       - name: Check version format
-        run: |
-          python -c "
-import re
-with open('pyproject.toml', 'r') as f:
-    content = f.read()
-match = re.search(r'version = \"([^\"]+)\"', content)
-if match:
-    version = match.group(1)
-    print(f'Current version: {version}')
-    # Validate semver format
-    import re
-    if re.match(r'^\d+\.\d+\.\d+(?:-[a-zA-Z0-9]+)?(?:\+[a-zA-Z0-9]+)?$', version):
-        print('Version format is valid semver')
-    else:
-        print('Warning: version may not follow semver strictly')
-        exit(1)
-"
+        run: python scripts/check_semver.py
