@@ -1,0 +1,83 @@
+name: Supply-chain security
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supply-chain-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  advisories:
+    name: Security advisories (OSV/GHSAs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pip-audit
+        run: python -m pip install pip-audit==2.8.2 --break-system-packages
+      - name: Security audit
+        run: |
+          pip-audit --prefer-binary --fail-on=high || exit 1
+
+  dependencies:
+    name: Dependency policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pip-audit
+        run: python -m pip install pip-audit==2.8.2 --break-system-packages
+      - name: Dependency policy check
+        run: pip-audit --only-binary --fail-on=severity=critical
+
+  secrets:
+    name: Full-history secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout complete repository history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Gitleaks secret scan
+        uses: gitleaks/gitleaks-action@3.5.1 # v3.5.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sbom:
+    name: Software Bill of Materials
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Generate Python SBOM
+        uses: anchore/sbom-action@v0.21.2
+        with:
+          path: .
+          format: syft-json
+          output-file: sbom.json
+      - name: Upload SBOM evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: textforensics-sbom-${{ github.sha }}
+          path: sbom.json
+          if-no-files-found: error
+          retention-days: 30
