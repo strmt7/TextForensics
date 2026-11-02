@@ -6,6 +6,7 @@ from typing import Any
 from .casefile import seal_case_file
 from .config import Settings, validate_text_input
 from .detectors import list_detector_health, list_detector_metadata
+from . import mcp_tools
 
 
 def _server():
@@ -94,6 +95,59 @@ def _server():
     def audit_writing_naturalness(text: str) -> str:
         """Identify formulaic writing patterns without promising detector outcomes."""
         return dumped(audit_naturalness(checked(text)))
+
+    # --- Capability Ledger tools ---
+
+    @mcp.tool()
+    def capability_register(params: str) -> str:
+        """Register a capability claim in the ledger."""
+        return dumped(mcp_tools.capability_register(json.loads(params)))
+
+    @mcp.tool()
+    def capability_check(params: str) -> str:
+        """Check if a capability is validated."""
+        return dumped(mcp_tools.capability_check(json.loads(params)))
+
+    @mcp.tool()
+    def capability_list(params: str) -> str:
+        """List all registered capabilities."""
+        return dumped(mcp_tools.capability_list(json.loads(params)))
+
+    # --- Verify tool ---
+
+    @mcp.tool()
+    def verify_case_file(params: str) -> str:
+        """Run N-version integrity replay on a case file."""
+        return dumped(mcp_tools.verify_case_file(json.loads(params)))
+
+    # --- Drift Observatory tools ---
+
+    @mcp.tool()
+    def drift_snapshot(params: str) -> str:
+        """Take a detector drift snapshot."""
+        return dumped(mcp_tools.drift_snapshot(json.loads(params)))
+
+    @mcp.tool()
+    def drift_compare(params: str) -> str:
+        """Compare two drift snapshots."""
+        return dumped(mcp_tools.drift_compare(json.loads(params)))
+
+    @mcp.tool()
+    def drift_report(params: str) -> str:
+        """Generate a drift report."""
+        return dumped(mcp_tools.drift_report(json.loads(params)))
+
+    # --- Benchmark fingerprint tools ---
+
+    @mcp.tool()
+    def fingerprint_dataset(params: str) -> str:
+        """Create a dataset fingerprint."""
+        return dumped(mcp_tools.fingerprint_dataset(json.loads(params)))
+
+    @mcp.tool()
+    def check_contamination(params: str) -> str:
+        """Check for benchmark contamination."""
+        return dumped(mcp_tools.check_contamination(json.loads(params)))
 
     return mcp
 

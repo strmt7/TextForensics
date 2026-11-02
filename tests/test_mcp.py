@@ -49,6 +49,15 @@ class McpServerTests(unittest.TestCase):
             "localize_text_patterns",
             "compare_text_versions",
             "audit_writing_naturalness",
+            "capability_register",
+            "capability_check",
+            "capability_list",
+            "verify_case_file",
+            "drift_snapshot",
+            "drift_compare",
+            "drift_report",
+            "fingerprint_dataset",
+            "check_contamination",
         }
         self.assertEqual(set(names), expected)
 
