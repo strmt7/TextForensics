@@ -18,6 +18,7 @@ from .capability_ledger import (
     ledger_to_trust_dimension,
     validate_claim,
 )
+from .trust import trust_map_from_capability_ledger
 from .casefile import seal_case_file, verify_case_file
 from .compare import compare_texts
 from .constants import (
@@ -72,6 +73,7 @@ __all__ = [
     "save_fingerprint",
     "select_threshold",
     "seal_case_file",
+    "trust_map_from_capability_ledger",
     "validate_claim",
     "validate_exit_code",
     "verify_all",

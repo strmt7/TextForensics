@@ -1,0 +1,254 @@
+{
+  "case_sha256": "0c01d9f5a057ca10168eaf5801aebd378b1a6f24a1216253da0db7dc9e3f8f8a",
+  "forensic_bundle": {
+    "consensus": {
+      "calibrated_ai_probability": null,
+      "ensemble_calibration_id": null,
+      "family_agreement": null,
+      "family_votes": [
+        {
+          "calibrated_ai_probability": null,
+          "detector_count": 1,
+          "family": "stylometric-heuristic",
+          "members": [
+            "textforensics/builtin-heuristic"
+          ],
+          "verdict": "abstain",
+          "warnings": []
+        }
+      ],
+      "independent_families": 1,
+      "verdict": "abstain",
+      "voting_families": 0,
+      "warnings": [
+        "Consensus requires multiple methodologically independent detector families; fewer than two families are available."
+      ]
+    },
+    "content_sha256": "3c6a9d9e66d03095d9e2610b19d9c40655904a023a34b130267365741fd2c177",
+    "detector_failures": [],
+    "detector_results": [
+      {
+        "calibrated_ai_probability": null,
+        "calibration_id": null,
+        "detector_family": "stylometric-heuristic",
+        "detector_id": "textforensics/builtin-heuristic",
+        "detector_version": "0.1.0",
+        "evidence": [
+          {
+            "analyzer": "structural_uniformity",
+            "reliability": 0.1667,
+            "score": 0.77
+          },
+          {
+            "analyzer": "formulaic_language",
+            "reliability": 0.1111,
+            "score": 0.0
+          },
+          {
+            "analyzer": "lexical_profile",
+            "reliability": 0.05,
+            "score": 0.3
+          }
+        ],
+        "execution": "local",
+        "min_words": 80,
+        "reliability": 0.0623,
+        "schema": "textforensics.detector-result/v1",
+        "score": 0.4373,
+        "score_semantics": "higher_means_more_machine_like; uncalibrated pattern score",
+        "supported_languages": [
+          "en"
+        ],
+        "threshold": null,
+        "verdict": "abstain",
+        "warnings": [
+          "Short text: detector-style signals are especially unreliable below the built-in baseline's 80-word minimum.",
+          "High analyzer disagreement: treat the aggregate score as weak evidence.",
+          "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+          "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+          "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+        ]
+      }
+    ],
+    "generated_at_utc": "1970-01-01T00:00:00+00:00",
+    "input": {
+      "paragraph_count": 1,
+      "raw_text_included": false,
+      "sentence_count": 2,
+      "word_count": 20
+    },
+    "limitations": [
+      "Text-only detector evidence is not proof of authorship. False positives and false negatives remain possible.",
+      "Detector-native scores are not treated as comparable probabilities unless explicit calibration evidence exists.",
+      "The Trust Map describes evidence coverage; it is not an authorship probability.",
+      "Verdict Integrity is a deprecated alpha heuristic retained for compatibility and is not a validated trust score."
+    ],
+    "plugin_health": [
+      {
+        "detector_id": "textforensics/builtin-heuristic",
+        "entry_point": "builtin",
+        "error_type": null,
+        "message": null,
+        "status": "ok"
+      }
+    ],
+    "provenance": null,
+    "robustness": {
+      "detectors": [
+        {
+          "detector_id": "textforensics/builtin-heuristic",
+          "failures": [],
+          "native_score_range": 0.0,
+          "probes": {
+            "normalized_punctuation": {
+              "score": 0.4373,
+              "verdict": "abstain"
+            },
+            "normalized_whitespace": {
+              "score": 0.4373,
+              "verdict": "abstain"
+            },
+            "original": {
+              "score": 0.4373,
+              "verdict": "abstain"
+            },
+            "plain_list_formatting": {
+              "score": 0.4373,
+              "verdict": "abstain"
+            }
+          },
+          "score_range_semantics": "Raw movement in this detector's native score units; not normalized and not comparable across detectors.",
+          "verdict_stability": 1.0
+        }
+      ]
+    },
+    "schema": "textforensics.forensic-bundle/v1",
+    "trust_map": {
+      "dimensions": [
+        {
+          "dimension": "language",
+          "evidence_refs": [],
+          "limitations": [],
+          "observed": {},
+          "reason": "The core does not yet have validated language-identification evidence for this document.",
+          "state": "unknown"
+        },
+        {
+          "dimension": "text_length",
+          "evidence_refs": [],
+          "limitations": [
+            "Declared minimum length is capability metadata, not proof of held-out performance at this exact length."
+          ],
+          "observed": {
+            "supported_detectors": [],
+            "unsupported_detectors": [
+              {
+                "detector_id": "textforensics/builtin-heuristic",
+                "min_words": 80
+              }
+            ],
+            "word_count": 20
+          },
+          "reason": "The text is below every detector's declared minimum word count.",
+          "state": "out_of_scope"
+        },
+        {
+          "dimension": "domain_genre",
+          "evidence_refs": [],
+          "limitations": [],
+          "observed": {},
+          "reason": "No benchmark-backed domain or genre match is available in the current alpha.",
+          "state": "unknown"
+        },
+        {
+          "dimension": "editing_revision",
+          "evidence_refs": [],
+          "limitations": [],
+          "observed": {},
+          "reason": "No benchmark-backed evidence for this document's editing or revision regime is available.",
+          "state": "unknown"
+        },
+        {
+          "dimension": "human_false_positive_evidence",
+          "evidence_refs": [],
+          "limitations": [],
+          "observed": {},
+          "reason": "No nearest-slice held-out human false-positive evidence is registered yet.",
+          "state": "unknown"
+        },
+        {
+          "dimension": "detector_diversity",
+          "evidence_refs": [],
+          "limitations": [
+            "Family labels are methodological metadata; empirical error correlation must still be measured."
+          ],
+          "observed": {
+            "detector_failures": 0,
+            "families": [
+              "stylometric-heuristic"
+            ],
+            "independent_family_count": 1
+          },
+          "reason": "Detector-family diversity is limited or one or more configured detectors failed.",
+          "state": "partial"
+        },
+        {
+          "dimension": "benign_stability",
+          "evidence_refs": [],
+          "limitations": [
+            "Native score ranges remain in each detector's own units and are not compared across detectors.",
+            "Current probes cover representation stability, not semantic rewriting."
+          ],
+          "observed": {
+            "detectors": [
+              {
+                "detector_id": "textforensics/builtin-heuristic",
+                "native_score_range": 0.0,
+                "verdict_stability": 1.0
+              }
+            ]
+          },
+          "reason": "All usable detectors kept the same categorical verdict under the current benign probes.",
+          "state": "supported"
+        },
+        {
+          "dimension": "temporal_version_stability",
+          "evidence_refs": [],
+          "limitations": [],
+          "observed": {},
+          "reason": "No longitudinal detector/provider observatory evidence is registered yet.",
+          "state": "unknown"
+        }
+      ],
+      "limitations": [
+        "Trust Map states describe evidence coverage, not probability of authorship.",
+        "The alpha Trust Map is intentionally conservative until benchmark registries provide slice-level validation evidence."
+      ],
+      "overall": "insufficient",
+      "schema": "textforensics.trust-map/v1"
+    },
+    "verdict_integrity": {
+      "calibrated_detector_count": 0,
+      "detector_count": 1,
+      "factors": [
+        "legacy_unvalidated_integrity_heuristic",
+        "short_text_limits_detector_evidence",
+        "single_detector_family",
+        "no_probability_calibration",
+        "agreement_unavailable"
+      ],
+      "grade": "INSUFFICIENT",
+      "independent_families": 1,
+      "robustness_stability": 1.0,
+      "score": 0.2,
+      "status": "alpha_unvalidated_heuristic",
+      "verdict_agreement": null
+    }
+  },
+  "raw_text_included": false,
+  "schema": "textforensics.case-file/v1",
+  "tool": {
+    "name": "TextForensics",
+    "version": "0.2.0"
+  }
+}
