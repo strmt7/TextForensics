@@ -26,6 +26,12 @@ from .benchmark_fingerprint import (
 from .casefile import verify_case_file_path, write_case_file
 from .compare import compare_texts
 from .config import Settings, read_text_file, validate_text_input
+from .constants import (
+    EXIT_DOWNGRADED,
+    EXIT_ERROR,
+    EXIT_INCOMPLETE,
+    EXIT_OK,
+)
 from .detectors import list_detector_health, list_detector_metadata
 from .drift import DriftObservatory
 from .engine import analyze_text
@@ -33,6 +39,7 @@ from .localize import localize_text
 from .naturalness import audit_naturalness
 from .provenance import snapshot_file, verify_ledger
 from .report import build_forensic_bundle
+from .verify import verify_all, verify_case_file_path as verify_case_file_path_nversion
 from .version import get_version
 from .webapp import serve as serve_webapp
 
@@ -256,6 +263,29 @@ def build_parser() -> argparse.ArgumentParser:
     case_verify = case_sub.add_parser("verify", help="Verify case-file integrity.")
     case_verify.add_argument("case_file")
 
+    verify_cmd = sub.add_parser(
+        "verify",
+        help="N-version integrity replay: re-derive Trust Map, calibration, and benchmark metrics.",
+    )
+    verify_cmd.add_argument(
+        "case_file",
+        nargs="?",
+        help="Path to a sealed case file to verify.",
+    )
+    verify_cmd.add_argument(
+        "--calibration",
+        help="Path to a calibration artifact JSON to verify.",
+    )
+    verify_cmd.add_argument(
+        "--benchmark",
+        help="Path to a benchmark result JSON to verify.",
+    )
+    verify_cmd.add_argument(
+        "--all",
+        action="store_true",
+        help="Run all available verifications and report.",
+    )
+
     web = sub.add_parser("web", help="Run the zero-dependency browser UI.")
     web.add_argument("--host")
     web.add_argument("--port", type=int)
@@ -370,6 +400,42 @@ def _load_default_ledger() -> CapabilityLedger:
     return CapabilityLedger()
 
 
+def _trust_map_exit_code(bundle: dict[str, Any]) -> int:
+    """Map a forensic bundle's Trust Map to an exit code.
+
+    Returns EXIT_OK (0) when coverage is sufficient,
+    EXIT_DOWNGRADED (1) when partial, and EXIT_INCOMPLETE (2)
+    when detectors abstained or coverage is insufficient.
+    """
+    trust_map = bundle.get("trust_map")
+    if not isinstance(trust_map, dict):
+        return EXIT_INCOMPLETE
+
+    overall = trust_map.get("overall", "unknown")
+    if overall in ("insufficient", "mixed"):
+        return EXIT_INCOMPLETE
+    if overall == "mixed":
+        return EXIT_DOWNGRADED
+    if overall == "insufficient":
+        return EXIT_INCOMPLETE
+    if overall == "strong":
+        return EXIT_OK
+
+    # Fallback: inspect dimensions
+    dimensions = trust_map.get("dimensions", [])
+    if not isinstance(dimensions, list) or not dimensions:
+        return EXIT_INCOMPLETE
+
+    states = [d.get("state", "") for d in dimensions if isinstance(d, dict)]
+    if any(s == "out_of_scope" for s in states):
+        return EXIT_INCOMPLETE
+    if any(s == "unknown" for s in states):
+        return EXIT_INCOMPLETE
+    if any(s == "partial" for s in states):
+        return EXIT_DOWNGRADED
+    return EXIT_OK
+
+
 def _run(args: argparse.Namespace, settings: Settings) -> int:
     if args.command == "scan":
         result = analyze_text(_read_text(args.file, settings))
@@ -413,7 +479,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
     elif args.command == "verify-ledger":
         result = verify_ledger(args.ledger)
         _write_json(None, result)
-        return 0 if result.get("valid") else 1
+        return EXIT_OK if result.get("valid") else EXIT_INCOMPLETE
 
     elif args.command == "calibrate":
         artifact = calibrate_threshold_jsonl(
@@ -508,7 +574,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         else:
             result = verify_case_file_path(args.case_file)
             _write_json(None, result)
-            return 0 if result.get("valid") else 1
+            return EXIT_OK if result.get("valid") else EXIT_INCOMPLETE
 
     elif args.command == "web":
         active = _settings_with_overrides(
@@ -589,7 +655,41 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         elif args.capability_command == "export":
             _write_json(args.output, ledger.to_dict())
 
-    return 0
+    elif args.command == "verify":
+        case_payload = None
+        calibration_artifact = None
+        benchmark_result = None
+
+        if args.case_file:
+            case_payload = json.loads(
+                Path(args.case_file).read_text(encoding="utf-8")
+            )
+        if args.calibration:
+            calibration_artifact = json.loads(
+                Path(args.calibration).read_text(encoding="utf-8")
+            )
+        if args.benchmark:
+            benchmark_result = json.loads(
+                Path(args.benchmark).read_text(encoding="utf-8")
+            )
+
+        if args.all and not (case_payload or calibration_artifact or benchmark_result):
+            # --all without explicit paths: verify every artifact we can find
+            _write_json(None, {
+                "valid": False,
+                "errors": ["No artifacts provided for verification"],
+            })
+            return EXIT_ERROR
+
+        report = verify_all(
+            case_payload=case_payload,
+            calibration_artifact=calibration_artifact,
+            benchmark_result=benchmark_result,
+        )
+        _write_json(None, report.to_dict())
+        return EXIT_OK if report.overall_valid else EXIT_INCOMPLETE
+
+    return EXIT_OK
 
 
 def main() -> int:
@@ -600,10 +700,10 @@ def main() -> int:
         return _run(args, settings)
     except (ValueError, OSError, json.JSONDecodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
-        return 2
+        return EXIT_ERROR
     except RuntimeError as exc:
         print(f"error: {exc}", file=sys.stderr)
-        return 2
+        return EXIT_ERROR
 
 
 if __name__ == "__main__":

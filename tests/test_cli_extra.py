@@ -16,6 +16,7 @@ from textforensics.cli import (
     build_parser,
     main,
 )
+from textforensics.constants import EXIT_ERROR
 
 FORMULAIC = (
     "Furthermore, it is important to note that this robust solution "
@@ -479,7 +480,7 @@ class TestMainRuntimeError(unittest.TestCase):
 
         try:
             code, out, err = self._run_main(['scan'], stdin='test')
-            self.assertEqual(code, 2)
+            self.assertEqual(code, EXIT_ERROR)
             self.assertIn("error:", err)
             self.assertIn("Simulated runtime error for testing", err)
         finally:

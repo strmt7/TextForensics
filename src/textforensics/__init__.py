@@ -20,12 +20,29 @@ from .capability_ledger import (
 )
 from .casefile import seal_case_file, verify_case_file
 from .compare import compare_texts
+from .constants import (
+    EXIT_DOWNGRADED,
+    EXIT_ERROR,
+    EXIT_INCOMPLETE,
+    EXIT_OK,
+    exit_code_description,
+    exit_code_name,
+    validate_exit_code,
+)
 from .drift import DriftObservatory
 from .engine import analyze_text
 from .report import build_forensic_bundle
 from .threshold_selection import (
     evaluate_threshold,
     select_threshold,
+)
+from .verify import (
+    VerificationReport,
+    verify_all,
+    verify_benchmark,
+    verify_calibration,
+    verify_case_file as verify_case_file_nversion,
+    verify_case_file_path,
 )
 from .version import get_version
 
@@ -42,6 +59,12 @@ __all__ = [
     "EvidenceLabel",
     "EvidenceRef",
     "EvidenceTier",
+    "EXIT_DOWNGRADED",
+    "EXIT_ERROR",
+    "EXIT_INCOMPLETE",
+    "EXIT_OK",
+    "exit_code_description",
+    "exit_code_name",
     "fingerprint_dataset",
     "get_version",
     "ledger_to_trust_dimension",
@@ -50,8 +73,15 @@ __all__ = [
     "select_threshold",
     "seal_case_file",
     "validate_claim",
-    "verify_fingerprint",
+    "validate_exit_code",
+    "verify_all",
+    "verify_benchmark",
+    "verify_calibration",
     "verify_case_file",
+    "verify_case_file_nversion",
+    "verify_case_file_path",
+    "verify_fingerprint",
+    "VerificationReport",
     "validate_disjointness",
 ]
 
