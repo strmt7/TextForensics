@@ -10,7 +10,6 @@ from pathlib import Path
 
 from textforensics.cli import build_parser, main
 from textforensics.constants import (
-    EXIT_DOWNGRADED,
     EXIT_ERROR,
     EXIT_INCOMPLETE,
     EXIT_OK,

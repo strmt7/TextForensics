@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 from .detectors import DetectorPrediction
 
 if TYPE_CHECKING:
-    from .capability_ledger import CapabilityLedger, EvidenceTier
+    from .capability_ledger import CapabilityLedger
 
 TRUST_STATES = {"supported", "partial", "unknown", "out_of_scope"}
 
@@ -250,7 +250,7 @@ def build_trust_map(
     )
 
 
-def trust_map_from_capability_ledger(ledger: "CapabilityLedger") -> "TrustMap":
+def trust_map_from_capability_ledger(ledger: CapabilityLedger) -> TrustMap:
     """Build a TrustMap from capability ledger claims.
 
     Maps EvidenceTier values to TrustDimension.state:
@@ -297,7 +297,7 @@ def trust_map_from_capability_ledger(ledger: "CapabilityLedger") -> "TrustMap":
                     # Check tiers
                     has_validated = any(c.tier == EvidenceTier.VALIDATED for c in relevant_claims)
                     has_tool_backed = any(c.tier == EvidenceTier.TOOL_BACKED for c in relevant_claims)
-                    has_readable = any(c.tier == EvidenceTier.READABLE for c in relevant_claims)
+                    any(c.tier == EvidenceTier.READABLE for c in relevant_claims)
 
                     if has_validated:
                         state = "supported"

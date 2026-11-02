@@ -13,7 +13,6 @@ from pathlib import Path
 from textforensics.casefile import seal_case_file, verify_case_file
 from textforensics.report import build_forensic_bundle
 
-
 GOLDEN_TEST_TEXT = (
     "I tested this text to verify the golden case file generation. "
     "It contains enough words for detection in some detectors."

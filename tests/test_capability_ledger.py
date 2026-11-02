@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import json
 import unittest
+
 from textforensics.capability_ledger import (
     CapabilityClaim,
     CapabilityLedger,
     EvidenceLabel,
     EvidenceRef,
     EvidenceTier,
-    validate_claim,
     ledger_to_trust_dimension,
+    validate_claim,
 )
 
 

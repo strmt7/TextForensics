@@ -9,7 +9,6 @@ import json
 import unittest
 from pathlib import Path
 
-from textforensics.casefile import seal_case_file
 from textforensics.capability_ledger import (
     CapabilityClaim,
     CapabilityLedger,
@@ -17,9 +16,9 @@ from textforensics.capability_ledger import (
     EvidenceRef,
     EvidenceTier,
 )
+from textforensics.casefile import seal_case_file
 from textforensics.report import build_forensic_bundle
 from textforensics.trust import trust_map_from_capability_ledger
-
 
 # Test text for case file generation
 GOLDEN_TEST_TEXT = (

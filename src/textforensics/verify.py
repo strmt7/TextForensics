@@ -16,10 +16,9 @@ import hashlib
 import json
 import math
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
 
 # ---------------------------------------------------------------------------
 # Trust Map re-derivation (independent code path)
@@ -396,13 +395,12 @@ def verify_benchmark(result: dict[str, Any]) -> dict[str, Any]:
 
     # Threshold sanity
     threshold = result.get("threshold")
-    if threshold is not None:
-        if (
-            isinstance(threshold, bool)
-            or not isinstance(threshold, (int, float))
-            or not math.isfinite(float(threshold))
-        ):
-            errors.append("threshold is not a finite number")
+    if threshold is not None and (
+        isinstance(threshold, bool)
+        or not isinstance(threshold, (int, float))
+        or not math.isfinite(float(threshold))
+    ):
+        errors.append("threshold is not a finite number")
 
     return {
         "valid": not errors,

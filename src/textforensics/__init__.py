@@ -18,7 +18,6 @@ from .capability_ledger import (
     ledger_to_trust_dimension,
     validate_claim,
 )
-from .trust import trust_map_from_capability_ledger
 from .casefile import seal_case_file, verify_case_file
 from .compare import compare_texts
 from .constants import (
@@ -37,13 +36,16 @@ from .threshold_selection import (
     evaluate_threshold,
     select_threshold,
 )
+from .trust import trust_map_from_capability_ledger
 from .verify import (
     VerificationReport,
     verify_all,
     verify_benchmark,
     verify_calibration,
-    verify_case_file as verify_case_file_nversion,
     verify_case_file_path,
+)
+from .verify import (
+    verify_case_file as verify_case_file_nversion,
 )
 from .version import get_version
 
