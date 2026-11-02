@@ -1,0 +1,545 @@
+# engineering.toml — Machine-readable engineering policy for TextForensics
+#
+# This file encodes standards, commands, test coverage requirements,
+# calibration discipline, detector adapter validation rules, and
+# benchmark contamination prevention as structured policy.
+# It is the "constitution" for CI, code review, and release gating.
+
+schema_version = "1.0"
+repo = "strmt7/TextForensics"
+# Baseline commit at which this engineering.toml was authored.
+# Update after any structural change to this file.
+audit_baseline_sha = "9a43a3cd8b6c4ccf1966e6e1ede83c170547a7e7"
+
+# ============================================================================
+# Commands
+# ============================================================================
+
+[[commands]]
+id = "test-fast"
+command = "pytest -x -q tests/test_core.py tests/test_detectors.py tests/test_schema.py tests/test_trust.py tests/test_config.py tests/test_constants.py tests/test_schema_version.py"
+environment = "python-3.11+"
+reason = "Deterministic core-module tests without heavy I/O or network adapters"
+
+[[commands]]
+id = "test-full"
+command = "pytest -x -q"
+environment = "python-3.11+"
+reason = "Complete test suite including CLI, webapp, drift, MCP and integration tests"
+
+[[commands]]
+id = "test-coverage"
+command = "pytest --cov=textforensics --cov-report=term-missing --cov-report=xml --cov-fail-under=80"
+environment = "python-3.11+"
+reason = "Measure and gate line coverage; minimum 80% branch coverage required"
+
+[[commands]]
+id = "benchmark"
+command = "python scripts/benchmark.py --output .benchmarks/current.json"
+environment = "python-3.11+"
+reason = "Performance benchmark for scan, report, case export and detector execution"
+
+[[commands]]
+id = "benchmark-verify"
+command = "pytest tests/test_performance.py --benchmark-only --benchmark-compare=.benchmarks/current.json --benchmark-compare-fail=mean:1.20 -q"
+environment = "python-3.11+"
+reason = "Detect performance regressions exceeding 20% slowdown over baseline"
+
+[[commands]]
+id = "calibrate"
+command = "textforensics calibrate {calibration_dataset} --target-fpr 0.01 --output {output}"
+environment = "python-3.11+"
+reason = "Select threshold on calibration data only; separate from evaluation"
+
+[[commands]]
+id = "lint"
+command = "ruff check src/ tests/ scripts/"
+environment = "python-3.11+"
+reason = "Ruff linting — gate on E4, E7, E9, F, W, B, I, UP, SIM"
+
+[[commands]]
+id = "format-check"
+command = "ruff format --check src/ tests/ scripts/"
+environment = "python-3.11+"
+reason = "Verify code is consistently formatted"
+
+[[commands]]
+id = "security-scan"
+command = "bandit -r src/textforensics -f json -o bandit_report.json"
+environment = "python-3.11+"
+reason = "Static security analysis; HIGH severity findings are blocking"
+
+[[commands]]
+id = "audit"
+command = "pre-commit run --all-files"
+environment = "python-3.11+"
+reason = "Full pre-commit audit: lint, format, schema validation, secrets scan"
+
+[[commands]]
+id = "validate-schemas"
+command = "python scripts/validate_schemas.py"
+environment = "python-3.11+"
+reason = "Ensure all JSON schemas in src/textforensics/schemas/ load without error"
+
+[[commands]]
+id = "fuzz"
+command = "pytest tests/fuzz/ -x -q"
+environment = "python-3.11+"
+reason = "Property-based and fuzz tests for input validation boundaries"
+
+# ============================================================================
+# Test families
+# ============================================================================
+
+[[test_families]]
+id = "detector-contract"
+command_id = "test-fast"
+minimum_executed = 15
+required_test_ids = [
+  "test_native_score_is_not_forced_into_probability_range",
+  "test_probability_requires_calibration_id",
+  "test_raw_text_evidence_fields_are_rejected",
+  "test_source_echo_in_warning_fails_closed",
+  "test_detector_identity_must_match_adapter",
+  "test_execution_failure_redacts_exception_message",
+  "test_family_balancing_prevents_duplicate_family_vote_inflation",
+  "test_component_probabilities_are_not_averaged_into_ensemble",
+  "test_top_level_probability_requires_ensemble_calibration",
+]
+reason = "Detector adapters must not violate the TFDP contract: scores are not probabilities, evidence must not echo source text, and ensemble calibration is mandatory for top-level probabilities."
+
+[[test_families]]
+id = "benchmark-contamination"
+command_id = "test-full"
+minimum_executed = 12
+required_test_ids = [
+  "test_disjoint_datasets",
+  "test_overlapping_datasets",
+  "test_validate_disjointness_raises_on_overlap",
+  "test_identical_files_detected_as_contaminated",
+  "test_fingerprint_is_immutable",
+  "test_verify_modified_dataset",
+  "test_select_threshold_tracks_dataset_hash",
+  "test_evaluate_rejects_same_dataset",
+  "test_validate_contaminated_datasets",
+  "test_full_pipeline_rejects_contamination",
+  "test_calibration_vs_evaluation_data_tracking",
+  "test_validate_identical_files",
+]
+reason = "Calibration data must be disjoint from evaluation data. Every benchmark run must produce a fingerprint and prove no sample overlap between calibration and test splits."
+
+[[test_families]]
+id = "calibration-discipline"
+command_id = "test-fast"
+minimum_executed = 8
+required_test_ids = [
+  "test_select_threshold_basic",
+  "test_select_threshold_respects_target_fpr",
+  "test_select_threshold_invalid_target_fpr",
+  "test_select_threshold_missing_label",
+  "test_evaluate_on_held_out_data",
+  "test_load_valid_artifact",
+  "test_load_invalid_artifact_type",
+  "test_load_artifact_missing_fields",
+]
+reason = "Calibration artifacts must carry dataset hashes, detector IDs, and a calibration-only warning. Evaluation on the same data used for calibration must be rejected."
+
+[[test_families]]
+id = "trust-map-correctness"
+command_id = "test-fast"
+minimum_executed = 10
+required_test_ids = [
+  "test_states_are_the_declared_qualitative_set",
+  "test_length_supported_when_above_minimum",
+  "test_length_partial_when_some_detectors_unsupported",
+  "test_length_out_of_scope_when_below_all_minima",
+  "test_diversity_supported_with_two_families_and_no_failures",
+  "test_overall_is_insufficient_when_many_dimensions_unknown",
+  "test_overall_is_mixed_with_some_unknown",
+  "test_overall_is_strong_only_when_no_unknown_and_no_partial",
+  "test_trust_map_is_not_an_authorship_probability",
+  "test_stability_supported_when_all_verdicts_hold",
+]
+reason = "Trust Map dimensions use qualitative states only (supported/partial/unknown/out_of_scope). The overall state is derived mechanically. A Trust Map is never an authorship probability."
+
+[[test_families]]
+id = "case-file-integrity"
+command_id = "test-fast"
+minimum_executed = 8
+required_test_ids = [
+  "test_seal_omits_raw_text_by_default",
+  "test_seal_is_deterministic",
+  "test_seal_rejects_obvious_raw_text_fields",
+  "test_verify_detects_tampering",
+  "test_verify_rejects_wrong_schema",
+  "test_valid_case_file_passes",
+  "test_corrupted_case_hash_fails",
+  "test_write_and_verify_round_trip",
+]
+reason = "Case files must not include raw text by default. SHA-256 seals must be deterministic and tamper-detecting. Wrong schema versions are rejected."
+
+[[test_families]]
+id = "schema-validation"
+command_id = "test-fast"
+minimum_executed = 8
+required_test_ids = [
+  "test_all_packaged_schemas_load",
+  "test_unknown_schema_raises_with_available_list",
+  "test_valid_forensic_bundle_passes",
+  "test_valid_case_file_passes",
+  "test_invalid_forensic_bundle_fails",
+  "test_invalid_case_file_fails",
+  "test_invalid_detector_result_fails",
+  "test_invalid_trust_map_fails",
+]
+reason = "JSON schemas are public contracts. They must load, validate correct inputs, and reject malformed ones. Schema changes require a version bump."
+
+[[test_families]]
+id = "privacy-security"
+command_id = "test-full"
+minimum_executed = 5
+required_test_ids = [
+  "test_raw_text_evidence_fields_are_rejected",
+  "test_source_echo_in_warning_fails_closed",
+  "test_execution_failure_redacts_exception_message",
+  "test_seal_rejects_obvious_raw_text_fields",
+  "test_seal_rejects_nested_raw_text_in_detector_evidence",
+]
+reason = "No submitted text may leak through evidence, warnings, error messages, or case file seals. Detector failures must redact exception messages."
+
+[[test_families]]
+id = "drift-observatory"
+command_id = "test-full"
+minimum_executed = 6
+required_test_ids = [
+  "test_distribution_summary_empty",
+  "test_distribution_summary_multiple_values",
+  "test_distribution_summary_ignores_non_finite",
+  "test_percentile_middle",
+  "test_round_infinite_returns_none",
+  "test_is_human_sample_true",
+]
+reason = "Drift observatory computations must handle empty data, non-finite values, and unknown labels gracefully without crashing or producing NaN."
+
+[[test_families]]
+id = "fuzz-boundary-tests"
+command_id = "fuzz"
+minimum_executed = 5
+required_test_ids = []
+reason = "Property-based tests validate input sanitization, schema robustness, and detector resilience against adversarial or malformed inputs."
+
+# ============================================================================
+# Standards (S01–S16)
+# ============================================================================
+
+[[standards]]
+id = "S01"
+applicable = true
+reason = "Scores are instrument outputs, not probabilities. Emission of a probability requires a calibration_id and a documented calibration artifact."
+command_ids = ["test-fast", "lint"]
+description = "No probability without calibration"
+
+[[standards]]
+id = "S02"
+applicable = true
+reason = "Detector-local calibration does not make the ensemble calibrated. Averaging calibrated probabilities does not produce a calibrated average."
+command_ids = ["test-fast"]
+description = "Ensemble calibration is independent"
+
+[[standards]]
+id = "S03"
+applicable = true
+reason = "Abstention for unsupported language, insufficient length, out-of-domain input, missing calibration, or severe detector disagreement is preserved."
+command_ids = ["test-fast"]
+description = "Preserve abstention"
+
+[[standards]]
+id = "S04"
+applicable = true
+reason = "Raw text is excluded from portable case files by default. Evidence, warnings, and error messages must not echo submitted text."
+command_ids = ["test-fast", "security-scan"]
+description = "Privacy-first case files"
+
+[[standards]]
+id = "S05"
+applicable = true
+reason = "Calibration, threshold selection, and evaluation datasets must be disjoint. Dataset fingerprints prove disjointness at runtime."
+command_ids = ["test-full", "calibrate"]
+description = "Benchmark contamination prevention"
+
+[[standards]]
+id = "S06"
+applicable = true
+reason = "Pinned dependency versions in pyproject.toml; pytest --locked equivalent via dev extras pinning; reproducible build via setuptools<80."
+command_ids = ["test-fast", "audit"]
+description = "Reproducible builds and pinned toolchain"
+
+[[standards]]
+id = "S07"
+applicable = true
+reason = "Every detector adapter PR requires: family identification, version provenance, schema validation, deterministic unit tests, and benchmark on in-domain and out-of-domain slices."
+command_ids = ["test-full", "benchmark", "validate-schemas"]
+description = "Detector adapter validation gate"
+
+[[standards]]
+id = "S08"
+applicable = true
+reason = "Trust Map uses qualitative states only. Numeric trust percentages require empirical validation."
+command_ids = ["test-fast"]
+description = "Qualitative Trust Map states"
+
+[[standards]]
+id = "S09"
+applicable = true
+reason = "Case file SHA-256 seals are deterministic. Tampering detection via N-version replay in verify.py."
+command_ids = ["test-fast"]
+description = "Case file integrity"
+
+[[standards]]
+id = "S10"
+applicable = true
+reason = "Performance benchmarks must produce a reproducible JSON artifact. Regression threshold: 20% slowdown on mean."
+command_ids = ["benchmark", "benchmark-verify"]
+description = "Performance regression detection"
+
+[[standards]]
+id = "S11"
+applicable = true
+reason = "Provenance metadata must record detector ID/version, calibration ID, runtime mode, schema version, and TextForensics version in every output artifact."
+command_ids = ["test-full", "validate-schemas"]
+description = "First-class provenance"
+
+[[standards]]
+id = "S12"
+applicable = true
+reason = "No text leaves the machine for local execution. Remote adapter use is opt-in only. No silent telemetry."
+command_ids = ["lint", "security-scan"]
+description = "Local-first execution"
+
+[[standards]]
+id = "S13"
+applicable = true
+reason = "Editing assistance targets clarity, specificity, and false-positive diagnostics — never promises of undetectability."
+command_ids = ["lint"]
+description = "Editing assistance boundaries"
+
+[[standards]]
+id = "S14"
+applicable = true
+reason = "Text-only detection cannot prove authorship. This limitation must be visible in CLI, API, and MCP outputs."
+command_ids = ["test-full"]
+description = "Authorship limitation visible"
+
+[[standards]]
+id = "S15"
+applicable = true
+reason = "JSON schemas are public contracts. Field additions without version bumps are prohibited. Schema changes require tests."
+command_ids = ["validate-schemas", "test-fast"]
+description = "Schema versioning"
+
+[[standards]]
+id = "S16"
+applicable = true
+reason = "Calibration artifacts carry a warning that they are fitted to calibration data only. They must not be used for evaluation on the same data."
+command_ids = ["calibrate", "test-fast"]
+description = "Calibration artifact warnings"
+
+# ============================================================================
+# Detector adapter validation rules
+# ============================================================================
+
+[detector_adapter]
+# A new detector adapter is not ensemble-eligible unless it passes these gates.
+
+# The adapter must declare these fields as class-level constants:
+required_attributes = [
+  "detector_id",
+  "detector_version",
+  "detector_family",
+]
+
+# detector_family must be one of the recognized families or explicitly new:
+# "stylometric-heuristic", "perplexity", "lm-probe", "linguistic-features", "remote-provider"
+# A PR must justify why the family is independent of existing families.
+require_family_justification = true
+
+# Every detector must return a DetectorPrediction that validates against:
+schema = "textforensics.detector-result/v1"
+
+# Prediction validation (from detectors.validate_prediction):
+validate_prediction_contract = true
+
+# Evidence must not contain raw source text (tested by forbidden_evidence_paths):
+evidence_no_raw_text = true
+
+# Warnings and evidence must not echo submitted source text:
+evidence_no_source_echo = true
+
+# If calibrated_ai_probability is set, calibration_id is mandatory:
+calibrated_requires_calibration_id = true
+
+# If reliability is set, it must be in [0, 1]:
+reliability_range = [0.0, 1.0]
+
+# Execution mode must be "local" or "remote":
+valid_executions = ["local", "remote"]
+
+# Verdict must be one of:
+valid_verdicts = ["ai_like", "human_like", "abstain"]
+
+# An adapter PR must include at least one in-domain and one out-of-domain
+# benchmark run with a saved fingerprint.
+require_benchmark_manifest = true
+
+# The adapter must pass deterministic unit tests covering:
+# - normal execution
+# - short text handling
+# - failure/timeout handling
+# - evidence sanitization
+require_deterministic_tests = true
+
+# Remote adapters must use authorized APIs only — no scraping or reverse-engineering:
+remote_api_policy = "authorized-only"
+
+# ============================================================================
+# Benchmark contamination prevention
+# ============================================================================
+
+[benchmark_contamination]
+# Training, threshold selection, calibration, and final evaluation datasets
+# must be disjoint. This is enforced at runtime.
+
+# Fingerprint every dataset before use:
+require_fingerprint = true
+fingerprint_schema = "textforensics.dataset-fingerprint/v1"
+
+# Validation function that must pass before calibration+evaluation:
+disjointness_check = "textforensics.benchmark_fingerprint.validate_disjointness"
+
+# Dataset fingerprints must be archived alongside run manifests:
+archive_fingerprints = true
+
+# The same dataset file must not appear in both calibration and evaluation:
+reject_identical_files = true
+
+# Content-level overlap detection via SHA-256 of canonicalized samples:
+content_overlap_detection = true
+
+# Every benchmark run manifest must include:
+run_manifest_fields = [
+  "textforensics_version",
+  "detector_ids",
+  "detector_versions",
+  "dataset_name",
+  "dataset_version",
+  "dataset_fingerprint",
+  "calibration_fingerprint",
+  "split",
+  "threshold",
+  "calibration_id",
+  "metrics",
+  "evaluated_at_utc",
+]
+
+# ============================================================================
+# Calibration data handling
+# ============================================================================
+
+[calibration]
+# Calibration is the process of selecting thresholds on a designated
+# calibration split. The resulting artifact carries a warning that it is
+# fitted to calibration data only.
+
+schema = "textforensics.calibration/v1"
+
+# A calibration artifact must contain:
+artifact_required_fields = [
+  "detector_id",
+  "detector_version",
+  "calibration_dataset_hash",
+  "threshold",
+  "observed_false_positive_rate",
+  "observed_true_positive_rate",
+  "target_false_positive_rate",
+  "selection_method",
+  "mode",
+  "warning",
+]
+
+# Calibration mode must be "calibration_only":
+calibration_mode = "calibration_only"
+
+# Artifacts must carry a standard warning:
+required_warning = "This artifact is fitted to the calibration corpus only. Do not use for evaluation on the same data."
+
+# Re-evaluate calibration after any detector/model/provider change:
+revalidate_on_detector_change = true
+
+# Top-level ensemble probability requires a separately fitted ensemble
+# calibration artifact — not just averaged detector probabilities:
+ensemble_requires_separate_calibration = true
+
+# ============================================================================
+# Release gates
+# ============================================================================
+
+[release]
+# All of the following must pass before a release is tagged:
+
+# 1. test-full passes with zero failures
+require_test_full = true
+
+# 2. Line coverage >= 80%
+minimum_coverage = 80
+
+# 3. No performance regression > 20% over baseline
+max_performance_regression_pct = 20
+
+# 4. Lint clean
+require_lint_clean = true
+
+# 5. Security scan has no HIGH findings
+require_no_high_security_findings = true
+
+# 6. All JSON schemas validate
+require_schema_validation = true
+
+# 7. CHANGELOG.md updated
+require_changelog = true
+
+# 8. pyproject.toml version follows semver and is consistent
+require_semver = true
+
+# 9. No raw text in committed test fixtures (hash-based only)
+require_no_raw_text_in_fixtures = true
+
+# ============================================================================
+# Drift observatory policy
+# ============================================================================
+
+[drift]
+# Maintain a stable, license-compatible probe corpus with immutable sample IDs/hashes.
+# Record snapshots over time for versioned local detectors and authorized remote providers.
+
+corpus_schema = "textforensics.drift-corpus/v1"
+snapshot_schema = "textforensics.drift-snapshot/v1"
+report_schema = "textforensics.drift-report/v1"
+
+# Metrics to track:
+tracked_metrics = [
+  "score_distribution_shift",
+  "verdict_threshold_flips",
+  "calibration_drift",
+  "human_slice_fpr_changes",
+  "missing_provider_metadata",
+  "changed_input_regimes",
+]
+
+# A single probe sample cannot establish provider drift:
+minimum_probe_samples = 30
+
+# Raw probe text is omitted from drift reports:
+omit_raw_text = true
+
+# Report limitations must always be included:
+include_limitations = true

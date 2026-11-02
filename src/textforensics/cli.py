@@ -6,6 +6,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from ._build_info import (
+    get_build_info,
+    verify_build_identity,
+)
 from .benchmark import (
     benchmark_jsonl,
     benchmark_with_calibration_jsonl,
@@ -489,6 +493,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     cap_register.add_argument("--detail", help="Optional detail about the evidence.")
     cap_register.add_argument("--valid-until", help="Optional expiration date (ISO format).")
+
+    build_info_cmd = sub.add_parser(
+        "build-info",
+        help="Display embedded build identity information (source commit, dependencies hash, contract info).",
+    )
+    build_info_cmd.add_argument(
+        "--verify",
+        action="store_true",
+        help="Verify build identity against expected values.",
+    )
+    build_info_cmd.add_argument(
+        "--expected-commit",
+        default=None,
+        help="Expected source commit hash for verification.",
+    )
 
     return parser
 
@@ -1022,6 +1041,14 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         )
         _write_json(None, report.to_dict())
         return EXIT_OK if report.overall_valid else EXIT_INCOMPLETE
+
+    elif args.command == "build-info":
+        if args.verify:
+            result = verify_build_identity(expected_commit=args.expected_commit)
+            _write_json(None, result)
+            return EXIT_OK if result.get("valid") else EXIT_INCOMPLETE
+        else:
+            _write_json(None, get_build_info())
 
     return EXIT_OK
 
