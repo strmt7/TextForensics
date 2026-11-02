@@ -52,11 +52,6 @@ from .emergency_stop import (
     check_emergency_stop,
 )
 from .engine import analyze_text
-from .enterprise_policy import (
-    EnterprisePolicy,
-    PolicyRevisionFloor,
-    validate_enterprise_policy,
-)
 from .localize import (
     detect_anomalous_segments,
     localize_text,
@@ -69,6 +64,14 @@ from .report import build_forensic_bundle
 from .verify import verify_all
 from .version import get_version
 from .webapp import serve as serve_webapp
+
+
+# Lazy imports for enterprise features (dependency optional)
+def _import_enterprise():
+    """Lazily import enterprise policy module."""
+    from . import enterprise_policy as ep
+
+    return ep
 
 
 def _read_text(path: str | None, settings: Settings) -> str:
@@ -962,7 +965,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             elif args.type == "trust-map":
                 errors = validate_trust_map(data)
             elif args.type == "enterprise-policy":
-                errors = validate_enterprise_policy(data)
+                errors = _import_enterprise().validate_enterprise_policy(data)
             else:
                 raise ValueError(f"Unknown schema type: {args.type}")
 
@@ -1310,10 +1313,13 @@ def _run_audit_anchor_command(args: argparse.Namespace) -> int:
 
 def _run_policy_command(args: argparse.Namespace) -> int:
     """Handle enterprise policy CLI commands."""
+    # Lazy import for enterprise features
+    ep = _import_enterprise()
+
     state_path = Path(args.state_path) if getattr(args, "state_path", None) else None
     key_path = Path(args.key_path) if getattr(args, "key_path", None) else None
 
-    floor = PolicyRevisionFloor(
+    floor = ep.PolicyRevisionFloor(
         state_path=state_path,
         key_path=key_path,
     )
@@ -1327,7 +1333,7 @@ def _run_policy_command(args: argparse.Namespace) -> int:
             return EXIT_ERROR
 
         # Schema validation
-        schema_errors = validate_enterprise_policy(policy_data)
+        schema_errors = ep.validate_enterprise_policy(policy_data)
         if schema_errors:
             print("error: policy schema validation failed:", file=sys.stderr)
             for err in schema_errors:
@@ -1365,7 +1371,7 @@ def _run_policy_command(args: argparse.Namespace) -> int:
             )
             return EXIT_ERROR
 
-        policy = EnterprisePolicy(
+        policy = ep.EnterprisePolicy(
             revision=int(policy_data["revision"]),
             digest=computed_digest,
             settings=dict(policy_data.get("settings", {})),
@@ -1424,7 +1430,7 @@ def _run_policy_command(args: argparse.Namespace) -> int:
                 ).encode("utf-8")
             ).hexdigest()
 
-            policy = EnterprisePolicy(
+            policy = ep.EnterprisePolicy(
                 revision=int(policy_data["revision"]),
                 digest=computed_digest,
                 settings=dict(policy_data.get("settings", {})),
@@ -1458,7 +1464,7 @@ def _run_policy_command(args: argparse.Namespace) -> int:
             return EXIT_ERROR
 
         # Schema validation
-        schema_errors = validate_enterprise_policy(policy_data)
+        schema_errors = ep.validate_enterprise_policy(policy_data)
         if schema_errors:
             print("error: policy schema validation failed:", file=sys.stderr)
             for err in schema_errors:
@@ -1495,7 +1501,7 @@ def _run_policy_command(args: argparse.Namespace) -> int:
             )
             return EXIT_ERROR
 
-        policy = EnterprisePolicy(
+        policy = ep.EnterprisePolicy(
             revision=int(policy_data["revision"]),
             digest=computed_digest,
             settings=dict(policy_data.get("settings", {})),

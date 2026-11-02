@@ -43,7 +43,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -e ".[dev]"
+          pip install -e ".[dev,enterprise,fuzzing]"
           pip install cosmic-ray>=8.0,<9 atheris>=1.0,<2
 
       - name: Get changed files
@@ -103,7 +103,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -e ".[dev]"
+          pip install -e ".[dev,enterprise,fuzzing]"
           pip install cosmic-ray>=8.0,<9 atheris>=1.0,<2
 
       - name: Run full mutation testing

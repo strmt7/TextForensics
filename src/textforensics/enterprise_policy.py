@@ -19,8 +19,6 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
-from cryptography.fernet import Fernet, InvalidToken
-
 __all__ = [
     "EnterprisePolicy",
     "PolicyRevisionFloor",
@@ -190,6 +188,16 @@ class PolicyRevisionFloor:
         key: bytes | None = None,
         key_path: Path | None = None,
     ) -> None:
+        # Lazy import cryptography for enterprise features
+        try:
+            from cryptography.fernet import Fernet
+        except ImportError as exc:
+            raise RuntimeError(
+                "cryptography is required for enterprise policy features. "
+                "Install with: pip install textforensics[enterprise]"
+            ) from exc
+        self._Fernet = Fernet
+
         self._state_path = (
             state_path
             if state_path is not None
@@ -215,7 +223,7 @@ class PolicyRevisionFloor:
         else:
             self._key = self._load_or_generate_key()
 
-        self._fernet = Fernet(self._key)
+        self._fernet = self._Fernet(self._key)
         self._state = self._load_state()
 
     # -- key management ----------------------------------------------------
@@ -234,7 +242,7 @@ class PolicyRevisionFloor:
                 except Exception:
                     pass
         # Generate new key
-        new_key = Fernet.generate_key()
+        new_key = self._Fernet.generate_key()
         self._key_path.parent.mkdir(parents=True, exist_ok=True)
         self._key_path.write_bytes(new_key)
         return new_key
@@ -257,7 +265,8 @@ class PolicyRevisionFloor:
             decrypted = self._fernet.decrypt(token)
             data = json.loads(decrypted)
             return PolicyState.from_dict(data)
-        except (InvalidToken, json.JSONDecodeError, Exception):
+        except Exception:
+            # Includes InvalidToken from cryptography, JSON errors, etc.
             return PolicyState()
 
     def save_state(self) -> None:
