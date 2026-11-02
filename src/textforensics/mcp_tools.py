@@ -7,17 +7,15 @@ unit-tested in isolation.
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from . import constants
 from .benchmark_fingerprint import (
     DatasetFingerprint,
     check_disjointness,
+)
+from .benchmark_fingerprint import (
     fingerprint_dataset as _fingerprint_dataset,
-    load_fingerprint,
-    save_fingerprint,
-    verify_fingerprint,
 )
 from .capability_ledger import (
     CapabilityClaim,
@@ -30,7 +28,6 @@ from .capability_ledger import (
 from .casefile import verify_case_file as casefile_verify
 from .drift import DriftObservatory
 from .verify import verify_case_file as nversion_verify
-
 
 # ---------------------------------------------------------------------------
 # Helpers

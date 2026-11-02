@@ -3,10 +3,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from . import mcp_tools
 from .casefile import seal_case_file
 from .config import Settings, validate_text_input
 from .detectors import list_detector_health, list_detector_metadata
-from . import mcp_tools
 
 
 def _server():
