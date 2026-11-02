@@ -38,6 +38,14 @@ from .constants import (
 )
 from .drift import DriftObservatory
 from .engine import analyze_text
+from .enterprise_policy import (
+    EnterprisePolicy,
+    EnterprisePolicyEngine,
+    PolicyRevisionFloor,
+    PolicyState,
+    compute_policy_digest,
+    validate_enterprise_policy,
+)
 from .report import build_forensic_bundle
 from .threshold_selection import (
     evaluate_threshold,
@@ -64,9 +72,12 @@ __all__ = [
     "CapabilityLedger",
     "check_disjointness",
     "compare_texts",
+    "compute_policy_digest",
     "DatasetFingerprint",
     "DriftObservatory",
     "evaluate_threshold",
+    "EnterprisePolicy",
+    "EnterprisePolicyEngine",
     "EvidenceLabel",
     "EvidenceRef",
     "EvidenceTier",
@@ -83,12 +94,15 @@ __all__ = [
     "initialize_build_info",
     "ledger_to_trust_dimension",
     "load_fingerprint",
+    "PolicyRevisionFloor",
+    "PolicyState",
     "save_fingerprint",
     "select_threshold",
     "seal_case_file",
     "trust_map_from_capability_ledger",
     "validate_claim",
     "validate_disjointness",
+    "validate_enterprise_policy",
     "validate_exit_code",
     "verify_all",
     "verify_benchmark",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -39,6 +40,13 @@ from .constants import (
 )
 from .detectors import list_detector_health, list_detector_metadata
 from .drift import DriftObservatory
+from .enterprise_policy import (
+    EnterprisePolicy,
+    EnterprisePolicyEngine,
+    PolicyRevisionFloor,
+    compute_policy_digest,
+    validate_enterprise_policy,
+)
 from .engine import analyze_text
 from .localize import (
     detect_anomalous_segments,
@@ -291,7 +299,7 @@ def build_parser() -> argparse.ArgumentParser:
     schema_validate.add_argument("file", help="Path to the JSON file to validate.")
     schema_validate.add_argument(
         "--type",
-        choices=["forensic-bundle", "detector-result", "case-file", "trust-map"],
+        choices=["forensic-bundle", "detector-result", "case-file", "trust-map", "enterprise-policy"],
         required=True,
         help="Schema type to validate against.",
     )
@@ -507,6 +515,87 @@ def build_parser() -> argparse.ArgumentParser:
         "--expected-commit",
         default=None,
         help="Expected source commit hash for verification.",
+    )
+
+    # Enterprise policy commands
+    policy_cmd = sub.add_parser(
+        "policy",
+        help="Enterprise policy management with revision-floor enforcement.",
+    )
+    policy_sub = policy_cmd.add_subparsers(dest="policy_command", required=True)
+
+    policy_load = policy_sub.add_parser(
+        "load",
+        help="Load and validate an enterprise policy file.",
+    )
+    policy_load.add_argument(
+        "file",
+        help="Path to the enterprise policy JSON file.",
+    )
+    policy_load.add_argument(
+        "--state-path",
+        help="Path to the encrypted policy state file.",
+    )
+    policy_load.add_argument(
+        "--key-path",
+        help="Path to the Fernet key file.",
+    )
+    policy_load.add_argument(
+        "--no-advance",
+        action="store_true",
+        help="Validate the policy but do not advance the revision floor.",
+    )
+
+    policy_check = policy_sub.add_parser(
+        "check",
+        help="Check the current policy against the revision floor.",
+    )
+    policy_check.add_argument(
+        "file",
+        nargs="?",
+        help="Path to the enterprise policy JSON file (optional).",
+    )
+    policy_check.add_argument(
+        "--state-path",
+        help="Path to the encrypted policy state file.",
+    )
+    policy_check.add_argument(
+        "--key-path",
+        help="Path to the Fernet key file.",
+    )
+
+    policy_advance = policy_sub.add_parser(
+        "advance",
+        help="Advance the revision floor to the given policy.",
+    )
+    policy_advance.add_argument(
+        "file",
+        help="Path to the enterprise policy JSON file.",
+    )
+    policy_advance.add_argument(
+        "--state-path",
+        help="Path to the encrypted policy state file.",
+    )
+    policy_advance.add_argument(
+        "--key-path",
+        help="Path to the Fernet key file.",
+    )
+
+    policy_export = policy_sub.add_parser(
+        "export",
+        help="Export the current policy state.",
+    )
+    policy_export.add_argument(
+        "--state-path",
+        help="Path to the encrypted policy state file.",
+    )
+    policy_export.add_argument(
+        "--key-path",
+        help="Path to the Fernet key file.",
+    )
+    policy_export.add_argument(
+        "--policy-file",
+        help="Path to the enterprise policy JSON file.",
     )
 
     return parser
@@ -792,6 +881,8 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
                 errors = validate_case_file(data)
             elif args.type == "trust-map":
                 errors = validate_trust_map(data)
+            elif args.type == "enterprise-policy":
+                errors = validate_enterprise_policy(data)
             else:
                 raise ValueError(f"Unknown schema type: {args.type}")
 
@@ -1050,7 +1141,237 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         else:
             _write_json(None, get_build_info())
 
+    elif args.command == "policy":
+        return _run_policy_command(args)
+
     return EXIT_OK
+
+
+def _run_policy_command(args: argparse.Namespace) -> int:
+    """Handle enterprise policy CLI commands."""
+    state_path = Path(args.state_path) if getattr(args, "state_path", None) else None
+    key_path = Path(args.key_path) if getattr(args, "key_path", None) else None
+
+    floor = PolicyRevisionFloor(
+        state_path=state_path,
+        key_path=key_path,
+    )
+
+    if args.policy_command == "load":
+        # Read and validate the policy file
+        try:
+            policy_data = json.loads(Path(args.file).read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            print(f"error: failed to read policy file: {exc}", file=sys.stderr)
+            return EXIT_ERROR
+
+        # Schema validation
+        schema_errors = validate_enterprise_policy(policy_data)
+        if schema_errors:
+            print("error: policy schema validation failed:", file=sys.stderr)
+            for err in schema_errors:
+                print(f"  - {err}", file=sys.stderr)
+            return EXIT_INCOMPLETE
+
+        # Compute digest
+        computed_digest = hashlib.sha256(
+            json.dumps(
+                {
+                    "revision": policy_data["revision"],
+                    "settings": policy_data.get("settings", {}),
+                    "rules": [
+                        {
+                            "id": r["id"],
+                            "description": r["description"],
+                            "action": r["action"],
+                            "scope": r["scope"],
+                        }
+                        for r in policy_data.get("rules", [])
+                    ],
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=True,
+            ).encode("utf-8")
+        ).hexdigest()
+
+        # Check digest if provided
+        if "digest" in policy_data and policy_data["digest"] != computed_digest:
+            print(
+                f"error: digest mismatch: stored {policy_data['digest'][:16]}... "
+                f"computed {computed_digest[:16]}...",
+                file=sys.stderr,
+            )
+            return EXIT_ERROR
+
+        policy = EnterprisePolicy(
+            revision=int(policy_data["revision"]),
+            digest=computed_digest,
+            settings=dict(policy_data.get("settings", {})),
+            rules=[dict(r) for r in policy_data.get("rules", [])],
+        )
+
+        # Check floor
+        rejections = floor.check_policy(policy)
+        if rejections:
+            print("error: policy rejected by revision floor:", file=sys.stderr)
+            for rej in rejections:
+                print(f"  - {rej}", file=sys.stderr)
+            return EXIT_INCOMPLETE
+
+        if not args.no_advance:
+            floor.advance_floor(policy)
+
+        payload = {
+            "accepted": True,
+            "revision": policy.revision,
+            "digest": policy.digest,
+            "floor_revision": floor.floor_revision,
+            "floor_digest": floor.floor_digest,
+        }
+        _write_json(None, payload)
+        return EXIT_OK
+
+    elif args.policy_command == "check":
+        # Check current floor against a provided policy (if any)
+        if args.file:
+            try:
+                policy_data = json.loads(Path(args.file).read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError) as exc:
+                print(f"error: failed to read policy file: {exc}", file=sys.stderr)
+                return EXIT_ERROR
+
+            # Compute digest
+            computed_digest = hashlib.sha256(
+                json.dumps(
+                    {
+                        "revision": policy_data["revision"],
+                        "settings": policy_data.get("settings", {}),
+                        "rules": [
+                            {
+                                "id": r["id"],
+                                "description": r["description"],
+                                "action": r["action"],
+                                "scope": r["scope"],
+                            }
+                            for r in policy_data.get("rules", [])
+                        ],
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=True,
+                ).encode("utf-8")
+            ).hexdigest()
+
+            policy = EnterprisePolicy(
+                revision=int(policy_data["revision"]),
+                digest=computed_digest,
+                settings=dict(policy_data.get("settings", {})),
+                rules=[dict(r) for r in policy_data.get("rules", [])],
+            )
+            rejections = floor.check_policy(policy)
+            result = {
+                "floor_revision": floor.floor_revision,
+                "floor_digest": floor.floor_digest,
+                "policy_revision": policy.revision,
+                "policy_digest": policy.digest,
+                "rejections": rejections,
+                "valid": len(rejections) == 0,
+            }
+        else:
+            result = {
+                "floor_revision": floor.floor_revision,
+                "floor_digest": floor.floor_digest,
+                "rejections": [],
+                "valid": True,
+            }
+
+        _write_json(None, result)
+        return EXIT_OK if result["valid"] else EXIT_INCOMPLETE
+
+    elif args.policy_command == "advance":
+        try:
+            policy_data = json.loads(Path(args.file).read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            print(f"error: failed to read policy file: {exc}", file=sys.stderr)
+            return EXIT_ERROR
+
+        # Schema validation
+        schema_errors = validate_enterprise_policy(policy_data)
+        if schema_errors:
+            print("error: policy schema validation failed:", file=sys.stderr)
+            for err in schema_errors:
+                print(f"  - {err}", file=sys.stderr)
+            return EXIT_INCOMPLETE
+
+        # Compute digest
+        computed_digest = hashlib.sha256(
+            json.dumps(
+                {
+                    "revision": policy_data["revision"],
+                    "settings": policy_data.get("settings", {}),
+                    "rules": [
+                        {
+                            "id": r["id"],
+                            "description": r["description"],
+                            "action": r["action"],
+                            "scope": r["scope"],
+                        }
+                        for r in policy_data.get("rules", [])
+                    ],
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=True,
+            ).encode("utf-8")
+        ).hexdigest()
+
+        if "digest" in policy_data and policy_data["digest"] != computed_digest:
+            print(
+                f"error: digest mismatch: stored {policy_data['digest'][:16]}... "
+                f"computed {computed_digest[:16]}...",
+                file=sys.stderr,
+            )
+            return EXIT_ERROR
+
+        policy = EnterprisePolicy(
+            revision=int(policy_data["revision"]),
+            digest=computed_digest,
+            settings=dict(policy_data.get("settings", {})),
+            rules=[dict(r) for r in policy_data.get("rules", [])],
+        )
+
+        # Check floor
+        rejections = floor.check_policy(policy)
+        if rejections:
+            print("error: cannot advance floor:", file=sys.stderr)
+            for rej in rejections:
+                print(f"  - {rej}", file=sys.stderr)
+            return EXIT_INCOMPLETE
+
+        # Advance
+        floor.advance_floor(policy)
+
+        payload = {
+            "advanced": True,
+            "revision": policy.revision,
+            "digest": policy.digest,
+            "floor_revision": floor.floor_revision,
+            "floor_digest": floor.floor_digest,
+        }
+        _write_json(None, payload)
+        return EXIT_OK
+
+    elif args.policy_command == "export":
+        result = {
+            "floor_revision": floor.floor_revision,
+            "floor_digest": floor.floor_digest,
+            "history": floor.state.history,
+        }
+        _write_json(None, result)
+        return EXIT_OK
+
+    return EXIT_ERROR
 
 
 def main() -> int:
