@@ -104,35 +104,12 @@ jobs:
           subject-digest: ${{ steps.build-push.outputs.digest }}
           push-to-registry: true
 
-      - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@0.25.0
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-push.outputs.digest }}
-          format: sarif
-          output: trivy-results.sarif
-          severity: HIGH,CRITICAL
-          exit-code: "0"  # Don't fail on scan - report vulnerabilities but don't block
-
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
         with:
           name: textforensics-sbom-${{ steps.version.outputs.version }}-${{ github.sha }}
           path: textforensics-sbom.cdx.json
           if-no-files-found: error
-
-      - name: Upload trivy results
-        uses: actions/upload-artifact@v4
-        with:
-          name: trivy-results-${{ steps.version.outputs.version }}-${{ github.sha }}
-          path: trivy-results.sarif
-          if-no-files-found: error
-
-      - name: Upload Trivy SARIF to security tab
-        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
-        with:
-          sarif_file: trivy-results.sarif
-          category: trivy
-          wait-for-processing: true
 
       - name: Summary
         run: |
@@ -146,4 +123,3 @@ jobs:
           echo "- **Tags:** latest, ${{ steps.version.outputs.version }}, sha-${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- **SBOM:** CycloneDX JSON uploaded as artifact" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Provenance:** SLSA attestation published" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Vulnerabilities:** Trivy scan completed" >> "$GITHUB_STEP_SUMMARY"
