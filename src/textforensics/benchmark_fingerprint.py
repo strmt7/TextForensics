@@ -11,10 +11,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,7 +67,7 @@ class DatasetFingerprint:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DatasetFingerprint":
+    def from_dict(cls, data: dict[str, Any]) -> DatasetFingerprint:
         """Deserialize fingerprint from a dictionary."""
         required = {"name", "version", "split", "dataset_hash"}
         missing = required - set(data.keys())

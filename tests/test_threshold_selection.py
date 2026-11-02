@@ -7,10 +7,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from textforensics.benchmark_fingerprint import (
-    DatasetFingerprint,
-    fingerprint_dataset,
-)
 from textforensics.threshold_selection import (
     create_calibration_artifact,
     evaluate_threshold,

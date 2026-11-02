@@ -12,7 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -359,7 +359,7 @@ def validate_no_contamination(
 
     try:
         rows, _ = _load_scores(calibration_path, strict=False)
-        for label, text in rows:
+        for _label, text in rows:
             sample_hash = hashlib.sha256(
                 json.dumps({"text": text}, sort_keys=True, separators=(",", ":")).encode("utf-8")
             ).hexdigest()
