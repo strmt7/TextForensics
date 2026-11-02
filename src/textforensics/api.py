@@ -6,6 +6,7 @@ from typing import Any
 from .casefile import seal_case_file
 from .config import Settings, validate_text_input
 from .detectors import list_detector_health, list_detector_metadata
+from .emergency_stop import assert_not_stopped, check_emergency_stop
 from .version import get_version
 
 try:
@@ -61,6 +62,16 @@ def create_app(settings: Settings | None = None):
 
     @app.middleware("http")
     async def request_guard_and_security_headers(request: Request, call_next):
+        # Emergency stop gate: checked at dispatch entry for every request.
+        if check_emergency_stop():
+            return secure_response(
+                JSONResponse(
+                    status_code=503,
+                    content={
+                        "detail": "Emergency stop is active. All API calls are blocked."
+                    },
+                )
+            )
         if request.method in {"POST", "PUT", "PATCH"}:
             if request.headers.get("transfer-encoding"):
                 return secure_response(
@@ -125,23 +136,28 @@ def create_app(settings: Settings | None = None):
 
     @app.post("/v1/analyze")
     def analyze(req: TextRequest):
+        assert_not_stopped()
         return analyze_text(checked(req.text)).to_dict()
 
     @app.post("/v1/report")
     def report(req: TextRequest):
+        assert_not_stopped()
         return build_forensic_bundle(checked(req.text)).to_dict()
 
     @app.post("/v1/case")
     def case(req: TextRequest):
+        assert_not_stopped()
         bundle = build_forensic_bundle(checked(req.text)).to_dict()
         return seal_case_file(bundle)
 
     @app.post("/v1/audit")
     def audit(req: TextRequest):
+        assert_not_stopped()
         return audit_naturalness(checked(req.text))
 
     @app.post("/v1/compare")
     def compare(req: CompareRequest):
+        assert_not_stopped()
         before = checked(req.before)
         after = checked(req.after)
         return compare_texts(before, after).to_dict()
