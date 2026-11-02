@@ -25,6 +25,7 @@ FORMULAIC = (
     "seamlessly unlocks the potential."
 )
 
+
 class CliInProcessTests(unittest.TestCase):
     """In-process CLI tests for line coverage (not subprocess)."""
 
@@ -115,11 +116,16 @@ class CliInProcessTests(unittest.TestCase):
             case = Path(tmp) / "case.json"
             source.write_text(TEXT, encoding="utf-8")
 
-            code, out, err = self._run_main([
-                "case", "export",
-                "--file", str(source),
-                "--output", str(case),
-            ])
+            code, out, err = self._run_main(
+                [
+                    "case",
+                    "export",
+                    "--file",
+                    str(source),
+                    "--output",
+                    str(case),
+                ]
+            )
             self.assertEqual(code, EXIT_OK, err)
             self.assertTrue(case.exists())
             self.assertNotIn(TEXT, case.read_text(encoding="utf-8"))
@@ -148,18 +154,24 @@ class CliInProcessTests(unittest.TestCase):
             eval_ai = "Moreover, this approach is fundamentally flawed and fails."
             for p, h, a in [(cal, cal_human, cal_ai), (evalf, eval_human, eval_ai)]:
                 p.write_text(
-                    json.dumps({"label": "human", "text": h}) + "\n" +
-                    json.dumps({"label": "ai", "text": a}) + "\n",
-                    encoding="utf-8"
+                    json.dumps({"label": "human", "text": h})
+                    + "\n"
+                    + json.dumps({"label": "ai", "text": a})
+                    + "\n",
+                    encoding="utf-8",
                 )
             cal_out = Path(tmp) / "cal.json"
-            code, out, err = self._run_main(["calibrate", str(cal), "--target-fpr", "0.0", "--output", str(cal_out)])
+            code, out, err = self._run_main(
+                ["calibrate", str(cal), "--target-fpr", "0.0", "--output", str(cal_out)]
+            )
             self.assertEqual(code, EXIT_OK, err)
             cal_artifact = json.loads(cal_out.read_text(encoding="utf-8"))
             self.assertIn("recommended_threshold", cal_artifact)
 
             # Use evalf (different file with different content) for evaluation
-            code, out, err = self._run_main(["benchmark", str(evalf), "--calibration", str(cal_out)])
+            code, out, err = self._run_main(
+                ["benchmark", str(evalf), "--calibration", str(cal_out)]
+            )
             self.assertEqual(code, EXIT_OK, err)
             self.assertEqual(json.loads(out)["mode"], "held_out_evaluation")
 
@@ -167,12 +179,16 @@ class CliInProcessTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "data.jsonl"
             path.write_text(
-                json.dumps({"label": "human", "text": "hi"}) + "\n" +
-                json.dumps({"label": "ai", "text": "ai text"}) + "\n",
-                encoding="utf-8"
+                json.dumps({"label": "human", "text": "hi"})
+                + "\n"
+                + json.dumps({"label": "ai", "text": "ai text"})
+                + "\n",
+                encoding="utf-8",
             )
             cal_out = Path(tmp) / "cal.json"
-            self._run_main(["calibrate", str(path), "--target-fpr", "0.0", "--output", str(cal_out)])
+            self._run_main(
+                ["calibrate", str(path), "--target-fpr", "0.0", "--output", str(cal_out)]
+            )
             code, out, err = self._run_main(["benchmark", str(path), "--calibration", str(cal_out)])
             # Same-dataset rejection is a configuration/runtime error
             self.assertEqual(code, EXIT_ERROR, err)
@@ -231,7 +247,8 @@ class CliInProcessTests(unittest.TestCase):
     def test_read_text_no_file_stdin_tty(self):
         # Line 35: _read_text raises ValueError when no --file and stdin is a tty
         import unittest.mock as mock
-        with mock.patch.object(sys.stdin, 'isatty', return_value=True):
+
+        with mock.patch.object(sys.stdin, "isatty", return_value=True):
             code, out, err = self._run_main(["scan"])
             # Configuration error
             self.assertEqual(code, EXIT_ERROR, out)
@@ -242,8 +259,10 @@ class CliInProcessTests(unittest.TestCase):
         import unittest.mock as mock
 
         # Patch _read_text to return valid text (localize uses --file or stdin)
-        with mock.patch('textforensics.cli._read_text', return_value="test text"), \
-             mock.patch('textforensics.cli.localize_text', return_value=[]):
+        with (
+            mock.patch("textforensics.cli._read_text", return_value="test text"),
+            mock.patch("textforensics.cli.localize_text", return_value=[]),
+        ):
             code, out, err = self._run_main(["localize", "--sentences", "0"])
             # Configuration error
             self.assertEqual(code, EXIT_ERROR, out)
@@ -254,17 +273,26 @@ class CliParserTests(unittest.TestCase):
     def test_parser_has_all_subcommands(self):
         parser = build_parser()
         subparsers_actions = [
-            a for a in parser._actions
-            if isinstance(a, argparse._SubParsersAction)
+            a for a in parser._actions if isinstance(a, argparse._SubParsersAction)
         ]
         self.assertTrue(subparsers_actions)
         subcommands = set()
         for sp in subparsers_actions:
             subcommands.update(sp.choices.keys())
         expected = {
-            "scan", "audit", "localize", "compare", "snapshot",
-            "verify-ledger", "calibrate", "benchmark", "detectors",
-            "report", "case", "web", "serve",
+            "scan",
+            "audit",
+            "localize",
+            "compare",
+            "snapshot",
+            "verify-ledger",
+            "calibrate",
+            "benchmark",
+            "detectors",
+            "report",
+            "case",
+            "web",
+            "serve",
         }
         self.assertTrue(expected.issubset(subcommands))
 
@@ -295,18 +323,25 @@ class BenchmarkSubcommandTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             dataset = Path(tmp) / "test.jsonl"
             dataset.write_text(
-                json.dumps({"label": "human", "text": "human text"}) + "\n" +
-                json.dumps({"label": "ai", "text": "ai text"}) + "\n",
+                json.dumps({"label": "human", "text": "human text"})
+                + "\n"
+                + json.dumps({"label": "ai", "text": "ai text"})
+                + "\n",
                 encoding="utf-8",
             )
 
-            code, out, err = self._run_main([
-                "fingerprint",
-                str(dataset),
-                "--name", "TestDataset",
-                "--version", "1.0.0",
-                "--split", "test",
-            ])
+            code, out, err = self._run_main(
+                [
+                    "fingerprint",
+                    str(dataset),
+                    "--name",
+                    "TestDataset",
+                    "--version",
+                    "1.0.0",
+                    "--split",
+                    "test",
+                ]
+            )
             self.assertEqual(code, EXIT_OK, err)
             payload = json.loads(out)
             self.assertEqual(payload["name"], "TestDataset")
@@ -322,12 +357,16 @@ class BenchmarkSubcommandTests(unittest.TestCase):
             )
 
             output = Path(tmp) / "fingerprint.json"
-            code, out, err = self._run_main([
-                "fingerprint",
-                str(dataset),
-                "--name", "TestDataset",
-                "--output", str(output),
-            ])
+            code, out, err = self._run_main(
+                [
+                    "fingerprint",
+                    str(dataset),
+                    "--name",
+                    "TestDataset",
+                    "--output",
+                    str(output),
+                ]
+            )
             self.assertEqual(code, EXIT_OK, err)
             self.assertTrue(output.exists())
 
@@ -345,11 +384,13 @@ class BenchmarkSubcommandTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            code, out, err = self._run_main([
-                "check",
-                str(cal),
-                str(eval),
-            ])
+            code, out, err = self._run_main(
+                [
+                    "check",
+                    str(cal),
+                    str(eval),
+                ]
+            )
             self.assertEqual(code, 0, err)
             payload = json.loads(out)
             self.assertTrue(payload["disjoint"])
@@ -369,11 +410,13 @@ class BenchmarkSubcommandTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            code, out, err = self._run_main([
-                "check",
-                str(cal),
-                str(eval),
-            ])
+            code, out, err = self._run_main(
+                [
+                    "check",
+                    str(cal),
+                    str(eval),
+                ]
+            )
             self.assertEqual(code, 0, err)
             payload = json.loads(out)
             self.assertFalse(payload["disjoint"])
@@ -383,16 +426,21 @@ class BenchmarkSubcommandTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             dataset = Path(tmp) / "cal.jsonl"
             dataset.write_text(
-                json.dumps({"label": "human", "text": "human text for calibration"}) + "\n" +
-                json.dumps({"label": "ai", "text": "ai text for calibration"}) + "\n",
+                json.dumps({"label": "human", "text": "human text for calibration"})
+                + "\n"
+                + json.dumps({"label": "ai", "text": "ai text for calibration"})
+                + "\n",
                 encoding="utf-8",
             )
 
-            code, out, err = self._run_main([
-                "select-threshold",
-                str(dataset),
-                "--target-fpr", "0.01",
-            ])
+            code, out, err = self._run_main(
+                [
+                    "select-threshold",
+                    str(dataset),
+                    "--target-fpr",
+                    "0.01",
+                ]
+            )
             self.assertEqual(code, 0, err)
             payload = json.loads(out)
             self.assertIn("threshold", payload)
@@ -403,18 +451,24 @@ class BenchmarkSubcommandTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             dataset = Path(tmp) / "cal.jsonl"
             dataset.write_text(
-                json.dumps({"label": "human", "text": "human content"}) + "\n" +
-                json.dumps({"label": "ai", "text": "ai content"}) + "\n",
+                json.dumps({"label": "human", "text": "human content"})
+                + "\n"
+                + json.dumps({"label": "ai", "text": "ai content"})
+                + "\n",
                 encoding="utf-8",
             )
 
             artifact = Path(tmp) / "artifact.json"
-            code, out, err = self._run_main([
-                "select-threshold",
-                str(dataset),
-                "--target-fpr", "0.01",
-                "--output", str(artifact),
-            ])
+            code, out, err = self._run_main(
+                [
+                    "select-threshold",
+                    str(dataset),
+                    "--target-fpr",
+                    "0.01",
+                    "--output",
+                    str(artifact),
+                ]
+            )
             self.assertEqual(code, 0, err)
             self.assertTrue(artifact.exists())
 

@@ -228,6 +228,7 @@ class TamperingTests(unittest.TestCase):
 
             # Read original zip contents
             import zipfile
+
             with zipfile.ZipFile(output, "r") as zf:
                 entries = {n: zf.read(n) for n in zf.namelist()}
 

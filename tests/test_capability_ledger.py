@@ -48,24 +48,28 @@ class TestRegistrationAndRetrieval(unittest.TestCase):
 
     def test_multiple_capabilities_per_detector(self):
         ledger = CapabilityLedger()
-        ledger.register(CapabilityClaim(
-            detector_id="det-a",
-            capability="lang.en",
-            tier=EvidenceTier.READABLE,
-            evidence=[],
-        ))
-        ledger.register(CapabilityClaim(
-            detector_id="det-a",
-            capability="lang.de",
-            tier=EvidenceTier.VALIDATED,
-            evidence=[
-                EvidenceRef(
-                    label=EvidenceLabel.EXECUTED,
-                    tier=EvidenceTier.VALIDATED,
-                    artifact="run/de-v2.json",
-                )
-            ],
-        ))
+        ledger.register(
+            CapabilityClaim(
+                detector_id="det-a",
+                capability="lang.en",
+                tier=EvidenceTier.READABLE,
+                evidence=[],
+            )
+        )
+        ledger.register(
+            CapabilityClaim(
+                detector_id="det-a",
+                capability="lang.de",
+                tier=EvidenceTier.VALIDATED,
+                evidence=[
+                    EvidenceRef(
+                        label=EvidenceLabel.EXECUTED,
+                        tier=EvidenceTier.VALIDATED,
+                        artifact="run/de-v2.json",
+                    )
+                ],
+            )
+        )
         self.assertEqual(ledger.get("det-a", "lang.en").tier, EvidenceTier.READABLE)
         self.assertEqual(ledger.get("det-a", "lang.de").tier, EvidenceTier.VALIDATED)
 
@@ -73,28 +77,32 @@ class TestRegistrationAndRetrieval(unittest.TestCase):
 class TestTierEnforcement(unittest.TestCase):
     def test_is_validated_true(self):
         ledger = CapabilityLedger()
-        ledger.register(CapabilityClaim(
-            detector_id="det-b",
-            capability="length.medium",
-            tier=EvidenceTier.VALIDATED,
-            evidence=[
-                EvidenceRef(
-                    label=EvidenceLabel.EXECUTED,
-                    tier=EvidenceTier.VALIDATED,
-                    artifact="run/length.json",
-                )
-            ],
-        ))
+        ledger.register(
+            CapabilityClaim(
+                detector_id="det-b",
+                capability="length.medium",
+                tier=EvidenceTier.VALIDATED,
+                evidence=[
+                    EvidenceRef(
+                        label=EvidenceLabel.EXECUTED,
+                        tier=EvidenceTier.VALIDATED,
+                        artifact="run/length.json",
+                    )
+                ],
+            )
+        )
         self.assertTrue(ledger.is_validated("det-b", "length.medium"))
 
     def test_is_validated_false_readable(self):
         ledger = CapabilityLedger()
-        ledger.register(CapabilityClaim(
-            detector_id="det-b",
-            capability="length.medium",
-            tier=EvidenceTier.READABLE,
-            evidence=[],
-        ))
+        ledger.register(
+            CapabilityClaim(
+                detector_id="det-b",
+                capability="length.medium",
+                tier=EvidenceTier.READABLE,
+                evidence=[],
+            )
+        )
         self.assertFalse(ledger.is_validated("det-b", "length.medium"))
 
     def test_is_validated_false_missing(self):
@@ -130,20 +138,22 @@ class TestTierEnforcement(unittest.TestCase):
 class TestSerialization(unittest.TestCase):
     def test_roundtrip(self):
         ledger = CapabilityLedger()
-        ledger.register(CapabilityClaim(
-            detector_id="det-1",
-            capability="lang.en",
-            tier=EvidenceTier.VALIDATED,
-            evidence=[
-                EvidenceRef(
-                    label=EvidenceLabel.EXECUTED,
-                    tier=EvidenceTier.VALIDATED,
-                    artifact="run/en.json",
-                    detail="RAID held-out slice",
-                )
-            ],
-            valid_until="2027-01-01",
-        ))
+        ledger.register(
+            CapabilityClaim(
+                detector_id="det-1",
+                capability="lang.en",
+                tier=EvidenceTier.VALIDATED,
+                evidence=[
+                    EvidenceRef(
+                        label=EvidenceLabel.EXECUTED,
+                        tier=EvidenceTier.VALIDATED,
+                        artifact="run/en.json",
+                        detail="RAID held-out slice",
+                    )
+                ],
+                valid_until="2027-01-01",
+            )
+        )
         data = ledger.to_dict()
         self.assertEqual(data["schema"], "textforensics.capability-ledger/v1")
         self.assertIn("generated_at_utc", data)
@@ -157,12 +167,14 @@ class TestSerialization(unittest.TestCase):
 
     def test_json_roundtrip(self):
         ledger = CapabilityLedger()
-        ledger.register(CapabilityClaim(
-            detector_id="det-2",
-            capability="length.short",
-            tier=EvidenceTier.TOOL_BACKED,
-            evidence=[],
-        ))
+        ledger.register(
+            CapabilityClaim(
+                detector_id="det-2",
+                capability="length.short",
+                tier=EvidenceTier.TOOL_BACKED,
+                evidence=[],
+            )
+        )
         raw = json.dumps(ledger.to_dict())
         restored = CapabilityLedger.from_dict(json.loads(raw))
         self.assertEqual(
@@ -252,53 +264,59 @@ class TestEvidenceLabelValidation(unittest.TestCase):
 class TestTrustMapIntegration(unittest.TestCase):
     def test_validated_claim_maps_to_supported(self):
         ledger = CapabilityLedger()
-        ledger.register(CapabilityClaim(
-            detector_id="det-a",
-            capability="lang_coverage.en",
-            tier=EvidenceTier.VALIDATED,
-            evidence=[
-                EvidenceRef(
-                    label=EvidenceLabel.EXECUTED,
-                    tier=EvidenceTier.VALIDATED,
-                    artifact="run/en.json",
-                )
-            ],
-        ))
+        ledger.register(
+            CapabilityClaim(
+                detector_id="det-a",
+                capability="lang_coverage.en",
+                tier=EvidenceTier.VALIDATED,
+                evidence=[
+                    EvidenceRef(
+                        label=EvidenceLabel.EXECUTED,
+                        tier=EvidenceTier.VALIDATED,
+                        artifact="run/en.json",
+                    )
+                ],
+            )
+        )
         dim = ledger_to_trust_dimension(ledger, "det-a", "lang_coverage")
         self.assertEqual(dim.state, "supported")
         self.assertIn("run/en.json", dim.evidence_refs)
 
     def test_tool_backed_claim_maps_to_partial(self):
         ledger = CapabilityLedger()
-        ledger.register(CapabilityClaim(
-            detector_id="det-a",
-            capability="length_robust.medium",
-            tier=EvidenceTier.TOOL_BACKED,
-            evidence=[
-                EvidenceRef(
-                    label=EvidenceLabel.CALCULATED,
-                    tier=EvidenceTier.TOOL_BACKED,
-                    artifact="calc/length.json",
-                )
-            ],
-        ))
+        ledger.register(
+            CapabilityClaim(
+                detector_id="det-a",
+                capability="length_robust.medium",
+                tier=EvidenceTier.TOOL_BACKED,
+                evidence=[
+                    EvidenceRef(
+                        label=EvidenceLabel.CALCULATED,
+                        tier=EvidenceTier.TOOL_BACKED,
+                        artifact="calc/length.json",
+                    )
+                ],
+            )
+        )
         dim = ledger_to_trust_dimension(ledger, "det-a", "length_robust")
         self.assertEqual(dim.state, "partial")
 
     def test_readable_claim_maps_to_partial(self):
         ledger = CapabilityLedger()
-        ledger.register(CapabilityClaim(
-            detector_id="det-a",
-            capability="domain.news",
-            tier=EvidenceTier.READABLE,
-            evidence=[
-                EvidenceRef(
-                    label=EvidenceLabel.REPORTED,
-                    tier=EvidenceTier.READABLE,
-                    artifact="docs/domain-report.pdf",
-                )
-            ],
-        ))
+        ledger.register(
+            CapabilityClaim(
+                detector_id="det-a",
+                capability="domain.news",
+                tier=EvidenceTier.READABLE,
+                evidence=[
+                    EvidenceRef(
+                        label=EvidenceLabel.REPORTED,
+                        tier=EvidenceTier.READABLE,
+                        artifact="docs/domain-report.pdf",
+                    )
+                ],
+            )
+        )
         dim = ledger_to_trust_dimension(ledger, "det-a", "domain")
         self.assertEqual(dim.state, "partial")
 
@@ -310,48 +328,54 @@ class TestTrustMapIntegration(unittest.TestCase):
 
     def test_valid_until_becomes_limitation(self):
         ledger = CapabilityLedger()
-        ledger.register(CapabilityClaim(
-            detector_id="det-a",
-            capability="lang.en",
-            tier=EvidenceTier.VALIDATED,
-            evidence=[
-                EvidenceRef(
-                    label=EvidenceLabel.EXECUTED,
-                    tier=EvidenceTier.VALIDATED,
-                    artifact="run/en.json",
-                )
-            ],
-            valid_until="2026-12-31",
-        ))
+        ledger.register(
+            CapabilityClaim(
+                detector_id="det-a",
+                capability="lang.en",
+                tier=EvidenceTier.VALIDATED,
+                evidence=[
+                    EvidenceRef(
+                        label=EvidenceLabel.EXECUTED,
+                        tier=EvidenceTier.VALIDATED,
+                        artifact="run/en.json",
+                    )
+                ],
+                valid_until="2026-12-31",
+            )
+        )
         dim = ledger_to_trust_dimension(ledger, "det-a", "lang")
         self.assertTrue(any("2026-12-31" in lim for lim in dim.limitations))
 
     def test_mixed_tiers_elevates_to_validated(self):
         ledger = CapabilityLedger()
-        ledger.register(CapabilityClaim(
-            detector_id="det-a",
-            capability="lang.en",
-            tier=EvidenceTier.VALIDATED,
-            evidence=[
-                EvidenceRef(
-                    label=EvidenceLabel.EXECUTED,
-                    tier=EvidenceTier.VALIDATED,
-                    artifact="run/en.json",
-                )
-            ],
-        ))
-        ledger.register(CapabilityClaim(
-            detector_id="det-a",
-            capability="lang.de",
-            tier=EvidenceTier.TOOL_BACKED,
-            evidence=[
-                EvidenceRef(
-                    label=EvidenceLabel.CALCULATED,
-                    tier=EvidenceTier.TOOL_BACKED,
-                    artifact="calc/de.json",
-                )
-            ],
-        ))
+        ledger.register(
+            CapabilityClaim(
+                detector_id="det-a",
+                capability="lang.en",
+                tier=EvidenceTier.VALIDATED,
+                evidence=[
+                    EvidenceRef(
+                        label=EvidenceLabel.EXECUTED,
+                        tier=EvidenceTier.VALIDATED,
+                        artifact="run/en.json",
+                    )
+                ],
+            )
+        )
+        ledger.register(
+            CapabilityClaim(
+                detector_id="det-a",
+                capability="lang.de",
+                tier=EvidenceTier.TOOL_BACKED,
+                evidence=[
+                    EvidenceRef(
+                        label=EvidenceLabel.CALCULATED,
+                        tier=EvidenceTier.TOOL_BACKED,
+                        artifact="calc/de.json",
+                    )
+                ],
+            )
+        )
         dim = ledger_to_trust_dimension(ledger, "det-a", "lang")
         self.assertEqual(dim.state, "supported")
 

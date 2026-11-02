@@ -10,16 +10,42 @@ WORD_RE = re.compile(r"\b[\w]+(?:['’][\w]+)?\b", re.UNICODE)
 SENTENCE_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"'“‘(])")
 
 TRANSITIONS = (
-    "additionally", "furthermore", "moreover", "however", "therefore", "consequently",
-    "in conclusion", "overall", "in summary", "it is important to note", "notably",
-    "on the other hand", "as a result", "in addition", "for example", "for instance",
+    "additionally",
+    "furthermore",
+    "moreover",
+    "however",
+    "therefore",
+    "consequently",
+    "in conclusion",
+    "overall",
+    "in summary",
+    "it is important to note",
+    "notably",
+    "on the other hand",
+    "as a result",
+    "in addition",
+    "for example",
+    "for instance",
 )
 
 AI_CLICHES = (
-    "delve into", "tapestry", "ever-evolving", "ever evolving", "in today's world",
-    "in today’s world", "landscape", "multifaceted", "robust solution", "seamlessly",
-    "unlock the potential", "game-changer", "game changer", "it is worth noting",
-    "it is important to note", "navigate the complexities", "a testament to",
+    "delve into",
+    "tapestry",
+    "ever-evolving",
+    "ever evolving",
+    "in today's world",
+    "in today’s world",
+    "landscape",
+    "multifaceted",
+    "robust solution",
+    "seamlessly",
+    "unlock the potential",
+    "game-changer",
+    "game changer",
+    "it is worth noting",
+    "it is important to note",
+    "navigate the complexities",
+    "a testament to",
 )
 
 CONTRACTION_RE = re.compile(

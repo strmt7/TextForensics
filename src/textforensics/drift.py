@@ -185,10 +185,7 @@ def _finding(code: str, severity: str, detail: str, **extra: Any) -> dict[str, A
 
 def _compute_corpus_sha256(samples: Iterable[ProbeSample]) -> str:
     payload = sorted(
-        (
-            {"sample_id": sample.sample_id, "text_sha256": sample.text_sha256}
-            for sample in samples
-        ),
+        ({"sample_id": sample.sample_id, "text_sha256": sample.text_sha256} for sample in samples),
         key=lambda row: row["sample_id"],
     )
     return _sha256_hex(_canonical_bytes(payload))
@@ -265,9 +262,7 @@ def _compare_score_distribution(
     standardized = delta_mean / pooled_sd if pooled_sd > 1e-12 else None
     shift_magnitude = abs(delta_mean)
     significant = bool(
-        claim_allowed
-        and len(deltas) >= min_samples
-        and shift_magnitude >= shift_threshold
+        claim_allowed and len(deltas) >= min_samples and shift_magnitude >= shift_threshold
     )
     return {
         "n_paired": len(deltas),
@@ -432,7 +427,9 @@ def _compare_human_fpr(
     increase_threshold: float,
     samples: Mapping[str, ProbeSample],
 ) -> dict[str, Any]:
-    human_ids = {sample_id for sample_id, sample in samples.items() if _is_human_sample(sample.metadata)}
+    human_ids = {
+        sample_id for sample_id, sample in samples.items() if _is_human_sample(sample.metadata)
+    }
     human_pairs = [pair for pair in pairs if pair[2] in human_ids]
     count = len(human_pairs)
     if count == 0:
@@ -451,15 +448,15 @@ def _compare_human_fpr(
 
     baseline_fp = sum(1 for baseline, _, _ in human_pairs if baseline.get("verdict") == "ai_like")
     current_fp = sum(1 for _, current, _ in human_pairs if current.get("verdict") == "ai_like")
-    baseline_decided = sum(1 for baseline, _, _ in human_pairs if baseline.get("verdict") != "abstain")
+    baseline_decided = sum(
+        1 for baseline, _, _ in human_pairs if baseline.get("verdict") != "abstain"
+    )
     current_decided = sum(1 for _, current, _ in human_pairs if current.get("verdict") != "abstain")
     baseline_fpr = baseline_fp / count
     current_fpr = current_fp / count
     delta = current_fpr - baseline_fpr
     slice_claim_allowed = bool(claim_allowed and count >= min_slice_samples)
-    significant_increase = bool(
-        slice_claim_allowed and delta > 0.0 and delta >= increase_threshold
-    )
+    significant_increase = bool(slice_claim_allowed and delta > 0.0 and delta >= increase_threshold)
     return {
         "human_sample_count": count,
         "baseline_false_positives": baseline_fp,
@@ -485,10 +482,16 @@ def _compare_provider_metadata(
     baseline_records: Sequence[Mapping[str, Any]],
     current_records: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    baseline_provider = _unique_scalars(record.get("provider_version") for record in baseline_records)
+    baseline_provider = _unique_scalars(
+        record.get("provider_version") for record in baseline_records
+    )
     current_provider = _unique_scalars(record.get("provider_version") for record in current_records)
-    baseline_detector_version = _unique_scalars(record.get("detector_version") for record in baseline_records)
-    current_detector_version = _unique_scalars(record.get("detector_version") for record in current_records)
+    baseline_detector_version = _unique_scalars(
+        record.get("detector_version") for record in baseline_records
+    )
+    current_detector_version = _unique_scalars(
+        record.get("detector_version") for record in current_records
+    )
     baseline_execution = _unique_scalars(record.get("execution") for record in baseline_records)
     current_execution = _unique_scalars(record.get("execution") for record in current_records)
 
@@ -726,7 +729,9 @@ class DriftObservatory:
             raise ValueError(f"Sample {sample_id}: text_sha256 does not match the probe corpus.")
 
         detector_id = _require_nonempty_string(data.get("detector_id"), "detector_id")
-        detector_version = _require_nonempty_string(data.get("detector_version"), "detector_version")
+        detector_version = _require_nonempty_string(
+            data.get("detector_version"), "detector_version"
+        )
         detector_family = _require_nonempty_string(data.get("detector_family"), "detector_family")
         execution = _require_nonempty_string(data.get("execution"), "execution")
         if execution not in EXECUTIONS:
@@ -748,7 +753,9 @@ class DriftObservatory:
             _require_nonempty_string(calibration_id, "calibration_id")
         elif calibration_id is not None:
             raise ValueError("calibration_id cannot be set without calibrated_ai_probability.")
-        reliability = _coerce_float(data.get("reliability"), "reliability", minimum=0.0, maximum=1.0)
+        reliability = _coerce_float(
+            data.get("reliability"), "reliability", minimum=0.0, maximum=1.0
+        )
         min_words = _coerce_int_or_none(data.get("min_words"), "min_words")
 
         supported_languages = data.get("supported_languages") or []
@@ -756,7 +763,9 @@ class DriftObservatory:
             raise ValueError("supported_languages must be a list of strings.")
         normalized_languages: list[str] = []
         for language in supported_languages:
-            normalized_languages.append(_require_nonempty_string(language, "supported_languages item"))
+            normalized_languages.append(
+                _require_nonempty_string(language, "supported_languages item")
+            )
 
         provider_version = data.get("provider_version")
         if provider_version is not None:
@@ -994,7 +1003,9 @@ class DriftObservatory:
                 expected_corpus_sha256 is not None
                 and snapshot.get("corpus_sha256") != expected_corpus_sha256
             ):
-                raise ValueError("Drift snapshot corpus hash does not match the loaded probe corpus.")
+                raise ValueError(
+                    "Drift snapshot corpus hash does not match the loaded probe corpus."
+                )
             loaded.append(dict(snapshot))
 
         if replace:
@@ -1029,7 +1040,9 @@ class DriftObservatory:
         if not isinstance(snapshot.get("failures", []), list):
             raise ValueError("Drift snapshot failures must be a list.")
 
-    def compare_snapshots(self, baseline: Mapping[str, Any], current: Mapping[str, Any]) -> dict[str, Any]:
+    def compare_snapshots(
+        self, baseline: Mapping[str, Any], current: Mapping[str, Any]
+    ) -> dict[str, Any]:
         self._validate_snapshot_schema(baseline)
         self._validate_snapshot_schema(current)
         baseline_dict = dict(baseline)
@@ -1156,7 +1169,10 @@ class DriftObservatory:
         common_ids = sorted(set(baseline_index) & set(current_index))
         comparable = len(common_ids)
         claim_allowed = comparable >= self.min_samples_for_drift_claim
-        pairs = [(baseline_index[sample_id], current_index[sample_id], sample_id) for sample_id in common_ids]
+        pairs = [
+            (baseline_index[sample_id], current_index[sample_id], sample_id)
+            for sample_id in common_ids
+        ]
 
         score = _compare_score_distribution(
             pairs,
@@ -1350,4 +1366,6 @@ class DriftObservatory:
 
 
 def _is_remote_detector(detector: Detector) -> bool:
-    return getattr(detector, "execution", None) == "remote" or bool(getattr(detector, "remote", False))
+    return getattr(detector, "execution", None) == "remote" or bool(
+        getattr(detector, "remote", False)
+    )

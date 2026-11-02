@@ -80,7 +80,10 @@ def TestOneInput(data: bytes) -> None:
                 errors = [h for h in registry.plugin_health if h.status == "error"]
                 # Should have an error because we tried to register duplicate
                 if errors:
-                    assert "duplicate" in errors[0].message.lower() or errors[0].error_type == "DetectorContractError"
+                    assert (
+                        "duplicate" in errors[0].message.lower()
+                        or errors[0].error_type == "DetectorContractError"
+                    )
     except Exception:
         pass
 

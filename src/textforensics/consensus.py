@@ -50,10 +50,7 @@ def _family_vote(
     probability = None
     if len(predictions) == 1:
         probability = predictions[0].calibrated_ai_probability
-    elif any(
-        prediction.calibrated_ai_probability is not None
-        for prediction in predictions
-    ):
+    elif any(prediction.calibrated_ai_probability is not None for prediction in predictions):
         warnings.append(
             "Family probability withheld: combining component probabilities "
             "requires an independently calibrated family fusion model."
@@ -91,15 +88,8 @@ def family_balanced_consensus(
     for prediction in predictions:
         grouped.setdefault(prediction.detector_family, []).append(prediction)
 
-    family_votes = [
-        _family_vote(family, rows)
-        for family, rows in sorted(grouped.items())
-    ]
-    voting = [
-        vote
-        for vote in family_votes
-        if vote.verdict in {"ai_like", "human_like"}
-    ]
+    family_votes = [_family_vote(family, rows) for family, rows in sorted(grouped.items())]
+    voting = [vote for vote in family_votes if vote.verdict in {"ai_like", "human_like"}]
 
     warnings: list[str] = []
     if len(grouped) < 2:
@@ -114,22 +104,13 @@ def family_balanced_consensus(
     else:
         ai = sum(vote.verdict == "ai_like" for vote in voting)
         human = sum(vote.verdict == "human_like" for vote in voting)
-        consensus_verdict = (
-            "abstain"
-            if ai == human
-            else "ai_like"
-            if ai > human
-            else "human_like"
-        )
+        consensus_verdict = "abstain" if ai == human else "ai_like" if ai > human else "human_like"
         agreement = max(ai, human) / len(voting)
         if agreement < 1.0:
-            warnings.append(
-                "Independent detector families disagree on the categorical verdict."
-            )
+            warnings.append("Independent detector families disagree on the categorical verdict.")
 
     if ensemble_probability is None and any(
-        prediction.calibrated_ai_probability is not None
-        for prediction in predictions
+        prediction.calibrated_ai_probability is not None for prediction in predictions
     ):
         warnings.append(
             "Component calibrated probabilities are not fused. A separately "
@@ -142,9 +123,7 @@ def family_balanced_consensus(
         independent_families=len(grouped),
         voting_families=len(voting),
         calibrated_ai_probability=(
-            round(ensemble_probability, 4)
-            if ensemble_probability is not None
-            else None
+            round(ensemble_probability, 4) if ensemble_probability is not None else None
         ),
         ensemble_calibration_id=ensemble_calibration_id,
         family_votes=family_votes,

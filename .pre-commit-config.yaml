@@ -12,7 +12,6 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
         name: ruff (format)
-        args: [--diff]
 
   # Pre-commit-hooks - general file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks

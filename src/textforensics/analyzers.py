@@ -56,12 +56,24 @@ def analyze_uniformity(f: dict) -> AnalyzerResult:
         score=_clamp(score),
         reliability=reliability,
         evidence=[
-            Evidence("sentence_length_cv", f["sentence_length_cv"], 0.52 * sent,
-                     "Very uniform sentence lengths can be a weak machine-like signal."),
-            Evidence("paragraph_length_cv", f["paragraph_length_cv"], 0.25 * para,
-                     "Uniform paragraph sizes can indicate templated prose."),
-            Evidence("repeated_sentence_start_ratio", f["repeated_sentence_start_ratio"],
-                     0.23 * starts, "Repeated sentence openings can indicate formulaic structure."),
+            Evidence(
+                "sentence_length_cv",
+                f["sentence_length_cv"],
+                0.52 * sent,
+                "Very uniform sentence lengths can be a weak machine-like signal.",
+            ),
+            Evidence(
+                "paragraph_length_cv",
+                f["paragraph_length_cv"],
+                0.25 * para,
+                "Uniform paragraph sizes can indicate templated prose.",
+            ),
+            Evidence(
+                "repeated_sentence_start_ratio",
+                f["repeated_sentence_start_ratio"],
+                0.23 * starts,
+                "Repeated sentence openings can indicate formulaic structure.",
+            ),
         ],
     )
 
@@ -77,12 +89,24 @@ def analyze_formulaic_language(f: dict) -> AnalyzerResult:
         score=_clamp(score),
         reliability=reliability,
         evidence=[
-            Evidence("transition_density", f["transition_density"], 0.35 * transitions,
-                     "Dense explicit transitions can make prose read formulaically."),
-            Evidence("cliche_density", f["cliche_density"], 0.40 * cliches,
-                     "Common AI-associated stock phrases are present."),
-            Evidence("repeated_trigram_ratio", f["repeated_trigram_ratio"], 0.25 * repetition,
-                     "Repeated three-word sequences can indicate templated phrasing."),
+            Evidence(
+                "transition_density",
+                f["transition_density"],
+                0.35 * transitions,
+                "Dense explicit transitions can make prose read formulaically.",
+            ),
+            Evidence(
+                "cliche_density",
+                f["cliche_density"],
+                0.40 * cliches,
+                "Common AI-associated stock phrases are present.",
+            ),
+            Evidence(
+                "repeated_trigram_ratio",
+                f["repeated_trigram_ratio"],
+                0.25 * repetition,
+                "Repeated three-word sequences can indicate templated phrasing.",
+            ),
         ],
     )
 
@@ -99,12 +123,24 @@ def analyze_lexical_profile(f: dict) -> AnalyzerResult:
         score=_clamp(score),
         reliability=reliability,
         evidence=[
-            Evidence("type_token_ratio", f["type_token_ratio"], 0.40 * low_ttr,
-                     "Lower lexical variety can be a weak signal, but depends strongly on genre."),
-            Evidence("hapax_ratio", f["hapax_ratio"], 0.30 * low_hapax,
-                     "A low share of one-off words can indicate repetitive vocabulary."),
-            Evidence("punctuation_variety", f["punctuation_variety"], 0.30 * low_punct,
-                     "Low punctuation variety can accompany syntactically uniform prose."),
+            Evidence(
+                "type_token_ratio",
+                f["type_token_ratio"],
+                0.40 * low_ttr,
+                "Lower lexical variety can be a weak signal, but depends strongly on genre.",
+            ),
+            Evidence(
+                "hapax_ratio",
+                f["hapax_ratio"],
+                0.30 * low_hapax,
+                "A low share of one-off words can indicate repetitive vocabulary.",
+            ),
+            Evidence(
+                "punctuation_variety",
+                f["punctuation_variety"],
+                0.30 * low_punct,
+                "Low punctuation variety can accompany syntactically uniform prose.",
+            ),
         ],
     )
 

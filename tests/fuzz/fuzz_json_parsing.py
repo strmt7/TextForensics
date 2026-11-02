@@ -49,6 +49,7 @@ def TestOneInput(data: bytes) -> None:
         import tempfile
 
         from textforensics.benchmark import _load_scores
+
         with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
             f.write(json.dumps(parsed) + "\n")
             temp_path = f.name
@@ -56,6 +57,7 @@ def TestOneInput(data: bytes) -> None:
             _load_scores(temp_path, strict=False)
         finally:
             import os
+
             os.unlink(temp_path)
     except Exception:
         pass

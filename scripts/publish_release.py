@@ -15,6 +15,7 @@ The script only shells out to git / cosign / gh; it performs no direct
 network access of its own. Raw release content never leaves the machine
 except through the explicitly invoked gh CLI.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -141,8 +142,7 @@ def cmd_changelog(args: argparse.Namespace) -> int:
         "",
         f"- **Release commit:** `{short_sha}`",
         f"- **Generated:** {now}",
-        f"- **Commit range:** {tag or '(no previous tag)'}..HEAD "
-        f"({len(commits)} commits)",
+        f"- **Commit range:** {tag or '(no previous tag)'}..HEAD ({len(commits)} commits)",
         "",
         "## Verification",
         "",
@@ -150,8 +150,7 @@ def cmd_changelog(args: argparse.Namespace) -> int:
         "",
         "- a cosign-signed changelog (keyless Sigstore signatures in CI),",
         "- CycloneDX and SPDX JSON SBOMs,",
-        "- SLSA-style build provenance attestations "
-        "(actions/attest-build-provenance@v1),",
+        "- SLSA-style build provenance attestations (actions/attest-build-provenance@v1),",
         "- SHA-256 checksums for every attached artifact.",
         "",
         "Text-only detection cannot prove authorship; see the project README "
@@ -210,8 +209,7 @@ def cmd_sign_notes(args: argparse.Namespace) -> int:
         print(f"Cosign (keyless) signature written to {notes}.sig")
     else:
         print(
-            "WARNING: cosign not found; release notes carry a SHA-256 "
-            "checksum signature only.",
+            "WARNING: cosign not found; release notes carry a SHA-256 checksum signature only.",
             file=sys.stderr,
         )
     return 0
@@ -243,8 +241,7 @@ def cmd_upload(args: argparse.Namespace) -> int:
     sdists = [
         p
         for p in sorted(dist_dir.glob("*.tar.gz"))
-        if p.name.endswith(f"{version}-source.tar.gz")
-        or p.name.startswith("textforensics-")
+        if p.name.endswith(f"{version}-source.tar.gz") or p.name.startswith("textforensics-")
     ]
     if not wheels:
         print("ERROR: no wheel found in dist/", file=sys.stderr)
@@ -311,9 +308,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_version = sub.add_parser("version", help="Print the version from pyproject.toml")
     p_version.set_defaults(func=cmd_version)
 
-    p_changelog = sub.add_parser(
-        "changelog", help="Generate release notes from commit history"
-    )
+    p_changelog = sub.add_parser("changelog", help="Generate release notes from commit history")
     p_changelog.add_argument("--output", default="release-notes.md")
     p_changelog.add_argument(
         "--since-tag",
@@ -326,9 +321,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_sign.add_argument("--notes", default="release-notes.md")
     p_sign.set_defaults(func=cmd_sign_notes)
 
-    p_upload = sub.add_parser(
-        "upload", help="Create GitHub release and upload artifacts"
-    )
+    p_upload = sub.add_parser("upload", help="Create GitHub release and upload artifacts")
     p_upload.add_argument("--notes", default="release-notes.md")
     p_upload.add_argument("--dist-dir", default="dist")
     p_upload.add_argument("--provenance-dir", default=None)

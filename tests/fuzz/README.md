@@ -135,6 +135,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
+
 def TestOneInput(data: bytes) -> None:
     try:
         text = data.decode("utf-8", errors="replace")
@@ -144,13 +145,16 @@ def TestOneInput(data: bytes) -> None:
     # Your fuzzing logic here
     try:
         from textforensics.module import function
+
         function(text)
     except Exception:
         pass  # Expected for fuzzing
 
+
 def main():
     atheris.Setup(sys.argv, TestOneInput, enable_python_coverage=True)
     atheris.Fuzz()
+
 
 if __name__ == "__main__":
     main()

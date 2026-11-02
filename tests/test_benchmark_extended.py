@@ -56,7 +56,7 @@ class DatasetLoadingTests(unittest.TestCase):
     def test_non_object_lines_are_rejected_in_strict_mode(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "bad.jsonl"
-            path.write_text('[1,2,3]\n', encoding="utf-8")
+            path.write_text("[1,2,3]\n", encoding="utf-8")
             with self.assertRaises(DatasetFormatError):
                 benchmark_jsonl(path, strict=True)
 
@@ -64,7 +64,9 @@ class DatasetLoadingTests(unittest.TestCase):
         # Line 43: DatasetFormatError when JSON is invalid and strict=True
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "bad.jsonl"
-            path.write_text('{"label": "human", "text": "hello"}\nnot valid json\n', encoding="utf-8")
+            path.write_text(
+                '{"label": "human", "text": "hello"}\nnot valid json\n', encoding="utf-8"
+            )
             with self.assertRaises(DatasetFormatError):
                 benchmark_jsonl(path, strict=True)
 
@@ -130,11 +132,12 @@ class MetricsTests(unittest.TestCase):
     def test_metrics_with_false_positives(self):
         # Line 91: Test metrics with false positives (human classified as ai)
         from textforensics.benchmark import _metrics
+
         # Human samples with high scores (false positives when threshold is low)
         rows = [
             ("human", 0.9),  # FP - human classified as ai
             ("human", 0.8),  # FP - human classified as ai
-            ("ai", 0.3),     # FN - ai classified as human
+            ("ai", 0.3),  # FN - ai classified as human
         ]
         result = _metrics(rows, threshold=0.5)
         self.assertEqual(result["fp"], 2)  # Two false positives
@@ -230,9 +233,7 @@ class CalibrationTests(unittest.TestCase):
             path = Path(tmp) / "data.jsonl"
             write_dataset(path)
             artifact = calibrate_threshold_jsonl(path)
-            result = benchmark_with_calibration_jsonl(
-                path, artifact, allow_same_dataset=True
-            )
+            result = benchmark_with_calibration_jsonl(path, artifact, allow_same_dataset=True)
             self.assertEqual(
                 result["dataset_sha256"],
                 result["calibration_dataset_sha256"],
@@ -332,7 +333,9 @@ class CalibrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "mixed.jsonl"
             # JSON array is valid JSON but not an object
-            lines = '{"label": "human", "text": "hello"}\n[1, 2, 3]\n{"label": "ai", "text": "world"}\n'
+            lines = (
+                '{"label": "human", "text": "hello"}\n[1, 2, 3]\n{"label": "ai", "text": "world"}\n'
+            )
             path.write_text(lines, encoding="utf-8")
             result = benchmark_jsonl(path, strict=False)
             self.assertEqual(result["evaluated"], 2)

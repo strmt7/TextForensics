@@ -4,6 +4,7 @@
 This script is used by the semver.yml GitHub Actions workflow to validate
 that version numbers follow semantic versioning conventions.
 """
+
 from __future__ import annotations
 
 import re

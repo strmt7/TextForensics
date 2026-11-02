@@ -55,9 +55,7 @@ class BundleContractTests(unittest.TestCase):
         self.assertEqual(data["detector_results"], [])
         self.assertEqual(len(data["detector_failures"]), 1)
         self.assertEqual(data["consensus"]["verdict"], "abstain")
-        self.assertTrue(
-            any("failed" in limitation.lower() for limitation in data["limitations"])
-        )
+        self.assertTrue(any("failed" in limitation.lower() for limitation in data["limitations"]))
 
     def test_bundle_rejects_empty_text(self):
         with self.assertRaises(ValueError):
@@ -70,9 +68,7 @@ class BundleContractTests(unittest.TestCase):
             build_forensic_bundle(TEXT, detectors=[])
 
     def test_bundle_with_explicit_detectors_skips_health(self):
-        data = build_forensic_bundle(
-            TEXT, detectors=[BuiltinHeuristicDetector()]
-        ).to_dict()
+        data = build_forensic_bundle(TEXT, detectors=[BuiltinHeuristicDetector()]).to_dict()
         self.assertEqual(data["plugin_health"], [])
         self.assertEqual(len(data["detector_results"]), 1)
 
@@ -135,9 +131,7 @@ class IntegrityTests(unittest.TestCase):
 
     def test_integrity_serializes(self):
         predictions = [BuiltinHeuristicDetector().detect(TEXT)]
-        robustness = [
-            _robustness_for_detector(BuiltinHeuristicDetector(), TEXT, predictions[0])
-        ]
+        robustness = [_robustness_for_detector(BuiltinHeuristicDetector(), TEXT, predictions[0])]
         integrity = _integrity(predictions, len(TEXT.split()), robustness)
         self.assertIsInstance(integrity, VerdictIntegrity)
         self.assertTrue(0.0 <= integrity.score <= 1.0)
@@ -148,19 +142,28 @@ class LimitationsTests(unittest.TestCase):
     def test_bundle_always_states_text_only_is_not_proof(self):
         data = build_forensic_bundle(TEXT).to_dict()
         self.assertTrue(
-            any("not proof of authorship" in limitation.lower() for limitation in data["limitations"])
+            any(
+                "not proof of authorship" in limitation.lower()
+                for limitation in data["limitations"]
+            )
         )
 
     def test_bundle_always_states_scores_are_not_probabilities(self):
         data = build_forensic_bundle(TEXT).to_dict()
         self.assertTrue(
-            any("not treated as comparable probabilities" in limitation.lower() for limitation in data["limitations"])
+            any(
+                "not treated as comparable probabilities" in limitation.lower()
+                for limitation in data["limitations"]
+            )
         )
 
     def test_bundle_states_trust_map_is_not_probability(self):
         data = build_forensic_bundle(TEXT).to_dict()
         self.assertTrue(
-            any("not an authorship probability" in limitation.lower() for limitation in data["limitations"])
+            any(
+                "not an authorship probability" in limitation.lower()
+                for limitation in data["limitations"]
+            )
         )
 
 

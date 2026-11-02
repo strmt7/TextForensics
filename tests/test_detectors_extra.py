@@ -1,4 +1,5 @@
 """Extra tests for detectors.py to cover uncovered lines in validation, error handling, and registry discovery."""
+
 from __future__ import annotations
 
 import unittest
@@ -372,6 +373,7 @@ class DiscoverDetectorRegistryTests(unittest.TestCase):
 
     def test_bad_entry_point_caught(self):
         """An entry point that raises on load produces error health entry."""
+
         class BadEP:
             name = "broken-plugin"
 
@@ -387,6 +389,7 @@ class DiscoverDetectorRegistryTests(unittest.TestCase):
 
     def test_non_detector_entry_point_caught(self):
         """A plugin that loads but doesn't implement Detector is rejected."""
+
         class NotADetector:
             pass
 
@@ -404,6 +407,7 @@ class DiscoverDetectorRegistryTests(unittest.TestCase):
 
     def test_duplicate_detector_id_rejected(self):
         """A plugin with a duplicate detector_id is rejected."""
+
         class Dup:
             detector_id = "textforensics/builtin-heuristic"
             detector_version = "2"
@@ -504,6 +508,7 @@ class ExecuteDetectorValidationFailureTests(unittest.TestCase):
 
     def test_source_echo_failure(self):
         """A detector that echoes the source text in warnings is caught."""
+
         class EchoDetector:
             detector_id = "fake/echo"
             detector_version = "1"
@@ -613,7 +618,9 @@ class NormalizeInEchoCheckTests(unittest.TestCase):
             verdict="ai_like",
             threshold=0.5,
             warnings=["not echo", "   "],  # Second one normalizes to empty
-            evidence=[{"snippet": "not echo part 2", "note": "   "}],  # Second one normalizes to empty
+            evidence=[
+                {"snippet": "not echo part 2", "note": "   "}
+            ],  # Second one normalizes to empty
         )
 
         # Source is long enough for echo check
@@ -666,6 +673,7 @@ class BuiltinHeuristicDetectorVerdictTests(unittest.TestCase):
             analyzers = []
 
         import textforensics.detectors as det_module
+
         original_analyze = det_module.analyze_text
 
         def mock_analyze(text):
@@ -763,6 +771,7 @@ class DiscoverDetectorsFunctionTest(unittest.TestCase):
     def test_discover_detectors_returns_dict(self):
         """discover_detectors returns the detectors dict from registry."""
         from textforensics.detectors import discover_detectors
+
         result = discover_detectors()
         self.assertIsInstance(result, dict)
         self.assertIn("textforensics/builtin-heuristic", result)
@@ -836,6 +845,7 @@ class ValidPluginSuccessPathTests(unittest.TestCase):
 
             def detect(self, text):
                 from textforensics.detectors import DetectorPrediction
+
                 return DetectorPrediction(
                     schema="textforensics.detector-result/v1",
                     detector_id=self.detector_id,
@@ -858,7 +868,11 @@ class ValidPluginSuccessPathTests(unittest.TestCase):
             registry = discover_detector_registry()
 
         # Should succeed - not in errors
-        errors = [h for h in registry.plugin_health if h.status == "error" and "valid-plugin" in h.entry_point]
+        errors = [
+            h
+            for h in registry.plugin_health
+            if h.status == "error" and "valid-plugin" in h.entry_point
+        ]
         self.assertEqual(len(errors), 0)
 
         # Should be in detectors
@@ -875,6 +889,7 @@ class ValidPluginSuccessPathTests(unittest.TestCase):
 
             def detect(self, text):
                 from textforensics.detectors import DetectorPrediction
+
                 return DetectorPrediction(
                     schema="textforensics.detector-result/v1",
                     detector_id=self.detector_id,

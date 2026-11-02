@@ -124,7 +124,16 @@ def TestOneInput(data: bytes) -> None:
                 observed={},
                 limitations=[],
             )
-            for d in ["language", "text_length", "domain_genre", "editing_revision", "human_false_positive_evidence", "detector_diversity", "benign_stability", "temporal_version_stability"]
+            for d in [
+                "language",
+                "text_length",
+                "domain_genre",
+                "editing_revision",
+                "human_false_positive_evidence",
+                "detector_diversity",
+                "benign_stability",
+                "temporal_version_stability",
+            ]
             for s in TRUST_STATES
         ]
 

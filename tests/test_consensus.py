@@ -41,14 +41,10 @@ class ConsensusContractTests(unittest.TestCase):
         self.assertIsNone(result.family_agreement)
 
     def test_single_family_does_not_vote(self):
-        result = family_balanced_consensus(
-            [prediction("a", "transformer", "ai_like")]
-        )
+        result = family_balanced_consensus([prediction("a", "transformer", "ai_like")])
         self.assertEqual(result.verdict, "abstain")
         self.assertEqual(result.independent_families, 1)
-        self.assertTrue(
-            any("multiple" in w.lower() for w in result.warnings)
-        )
+        self.assertTrue(any("multiple" in w.lower() for w in result.warnings))
 
     def test_family_balancing_prevents_duplicate_family_vote_inflation(self):
         result = family_balanced_consensus(
@@ -61,12 +57,8 @@ class ConsensusContractTests(unittest.TestCase):
         self.assertEqual(result.independent_families, 2)
         self.assertEqual(result.verdict, "abstain")
         self.assertEqual(len(result.family_votes), 2)
-        self.assertEqual(
-            sum(vote.detector_count for vote in result.family_votes), 3
-        )
-        transformer = next(
-            vote for vote in result.family_votes if vote.family == "transformer"
-        )
+        self.assertEqual(sum(vote.detector_count for vote in result.family_votes), 3)
+        transformer = next(vote for vote in result.family_votes if vote.family == "transformer")
         self.assertEqual(transformer.detector_count, 2)
 
     def test_component_probabilities_are_not_averaged_into_ensemble(self):
@@ -77,16 +69,16 @@ class ConsensusContractTests(unittest.TestCase):
             ]
         )
         self.assertIsNone(result.calibrated_ai_probability)
-        self.assertTrue(
-            any("separately" in warning.lower() for warning in result.warnings)
-        )
+        self.assertTrue(any("separately" in warning.lower() for warning in result.warnings))
 
     def test_family_with_probability_and_without_probability_warns(self):
         # Line 57: Warning when a family has mixed probability availability
         # (multiple predictions, at least one with probability, but not all)
         result = family_balanced_consensus(
             [
-                prediction("a1", "transformer", "ai_like", probability=0.9, calibration_id="a1-cal"),
+                prediction(
+                    "a1", "transformer", "ai_like", probability=0.9, calibration_id="a1-cal"
+                ),
                 prediction("a2", "transformer", "human_like"),  # No probability
                 prediction("b1", "likelihood", "ai_like"),
             ]
@@ -94,9 +86,7 @@ class ConsensusContractTests(unittest.TestCase):
         # No ensemble probability since only one family has votes
         self.assertIsNone(result.calibrated_ai_probability)
         # Should have warning about probability not being fused
-        self.assertTrue(
-            any("probability" in w.lower() for w in result.warnings)
-        )
+        self.assertTrue(any("probability" in w.lower() for w in result.warnings))
 
     def test_top_level_probability_requires_ensemble_calibration(self):
         with self.assertRaises(ValueError):
@@ -148,9 +138,7 @@ class ConsensusContractTests(unittest.TestCase):
         )
         self.assertEqual(result.verdict, "ai_like")
         self.assertLess(result.family_agreement, 1.0)
-        self.assertTrue(
-            any("disagree" in w.lower() for w in result.warnings)
-        )
+        self.assertTrue(any("disagree" in w.lower() for w in result.warnings))
 
     def test_family_with_only_abstentions_is_not_a_voter(self):
         result = family_balanced_consensus(

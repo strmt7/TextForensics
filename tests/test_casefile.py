@@ -127,7 +127,9 @@ class CaseFileIOTests(unittest.TestCase):
             bundle = build_forensic_bundle(TEXT).to_dict()
             case = write_case_file(path, bundle)
             self.assertTrue(path.exists())
-            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["case_sha256"], case["case_sha256"])
+            self.assertEqual(
+                json.loads(path.read_text(encoding="utf-8"))["case_sha256"], case["case_sha256"]
+            )
             self.assertNotIn(TEXT, path.read_text(encoding="utf-8"))
 
     def test_verify_case_file_path_detects_tampering(self):
@@ -272,9 +274,7 @@ class DeterministicSealTests(unittest.TestCase):
         case = seal_case_file(
             bundle, deterministic=True, fixed_timestamp="2025-01-01T00:00:00+00:00"
         )
-        self.assertEqual(
-            case["forensic_bundle"]["generated_at_utc"], "2025-01-01T00:00:00+00:00"
-        )
+        self.assertEqual(case["forensic_bundle"]["generated_at_utc"], "2025-01-01T00:00:00+00:00")
 
     def test_seal_deterministic_without_fixed_timestamp_keeps_generated(self):
         bundle = build_forensic_bundle(TEXT).to_dict()
@@ -316,8 +316,12 @@ class DeterministicSealTests(unittest.TestCase):
             path1 = Path(tmp) / "case1.json"
             path2 = Path(tmp) / "case2.json"
             bundle = build_forensic_bundle(TEXT).to_dict()
-            c1 = write_case_file(path1, bundle, deterministic=True, fixed_timestamp="2025-01-01T00:00:00+00:00")
-            c2 = write_case_file(path2, bundle, deterministic=True, fixed_timestamp="2025-01-01T00:00:00+00:00")
+            c1 = write_case_file(
+                path1, bundle, deterministic=True, fixed_timestamp="2025-01-01T00:00:00+00:00"
+            )
+            c2 = write_case_file(
+                path2, bundle, deterministic=True, fixed_timestamp="2025-01-01T00:00:00+00:00"
+            )
             self.assertEqual(c1["case_sha256"], c2["case_sha256"])
 
     def test_write_case_file_cleans_up_temp_file_on_failure(self):
@@ -333,8 +337,10 @@ class DeterministicSealTests(unittest.TestCase):
                 real_replace(src, dst)
                 raise OSError("simulated replace failure")
 
-            with mock.patch("textforensics.casefile.os.replace", side_effect=failing_replace), \
-                 self.assertRaises(OSError):
+            with (
+                mock.patch("textforensics.casefile.os.replace", side_effect=failing_replace),
+                self.assertRaises(OSError),
+            ):
                 write_case_file(path, bundle)
 
             # No stray temp files remain in the directory

@@ -9,6 +9,7 @@ It compares generated case files with golden files and exits with appropriate co
 Usage:
     python scripts/verify_golden.py [path/to/golden/dir]
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -130,8 +131,10 @@ def main() -> int:
         print(f"\nAll {len(golden_files)} golden file(s) verified successfully.")
         return EXIT_OK
     else:
-        print("\nGolden file verification failed. Regenerate with: python scripts/generate_golden.py",
-              file=sys.stderr)
+        print(
+            "\nGolden file verification failed. Regenerate with: python scripts/generate_golden.py",
+            file=sys.stderr,
+        )
         return EXIT_ERROR
 
 

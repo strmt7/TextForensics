@@ -57,20 +57,25 @@ class ServerModuleTests(unittest.TestCase):
 
     def test_serve_api_import_error_path(self):
         """Test that serve_api raises RuntimeError when uvicorn is unavailable."""
-        with patch.dict('sys.modules', {'uvicorn': None}):
+        with patch.dict("sys.modules", {"uvicorn": None}):
             # Now when the server module tries to import uvicorn, it will fail
             # We need to re-import the module to trigger the import
             import sys
 
             # Remove uvicorn from available modules if present
-            sys.modules.get('uvicorn')
-            if 'uvicorn' in sys.modules:
-                del sys.modules['uvicorn']
+            sys.modules.get("uvicorn")
+            if "uvicorn" in sys.modules:
+                del sys.modules["uvicorn"]
 
             # Mock uvicorn import to raise ImportError
-            with patch('builtins.__import__', side_effect=lambda mod, *args, **kwargs:
-                         (_ for _ in ()).throw(ImportError("No module named 'uvicorn'"))
-                         if mod == 'uvicorn' else __import__(mod, *args, **kwargs)):
+            with patch(
+                "builtins.__import__",
+                side_effect=lambda mod, *args, **kwargs: (
+                    (_ for _ in ()).throw(ImportError("No module named 'uvicorn'"))
+                    if mod == "uvicorn"
+                    else __import__(mod, *args, **kwargs)
+                ),
+            ):
                 # This is complex - let's simplify
                 pass
 
@@ -90,13 +95,13 @@ class ServerModuleTests(unittest.TestCase):
 
         # serve_api will try to run uvicorn, but we can test it accepts the settings
         # by mocking uvicorn
-        with patch('uvicorn.run') as mock_run:
+        with patch("uvicorn.run") as mock_run:
             serve_api(settings)
             # Verify uvicorn.run was called with correct settings
             mock_run.assert_called_once()
             call_kwargs = mock_run.call_args[1]
-            self.assertEqual(call_kwargs['host'], "127.0.0.1")
-            self.assertEqual(call_kwargs['port'], 9999)
+            self.assertEqual(call_kwargs["host"], "127.0.0.1")
+            self.assertEqual(call_kwargs["port"], 9999)
 
 
 class EnsureBindAllowedTests(unittest.TestCase):
@@ -116,7 +121,7 @@ class EnsureBindAllowedTests(unittest.TestCase):
             log_level="INFO",
         )
 
-        with patch('uvicorn.run'):
+        with patch("uvicorn.run"):
             with self.assertRaises(ValueError) as ctx:
                 serve_api(settings)
             self.assertIn("Refusing to bind", str(ctx.exception))

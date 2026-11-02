@@ -92,10 +92,7 @@ def _pretty_analysis(result) -> None:
     print(f"Words                  {result.word_count}")
     print("\nAnalyzers")
     for item in result.analyzers:
-        print(
-            f"  {item.name:24s} {item.score:.1%}  "
-            f"diagnostic reliability {item.reliability:.1%}"
-        )
+        print(f"  {item.name:24s} {item.score:.1%}  diagnostic reliability {item.reliability:.1%}")
     if result.warnings:
         print("\nWarnings")
         for warning in result.warnings:
@@ -131,7 +128,11 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--file", "-f")
     scan.add_argument("--json", action="store_true")
     scan.add_argument("--rich", action="store_true", help="Use Rich-formatted terminal output")
-    scan.add_argument("--deterministic", action="store_true", help="Use fixed timestamp and remove runtime_ms for reproducible output")
+    scan.add_argument(
+        "--deterministic",
+        action="store_true",
+        help="Use fixed timestamp and remove runtime_ms for reproducible output",
+    )
 
     natural = sub.add_parser(
         "audit",
@@ -165,7 +166,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     localize.add_argument("--output", "-o", help="Path to write the diff output.")
     # Anomalies arguments
-    localize.add_argument("--threshold", type=float, default=2.0, help="Z-score threshold (default: 2.0).")
+    localize.add_argument(
+        "--threshold", type=float, default=2.0, help="Z-score threshold (default: 2.0)."
+    )
     localize.add_argument("--rich", action="store_true", help="Use Rich-formatted terminal output")
 
     compare = sub.add_parser("compare", help="Compare two text versions.")
@@ -219,9 +222,7 @@ def build_parser() -> argparse.ArgumentParser:
     fp_cmd.add_argument("--name", required=True, help="Dataset identifier.")
     fp_cmd.add_argument("--version", default="1.0.0", help="Dataset version.")
     fp_cmd.add_argument("--split", default="test", help="Dataset split.")
-    fp_cmd.add_argument(
-        "--output", "-o", help="Path to write fingerprint JSON (default: stdout)."
-    )
+    fp_cmd.add_argument("--output", "-o", help="Path to write fingerprint JSON (default: stdout).")
     fp_cmd.add_argument("--strict", action="store_true", default=True)
     fp_cmd.add_argument("--no-strict", dest="strict", action="store_false")
 
@@ -275,7 +276,9 @@ def build_parser() -> argparse.ArgumentParser:
     schema_cmd = sub.add_parser("schema", help="Validate and inspect JSON schemas.")
     schema_sub = schema_cmd.add_subparsers(dest="schema_command", required=True)
 
-    schema_validate = schema_sub.add_parser("validate", help="Validate a JSON file against a schema.")
+    schema_validate = schema_sub.add_parser(
+        "validate", help="Validate a JSON file against a schema."
+    )
     schema_validate.add_argument("file", help="Path to the JSON file to validate.")
     schema_validate.add_argument(
         "--type",
@@ -296,7 +299,9 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--file", "-f")
     report.add_argument("--ledger")
     report.add_argument("--output", "-o")
-    report.add_argument("--deterministic", action="store_true", help="Use fixed timestamp for reproducible output")
+    report.add_argument(
+        "--deterministic", action="store_true", help="Use fixed timestamp for reproducible output"
+    )
     report.add_argument("--fixed-timestamp", help="Fixed ISO timestamp for reproducible output")
     report.add_argument("--rich", action="store_true", help="Use Rich-formatted terminal output")
 
@@ -306,9 +311,15 @@ def build_parser() -> argparse.ArgumentParser:
     case_export.add_argument("--file", "-f")
     case_export.add_argument("--ledger")
     case_export.add_argument("--output", "-o", required=True)
-    case_export.add_argument("--deterministic", action="store_true", help="Use fixed timestamp for reproducible output")
-    case_export.add_argument("--fixed-timestamp", help="Fixed ISO timestamp for reproducible output")
-    case_export.add_argument("--rich", action="store_true", help="Use Rich-formatted terminal output")
+    case_export.add_argument(
+        "--deterministic", action="store_true", help="Use fixed timestamp for reproducible output"
+    )
+    case_export.add_argument(
+        "--fixed-timestamp", help="Fixed ISO timestamp for reproducible output"
+    )
+    case_export.add_argument(
+        "--rich", action="store_true", help="Use Rich-formatted terminal output"
+    )
     case_verify = case_sub.add_parser("verify", help="Verify case-file integrity.")
     case_verify.add_argument("case_file")
 
@@ -376,7 +387,9 @@ def build_parser() -> argparse.ArgumentParser:
     drift_snapshot = drift_sub.add_parser("snapshot", help="Take a detector snapshot.")
     drift_snapshot.add_argument(
         "--corpus",
-        default=str(Path(__file__).resolve().parent.parent.parent / "testdata" / "drift_corpus.json"),
+        default=str(
+            Path(__file__).resolve().parent.parent.parent / "testdata" / "drift_corpus.json"
+        ),
         help="Path to a drift corpus JSON file.",
     )
     drift_snapshot.add_argument("--label", help="Optional human-readable snapshot label.")
@@ -393,21 +406,29 @@ def build_parser() -> argparse.ArgumentParser:
     drift_compare.add_argument("current", help="Path to the current snapshot JSON.")
     drift_compare.add_argument(
         "--corpus",
-        default=str(Path(__file__).resolve().parent.parent.parent / "testdata" / "drift_corpus.json"),
+        default=str(
+            Path(__file__).resolve().parent.parent.parent / "testdata" / "drift_corpus.json"
+        ),
         help="Path to a drift corpus JSON file.",
     )
     drift_compare.add_argument("--output", "-o", help="Write the drift report to this JSON file.")
 
-    drift_report = drift_sub.add_parser("report", help="Generate a drift report from two snapshots.")
+    drift_report = drift_sub.add_parser(
+        "report", help="Generate a drift report from two snapshots."
+    )
     drift_report.add_argument("baseline", help="Path to the baseline snapshot JSON.")
     drift_report.add_argument("current", help="Path to the current snapshot JSON.")
     drift_report.add_argument(
         "--corpus",
-        default=str(Path(__file__).resolve().parent.parent.parent / "testdata" / "drift_corpus.json"),
+        default=str(
+            Path(__file__).resolve().parent.parent.parent / "testdata" / "drift_corpus.json"
+        ),
         help="Path to a drift corpus JSON file.",
     )
     drift_report.add_argument("--output", "-o", help="Write the drift report to this JSON file.")
-    drift_report.add_argument("--rich", action="store_true", help="Use Rich-formatted terminal output")
+    drift_report.add_argument(
+        "--rich", action="store_true", help="Use Rich-formatted terminal output"
+    )
 
     cap = sub.add_parser(
         "capability",
@@ -461,9 +482,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="calculated",
         help="Evidence label (default: calculated).",
     )
-    cap_register.add_argument(
-        "--detail", help="Optional detail about the evidence."
-    )
+    cap_register.add_argument("--detail", help="Optional detail about the evidence.")
     cap_register.add_argument("--valid-until", help="Optional expiration date (ISO format).")
 
     return parser
@@ -481,9 +500,7 @@ def _settings_with_overrides(
         host=host or base.host,
         port=port if port is not None else base.port,
         max_input_bytes=base.max_input_bytes,
-        allow_remote=(
-            allow_remote if allow_remote is not None else base.allow_remote
-        ),
+        allow_remote=(allow_remote if allow_remote is not None else base.allow_remote),
         access_log=access_log if access_log is not None else base.access_log,
         log_level=base.log_level,
     )
@@ -552,7 +569,9 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             if _has_rich:
                 print_scan_results(result)
             else:
-                print("Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]")
+                print(
+                    "Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]"
+                )
                 print("Falling back to plain output.\n")
                 _pretty_analysis(result)
         else:
@@ -594,7 +613,9 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
                     if _has_rich:
                         print_diff(text1, text2, style=args.style)
                     else:
-                        print("Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]")
+                        print(
+                            "Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]"
+                        )
                         print(diff_text)
                 else:
                     print(diff_text)
@@ -716,7 +737,9 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             if _has_rich:
                 print_detector_health(payload["plugin_health"])
             else:
-                print("Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]")
+                print(
+                    "Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]"
+                )
 
     elif args.command == "schema":
         from .schema import (
@@ -774,7 +797,9 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             if _has_rich:
                 print_report_summary(bundle)
             else:
-                print("Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]")
+                print(
+                    "Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]"
+                )
 
     elif args.command == "case":
         if args.case_command == "export":
@@ -787,7 +812,12 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             bundle_dict = bundle.to_dict()
             if args.deterministic:
                 bundle_dict = _strip_runtime_ms(bundle_dict)
-            write_case_file(args.output, bundle_dict, deterministic=args.deterministic, fixed_timestamp=args.fixed_timestamp)
+            write_case_file(
+                args.output,
+                bundle_dict,
+                deterministic=args.deterministic,
+                fixed_timestamp=args.fixed_timestamp,
+            )
             print(args.output)
             if getattr(args, "rich", False):
                 from .rich_output import HAS_RICH as _has_rich
@@ -798,7 +828,9 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
                     case_data = json.loads(Path(args.output).read_text(encoding="utf-8"))
                     print_case_summary(case_data)
                 else:
-                    print("Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]")
+                    print(
+                        "Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]"
+                    )
         else:
             result = verify_case_file_path(args.case_file)
             _write_json(None, result)
@@ -860,7 +892,9 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
                     if detector_health:
                         print_detector_health(detector_health)
                 else:
-                    print("Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]")
+                    print(
+                        "Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]"
+                    )
 
     elif args.command == "capability":
         # Load ledger from specified path or default location
@@ -928,7 +962,9 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             # Save the ledger back to disk
             ledger_path = Path(args.ledger)
             ledger_path.parent.mkdir(parents=True, exist_ok=True)
-            ledger_path.write_text(json.dumps(ledger.to_dict(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            ledger_path.write_text(
+                json.dumps(ledger.to_dict(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+            )
             payload = {
                 "detector_id": args.detector,
                 "capability": args.capability,
@@ -957,24 +993,21 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         benchmark_result = None
 
         if args.case_file:
-            case_payload = json.loads(
-                Path(args.case_file).read_text(encoding="utf-8")
-            )
+            case_payload = json.loads(Path(args.case_file).read_text(encoding="utf-8"))
         if args.calibration:
-            calibration_artifact = json.loads(
-                Path(args.calibration).read_text(encoding="utf-8")
-            )
+            calibration_artifact = json.loads(Path(args.calibration).read_text(encoding="utf-8"))
         if args.benchmark:
-            benchmark_result = json.loads(
-                Path(args.benchmark).read_text(encoding="utf-8")
-            )
+            benchmark_result = json.loads(Path(args.benchmark).read_text(encoding="utf-8"))
 
         if args.all and not (case_payload or calibration_artifact or benchmark_result):
             # --all without explicit paths: verify every artifact we can find
-            _write_json(None, {
-                "valid": False,
-                "errors": ["No artifacts provided for verification"],
-            })
+            _write_json(
+                None,
+                {
+                    "valid": False,
+                    "errors": ["No artifacts provided for verification"],
+                },
+            )
             return EXIT_ERROR
 
         report = verify_all(

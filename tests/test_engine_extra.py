@@ -96,7 +96,7 @@ class StabilityEdgeCaseTests(unittest.TestCase):
         self.assertLess(result.word_count, 80)
         self.assertTrue(
             any("short" in w.lower() for w in result.warnings),
-            f"Expected short text warning, got: {result.warnings}"
+            f"Expected short text warning, got: {result.warnings}",
         )
 
     def test_short_text_warning_with_robustness(self):
@@ -105,8 +105,7 @@ class StabilityEdgeCaseTests(unittest.TestCase):
         result = analyze_text(text, include_robustness=True)
         self.assertLess(result.word_count, 80)
         self.assertTrue(
-            any("short" in w.lower() for w in result.warnings),
-            "Expected short text warning"
+            any("short" in w.lower() for w in result.warnings), "Expected short text warning"
         )
 
     def test_high_disagreement_warning_triggered(self):
@@ -122,14 +121,14 @@ class StabilityEdgeCaseTests(unittest.TestCase):
                 AnalyzerResult(name="lexical_profile", score=0.5, reliability=0.5),
             ]
 
-        with patch('textforensics.engine.run_builtin_analyzers', side_effect=mock_analyzer):
+        with patch("textforensics.engine.run_builtin_analyzers", side_effect=mock_analyzer):
             result = analyze_text("Some test text here.", include_robustness=False)
             self.assertGreater(result.disagreement, 0.45)
 
     def test_stability_warning_low_with_mock(self):
         """Test low stability warning by mocking variant scores to be highly variable."""
         # Mock benign_variants to return many variants
-        with patch('textforensics.engine.benign_variants') as mock_benign:
+        with patch("textforensics.engine.benign_variants") as mock_benign:
             mock_benign.return_value = {
                 "original": "test text here",
                 "v1": "different text sample",
@@ -146,19 +145,24 @@ class StabilityEdgeCaseTests(unittest.TestCase):
                 # First call is the original, subsequent are variants
                 # Return different scores to get stability < 0.85
                 if call_idx[0] == 1:
-                    return 0.5, base_results, {'word_count': 200}
+                    return 0.5, base_results, {"word_count": 200}
                 else:
                     # Variants have score variance
                     scores = [0.6, 0.9, 0.45, 0.85, 0.7][call_idx[0] % 5]
-                    return scores, base_results, {'word_count': 200}
+                    return scores, base_results, {"word_count": 200}
 
-            with patch('textforensics.engine._base_score', side_effect=mock_base_score):
-                result = analyze_text("Long enough text for stability analysis purposes.", include_robustness=True)
+            with patch("textforensics.engine._base_score", side_effect=mock_base_score):
+                result = analyze_text(
+                    "Long enough text for stability analysis purposes.", include_robustness=True
+                )
                 # If stability is low enough, warning should be triggered
                 if result.robustness_stability < 0.85:
                     self.assertTrue(
-                        any("stability" in w.lower() or "sensitive" in w.lower() for w in result.warnings),
-                        f"Expected stability warning for stability={result.robustness_stability}"
+                        any(
+                            "stability" in w.lower() or "sensitive" in w.lower()
+                            for w in result.warnings
+                        ),
+                        f"Expected stability warning for stability={result.robustness_stability}",
                     )
 
     def test_stability_warning_covered(self):
@@ -167,27 +171,48 @@ class StabilityEdgeCaseTests(unittest.TestCase):
         Since natural texts don't produce low stability, we mock the condition.
         """
         call_idx = [0]
+
         def base_side_effect(txt):
             call_idx[0] += 1
             if call_idx[0] == 1:
-                return 0.5, [AnalyzerResult(name="x", score=0.5, reliability=0.5)], {'word_count': 200}
+                return (
+                    0.5,
+                    [AnalyzerResult(name="x", score=0.5, reliability=0.5)],
+                    {"word_count": 200},
+                )
             else:
                 # Return highly variable scores for variants
-                return [0.5, 0.85, 0.2][call_idx[0] % 3], [AnalyzerResult(name="x", score=0.5, reliability=0.5)], {'word_count': 200}
+                return (
+                    [0.5, 0.85, 0.2][call_idx[0] % 3],
+                    [AnalyzerResult(name="x", score=0.5, reliability=0.5)],
+                    {"word_count": 200},
+                )
 
-        with patch('textforensics.engine._base_score', side_effect=base_side_effect), \
-             patch('textforensics.engine.run_builtin_analyzers',
-                     return_value=[AnalyzerResult(name="x", score=0.5, reliability=0.5)]), \
-             patch('textforensics.engine.benign_variants') as mock_vars:
+        with (
+            patch("textforensics.engine._base_score", side_effect=base_side_effect),
+            patch(
+                "textforensics.engine.run_builtin_analyzers",
+                return_value=[AnalyzerResult(name="x", score=0.5, reliability=0.5)],
+            ),
+            patch("textforensics.engine.benign_variants") as mock_vars,
+        ):
             # Return variants that will create score variance
             mock_vars.return_value = {"o": "text", "a": "a", "b": "b", "c": "c"}
 
-            result = analyze_text("A test document for stability checking.", include_robustness=True)
+            result = analyze_text(
+                "A test document for stability checking.", include_robustness=True
+            )
 
             # Check for stability warning if applicable
             if result.robustness_stability < 0.85:
-                stability_warnings = [w for w in result.warnings if "stability" in w.lower() or "sensitive" in w.lower()]
-                self.assertTrue(stability_warnings, f"Expected stability warning but got: {result.warnings}")
+                stability_warnings = [
+                    w
+                    for w in result.warnings
+                    if "stability" in w.lower() or "sensitive" in w.lower()
+                ]
+                self.assertTrue(
+                    stability_warnings, f"Expected stability warning but got: {result.warnings}"
+                )
 
 
 class IncludeRobustnessFalseTests(unittest.TestCase):

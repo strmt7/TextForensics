@@ -10,9 +10,7 @@ def serve_api(settings: Settings | None = None) -> None:
     try:
         import uvicorn
     except ImportError as exc:  # pragma: no cover - optional dependency
-        raise RuntimeError(
-            "Install API support with: pip install 'textforensics[api]'"
-        ) from exc
+        raise RuntimeError("Install API support with: pip install 'textforensics[api]'") from exc
 
     from .api import create_app
 

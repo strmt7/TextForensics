@@ -108,8 +108,10 @@ class ApiTests(unittest.TestCase):
     def test_report_endpoint(self):
         response = self._post(
             "/v1/report",
-            {"text": "I tested this on Monday. The first run failed, so I "
-                     "changed the cable and tried it again the next morning."},
+            {
+                "text": "I tested this on Monday. The first run failed, so I "
+                "changed the cable and tried it again the next morning."
+            },
         )
         self.assertEqual(response.status_code, 200)
         payload = response.json()
@@ -141,15 +143,15 @@ class ApiTests(unittest.TestCase):
     def test_audit_endpoint(self):
         response = self._post(
             "/v1/audit",
-            {"text": "Furthermore, it is important to note that this robust "
-                     "solution seamlessly unlocks the potential."},
+            {
+                "text": "Furthermore, it is important to note that this robust "
+                "solution seamlessly unlocks the potential."
+            },
         )
         self.assertEqual(response.status_code, 200)
         issues = response.json()
         self.assertTrue(issues)
-        self.assertTrue(
-            all("issue" in item and "suggestion" in item for item in issues)
-        )
+        self.assertTrue(all("issue" in item and "suggestion" in item for item in issues))
 
     def test_compare_endpoint(self):
         response = self._post(
@@ -176,7 +178,7 @@ class ApiTests(unittest.TestCase):
         # A body that is not a JSON object fails before any text is analyzed.
         response = self.client.post(
             "/v1/report",
-            content=b'[]',
+            content=b"[]",
             headers={
                 "content-type": "application/json",
                 "content-length": "2",
@@ -188,7 +190,7 @@ class ApiTests(unittest.TestCase):
     def test_invalid_json_body_fails_closed(self):
         response = self.client.post(
             "/v1/report",
-            content=b'not json',
+            content=b"not json",
             headers={
                 "content-type": "application/json",
                 "content-length": "8",

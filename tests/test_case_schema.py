@@ -31,9 +31,7 @@ class CaseAndSchemaTests(unittest.TestCase):
 
     def test_case_file_rejects_raw_text_inside_detector_evidence(self):
         bundle = build_forensic_bundle(TEXT).to_dict()
-        bundle["detector_results"][0]["evidence"].append(
-            {"snippet": TEXT}
-        )
+        bundle["detector_results"][0]["evidence"].append({"snippet": TEXT})
         with self.assertRaises(ValueError):
             seal_case_file(bundle)
 

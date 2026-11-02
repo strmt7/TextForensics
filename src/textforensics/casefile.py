@@ -94,9 +94,7 @@ def _validate_portable_bundle(bundle: Mapping[str, Any]) -> None:
         not isinstance(input_metadata, Mapping)
         or input_metadata.get("raw_text_included") is not False
     ):
-        raise ValueError(
-            "Forensic bundle must explicitly declare raw_text_included=false."
-        )
+        raise ValueError("Forensic bundle must explicitly declare raw_text_included=false.")
 
     forbidden = _forbidden_paths(bundle)
     if forbidden:
@@ -177,12 +175,12 @@ def write_case_file(
     deterministic: bool = False,
     fixed_timestamp: str | None = None,
 ) -> dict[str, Any]:
-    case = seal_case_file(forensic_bundle, deterministic=deterministic, fixed_timestamp=fixed_timestamp)
+    case = seal_case_file(
+        forensic_bundle, deterministic=deterministic, fixed_timestamp=fixed_timestamp
+    )
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    rendered = (
-        json.dumps(case, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
-    )
+    rendered = json.dumps(case, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
 
     temp_path: str | None = None
     try:

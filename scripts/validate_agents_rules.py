@@ -23,15 +23,24 @@ def extract_numeric_claims(readme_path: Path) -> list[tuple[str, str, int]]:
     # Look for patterns like "95% accuracy", "AUROC 0.92", "F1: 0.87", etc.
     patterns = [
         (r"(\d+(?:\.\d+)?)\s*%\s*(?:accuracy|precision|recall|F1|AUROC|AUPRC)", "percentage"),
-        (r"(?:AUROC|AUPRC|F1|accuracy|precision|recall)(?:\s+score)?\s*(?:of|is|:)?\s*(\d+(?:\.\d+)?)", "score"),
-        (r"(?:benchmark|benchmarks?)\s+(?:show|shows|showed|result|results?)\s+(?:an?|of)?\s*(\d+(?:\.\d+)?)\s*%", "benchmark"),
+        (
+            r"(?:AUROC|AUPRC|F1|accuracy|precision|recall)(?:\s+score)?\s*(?:of|is|:)?\s*(\d+(?:\.\d+)?)",
+            "score",
+        ),
+        (
+            r"(?:benchmark|benchmarks?)\s+(?:show|shows|showed|result|results?)\s+(?:an?|of)?\s*(\d+(?:\.\d+)?)\s*%",
+            "benchmark",
+        ),
         (r"(\d+(?:\.\d+)?)\s*(?:times?|x)\s*(?:faster|slower|speedup)", "performance"),
-        (r"(?:pass|fail|passing|failing)\s+(?:rate|ratio)\s*(?:of|is|:)?\s*(\d+(?:\.\d+)?)\s*%", "rate"),
+        (
+            r"(?:pass|fail|passing|failing)\s+(?:rate|ratio)\s*(?:of|is|:)?\s*(\d+(?:\.\d+)?)\s*%",
+            "rate",
+        ),
     ]
 
     for pattern, claim_type in patterns:
         for match in re.finditer(pattern, content, re.IGNORECASE):
-            line_num = content[:match.start()].count("\n") + 1
+            line_num = content[: match.start()].count("\n") + 1
             claims.append((match.group(0), claim_type, line_num))
 
     return claims
@@ -59,7 +68,9 @@ def find_run_artifacts() -> list[Path]:
     return artifacts
 
 
-def check_claim_traceability(claims: list[tuple[str, str, int]], artifacts: list[Path]) -> list[str]:
+def check_claim_traceability(
+    claims: list[tuple[str, str, int]], artifacts: list[Path]
+) -> list[str]:
     """Check if claims have traceable artifacts."""
     issues = []
 

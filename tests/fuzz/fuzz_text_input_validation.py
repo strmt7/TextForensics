@@ -34,13 +34,16 @@ def TestOneInput(data: bytes) -> None:
 
         from textforensics.config import read_text_file
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=False, encoding="utf-8"
+        ) as f:
             f.write(text)
             temp_path = f.name
         try:
             read_text_file(temp_path, max_input_bytes=2_000_000)
         finally:
             import os
+
             os.unlink(temp_path)
     except Exception:
         pass
@@ -48,6 +51,7 @@ def TestOneInput(data: bytes) -> None:
     # Test Settings.from_env with various env values
     try:
         import os
+
         os.environ["TEXTFORENSICS_HOST"] = text[:255]
         try:
             Settings.from_env()

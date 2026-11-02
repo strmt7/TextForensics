@@ -3,6 +3,7 @@
 Line 40: if not sentences: return []
 This tests the edge case where the text has content but no sentences after filtering.
 """
+
 from __future__ import annotations
 
 import unittest

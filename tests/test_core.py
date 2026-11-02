@@ -50,9 +50,7 @@ class CoreTests(unittest.TestCase):
         issues = audit_naturalness(FORMULAIC)
         self.assertTrue(
             any(
-                item["issue"]
-                in {"stock_phrasing", "heavy_explicit_transitions"}
-                for item in issues
+                item["issue"] in {"stock_phrasing", "heavy_explicit_transitions"} for item in issues
             )
         )
 
@@ -68,10 +66,7 @@ class CoreTests(unittest.TestCase):
 
             lines = ledger.read_text(encoding="utf-8").splitlines()
             ledger.write_text(
-                lines[0].replace('"file_size": 5', '"file_size": 6')
-                + "\n"
-                + lines[1]
-                + "\n",
+                lines[0].replace('"file_size": 5', '"file_size": 6') + "\n" + lines[1] + "\n",
                 encoding="utf-8",
             )
             self.assertFalse(verify_ledger(ledger)["valid"])

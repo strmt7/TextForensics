@@ -1,4 +1,5 @@
 """Extra CLI tests for uncovered lines."""
+
 from __future__ import annotations
 
 import json
@@ -33,6 +34,7 @@ class TestPrettyAnalysis(unittest.TestCase):
 
         result = analyze_text(FORMULAIC)
         import io
+
         old_stdout = sys.stdout
         sys.stdout = io.StringIO()
         try:
@@ -75,10 +77,12 @@ class TestLocalizeSentencesValidation(unittest.TestCase):
         import unittest.mock as mock
 
         # Patch _read_text to return valid text
-        with mock.patch('textforensics.cli._read_text', return_value="test text"), \
-             mock.patch('textforensics.cli.localize_text', return_value=[]):
+        with (
+            mock.patch("textforensics.cli._read_text", return_value="test text"),
+            mock.patch("textforensics.cli.localize_text", return_value=[]),
+        ):
             parser = build_parser()
-            args = parser.parse_args(['localize', '--sentences', '0'])
+            args = parser.parse_args(["localize", "--sentences", "0"])
 
             with self.assertRaises(ValueError) as ctx:
                 # Need to call _run, but we can test the condition directly
@@ -112,8 +116,9 @@ class TestCompareJson(unittest.TestCase):
 
             # Import and run the scan
             from textforensics.cli import _run, build_parser
+
             parser = build_parser()
-            args = parser.parse_args(['compare', str(before), str(after), '--json'])
+            args = parser.parse_args(["compare", str(before), str(after), "--json"])
 
             old_stdout = sys.stdout
             old_stderr = sys.stderr
@@ -121,6 +126,7 @@ class TestCompareJson(unittest.TestCase):
             sys.stderr = StringIO()
             try:
                 from textforensics.config import Settings
+
                 result = _run(args, Settings())
                 output = sys.stdout.getvalue()
             finally:
@@ -141,14 +147,17 @@ class TestBenchmarkThreshold(unittest.TestCase):
             dataset = Path(tmp) / "data.jsonl"
             # Create a dataset with human and AI labeled text
             dataset.write_text(
-                json.dumps({"label": "human", "text": "I tested this today."}) + "\n" +
-                json.dumps({"label": "ai", "text": "Furthermore, this solution is robust."}) + "\n",
-                encoding="utf-8"
+                json.dumps({"label": "human", "text": "I tested this today."})
+                + "\n"
+                + json.dumps({"label": "ai", "text": "Furthermore, this solution is robust."})
+                + "\n",
+                encoding="utf-8",
             )
 
             from textforensics.cli import _run, build_parser
+
             parser = build_parser()
-            args = parser.parse_args(['benchmark', str(dataset), '--threshold', '0.5'])
+            args = parser.parse_args(["benchmark", str(dataset), "--threshold", "0.5"])
 
             old_stdout = sys.stdout
             old_stderr = sys.stderr
@@ -156,6 +165,7 @@ class TestBenchmarkThreshold(unittest.TestCase):
             sys.stderr = StringIO()
             try:
                 from textforensics.config import Settings
+
                 result = _run(args, Settings())
                 output = sys.stdout.getvalue()
             finally:
@@ -173,14 +183,17 @@ class TestBenchmarkThreshold(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             dataset = Path(tmp) / "data.jsonl"
             dataset.write_text(
-                json.dumps({"label": "human", "text": "I tested this today."}) + "\n" +
-                json.dumps({"label": "ai", "text": "Furthermore, this solution is robust."}) + "\n",
-                encoding="utf-8"
+                json.dumps({"label": "human", "text": "I tested this today."})
+                + "\n"
+                + json.dumps({"label": "ai", "text": "Furthermore, this solution is robust."})
+                + "\n",
+                encoding="utf-8",
             )
 
             from textforensics.cli import _run, build_parser
+
             parser = build_parser()
-            args = parser.parse_args(['benchmark', str(dataset)])
+            args = parser.parse_args(["benchmark", str(dataset)])
 
             old_stdout = sys.stdout
             old_stderr = sys.stderr
@@ -188,6 +201,7 @@ class TestBenchmarkThreshold(unittest.TestCase):
             sys.stderr = StringIO()
             try:
                 from textforensics.config import Settings
+
                 result = _run(args, Settings())
                 output = sys.stdout.getvalue()
             finally:
@@ -239,8 +253,11 @@ class TestScanDeterministic(unittest.TestCase):
             text_file.write_text(FORMULAIC, encoding="utf-8")
 
             from textforensics.cli import _run, build_parser
+
             parser = build_parser()
-            args = parser.parse_args(['scan', '--file', str(text_file), '--json', '--deterministic'])
+            args = parser.parse_args(
+                ["scan", "--file", str(text_file), "--json", "--deterministic"]
+            )
 
             old_stdout = sys.stdout
             old_stderr = sys.stderr
@@ -248,6 +265,7 @@ class TestScanDeterministic(unittest.TestCase):
             sys.stderr = StringIO()
             try:
                 from textforensics.config import Settings
+
                 result = _run(args, Settings())
                 output = sys.stdout.getvalue()
             finally:
@@ -272,14 +290,20 @@ class TestReportDeterministic(unittest.TestCase):
             text_file.write_text(FORMULAIC, encoding="utf-8")
 
             from textforensics.cli import _run, build_parser
+
             parser = build_parser()
-            args = parser.parse_args([
-                'report',
-                '--file', str(text_file),
-                '--output', str(out_file),
-                '--deterministic',
-                '--fixed-timestamp', '2025-01-01T00:00:00+00:00',
-            ])
+            args = parser.parse_args(
+                [
+                    "report",
+                    "--file",
+                    str(text_file),
+                    "--output",
+                    str(out_file),
+                    "--deterministic",
+                    "--fixed-timestamp",
+                    "2025-01-01T00:00:00+00:00",
+                ]
+            )
 
             old_stdout = sys.stdout
             old_stderr = sys.stderr
@@ -287,6 +311,7 @@ class TestReportDeterministic(unittest.TestCase):
             sys.stderr = StringIO()
             try:
                 from textforensics.config import Settings
+
                 result = _run(args, Settings())
             finally:
                 sys.stdout = old_stdout
@@ -311,14 +336,21 @@ class TestCaseExportDeterministic(unittest.TestCase):
             text_file.write_text(FORMULAIC, encoding="utf-8")
 
             from textforensics.cli import _run, build_parser
+
             parser = build_parser()
-            args = parser.parse_args([
-                'case', 'export',
-                '--file', str(text_file),
-                '--output', str(out_file),
-                '--deterministic',
-                '--fixed-timestamp', '2025-02-02T10:00:00+00:00',
-            ])
+            args = parser.parse_args(
+                [
+                    "case",
+                    "export",
+                    "--file",
+                    str(text_file),
+                    "--output",
+                    str(out_file),
+                    "--deterministic",
+                    "--fixed-timestamp",
+                    "2025-02-02T10:00:00+00:00",
+                ]
+            )
 
             old_stdout = sys.stdout
             old_stderr = sys.stderr
@@ -326,6 +358,7 @@ class TestCaseExportDeterministic(unittest.TestCase):
             sys.stderr = StringIO()
             try:
                 from textforensics.config import Settings
+
                 result = _run(args, Settings())
             finally:
                 sys.stdout = old_stdout
@@ -351,16 +384,23 @@ class TestCaseExportDeterministic(unittest.TestCase):
 
             from textforensics.cli import _run, build_parser
             from textforensics.config import Settings
+
             parser = build_parser()
 
             for out in (out1, out2):
-                args = parser.parse_args([
-                    'case', 'export',
-                    '--file', str(text_file),
-                    '--output', str(out),
-                    '--deterministic',
-                    '--fixed-timestamp', '2025-02-02T10:00:00+00:00',
-                ])
+                args = parser.parse_args(
+                    [
+                        "case",
+                        "export",
+                        "--file",
+                        str(text_file),
+                        "--output",
+                        str(out),
+                        "--deterministic",
+                        "--fixed-timestamp",
+                        "2025-02-02T10:00:00+00:00",
+                    ]
+                )
                 old_stdout, old_stderr = sys.stdout, sys.stderr
                 sys.stdout, sys.stderr = StringIO(), StringIO()
                 try:
@@ -380,38 +420,34 @@ class TestServeParser(unittest.TestCase):
     def test_serve_parser_accepts_host(self):
         """Test that serve accepts --host argument."""
         parser = build_parser()
-        args = parser.parse_args(['serve', '--host', '127.0.0.1'])
-        self.assertEqual(args.host, '127.0.0.1')
+        args = parser.parse_args(["serve", "--host", "127.0.0.1"])
+        self.assertEqual(args.host, "127.0.0.1")
 
     def test_serve_parser_accepts_port(self):
         """Test that serve accepts --port argument."""
         parser = build_parser()
-        args = parser.parse_args(['serve', '--port', '8080'])
+        args = parser.parse_args(["serve", "--port", "8080"])
         self.assertEqual(args.port, 8080)
 
     def test_serve_parser_accepts_allow_remote(self):
         """Test that serve accepts --allow-remote argument."""
         parser = build_parser()
-        args = parser.parse_args(['serve', '--allow-remote'])
+        args = parser.parse_args(["serve", "--allow-remote"])
         self.assertTrue(args.allow_remote)
 
     def test_serve_parser_accepts_access_log(self):
         """Test that serve accepts --access-log argument."""
         parser = build_parser()
-        args = parser.parse_args(['serve', '--access-log'])
+        args = parser.parse_args(["serve", "--access-log"])
         self.assertTrue(args.access_log)
 
     def test_serve_parser_all_args(self):
         """Test that serve accepts all arguments together."""
         parser = build_parser()
-        args = parser.parse_args([
-            'serve',
-            '--host', '0.0.0.0',
-            '--port', '3000',
-            '--allow-remote',
-            '--access-log'
-        ])
-        self.assertEqual(args.host, '0.0.0.0')
+        args = parser.parse_args(
+            ["serve", "--host", "0.0.0.0", "--port", "3000", "--allow-remote", "--access-log"]
+        )
+        self.assertEqual(args.host, "0.0.0.0")
         self.assertEqual(args.port, 3000)
         self.assertTrue(args.allow_remote)
         self.assertTrue(args.access_log)
@@ -437,9 +473,9 @@ class TestSettingsWithOverrides(unittest.TestCase):
         from textforensics.config import Settings
 
         base = Settings()
-        result = _settings_with_overrides(base, host='0.0.0.0')
+        result = _settings_with_overrides(base, host="0.0.0.0")
 
-        self.assertEqual(result.host, '0.0.0.0')
+        self.assertEqual(result.host, "0.0.0.0")
         self.assertEqual(result.port, base.port)
 
     def test_settings_with_overrides_applies_port(self):
@@ -471,6 +507,7 @@ class TestMainRuntimeError(unittest.TestCase):
         # Create a function that raises RuntimeError when Settings.from_env is called
         original_from_env = None
         from textforensics.config import Settings
+
         original_from_env = Settings.from_env
 
         def raise_runtime_error():
@@ -479,7 +516,7 @@ class TestMainRuntimeError(unittest.TestCase):
         Settings.from_env = staticmethod(raise_runtime_error)
 
         try:
-            code, out, err = self._run_main(['scan'], stdin='test')
+            code, out, err = self._run_main(["scan"], stdin="test")
             self.assertEqual(code, EXIT_ERROR)
             self.assertIn("error:", err)
             self.assertIn("Simulated runtime error for testing", err)
@@ -520,10 +557,10 @@ class TestServeCommand(unittest.TestCase):
 
         # Patch serve_api at the function level in the cli module's namespace
         # The local import `from .server import serve_api` will pick this up
-        with mock.patch('textforensics.server.serve_api') as mock_serve_api:
+        with mock.patch("textforensics.server.serve_api") as mock_serve_api:
             mock_serve_api.return_value = None  # Simulate quick return
 
-            code, out, err = self._run_main(['serve', '--port', '9999', '--allow-remote'])
+            code, out, err = self._run_main(["serve", "--port", "9999", "--allow-remote"])
 
             self.assertEqual(code, 0)
             mock_serve_api.assert_called_once()

@@ -34,9 +34,14 @@ def TestOneInput(data: bytes) -> None:
             # Short text - may trigger warning
             if len(text) < 100:
                 try:
-                    result = analyze_text(text[:min(len(text), 50)])
+                    result = analyze_text(text[: min(len(text), 50)])
                     assert hasattr(result, "verdict")
-                    assert result.verdict in ("insufficient_evidence", "machine_like_patterns", "human_like_patterns", "indeterminate")
+                    assert result.verdict in (
+                        "insufficient_evidence",
+                        "machine_like_patterns",
+                        "human_like_patterns",
+                        "indeterminate",
+                    )
                 except ValueError:
                     pass  # Empty text is rejected
 
@@ -62,7 +67,6 @@ def TestOneInput(data: bytes) -> None:
 
     # Test _verdict directly with edge case inputs
     try:
-
         # Test with NaN score (line 41 - non-finite score)
         try:
             _verdict(float("nan"), 0.9)
@@ -84,13 +88,23 @@ def TestOneInput(data: bytes) -> None:
         # Test with finite but extreme values
         try:
             verdict = _verdict(0.0, 0.5)  # Should be human_like_patterns
-            assert verdict in ("insufficient_evidence", "machine_like_patterns", "human_like_patterns", "indeterminate")
+            assert verdict in (
+                "insufficient_evidence",
+                "machine_like_patterns",
+                "human_like_patterns",
+                "indeterminate",
+            )
         except ValueError:
             pass
 
         try:
             verdict = _verdict(1.0, 0.5)  # Should be machine_like_patterns
-            assert verdict in ("insufficient_evidence", "machine_like_patterns", "human_like_patterns", "indeterminate")
+            assert verdict in (
+                "insufficient_evidence",
+                "machine_like_patterns",
+                "human_like_patterns",
+                "indeterminate",
+            )
         except ValueError:
             pass
     except Exception:

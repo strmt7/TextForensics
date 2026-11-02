@@ -158,9 +158,11 @@ def main() -> int:
         print("\nGolden bundle verified successfully.")
         return EXIT_OK
     else:
-        print("\nGolden bundle verification failed. "
-              "Regenerate with: python scripts/generate_golden.py",
-              file=sys.stderr)
+        print(
+            "\nGolden bundle verification failed. "
+            "Regenerate with: python scripts/generate_golden.py",
+            file=sys.stderr,
+        )
         return EXIT_ERROR
 
 

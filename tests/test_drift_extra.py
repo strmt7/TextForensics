@@ -140,22 +140,25 @@ class RoundEdgeCaseTests(unittest.TestCase):
 class DistributionSummaryEdgeCases(unittest.TestCase):
     def test_distribution_summary_ignores_none(self):
         from textforensics.drift import _distribution_summary
+
         summary = _distribution_summary([0.5, None, 0.9])
         self.assertEqual(summary["n"], 2)
 
     def test_distribution_summary_ignores_bool(self):
         from textforensics.drift import _distribution_summary
+
         summary = _distribution_summary([0.5, True, 0.9])
         self.assertEqual(summary["n"], 2)
 
     def test_distribution_summary_ignores_string(self):
         from textforensics.drift import _distribution_summary
+
         summary = _distribution_summary([0.5, "abc", 0.9])
         self.assertEqual(summary["n"], 2)
 
     def test_distribution_summary_statistics_error(self):
-
         from textforensics.drift import _distribution_summary
+
         # This is hard to trigger, but let's make sure the code path exists
         # We can't easily trigger StatisticsError with pstdev for count > 1
         # The test just ensures the function runs
@@ -166,11 +169,13 @@ class DistributionSummaryEdgeCases(unittest.TestCase):
 class UniqueScalarsEdgeCases(unittest.TestCase):
     def test_unique_scalars_with_bool(self):
         from textforensics.drift import _unique_scalars
+
         result = _unique_scalars([True, 1, 2])
         self.assertIn(True, result)
 
     def test_unique_scalars_with_string(self):
         from textforensics.drift import _unique_scalars
+
         result = _unique_scalars(["a", "b", 1])
         self.assertIn("a", result)
 
@@ -355,13 +360,17 @@ class CompareThresholdTests(unittest.TestCase):
             ({"threshold": 0.5}, {"threshold": 0.5}, "s1"),
             ({"threshold": 0.5}, {"threshold": 0.5}, "s2"),
         ]
-        result = _compare_thresholds(pairs, [
-            {"threshold": 0.5},
-            {"threshold": 0.5},
-        ], [
-            {"threshold": 0.5},
-            {"threshold": 0.5},
-        ])
+        result = _compare_thresholds(
+            pairs,
+            [
+                {"threshold": 0.5},
+                {"threshold": 0.5},
+            ],
+            [
+                {"threshold": 0.5},
+                {"threshold": 0.5},
+            ],
+        )
         self.assertFalse(result["threshold_changed"])
 
 
@@ -515,9 +524,9 @@ class RecordsByDetectorEdgeCases(unittest.TestCase):
 
 class TakeSnapshotEdgeCases(unittest.TestCase):
     def test_take_snapshot_sample_no_text_raises(self):
-        obs = DriftObservatory(corpus={
-            "samples": [{"id": "s1", "text_sha256": "a" * 64, "metadata": {}}]
-        })
+        obs = DriftObservatory(
+            corpus={"samples": [{"id": "s1", "text_sha256": "a" * 64, "metadata": {}}]}
+        )
         detector = BuiltinHeuristicDetector()
         with self.assertRaises(ValueError):
             obs.take_snapshot(detectors=[detector])
@@ -537,20 +546,24 @@ class ValidateSnapshotSchemaTests(unittest.TestCase):
     def test_validate_records_not_list(self):
         obs = DriftObservatory(corpus={"samples": []})
         with self.assertRaises(ValueError):
-            obs._validate_snapshot_schema({
-                "schema": "textforensics.drift-snapshot/v1",
-                "records": "not a list",
-                "failures": [],
-            })
+            obs._validate_snapshot_schema(
+                {
+                    "schema": "textforensics.drift-snapshot/v1",
+                    "records": "not a list",
+                    "failures": [],
+                }
+            )
 
     def test_validate_failures_not_list(self):
         obs = DriftObservatory(corpus={"samples": []})
         with self.assertRaises(ValueError):
-            obs._validate_snapshot_schema({
-                "schema": "textforensics.drift-snapshot/v1",
-                "records": [],
-                "failures": "not a list",
-            })
+            obs._validate_snapshot_schema(
+                {
+                    "schema": "textforensics.drift-snapshot/v1",
+                    "records": [],
+                    "failures": "not a list",
+                }
+            )
 
 
 class SnapshotLoadingEdgeCases(unittest.TestCase):
@@ -569,10 +582,9 @@ class SnapshotLoadingEdgeCases(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "store.json")
             Path(path).write_text(
-                json.dumps({
-                    "schema": "textforensics.drift-snapshot-store/v1",
-                    "snapshots": "not a list"
-                }),
+                json.dumps(
+                    {"schema": "textforensics.drift-snapshot-store/v1", "snapshots": "not a list"}
+                ),
                 encoding="utf-8",
             )
             obs = DriftObservatory(corpus={"samples": []})
@@ -581,11 +593,17 @@ class SnapshotLoadingEdgeCases(unittest.TestCase):
 
     def test_load_snapshots_replace_false(self):
         """Test load_snapshots with replace=False (append mode)."""
-        obs = DriftObservatory(corpus={
-            "samples": [
-                {"id": "s1", "text": "This is a long enough text to meet the minimum word count requirements for drift testing and validation purposes.", "metadata": {}},
-            ]
-        })
+        obs = DriftObservatory(
+            corpus={
+                "samples": [
+                    {
+                        "id": "s1",
+                        "text": "This is a long enough text to meet the minimum word count requirements for drift testing and validation purposes.",
+                        "metadata": {},
+                    },
+                ]
+            }
+        )
         # Manually add a snapshot
         snap1 = _make_snapshot(["s1"], snapshot_id="snap1")
         snap1["corpus_sha256"] = obs.corpus_sha256
@@ -595,11 +613,17 @@ class SnapshotLoadingEdgeCases(unittest.TestCase):
             path = os.path.join(tmp, "store.json")
             obs.save_snapshots(path)
 
-            obs2 = DriftObservatory(corpus={
-                "samples": [
-                    {"id": "s1", "text": "This is a long enough text to meet the minimum word count requirements for drift testing and validation purposes.", "metadata": {}},
-                ]
-            })
+            obs2 = DriftObservatory(
+                corpus={
+                    "samples": [
+                        {
+                            "id": "s1",
+                            "text": "This is a long enough text to meet the minimum word count requirements for drift testing and validation purposes.",
+                            "metadata": {},
+                        },
+                    ]
+                }
+            )
             snap2 = _make_snapshot(["s1"], snapshot_id="snap2")
             snap2["corpus_sha256"] = obs2.corpus_sha256
             obs2.add_snapshot(snap2)
@@ -610,11 +634,17 @@ class SnapshotLoadingEdgeCases(unittest.TestCase):
 
     def test_load_snapshots_single_snapshot_schema(self):
         """Test loading a file with single snapshot schema."""
-        obs = DriftObservatory(corpus={
-            "samples": [
-                {"id": "s1", "text": "This is a long enough text to meet the minimum word count requirements for drift testing and validation purposes.", "metadata": {}},
-            ]
-        })
+        obs = DriftObservatory(
+            corpus={
+                "samples": [
+                    {
+                        "id": "s1",
+                        "text": "This is a long enough text to meet the minimum word count requirements for drift testing and validation purposes.",
+                        "metadata": {},
+                    },
+                ]
+            }
+        )
         snap = _make_snapshot(["s1"], snapshot_id="single")
         snap["corpus_sha256"] = obs.corpus_sha256
         with tempfile.TemporaryDirectory() as tmp:
@@ -630,13 +660,23 @@ class ReadSnapshotFileTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "store.json")
             Path(path).write_text(
-                json.dumps({
-                    "schema": "textforensics.drift-snapshot-store/v1",
-                    "snapshots": [
-                        {"schema": "textforensics.drift-snapshot/v1", "records": [], "failures": []},
-                        {"schema": "textforensics.drift-snapshot/v1", "records": [], "failures": []},
-                    ],
-                }),
+                json.dumps(
+                    {
+                        "schema": "textforensics.drift-snapshot-store/v1",
+                        "snapshots": [
+                            {
+                                "schema": "textforensics.drift-snapshot/v1",
+                                "records": [],
+                                "failures": [],
+                            },
+                            {
+                                "schema": "textforensics.drift-snapshot/v1",
+                                "records": [],
+                                "failures": [],
+                            },
+                        ],
+                    }
+                ),
                 encoding="utf-8",
             )
             with self.assertRaises(ValueError):
@@ -658,8 +698,12 @@ class CorpusPathLoadingTests(unittest.TestCase):
             corpus_data = {
                 "schema": "textforensics.drift-corpus/v1",
                 "samples": [
-                    {"id": "s1", "text": "This is a long enough text to meet the minimum word count requirements for drift testing and validation purposes.", "metadata": {}},
-                ]
+                    {
+                        "id": "s1",
+                        "text": "This is a long enough text to meet the minimum word count requirements for drift testing and validation purposes.",
+                        "metadata": {},
+                    },
+                ],
             }
             Path(path).write_text(json.dumps(corpus_data), encoding="utf-8")
             obs = DriftObservatory(corpus_path=path)
@@ -668,143 +712,192 @@ class CorpusPathLoadingTests(unittest.TestCase):
 
 class ObservationValidationEdgeCases(unittest.TestCase):
     def setUp(self):
-        self.obs = DriftObservatory(corpus={
-            "samples": [
-                {
-                    "id": "s1",
-                    "text": "This is a long enough text to meet the minimum word count requirements for drift testing and validation purposes.",
-                    "metadata": {},
-                },
-            ]
-        })
+        self.obs = DriftObservatory(
+            corpus={
+                "samples": [
+                    {
+                        "id": "s1",
+                        "text": "This is a long enough text to meet the minimum word count requirements for drift testing and validation purposes.",
+                        "metadata": {},
+                    },
+                ]
+            }
+        )
 
     def test_observation_text_sha256_mismatch(self):
         sample_id = list(self.obs.samples.keys())[0]
         with self.assertRaises(ValueError):
-            self.obs.snapshot_from_observations([{
-                "sample_id": sample_id,
-                "text_sha256": "wrong" * 21 + "a",
-                "score": 0.5,
-                "verdict": "ai_like",
-                "detector_id": "test",
-                "detector_version": "1.0",
-                "detector_family": "test",
-                "execution": "local",
-            }])
+            self.obs.snapshot_from_observations(
+                [
+                    {
+                        "sample_id": sample_id,
+                        "text_sha256": "wrong" * 21 + "a",
+                        "score": 0.5,
+                        "verdict": "ai_like",
+                        "detector_id": "test",
+                        "detector_version": "1.0",
+                        "detector_family": "test",
+                        "execution": "local",
+                    }
+                ]
+            )
 
     def test_observation_calibration_id_required(self):
         sample_id = list(self.obs.samples.keys())[0]
         with self.assertRaises(ValueError):
-            self.obs.snapshot_from_observations([{
-                "sample_id": sample_id,
-                "score": 0.5,
-                "verdict": "ai_like",
-                "detector_id": "test",
-                "detector_version": "1.0",
-                "detector_family": "test",
-                "execution": "local",
-                "calibrated_ai_probability": 0.8,
-                # Missing calibration_id
-            }])
+            self.obs.snapshot_from_observations(
+                [
+                    {
+                        "sample_id": sample_id,
+                        "score": 0.5,
+                        "verdict": "ai_like",
+                        "detector_id": "test",
+                        "detector_version": "1.0",
+                        "detector_family": "test",
+                        "execution": "local",
+                        "calibrated_ai_probability": 0.8,
+                        # Missing calibration_id
+                    }
+                ]
+            )
 
     def test_observation_supported_languages_not_list(self):
         sample_id = list(self.obs.samples.keys())[0]
         with self.assertRaises(ValueError):
-            self.obs.snapshot_from_observations([{
-                "sample_id": sample_id,
-                "score": 0.5,
-                "verdict": "ai_like",
-                "detector_id": "test",
-                "detector_version": "1.0",
-                "detector_family": "test",
-                "execution": "local",
-                "supported_languages": "en",
-            }])
+            self.obs.snapshot_from_observations(
+                [
+                    {
+                        "sample_id": sample_id,
+                        "score": 0.5,
+                        "verdict": "ai_like",
+                        "detector_id": "test",
+                        "detector_version": "1.0",
+                        "detector_family": "test",
+                        "execution": "local",
+                        "supported_languages": "en",
+                    }
+                ]
+            )
 
     def test_observation_provider_version_empty(self):
         sample_id = list(self.obs.samples.keys())[0]
         with self.assertRaises(ValueError):
-            self.obs.snapshot_from_observations([{
-                "sample_id": sample_id,
-                "score": 0.5,
-                "verdict": "ai_like",
-                "detector_id": "test",
-                "detector_version": "1.0",
-                "detector_family": "test",
-                "execution": "local",
-                "provider_version": "",
-            }])
+            self.obs.snapshot_from_observations(
+                [
+                    {
+                        "sample_id": sample_id,
+                        "score": 0.5,
+                        "verdict": "ai_like",
+                        "detector_id": "test",
+                        "detector_version": "1.0",
+                        "detector_family": "test",
+                        "execution": "local",
+                        "provider_version": "",
+                    }
+                ]
+            )
 
     def test_observation_score_semantics_empty(self):
         sample_id = list(self.obs.samples.keys())[0]
         # score_semantics defaults to "unspecified" when empty, so no error
-        snapshot = self.obs.snapshot_from_observations([{
-            "sample_id": sample_id,
-            "score": 0.5,
-            "verdict": "ai_like",
-            "detector_id": "test",
-            "detector_version": "1.0",
-            "detector_family": "test",
-            "execution": "local",
-            "score_semantics": "",
-        }])
+        snapshot = self.obs.snapshot_from_observations(
+            [
+                {
+                    "sample_id": sample_id,
+                    "score": 0.5,
+                    "verdict": "ai_like",
+                    "detector_id": "test",
+                    "detector_version": "1.0",
+                    "detector_family": "test",
+                    "execution": "local",
+                    "score_semantics": "",
+                }
+            ]
+        )
         self.assertEqual(snapshot["record_count"], 1)
         self.assertEqual(snapshot["records"][0]["score_semantics"], "unspecified")
 
 
 class FailureNormalizationTests(unittest.TestCase):
     def setUp(self):
-        self.obs = DriftObservatory(corpus={
-            "samples": [
-                {
-                    "id": "s1",
-                    "text": "This is a long enough text to meet the minimum word count requirements for drift testing and validation purposes.",
-                    "metadata": {},
-                },
-            ]
-        })
+        self.obs = DriftObservatory(
+            corpus={
+                "samples": [
+                    {
+                        "id": "s1",
+                        "text": "This is a long enough text to meet the minimum word count requirements for drift testing and validation purposes.",
+                        "metadata": {},
+                    },
+                ]
+            }
+        )
 
     def test_failure_unknown_sample_raises(self):
         with self.assertRaises(ValueError):
-            self.obs.snapshot_from_observations([], failures=[{
-                "sample_id": "unknown-999",
-                "detector_id": "test",
-                "error_type": "Timeout",
-            }])
+            self.obs.snapshot_from_observations(
+                [],
+                failures=[
+                    {
+                        "sample_id": "unknown-999",
+                        "detector_id": "test",
+                        "error_type": "Timeout",
+                    }
+                ],
+            )
 
     def test_failure_text_sha256_mismatch_raises(self):
         sample_id = list(self.obs.samples.keys())[0]
         with self.assertRaises(ValueError):
-            self.obs.snapshot_from_observations([], failures=[{
-                "sample_id": sample_id,
-                "text_sha256": "wrong" * 21 + "a",
-                "detector_id": "test",
-                "error_type": "Timeout",
-            }])
+            self.obs.snapshot_from_observations(
+                [],
+                failures=[
+                    {
+                        "sample_id": sample_id,
+                        "text_sha256": "wrong" * 21 + "a",
+                        "detector_id": "test",
+                        "error_type": "Timeout",
+                    }
+                ],
+            )
 
     def test_failure_text_sha256_not_hex_raises(self):
         with self.assertRaises(ValueError):
-            self.obs.snapshot_from_observations([], failures=[{
-                "text_sha256": "not-hex",
-                "detector_id": "test",
-                "error_type": "Timeout",
-            }])
+            self.obs.snapshot_from_observations(
+                [],
+                failures=[
+                    {
+                        "text_sha256": "not-hex",
+                        "detector_id": "test",
+                        "error_type": "Timeout",
+                    }
+                ],
+            )
 
     def test_failure_auto_derives_text_sha256(self):
         sample_id = list(self.obs.samples.keys())[0]
-        snapshot = self.obs.snapshot_from_observations([], failures=[{
-            "sample_id": sample_id,
-            "detector_id": "test",
-            "error_type": "Timeout",
-        }])
+        snapshot = self.obs.snapshot_from_observations(
+            [],
+            failures=[
+                {
+                    "sample_id": sample_id,
+                    "detector_id": "test",
+                    "error_type": "Timeout",
+                }
+            ],
+        )
         self.assertEqual(snapshot["failure_count"], 1)
 
     def test_failure_without_sample_id_or_text_sha(self):
         """Test failure with no sample_id and no text_sha256."""
-        snapshot = self.obs.snapshot_from_observations([], failures=[{
-            "detector_id": "test",
-            "error_type": "Timeout",
-        }])
+        snapshot = self.obs.snapshot_from_observations(
+            [],
+            failures=[
+                {
+                    "detector_id": "test",
+                    "error_type": "Timeout",
+                }
+            ],
+        )
         self.assertEqual(snapshot["failure_count"], 1)
         self.assertIsNone(snapshot["failures"][0]["sample_id"])
 
@@ -813,7 +906,11 @@ class TakeSnapshotExtendedTests(unittest.TestCase):
     def test_take_snapshot_detector_ids_filter(self):
         corpus = {
             "samples": [
-                {"id": "s1", "text": "This is a long enough text to meet the minimum word count requirements for drift testing and validation purposes.", "metadata": {}},
+                {
+                    "id": "s1",
+                    "text": "This is a long enough text to meet the minimum word count requirements for drift testing and validation purposes.",
+                    "metadata": {},
+                },
             ]
         }
         obs = DriftObservatory(corpus=corpus)
@@ -827,7 +924,11 @@ class TakeSnapshotExtendedTests(unittest.TestCase):
     def test_take_snapshot_remote_detector_skipped(self):
         corpus = {
             "samples": [
-                {"id": "s1", "text": "This is a long enough text to meet the minimum word count requirements for drift testing and validation purposes.", "metadata": {}},
+                {
+                    "id": "s1",
+                    "text": "This is a long enough text to meet the minimum word count requirements for drift testing and validation purposes.",
+                    "metadata": {},
+                },
             ]
         }
         obs = DriftObservatory(corpus=corpus)
@@ -848,6 +949,7 @@ class TakeSnapshotExtendedTests(unittest.TestCase):
 
             def detect(self, text: str):
                 from textforensics.detectors import DetectorPrediction
+
                 return DetectorPrediction(
                     schema="textforensics.detector-result/v1",
                     detector_id=self.detector_id,
@@ -873,7 +975,11 @@ class CompareDetectorFindingsTests(unittest.TestCase):
         return DriftObservatory(
             corpus={
                 "samples": [
-                    {"id": f"sample-{i:02d}", "text": f"This is sample text number {i} that is long enough to trigger analysis. It has more than enough words to meet minimum length requirements for drift tracking and comparison purposes.", "metadata": {"label": "human" if i % 2 == 0 else "ai", "domain": "general"}}
+                    {
+                        "id": f"sample-{i:02d}",
+                        "text": f"This is sample text number {i} that is long enough to trigger analysis. It has more than enough words to meet minimum length requirements for drift tracking and comparison purposes.",
+                        "metadata": {"label": "human" if i % 2 == 0 else "ai", "domain": "general"},
+                    }
                     for i in range(1, 7)
                 ]
             },
@@ -883,9 +989,13 @@ class CompareDetectorFindingsTests(unittest.TestCase):
     def test_findings_detector_version_changed(self):
         obs = self._make_obs()
         sample_ids = list(obs.samples.keys())
-        baseline = _make_snapshot(sample_ids, detector_version="1.0.0", execution="remote", provider_version="api-2025-01")
+        baseline = _make_snapshot(
+            sample_ids, detector_version="1.0.0", execution="remote", provider_version="api-2025-01"
+        )
         baseline["corpus_sha256"] = obs.corpus_sha256
-        current = _make_snapshot(sample_ids, detector_version="2.0.0", execution="remote", provider_version="api-2025-01")
+        current = _make_snapshot(
+            sample_ids, detector_version="2.0.0", execution="remote", provider_version="api-2025-01"
+        )
         current["corpus_sha256"] = obs.corpus_sha256
 
         report = obs.compare_snapshots(baseline, current)

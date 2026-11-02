@@ -170,10 +170,18 @@ class SegmentToDictTests(unittest.TestCase):
             verdict="human_like_patterns",
         )
         data = segment_to_dict(segment)
-        self.assertEqual(set(data.keys()), {
-            "index", "text", "word_count", "score",
-            "confidence", "verdict", "diagnostic_reliability"
-        })
+        self.assertEqual(
+            set(data.keys()),
+            {
+                "index",
+                "text",
+                "word_count",
+                "score",
+                "confidence",
+                "verdict",
+                "diagnostic_reliability",
+            },
+        )
 
 
 class LocalizeIntegrationTests(unittest.TestCase):
@@ -223,8 +231,13 @@ class LocalizeIntegrationTests(unittest.TestCase):
             old_stdout = sys.stdout
             try:
                 sys.argv = [
-                    "textforensics", "localize", "diff",
-                    str(f1), str(f2), "--style", "side_by_side"
+                    "textforensics",
+                    "localize",
+                    "diff",
+                    str(f1),
+                    str(f2),
+                    "--style",
+                    "side_by_side",
                 ]
                 sys.stdout = StringIO()
                 main()
@@ -255,8 +268,13 @@ class LocalizeIntegrationTests(unittest.TestCase):
             old_stdout = sys.stdout
             try:
                 sys.argv = [
-                    "textforensics", "localize", "diff",
-                    str(f1), str(f2), "--style", "unified"
+                    "textforensics",
+                    "localize",
+                    "diff",
+                    str(f1),
+                    str(f2),
+                    "--style",
+                    "unified",
                 ]
                 sys.stdout = StringIO()
                 main()
@@ -287,8 +305,13 @@ class LocalizeIntegrationTests(unittest.TestCase):
             old_stdout = sys.stdout
             try:
                 sys.argv = [
-                    "textforensics", "localize", "diff",
-                    str(f1), str(f2), "--style", "inline"
+                    "textforensics",
+                    "localize",
+                    "diff",
+                    str(f1),
+                    str(f2),
+                    "--style",
+                    "inline",
                 ]
                 sys.stdout = StringIO()
                 main()
@@ -314,10 +337,7 @@ class LocalizeIntegrationTests(unittest.TestCase):
             old_argv = sys.argv
             old_stdout = sys.stdout
             try:
-                sys.argv = [
-                    "textforensics", "localize", "anomalies",
-                    str(f), "--threshold", "0.5"
-                ]
+                sys.argv = ["textforensics", "localize", "anomalies", str(f), "--threshold", "0.5"]
                 sys.stdout = StringIO()
                 main()
                 output = sys.stdout.getvalue()
@@ -344,8 +364,14 @@ class LocalizeIntegrationTests(unittest.TestCase):
             old_stdout = sys.stdout
             try:
                 sys.argv = [
-                    "textforensics", "localize", "anomalies",
-                    str(f), "--threshold", "0.5", "--output", str(out)
+                    "textforensics",
+                    "localize",
+                    "anomalies",
+                    str(f),
+                    "--threshold",
+                    "0.5",
+                    "--output",
+                    str(out),
                 ]
                 sys.stdout = StringIO()
                 main()

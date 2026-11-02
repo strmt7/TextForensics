@@ -4,6 +4,7 @@
 Usage:
     python scripts/generate_golden.py
 """
+
 from __future__ import annotations
 
 import json
