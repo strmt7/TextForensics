@@ -38,13 +38,13 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
           cache: "pip"
 
       - name: Install dependencies
         run: |
           pip install -e ".[dev]"
-          pip install cosmic-ray>=8.0,<9
+          pip install cosmic-ray>=8.0,<9 atheris>=1.0,<2
 
       - name: Get changed files
         id: changed-files
@@ -98,13 +98,13 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
           cache: "pip"
 
       - name: Install dependencies
         run: |
           pip install -e ".[dev]"
-          pip install cosmic-ray>=8.0,<9
+          pip install cosmic-ray>=8.0,<9 atheris>=1.0,<2
 
       - name: Run full mutation testing
         id: mutation-full
