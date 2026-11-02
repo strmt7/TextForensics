@@ -44,7 +44,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -e ".[dev,enterprise]"
-          pip install cosmic-ray>=8.0,<9
+          pip install "cosmic-ray>=8.0,<9"
 
       - name: Get changed files
         id: changed-files
@@ -104,7 +104,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -e ".[dev,enterprise]"
-          pip install cosmic-ray>=8.0,<9
+          pip install "cosmic-ray>=8.0,<9"
 
       - name: Run full mutation testing
         id: mutation-full
