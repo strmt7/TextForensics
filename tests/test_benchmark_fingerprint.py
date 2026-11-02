@@ -9,7 +9,11 @@ from pathlib import Path
 
 from textforensics.benchmark_fingerprint import (
     DatasetFingerprint,
+    _compute_content_hash,
+    _compute_sample_hashes,
+    _iter_jsonl_samples,
     check_disjointness,
+    dataset_sha256,
     fingerprint_dataset,
     load_fingerprint,
     save_fingerprint,
@@ -355,6 +359,396 @@ class ContaminationDetectionTests(unittest.TestCase):
             )
 
             self.assertEqual(fp.filters, filters)
+
+
+class ContaminationDetectionTests(unittest.TestCase):
+    """Tests for contamination detection scenarios."""
+
+    def test_identical_files_detected_as_contaminated(self):
+        """Test that identical files are flagged as contaminated."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "shared.jsonl"
+            write_test_dataset(path)
+
+            fp = fingerprint_dataset(path, name="Test", version="1.0")
+
+            # Same file for both
+            result = check_disjointness(path, fp, path, fp)
+
+            self.assertFalse(result["disjoint"])
+
+    def test_filters_in_fingerprint(self):
+        """Test that filters are included in fingerprint."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "test.jsonl"
+            write_test_dataset(path)
+
+            filters = {"language": "en", "min_length": 50, "domains": ["news", "blogs"]}
+            fp = fingerprint_dataset(
+                path,
+                name="TestDataset",
+                version="1.0.0",
+                split="test",
+                filters=filters,
+            )
+
+            self.assertEqual(fp.filters, filters)
+
+
+class InternalFunctionTests(unittest.TestCase):
+    """Tests for internal helper functions."""
+
+    def test_compute_content_hash(self):
+        """Test _compute_content_hash produces stable hashes."""
+        text = "Hello, world!"
+        hash1 = _compute_content_hash(text)
+        hash2 = _compute_content_hash(text)
+        self.assertEqual(hash1, hash2)
+        self.assertEqual(len(hash1), 64)
+
+    def test_compute_content_hash_different_text(self):
+        """Test different texts produce different hashes."""
+        hash1 = _compute_content_hash("text one")
+        hash2 = _compute_content_hash("text two")
+        self.assertNotEqual(hash1, hash2)
+
+    def test_compute_content_hash_empty_string(self):
+        """Test hash for empty string."""
+        hash_val = _compute_content_hash("")
+        self.assertEqual(len(hash_val), 64)
+
+    def test_iter_jsonl_samples(self):
+        """Test _iter_jsonl_samples iterator."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "test.jsonl"
+            rows = [
+                {"label": "human", "text": "sample 1"},
+                {"label": "ai", "text": "sample 2"},
+            ]
+            path.write_text(
+                "".join(json.dumps(row) + "\n" for row in rows),
+                encoding="utf-8",
+            )
+
+            samples = list(_iter_jsonl_samples(path))
+            self.assertEqual(len(samples), 2)
+            self.assertEqual(samples[0]["label"], "human")
+            self.assertEqual(samples[1]["label"], "ai")
+
+    def test_iter_jsonl_samples_skips_empty_lines(self):
+        """Test that empty lines are skipped."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "test.jsonl"
+            path.write_text(
+                '{"label": "human", "text": "sample 1"}\n\n{"label": "ai", "text": "sample 2"}\n',
+                encoding="utf-8",
+            )
+
+            samples = list(_iter_jsonl_samples(path))
+            self.assertEqual(len(samples), 2)
+
+    def test_iter_jsonl_samples_invalid_json_raises(self):
+        """Test that invalid JSON raises ValueError in strict mode."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "test.jsonl"
+            path.write_text(
+                '{"label": "human", "text": "sample 1"}\nnot valid json\n',
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(ValueError) as ctx:
+                list(_iter_jsonl_samples(path))
+
+            self.assertIn("not valid JSON", str(ctx.exception))
+
+    def test_iter_jsonl_samples_line_number_in_error(self):
+        """Test that error includes line number."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "test.jsonl"
+            path.write_text(
+                '{"label": "human"}\ninvalid\n',
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(ValueError) as ctx:
+                list(_iter_jsonl_samples(path))
+
+            self.assertIn("Line 2", str(ctx.exception))
+
+    def test_compute_sample_hashes_basic(self):
+        """Test _compute_sample_hashes basic functionality."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "test.jsonl"
+            rows = [
+                {"label": "human", "text": "sample 1"},
+                {"label": "ai", "text": "sample 2"},
+            ]
+            path.write_text(
+                "".join(json.dumps(row) + "\n" for row in rows),
+                encoding="utf-8",
+            )
+
+            hashes, count = _compute_sample_hashes(path)
+            self.assertEqual(count, 2)
+            self.assertEqual(len(hashes), 2)
+
+    def test_compute_sample_hashes_strict_false_skips_invalid(self):
+        """Test strict=False skips invalid JSON lines."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "test.jsonl"
+            path.write_text(
+                '{"label": "human", "text": "sample 1"}\nnot valid json\n{"label": "ai", "text": "sample 2"}\n',
+                encoding="utf-8",
+            )
+
+            hashes, count = _compute_sample_hashes(path, strict=False)
+            self.assertEqual(count, 2)
+            self.assertEqual(len(hashes), 2)
+
+    def test_compute_sample_hashes_strict_true_raises_on_invalid_json(self):
+        """Test strict=True raises on invalid JSON."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "test.jsonl"
+            path.write_text(
+                '{"label": "human", "text": "sample 1"}\nnot valid json\n',
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(ValueError) as ctx:
+                _compute_sample_hashes(path, strict=True)
+
+            self.assertIn("not valid JSON", str(ctx.exception))
+
+    def test_compute_sample_hashes_strict_true_raises_on_non_object(self):
+        """Test strict=True raises on non-object lines."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "test.jsonl"
+            path.write_text(
+                '{"label": "human", "text": "sample 1"}\n"not an object"\n',
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(ValueError) as ctx:
+                _compute_sample_hashes(path, strict=True)
+
+            self.assertIn("must be a JSON object", str(ctx.exception))
+
+    def test_compute_sample_hashes_strict_false_skips_non_object(self):
+        """Test strict=False skips non-object lines."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "test.jsonl"
+            path.write_text(
+                '{"label": "human", "text": "sample 1"}\n"not an object"\n{"label": "ai", "text": "sample 2"}\n',
+                encoding="utf-8",
+            )
+
+            hashes, count = _compute_sample_hashes(path, strict=False)
+            self.assertEqual(count, 2)
+            self.assertEqual(len(hashes), 2)
+
+    def test_compute_sample_hashes_include_text_true(self):
+        """Test include_text=True includes label in hash."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "test.jsonl"
+            rows = [
+                {"label": "human", "text": "same text"},
+                {"label": "ai", "text": "same text"},
+            ]
+            path.write_text(
+                "".join(json.dumps(row) + "\n" for row in rows),
+                encoding="utf-8",
+            )
+
+            # With include_text=True, same text but different labels -> different hashes
+            hashes_with_text, _ = _compute_sample_hashes(path, include_text=True)
+            # With include_text=False, only text matters -> same hashes
+            hashes_without_text, _ = _compute_sample_hashes(path, include_text=False)
+
+            self.assertNotEqual(hashes_with_text[0], hashes_with_text[1])
+            self.assertEqual(hashes_without_text[0], hashes_without_text[1])
+
+    def test_compute_sample_hashes_skips_without_label(self):
+        """Test samples without label are skipped."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "test.jsonl"
+            path.write_text(
+                '{"text": "no label here"}\n{"label": "human", "text": "has label"}\n',
+                encoding="utf-8",
+            )
+
+            hashes, count = _compute_sample_hashes(path)
+            self.assertEqual(count, 1)
+            self.assertEqual(len(hashes), 1)
+
+    def test_dataset_sha256(self):
+        """Test dataset_sha256 function."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "test.jsonl"
+            path.write_text(
+                '{"label": "human", "text": "sample"}\n',
+                encoding="utf-8",
+            )
+
+            hash_val = dataset_sha256(path)
+            self.assertEqual(len(hash_val), 64)
+            # Verify it's consistent
+            self.assertEqual(dataset_sha256(path), hash_val)
+
+
+class VerifyFingerprintErrorHandlingTests(unittest.TestCase):
+    """Tests for verify_fingerprint error handling paths."""
+
+    def test_verify_hash_computation_error(self):
+        """Test verification handles hash computation errors."""
+        # Create a fingerprint with a valid-looking hash
+        fp = DatasetFingerprint(
+            name="Test",
+            version="1.0",
+            split="test",
+            dataset_hash="a" * 64,
+        )
+
+        # Try to verify a path that causes an error during hash computation
+        # (e.g., permission error or unreadable file)
+        # We can't easily simulate this on Windows, but we can test with
+        # a path that doesn't exist (already tested) or is a directory
+        with tempfile.TemporaryDirectory() as tmp:
+            dir_path = Path(tmp)
+            result = verify_fingerprint(dir_path, fp)
+            self.assertFalse(result["valid"])
+            self.assertTrue(any("hash" in e.lower() or "not found" in e.lower() or "permission" in e.lower() for e in result["errors"]))
+
+    def test_verify_sample_count_error(self):
+        """Test verification handles sample counting errors."""
+        fp = DatasetFingerprint(
+            name="Test",
+            version="1.0",
+            split="test",
+            dataset_hash="a" * 64,
+            sample_count=5,
+        )
+
+        # Use a directory path which will cause errors in sample counting
+        with tempfile.TemporaryDirectory() as tmp:
+            dir_path = Path(tmp)
+            result = verify_fingerprint(dir_path, fp)
+            self.assertFalse(result["valid"])
+            self.assertTrue(any("hash" in e.lower() or "permission" in e.lower() for e in result["errors"]))
+
+
+class ComputeSampleHashesEdgeCasesTests(unittest.TestCase):
+    """Tests for edge cases in _compute_sample_hashes."""
+
+    def test_compute_sample_hashes_empty_line_after_strip(self):
+        """Test line 137: empty line after strip is skipped."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "test.jsonl"
+            # File with a line that's just whitespace
+            path.write_text(
+                '{"label": "human", "text": "sample 1"}\n   \n{"label": "ai", "text": "sample 2"}\n',
+                encoding="utf-8",
+            )
+
+            hashes, count = _compute_sample_hashes(path)
+            self.assertEqual(count, 2)
+            self.assertEqual(len(hashes), 2)
+
+
+class CheckDisjointnessErrorHandlingTests(unittest.TestCase):
+    """Tests for check_disjointness error handling paths."""
+
+    def test_check_disjointness_path1_error(self):
+        """Test error handling when path1 has issues."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path1 = Path(tmp) / "bad.jsonl"
+            path2 = Path(tmp) / "good.jsonl"
+            write_test_dataset(path2)
+
+            fp1 = DatasetFingerprint(
+                name="Test", version="1.0", split="calibration",
+                dataset_hash="a" * 64,
+            )
+            fp2 = fingerprint_dataset(path2, name="Test", version="1.0", split="evaluation")
+
+            # path1 doesn't exist, should produce warning
+            result = check_disjointness(path1, fp1, path2, fp2)
+            self.assertTrue(len(result["warnings"]) > 0)
+
+    def test_check_disjointness_path2_error(self):
+        """Test error handling when path2 has issues."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path1 = Path(tmp) / "good.jsonl"
+            path2 = Path(tmp) / "bad.jsonl"
+            write_test_dataset(path1)
+
+            fp1 = fingerprint_dataset(path1, name="Test", version="1.0", split="calibration")
+            fp2 = DatasetFingerprint(
+                name="Test", version="1.0", split="evaluation",
+                dataset_hash="b" * 64,
+            )
+
+            result = check_disjointness(path1, fp1, path2, fp2)
+            self.assertTrue(len(result["warnings"]) > 0)
+
+
+class LoadFingerprintTests(unittest.TestCase):
+    """Tests for load_fingerprint function."""
+
+    def test_load_fingerprint_invalid_json_object(self):
+        """Test loading fingerprint from invalid JSON (not an object)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "fingerprint.json"
+            path.write_text("[]", encoding="utf-8")  # Array, not object
+
+            with self.assertRaises(ValueError) as ctx:
+                load_fingerprint(path)
+
+            self.assertIn("JSON object", str(ctx.exception))
+
+
+class ValidateDisjointnessTests(unittest.TestCase):
+    """Tests for validate_disjointness function."""
+
+    def test_validate_disjointness_raises_on_overlap(self):
+        """Test that validate_disjointness raises ValueError on overlap."""
+        with tempfile.TemporaryDirectory() as tmp:
+            cal_path = Path(tmp) / "calibration.jsonl"
+            eval_path = Path(tmp) / "evaluation.jsonl"
+
+            sample = "I tested device one and it failed"
+            write_test_dataset(cal_path, human_samples=[sample])
+            write_test_dataset(eval_path, human_samples=[sample])
+
+            cal_fp = fingerprint_dataset(cal_path, name="Test", version="1.0", split="calibration")
+            eval_fp = fingerprint_dataset(eval_path, name="Test", version="1.0", split="evaluation")
+
+            with self.assertRaises(ValueError) as ctx:
+                validate_disjointness(cal_path, cal_fp, eval_path, eval_fp)
+
+            self.assertIn("contamination", str(ctx.exception).lower())
+
+    def test_validate_disjointness_passes(self):
+        """Test validate_disjointness passes for disjoint datasets."""
+        with tempfile.TemporaryDirectory() as tmp:
+            cal_path = Path(tmp) / "calibration.jsonl"
+            eval_path = Path(tmp) / "evaluation.jsonl"
+
+            write_test_dataset(
+                cal_path,
+                human_samples=["I tested device A"],
+                ai_samples=["AI text A"],
+            )
+            write_test_dataset(
+                eval_path,
+                human_samples=["I tested device B"],
+                ai_samples=["AI text B"],
+            )
+
+            cal_fp = fingerprint_dataset(cal_path, name="Test", version="1.0", split="calibration")
+            eval_fp = fingerprint_dataset(eval_path, name="Test", version="1.0", split="evaluation")
+
+            # Should not raise
+            validate_disjointness(cal_path, cal_fp, eval_path, eval_fp)
 
 
 if __name__ == "__main__":
