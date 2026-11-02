@@ -52,4 +52,3 @@ Remote adapters must:
 - avoid persistent raw-text logs,
 - allow the user to disable all remote adapters,
 - document provider retention/privacy implications when known.
-

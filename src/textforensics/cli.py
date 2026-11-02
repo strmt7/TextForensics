@@ -848,7 +848,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             _write_json(args.output, report)
             if args.drift_command == "report" and getattr(args, "rich", False):
                 from .rich_output import HAS_RICH as _has_rich
-                from .rich_output import print_trust_map, print_detector_health
+                from .rich_output import print_detector_health, print_trust_map
 
                 if _has_rich:
                     # Print trust map if present in drift report

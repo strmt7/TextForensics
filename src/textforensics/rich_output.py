@@ -20,7 +20,7 @@ except ImportError:
     HAS_RICH = False
 
 if TYPE_CHECKING:
-    from rich.console import Console as RichConsole
+    pass
 
 # ---------------------------------------------------------------------------
 # Helpers

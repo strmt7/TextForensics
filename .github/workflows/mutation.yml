@@ -225,7 +225,7 @@ jobs:
             SCOPE="safety-critical"
           fi
           echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
-          
+
           if [ "$SCOPE" = "safety-critical" ]; then
             # Safety-critical modules per TextForensics architecture
             FILES="src/textforensics/detectors.py,src/textforensics/analyzers.py,src/textforensics/trust.py,src/textforensics/provenance.py,src/textforensics/casefile.py,src/textforensics/engine.py,src/textforensics/report.py"

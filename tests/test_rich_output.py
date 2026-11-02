@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 import pytest
 
 # Test that rich_output can be imported and functions gracefully when Rich is not installed
@@ -199,7 +196,7 @@ def test_rich_output_diff() -> None:
 
 def test_rich_output_create_progress_bar() -> None:
     """Test create_progress_bar returns a Progress object when Rich is available."""
-    from textforensics.rich_output import create_progress_bar, HAS_RICH
+    from textforensics.rich_output import HAS_RICH, create_progress_bar
 
     # Should return a Progress object when Rich is installed
     result = create_progress_bar()

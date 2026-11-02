@@ -1,0 +1,82 @@
+# TextForensics pre-commit hooks configuration
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+repos:
+  # Ruff - Python linter and formatter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.5
+    hooks:
+      - id: ruff
+        name: ruff (lint)
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+        name: ruff (format)
+        args: [--diff]
+
+  # Pre-commit-hooks - general file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+        name: check-yaml
+        exclude: ^schemas/
+      - id: check-json
+        name: check-json
+        exclude: ^schemas/
+      - id: check-toml
+        name: check-toml
+      - id: check-merge-conflict
+        name: check-merge-conflict
+      - id: end-of-file-fixer
+        name: end-of-file-fixer
+      - id: trailing-whitespace
+        name: trailing-whitespace
+      - id: mixed-line-ending
+        name: mixed-line-ending
+        args: [--fix=lf]
+
+  # Detect-secrets - for AGENTS.md rule #8 (no silent telemetry, no secrets)
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        name: detect-secrets
+        args: [--baseline, .secrets.baseline]
+        exclude: ^testdata/|^schemas/
+
+  # JSON Schema validator - validate against packaged schemas
+  - repo: local
+    hooks:
+      - id: json-schema-validator
+        name: json-schema-validator
+        entry: python scripts/validate_schemas.py
+        language: system
+        types: [json]
+        files: ^schemas/
+        additional_dependencies: []
+        verbose: true
+
+  # Custom hook for AGENTS.md rule validation (README claims traceable to run artifacts)
+  - repo: local
+    hooks:
+      - id: agents-md-rule-validation
+        name: AGENTS.md rule validation (README claims traceability)
+        entry: python scripts/validate_agents_rules.py
+        language: system
+        files: ^README\.md$
+        additional_dependencies: []
+        verbose: true
+        always_run: true
+
+  # Custom hook to validate pyproject.toml dependencies are sorted
+  - repo: local
+    hooks:
+      - id: validate-pyproject-deps
+        name: Validate pyproject.toml dependencies sorted
+        entry: python scripts/validate_pyproject_deps.py
+        language: system
+        files: ^pyproject\.toml$
+        additional_dependencies: []
+        verbose: true
+        always_run: true
