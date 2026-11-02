@@ -44,7 +44,9 @@ TARGET_MODULES = {
 }
 
 
-def load_and_run_target(module_name: str, corpus_dir: Path, artifacts_dir: Path, duration_seconds: int) -> bool:
+def load_and_run_target(
+    module_name: str, corpus_dir: Path, artifacts_dir: Path, duration_seconds: int
+) -> bool:
     """Load and run a fuzz target, return True if crashes found."""
     import importlib.util
 
@@ -93,7 +95,11 @@ def load_and_run_target(module_name: str, corpus_dir: Path, artifacts_dir: Path,
 
     # Check for crashes
     if crashes_dir.exists():
-        crash_files = [f for f in crashes_dir.iterdir() if f.is_file() and f.name not in ("README.txt", ".gitkeep")]
+        crash_files = [
+            f
+            for f in crashes_dir.iterdir()
+            if f.is_file() and f.name not in ("README.txt", ".gitkeep")
+        ]
         if crash_files:
             print(f"  Found {len(crash_files)} crashes!")
             for cf in crash_files[:5]:  # Show first 5
@@ -103,7 +109,9 @@ def load_and_run_target(module_name: str, corpus_dir: Path, artifacts_dir: Path,
     return False
 
 
-def run_fuzz_target(target_name: str, corpus_dir: Path, artifacts_dir: Path, duration_minutes: int) -> bool:
+def run_fuzz_target(
+    target_name: str, corpus_dir: Path, artifacts_dir: Path, duration_minutes: int
+) -> bool:
     """Run a single fuzz target via subprocess for isolation."""
     module_name = TARGET_MODULES.get(target_name)
     if not module_name:
@@ -130,10 +138,10 @@ import atheris
 import importlib.util
 spec = importlib.util.spec_from_file_location(
     "fuzz_target",
-    Path("tests/fuzz/fuzz_{target_name.split('_')[1]}.py") if '{target_name}'.startswith('json_') else
-    Path("tests/fuzz/fuzz_{'_'.join(target_name.split('_')[-2:])}.py") if 'validation' in '{target_name}' else
-    Path("tests/fuzz/fuzz_{'_'.join(target_name.split('_')[0:2])}.py") if 'json' in '{target_name}' and 'casefile' in '{target_name}' else
-    Path("tests/fuzz/fuzz_{'_'.join(target_name.split('_')[0:2])}.py")
+    Path("tests/fuzz/fuzz_{target_name.split("_")[1]}.py") if '{target_name}'.startswith('json_') else
+    Path("tests/fuzz/fuzz_{"_".join(target_name.split("_")[-2:])}.py") if 'validation' in '{target_name}' else
+    Path("tests/fuzz/fuzz_{"_".join(target_name.split("_")[0:2])}.py") if 'json' in '{target_name}' and 'casefile' in '{target_name}' else
+    Path("tests/fuzz/fuzz_{"_".join(target_name.split("_")[0:2])}.py")
 )
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
@@ -184,7 +192,9 @@ atheris.Fuzz()
     # Check for crashes
     if crashes_dir.exists():
         crash_files = list(crashes_dir.glob("*"))
-        crash_files = [f for f in crash_files if f.is_file() and f.name not in ("README.txt", ".gitkeep")]
+        crash_files = [
+            f for f in crash_files if f.is_file() and f.name not in ("README.txt", ".gitkeep")
+        ]
         if crash_files:
             print(f"  Found {len(crash_files)} crashes!")
             return True

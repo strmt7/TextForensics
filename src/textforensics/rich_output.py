@@ -117,10 +117,22 @@ def print_scan_results(
         table.add_column("Confidence", justify="right")
 
         for item in analyzers:
-            name = item.get("name", item.get("detector_id", "unknown")) if isinstance(item, dict) else getattr(item, "name", "unknown")
+            name = (
+                item.get("name", item.get("detector_id", "unknown"))
+                if isinstance(item, dict)
+                else getattr(item, "name", "unknown")
+            )
             s = item.get("score", 0.0) if isinstance(item, dict) else getattr(item, "score", 0.0)
-            v = item.get("verdict", "-") if isinstance(item, dict) else getattr(item, "verdict", "-")
-            conf = item.get("reliability", item.get("confidence", 0.0)) if isinstance(item, dict) else getattr(item, "reliability", getattr(item, "confidence", 0.0))
+            v = (
+                item.get("verdict", "-")
+                if isinstance(item, dict)
+                else getattr(item, "verdict", "-")
+            )
+            conf = (
+                item.get("reliability", item.get("confidence", 0.0))
+                if isinstance(item, dict)
+                else getattr(item, "reliability", getattr(item, "confidence", 0.0))
+            )
 
             verdict_style = _verdict_style(v)
             table.add_row(
@@ -194,8 +206,7 @@ def print_report_summary(
         families = consensus.get("family_count", "-")
         c.print(
             Panel(
-                f"[bold]Family agreement:[/] {agreement}\n"
-                f"[bold]Families:[/] {families}",
+                f"[bold]Family agreement:[/] {agreement}\n[bold]Families:[/] {families}",
                 title="Consensus",
                 border_style="green",
             )
@@ -269,7 +280,9 @@ def print_case_summary(
             df_node = bundle_node.add(f"[bold red]detector_failures[/] ({len(det_failures)})")
             for df in det_failures:
                 if isinstance(df, dict):
-                    df_node.add(f"[red]{df.get('detector_id', '?')}[/] ({df.get('error_type', '?')})")
+                    df_node.add(
+                        f"[red]{df.get('detector_id', '?')}[/] ({df.get('error_type', '?')})"
+                    )
 
         # Trust map
         tm = bundle.get("trust_map", {})
@@ -468,7 +481,7 @@ def print_diff(
                     "",
                 )
         elif tag == "insert":
-            for k, line in enumerate(right_lines):
+            for _, line in enumerate(right_lines):
                 table.add_row(
                     "",
                     "",

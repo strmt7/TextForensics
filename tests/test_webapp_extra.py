@@ -1,4 +1,5 @@
 """Additional tests for webapp.py uncovered lines."""
+
 from __future__ import annotations
 
 import socket
@@ -104,10 +105,10 @@ class TestServeFunction(unittest.TestCase):
         def interrupting_serve_forever(self, *args, **kwargs):
             raise KeyboardInterrupt
 
-        with mock.patch("sys.stdout", stdout), mock.patch(
-            "textforensics.webapp.webbrowser.open"
-        ), mock.patch.object(
-            TextForensicsHTTPServer, "serve_forever", interrupting_serve_forever
+        with (
+            mock.patch("sys.stdout", stdout),
+            mock.patch("textforensics.webapp.webbrowser.open"),
+            mock.patch.object(TextForensicsHTTPServer, "serve_forever", interrupting_serve_forever),
         ):
             # open_browser=True covers the timer line; the browser itself is mocked
             serve("127.0.0.1", port, open_browser=True, allow_remote=False)
@@ -133,10 +134,10 @@ class TestServeFunction(unittest.TestCase):
         def interrupting_serve_forever(self, *args, **kwargs):
             raise KeyboardInterrupt
 
-        with mock.patch("sys.stdout", stdout), mock.patch(
-            "textforensics.webapp.webbrowser.open"
-        ), mock.patch.object(
-            TextForensicsHTTPServer, "serve_forever", interrupting_serve_forever
+        with (
+            mock.patch("sys.stdout", stdout),
+            mock.patch("textforensics.webapp.webbrowser.open"),
+            mock.patch.object(TextForensicsHTTPServer, "serve_forever", interrupting_serve_forever),
         ):
             serve("0.0.0.0", port, open_browser=False, allow_remote=True)
 

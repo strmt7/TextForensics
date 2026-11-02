@@ -36,20 +36,14 @@ def localize_text(
         raise ValueError("Text must not be empty.")
 
     sentences = [
-        sentence.strip()
-        for sentence in SENTENCE_RE.split(text.strip())
-        if sentence.strip()
+        sentence.strip() for sentence in SENTENCE_RE.split(text.strip()) if sentence.strip()
     ]
     if not sentences:
         return []
 
     segments: list[SegmentResult] = []
-    for index, start in enumerate(
-        range(0, len(sentences), sentences_per_segment)
-    ):
-        chunk = " ".join(
-            sentences[start : start + sentences_per_segment]
-        )
+    for index, start in enumerate(range(0, len(sentences), sentences_per_segment)):
+        chunk = " ".join(sentences[start : start + sentences_per_segment])
         analysis = analyze_text(chunk, include_robustness=False)
         segments.append(
             SegmentResult(
@@ -68,6 +62,7 @@ def localize_text(
 # Visual diff
 # ---------------------------------------------------------------------------
 
+
 def visual_diff(
     text1: str,
     text2: str,
@@ -83,8 +78,7 @@ def visual_diff(
     """
     if style not in ("side_by_side", "unified", "inline"):
         raise ValueError(
-            f"Unknown diff style {style!r}. "
-            "Expected one of: side_by_side, unified, inline."
+            f"Unknown diff style {style!r}. Expected one of: side_by_side, unified, inline."
         )
 
     lines1 = text1.splitlines(keepends=False)
@@ -99,9 +93,7 @@ def visual_diff(
 
 def _diff_unified(lines1: list[str], lines2: list[str]) -> str:
     """Return a unified diff string."""
-    diff = difflib.unified_diff(
-        lines1, lines2, fromfile="text1", tofile="text2", lineterm=""
-    )
+    diff = difflib.unified_diff(lines1, lines2, fromfile="text1", tofile="text2", lineterm="")
     return "\n".join(diff)
 
 
@@ -120,14 +112,10 @@ def _diff_side_by_side(lines1: list[str], lines2: list[str]) -> str:
         right_lines = lines2[j1:j2]
 
         if tag == "equal":
-            for k, (l_line, r_line) in enumerate(
-                zip(left_lines, right_lines, strict=False)
-            ):
+            for k, (l_line, r_line) in enumerate(zip(left_lines, right_lines, strict=False)):
                 left_display = _truncate(l_line, 40)
                 right_display = _truncate(r_line, 40)
-                rows.append(
-                    f"{i1 + k + 1:>6}  {left_display:<40}  |  {right_display:<40}"
-                )
+                rows.append(f"{i1 + k + 1:>6}  {left_display:<40}  |  {right_display:<40}")
         else:
             # Align changed/inserted/deleted lines
             for k, l_line in enumerate(left_lines):
@@ -135,17 +123,11 @@ def _diff_side_by_side(lines1: list[str], lines2: list[str]) -> str:
                 right_idx = j1 + k if j1 + k < j2 else None
                 if right_idx is not None:
                     right_display = _truncate(lines2[right_idx], 40)
-                    rows.append(
-                        f"{i1 + k + 1:>6}  -{left_display:<39}  |  +{right_display:<39}"
-                    )
+                    rows.append(f"{i1 + k + 1:>6}  -{left_display:<39}  |  +{right_display:<39}")
                 else:
-                    rows.append(
-                        f"{i1 + k + 1:>6}  -{left_display:<39}  |  "
-                    )
+                    rows.append(f"{i1 + k + 1:>6}  -{left_display:<39}  |  ")
             for k in range(len(left_lines), len(right_lines)):
-                rows.append(
-                    f"{'':>6}  {'':<40}  |  +{_truncate(right_lines[k], 40):<39}"
-                )
+                rows.append(f"{'':>6}  {'':<40}  |  +{_truncate(right_lines[k], 40):<39}")
 
     return "\n".join(rows)
 
@@ -159,8 +141,7 @@ def _diff_inline(text1: str, text2: str) -> str:
             parts.append(html.escape(text1[i1:i2]))
         elif tag == "replace":
             parts.append(
-                f"<del>{html.escape(text1[i1:i2])}</del>"
-                f"<ins>{html.escape(text2[j1:j2])}</ins>"
+                f"<del>{html.escape(text1[i1:i2])}</del><ins>{html.escape(text2[j1:j2])}</ins>"
             )
         elif tag == "delete":
             parts.append(f"<del>{html.escape(text1[i1:i2])}</del>")
@@ -178,6 +159,7 @@ def _truncate(s: str, maxlen: int) -> str:
 # ---------------------------------------------------------------------------
 # Anomaly detection
 # ---------------------------------------------------------------------------
+
 
 def detect_anomalous_segments(
     text: str,
@@ -199,9 +181,7 @@ def detect_anomalous_segments(
     if threshold < 0:
         raise ValueError("threshold must be non-negative.")
 
-    sentences = [
-        s.strip() for s in SENTENCE_RE.split(text.strip()) if s.strip()
-    ]
+    sentences = [s.strip() for s in SENTENCE_RE.split(text.strip()) if s.strip()]
     if not sentences:
         return []
 
@@ -253,26 +233,26 @@ def detect_anomalous_segments(
         z_scores: dict[str, float] = {}
         for fn in feature_names:
             sd = stds[fn]
-            z_scores[fn] = (
-                0.0 if sd == 0 else abs(feature_values[fn][idx] - means[fn]) / sd
-            )
+            z_scores[fn] = 0.0 if sd == 0 else abs(feature_values[fn][idx] - means[fn]) / sd
 
         max_z = max(z_scores.values())
         flag = max_z >= threshold
 
-        anomalous.append({
-            "segment_index": idx,
-            "text": segment_texts[idx],
-            "word_count": feats.get("word_count", 0),
-            "features": {
-                "word_entropy": round(ent, 4),
-                "burstiness": round(burst, 4),
-                "type_token_ratio": round(ttr, 4),
-            },
-            "z_scores": {fn: round(z, 4) for fn, z in z_scores.items()},
-            "max_z_score": round(max_z, 4),
-            "is_anomalous": flag,
-        })
+        anomalous.append(
+            {
+                "segment_index": idx,
+                "text": segment_texts[idx],
+                "word_count": feats.get("word_count", 0),
+                "features": {
+                    "word_entropy": round(ent, 4),
+                    "burstiness": round(burst, 4),
+                    "type_token_ratio": round(ttr, 4),
+                },
+                "z_scores": {fn: round(z, 4) for fn, z in z_scores.items()},
+                "max_z_score": round(max_z, 4),
+                "is_anomalous": flag,
+            }
+        )
 
     # Return only flagged segments
     return [seg for seg in anomalous if seg["is_anomalous"]]
@@ -281,6 +261,7 @@ def detect_anomalous_segments(
 # ---------------------------------------------------------------------------
 # Serialization helpers
 # ---------------------------------------------------------------------------
+
 
 def segment_to_dict(segment: SegmentResult) -> dict[str, Any]:
     """Serialize a ``SegmentResult`` to a JSON-serialisable dict."""

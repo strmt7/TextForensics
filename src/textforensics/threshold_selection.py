@@ -87,9 +87,7 @@ class ThresholdSelectionResult:
             ensure_ascii=False,
             allow_nan=False,
         )
-        record["calibration_record_hash"] = hashlib.sha256(
-            canonical.encode("utf-8")
-        ).hexdigest()
+        record["calibration_record_hash"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
         return record
 
@@ -229,9 +227,13 @@ def select_threshold(
                 calibration_dataset_hash=dataset_hash,
             )
             # Select best: higher TPR wins, or lower threshold (more inclusive) as tiebreaker
-            if best is None or (candidate.observed_tpr > best.observed_tpr or
-                                (candidate.observed_tpr == best.observed_tpr and
-                                 candidate.threshold < best.threshold)):
+            if best is None or (
+                candidate.observed_tpr > best.observed_tpr
+                or (
+                    candidate.observed_tpr == best.observed_tpr
+                    and candidate.threshold < best.threshold
+                )
+            ):
                 best = candidate
 
     if best is None:
@@ -268,12 +270,16 @@ def evaluate_threshold(
     test_path = Path(test_path)
     test_hash = dataset_sha256(test_path)
 
-    if not allow_same_dataset and calibration_dataset_hash and test_hash == calibration_dataset_hash:
+    if (
+        not allow_same_dataset
+        and calibration_dataset_hash
+        and test_hash == calibration_dataset_hash
+    ):
         raise ValueError(
-                "Evaluation dataset matches the calibration dataset. "
-                "Use a separate held-out dataset for release-quality validation. "
-                "Use allow_same_dataset=True only for diagnostics."
-            )
+            "Evaluation dataset matches the calibration dataset. "
+            "Use a separate held-out dataset for release-quality validation. "
+            "Use allow_same_dataset=True only for diagnostics."
+        )
 
     rows, skipped = _load_scores(test_path, strict=strict)
 

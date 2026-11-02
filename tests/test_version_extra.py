@@ -20,7 +20,7 @@ class VersionFunctionTests(unittest.TestCase):
         # Version should not be empty
         self.assertTrue(len(version) > 0)
 
-    @patch('textforensics.version.version')
+    @patch("textforensics.version.version")
     def test_get_version_package_not_found_returns_fallback(self, mock_version):
         """Test that get_version returns fallback when package not found (lines 10-11)."""
         from importlib.metadata import PackageNotFoundError

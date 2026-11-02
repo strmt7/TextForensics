@@ -34,9 +34,7 @@ def _env_int(
     except ValueError as exc:
         raise ValueError(f"{_ENV_PREFIX}{name} must be an integer.") from exc
     if not minimum <= value <= maximum:
-        raise ValueError(
-            f"{_ENV_PREFIX}{name} must be between {minimum} and {maximum}."
-        )
+        raise ValueError(f"{_ENV_PREFIX}{name} must be between {minimum} and {maximum}.")
     return value
 
 
@@ -107,14 +105,17 @@ class Settings:
             "ACCESS_LOG",
             defaults.access_log,
         )
-        log_level = os.getenv(
-            _ENV_PREFIX + "LOG_LEVEL",
-            defaults.log_level,
-        ).strip().upper()
+        log_level = (
+            os.getenv(
+                _ENV_PREFIX + "LOG_LEVEL",
+                defaults.log_level,
+            )
+            .strip()
+            .upper()
+        )
         if log_level not in {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}:
             raise ValueError(
-                f"{_ENV_PREFIX}LOG_LEVEL must be one of "
-                "CRITICAL, ERROR, WARNING, INFO, DEBUG."
+                f"{_ENV_PREFIX}LOG_LEVEL must be one of CRITICAL, ERROR, WARNING, INFO, DEBUG."
             )
         return cls(
             host=host,
@@ -135,10 +136,7 @@ def validate_text_input(
         raise ValueError("Text must be a non-empty string.")
     encoded_size = len(text.encode("utf-8"))
     if encoded_size > max_input_bytes:
-        raise ValueError(
-            f"Text exceeds the configured input limit of "
-            f"{max_input_bytes} bytes."
-        )
+        raise ValueError(f"Text exceeds the configured input limit of {max_input_bytes} bytes.")
     return text
 
 
@@ -148,9 +146,7 @@ def read_text_file(path: str | os.PathLike[str], *, max_input_bytes: int) -> str
     target = Path(path)
     size = target.stat().st_size
     if size > max_input_bytes:
-        raise ValueError(
-            f"File exceeds the configured input limit of {max_input_bytes} bytes."
-        )
+        raise ValueError(f"File exceeds the configured input limit of {max_input_bytes} bytes.")
     return validate_text_input(
         target.read_text(encoding="utf-8"),
         max_input_bytes=max_input_bytes,

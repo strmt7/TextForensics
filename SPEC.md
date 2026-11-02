@@ -51,6 +51,7 @@ class Detector(Protocol):
     detector_id: str
     detector_version: str
     detector_family: str
+
     def detect(self, text: str) -> DetectorPrediction: ...
 ```
 

@@ -218,7 +218,10 @@ class TrustMapContractTests(unittest.TestCase):
     def test_trust_map_is_not_an_authorship_probability(self):
         tm = build_trust_map([prediction("a")], word_count=200, robustness=[])
         self.assertTrue(
-            any("not probability of authorship" in limitation.lower() for limitation in tm.limitations)
+            any(
+                "not probability of authorship" in limitation.lower()
+                for limitation in tm.limitations
+            )
         )
 
 

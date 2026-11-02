@@ -20,21 +20,22 @@ from textforensics.trust import TrustDimension
 
 
 class EvidenceTier(Enum):
-    READABLE = "readable"       # documented but not machine-verifiable
-    TOOL_BACKED = "tool_backed" # backed by a tool that can re-derive
-    VALIDATED = "validated"     # backed by committed, reproducible run artifact
+    READABLE = "readable"  # documented but not machine-verifiable
+    TOOL_BACKED = "tool_backed"  # backed by a tool that can re-derive
+    VALIDATED = "validated"  # backed by committed, reproducible run artifact
 
 
 class EvidenceLabel(Enum):
-    REPORTED = "reported"       # source finding, not reproduced
-    CALCULATED = "calculated"   # architecture-derived estimate
-    PROPOSED = "proposed"       # engineering choice to test
-    EXECUTED = "executed"       # check actually run and recorded
+    REPORTED = "reported"  # source finding, not reproduced
+    CALCULATED = "calculated"  # architecture-derived estimate
+    PROPOSED = "proposed"  # engineering choice to test
+    EXECUTED = "executed"  # check actually run and recorded
 
 
 @dataclass(slots=True)
 class EvidenceRef:
     """Reference to evidence backing a claim."""
+
     label: EvidenceLabel
     tier: EvidenceTier
     artifact: str  # path or run ID
@@ -44,6 +45,7 @@ class EvidenceRef:
 @dataclass(slots=True)
 class CapabilityClaim:
     """A single capability claim."""
+
     detector_id: str
     capability: str  # e.g. "language_coverage.en", "length_robustness.medium"
     tier: EvidenceTier
@@ -184,10 +186,7 @@ def ledger_to_trust_dimension(
 
     if has_validated:
         state = "supported"
-        reason = (
-            f"Capability '{capability_prefix}' for {detector_id} has "
-            f"VALIDATED-tier evidence."
-        )
+        reason = f"Capability '{capability_prefix}' for {detector_id} has VALIDATED-tier evidence."
     elif has_tool_backed:
         state = "partial"
         reason = (
@@ -207,9 +206,7 @@ def ledger_to_trust_dimension(
         for e in c.evidence:
             evidence_refs.append(e.artifact)
         if c.valid_until:
-            limitations.append(
-                f"Claim for {c.capability} expires {c.valid_until}."
-            )
+            limitations.append(f"Claim for {c.capability} expires {c.valid_until}.")
 
     return TrustDimension(
         dimension=capability_prefix.replace(".", "_"),

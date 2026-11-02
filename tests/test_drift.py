@@ -288,7 +288,11 @@ class SnapshotCreationTests(unittest.TestCase):
     def setUp(self):
         self.corpus = {
             "samples": [
-                {"id": f"sample-{i:02d}", "text": f"This is sample text number {i} that is long enough to trigger analysis. It has more than enough words to meet minimum length requirements for drift tracking.", "metadata": {"label": "human" if i % 2 == 0 else "ai", "domain": "general"}}
+                {
+                    "id": f"sample-{i:02d}",
+                    "text": f"This is sample text number {i} that is long enough to trigger analysis. It has more than enough words to meet minimum length requirements for drift tracking.",
+                    "metadata": {"label": "human" if i % 2 == 0 else "ai", "domain": "general"},
+                }
                 for i in range(1, 7)
             ]
         }
@@ -434,7 +438,9 @@ class SnapshotCreationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "store.json")
             self.obs.save_snapshots(path)
-            obs2 = DriftObservatory(corpus={"samples": [{"id": "different", "text_sha256": "a" * 64, "metadata": {}}]})
+            obs2 = DriftObservatory(
+                corpus={"samples": [{"id": "different", "text_sha256": "a" * 64, "metadata": {}}]}
+            )
             with self.assertRaises(ValueError):
                 obs2.load_snapshots(path, expected_corpus_sha256=obs2.corpus_sha256)
 
@@ -466,11 +472,20 @@ class SnapshotComparisonTests(unittest.TestCase):
     def setUp(self):
         self.corpus = {
             "samples": [
-                {"id": f"sample-{i:02d}", "text": f"This is sample text number {i} that is long enough to trigger analysis. It has more than enough words to meet minimum length requirements for drift tracking and comparison purposes.", "metadata": {"label": "human" if i % 2 == 0 else "ai", "domain": "general"}}
+                {
+                    "id": f"sample-{i:02d}",
+                    "text": f"This is sample text number {i} that is long enough to trigger analysis. It has more than enough words to meet minimum length requirements for drift tracking and comparison purposes.",
+                    "metadata": {"label": "human" if i % 2 == 0 else "ai", "domain": "general"},
+                }
                 for i in range(1, 7)
             ]
         }
-        self.sample_ids = list(self.corpus["samples"][0]["id"] if isinstance(self.corpus["samples"][0], dict) else self.corpus["samples"][0] for _ in range(1))
+        self.sample_ids = list(
+            self.corpus["samples"][0]["id"]
+            if isinstance(self.corpus["samples"][0], dict)
+            else self.corpus["samples"][0]
+            for _ in range(1)
+        )
 
     def _make_obs(self, corpus=None):
         return DriftObservatory(
@@ -703,63 +718,81 @@ class SettingsValidationTests(unittest.TestCase):
 
 class ObservationValidationTests(unittest.TestCase):
     def setUp(self):
-        self.obs = DriftObservatory(corpus={
-            "samples": [
-                {
-                    "id": "s1",
-                    "text": "This is a long enough text to meet the minimum word count requirements for drift testing and validation purposes.",
-                    "metadata": {},
-                },
-            ]
-        })
+        self.obs = DriftObservatory(
+            corpus={
+                "samples": [
+                    {
+                        "id": "s1",
+                        "text": "This is a long enough text to meet the minimum word count requirements for drift testing and validation purposes.",
+                        "metadata": {},
+                    },
+                ]
+            }
+        )
 
     def test_observation_missing_required_field(self):
         with self.assertRaises(ValueError):
-            self.obs.snapshot_from_observations([{
-                "sample_id": "s1",
-                "score": 0.5,
-                "verdict": "ai_like",
-                # missing detector_id
-            }])
+            self.obs.snapshot_from_observations(
+                [
+                    {
+                        "sample_id": "s1",
+                        "score": 0.5,
+                        "verdict": "ai_like",
+                        # missing detector_id
+                    }
+                ]
+            )
 
     def test_observation_text_sha256_mismatch(self):
         with self.assertRaises(ValueError):
-            self.obs.snapshot_from_observations([{
-                "sample_id": "s1",
-                "text_sha256": "wrong" * 21 + "a",
-                "score": 0.5,
-                "verdict": "ai_like",
-                "detector_id": "test",
-                "detector_version": "1.0",
-                "detector_family": "test",
-                "execution": "local",
-            }])
+            self.obs.snapshot_from_observations(
+                [
+                    {
+                        "sample_id": "s1",
+                        "text_sha256": "wrong" * 21 + "a",
+                        "score": 0.5,
+                        "verdict": "ai_like",
+                        "detector_id": "test",
+                        "detector_version": "1.0",
+                        "detector_family": "test",
+                        "execution": "local",
+                    }
+                ]
+            )
 
     def test_observation_calibration_without_id_raises(self):
         with self.assertRaises(ValueError):
-            self.obs.snapshot_from_observations([{
-                "sample_id": "s1",
-                "score": 0.5,
-                "verdict": "ai_like",
-                "detector_id": "test",
-                "detector_version": "1.0",
-                "detector_family": "test",
-                "execution": "local",
-                "calibration_id": "orphan",
-            }])
+            self.obs.snapshot_from_observations(
+                [
+                    {
+                        "sample_id": "s1",
+                        "score": 0.5,
+                        "verdict": "ai_like",
+                        "detector_id": "test",
+                        "detector_version": "1.0",
+                        "detector_family": "test",
+                        "execution": "local",
+                        "calibration_id": "orphan",
+                    }
+                ]
+            )
 
     def test_observation_probability_requires_calibration_id(self):
         with self.assertRaises(ValueError):
-            self.obs.snapshot_from_observations([{
-                "sample_id": "s1",
-                "score": 0.5,
-                "verdict": "ai_like",
-                "detector_id": "test",
-                "detector_version": "1.0",
-                "detector_family": "test",
-                "execution": "local",
-                "calibrated_ai_probability": 0.8,
-            }])
+            self.obs.snapshot_from_observations(
+                [
+                    {
+                        "sample_id": "s1",
+                        "score": 0.5,
+                        "verdict": "ai_like",
+                        "detector_id": "test",
+                        "detector_version": "1.0",
+                        "detector_family": "test",
+                        "execution": "local",
+                        "calibrated_ai_probability": 0.8,
+                    }
+                ]
+            )
 
 
 # ─── end-to-end with real builtin detector ─────────────────────

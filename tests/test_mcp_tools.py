@@ -105,66 +105,76 @@ SAMPLE_OBSERVATIONS = [
 
 class TestCapabilityRegister(unittest.TestCase):
     def test_validated_claim_with_executed_evidence(self):
-        result = capability_register({
-            "detector_id": "det_a",
-            "capability": "language_coverage.en",
-            "tier": "validated",
-            "evidence": [
-                {
-                    "label": "executed",
-                    "tier": "validated",
-                    "artifact": "bench_run/2026-01-01",
-                    "detail": "AUROC=0.95",
-                },
-            ],
-            "valid_until": "2027-01-01",
-        })
+        result = capability_register(
+            {
+                "detector_id": "det_a",
+                "capability": "language_coverage.en",
+                "tier": "validated",
+                "evidence": [
+                    {
+                        "label": "executed",
+                        "tier": "validated",
+                        "artifact": "bench_run/2026-01-01",
+                        "detail": "AUROC=0.95",
+                    },
+                ],
+                "valid_until": "2027-01-01",
+            }
+        )
         self.assertTrue(result["success"])
         self.assertEqual(result["exit_code"], constants.EXIT_OK)
         self.assertEqual(len(result["issues"]), 0)
         self.assertEqual(result["claim"]["tier"], "validated")
 
     def test_readable_claim_no_evidence(self):
-        result = capability_register({
-            "detector_id": "det_b",
-            "capability": "language_coverage.fr",
-            "tier": "readable",
-        })
+        result = capability_register(
+            {
+                "detector_id": "det_b",
+                "capability": "language_coverage.fr",
+                "tier": "readable",
+            }
+        )
         self.assertTrue(result["success"])
         self.assertEqual(result["exit_code"], constants.EXIT_INCOMPLETE)
         self.assertGreater(len(result["issues"]), 0)
 
     def test_validated_without_executed_evidence(self):
-        result = capability_register({
-            "detector_id": "det_c",
-            "capability": "length_robustness.medium",
-            "tier": "validated",
-            "evidence": [
-                {"label": "reported", "tier": "tool_backed", "artifact": "paper-123"},
-            ],
-        })
+        result = capability_register(
+            {
+                "detector_id": "det_c",
+                "capability": "length_robustness.medium",
+                "tier": "validated",
+                "evidence": [
+                    {"label": "reported", "tier": "tool_backed", "artifact": "paper-123"},
+                ],
+            }
+        )
         self.assertTrue(result["success"])
         self.assertEqual(result["exit_code"], constants.EXIT_INCOMPLETE)
         self.assertTrue(any("EXECUTED" in issue for issue in result["issues"]))
 
     def test_invalid_tier(self):
-        result = capability_register({
-            "detector_id": "det_d",
-            "capability": "x",
-            "tier": "not_a_tier",
-        })
+        result = capability_register(
+            {
+                "detector_id": "det_d",
+                "capability": "x",
+                "tier": "not_a_tier",
+            }
+        )
         self.assertFalse(result["success"])
         self.assertEqual(result["exit_code"], constants.EXIT_ERROR)
 
 
 class TestCapabilityCheck(unittest.TestCase):
     def _make_ledger(self, tier: str, evidence: list[dict] | None = None) -> dict:
-        capability_register({
-            "detector_id": "det_a",
-            "capability": "language_coverage.en",
-            "tier": tier,
-            "evidence": evidence or [],
-        })
+        capability_register(
+            {
+                "detector_id": "det_a",
+                "capability": "language_coverage.en",
+                "tier": tier,
+                "evidence": evidence or [],
+            }
+        )
         # Build a ledger dict manually
         return {
             "schema": "textforensics.capability-ledger/v1",
@@ -181,48 +191,62 @@ class TestCapabilityCheck(unittest.TestCase):
         }
 
     def test_validated_claim(self):
-        ledger = self._make_ledger("validated", [
-            {"label": "executed", "tier": "validated", "artifact": "run-1"},
-        ])
-        result = capability_check({
-            "ledger": ledger,
-            "detector_id": "det_a",
-            "capability": "language_coverage.en",
-        })
+        ledger = self._make_ledger(
+            "validated",
+            [
+                {"label": "executed", "tier": "validated", "artifact": "run-1"},
+            ],
+        )
+        result = capability_check(
+            {
+                "ledger": ledger,
+                "detector_id": "det_a",
+                "capability": "language_coverage.en",
+            }
+        )
         self.assertTrue(result["success"])
         self.assertTrue(result["is_validated"])
         self.assertEqual(result["tier"], "validated")
 
     def test_readable_claim(self):
-        ledger = self._make_ledger("readable", [
-            {"label": "reported", "tier": "readable", "artifact": "paper"},
-        ])
-        result = capability_check({
-            "ledger": ledger,
-            "detector_id": "det_a",
-            "capability": "language_coverage.en",
-        })
+        ledger = self._make_ledger(
+            "readable",
+            [
+                {"label": "reported", "tier": "readable", "artifact": "paper"},
+            ],
+        )
+        result = capability_check(
+            {
+                "ledger": ledger,
+                "detector_id": "det_a",
+                "capability": "language_coverage.en",
+            }
+        )
         self.assertTrue(result["success"])
         self.assertFalse(result["is_validated"])
         self.assertEqual(result["exit_code"], constants.EXIT_DOWNGRADED)
 
     def test_missing_capability(self):
         ledger = self._make_ledger("validated", [])
-        result = capability_check({
-            "ledger": ledger,
-            "detector_id": "det_a",
-            "capability": "language_coverage.fr",
-        })
+        result = capability_check(
+            {
+                "ledger": ledger,
+                "detector_id": "det_a",
+                "capability": "language_coverage.fr",
+            }
+        )
         self.assertTrue(result["success"])
         self.assertFalse(result["is_validated"])
         self.assertEqual(result["reason"], "no claim registered")
 
     def test_invalid_ledger(self):
-        result = capability_check({
-            "ledger": "not a dict",
-            "detector_id": "det_a",
-            "capability": "x",
-        })
+        result = capability_check(
+            {
+                "ledger": "not a dict",
+                "detector_id": "det_a",
+                "capability": "x",
+            }
+        )
         self.assertFalse(result["success"])
 
 
@@ -232,10 +256,20 @@ class TestCapabilityList(unittest.TestCase):
             "schema": "textforensics.capability-ledger/v1",
             "claims": {
                 "det_a": [
-                    {"capability": "lang.en", "tier": "validated", "evidence": [], "valid_until": None},
+                    {
+                        "capability": "lang.en",
+                        "tier": "validated",
+                        "evidence": [],
+                        "valid_until": None,
+                    },
                 ],
                 "det_b": [
-                    {"capability": "lang.fr", "tier": "readable", "evidence": [], "valid_until": None},
+                    {
+                        "capability": "lang.fr",
+                        "tier": "readable",
+                        "evidence": [],
+                        "valid_until": None,
+                    },
                 ],
             },
         }
@@ -249,10 +283,20 @@ class TestCapabilityList(unittest.TestCase):
             "schema": "textforensics.capability-ledger/v1",
             "claims": {
                 "det_a": [
-                    {"capability": "lang.en", "tier": "validated", "evidence": [], "valid_until": None},
+                    {
+                        "capability": "lang.en",
+                        "tier": "validated",
+                        "evidence": [],
+                        "valid_until": None,
+                    },
                 ],
                 "det_b": [
-                    {"capability": "lang.fr", "tier": "readable", "evidence": [], "valid_until": None},
+                    {
+                        "capability": "lang.fr",
+                        "tier": "readable",
+                        "evidence": [],
+                        "valid_until": None,
+                    },
                 ],
             },
         }
@@ -282,11 +326,13 @@ class TestVerifyCaseFile(unittest.TestCase):
 
 class TestDriftSnapshot(unittest.TestCase):
     def test_valid_snapshot(self):
-        result = drift_snapshot({
-            "corpus": SAMPLE_CORPUS,
-            "observations": SAMPLE_OBSERVATIONS,
-            "label": "v1",
-        })
+        result = drift_snapshot(
+            {
+                "corpus": SAMPLE_CORPUS,
+                "observations": SAMPLE_OBSERVATIONS,
+                "label": "v1",
+            }
+        )
         self.assertTrue(result["success"])
         self.assertIn("snapshot", result)
         self.assertEqual(result["snapshot"]["label"], "v1")
@@ -297,10 +343,12 @@ class TestDriftSnapshot(unittest.TestCase):
         self.assertEqual(result["exit_code"], constants.EXIT_ERROR)
 
     def test_invalid_observation(self):
-        result = drift_snapshot({
-            "corpus": SAMPLE_CORPUS,
-            "observations": [{"sample_id": "nonexistent"}],
-        })
+        result = drift_snapshot(
+            {
+                "corpus": SAMPLE_CORPUS,
+                "observations": [{"sample_id": "nonexistent"}],
+            }
+        )
         self.assertFalse(result["success"])
         self.assertEqual(result["exit_code"], constants.EXIT_ERROR)
 
@@ -308,28 +356,32 @@ class TestDriftSnapshot(unittest.TestCase):
 class TestDriftCompare(unittest.TestCase):
     def _make_snapshots(self) -> tuple[dict, dict]:
         obs1 = list(SAMPLE_OBSERVATIONS)
-        obs2 = [
-            {**o, "score": o["score"] + 0.05} for o in SAMPLE_OBSERVATIONS
-        ]
-        snap1 = drift_snapshot({
-            "corpus": SAMPLE_CORPUS,
-            "observations": obs1,
-            "label": "baseline",
-        })["snapshot"]
-        snap2 = drift_snapshot({
-            "corpus": SAMPLE_CORPUS,
-            "observations": obs2,
-            "label": "current",
-        })["snapshot"]
+        obs2 = [{**o, "score": o["score"] + 0.05} for o in SAMPLE_OBSERVATIONS]
+        snap1 = drift_snapshot(
+            {
+                "corpus": SAMPLE_CORPUS,
+                "observations": obs1,
+                "label": "baseline",
+            }
+        )["snapshot"]
+        snap2 = drift_snapshot(
+            {
+                "corpus": SAMPLE_CORPUS,
+                "observations": obs2,
+                "label": "current",
+            }
+        )["snapshot"]
         return snap1, snap2
 
     def test_compare_two_snapshots(self):
         snap1, snap2 = self._make_snapshots()
-        result = drift_compare({
-            "corpus": SAMPLE_CORPUS,
-            "baseline": snap1,
-            "current": snap2,
-        })
+        result = drift_compare(
+            {
+                "corpus": SAMPLE_CORPUS,
+                "baseline": snap1,
+                "current": snap2,
+            }
+        )
         self.assertTrue(result["success"])
         self.assertIn("report", result)
         self.assertIn("detectors", result["report"])
@@ -347,27 +399,33 @@ class TestDriftReport(unittest.TestCase):
         obs3 = [{**o, "score": o["score"] + 0.03} for o in SAMPLE_OBSERVATIONS]
         snapshots = []
         for i, obs in enumerate([obs1, obs2, obs3]):
-            snap_result = drift_snapshot({
-                "corpus": SAMPLE_CORPUS,
-                "observations": obs,
-                "label": f"v{i + 1}",
-            })
+            snap_result = drift_snapshot(
+                {
+                    "corpus": SAMPLE_CORPUS,
+                    "observations": obs,
+                    "label": f"v{i + 1}",
+                }
+            )
             if snap_result["success"]:
                 snapshots.append(snap_result["snapshot"])
 
-        result = drift_report({
-            "corpus": SAMPLE_CORPUS,
-            "snapshots": snapshots,
-        })
+        result = drift_report(
+            {
+                "corpus": SAMPLE_CORPUS,
+                "snapshots": snapshots,
+            }
+        )
         self.assertTrue(result["success"])
         self.assertIn("report", result)
         self.assertEqual(result["snapshot_count"], 3)
 
     def test_too_few_snapshots(self):
-        result = drift_report({
-            "corpus": SAMPLE_CORPUS,
-            "snapshots": [],
-        })
+        result = drift_report(
+            {
+                "corpus": SAMPLE_CORPUS,
+                "snapshots": [],
+            }
+        )
         self.assertFalse(result["success"])
         self.assertEqual(result["exit_code"], constants.EXIT_ERROR)
 
@@ -379,10 +437,12 @@ class TestFingerprintDataset(unittest.TestCase):
         self.assertEqual(result["exit_code"], constants.EXIT_ERROR)
 
     def test_nonexistent_file(self):
-        result = fingerprint_dataset({
-            "path": "/nonexistent/path.jsonl",
-            "name": "fake",
-        })
+        result = fingerprint_dataset(
+            {
+                "path": "/nonexistent/path.jsonl",
+                "name": "fake",
+            }
+        )
         self.assertFalse(result["success"])
         self.assertEqual(result["exit_code"], constants.EXIT_ERROR)
 
@@ -394,12 +454,14 @@ class TestCheckContamination(unittest.TestCase):
         self.assertEqual(result["exit_code"], constants.EXIT_ERROR)
 
     def test_invalid_fingerprint(self):
-        result = check_contamination({
-            "dataset1_path": "a.jsonl",
-            "fingerprint1": "not a dict",
-            "dataset2_path": "b.jsonl",
-            "fingerprint2": {},
-        })
+        result = check_contamination(
+            {
+                "dataset1_path": "a.jsonl",
+                "fingerprint1": "not a dict",
+                "dataset2_path": "b.jsonl",
+                "fingerprint2": {},
+            }
+        )
         self.assertFalse(result["success"])
         self.assertEqual(result["exit_code"], constants.EXIT_ERROR)
 

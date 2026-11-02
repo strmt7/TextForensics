@@ -55,7 +55,7 @@ class RobustnessTests(unittest.TestCase):
         self.assertIn("a b", variants["normalized_whitespace"])
 
     def test_benign_variants_normalize_smart_punctuation(self):
-        variants = benign_variants('He said \u201cyes\u201d and \u2014left.')
+        variants = benign_variants("He said \u201cyes\u201d and \u2014left.")
         self.assertNotIn("\u201c", variants["normalized_punctuation"])
         self.assertNotIn("\u2014", variants["normalized_punctuation"])
 

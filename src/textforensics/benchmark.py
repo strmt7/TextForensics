@@ -40,30 +40,21 @@ def _load_scores(
                 row = json.loads(line)
             except json.JSONDecodeError as exc:
                 if strict:
-                    raise DatasetFormatError(
-                        f"Line {line_number} is not valid JSON."
-                    ) from exc
+                    raise DatasetFormatError(f"Line {line_number} is not valid JSON.") from exc
                 skipped += 1
                 continue
             if not isinstance(row, dict):
                 if strict:
-                    raise DatasetFormatError(
-                        f"Line {line_number} must be a JSON object."
-                    )
+                    raise DatasetFormatError(f"Line {line_number} must be a JSON object.")
                 skipped += 1
                 continue
 
             label = str(row.get("label", "")).strip().lower()
             text = row.get("text")
-            if (
-                label not in {"human", "ai"}
-                or not isinstance(text, str)
-                or not text.strip()
-            ):
+            if label not in {"human", "ai"} or not isinstance(text, str) or not text.strip():
                 if strict:
                     raise DatasetFormatError(
-                        f"Line {line_number} requires label 'human'/'ai' "
-                        "and non-empty text."
+                        f"Line {line_number} requires label 'human'/'ai' and non-empty text."
                     )
                 skipped += 1
                 continue
@@ -244,10 +235,7 @@ def benchmark_with_calibration_jsonl(
 ) -> dict[str, Any]:
     validate_calibration_artifact(calibration)
     evaluation_sha = dataset_sha256(path)
-    if (
-        not allow_same_dataset
-        and evaluation_sha == calibration["calibration_dataset_sha256"]
-    ):
+    if not allow_same_dataset and evaluation_sha == calibration["calibration_dataset_sha256"]:
         raise ValueError(
             "Evaluation dataset matches the calibration dataset. Use a separate "
             "held-out dataset for release-quality validation."
@@ -259,9 +247,7 @@ def benchmark_with_calibration_jsonl(
         {
             "schema": "textforensics.benchmark-result/v1",
             "dataset_sha256": evaluation_sha,
-            "calibration_dataset_sha256": calibration[
-                "calibration_dataset_sha256"
-            ],
+            "calibration_dataset_sha256": calibration["calibration_dataset_sha256"],
             "detector_id": calibration["detector_id"],
             "detector_version": calibration["detector_version"],
             "skipped": skipped,

@@ -21,8 +21,10 @@ from textforensics.benchmark_fingerprint import (
     verify_fingerprint,
 )
 
-HUMAN_SAMPLE = "I ran this test yesterday. The first result looked odd, " \
-               "so I changed one cable, repeated it, and wrote down the result."
+HUMAN_SAMPLE = (
+    "I ran this test yesterday. The first result looked odd, "
+    "so I changed one cable, repeated it, and wrote down the result."
+)
 AI_SAMPLE = "Furthermore, this robust solution seamlessly unlocks the potential."
 
 
@@ -194,7 +196,9 @@ class VerifyFingerprintTests(unittest.TestCase):
             )
 
             # Now modify the same file
-            modified_content = json.dumps({"label": "human", "text": "completely different content"})
+            modified_content = json.dumps(
+                {"label": "human", "text": "completely different content"}
+            )
             original_path.write_text(modified_content + "\n", encoding="utf-8")
 
             result = verify_fingerprint(original_path, fp)
@@ -582,7 +586,12 @@ class VerifyFingerprintErrorHandlingTests(unittest.TestCase):
             dir_path = Path(tmp)
             result = verify_fingerprint(dir_path, fp)
             self.assertFalse(result["valid"])
-            self.assertTrue(any("hash" in e.lower() or "not found" in e.lower() or "permission" in e.lower() for e in result["errors"]))
+            self.assertTrue(
+                any(
+                    "hash" in e.lower() or "not found" in e.lower() or "permission" in e.lower()
+                    for e in result["errors"]
+                )
+            )
 
     def test_verify_sample_count_error(self):
         """Test verification handles sample counting errors."""
@@ -599,7 +608,9 @@ class VerifyFingerprintErrorHandlingTests(unittest.TestCase):
             dir_path = Path(tmp)
             result = verify_fingerprint(dir_path, fp)
             self.assertFalse(result["valid"])
-            self.assertTrue(any("hash" in e.lower() or "permission" in e.lower() for e in result["errors"]))
+            self.assertTrue(
+                any("hash" in e.lower() or "permission" in e.lower() for e in result["errors"])
+            )
 
 
 class ComputeSampleHashesEdgeCasesTests(unittest.TestCase):
@@ -631,7 +642,9 @@ class CheckDisjointnessErrorHandlingTests(unittest.TestCase):
             write_test_dataset(path2)
 
             fp1 = DatasetFingerprint(
-                name="Test", version="1.0", split="calibration",
+                name="Test",
+                version="1.0",
+                split="calibration",
                 dataset_hash="a" * 64,
             )
             fp2 = fingerprint_dataset(path2, name="Test", version="1.0", split="evaluation")
@@ -649,7 +662,9 @@ class CheckDisjointnessErrorHandlingTests(unittest.TestCase):
 
             fp1 = fingerprint_dataset(path1, name="Test", version="1.0", split="calibration")
             fp2 = DatasetFingerprint(
-                name="Test", version="1.0", split="evaluation",
+                name="Test",
+                version="1.0",
+                split="evaluation",
                 dataset_hash="b" * 64,
             )
 

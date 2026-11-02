@@ -12,8 +12,7 @@ from .robustness import benign_variants
 def _weighted_score(results: list[AnalyzerResult]) -> float:
     weights = [max(0.05, result.reliability) for result in results]
     return sum(
-        result.score * weight
-        for result, weight in zip(results, weights, strict=False)
+        result.score * weight for result, weight in zip(results, weights, strict=False)
     ) / sum(weights)
 
 
@@ -73,9 +72,7 @@ def analyze_text(
 
     length_reliability = min(1.0, features["word_count"] / 250.0)
     diagnostic_reliability = (
-        length_reliability
-        * (0.65 + 0.35 * (1.0 - disagreement))
-        * (0.7 + 0.3 * stability)
+        length_reliability * (0.65 + 0.35 * (1.0 - disagreement)) * (0.7 + 0.3 * stability)
     )
     diagnostic_reliability = max(
         0.0,
@@ -89,13 +86,9 @@ def analyze_text(
             "below the built-in baseline's 80-word minimum."
         )
     if disagreement > 0.45:
-        warnings.append(
-            "High analyzer disagreement: treat the aggregate score as weak evidence."
-        )
+        warnings.append("High analyzer disagreement: treat the aggregate score as weak evidence.")
     if stability < 0.85:
-        warnings.append(
-            "The baseline score is sensitive to harmless formatting normalization."
-        )
+        warnings.append("The baseline score is sensitive to harmless formatting normalization.")
     warnings.extend(
         [
             (

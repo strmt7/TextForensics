@@ -90,7 +90,12 @@ class CliTests(unittest.TestCase):
 
             # Export a case file
             export = self.run_cli(
-                "case", "export", "--file", str(source), "--output", str(case),
+                "case",
+                "export",
+                "--file",
+                str(source),
+                "--output",
+                str(case),
             )
             self.assertEqual(export.returncode, EXIT_OK, export.stderr)
 
@@ -109,7 +114,12 @@ class CliTests(unittest.TestCase):
 
             # Export a case file
             export = self.run_cli(
-                "case", "export", "--file", str(source), "--output", str(case),
+                "case",
+                "export",
+                "--file",
+                str(source),
+                "--output",
+                str(case),
             )
             self.assertEqual(export.returncode, EXIT_OK)
 

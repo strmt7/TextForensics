@@ -33,6 +33,7 @@ from .verify import verify_case_file as nversion_verify
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _error_response(error: str, exit_code: int) -> dict[str, Any]:
     return {
         "success": False,
@@ -41,7 +42,9 @@ def _error_response(error: str, exit_code: int) -> dict[str, Any]:
     }
 
 
-def _ok_response(payload: dict[str, Any] | None = None, exit_code: int = constants.EXIT_OK) -> dict[str, Any]:
+def _ok_response(
+    payload: dict[str, Any] | None = None, exit_code: int = constants.EXIT_OK
+) -> dict[str, Any]:
     result = {"success": True, "exit_code": exit_code}
     if payload:
         result.update(payload)
@@ -51,6 +54,7 @@ def _ok_response(payload: dict[str, Any] | None = None, exit_code: int = constan
 # ---------------------------------------------------------------------------
 # Capability Ledger tools
 # ---------------------------------------------------------------------------
+
 
 def capability_register(params: dict[str, Any]) -> dict[str, Any]:
     """Register a capability claim.
@@ -73,12 +77,14 @@ def capability_register(params: dict[str, Any]) -> dict[str, Any]:
     evidence = []
     for e in params.get("evidence", []):
         try:
-            evidence.append(EvidenceRef(
-                label=EvidenceLabel(e["label"]),
-                tier=EvidenceTier(e["tier"]),
-                artifact=e["artifact"],
-                detail=e.get("detail"),
-            ))
+            evidence.append(
+                EvidenceRef(
+                    label=EvidenceLabel(e["label"]),
+                    tier=EvidenceTier(e["tier"]),
+                    artifact=e["artifact"],
+                    detail=e.get("detail"),
+                )
+            )
         except (KeyError, ValueError, TypeError) as exc:
             return _error_response(f"Invalid evidence entry: {exc}", constants.EXIT_ERROR)
 
@@ -98,7 +104,12 @@ def capability_register(params: dict[str, Any]) -> dict[str, Any]:
             "capability": claim.capability,
             "tier": claim.tier.value,
             "evidence": [
-                {"label": e.label.value, "tier": e.tier.value, "artifact": e.artifact, "detail": e.detail}
+                {
+                    "label": e.label.value,
+                    "tier": e.tier.value,
+                    "artifact": e.artifact,
+                    "detail": e.detail,
+                }
                 for e in claim.evidence
             ],
             "valid_until": claim.valid_until,
@@ -136,23 +147,29 @@ def capability_check(params: dict[str, Any]) -> dict[str, Any]:
 
     claim = ledger.get(detector_id, capability)
     if claim is None:
-        return _ok_response({
-            "detector_id": detector_id,
-            "capability": capability,
-            "is_validated": False,
-            "tier": None,
-            "reason": "no claim registered",
-        }, constants.EXIT_DOWNGRADED)
+        return _ok_response(
+            {
+                "detector_id": detector_id,
+                "capability": capability,
+                "is_validated": False,
+                "tier": None,
+                "reason": "no claim registered",
+            },
+            constants.EXIT_DOWNGRADED,
+        )
 
     is_validated = claim.tier == EvidenceTier.VALIDATED
-    return _ok_response({
-        "detector_id": detector_id,
-        "capability": capability,
-        "is_validated": is_validated,
-        "tier": claim.tier.value,
-        "evidence_count": len(claim.evidence),
-        "valid_until": claim.valid_until,
-    }, constants.EXIT_OK if is_validated else constants.EXIT_DOWNGRADED)
+    return _ok_response(
+        {
+            "detector_id": detector_id,
+            "capability": capability,
+            "is_validated": is_validated,
+            "tier": claim.tier.value,
+            "evidence_count": len(claim.evidence),
+            "valid_until": claim.valid_until,
+        },
+        constants.EXIT_OK if is_validated else constants.EXIT_DOWNGRADED,
+    )
 
 
 def capability_list(params: dict[str, Any]) -> dict[str, Any]:
@@ -194,6 +211,7 @@ def capability_list(params: dict[str, Any]) -> dict[str, Any]:
 # Verify tool
 # ---------------------------------------------------------------------------
 
+
 def verify_case_file(params: dict[str, Any]) -> dict[str, Any]:
     """Run N-version integrity replay on a case file.
 
@@ -231,6 +249,7 @@ def verify_case_file(params: dict[str, Any]) -> dict[str, Any]:
 # Drift tools
 # ---------------------------------------------------------------------------
 
+
 def drift_snapshot(params: dict[str, Any]) -> dict[str, Any]:
     """Take a detector drift snapshot from observations.
 
@@ -247,7 +266,9 @@ def drift_snapshot(params: dict[str, Any]) -> dict[str, Any]:
         corpus = params["corpus"]
         observations = params["observations"]
     except (KeyError, TypeError):
-        return _error_response("Missing required keys: corpus and observations", constants.EXIT_ERROR)
+        return _error_response(
+            "Missing required keys: corpus and observations", constants.EXIT_ERROR
+        )
 
     try:
         observatory = DriftObservatory(corpus=corpus)
@@ -343,17 +364,21 @@ def drift_report(params: dict[str, Any]) -> dict[str, Any]:
     overall = report.get("overall", {})
     has_drift = overall.get("status") == "drift_detected"
 
-    return _ok_response({
-        "report": report,
-        "snapshot_count": len(snapshots),
-        "baseline_snapshot_id": snapshots[0].get("snapshot_id"),
-        "current_snapshot_id": snapshots[-1].get("snapshot_id"),
-    }, constants.EXIT_DOWNGRADED if has_drift else constants.EXIT_OK)
+    return _ok_response(
+        {
+            "report": report,
+            "snapshot_count": len(snapshots),
+            "baseline_snapshot_id": snapshots[0].get("snapshot_id"),
+            "current_snapshot_id": snapshots[-1].get("snapshot_id"),
+        },
+        constants.EXIT_DOWNGRADED if has_drift else constants.EXIT_OK,
+    )
 
 
 # ---------------------------------------------------------------------------
 # Benchmark fingerprint tools
 # ---------------------------------------------------------------------------
+
 
 def fingerprint_dataset(params: dict[str, Any]) -> dict[str, Any]:
     """Create a dataset fingerprint.
@@ -421,7 +446,10 @@ def check_contamination(params: dict[str, Any]) -> dict[str, Any]:
 
     try:
         result = check_disjointness(
-            path1, fp1, path2, fp2,
+            path1,
+            fp1,
+            path2,
+            fp2,
             strict=params.get("strict", True),
         )
     except (FileNotFoundError, ValueError, TypeError, OSError) as exc:

@@ -15,11 +15,7 @@ def sha256_bytes(data: bytes) -> str:
 
 
 def _canonical_record_payload(record: dict[str, Any]) -> bytes:
-    payload = {
-        key: value
-        for key, value in record.items()
-        if key != "record_sha256"
-    }
+    payload = {key: value for key, value in record.items() if key != "record_sha256"}
     return json.dumps(
         payload,
         sort_keys=True,
@@ -134,15 +130,11 @@ def snapshot_file(
         if ledger_path.exists():
             verification = _verify_ledger_unlocked(ledger_path)
             if not verification["valid"]:
-                raise ValueError(
-                    "Refusing to append to an invalid provenance ledger."
-                )
+                raise ValueError("Refusing to append to an invalid provenance ledger.")
             with ledger_path.open("r", encoding="utf-8") as handle:
                 for line in handle:
                     if line.strip():
-                        previous_record_sha256 = json.loads(line)[
-                            "record_sha256"
-                        ]
+                        previous_record_sha256 = json.loads(line)["record_sha256"]
 
         record: dict[str, Any] = {
             "schema": "textforensics-ledger/v1",
@@ -152,9 +144,7 @@ def snapshot_file(
             "file_sha256": sha256_bytes(data),
             "previous_record_sha256": previous_record_sha256,
         }
-        record["record_sha256"] = sha256_bytes(
-            _canonical_record_payload(record)
-        )
+        record["record_sha256"] = sha256_bytes(_canonical_record_payload(record))
 
         ledger_path.parent.mkdir(parents=True, exist_ok=True)
         with ledger_path.open("a", encoding="utf-8") as handle:

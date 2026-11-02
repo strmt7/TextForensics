@@ -12,6 +12,7 @@ The current alpha implementation has 5 static dimensions that are hardcoded to "
 making "mixed" unreachable (would be "insufficient" with 5 unknowns).
 "strong" is also unreachable until those dimensions have evidence.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -76,29 +77,17 @@ class TrustMapOverallStateLogicTests(unittest.TestCase):
             TrustDimension(
                 dimension="language", state="supported", reason="ok"
             ),  # Override the default unknown
-            TrustDimension(
-                dimension="text_length", state="supported", reason="ok"
-            ),
-            TrustDimension(
-                dimension="domain_genre", state="supported", reason="ok"
-            ),
-            TrustDimension(
-                dimension="editing_revision", state="supported", reason="ok"
-            ),
+            TrustDimension(dimension="text_length", state="supported", reason="ok"),
+            TrustDimension(dimension="domain_genre", state="supported", reason="ok"),
+            TrustDimension(dimension="editing_revision", state="supported", reason="ok"),
             TrustDimension(
                 dimension="human_false_positive_evidence",
                 state="partial",
                 reason="some evidence",
             ),  # partial here
-            TrustDimension(
-                dimension="detector_diversity", state="supported", reason="ok"
-            ),
-            TrustDimension(
-                dimension="benign_stability", state="supported", reason="ok"
-            ),
-            TrustDimension(
-                dimension="temporal_version_stability", state="supported", reason="ok"
-            ),
+            TrustDimension(dimension="detector_diversity", state="supported", reason="ok"),
+            TrustDimension(dimension="benign_stability", state="supported", reason="ok"),
+            TrustDimension(dimension="temporal_version_stability", state="supported", reason="ok"),
         ]
 
         unknown_count = sum(d.state == "unknown" for d in dimensions)
@@ -124,32 +113,18 @@ class TrustMapOverallStateLogicTests(unittest.TestCase):
         This is the ideal case with no unknowns, no partials, no out_of_scope.
         """
         dimensions = [
-            TrustDimension(
-                dimension="language", state="supported", reason="ok"
-            ),
-            TrustDimension(
-                dimension="text_length", state="supported", reason="ok"
-            ),
-            TrustDimension(
-                dimension="domain_genre", state="supported", reason="ok"
-            ),
-            TrustDimension(
-                dimension="editing_revision", state="supported", reason="ok"
-            ),
+            TrustDimension(dimension="language", state="supported", reason="ok"),
+            TrustDimension(dimension="text_length", state="supported", reason="ok"),
+            TrustDimension(dimension="domain_genre", state="supported", reason="ok"),
+            TrustDimension(dimension="editing_revision", state="supported", reason="ok"),
             TrustDimension(
                 dimension="human_false_positive_evidence",
                 state="supported",
                 reason="ok",
             ),
-            TrustDimension(
-                dimension="detector_diversity", state="supported", reason="ok"
-            ),
-            TrustDimension(
-                dimension="benign_stability", state="supported", reason="ok"
-            ),
-            TrustDimension(
-                dimension="temporal_version_stability", state="supported", reason="ok"
-            ),
+            TrustDimension(dimension="detector_diversity", state="supported", reason="ok"),
+            TrustDimension(dimension="benign_stability", state="supported", reason="ok"),
+            TrustDimension(dimension="temporal_version_stability", state="supported", reason="ok"),
         ]
 
         unknown_count = sum(d.state == "unknown" for d in dimensions)
@@ -172,32 +147,18 @@ class TrustMapOverallStateLogicTests(unittest.TestCase):
     def test_insufficient_with_many_unknowns(self):
         """Test line 231: >=3 unknowns triggers insufficient."""
         dimensions = [
-            TrustDimension(
-                dimension="language", state="unknown", reason="unknown"
-            ),
-            TrustDimension(
-                dimension="text_length", state="supported", reason="ok"
-            ),
-            TrustDimension(
-                dimension="domain_genre", state="unknown", reason="unknown"
-            ),
-            TrustDimension(
-                dimension="editing_revision", state="unknown", reason="unknown"
-            ),
+            TrustDimension(dimension="language", state="unknown", reason="unknown"),
+            TrustDimension(dimension="text_length", state="supported", reason="ok"),
+            TrustDimension(dimension="domain_genre", state="unknown", reason="unknown"),
+            TrustDimension(dimension="editing_revision", state="unknown", reason="unknown"),
             TrustDimension(
                 dimension="human_false_positive_evidence",
                 state="supported",
                 reason="ok",
             ),
-            TrustDimension(
-                dimension="detector_diversity", state="supported", reason="ok"
-            ),
-            TrustDimension(
-                dimension="benign_stability", state="supported", reason="ok"
-            ),
-            TrustDimension(
-                dimension="temporal_version_stability", state="known", reason="ok"
-            ),
+            TrustDimension(dimension="detector_diversity", state="supported", reason="ok"),
+            TrustDimension(dimension="benign_stability", state="supported", reason="ok"),
+            TrustDimension(dimension="temporal_version_stability", state="known", reason="ok"),
         ]
 
         unknown_count = sum(d.state == "unknown" for d in dimensions)
@@ -247,9 +208,7 @@ class TrustMapDimensionTests(unittest.TestCase):
     def test_stability_dimension_unknown_without_robustness(self):
         """Test stability dimension without robustness evidence."""
         tm = build_trust_map([prediction("a")], word_count=200, robustness=[])
-        stab_dim = next(
-            d for d in tm.dimensions if d.dimension == "benign_stability"
-        )
+        stab_dim = next(d for d in tm.dimensions if d.dimension == "benign_stability")
         self.assertEqual(stab_dim.state, "unknown")
 
     def test_stability_dimension_supported_with_perfect_stability(self):
@@ -262,9 +221,7 @@ class TrustMapDimensionTests(unittest.TestCase):
             }
         ]
         tm = build_trust_map([prediction("a")], word_count=200, robustness=robustness)
-        stab_dim = next(
-            d for d in tm.dimensions if d.dimension == "benign_stability"
-        )
+        stab_dim = next(d for d in tm.dimensions if d.dimension == "benign_stability")
         self.assertEqual(stab_dim.state, "supported")
 
     def test_stability_dimension_partial_with_imperfect_stability(self):
@@ -277,9 +234,7 @@ class TrustMapDimensionTests(unittest.TestCase):
             }
         ]
         tm = build_trust_map([prediction("a")], word_count=200, robustness=robustness)
-        stab_dim = next(
-            d for d in tm.dimensions if d.dimension == "benign_stability"
-        )
+        stab_dim = next(d for d in tm.dimensions if d.dimension == "benign_stability")
         self.assertEqual(stab_dim.state, "partial")
 
 
@@ -291,11 +246,7 @@ class TrustMapSerializationTests(unittest.TestCase):
         tm = TrustMap(
             schema="textforensics.trust-map/v1",
             overall="mixed",
-            dimensions=[
-                TrustDimension(
-                    dimension="text_length", state="supported", reason="ok"
-                )
-            ],
+            dimensions=[TrustDimension(dimension="text_length", state="supported", reason="ok")],
         )
         data = tm.to_dict()
 

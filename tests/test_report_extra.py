@@ -1,4 +1,5 @@
 """Extra tests for report.py to cover uncovered branches in _integrity and _robustness_for_detector."""
+
 from __future__ import annotations
 
 import unittest
@@ -58,9 +59,7 @@ class IntegrityGradeTests(unittest.TestCase):
 
     def test_integrity_word_count_lt_100(self):
         predictions = [make_prediction("d1", "fa", "ai_like")]
-        integrity = _integrity(
-            predictions, word_count=50, robustness=[{"verdict_stability": 0.95}]
-        )
+        integrity = _integrity(predictions, word_count=50, robustness=[{"verdict_stability": 0.95}])
         self.assertIn("short_text_limits_detector_evidence", integrity.factors)
 
     # ---------- family count branches ----------
@@ -98,8 +97,12 @@ class IntegrityGradeTests(unittest.TestCase):
 
     def test_integrity_two_calibrated_families(self):
         predictions = [
-            make_prediction("d1", "fa", "ai_like", calibrated_ai_probability=0.7, calibration_id="c1"),
-            make_prediction("d2", "fb", "ai_like", calibrated_ai_probability=0.6, calibration_id="c2"),
+            make_prediction(
+                "d1", "fa", "ai_like", calibrated_ai_probability=0.7, calibration_id="c1"
+            ),
+            make_prediction(
+                "d2", "fb", "ai_like", calibrated_ai_probability=0.6, calibration_id="c2"
+            ),
         ]
         integrity = _integrity(
             predictions, word_count=300, robustness=[{"verdict_stability": 0.95}]
@@ -109,7 +112,9 @@ class IntegrityGradeTests(unittest.TestCase):
 
     def test_integrity_one_calibrated_family(self):
         predictions = [
-            make_prediction("d1", "fa", "ai_like", calibrated_ai_probability=0.7, calibration_id="c1"),
+            make_prediction(
+                "d1", "fa", "ai_like", calibrated_ai_probability=0.7, calibration_id="c1"
+            ),
             make_prediction("d2", "fb", "human_like"),
         ]
         integrity = _integrity(
@@ -182,9 +187,7 @@ class IntegrityGradeTests(unittest.TestCase):
             make_prediction("d1", "fa", "ai_like"),
             make_prediction("d2", "fb", "ai_like"),
         ]
-        integrity = _integrity(
-            predictions, word_count=300, robustness=[{"verdict_stability": 0.7}]
-        )
+        integrity = _integrity(predictions, word_count=300, robustness=[{"verdict_stability": 0.7}])
         self.assertIn("categorical_verdict_sensitive_to_benign_normalization", integrity.factors)
 
     def test_integrity_no_stability_data(self):
@@ -201,19 +204,23 @@ class IntegrityGradeTests(unittest.TestCase):
     def test_integrity_grade_a(self):
         """High score → grade A (>= 0.85)."""
         predictions = [
-            make_prediction("d1", "fa", "ai_like", calibrated_ai_probability=0.7, calibration_id="c1"),
-            make_prediction("d2", "fb", "ai_like", calibrated_ai_probability=0.6, calibration_id="c2"),
+            make_prediction(
+                "d1", "fa", "ai_like", calibrated_ai_probability=0.7, calibration_id="c1"
+            ),
+            make_prediction(
+                "d2", "fb", "ai_like", calibrated_ai_probability=0.6, calibration_id="c2"
+            ),
             make_prediction("d3", "fc", "ai_like"),
         ]
-        integrity = _integrity(
-            predictions, word_count=300, robustness=[{"verdict_stability": 1.0}]
-        )
+        integrity = _integrity(predictions, word_count=300, robustness=[{"verdict_stability": 1.0}])
         self.assertEqual(integrity.grade, "A")
 
     def test_integrity_grade_b(self):
         """Mid-high score → grade B (>= 0.70)."""
         predictions = [
-            make_prediction("d1", "fa", "ai_like", calibrated_ai_probability=0.7, calibration_id="c1"),
+            make_prediction(
+                "d1", "fa", "ai_like", calibrated_ai_probability=0.7, calibration_id="c1"
+            ),
             make_prediction("d2", "fb", "ai_like"),
         ]
         integrity = _integrity(
@@ -224,7 +231,9 @@ class IntegrityGradeTests(unittest.TestCase):
     def test_integrity_grade_c(self):
         """Mid score → grade C (>= 0.52)."""
         predictions = [
-            make_prediction("d1", "fa", "ai_like", calibrated_ai_probability=0.7, calibration_id="c1"),
+            make_prediction(
+                "d1", "fa", "ai_like", calibrated_ai_probability=0.7, calibration_id="c1"
+            ),
             make_prediction("d2", "fb", "human_like"),
         ]
         integrity = _integrity(
@@ -247,9 +256,7 @@ class IntegrityGradeTests(unittest.TestCase):
             make_prediction("d1", "fa", "ai_like"),
             make_prediction("d2", "fb", "human_like"),
         ]
-        integrity = _integrity(
-            predictions, word_count=150, robustness=[{"verdict_stability": 0.5}]
-        )
+        integrity = _integrity(predictions, word_count=150, robustness=[{"verdict_stability": 0.5}])
         self.assertEqual(integrity.grade, "D")
 
     def test_integrity_grade_insufficient(self):
@@ -261,8 +268,12 @@ class IntegrityGradeTests(unittest.TestCase):
     def test_integrity_score_caps_at_1_0(self):
         integrity = _integrity(
             [
-                make_prediction("d1", "fa", "ai_like", calibrated_ai_probability=0.7, calibration_id="c1"),
-                make_prediction("d2", "fb", "ai_like", calibrated_ai_probability=0.6, calibration_id="c2"),
+                make_prediction(
+                    "d1", "fa", "ai_like", calibrated_ai_probability=0.7, calibration_id="c1"
+                ),
+                make_prediction(
+                    "d2", "fb", "ai_like", calibrated_ai_probability=0.6, calibration_id="c2"
+                ),
                 make_prediction("d3", "fc", "ai_like"),
             ],
             word_count=300,
@@ -276,6 +287,7 @@ class RobustnessForDetectorEdgeTests(unittest.TestCase):
 
     def test_robustness_single_score_native_range_none(self):
         """When only 1 score is recorded, native_score_range is None."""
+
         # Create a detector whose detect() returns score=None
         class NullScoreDetector:
             detector_id = "fake/null"
@@ -302,6 +314,7 @@ class RobustnessForDetectorEdgeTests(unittest.TestCase):
 
     def test_robustness_verdict_stability_with_all_same_verdict(self):
         """All probes return same verdict → stability = 1.0."""
+
         class StableDetector:
             detector_id = "fake/stable"
             detector_version = "1"
@@ -345,10 +358,16 @@ class RobustnessForDetectorEdgeTests(unittest.TestCase):
         )
 
         # Include a non-"original" variant so execute_detector is called
-        with patch("textforensics.report.benign_variants", return_value={
-            "original": "text",
-            "normalized_whitespace": " text ",
-        }), patch("textforensics.report.execute_detector", return_value=(None, None)):
+        with (
+            patch(
+                "textforensics.report.benign_variants",
+                return_value={
+                    "original": "text",
+                    "normalized_whitespace": " text ",
+                },
+            ),
+            patch("textforensics.report.execute_detector", return_value=(None, None)),
+        ):
             with self.assertRaises(ValueError) as ctx:
                 _robustness_for_detector(detector, "text", original)
             self.assertIn("neither a prediction nor a failure", str(ctx.exception))
@@ -387,10 +406,16 @@ class RobustnessForDetectorEdgeTests(unittest.TestCase):
                 ),
             )
 
-        with patch("textforensics.report.benign_variants", return_value={
-            "original": "text",
-            "normalized_whitespace": "text ",
-        }), patch("textforensics.report.execute_detector", side_effect=mock_execute):
+        with (
+            patch(
+                "textforensics.report.benign_variants",
+                return_value={
+                    "original": "text",
+                    "normalized_whitespace": "text ",
+                },
+            ),
+            patch("textforensics.report.execute_detector", side_effect=mock_execute),
+        ):
             _robustness_for_detector(detector, "text", original)
             # Original probe uses original_prediction directly, so it succeeds
             # But if we make it so ALL probes fail including original...
@@ -434,10 +459,16 @@ class RobustnessForDetectorEdgeTests(unittest.TestCase):
                 ),
             )
 
-        with patch("textforensics.report.benign_variants", return_value={
-            "original": "text",
-            "normalized_whitespace": " text ",
-        }), patch("textforensics.report.execute_detector", side_effect=mock_execute):
+        with (
+            patch(
+                "textforensics.report.benign_variants",
+                return_value={
+                    "original": "text",
+                    "normalized_whitespace": " text ",
+                },
+            ),
+            patch("textforensics.report.execute_detector", side_effect=mock_execute),
+        ):
             row = _robustness_for_detector(detector, "text", original)
             # Original succeeds with score=None → 1 label, 0 scores with values
             # So native_score_range is None (only 1 score at most)
@@ -516,11 +547,15 @@ class BuildForensicBundleDeterministicTests(unittest.TestCase):
             "The second run was warmer, so I repeated it."
         )
         b1 = build_forensic_bundle(
-            text, detectors=[FakeOkDetector()], deterministic=True,
+            text,
+            detectors=[FakeOkDetector()],
+            deterministic=True,
             fixed_timestamp="2025-01-01T00:00:00+00:00",
         )
         b2 = build_forensic_bundle(
-            text, detectors=[FakeOkDetector()], deterministic=True,
+            text,
+            detectors=[FakeOkDetector()],
+            deterministic=True,
             fixed_timestamp="2025-01-01T00:00:00+00:00",
         )
         self.assertEqual(b1.generated_at_utc, b2.generated_at_utc)
@@ -532,7 +567,9 @@ class BuildForensicBundleDeterministicTests(unittest.TestCase):
             "The second run was warmer, so I repeated it."
         )
         bundle = build_forensic_bundle(
-            text, detectors=[FakeOkDetector()], deterministic=True,
+            text,
+            detectors=[FakeOkDetector()],
+            deterministic=True,
         )
         self.assertIn("T", bundle.generated_at_utc)
         self.assertNotIn("runtime_ms", bundle.detector_results[0])

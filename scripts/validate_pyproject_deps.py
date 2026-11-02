@@ -61,7 +61,9 @@ def main() -> int:
         if isinstance(opt_deps, dict):
             for group_name, deps in opt_deps.items():
                 if isinstance(deps, list):
-                    all_issues.extend(check_sorted(deps, f"project.optional-dependencies.{group_name}"))
+                    all_issues.extend(
+                        check_sorted(deps, f"project.optional-dependencies.{group_name}")
+                    )
 
     if all_issues:
         print("pyproject.toml dependency ordering validation failed:")

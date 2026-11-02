@@ -51,8 +51,18 @@ def test_rich_output_scan_results_with_analysis_result() -> None:
                 "robustness_stability": 0.95,
                 "word_count": 150,
                 "analyzers": [
-                    {"name": "analyzer1", "score": 0.2, "reliability": 0.9, "verdict": "human_like"},
-                    {"name": "analyzer2", "score": 0.4, "reliability": 0.8, "verdict": "human_like"},
+                    {
+                        "name": "analyzer1",
+                        "score": 0.2,
+                        "reliability": 0.9,
+                        "verdict": "human_like",
+                    },
+                    {
+                        "name": "analyzer2",
+                        "score": 0.4,
+                        "reliability": 0.8,
+                        "verdict": "human_like",
+                    },
                 ],
                 "warnings": ["Short text may reduce reliability"],
             }
@@ -159,7 +169,11 @@ def test_rich_output_trust_map() -> None:
             {"dimension": "text_length", "state": "supported", "reason": "Meets min words"},
             {"dimension": "detector_diversity", "state": "partial", "reason": "One family"},
             {"dimension": "benign_stability", "state": "unknown", "reason": "No robustness data"},
-            {"dimension": "temporal_version_stability", "state": "unknown", "reason": "No drift data"},
+            {
+                "dimension": "temporal_version_stability",
+                "state": "unknown",
+                "reason": "No drift data",
+            },
         ],
     }
 
@@ -172,8 +186,20 @@ def test_rich_output_detector_health() -> None:
     from textforensics.rich_output import print_detector_health
 
     health = [
-        {"entry_point": "builtin", "status": "ok", "detector_id": "textforensics/builtin-heuristic", "error_type": None, "message": None},
-        {"entry_point": "plugin", "status": "error", "detector_id": "plugin1", "error_type": "ImportError", "message": "Failed to load"},
+        {
+            "entry_point": "builtin",
+            "status": "ok",
+            "detector_id": "textforensics/builtin-heuristic",
+            "error_type": None,
+            "message": None,
+        },
+        {
+            "entry_point": "plugin",
+            "status": "error",
+            "detector_id": "plugin1",
+            "error_type": "ImportError",
+            "message": "Failed to load",
+        },
     ]
 
     result = print_detector_health(health)
@@ -203,6 +229,7 @@ def test_rich_output_create_progress_bar() -> None:
     if HAS_RICH:
         assert result is not None
         from rich.progress import Progress
+
         assert isinstance(result, Progress)
     else:
         assert result is None

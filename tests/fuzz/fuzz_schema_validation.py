@@ -21,7 +21,14 @@ def TestOneInput(data: bytes) -> None:
         from textforensics.schema import load_schema
 
         # Test with fuzzed schema names (invalid names that might cause issues)
-        schema_names = ["detector-result", "forensic-bundle", "case-file", text[:100], "", "invalid\x00name"]
+        schema_names = [
+            "detector-result",
+            "forensic-bundle",
+            "case-file",
+            text[:100],
+            "",
+            "invalid\x00name",
+        ]
 
         for name in schema_names:
             try:
@@ -45,11 +52,17 @@ def TestOneInput(data: bytes) -> None:
             # This tests that the schema loading is robust
             for schema_name in ["detector-result", "forensic-bundle", "case-file"]:
                 try:
-                    schema_path = files("textforensics").joinpath("schemas", f"{schema_name}.schema.json")
+                    schema_path = files("textforensics").joinpath(
+                        "schemas", f"{schema_name}.schema.json"
+                    )
                     if schema_path.exists():
                         # Read and potentially corrupt the content
                         content = schema_path.read_text(encoding="utf-8")
-                        corrupted = content[:len(content)//2] + malformed_json + content[len(content)//2:]
+                        corrupted = (
+                            content[: len(content) // 2]
+                            + malformed_json
+                            + content[len(content) // 2 :]
+                        )
                         json.loads(corrupted)  # This might fail, which is expected
                 except (json.JSONDecodeError, UnicodeDecodeError):
                     pass
@@ -66,7 +79,14 @@ def TestOneInput(data: bytes) -> None:
 
         if isinstance(parsed, dict):
             # Test various schema properties with fuzzed values
-            test_properties = ["type", "properties", "required", "additionalProperties", "pattern", "enum"]
+            test_properties = [
+                "type",
+                "properties",
+                "required",
+                "additionalProperties",
+                "pattern",
+                "enum",
+            ]
 
             for prop in test_properties:
                 if prop in parsed:

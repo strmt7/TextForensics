@@ -118,8 +118,7 @@ class PerformanceLimits(unittest.TestCase):
         self.assertLess(
             elapsed,
             TEXTFORENSICS_REPORT_LIMIT_SECONDS,
-            f"report took {elapsed:.3f}s; limit is "
-            f"{TEXTFORENSICS_REPORT_LIMIT_SECONDS}s",
+            f"report took {elapsed:.3f}s; limit is {TEXTFORENSICS_REPORT_LIMIT_SECONDS}s",
         )
 
     def test_case_export_completes_under_5_seconds(self):
@@ -133,8 +132,7 @@ class PerformanceLimits(unittest.TestCase):
         self.assertLess(
             elapsed,
             TEXTFORENSICS_CASE_EXPORT_LIMIT_SECONDS,
-            f"case export took {elapsed:.3f}s; limit is "
-            f"{TEXTFORENSICS_CASE_EXPORT_LIMIT_SECONDS}s",
+            f"case export took {elapsed:.3f}s; limit is {TEXTFORENSICS_CASE_EXPORT_LIMIT_SECONDS}s",
         )
         self.assertTrue(output_path.exists())
 
@@ -162,8 +160,7 @@ class PerformanceLimits(unittest.TestCase):
         self.assertLessEqual(
             peak,
             TEXTFORENSICS_MEMORY_LIMIT_MIB,
-            f"peak traced memory was {peak:.1f} MiB; "
-            f"limit is {TEXTFORENSICS_MEMORY_LIMIT_MIB} MiB",
+            f"peak traced memory was {peak:.1f} MiB; limit is {TEXTFORENSICS_MEMORY_LIMIT_MIB} MiB",
         )
 
 
@@ -196,8 +193,7 @@ class CliPerformanceLimits(unittest.TestCase):
         self.assertLess(
             elapsed,
             10.0,
-            f"CLI scan (subprocess, cold interpreter) took {elapsed:.3f}s; "
-            "limit is 10.0s",
+            f"CLI scan (subprocess, cold interpreter) took {elapsed:.3f}s; limit is 10.0s",
         )
 
 
@@ -250,8 +246,7 @@ class ApiPerformanceLimits(unittest.TestCase):
         self.assertLess(
             statistics.median(samples),
             1.0,
-            f"GET /healthz median took {statistics.median(samples):.4f}s; "
-            "limit is 1.0s",
+            f"GET /healthz median took {statistics.median(samples):.4f}s; limit is 1.0s",
         )
 
 

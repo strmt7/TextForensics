@@ -195,26 +195,16 @@ def verify_case_file(payload: dict[str, Any]) -> dict[str, Any]:
         for dr in bundle.get("detector_results", []):
             if isinstance(dr, dict):
                 if dr.get("schema") != "textforensics.detector-result/v1":
-                    errors.append(
-                        f"detector {dr.get('detector_id')} has wrong schema"
-                    )
+                    errors.append(f"detector {dr.get('detector_id')} has wrong schema")
                 score = dr.get("score")
                 if score is not None:
-                    if isinstance(score, bool) or not isinstance(
-                        score, (int, float)
-                    ):
-                        errors.append(
-                            f"detector {dr.get('detector_id')} score is not numeric"
-                        )
+                    if isinstance(score, bool) or not isinstance(score, (int, float)):
+                        errors.append(f"detector {dr.get('detector_id')} score is not numeric")
                     elif not math.isfinite(float(score)):
-                        errors.append(
-                            f"detector {dr.get('detector_id')} score is not finite"
-                        )
+                        errors.append(f"detector {dr.get('detector_id')} score is not finite")
                 verdict = dr.get("verdict")
                 if verdict not in {"ai_like", "human_like", "abstain"}:
-                    errors.append(
-                        f"detector {dr.get('detector_id')} has invalid verdict"
-                    )
+                    errors.append(f"detector {dr.get('detector_id')} has invalid verdict")
 
     return {
         "valid": not errors,
@@ -264,9 +254,7 @@ def verify_calibration(artifact: dict[str, Any]) -> dict[str, Any]:
         errors.append("missing or empty detector_id")
 
     detector_version = artifact.get("detector_version")
-    checks["detector_version"] = isinstance(
-        detector_version, str
-    ) and len(detector_version) > 0
+    checks["detector_version"] = isinstance(detector_version, str) and len(detector_version) > 0
     if not checks["detector_version"]:
         errors.append("missing or empty detector_version")
 
@@ -286,11 +274,7 @@ def verify_calibration(artifact: dict[str, Any]) -> dict[str, Any]:
     # Dataset fingerprint
     fp = artifact.get("calibration_dataset_sha256")
     checks["dataset_fingerprint"] = False
-    if (
-        isinstance(fp, str)
-        and len(fp) == 64
-        and all(c in "0123456789abcdef" for c in fp)
-    ):
+    if isinstance(fp, str) and len(fp) == 64 and all(c in "0123456789abcdef" for c in fp):
         checks["dataset_fingerprint"] = True
     else:
         errors.append("invalid calibration_dataset_sha256")
@@ -364,9 +348,7 @@ def verify_benchmark(result: dict[str, Any]) -> dict[str, Any]:
     # Total check
     total = tp + fp + tn + fn
     if total != evaluated:
-        errors.append(
-            f"evaluated ({evaluated}) != tp+fp+tn+fn ({total})"
-        )
+        errors.append(f"evaluated ({evaluated}) != tp+fp+tn+fn ({total})")
 
     # Re-compute rates independently
     if total:
@@ -397,9 +379,7 @@ def verify_benchmark(result: dict[str, Any]) -> dict[str, Any]:
         derived = recomputed[metric]
         if stored is not None and derived is not None:
             if abs(stored - derived) > 0.001:
-                errors.append(
-                    f"{metric}: stored={stored} recomputed={derived}"
-                )
+                errors.append(f"{metric}: stored={stored} recomputed={derived}")
         elif stored is None and derived is not None:
             errors.append(f"{metric}: stored value is None")
 

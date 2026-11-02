@@ -17,10 +17,14 @@ from textforensics.threshold_selection import (
 )
 
 # Standard test samples
-HUMAN_SAMPLE = "I ran this test yesterday. The first result looked odd, " \
-               "so I changed one cable and wrote down the second result."
-AI_SAMPLE = "Furthermore, it is important to note that this robust solution " \
-            "seamlessly unlocks the potential of an ever-evolving landscape."
+HUMAN_SAMPLE = (
+    "I ran this test yesterday. The first result looked odd, "
+    "so I changed one cable and wrote down the second result."
+)
+AI_SAMPLE = (
+    "Furthermore, it is important to note that this robust solution "
+    "seamlessly unlocks the potential of an ever-evolving landscape."
+)
 
 
 def write_calibration_dataset(path: Path, n_human: int = 5, n_ai: int = 5) -> float:
@@ -85,6 +89,7 @@ class SelectThresholdTests(unittest.TestCase):
 
             # The recorded hash should match the file hash
             from textforensics.benchmark import dataset_sha256
+
             expected_hash = dataset_sha256(cal_path)
             self.assertEqual(artifact["calibration_dataset_hash"], expected_hash)
 
@@ -151,8 +156,10 @@ class EvaluateThresholdTests(unittest.TestCase):
                 calibration_dataset_hash="dummy_for_testing",
             )
 
-            self.assertEqual(eval_result.tp + eval_result.fp + eval_result.tn + eval_result.fn,
-                           eval_result.evaluated)
+            self.assertEqual(
+                eval_result.tp + eval_result.fp + eval_result.tn + eval_result.fn,
+                eval_result.evaluated,
+            )
             self.assertTrue(0 <= eval_result.accuracy <= 1)
 
     def test_evaluate_rejects_same_dataset(self):
@@ -164,6 +171,7 @@ class EvaluateThresholdTests(unittest.TestCase):
             cal_result = select_threshold(path, target_fpr=0.05)
             # Use the actual dataset hash, not Python's hash()
             from textforensics.benchmark import dataset_sha256
+
             same_hash = dataset_sha256(path)
 
             with self.assertRaises(ValueError) as ctx:
@@ -220,13 +228,17 @@ class ValidateNoContaminationTests(unittest.TestCase):
             # Common sample
             shared = "This is a shared sample text"
             cal_path.write_text(
-                json.dumps({"label": "human", "text": shared}) + "\n" +
-                json.dumps({"label": "ai", "text": AI_SAMPLE}) + "\n",
+                json.dumps({"label": "human", "text": shared})
+                + "\n"
+                + json.dumps({"label": "ai", "text": AI_SAMPLE})
+                + "\n",
                 encoding="utf-8",
             )
             eval_path.write_text(
-                json.dumps({"label": "human", "text": shared}) + "\n" +
-                json.dumps({"label": "ai", "text": AI_SAMPLE}) + "\n",
+                json.dumps({"label": "human", "text": shared})
+                + "\n"
+                + json.dumps({"label": "ai", "text": AI_SAMPLE})
+                + "\n",
                 encoding="utf-8",
             )
 
@@ -493,11 +505,13 @@ class LoadThresholdArtifactTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "artifact.json"
             path.write_text(
-                json.dumps({
-                    "schema": "textforensics.threshold-selection/v1",
-                    "threshold": float("inf"),
-                    "calibration_dataset_hash": "a" * 64,
-                }),
+                json.dumps(
+                    {
+                        "schema": "textforensics.threshold-selection/v1",
+                        "threshold": float("inf"),
+                        "calibration_dataset_hash": "a" * 64,
+                    }
+                ),
                 encoding="utf-8",
             )
 

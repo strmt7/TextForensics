@@ -138,7 +138,7 @@ class McpServerTests(unittest.TestCase):
         result = self._call(
             "audit_writing_naturalness",
             text="Furthermore, it is important to note that this robust "
-                 "solution seamlessly unlocks the potential.",
+            "solution seamlessly unlocks the potential.",
         )
         issues = json.loads(self._text(result))
         self.assertTrue(issues)

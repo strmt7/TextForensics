@@ -222,10 +222,14 @@ class TestHTTPHandler(unittest.TestCase):
         """Response includes security headers."""
         code, body, headers = self._fetch("/healthz")
         self.assertEqual(headers.get("X-Content-Type-Options"), "nosniff")
-        self.assertEqual(headers.get("Content-Security-Policy"),
-                        "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
+        self.assertEqual(
+            headers.get("Content-Security-Policy"),
+            "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+        )
         self.assertEqual(headers.get("Referrer-Policy"), "no-referrer")
-        self.assertEqual(headers.get("Permissions-Policy"), "camera=(), microphone=(), geolocation=()")
+        self.assertEqual(
+            headers.get("Permissions-Policy"), "camera=(), microphone=(), geolocation=()"
+        )
         self.assertEqual(headers.get("Cache-Control"), "no-store")
 
     def test_post_chunked_transfer_encoding_rejected(self):
@@ -237,10 +241,10 @@ class TestHTTPHandler(unittest.TestCase):
             b"Content-Type: application/json\r\n"
             b"Transfer-Encoding: chunked\r\n"
             b"\r\n"
-            b'5\r\n'
+            b"5\r\n"
             b'{"t":1}\r\n'
-            b'0\r\n'
-            b'\r\n'
+            b"0\r\n"
+            b"\r\n"
         )
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -289,6 +293,7 @@ class TestServeFunction(unittest.TestCase):
     def test_serve_accepts_non_loopback_with_opt_in(self):
         """serve() can bind to non-loopback with allow_remote=True."""
         from textforensics.config import ensure_bind_allowed
+
         # Should not raise
         ensure_bind_allowed("0.0.0.0", allow_remote=True)
 
@@ -299,6 +304,7 @@ class TestHandlerDefaults(unittest.TestCase):
     def test_protocol_version(self):
         """Handler uses HTTP/1.1 protocol version."""
         from textforensics.webapp import make_handler
+
         handler_cls = make_handler()
         self.assertEqual(handler_cls.protocol_version, "HTTP/1.1")
 

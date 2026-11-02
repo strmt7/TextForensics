@@ -13,9 +13,7 @@ try:
     from fastapi.responses import JSONResponse
     from pydantic import BaseModel
 except ImportError as exc:  # pragma: no cover - optional dependency
-    raise RuntimeError(
-        "Install API support with: pip install 'textforensics[api]'"
-    ) from exc
+    raise RuntimeError("Install API support with: pip install 'textforensics[api]'") from exc
 
 
 class TextRequest(BaseModel):
@@ -37,9 +35,7 @@ def create_app(settings: Settings | None = None):
     app = FastAPI(
         title="TextForensics",
         version=get_version(),
-        description=(
-            "Local-first AI-text detector evidence and reliability auditing API."
-        ),
+        description=("Local-first AI-text detector evidence and reliability auditing API."),
     )
     app.state.textforensics_settings = active_settings
 

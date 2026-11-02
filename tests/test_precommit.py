@@ -7,7 +7,6 @@ These tests verify that the custom pre-commit validation scripts work correctly.
 
 import json
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -21,9 +20,7 @@ class TestValidateSchemas:
         schema = {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "type": "object",
-            "properties": {
-                "name": {"type": "string"}
-            }
+            "properties": {"name": {"type": "string"}},
         }
         schema_file = tmp_path / "test.schema.json"
         schema_file.write_text(json.dumps(schema))
@@ -50,10 +47,7 @@ class TestValidateSchemas:
 
     def test_missing_schema_field_fails(self, tmp_path: Path):
         """Test that missing $schema field fails validation."""
-        schema = {
-            "type": "object",
-            "properties": {}
-        }
+        schema = {"type": "object", "properties": {}}
         schema_file = tmp_path / "missing_schema.json"
         schema_file.write_text(json.dumps(schema))
 
@@ -67,10 +61,7 @@ class TestValidateSchemas:
     def test_invalid_schema_fails(self, tmp_path: Path):
         """Test that an invalid JSON schema fails validation."""
         # This schema has an invalid 'type' value
-        schema = {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "type": "invalid_type"
-        }
+        schema = {"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "invalid_type"}
         schema_file = tmp_path / "invalid_schema.json"
         schema_file.write_text(json.dumps(schema))
 
@@ -168,10 +159,10 @@ dev = [
 """)
 
         sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
-        from validate_pyproject_deps import check_sorted
-
         # Read and parse
         import tomllib
+        from validate_pyproject_deps import check_sorted
+
         with pyproject.open("rb") as f:
             data = tomllib.load(f)
 
@@ -217,6 +208,7 @@ class TestPrecommitConfig:
     def test_precommit_config_valid_yaml(self):
         """Test that .pre-commit-config.yaml is valid YAML."""
         import yaml
+
         config_path = Path(__file__).parent.parent / ".pre-commit-config.yaml"
         with config_path.open() as f:
             config = yaml.safe_load(f)
@@ -228,6 +220,7 @@ class TestPrecommitConfig:
     def test_required_hooks_present(self):
         """Test that all required hooks are configured."""
         import yaml
+
         config_path = Path(__file__).parent.parent / ".pre-commit-config.yaml"
         with config_path.open() as f:
             config = yaml.safe_load(f)
@@ -256,7 +249,9 @@ class TestPrecommitConfig:
         ]
 
         for required in required_hooks:
-            assert required in hook_ids, f"Required hook '{required}' not found in pre-commit config"
+            assert (
+                required in hook_ids
+            ), f"Required hook '{required}' not found in pre-commit config"
 
 
 class TestRenovateConfig:
@@ -285,7 +280,9 @@ class TestRenovateConfig:
 
         # Check schedule contains Monday 9 AM
         schedule = config.get("schedule", [])
-        assert any("Monday" in s and "09:00" in s for s in schedule), "Schedule should be Monday 09:00 UTC"
+        assert any(
+            "Monday" in s and "09:00" in s for s in schedule
+        ), "Schedule should be Monday 09:00 UTC"
 
     def test_automerge_patch_minor(self):
         """Test that patch/minor updates have automerge enabled."""
@@ -301,7 +298,9 @@ class TestRenovateConfig:
                 break
 
         assert patch_minor_rule is not None, "Should have rule for patch/minor updates"
-        assert patch_minor_rule.get("automerge") is True, "Patch/minor should have automerge enabled"
+        assert (
+            patch_minor_rule.get("automerge") is True
+        ), "Patch/minor should have automerge enabled"
 
     def test_major_updates_needs_review(self):
         """Test that major updates create PRs with needs-review label."""
@@ -341,7 +340,9 @@ class TestRenovateConfig:
 
         license_policy = config.get("licensePolicy", {})
         ignored = license_policy.get("ignore", [])
-        assert "AGPL-3.0" in ignored or "AGPL-3.0-or-later" in ignored, "AGPL-3.0 should be in ignore list"
+        assert (
+            "AGPL-3.0" in ignored or "AGPL-3.0-or-later" in ignored
+        ), "AGPL-3.0 should be in ignore list"
 
 
 if __name__ == "__main__":

@@ -79,9 +79,7 @@ def _robustness_for_detector(
             probes[name] = {"score": None, "verdict": "error"}
             continue
         if prediction is None:  # defensive: execute_detector pairs (prediction, None)
-            raise ValueError(
-                "Detector returned neither a prediction nor a failure."
-            )
+            raise ValueError("Detector returned neither a prediction nor a failure.")
         probes[name] = {
             "score": prediction.score,
             "verdict": prediction.verdict,
@@ -101,9 +99,7 @@ def _robustness_for_detector(
     return {
         "detector_id": str(getattr(detector, "detector_id", "unknown")),
         "native_score_range": (
-            round(native_score_range, 6)
-            if native_score_range is not None
-            else None
+            round(native_score_range, 6) if native_score_range is not None else None
         ),
         "score_range_semantics": (
             "Raw movement in this detector's native score units; "
@@ -131,8 +127,7 @@ def _integrity(
     consensus = family_balanced_consensus(predictions)
     agreement = consensus.family_agreement
     calibrated_families = sum(
-        vote.calibrated_ai_probability is not None
-        for vote in consensus.family_votes
+        vote.calibrated_ai_probability is not None for vote in consensus.family_votes
     )
     stability_values = [
         float(row["verdict_stability"])
@@ -140,9 +135,7 @@ def _integrity(
         if row.get("verdict_stability") is not None
     ]
     robustness_stability = (
-        sum(stability_values) / len(stability_values)
-        if stability_values
-        else None
+        sum(stability_values) / len(stability_values) if stability_values else None
     )
 
     score = 0.0
@@ -204,9 +197,7 @@ def _integrity(
         verdict_agreement=round(agreement, 4) if agreement is not None else None,
         calibrated_detector_count=calibrated_families,
         robustness_stability=(
-            round(robustness_stability, 4)
-            if robustness_stability is not None
-            else None
+            round(robustness_stability, 4) if robustness_stability is not None else None
         ),
         factors=factors,
     )
@@ -274,18 +265,15 @@ def build_forensic_bundle(
     # Strip runtime_ms from detector_results and detector_failures in deterministic mode
     if deterministic:
         detector_results = [
-            {k: v for k, v in pred.to_dict().items() if k != "runtime_ms"}
-            for pred in predictions
+            {k: v for k, v in pred.to_dict().items() if k != "runtime_ms"} for pred in predictions
         ]
         detector_failures = [
-            {k: v for k, v in fail.to_dict().items() if k != "runtime_ms"}
-            for fail in failures
+            {k: v for k, v in fail.to_dict().items() if k != "runtime_ms"} for fail in failures
         ]
         # Also strip runtime_ms from robustness failures
         for rob in robustness:
             rob["failures"] = [
-                {k: v for k, v in f.items() if k != "runtime_ms"}
-                for f in rob["failures"]
+                {k: v for k, v in f.items() if k != "runtime_ms"} for f in rob["failures"]
             ]
     else:
         detector_results = [pred.to_dict() for pred in predictions]
@@ -300,10 +288,7 @@ def build_forensic_bundle(
             "Detector-native scores are not treated as comparable probabilities "
             "unless explicit calibration evidence exists."
         ),
-        (
-            "The Trust Map describes evidence coverage; it is not an authorship "
-            "probability."
-        ),
+        ("The Trust Map describes evidence coverage; it is not an authorship probability."),
         (
             "Verdict Integrity is a deprecated alpha heuristic retained for "
             "compatibility and is not a validated trust score."
@@ -311,8 +296,7 @@ def build_forensic_bundle(
     ]
     if failures:
         limitations.append(
-            f"{len(failures)} configured detector(s) failed and were excluded "
-            "from consensus."
+            f"{len(failures)} configured detector(s) failed and were excluded from consensus."
         )
 
     return ForensicBundle(

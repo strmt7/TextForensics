@@ -1,4 +1,5 @@
 """Additional tests for features.py uncovered lines."""
+
 from __future__ import annotations
 
 import unittest

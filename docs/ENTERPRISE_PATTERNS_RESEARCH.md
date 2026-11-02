@@ -47,10 +47,12 @@ Each module creates a tracer once at module load time, not per-request:
 from opentelemetry import trace, metrics
 from opentelemetry.sdk.resources import Resource
 
-resource = Resource.create({
-    "service.name": "textforensics",
-    "service.version": __version__,
-})
+resource = Resource.create(
+    {
+        "service.name": "textforensics",
+        "service.version": __version__,
+    }
+)
 
 _tracer = trace.get_tracer(__name__)
 _meter = metrics.get_meter(__name__)
@@ -81,6 +83,7 @@ detector_failures = _meter.create_counter(
 # In src/textforensics/detectors.py
 from .observability import _tracer, detector_latency, detector_calls, detector_failures
 
+
 class BuiltinHeuristicDetector(Detector):
     def predict(self, text: str) -> DetectorPrediction:
         with _tracer.start_as_current_span(
@@ -91,10 +94,13 @@ class BuiltinHeuristicDetector(Detector):
             try:
                 result = self._run(text)
                 elapsed = (time.monotonic() - start) * 1000
-                detector_latency.record(elapsed, {
-                    "detector.id": self.id,
-                    "detector.family": self.family,
-                })
+                detector_latency.record(
+                    elapsed,
+                    {
+                        "detector.id": self.id,
+                        "detector.family": self.family,
+                    },
+                )
                 detector_calls.add(1, {"detector.id": self.id})
                 return result
             except Exception:
@@ -119,9 +125,11 @@ def init_observability(endpoint: str | None = None) -> None:
 
     if endpoint:
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+
         exporter = OTLPSpanExporter(endpoint=f"{endpoint}/v1/traces")
     else:
         from opentelemetry.sdk.trace.export import ConsoleSpanExporter
+
         exporter = ConsoleSpanExporter()
 
     provider = TracerProvider(resource=resource)
@@ -271,9 +279,11 @@ Currently, text validation, settings loading, and detector health checks are eit
 from typing import Annotated
 from fastapi import Depends
 
+
 # Shared dependency
 def get_settings() -> Settings:
     return Settings()
+
 
 def validate_text_input(
     req: TextRequest,
@@ -286,6 +296,7 @@ def validate_text_input(
     except ValueError as exc:
         status = 413 if "exceeds" in str(exc) else 422
         raise HTTPException(status_code=status, detail="Invalid text input.") from exc
+
 
 TextDep = Annotated[str, Depends(validate_text_input)]
 
@@ -309,6 +320,7 @@ The current API returns raw `to_dict()` output. Adding `response_model` ensures:
 ```python
 from pydantic import BaseModel
 
+
 class AnalysisResponse(BaseModel):
     verdict: str
     score: float
@@ -321,8 +333,7 @@ class AnalysisResponse(BaseModel):
 
 
 @app.post("/v1/analyze", response_model=AnalysisResponse)
-async def analyze(text: TextDep) -> AnalysisResponse:
-    ...
+async def analyze(text: TextDep) -> AnalysisResponse: ...
 ```
 
 #### Pattern 3: Background tasks for non-critical side effects
@@ -331,6 +342,7 @@ Drift snapshots, benchmark archiving, and capability ledger updates could be off
 
 ```python
 from fastapi import BackgroundTasks
+
 
 @app.post("/v1/analyze")
 async def analyze(text: TextDep, background: BackgroundTasks):
@@ -345,10 +357,12 @@ async def analyze(text: TextDep, background: BackgroundTasks):
 ```python
 from contextlib import asynccontextmanager
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     from .observability import init_observability
+
     settings = Settings()
     if hasattr(settings, "otel_endpoint") and settings.otel_endpoint:
         init_observability(settings.otel_endpoint)
@@ -417,9 +431,7 @@ def calibrate(
     output: Optional[Path] = typer.Option(None, "-o", "--output"),
 ) -> None:
     """Fit a threshold artifact on calibration-only JSONL."""
-    artifact = calibrate_threshold_jsonl(
-        dataset, target_fpr=target_fpr
-    )
+    artifact = calibrate_threshold_jsonl(dataset, target_fpr=target_fpr)
     _write_json(output, artifact)
 ```
 
@@ -440,6 +452,7 @@ capability_app = typer.Typer()
 app.add_typer(drift_app, name="drift", help="Longitudinal detector reliability tracking.")
 app.add_typer(bundle_app, name="bundle", help="Pack, verify, and list case file bundles.")
 app.add_typer(capability_app, name="capability", help="Inspect detector capability claims.")
+
 
 @drift_app.command()
 def snapshot(
@@ -509,6 +522,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 
+
 def _pretty_analysis(result) -> None:
     console = Console()
 
@@ -544,6 +558,7 @@ def _pretty_analysis(result) -> None:
 
 ```python
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
+
 
 def benchmark_jsonl_enhanced(path: str) -> None:
     samples = list(jsonl_iter(path))
@@ -614,9 +629,9 @@ logger.remove()
 logger.add(
     sys.stderr,
     format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-           "<level>{level: <8}</level> | "
-           "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
-           "<level>{message}</level>",
+    "<level>{level: <8}</level> | "
+    "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
+    "<level>{message}</level>",
     level="DEBUG",
 )
 
@@ -648,6 +663,7 @@ logger.add(
 ```python
 # src/textforensics/cli.py
 from loguru import logger
+
 
 @logger.catch
 def main() -> int:

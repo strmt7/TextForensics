@@ -27,8 +27,16 @@ def generate_json_corpus(output_dir: Path) -> None:
         {"before": "Original text.", "after": "Modified text."},
         {"label": "human", "text": "Human written text sample."},
         {"label": "ai", "text": "AI generated text sample."},
-        {"schema": "textforensics.case-file/v1", "tool": {"name": "TextForensics", "version": "0.1.0"}},
-        {"detector_id": "test", "detector_version": "1.0", "detector_family": "test", "execution": "local"},
+        {
+            "schema": "textforensics.case-file/v1",
+            "tool": {"name": "TextForensics", "version": "0.1.0"},
+        },
+        {
+            "detector_id": "test",
+            "detector_version": "1.0",
+            "detector_family": "test",
+            "execution": "local",
+        },
     ]
 
     # Edge case JSON samples
@@ -51,19 +59,23 @@ def generate_json_corpus(output_dir: Path) -> None:
         b'{ "text": "trailing comma", }',
         b'{ "duplicate": "key", "duplicate": "value" }',
         b'{ "invalid": \x80 }',  # Invalid UTF-8
-        b'not json at all',
-        b'{ "text": "very long ' + b'x' * 100000 + b'" }',
+        b"not json at all",
+        b'{ "text": "very long ' + b"x" * 100000 + b'" }',
         b'{ "text": "\\uD800" }',  # Lone surrogate
         b'{ "text": "test", "extra": }',  # Missing value
-        b'[1, 2, 3,]',  # Trailing comma in array
+        b"[1, 2, 3,]",  # Trailing comma in array
         b'{ "text": "test" "missing_comma": "value" }',
     ]
 
     for i, sample in enumerate(valid_samples):
-        (output_dir / f"valid_{i:03d}.json").write_bytes(json.dumps(sample, ensure_ascii=False).encode("utf-8"))
+        (output_dir / f"valid_{i:03d}.json").write_bytes(
+            json.dumps(sample, ensure_ascii=False).encode("utf-8")
+        )
 
     for i, sample in enumerate(edge_samples):
-        (output_dir / f"edge_{i:03d}.json").write_bytes(json.dumps(sample, ensure_ascii=False).encode("utf-8"))
+        (output_dir / f"edge_{i:03d}.json").write_bytes(
+            json.dumps(sample, ensure_ascii=False).encode("utf-8")
+        )
 
     for i, sample in enumerate(malformed_samples):
         (output_dir / f"malformed_{i:03d}.json").write_bytes(sample)
@@ -86,7 +98,7 @@ def generate_text_corpus(output_dir: Path) -> None:
         "Text with\nmultiple\nlines\nand\ttabs.",
         "Path-like: /home/user/file.txt or C:\\Windows\\System32",
         "SQL-like: SELECT * FROM users WHERE id = 1;",
-        "JSON-like: {\"key\": \"value\"}",
+        'JSON-like: {"key": "value"}',
         "XML-like: <tag>content</tag>",
         "Email: user@example.com",
         "URL: https://example.com/path?query=value",
@@ -152,8 +164,18 @@ def generate_ledger_corpus(output_dir: Path) -> None:
 
     # Valid ledger lines
     valid_ledger_lines = [
-        '{"schema": "textforensics-ledger/v1", "timestamp_utc": "2024-01-01T00:00:00+00:00", "file_name": "test.txt", "file_size": 100, "file_sha256": "a' + "0" * 63 + '", "previous_record_sha256": null, "record_sha256": "b' + "0" * 63 + '"}',
-        '{"schema": "textforensics-ledger/v1", "timestamp_utc": "2024-01-01T00:00:01+00:00", "file_name": "test2.txt", "file_size": 200, "file_sha256": "c' + "0" * 63 + '", "previous_record_sha256": "b' + "0" * 63 + '", "record_sha256": "d' + "0" * 63 + '"}',
+        '{"schema": "textforensics-ledger/v1", "timestamp_utc": "2024-01-01T00:00:00+00:00", "file_name": "test.txt", "file_size": 100, "file_sha256": "a'
+        + "0" * 63
+        + '", "previous_record_sha256": null, "record_sha256": "b'
+        + "0" * 63
+        + '"}',
+        '{"schema": "textforensics-ledger/v1", "timestamp_utc": "2024-01-01T00:00:01+00:00", "file_name": "test2.txt", "file_size": 200, "file_sha256": "c'
+        + "0" * 63
+        + '", "previous_record_sha256": "b'
+        + "0" * 63
+        + '", "record_sha256": "d'
+        + "0" * 63
+        + '"}',
     ]
 
     for i, line in enumerate(valid_ledger_lines):
@@ -161,12 +183,26 @@ def generate_ledger_corpus(output_dir: Path) -> None:
 
     # Malformed ledger lines
     malformed_ledger_lines = [
-        'not json',
+        "not json",
         '{"schema": "textforensics-ledger/v1"}',  # Missing required fields
-        '{"schema": "wrong-schema", "timestamp_utc": "2024-01-01T00:00:00+00:00", "file_name": "test.txt", "file_size": 100, "file_sha256": "a' + "0" * 63 + '", "previous_record_sha256": null, "record_sha256": "b' + "0" * 63 + '"}',
-        '{"schema": "textforensics-ledger/v1", "timestamp_utc": "invalid-date", "file_name": "test.txt", "file_size": 100, "file_sha256": "a' + "0" * 63 + '", "previous_record_sha256": null, "record_sha256": "b' + "0" * 63 + '"}',
-        '{"schema": "textforensics-ledger/v1", "timestamp_utc": "2024-01-01T00:00:00+00:00", "file_name": "test.txt", "file_size": "not_a_number", "file_sha256": "a' + "0" * 63 + '", "previous_record_sha256": null, "record_sha256": "b' + "0" * 63 + '"}',
-        '{"schema": "textforensics-ledger/v1", "timestamp_utc": "2024-01-01T00:00:00+00:00", "file_name": "test.txt", "file_size": 100, "file_sha256": "invalid_hash", "previous_record_sha256": null, "record_sha256": "b' + "0" * 63 + '"}',
+        '{"schema": "wrong-schema", "timestamp_utc": "2024-01-01T00:00:00+00:00", "file_name": "test.txt", "file_size": 100, "file_sha256": "a'
+        + "0" * 63
+        + '", "previous_record_sha256": null, "record_sha256": "b'
+        + "0" * 63
+        + '"}',
+        '{"schema": "textforensics-ledger/v1", "timestamp_utc": "invalid-date", "file_name": "test.txt", "file_size": 100, "file_sha256": "a'
+        + "0" * 63
+        + '", "previous_record_sha256": null, "record_sha256": "b'
+        + "0" * 63
+        + '"}',
+        '{"schema": "textforensics-ledger/v1", "timestamp_utc": "2024-01-01T00:00:00+00:00", "file_name": "test.txt", "file_size": "not_a_number", "file_sha256": "a'
+        + "0" * 63
+        + '", "previous_record_sha256": null, "record_sha256": "b'
+        + "0" * 63
+        + '"}',
+        '{"schema": "textforensics-ledger/v1", "timestamp_utc": "2024-01-01T00:00:00+00:00", "file_name": "test.txt", "file_size": 100, "file_sha256": "invalid_hash", "previous_record_sha256": null, "record_sha256": "b'
+        + "0" * 63
+        + '"}',
     ]
 
     for i, line in enumerate(malformed_ledger_lines):
@@ -198,7 +234,11 @@ def generate_schema_corpus(output_dir: Path) -> None:
             "content_sha256": "a" * 64,
             "input": {"raw_text_included": False, "word_count": 100},
             "detectors": [],
-            "trust_map": {"schema": "textforensics.trust-map/v1", "overall": "mixed", "dimensions": []},
+            "trust_map": {
+                "schema": "textforensics.trust-map/v1",
+                "overall": "mixed",
+                "dimensions": [],
+            },
         },
         {
             "schema": "textforensics.case-file/v1",
@@ -208,7 +248,11 @@ def generate_schema_corpus(output_dir: Path) -> None:
                 "content_sha256": "a" * 64,
                 "input": {"raw_text_included": False, "word_count": 100},
                 "detectors": [],
-                "trust_map": {"schema": "textforensics.trust-map/v1", "overall": "mixed", "dimensions": []},
+                "trust_map": {
+                    "schema": "textforensics.trust-map/v1",
+                    "overall": "mixed",
+                    "dimensions": [],
+                },
             },
             "raw_text_included": False,
             "case_sha256": "b" * 64,
@@ -224,8 +268,26 @@ def generate_schema_corpus(output_dir: Path) -> None:
     invalid_schemas = [
         {"schema": "unknown-schema/v1"},
         {"schema": "textforensics.detector-result/v1", "detector_id": ""},  # Empty required field
-        {"schema": "textforensics.detector-result/v1", "detector_id": "test", "detector_version": "1.0", "detector_family": "test", "execution": "invalid", "score": 0.5, "score_semantics": "test", "verdict": "ai_like"},  # Invalid execution
-        {"schema": "textforensics.detector-result/v1", "detector_id": "test", "detector_version": "1.0", "detector_family": "test", "execution": "local", "score": "not_a_number", "score_semantics": "test", "verdict": "ai_like"},  # Invalid score
+        {
+            "schema": "textforensics.detector-result/v1",
+            "detector_id": "test",
+            "detector_version": "1.0",
+            "detector_family": "test",
+            "execution": "invalid",
+            "score": 0.5,
+            "score_semantics": "test",
+            "verdict": "ai_like",
+        },  # Invalid execution
+        {
+            "schema": "textforensics.detector-result/v1",
+            "detector_id": "test",
+            "detector_version": "1.0",
+            "detector_family": "test",
+            "execution": "local",
+            "score": "not_a_number",
+            "score_semantics": "test",
+            "verdict": "ai_like",
+        },  # Invalid score
         {"schema": "textforensics.forensic-bundle/v1", "content_sha256": "invalid"},  # Invalid hash
         {"schema": "textforensics.case-file/v1", "raw_text_included": True},  # Forbidden
     ]
@@ -277,15 +339,33 @@ def generate_trust_corpus(output_dir: Path) -> None:
     ]
 
     robustness_data = [
-        {"detector_id": "test/detector1", "verdict_stability": 1.0, "native_score_range": [0.65, 0.75]},
-        {"detector_id": "test/detector2", "verdict_stability": 1.0, "native_score_range": [0.25, 0.35]},
+        {
+            "detector_id": "test/detector1",
+            "verdict_stability": 1.0,
+            "native_score_range": [0.65, 0.75],
+        },
+        {
+            "detector_id": "test/detector2",
+            "verdict_stability": 1.0,
+            "native_score_range": [0.25, 0.35],
+        },
     ]
 
     test_cases = [
-        {"predictions": predictions, "word_count": 200, "robustness": robustness_data, "failure_count": 0},
+        {
+            "predictions": predictions,
+            "word_count": 200,
+            "robustness": robustness_data,
+            "failure_count": 0,
+        },
         {"predictions": [predictions[0]], "word_count": 30, "robustness": [], "failure_count": 0},
         {"predictions": [], "word_count": 1000, "robustness": [], "failure_count": 1},
-        {"predictions": predictions, "word_count": 50, "robustness": robustness_data, "failure_count": 0},
+        {
+            "predictions": predictions,
+            "word_count": 50,
+            "robustness": robustness_data,
+            "failure_count": 0,
+        },
     ]
 
     for i, case in enumerate(test_cases):
@@ -303,7 +383,9 @@ def generate_trust_corpus(output_dir: Path) -> None:
 
 def main():
     parser = argparse.ArgumentParser(description="Generate initial fuzz corpus from test data")
-    parser.add_argument("--output-dir", type=Path, default=Path("corpus"), help="Output directory for corpus")
+    parser.add_argument(
+        "--output-dir", type=Path, default=Path("corpus"), help="Output directory for corpus"
+    )
     args = parser.parse_args()
 
     print(f"Generating corpus in {args.output_dir}")

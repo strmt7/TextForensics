@@ -553,7 +553,13 @@ class VerifyCaseFileEdgeCases(unittest.TestCase):
         }
         # Seal the case to get correct hash
         case["case_sha256"] = hashlib.sha256(
-            json.dumps({k: v for k, v in case.items() if k != "case_sha256"}, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+            json.dumps(
+                {k: v for k, v in case.items() if k != "case_sha256"},
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
         ).hexdigest()
         result = verify_case_file(case)
         self.assertFalse(result["valid"])
@@ -569,14 +575,25 @@ class VerifyCaseFileEdgeCases(unittest.TestCase):
                 "content_sha256": "a" * 64,
                 "trust_map": {"dimensions": [], "overall": "strong"},
                 "detector_results": [
-                    {"schema": "textforensics.detector-result/v1", "detector_id": "det1", "score": "not numeric", "verdict": "ai_like"},
+                    {
+                        "schema": "textforensics.detector-result/v1",
+                        "detector_id": "det1",
+                        "score": "not numeric",
+                        "verdict": "ai_like",
+                    },
                 ],
             },
             "case_sha256": "a" * 64,
         }
         # Seal the case to get correct hash
         case["case_sha256"] = hashlib.sha256(
-            json.dumps({k: v for k, v in case.items() if k != "case_sha256"}, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+            json.dumps(
+                {k: v for k, v in case.items() if k != "case_sha256"},
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
         ).hexdigest()
         result = verify_case_file(case)
         self.assertFalse(result["valid"])
@@ -594,7 +611,12 @@ class VerifyCaseFileEdgeCases(unittest.TestCase):
                 "content_sha256": "a" * 64,
                 "trust_map": {"dimensions": [], "overall": "strong"},
                 "detector_results": [
-                    {"schema": "textforensics.detector-result/v1", "detector_id": "det1", "score": 1e100, "verdict": "ai_like"},
+                    {
+                        "schema": "textforensics.detector-result/v1",
+                        "detector_id": "det1",
+                        "score": 1e100,
+                        "verdict": "ai_like",
+                    },
                 ],
             },
             "case_sha256": "a" * 64,
@@ -602,6 +624,7 @@ class VerifyCaseFileEdgeCases(unittest.TestCase):
         # The verify function checks for math.isfinite, so use math.inf in the actual test
         # We test the verification logic directly by patching the score after hash computation
         import math
+
         case_for_hash = {
             "schema": "textforensics.case-file/v1",
             "raw_text_included": False,
@@ -610,14 +633,25 @@ class VerifyCaseFileEdgeCases(unittest.TestCase):
                 "content_sha256": "a" * 64,
                 "trust_map": {"dimensions": [], "overall": "strong"},
                 "detector_results": [
-                    {"schema": "textforensics.detector-result/v1", "detector_id": "det1", "score": 1e100, "verdict": "ai_like"},
+                    {
+                        "schema": "textforensics.detector-result/v1",
+                        "detector_id": "det1",
+                        "score": 1e100,
+                        "verdict": "ai_like",
+                    },
                 ],
             },
             "case_sha256": "a" * 64,
         }
         # Compute hash with finite score
         case_for_hash["case_sha256"] = hashlib.sha256(
-            json.dumps({k: v for k, v in case_for_hash.items() if k != "case_sha256"}, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+            json.dumps(
+                {k: v for k, v in case_for_hash.items() if k != "case_sha256"},
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
         ).hexdigest()
 
         # Now create case with inf score for verification
@@ -637,14 +671,25 @@ class VerifyCaseFileEdgeCases(unittest.TestCase):
                 "content_sha256": "a" * 64,
                 "trust_map": {"dimensions": [], "overall": "strong"},
                 "detector_results": [
-                    {"schema": "textforensics.detector-result/v1", "detector_id": "det1", "score": 0.5, "verdict": "invalid"},
+                    {
+                        "schema": "textforensics.detector-result/v1",
+                        "detector_id": "det1",
+                        "score": 0.5,
+                        "verdict": "invalid",
+                    },
                 ],
             },
             "case_sha256": "a" * 64,
         }
         # Seal the case to get correct hash
         case["case_sha256"] = hashlib.sha256(
-            json.dumps({k: v for k, v in case.items() if k != "case_sha256"}, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+            json.dumps(
+                {k: v for k, v in case.items() if k != "case_sha256"},
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
         ).hexdigest()
         result = verify_case_file(case)
         self.assertFalse(result["valid"])
@@ -853,7 +898,9 @@ class VerifyBenchmarkEdgeCases(unittest.TestCase):
         }
         verification = verify_benchmark(result)
         self.assertFalse(verification["valid"])
-        self.assertTrue(any("missing or invalid dataset_sha256" in e for e in verification["errors"]))
+        self.assertTrue(
+            any("missing or invalid dataset_sha256" in e for e in verification["errors"])
+        )
 
 
 class VerifyAllEdgeCases(unittest.TestCase):

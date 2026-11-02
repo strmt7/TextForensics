@@ -8,8 +8,12 @@ def benign_variants(text: str) -> dict[str, str]:
     whitespace = re.sub(r"[ \t]+", " ", text)
     whitespace = re.sub(r"\n{3,}", "\n\n", whitespace)
     ascii_punct = (
-        text.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
-        .replace("—", "-").replace("–", "-")
+        text.replace("“", '"')
+        .replace("”", '"')
+        .replace("‘", "'")
+        .replace("’", "'")
+        .replace("—", "-")
+        .replace("–", "-")
     )
     no_markdown = re.sub(r"(?m)^\s*[-*+]\s+", "", text)
     return {

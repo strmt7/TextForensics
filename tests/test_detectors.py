@@ -153,9 +153,7 @@ class DetectorContractTests(unittest.TestCase):
         self.assertNotIn("score_stability", robustness)
         self.assertGreaterEqual(robustness["native_score_range"], 0)
         stability = next(
-            row
-            for row in data["trust_map"]["dimensions"]
-            if row["dimension"] == "benign_stability"
+            row for row in data["trust_map"]["dimensions"] if row["dimension"] == "benign_stability"
         )
         self.assertEqual(stability["state"], "supported")
 
@@ -175,11 +173,7 @@ class DetectorContractTests(unittest.TestCase):
             return_value=[BadEntryPoint()],
         ):
             registry = discover_detector_registry()
-        bad = [
-            item
-            for item in registry.plugin_health
-            if item.entry_point == "bad-plugin"
-        ][0]
+        bad = [item for item in registry.plugin_health if item.entry_point == "bad-plugin"][0]
         self.assertEqual(bad.status, "error")
         self.assertNotIn("secret", bad.message)
 
@@ -215,12 +209,7 @@ class DetectorContractTests(unittest.TestCase):
             ]
         )
         self.assertIsNone(result.calibrated_ai_probability)
-        self.assertTrue(
-            any(
-                "separately" in warning.lower()
-                for warning in result.warnings
-            )
-        )
+        self.assertTrue(any("separately" in warning.lower() for warning in result.warnings))
 
     def test_top_level_probability_requires_ensemble_calibration(self):
         rows = [prediction("a", "transformer", "ai_like")]

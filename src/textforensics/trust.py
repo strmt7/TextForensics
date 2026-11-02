@@ -99,10 +99,7 @@ def _diversity_dimension(
         reason = "At least two detector families produced usable observations."
     elif families:
         state = "partial"
-        reason = (
-            "Detector-family diversity is limited or one or more configured "
-            "detectors failed."
-        )
+        reason = "Detector-family diversity is limited or one or more configured detectors failed."
     else:
         state = "unknown"
         reason = "No usable detector observations are available."
@@ -126,11 +123,7 @@ def _diversity_dimension(
 def _stability_dimension(
     robustness: list[dict[str, Any]],
 ) -> TrustDimension:
-    usable = [
-        row
-        for row in robustness
-        if row.get("verdict_stability") is not None
-    ]
+    usable = [row for row in robustness if row.get("verdict_stability") is not None]
     if not usable:
         return TrustDimension(
             dimension="benign_stability",
@@ -148,8 +141,7 @@ def _stability_dimension(
     else:
         state = "partial"
         reason = (
-            "At least one detector changed categorical verdict under a benign "
-            "representation probe."
+            "At least one detector changed categorical verdict under a benign representation probe."
         )
 
     return TrustDimension(
@@ -194,10 +186,7 @@ def build_trust_map(
         TrustDimension(
             dimension="domain_genre",
             state="unknown",
-            reason=(
-                "No benchmark-backed domain or genre match is available in the "
-                "current alpha."
-            ),
+            reason=("No benchmark-backed domain or genre match is available in the current alpha."),
         ),
         TrustDimension(
             dimension="editing_revision",
@@ -210,20 +199,14 @@ def build_trust_map(
         TrustDimension(
             dimension="human_false_positive_evidence",
             state="unknown",
-            reason=(
-                "No nearest-slice held-out human false-positive evidence is "
-                "registered yet."
-            ),
+            reason=("No nearest-slice held-out human false-positive evidence is registered yet."),
         ),
         _diversity_dimension(predictions, failure_count),
         _stability_dimension(robustness),
         TrustDimension(
             dimension="temporal_version_stability",
             state="unknown",
-            reason=(
-                "No longitudinal detector/provider observatory evidence is "
-                "registered yet."
-            ),
+            reason=("No longitudinal detector/provider observatory evidence is registered yet."),
         ),
     ]
 
@@ -282,9 +265,7 @@ def trust_map_from_capability_ledger(ledger: CapabilityLedger) -> TrustMap:
 
             for capability in sorted(detector_capabilities[detector_id]):
                 # Find relevant claims for this capability
-                relevant_claims = [
-                    c for c in claims if c.capability == capability
-                ]
+                relevant_claims = [c for c in claims if c.capability == capability]
 
                 if not relevant_claims:
                     # No claim
@@ -296,7 +277,9 @@ def trust_map_from_capability_ledger(ledger: CapabilityLedger) -> TrustMap:
                 else:
                     # Check tiers
                     has_validated = any(c.tier == EvidenceTier.VALIDATED for c in relevant_claims)
-                    has_tool_backed = any(c.tier == EvidenceTier.TOOL_BACKED for c in relevant_claims)
+                    has_tool_backed = any(
+                        c.tier == EvidenceTier.TOOL_BACKED for c in relevant_claims
+                    )
                     any(c.tier == EvidenceTier.READABLE for c in relevant_claims)
 
                     if has_validated:
@@ -317,9 +300,7 @@ def trust_map_from_capability_ledger(ledger: CapabilityLedger) -> TrustMap:
                         for e in c.evidence:
                             evidence_refs.append(e.artifact)
                         if c.valid_until:
-                            limitations.append(
-                                f"Claim for {c.capability} expires {c.valid_until}."
-                            )
+                            limitations.append(f"Claim for {c.capability} expires {c.valid_until}.")
 
                     dimension = TrustDimension(
                         dimension=capability.replace(".", "_"),

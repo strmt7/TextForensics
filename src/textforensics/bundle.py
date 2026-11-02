@@ -27,6 +27,7 @@ BUNDLE_SCHEMA = "textforensics.bundle-manifest/v1"
 # Canonical helpers (reused from casefile.py concepts)
 # ---------------------------------------------------------------------------
 
+
 def _canonical_json_bytes(payload: Any) -> bytes:
     """Return canonical JSON bytes for deterministic hashing."""
     return json.dumps(
@@ -45,6 +46,7 @@ def _sha256(data: bytes) -> str:
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class BundleManifest:
@@ -92,14 +94,16 @@ class BundleVerificationResult:
 # Core operations
 # ---------------------------------------------------------------------------
 
+
 def _detect_format(output_path: str | Path) -> str:
     path = str(output_path)
     if path.endswith(".tar.gz") or path.endswith(".tgz"):
         return "tar.gz"
     if path.endswith(".zip"):
         return "zip"
-    raise ValueError(f"Unsupported bundle format for path: {output_path}\n"
-                     f"Use .tar.gz or .zip extension.")
+    raise ValueError(
+        f"Unsupported bundle format for path: {output_path}\nUse .tar.gz or .zip extension."
+    )
 
 
 def _collect_files(case_file_path: str | Path) -> dict[str, bytes]:
@@ -153,6 +157,7 @@ def _create_tar_gz(files: dict[str, bytes]) -> bytes:
     """
     import gzip
     import io
+
     buf = io.BytesIO()
     # Create tar in memory first (without gzip)
     tar_buf = io.BytesIO()
@@ -183,6 +188,7 @@ def _create_tar_gz(files: dict[str, bytes]) -> bytes:
 def _create_zip(files: dict[str, bytes]) -> bytes:
     """Create a deterministic zip archive in memory."""
     import io
+
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for name in sorted(files):
@@ -292,15 +298,13 @@ def verify_bundle(
     bundle_match = actual_digest == manifest.bundle_digest
     if not bundle_match:
         errors.append(
-            f"Archive digest mismatch: expected {manifest.bundle_digest}, "
-            f"got {actual_digest}"
+            f"Archive digest mismatch: expected {manifest.bundle_digest}, got {actual_digest}"
         )
 
     # 2. Optional: compare against supplied expected digest
     if expected_digest is not None and actual_digest != expected_digest:
         errors.append(
-            f"Digest does not match expected: expected {expected_digest}, "
-            f"got {actual_digest}"
+            f"Digest does not match expected: expected {expected_digest}, got {actual_digest}"
         )
 
     # 3. Verify per-file digests
@@ -339,8 +343,7 @@ def verify_bundle(
             else:
                 per_file_status[rel] = "tampered"
                 errors.append(
-                    f"File digest mismatch for {rel}: "
-                    f"expected {expected}, got {file_digest}"
+                    f"File digest mismatch for {rel}: expected {expected}, got {file_digest}"
                 )
         except KeyError:
             per_file_status[rel] = "missing"
@@ -373,19 +376,23 @@ def list_bundle(bundle_path: str | Path) -> list[dict[str, Any]]:
     if name.endswith(".tar.gz") or name.endswith(".tgz"):
         with tarfile.open(bundle_file, "r:gz") as tar:
             for member in tar.getmembers():
-                entries.append({
-                    "name": member.name,
-                    "size": member.size,
-                    "compressed_size": member.size,  # tar:gz doesn't expose per-member compressed
-                })
+                entries.append(
+                    {
+                        "name": member.name,
+                        "size": member.size,
+                        "compressed_size": member.size,  # tar:gz doesn't expose per-member compressed
+                    }
+                )
     elif name.endswith(".zip"):
         with zipfile.ZipFile(bundle_file, "r") as zf:
             for info in zf.infolist():
-                entries.append({
-                    "name": info.filename,
-                    "size": info.file_size,
-                    "compressed_size": info.compress_size,
-                })
+                entries.append(
+                    {
+                        "name": info.filename,
+                        "size": info.file_size,
+                        "compressed_size": info.compress_size,
+                    }
+                )
     else:
         raise ValueError(f"Unsupported bundle format: {name}")
 

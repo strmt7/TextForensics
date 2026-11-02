@@ -94,9 +94,7 @@ def time_callable(
         "median_seconds": round(statistics.median(samples), 6),
         "mean_seconds": round(statistics.fmean(samples), 6),
         "max_seconds": round(max(samples), 6),
-        "stdev_seconds": (
-            round(statistics.stdev(samples), 6) if len(samples) > 1 else 0.0
-        ),
+        "stdev_seconds": (round(statistics.stdev(samples), 6) if len(samples) > 1 else 0.0),
         "repeat": repeat,
     }
 

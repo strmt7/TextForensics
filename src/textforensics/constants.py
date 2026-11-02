@@ -6,10 +6,10 @@ reassigned without a deliberate schema bump.
 
 from __future__ import annotations
 
-EXIT_OK = 0           # analysis complete, Trust Map sufficient
-EXIT_DOWNGRADED = 1   # analysis complete, coverage partial/insufficient
-EXIT_INCOMPLETE = 2   # abstained detectors, missing calibration
-EXIT_ERROR = 3        # configuration/runtime error
+EXIT_OK = 0  # analysis complete, Trust Map sufficient
+EXIT_DOWNGRADED = 1  # analysis complete, coverage partial/insufficient
+EXIT_INCOMPLETE = 2  # abstained detectors, missing calibration
+EXIT_ERROR = 3  # configuration/runtime error
 
 _EXIT_NAMES: dict[int, str] = {
     EXIT_OK: "EXIT_OK",

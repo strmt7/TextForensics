@@ -157,9 +157,7 @@ def _validate_no_source_echo(prediction: DetectorPrediction, source_text: str) -
         long_excerpt = len(normalized) >= 32 and normalized in source
         source_embedded = len(source) >= 32 and source in normalized
         if exact_source or long_excerpt or source_embedded:
-            raise DetectorContractError(
-                "Detector output appears to echo submitted source text."
-            )
+            raise DetectorContractError("Detector output appears to echo submitted source text.")
 
 
 def validate_prediction(
@@ -185,9 +183,7 @@ def validate_prediction(
         raise DetectorContractError("execution must be 'local' or 'remote'.")
 
     if prediction.verdict not in {"ai_like", "human_like", "abstain"}:
-        raise DetectorContractError(
-            "verdict must be 'ai_like', 'human_like', or 'abstain'."
-        )
+        raise DetectorContractError("verdict must be 'ai_like', 'human_like', or 'abstain'.")
 
     if prediction.score is not None:
         _require_finite_number(prediction.score, "score")
@@ -202,9 +198,7 @@ def validate_prediction(
         )
         probability = float(prediction.calibrated_ai_probability)
         if not 0.0 <= probability <= 1.0:
-            raise DetectorContractError(
-                "calibrated_ai_probability must be between 0 and 1."
-            )
+            raise DetectorContractError("calibrated_ai_probability must be between 0 and 1.")
         _require_nonempty_string(prediction.calibration_id, "calibration_id")
     elif prediction.calibration_id is not None:
         raise DetectorContractError(
@@ -217,9 +211,7 @@ def validate_prediction(
             raise DetectorContractError("reliability must be between 0 and 1.")
 
     if prediction.min_words is not None:
-        if isinstance(prediction.min_words, bool) or not isinstance(
-            prediction.min_words, int
-        ):
+        if isinstance(prediction.min_words, bool) or not isinstance(prediction.min_words, int):
             raise DetectorContractError("min_words must be an integer or null.")
         if prediction.min_words < 0:
             raise DetectorContractError("min_words must be non-negative.")
@@ -230,12 +222,9 @@ def validate_prediction(
             raise DetectorContractError("runtime_ms must be non-negative.")
 
     if not isinstance(prediction.supported_languages, list) or any(
-        not isinstance(item, str) or not item.strip()
-        for item in prediction.supported_languages
+        not isinstance(item, str) or not item.strip() for item in prediction.supported_languages
     ):
-        raise DetectorContractError(
-            "supported_languages must be a list of non-empty strings."
-        )
+        raise DetectorContractError("supported_languages must be a list of non-empty strings.")
 
     if not isinstance(prediction.warnings, list) or any(
         not isinstance(item, str) for item in prediction.warnings
@@ -249,9 +238,7 @@ def validate_prediction(
 
     forbidden_paths = _forbidden_evidence_paths(prediction.evidence)
     if forbidden_paths:
-        raise DetectorContractError(
-            "Detector evidence must not embed raw source-text fields."
-        )
+        raise DetectorContractError("Detector evidence must not embed raw source-text fields.")
 
     if detector is not None:
         for attr in ("detector_id", "detector_version", "detector_family"):
@@ -292,9 +279,7 @@ class BuiltinHeuristicDetector:
             detector_family=self.detector_family,
             execution="local",
             score=result.score,
-            score_semantics=(
-                "higher_means_more_machine_like; uncalibrated pattern score"
-            ),
+            score_semantics=("higher_means_more_machine_like; uncalibrated pattern score"),
             verdict=verdict,
             threshold=None,
             calibrated_ai_probability=None,
@@ -359,9 +344,7 @@ def discover_detector_registry() -> DetectorRegistry:
             for attr in ("detector_id", "detector_version", "detector_family"):
                 _require_nonempty_string(getattr(candidate, attr, None), attr)
             if candidate.detector_id in found:
-                raise DetectorContractError(
-                    f"Duplicate detector_id: {candidate.detector_id}"
-                )
+                raise DetectorContractError(f"Duplicate detector_id: {candidate.detector_id}")
             found[candidate.detector_id] = candidate
             health.append(
                 PluginHealth(

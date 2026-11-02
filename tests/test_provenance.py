@@ -124,8 +124,10 @@ class LedgerChainTests(unittest.TestCase):
             broken["previous_record_sha256"] = "0" * 64
             broken.pop("record_sha256", None)
             ledger.write_text(
-                json.dumps(first, sort_keys=True) + "\n"
-                + json.dumps(broken, sort_keys=True) + "\n",
+                json.dumps(first, sort_keys=True)
+                + "\n"
+                + json.dumps(broken, sort_keys=True)
+                + "\n",
                 encoding="utf-8",
             )
             result = verify_ledger(ledger)
@@ -139,9 +141,7 @@ class LedgerChainTests(unittest.TestCase):
             _write(file, "concurrent snapshot source")
 
             with ThreadPoolExecutor(max_workers=4) as pool:
-                records = list(
-                    pool.map(lambda _: snapshot_file(file, ledger), range(8))
-                )
+                records = list(pool.map(lambda _: snapshot_file(file, ledger), range(8)))
 
             verified = verify_ledger(ledger)
             self.assertTrue(verified["valid"], verified["errors"])
@@ -155,7 +155,9 @@ class LedgerChainTests(unittest.TestCase):
             ledger = Path(tmp) / "ledger.jsonl"
             _write(file, "first")
             snapshot_file(file, ledger)
-            self.assertIn("not an independent trusted timestamp", verify_ledger(ledger)["warning"].lower())
+            self.assertIn(
+                "not an independent trusted timestamp", verify_ledger(ledger)["warning"].lower()
+            )
 
     def test_snapshot_record_has_required_fields(self):
         with tempfile.TemporaryDirectory() as tmp:

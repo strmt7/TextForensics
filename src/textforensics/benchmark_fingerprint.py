@@ -48,9 +48,7 @@ class DatasetFingerprint:
     def __post_init__(self) -> None:
         """Set creation timestamp if not provided."""
         if not self.created_at:
-            object.__setattr__(
-                self, "created_at", datetime.now(timezone.utc).isoformat()
-            )
+            object.__setattr__(self, "created_at", datetime.now(timezone.utc).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize fingerprint to a dictionary."""
@@ -108,9 +106,7 @@ def _iter_jsonl_samples(path: Path) -> Iterator[dict[str, Any]]:
             try:
                 yield json.loads(line)
             except json.JSONDecodeError as exc:
-                raise ValueError(
-                    f"Line {line_number} is not valid JSON: {exc}"
-                ) from exc
+                raise ValueError(f"Line {line_number} is not valid JSON: {exc}") from exc
 
 
 def _compute_sample_hashes(
@@ -363,8 +359,7 @@ def save_fingerprint(
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        json.dumps(fingerprint.to_dict(), indent=2, sort_keys=True, ensure_ascii=False)
-        + "\n",
+        json.dumps(fingerprint.to_dict(), indent=2, sort_keys=True, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
     return path
