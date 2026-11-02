@@ -327,41 +327,7 @@ class FingerprintSerializationTests(unittest.TestCase):
             self.assertEqual(original_fp.content_hashes, loaded_fp.content_hashes)
 
 
-class ContaminationDetectionTests(unittest.TestCase):
-    """Tests for contamination detection scenarios."""
-
-    def test_identical_files_detected_as_contaminated(self):
-        """Test that identical files are flagged as contaminated."""
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "shared.jsonl"
-            write_test_dataset(path)
-
-            fp = fingerprint_dataset(path, name="Test", version="1.0")
-
-            # Same file for both
-            result = check_disjointness(path, fp, path, fp)
-
-            self.assertFalse(result["disjoint"])
-
-    def test_filters_in_fingerprint(self):
-        """Test that filters are included in fingerprint."""
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "test.jsonl"
-            write_test_dataset(path)
-
-            filters = {"language": "en", "min_length": 50, "domains": ["news", "blogs"]}
-            fp = fingerprint_dataset(
-                path,
-                name="TestDataset",
-                version="1.0.0",
-                split="test",
-                filters=filters,
-            )
-
-            self.assertEqual(fp.filters, filters)
-
-
-class ContaminationDetectionTests(unittest.TestCase):
+class ContaminationDetectionExtendedTests(unittest.TestCase):
     """Tests for contamination detection scenarios."""
 
     def test_identical_files_detected_as_contaminated(self):

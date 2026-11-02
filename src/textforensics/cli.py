@@ -256,7 +256,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Schema type to validate against.",
     )
 
-    schema_list = schema_sub.add_parser("list", help="List available schemas.")
+    schema_sub.add_parser("list", help="List available schemas.")
 
     schema_show = schema_sub.add_parser("show", help="Show a schema definition.")
     schema_show.add_argument("name", help="Schema name (e.g., forensic-bundle).")
@@ -618,11 +618,11 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
 
     elif args.command == "schema":
         from .schema import (
-            load_schema,
             list_schemas,
-            validate_forensic_bundle,
-            validate_detector_result,
+            load_schema,
             validate_case_file,
+            validate_detector_result,
+            validate_forensic_bundle,
             validate_trust_map,
         )
 
@@ -632,7 +632,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             schema = load_schema(args.name)
             _write_json(None, schema)
         elif args.schema_command == "validate":
-            with open(args.file, "r", encoding="utf-8") as f:
+            with open(args.file, encoding="utf-8") as f:
                 data = json.load(f)
 
             if args.type == "forensic-bundle":
