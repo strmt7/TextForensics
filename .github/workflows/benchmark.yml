@@ -21,6 +21,11 @@ on:
         required: false
         default: false
         type: boolean
+      baseline-ref:
+        description: "Git ref for performance baseline comparison (e.g., main, HEAD~1)"
+        required: false
+        default: "main"
+        type: string
 
 permissions:
   contents: read
@@ -33,13 +38,16 @@ jobs:
   benchmark:
     name: Performance Benchmark
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       BENCHMARK_ITERATIONS: ${{ github.event.inputs.iterations || '5' }}
       BENCHMARK_INCLUDE_MEMORY: ${{ github.event.inputs.include-memory || 'false' }}
+      BASELINE_REF: ${{ github.event.inputs.baseline-ref || 'main' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0  # Full history needed for baseline comparison
 
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -60,13 +68,47 @@ jobs:
             --output benchmark-results.json \
             ${{ env.BENCHMARK_INCLUDE_MEMORY == 'true' && '--measure-memory' || '' }}
 
-      - name: Run pytest-benchmark suite (if available)
+      - name: Run pytest-benchmark suite (performance regression tests)
+        run: |
+          python -m pytest tests/test_performance.py --benchmark-only --benchmark-min-rounds=5 --benchmark-json=pytest-performance.json
+
+      - name: Run legacy pytest-benchmark suite (if available)
         run: |
           if python -c "import pytest_benchmark" 2>/dev/null; then
             python -m pytest tests/test_benchmarks.py --benchmark-only --benchmark-json=pytest-benchmark.json
           else
             echo "pytest-benchmark not installed; running performance assertions instead"
             python -m pytest tests/test_benchmarks.py -v --tb=short
+          fi
+
+      - name: Download performance baseline for comparison
+        if: github.event.inputs.baseline-ref != ''
+        uses: actions/download-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: performance-baseline-${{ env.BASELINE_REF }}
+          path: baseline/
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Allow failure if baseline doesn't exist yet
+          fail-on-error: false
+
+      - name: Compare performance against baseline
+        if: github.event.inputs.baseline-ref != '' && always()
+        run: |
+          if [ -f "baseline/pytest-performance.json" ]; then
+            echo "Comparing against baseline from ${{ env.BASELINE_REF }}"
+            python -m pytest tests/test_performance.py --benchmark-only --benchmark-min-rounds=5 \
+              --benchmark-compare=baseline/pytest-performance.json \
+              --benchmark-compare-fail=mean:1.20 \
+              --benchmark-json=pytest-performance-comparison.json 2>&1 | tee comparison-output.txt
+            COMPARE_EXIT_CODE=${PIPESTATUS[0]}
+            if [ $COMPARE_EXIT_CODE -ne 0 ]; then
+              echo "::error::Performance regression detected! Results are >20% slower than baseline."
+              cat comparison-output.txt
+              exit 1
+            fi
+          else
+            echo "No baseline found for ${{ env.BASELINE_REF }}. Skipping comparison."
+            echo "To create a baseline, run the workflow with baseline-ref='' or push to main."
           fi
 
       - name: Upload benchmark results
@@ -77,8 +119,19 @@ jobs:
           path: |
             benchmark-results.json
             pytest-benchmark.json
+            pytest-performance.json
+            pytest-performance-comparison.json
           if-no-files-found: warn
           retention-days: 90
+
+      - name: Upload performance baseline (main branch only)
+        if: github.ref == 'refs/heads/main' && always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: performance-baseline-main
+          path: pytest-performance.json
+          if-no-files-found: warn
+          retention-days: 365
 
       - name: Summary
         if: always()
@@ -86,9 +139,24 @@ jobs:
           echo "## Benchmark Summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           if [ -f benchmark-results.json ]; then
+            echo '### Standalone Benchmark' >> "$GITHUB_STEP_SUMMARY"
             echo '```json' >> "$GITHUB_STEP_SUMMARY"
             cat benchmark-results.json >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
           fi
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Artifacts uploaded with 90-day retention." >> "$GITHUB_STEP_SUMMARY"
+          if [ -f pytest-performance.json ]; then
+            echo '### pytest-benchmark Performance Tests' >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat pytest-performance.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f pytest-performance-comparison.json ]; then
+            echo '### Performance Comparison (vs baseline)' >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat pytest-performance-comparison.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "Artifacts uploaded with 90-day retention (baseline: 365 days)." >> "$GITHUB_STEP_SUMMARY"
