@@ -14,12 +14,7 @@ from .benchmark import (
 )
 from .benchmark_fingerprint import (
     check_disjointness,
-    DatasetFingerprint,
     fingerprint_dataset,
-    load_fingerprint,
-    save_fingerprint,
-    verify_fingerprint,
-    validate_disjointness,
 )
 from .casefile import verify_case_file_path, write_case_file
 from .compare import compare_texts
@@ -31,11 +26,6 @@ from .localize import localize_text
 from .naturalness import audit_naturalness
 from .provenance import snapshot_file, verify_ledger
 from .report import build_forensic_bundle
-from .threshold_selection import (
-    evaluate_threshold,
-    run_calibration_evaluation,
-    select_threshold,
-)
 from .version import get_version
 from .webapp import serve as serve_webapp
 
@@ -176,7 +166,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Diagnostic only: permit evaluation on the calibration dataset.",
     )
-    
+
     # Separate commands for contamination prevention (AGENTS.md #12)
     # These are distinct commands to avoid argparse positional/subparser conflicts
     fp_cmd = sub.add_parser(
@@ -422,8 +412,8 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         _write_json(args.output, result)
 
     elif args.command == "select-threshold":
-        from .threshold_selection import select_threshold as _select_threshold
         from .threshold_selection import create_calibration_artifact as _create_artifact
+        from .threshold_selection import select_threshold as _select_threshold
 
         result = _select_threshold(
             args.dataset,
