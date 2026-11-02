@@ -10,7 +10,6 @@ from pathlib import Path
 from textforensics.localize import (
     SegmentResult,
     detect_anomalous_segments,
-    localize_text,
     segment_to_dict,
     visual_diff,
 )
@@ -181,9 +180,10 @@ class LocalizeIntegrationTests(unittest.TestCase):
     """Integration tests for localize CLI commands via in-process execution."""
 
     def test_localize_segments_json_output(self):
-        from textforensics.cli import build_parser, main
         import sys
         from io import StringIO
+
+        from textforensics.cli import main
 
         text = "First sentence. Second sentence. Third sentence. Fourth sentence."
         old_argv = sys.argv
@@ -205,9 +205,10 @@ class LocalizeIntegrationTests(unittest.TestCase):
             sys.stdout = old_stdout
 
     def test_localize_diff_side_by_side(self):
-        from textforensics.cli import build_parser, main
         import sys
         from io import StringIO
+
+        from textforensics.cli import main
 
         text1 = "Line one\nLine two\nLine three"
         text2 = "Line one\nModified line\nLine three\nLine four"
@@ -236,9 +237,10 @@ class LocalizeIntegrationTests(unittest.TestCase):
                 sys.stdout = old_stdout
 
     def test_localize_diff_unified(self):
-        from textforensics.cli import build_parser, main
         import sys
         from io import StringIO
+
+        from textforensics.cli import main
 
         text1 = "Line one\nLine two\nLine three"
         text2 = "Line one\nModified line\nLine three"
@@ -267,9 +269,10 @@ class LocalizeIntegrationTests(unittest.TestCase):
                 sys.stdout = old_stdout
 
     def test_localize_diff_inline(self):
-        from textforensics.cli import build_parser, main
         import sys
         from io import StringIO
+
+        from textforensics.cli import main
 
         text1 = "The quick brown fox."
         text2 = "The quick red fox."
@@ -297,9 +300,10 @@ class LocalizeIntegrationTests(unittest.TestCase):
                 sys.stdout = old_stdout
 
     def test_localize_anomalies_json_output(self):
-        from textforensics.cli import build_parser, main
         import sys
         from io import StringIO
+
+        from textforensics.cli import main
 
         text = "Short. Very very very very very long repetitive segment. Normal end."
 
@@ -324,9 +328,10 @@ class LocalizeIntegrationTests(unittest.TestCase):
                 sys.stdout = old_stdout
 
     def test_localize_anomalies_output_file(self):
-        from textforensics.cli import build_parser, main
         import sys
         from io import StringIO
+
+        from textforensics.cli import main
 
         text = "Short. Very very very very very long repetitive segment. Normal end."
 
