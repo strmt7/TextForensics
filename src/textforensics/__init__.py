@@ -1,13 +1,13 @@
 """TextForensics: detector reliability and AI-text forensics."""
 
 from .benchmark_fingerprint import (
-    check_disjointness,
     DatasetFingerprint,
+    check_disjointness,
     fingerprint_dataset,
     load_fingerprint,
     save_fingerprint,
-    verify_fingerprint,
     validate_disjointness,
+    verify_fingerprint,
 )
 from .casefile import seal_case_file, verify_case_file
 from .compare import compare_texts

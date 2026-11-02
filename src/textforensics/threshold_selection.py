@@ -268,9 +268,8 @@ def evaluate_threshold(
     test_path = Path(test_path)
     test_hash = dataset_sha256(test_path)
 
-    if not allow_same_dataset and calibration_dataset_hash:
-        if test_hash == calibration_dataset_hash:
-            raise ValueError(
+    if not allow_same_dataset and calibration_dataset_hash and test_hash == calibration_dataset_hash:
+        raise ValueError(
                 "Evaluation dataset matches the calibration dataset. "
                 "Use a separate held-out dataset for release-quality validation. "
                 "Use allow_same_dataset=True only for diagnostics."
