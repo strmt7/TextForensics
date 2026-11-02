@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import difflib
 import html
-import math
 import statistics
 from dataclasses import asdict, dataclass
 from typing import Any
