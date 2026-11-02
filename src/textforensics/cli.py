@@ -347,6 +347,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     cap_list = cap_sub.add_parser("list", help="List all registered capabilities.")
     cap_list.add_argument("--detector", help="Filter by detector ID.")
+    cap_list.add_argument("--ledger", help="Path to the capability ledger JSON file.")
 
     cap_check = cap_sub.add_parser(
         "check",
@@ -354,6 +355,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     cap_check.add_argument("detector", help="Detector ID.")
     cap_check.add_argument("capability", help="Capability name.")
+    cap_check.add_argument("--ledger", help="Path to the capability ledger JSON file.")
 
     cap_export = cap_sub.add_parser(
         "export",
@@ -364,6 +366,35 @@ def build_parser() -> argparse.ArgumentParser:
         "-o",
         help="Path to write JSON (default: stdout).",
     )
+    cap_export.add_argument("--ledger", help="Path to the capability ledger JSON file.")
+
+    cap_register = cap_sub.add_parser(
+        "register",
+        help="Register a capability claim in the ledger.",
+    )
+    cap_register.add_argument("detector", help="Detector ID.")
+    cap_register.add_argument("capability", help="Capability name (e.g., language_coverage.en).")
+    cap_register.add_argument(
+        "tier",
+        choices=["validated", "tool_backed", "readable"],
+        help="Evidence tier: validated, tool_backed, or readable.",
+    )
+    cap_register.add_argument("artifact", help="Evidence artifact path or run ID.")
+    cap_register.add_argument(
+        "--ledger",
+        default=str(Path(__file__).resolve().parent.parent.parent / "capability_ledger.json"),
+        help="Path to the capability ledger JSON file (default: ./capability_ledger.json).",
+    )
+    cap_register.add_argument(
+        "--label",
+        choices=["reported", "calculated", "proposed", "executed"],
+        default="calculated",
+        help="Evidence label (default: calculated).",
+    )
+    cap_register.add_argument(
+        "--detail", help="Optional detail about the evidence."
+    )
+    cap_register.add_argument("--valid-until", help="Optional expiration date (ISO format).")
 
     return parser
 
@@ -620,7 +651,18 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             _write_json(args.output, report)
 
     elif args.command == "capability":
-        ledger = _load_default_ledger()
+        # Load ledger from specified path or default location
+        ledger_path = getattr(args, "ledger", None) or str(
+            Path(__file__).resolve().parent.parent.parent / "capability_ledger.json"
+        )
+        if Path(ledger_path).exists():
+            try:
+                data = json.loads(Path(ledger_path).read_text(encoding="utf-8"))
+                ledger = CapabilityLedger.from_dict(data)
+            except (json.JSONDecodeError, KeyError):
+                ledger = CapabilityLedger()
+        else:
+            ledger = CapabilityLedger()
         if args.capability_command == "list":
             claims = ledger.to_dict()["claims"]
             if args.detector:
@@ -654,6 +696,36 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
                 )
         elif args.capability_command == "export":
             _write_json(args.output, ledger.to_dict())
+        elif args.capability_command == "register":
+            tier = EvidenceTier[args.tier.upper()]
+            claim = CapabilityClaim(
+                detector_id=args.detector,
+                capability=args.capability,
+                tier=tier,
+                evidence=[
+                    EvidenceRef(
+                        label=EvidenceLabel[args.label.upper()],
+                        tier=tier,
+                        artifact=args.artifact,
+                        detail=args.detail,
+                    )
+                ],
+                valid_until=args.valid_until,
+            )
+            ledger.register(claim)
+            # Save the ledger back to disk
+            ledger_path = Path(args.ledger)
+            ledger_path.parent.mkdir(parents=True, exist_ok=True)
+            ledger_path.write_text(json.dumps(ledger.to_dict(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            payload = {
+                "detector_id": args.detector,
+                "capability": args.capability,
+                "tier": tier.value,
+                "artifact": args.artifact,
+                "registered": True,
+            }
+            _write_json(None, payload)
+            print(f"Registered: {args.detector}/{args.capability} ({tier.value})")
 
     elif args.command == "verify":
         case_payload = None

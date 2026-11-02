@@ -38,6 +38,8 @@ jobs:
           coverage run -m pytest tests -q --tb=short 2>&1 | tee "$RUNNER_TEMP/unittest-py$PYTHON_VERSION.log"
         env:
           PYTHON_VERSION: ${{ matrix.python-version }}
+      - name: Golden file verification
+        run: python scripts/verify_golden.py
       - name: Dependency consistency
         run: python -m pip check
       - name: CLI smoke

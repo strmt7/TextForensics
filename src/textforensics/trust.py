@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .detectors import DetectorPrediction
+
+if TYPE_CHECKING:
+    from .capability_ledger import CapabilityLedger, EvidenceTier
 
 TRUST_STATES = {"supported", "partial", "unknown", "out_of_scope"}
 
@@ -244,4 +247,117 @@ def build_trust_map(
             "The alpha Trust Map is intentionally conservative until benchmark "
             "registries provide slice-level validation evidence.",
         ],
+    )
+
+
+def trust_map_from_capability_ledger(ledger: "CapabilityLedger") -> "TrustMap":
+    """Build a TrustMap from capability ledger claims.
+
+    Maps EvidenceTier values to TrustDimension.state:
+    - VALIDATED → state="supported"
+    - TOOL_BACKED → state="partial", detail="tool-backed evidence"
+    - READABLE → state="partial", detail="documented but not machine-verifiable"
+    - No claim → state="unknown"
+    """
+    # Import here to avoid circular import
+    from .capability_ledger import EvidenceTier
+
+    dimensions: list[TrustDimension] = []
+
+    # Get all unique detectors and capabilities from the ledger
+    detector_capabilities: dict[str, set[str]] = {}
+    for detector_id, claims in ledger._claims.items():
+        detector_capabilities[detector_id] = set()
+        for claim in claims:
+            # Extract capability prefix (e.g., "en" from "language_coverage.en")
+            capability = claim.capability
+            detector_capabilities[detector_id].add(capability)
+
+    if detector_capabilities:
+        # Track overall states across all dimensions
+        states_seen = set()
+
+        for detector_id in sorted(detector_capabilities.keys()):
+            claims = ledger._claims.get(detector_id, [])
+
+            for capability in sorted(detector_capabilities[detector_id]):
+                # Find relevant claims for this capability
+                relevant_claims = [
+                    c for c in claims if c.capability == capability
+                ]
+
+                if not relevant_claims:
+                    # No claim
+                    dimension = TrustDimension(
+                        dimension=capability.replace(".", "_"),
+                        state="unknown",
+                        reason=f"No capability claim registered for {detector_id}/{capability}.",
+                    )
+                else:
+                    # Check tiers
+                    has_validated = any(c.tier == EvidenceTier.VALIDATED for c in relevant_claims)
+                    has_tool_backed = any(c.tier == EvidenceTier.TOOL_BACKED for c in relevant_claims)
+                    has_readable = any(c.tier == EvidenceTier.READABLE for c in relevant_claims)
+
+                    if has_validated:
+                        state = "supported"
+                        reason = f"Capability '{capability}' for {detector_id} has VALIDATED-tier evidence."
+                    elif has_tool_backed:
+                        state = "partial"
+                        reason = f"Capability '{capability}' for {detector_id} is TOOL_BACKED."
+                    else:
+                        # READABLE tier
+                        state = "partial"
+                        reason = f"Capability '{capability}' for {detector_id} is documented but not machine-verifiable."
+
+                    # Collect evidence refs
+                    evidence_refs = []
+                    limitations = []
+                    for c in relevant_claims:
+                        for e in c.evidence:
+                            evidence_refs.append(e.artifact)
+                        if c.valid_until:
+                            limitations.append(
+                                f"Claim for {c.capability} expires {c.valid_until}."
+                            )
+
+                    dimension = TrustDimension(
+                        dimension=capability.replace(".", "_"),
+                        state=state,
+                        reason=reason,
+                        evidence_refs=evidence_refs,
+                        limitations=limitations,
+                    )
+
+                dimensions.append(dimension)
+                states_seen.add(dimension.state)
+
+    # Determine overall state
+    if not dimensions:
+        overall = "insufficient"
+        limitations = [
+            "No capability claims are registered in the ledger.",
+            "Trust Map states describe evidence coverage, not probability of authorship.",
+        ]
+    else:
+        unknown_count = sum(1 for d in dimensions if d.state == "unknown")
+        out_of_scope_count = sum(1 for d in dimensions if d.state == "out_of_scope")
+        partial_count = sum(1 for d in dimensions if d.state == "partial")
+
+        if out_of_scope_count > 0 or unknown_count >= max(1, len(dimensions) // 2):
+            overall = "insufficient"
+        elif unknown_count > 0 or partial_count > 0:
+            overall = "mixed"
+        else:
+            overall = "strong"
+
+        limitations = [
+            "Trust Map states describe evidence coverage, not probability of authorship.",
+        ]
+
+    return TrustMap(
+        schema="textforensics.trust-map/v1",
+        overall=overall,
+        dimensions=dimensions,
+        limitations=limitations,
     )
