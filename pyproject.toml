@@ -88,7 +88,7 @@ textforensics-typer = "textforensics.typer_cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-textforensics = ["schemas/*.json"]
+textforensics = ["schemas/*.json", "_build_info.json"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

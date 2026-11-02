@@ -1,5 +1,12 @@
 """TextForensics: detector reliability and AI-text forensics."""
 
+from ._build_info import (
+    BUILD_INFO,
+    get_build_info,
+    get_build_info_json,
+    initialize_build_info,
+    verify_build_identity,
+)
 from .benchmark_fingerprint import (
     DatasetFingerprint,
     check_disjointness,
@@ -50,6 +57,7 @@ from .verify import (
 from .version import get_version
 
 __all__ = [
+    "BUILD_INFO",
     "analyze_text",
     "build_forensic_bundle",
     "CapabilityClaim",
@@ -69,7 +77,10 @@ __all__ = [
     "exit_code_description",
     "exit_code_name",
     "fingerprint_dataset",
+    "get_build_info",
+    "get_build_info_json",
     "get_version",
+    "initialize_build_info",
     "ledger_to_trust_dimension",
     "load_fingerprint",
     "save_fingerprint",
@@ -77,16 +88,17 @@ __all__ = [
     "seal_case_file",
     "trust_map_from_capability_ledger",
     "validate_claim",
+    "validate_disjointness",
     "validate_exit_code",
     "verify_all",
     "verify_benchmark",
     "verify_calibration",
+    "verify_build_identity",
     "verify_case_file",
     "verify_case_file_nversion",
     "verify_case_file_path",
     "verify_fingerprint",
     "VerificationReport",
-    "validate_disjointness",
 ]
 
 __version__ = get_version()

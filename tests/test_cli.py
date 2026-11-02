@@ -146,6 +146,38 @@ class CliTests(unittest.TestCase):
         self.assertEqual(EXIT_INCOMPLETE, 2)
         self.assertEqual(EXIT_ERROR, 3)
 
+    def test_build_info_outputs_json(self):
+        """build-info should output valid JSON with required fields."""
+        result = self.run_cli("build-info")
+        self.assertEqual(result.returncode, EXIT_OK, result.stderr)
+        payload = json.loads(result.stdout)
+        # Required fields
+        self.assertIn("source_commit", payload)
+        self.assertIn("source_commit_verified", payload)
+        self.assertIn("python_version", payload)
+        self.assertIn("dependencies_sha256", payload)
+        self.assertIn("api_version", payload)
+        self.assertIn("api_spec_sha256", payload)
+        self.assertIn("detector_adapter_api_sha256", payload)
+        self.assertIn("calibration_format_version", payload)
+        self.assertIn("benchmark_format_version", payload)
+        self.assertIn("contract_info", payload)
+        # source_commit should be a non-empty string
+        self.assertIsInstance(payload["source_commit"], str)
+        self.assertGreater(len(payload["source_commit"]), 0)
+
+    def test_build_info_verify_returns_valid(self):
+        """build-info --verify should return a verification report."""
+        result = self.run_cli("build-info", "--verify")
+        self.assertEqual(result.returncode, EXIT_OK, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertIn("valid", payload)
+        self.assertIn("checks", payload)
+        self.assertIn("errors", payload)
+        self.assertIsInstance(payload["valid"], bool)
+        self.assertIsInstance(payload["checks"], list)
+        self.assertIsInstance(payload["errors"], list)
+
 
 if __name__ == "__main__":
     unittest.main()
