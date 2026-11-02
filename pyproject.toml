@@ -53,6 +53,9 @@ all = [
   "uvicorn>=0.30,<1",
   "mcp>=2,<3",
 ]
+cli-rich = [
+  "rich>=13,<14",
+]
 dev = [
   "build>=1.2,<2",
   "coverage>=7.5,<8",
