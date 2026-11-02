@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/strmt7/TextForensics/schemas/trust-map.schema.json",
+  "title": "TextForensics Trust Map v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "overall",
+    "dimensions",
+    "limitations"
+  ],
+  "properties": {
+    "schema": {"const": "textforensics.trust-map/v1"},
+    "overall": {"enum": ["strong", "mixed", "insufficient"]},
+    "dimensions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "dimension",
+          "state",
+          "reason"
+        ],
+        "properties": {
+          "dimension": {"type": "string", "minLength": 1},
+          "state": {"enum": ["supported", "partial", "unknown", "out_of_scope"]},
+          "reason": {"type": "string", "minLength": 1},
+          "evidence_refs": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "observed": {"type": "object"},
+          "limitations": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "additionalProperties": false
+}
