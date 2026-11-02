@@ -12,6 +12,7 @@ from .benchmark import (
     calibrate_threshold_jsonl,
     load_calibration_artifact,
 )
+from .bundle import list_bundle, pack_bundle, verify_bundle
 from .benchmark_fingerprint import (
     check_disjointness,
     fingerprint_dataset,
@@ -262,6 +263,26 @@ def build_parser() -> argparse.ArgumentParser:
     case_export.add_argument("--fixed-timestamp", help="Fixed ISO timestamp for reproducible output")
     case_verify = case_sub.add_parser("verify", help="Verify case-file integrity.")
     case_verify.add_argument("case_file")
+
+    bundle_cmd = sub.add_parser(
+        "bundle",
+        help="Pack, verify, and list case file bundles.",
+    )
+    bundle_sub = bundle_cmd.add_subparsers(dest="bundle_command", required=True)
+
+    bundle_pack = bundle_sub.add_parser("pack", help="Pack a case file into a bundle.")
+    bundle_pack.add_argument("case_file", help="Path to a case file or case file directory.")
+    bundle_pack.add_argument("output", help="Output bundle path (.tar.gz or .zip).")
+
+    bundle_verify = bundle_sub.add_parser("verify", help="Verify bundle integrity.")
+    bundle_verify.add_argument("bundle", help="Path to the bundle archive.")
+    bundle_verify.add_argument(
+        "--expect-digest",
+        help="Expected SHA-256 digest of the bundle archive.",
+    )
+
+    bundle_list = bundle_sub.add_parser("list", help="List contents of a bundle.")
+    bundle_list.add_argument("bundle", help="Path to the bundle archive.")
 
     verify_cmd = sub.add_parser(
         "verify",
@@ -726,6 +747,18 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             }
             _write_json(None, payload)
             print(f"Registered: {args.detector}/{args.capability} ({tier.value})")
+
+    elif args.command == "bundle":
+        if args.bundle_command == "pack":
+            manifest = pack_bundle(args.case_file, args.output)
+            _write_json(None, manifest.to_dict())
+        elif args.bundle_command == "verify":
+            result = verify_bundle(args.bundle, expected_digest=args.expect_digest)
+            _write_json(None, result.to_dict())
+            return EXIT_OK if result.valid else EXIT_INCOMPLETE
+        elif args.bundle_command == "list":
+            entries = list_bundle(args.bundle)
+            _write_json(None, entries)
 
     elif args.command == "verify":
         case_payload = None

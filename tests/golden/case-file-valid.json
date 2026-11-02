@@ -1,5 +1,5 @@
 {
-  "case_sha256": "0c01d9f5a057ca10168eaf5801aebd378b1a6f24a1216253da0db7dc9e3f8f8a",
+  "case_sha256": "1ca3b769d64ee2e6f74c51e2389de619d40a380beea80f1a8759a533052f8f1b",
   "forensic_bundle": {
     "consensus": {
       "calibrated_ai_probability": null,
@@ -24,7 +24,7 @@
         "Consensus requires multiple methodologically independent detector families; fewer than two families are available."
       ]
     },
-    "content_sha256": "3c6a9d9e66d03095d9e2610b19d9c40655904a023a34b130267365741fd2c177",
+    "content_sha256": "50c0fc2a6661797dfd8db493de979d072889098a16eb17ea25f8e5fc8a2ec7f2",
     "detector_failures": [],
     "detector_results": [
       {
@@ -41,20 +41,20 @@
           },
           {
             "analyzer": "formulaic_language",
-            "reliability": 0.1111,
+            "reliability": 0.1056,
             "score": 0.0
           },
           {
             "analyzer": "lexical_profile",
-            "reliability": 0.05,
+            "reliability": 0.0475,
             "score": 0.3
           }
         ],
         "execution": "local",
         "min_words": 80,
-        "reliability": 0.0623,
+        "reliability": 0.0591,
         "schema": "textforensics.detector-result/v1",
-        "score": 0.4373,
+        "score": 0.4448,
         "score_semantics": "higher_means_more_machine_like; uncalibrated pattern score",
         "supported_languages": [
           "en"
@@ -75,7 +75,7 @@
       "paragraph_count": 1,
       "raw_text_included": false,
       "sentence_count": 2,
-      "word_count": 20
+      "word_count": 19
     },
     "limitations": [
       "Text-only detector evidence is not proof of authorship. False positives and false negatives remain possible.",
@@ -101,19 +101,19 @@
           "native_score_range": 0.0,
           "probes": {
             "normalized_punctuation": {
-              "score": 0.4373,
+              "score": 0.4448,
               "verdict": "abstain"
             },
             "normalized_whitespace": {
-              "score": 0.4373,
+              "score": 0.4448,
               "verdict": "abstain"
             },
             "original": {
-              "score": 0.4373,
+              "score": 0.4448,
               "verdict": "abstain"
             },
             "plain_list_formatting": {
-              "score": 0.4373,
+              "score": 0.4448,
               "verdict": "abstain"
             }
           },
@@ -147,7 +147,7 @@
                 "min_words": 80
               }
             ],
-            "word_count": 20
+            "word_count": 19
           },
           "reason": "The text is below every detector's declared minimum word count.",
           "state": "out_of_scope"
