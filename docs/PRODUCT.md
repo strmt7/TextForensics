@@ -144,4 +144,3 @@ Avoid:
 - "100% AI",
 - "100% human",
 - "undetectable".
-

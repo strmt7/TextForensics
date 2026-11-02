@@ -28,6 +28,8 @@ jobs:
           cache: pip
       - name: Install development dependencies
         run: python -m pip install -e ".[dev]"
+      - name: Run pre-commit hooks
+        run: pre-commit run --all-files --show-diff-on-failure
       - name: Compile sources
         run: python -m compileall -q src tests
       - name: Lint critical errors

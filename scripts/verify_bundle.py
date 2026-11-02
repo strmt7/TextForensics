@@ -19,7 +19,7 @@ import tempfile
 from pathlib import Path
 
 from textforensics.bundle import pack_bundle, verify_bundle
-from textforensics.casefile import canonical_json_bytes, seal_case_file
+from textforensics.casefile import seal_case_file
 from textforensics.constants import EXIT_ERROR, EXIT_OK
 from textforensics.report import build_forensic_bundle
 

@@ -66,4 +66,3 @@ Avoid:
 - "proved AI",
 - "definitely human",
 - "truth score".
-
