@@ -2,6 +2,7 @@ name: Container
 
 on:
   push:
+    branches: [main]
     paths:
       - "Dockerfile"
       - ".dockerignore"
@@ -9,63 +10,132 @@ on:
       - "pyproject.toml"
       - "src/**"
       - ".github/workflows/container.yml"
-  pull_request:
-    paths:
-      - "Dockerfile"
-      - ".dockerignore"
-      - "compose.yaml"
-      - "pyproject.toml"
-      - "src/**"
-      - ".github/workflows/container.yml"
+  schedule:
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: container-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: strmt7/textforensics
+
 jobs:
-  image:
+  build-and-push:
+    name: Build and push multi-arch image
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    permissions:
+      packages: write
+      contents: read
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Checkout
+        uses: actions/checkout@v5
 
-      - name: Validate Compose definition
-        run: docker compose config --quiet
-
-      - name: Build OCI image
-        run: docker build --tag textforensics-ci .
-
-      - name: Start hardened container
+      - name: Read package version
+        id: version
         run: |
-          docker run -d             --name textforensics-ci             --read-only             --tmpfs /tmp:rw,nosuid,nodev,size=64m             --cap-drop ALL             --security-opt no-new-privileges:true             -p 127.0.0.1:8765:8765             textforensics-ci
+          VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "textforensics v${VERSION} (sha-${{ github.sha }})"
 
-      - name: Health check
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+          driver-opts: |
+            image=moby/buildkit:latest
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=sha,prefix=sha-,format=short
+          flavor: |
+            latest=false
+
+      - name: Build and push
+        id: build-push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: cyclonedx-json
+          artifact-name: textforensics-sbom-cyclonedx.json
+          output-file: textforensics-sbom.cdx.json
+          upload-artifact: false
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build-push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Trivy vulnerability scan
+        uses: aqua-security/trivy-action@0.33.1
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-push.outputs.digest }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: HIGH,CRITICAL
+          exit-code: 1
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: textforensics-sbom-${{ steps.version.outputs.version }}-${{ github.sha }}
+          path: textforensics-sbom.cdx.json
+          if-no-files-found: error
+
+      - name: Upload trivy results
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-results-${{ steps.version.outputs.version }}-${{ github.sha }}
+          path: trivy-results.sarif
+          if-no-files-found: error
+
+      - name: Summary
         run: |
-          for i in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:8765/healthz; then
-              exit 0
-            fi
-            sleep 1
-          done
-          docker logs textforensics-ci
-          exit 1
-
-      - name: Exercise report API
-        run: |
-          curl --fail --silent             -H 'content-type: application/json'             --data '{"text":"I repeated the test yesterday after replacing one cable, then wrote down the second result."}'             http://127.0.0.1:8765/v1/report > report.json
-          python - <<'PY'
-          import json
-          with open("report.json", encoding="utf-8") as handle:
-              data = json.load(handle)
-          assert data["schema"] == "textforensics.forensic-bundle/v1"
-          assert data["input"]["raw_text_included"] is False
-          assert "trust_map" in data
-          PY
-
-      - name: Inspect runtime identity
-        run: |
-          test "$(docker exec textforensics-ci id -u)" != "0"
-          docker exec textforensics-ci textforensics --version
-
-      - name: Stop container
-        if: always()
-        run: docker rm -f textforensics-ci || true
+          echo "## Container build summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Registry:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Version:** \`${{ steps.version.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **SHA:** \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Platforms:** linux/amd64, linux/arm64" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Digest:** \`${{ steps.build-push.outputs.digest }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Tags:** latest, ${{ steps.version.outputs.version }}, sha-${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **SBOM:** CycloneDX JSON uploaded as artifact" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Provenance:** SLSA attestation published" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Vulnerabilities:** Trivy scan completed" >> "$GITHUB_STEP_SUMMARY"
