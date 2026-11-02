@@ -38,14 +38,6 @@ from .constants import (
 )
 from .drift import DriftObservatory
 from .engine import analyze_text
-from .enterprise_policy import (
-    EnterprisePolicy,
-    EnterprisePolicyEngine,
-    PolicyRevisionFloor,
-    PolicyState,
-    compute_policy_digest,
-    validate_enterprise_policy,
-)
 from .report import build_forensic_bundle
 from .threshold_selection import (
     evaluate_threshold,
@@ -63,6 +55,15 @@ from .verify import (
     verify_case_file as verify_case_file_nversion,
 )
 from .version import get_version
+
+
+# Lazy import for enterprise features (cryptography is optional)
+def _import_enterprise_policy():
+    """Lazily import enterprise policy module."""
+    from . import enterprise_policy
+
+    return enterprise_policy
+
 
 __all__ = [
     "BUILD_INFO",
