@@ -16,6 +16,7 @@ from .casefile import verify_case_file_path, write_case_file
 from .compare import compare_texts
 from .config import Settings, read_text_file, validate_text_input
 from .detectors import list_detector_health, list_detector_metadata
+from .drift import DriftObservatory
 from .engine import analyze_text
 from .localize import localize_text
 from .naturalness import audit_naturalness
@@ -200,6 +201,47 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--allow-remote", action="store_true")
     serve.add_argument("--access-log", action="store_true")
 
+    drift = sub.add_parser(
+        "drift",
+        help="Run the drift observatory: longitudinal detector reliability tracking.",
+    )
+    drift_sub = drift.add_subparsers(dest="drift_command", required=True)
+
+    drift_snapshot = drift_sub.add_parser("snapshot", help="Take a detector snapshot.")
+    drift_snapshot.add_argument(
+        "--corpus",
+        default=str(Path(__file__).resolve().parent.parent.parent / "testdata" / "drift_corpus.json"),
+        help="Path to a drift corpus JSON file.",
+    )
+    drift_snapshot.add_argument("--label", help="Optional human-readable snapshot label.")
+    drift_snapshot.add_argument(
+        "--allow-remote",
+        action="store_true",
+        help="Allow remote detector adapters to run during snapshotting.",
+    )
+    drift_snapshot.add_argument("--output", "-o", help="Write the snapshot to this JSON file.")
+    drift_snapshot.add_argument("--snapshot-id", help="Optional explicit snapshot ID.")
+
+    drift_compare = drift_sub.add_parser("compare", help="Compare two drift snapshots.")
+    drift_compare.add_argument("baseline", help="Path to the baseline snapshot JSON.")
+    drift_compare.add_argument("current", help="Path to the current snapshot JSON.")
+    drift_compare.add_argument(
+        "--corpus",
+        default=str(Path(__file__).resolve().parent.parent.parent / "testdata" / "drift_corpus.json"),
+        help="Path to a drift corpus JSON file.",
+    )
+    drift_compare.add_argument("--output", "-o", help="Write the drift report to this JSON file.")
+
+    drift_report = drift_sub.add_parser("report", help="Generate a drift report from two snapshots.")
+    drift_report.add_argument("baseline", help="Path to the baseline snapshot JSON.")
+    drift_report.add_argument("current", help="Path to the current snapshot JSON.")
+    drift_report.add_argument(
+        "--corpus",
+        default=str(Path(__file__).resolve().parent.parent.parent / "testdata" / "drift_corpus.json"),
+        help="Path to a drift corpus JSON file.",
+    )
+    drift_report.add_argument("--output", "-o", help="Write the drift report to this JSON file.")
+
     return parser
 
 
@@ -353,6 +395,22 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             access_log=True if args.access_log else settings.access_log,
         )
         serve_api(active)
+
+    elif args.command == "drift":
+        if args.drift_command == "snapshot":
+            observatory = DriftObservatory(corpus_path=args.corpus)
+            snapshot = observatory.take_snapshot(
+                allow_remote=bool(args.allow_remote),
+                snapshot_id=args.snapshot_id,
+                label=args.label,
+            )
+            _write_json(args.output, snapshot)
+        else:
+            observatory = DriftObservatory(corpus_path=args.corpus)
+            baseline = DriftObservatory.read_snapshot_file(args.baseline)
+            current = DriftObservatory.read_snapshot_file(args.current)
+            report = observatory.compare_snapshots(baseline, current)
+            _write_json(args.output, report)
 
     return 0
 

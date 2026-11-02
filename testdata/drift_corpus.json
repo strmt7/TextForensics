@@ -1,0 +1,449 @@
+{
+  "schema": "textforensics.drift-corpus/v1",
+  "description": "Stable probe corpus for the TextForensics drift observatory. Sample ids and SHA256 hashes are immutable; the text field is for local snapshot execution only and must never be transmitted to remote providers except through explicitly opted-in detector adapters.",
+  "sample_count": 34,
+  "samples": [
+    {
+      "id": "probe-human-001",
+      "text_sha256": "4464f5c01b30a7237c8e6ef4627671a7781517f83d049afbcf6cd24485418778",
+      "text": "The quick brown fox jumps over the lazy dog. This sentence is a classic example of human writing that has been used for decades to test typewriters and keyboards worldwide.",
+      "metadata": {
+        "label": "human",
+        "domain": "general",
+        "length_bucket": "short",
+        "word_count": 30,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-002",
+      "text_sha256": "7545658c89bcd549cfbf248884547a48dfcd0694f249bf0f555dbd49c02e0a8d",
+      "text": "Artificial intelligence systems have transformed many industries in recent years. These systems can generate text, images, and code at speeds that would be impossible for humans to achieve alone.",
+      "metadata": {
+        "label": "human",
+        "domain": "technology",
+        "length_bucket": "short",
+        "word_count": 29,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-003",
+      "text_sha256": "26bcaec2a7946de073f692cc1cd00dfe3fbfb1b8fe591e59e1bc3be69a39eac3",
+      "text": "Machine learning models require large amounts of data to train effectively. Without sufficient training data, the models may produce inaccurate or nonsensical outputs that fail to meet user expectations.",
+      "metadata": {
+        "label": "human",
+        "domain": "technology",
+        "length_bucket": "short",
+        "word_count": 29,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-004",
+      "text_sha256": "12450fb201ef3ce746d25f0c3c7419c030bda48af3d157a9ad4dbcbeb92dc4ea",
+      "text": "The development of natural language processing has enabled computers to understand and generate human language with increasing sophistication. Researchers continue to push the boundaries of what these systems can accomplish.",
+      "metadata": {
+        "label": "human",
+        "domain": "technology",
+        "length_bucket": "short",
+        "word_count": 30,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-005",
+      "text_sha256": "3b9dca56d438149a0a9fc63c3f8c65f19720bcdcee719bbccc7fb7f5f49b0947",
+      "text": "Climate change represents one of the most pressing challenges facing humanity today. Scientists agree that immediate action is necessary to reduce greenhouse gas emissions and limit global warming to safe levels.",
+      "metadata": {
+        "label": "human",
+        "domain": "environment",
+        "length_bucket": "short",
+        "word_count": 31,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-006",
+      "text_sha256": "20684eace660a768625b015c33742c164bc8ddabff7a17eafdc0a0f4fbbd4fd1",
+      "text": "In recent years, renewable energy technologies have become more affordable and accessible to communities around the world. Solar panels and wind turbines now provide a significant portion of electricity in many countries.",
+      "metadata": {
+        "label": "human",
+        "domain": "energy",
+        "length_bucket": "short",
+        "word_count": 32,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-007",
+      "text_sha256": "498ad8143a005e1051636c973bd08ed0f20895181022459ce1c2ef852741322f",
+      "text": "The history of computing spans over seven decades, beginning with mechanical calculators and evolving into the complex digital systems we rely on today. Each generation of technology has brought new capabilities and challenges.",
+      "metadata": {
+        "label": "human",
+        "domain": "computing history",
+        "length_bucket": "short",
+        "word_count": 33,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-008",
+      "text_sha256": "5da09a3e86efe252d100d5a538c4f0cca7e4a520a1457302ca85b38f96e7025b",
+      "text": "Education plays a crucial role in preparing individuals for the complexities of modern society. Effective teaching methods must adapt to changing technologies and the diverse needs of learners from all backgrounds.",
+      "metadata": {
+        "label": "human",
+        "domain": "education",
+        "length_bucket": "short",
+        "word_count": 31,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-009",
+      "text_sha256": "946c3fdb86a7a2cd460efb027093bd94c8063e916311686a038c42f2fe22cb38",
+      "text": "Healthcare systems worldwide are facing unprecedented challenges due to aging populations and rising costs. Innovative solutions involving technology and policy reform are needed to ensure sustainable care for future generations.",
+      "metadata": {
+        "label": "human",
+        "domain": "healthcare",
+        "length_bucket": "short",
+        "word_count": 30,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-010",
+      "text_sha256": "22e40724ef8ff3241d9e9b24fd9c13c6a5baa72303327674a81ec6a201335ac3",
+      "text": "The concept of artificial general intelligence remains theoretical at this time. While narrow AI systems excel at specific tasks, they lack the broad understanding and adaptability that characterize human intelligence across diverse domains.",
+      "metadata": {
+        "label": "human",
+        "domain": "technology",
+        "length_bucket": "short",
+        "word_count": 33,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-011",
+      "text_sha256": "31639509d63b126f19b8373d1173c13ed95574b946212c0542e6d21f9c2a60c7",
+      "text": "The economic implications of widespread automation continue to spark debate among policymakers, business leaders, and workers. Understanding these dynamics requires careful analysis of both historical trends and emerging technologies.",
+      "metadata": {
+        "label": "human",
+        "domain": "economics",
+        "length_bucket": "short",
+        "word_count": 29,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-012",
+      "text_sha256": "f6d562ac84b3827c937e4e107c1f1fd5e52cec31d28eb2875432fbad9eacd22a",
+      "text": "Scientific research thrives on collaboration and the open exchange of ideas. Peer review processes help ensure that published findings meet rigorous standards of evidence and methodology before reaching the broader scientific community.",
+      "metadata": {
+        "label": "human",
+        "domain": "science",
+        "length_bucket": "short",
+        "word_count": 32,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-013",
+      "text_sha256": "a81be8d8e10afc13791fe64a1d4b9aae16596e2035d8adb76bb505f6e0c6d079",
+      "text": "Urban planning plays a vital role in creating livable cities that can accommodate growing populations. Effective transportation systems, green spaces, and housing policies contribute to the overall well-being of urban residents.",
+      "metadata": {
+        "label": "human",
+        "domain": "urban planning",
+        "length_bucket": "short",
+        "word_count": 31,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-014",
+      "text_sha256": "55036dffff7d22a8b2253e2c528757d2e93edae0a1219556c1e692ba719015b1",
+      "text": "The philosophy of mind explores questions about consciousness, intentionality, and the relationship between mental states and physical processes. These discussions have persisted for centuries and remain relevant today.",
+      "metadata": {
+        "label": "human",
+        "domain": "philosophy",
+        "length_bucket": "short",
+        "word_count": 28,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-015",
+      "text_sha256": "555c5192610e6d6c702fb6825b8e95bdce11af982f71044c4f234831dde25cfb",
+      "text": "Digital privacy has become a central concern for individuals, organizations, and governments as more aspects of daily life move online. Strong encryption, transparent data practices, and informed consent help protect user rights in the digital age.",
+      "metadata": {
+        "label": "human",
+        "domain": "privacy",
+        "length_bucket": "short",
+        "word_count": 36,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-016",
+      "text_sha256": "e3ce5cff91ae4027bebe5689a6a58530f9f5de9674e1734bac2c5737f7afd1c7",
+      "text": "The study of ancient civilizations provides valuable insights into the foundations of modern society. Archaeological discoveries, written records, and cultural artifacts help researchers reconstruct the lives of people who lived thousands of years ago.",
+      "metadata": {
+        "label": "human",
+        "domain": "history",
+        "length_bucket": "short",
+        "word_count": 34,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-017",
+      "text_sha256": "08f4c587e6952c732ed1818c460ed5e9deebb9a2895a2ccd2359a1f19bc51692",
+      "text": "The transition from traditional classrooms to online learning environments accelerated dramatically during recent global events. Educators and students alike had to adapt quickly to new tools and pedagogical approaches.",
+      "metadata": {
+        "label": "human",
+        "domain": "education",
+        "length_bucket": "short",
+        "word_count": 29,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-018",
+      "text_sha256": "2488652fea658a1fb15e3a452aaaf708dd30410294ef1b7c99a3566d9b2e335f",
+      "text": "Sustainable agriculture practices aim to produce food while preserving natural resources for future generations. Techniques such as crop rotation, integrated pest management, and water conservation help reduce the environmental impact of farming.",
+      "metadata": {
+        "label": "human",
+        "domain": "agriculture",
+        "length_bucket": "short",
+        "word_count": 32,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-019",
+      "text_sha256": "27880e002f34924bd952236bce0095870a3d729506e3436a201034ce5ffca60f",
+      "text": "The legal profession continues to evolve in response to technological advancements and changing societal needs. Lawyers must now navigate complex questions about data governance, algorithmic decision-making, and the intersection of law and technology.",
+      "metadata": {
+        "label": "human",
+        "domain": "law",
+        "length_bucket": "short",
+        "word_count": 33,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-020",
+      "text_sha256": "1227783a236840cf318fadffee51b18cb4aea2fc3975948249e8a641c64f98c3",
+      "text": "The arts and humanities contribute to society by fostering critical thinking, cultural understanding, and creative expression. Supporting these fields ensures that diverse perspectives and voices continue to be heard and valued in an increasingly complex world.",
+      "metadata": {
+        "label": "human",
+        "domain": "culture",
+        "length_bucket": "short",
+        "word_count": 36,
+        "generator_note": "Hand-written stable probe text.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-ai-001",
+      "text_sha256": "1b131054aef6aa8ae2d1f3eaf791d097b9ef6fed2e4dab2ebd8eafecd8539c59",
+      "text": "The integration of advanced computational methodologies has revolutionized contemporary scientific inquiry. Through systematic application of algorithmic frameworks, researchers have achieved unprecedented levels of analytical precision across multiple disciplinary domains. This paradigm shift represents a fundamental reorientation of epistemological foundations.",
+      "metadata": {
+        "label": "ai",
+        "domain": "science",
+        "length_bucket": "short",
+        "word_count": 39,
+        "generator_note": "Formulaic LLM-style proxy text; not an authorized provider response.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-ai-002",
+      "text_sha256": "707199e744cd73db5bb68ecbd98ca18613f06288697e1f8a46e4f9836b04767e",
+      "text": "Modern optimization techniques facilitate the efficient allocation of scarce resources within complex organizational structures. By employing sophisticated modeling approaches, decision-makers can evaluate alternative scenarios with enhanced granularity, thereby improving strategic outcomes in competitive environments characterized by uncertainty and dynamic constraint sets.",
+      "metadata": {
+        "label": "ai",
+        "domain": "operations",
+        "length_bucket": "short",
+        "word_count": 41,
+        "generator_note": "Formulaic LLM-style proxy text; not an authorized provider response.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-ai-003",
+      "text_sha256": "0c66bde76645994c9c909562272d4982c631688068cc18b779c82bb05c7ed795",
+      "text": "Contemporary pedagogical paradigms increasingly incorporate technological affordances to enhance learner engagement and knowledge retention. Empirical evidence suggests that multimodal instructional designs, when properly calibrated to cognitive load parameters, produce superior educational outcomes compared to traditional didactic approaches.",
+      "metadata": {
+        "label": "ai",
+        "domain": "education",
+        "length_bucket": "short",
+        "word_count": 37,
+        "generator_note": "Formulaic LLM-style proxy text; not an authorized provider response.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-ai-004",
+      "text_sha256": "af0337d780e4fb5261e73e2519ce9bc27abee38f93eedfce02883ebf6f389687",
+      "text": "The convergence of biotechnological innovation and computational modeling has yielded novel therapeutic interventions for previously intractable pathophysiological conditions. These developments signify a transformative era in which molecular-level understanding translates directly into clinical applications that improve patient outcomes across diverse demographic cohorts.",
+      "metadata": {
+        "label": "ai",
+        "domain": "healthcare",
+        "length_bucket": "short",
+        "word_count": 41,
+        "generator_note": "Formulaic LLM-style proxy text; not an authorized provider response.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-ai-005",
+      "text_sha256": "f176d632ab18ee76d8f729e2ac926c0f150997a4da7be3731768646055a4e1ca",
+      "text": "Global supply chain architectures have undergone substantial reconfiguration in response to geopolitical disruptions and shifting consumer preferences. Organizations that demonstrate adaptive capacity through diversified sourcing strategies and responsive inventory management systems exhibit greater resilience when confronted with exogenous shocks that compromise conventional distribution networks.",
+      "metadata": {
+        "label": "ai",
+        "domain": "supply chain",
+        "length_bucket": "short",
+        "word_count": 44,
+        "generator_note": "Formulaic LLM-style proxy text; not an authorized provider response.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-ai-006",
+      "text_sha256": "c3ab12a0ec0fa526818f96af1e93e33263dac5ef362ea819573650d8881b9a36",
+      "text": "Emerging frameworks for data governance emphasize transparency, accountability, and individual autonomy within algorithmic decision-making ecosystems. Regulatory instruments across multiple jurisdictions seek to balance innovation incentives with fundamental rights protections, creating a complex compliance landscape for organizations operating across international boundaries.",
+      "metadata": {
+        "label": "ai",
+        "domain": "data governance",
+        "length_bucket": "short",
+        "word_count": 40,
+        "generator_note": "Formulaic LLM-style proxy text; not an authorized provider response.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-ai-007",
+      "text_sha256": "d3276d7c75a7b26ea3002a76e8bb79d0eb4bd95da746b80f07ed154b4c89725c",
+      "text": "Advances in materials science have enabled the development of novel composites with enhanced mechanical properties and reduced environmental footprints. These innovations hold particular promise for industries seeking to reconcile performance requirements with sustainability objectives through circular economy principles and life-cycle optimization strategies.",
+      "metadata": {
+        "label": "ai",
+        "domain": "materials science",
+        "length_bucket": "short",
+        "word_count": 42,
+        "generator_note": "Formulaic LLM-style proxy text; not an authorized provider response.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-ai-008",
+      "text_sha256": "158738eb596c835e49fd3e940a6cfbb8cb0e6d2e6148538919c8c2d1bf084f15",
+      "text": "The digital transformation of financial services has generated both opportunities and challenges for established institutions. Distributed ledger technologies, algorithmic trading systems, and decentralized finance protocols challenge traditional intermediation models while simultaneously creating new vectors for systemic risk that regulatory frameworks struggle to address adequately.",
+      "metadata": {
+        "label": "ai",
+        "domain": "finance",
+        "length_bucket": "short",
+        "word_count": 44,
+        "generator_note": "Formulaic LLM-style proxy text; not an authorized provider response.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-ai-009",
+      "text_sha256": "3f35c93a3c3bae2771be567c1965e1c17c654ff2f994156be7f81f195076beca",
+      "text": "Interdisciplinary collaboration between computer scientists, ethicists, and policymakers has become essential for navigating the societal implications of autonomous systems. As machine learning models assume greater decision-making authority in domains ranging from criminal justice to healthcare allocation, ensuring fairness, accountability, and transparency requires sustained cross-domain engagement.",
+      "metadata": {
+        "label": "ai",
+        "domain": "ethics",
+        "length_bucket": "short",
+        "word_count": 45,
+        "generator_note": "Formulaic LLM-style proxy text; not an authorized provider response.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-ai-010",
+      "text_sha256": "cae2477f87bdaee5fb851b63320625e38411f2a752afec17659751b8285e41fd",
+      "text": "Theoretical investigations into the nature of intelligence continue to evolve alongside empirical advances in artificial systems. Debates concerning consciousness, generalization capabilities, and the appropriate scope of automated reasoning remain active areas of philosophical and scientific inquiry, with practical implications for how societies integrate increasingly capable technologies into daily life.",
+      "metadata": {
+        "label": "ai",
+        "domain": "philosophy of AI",
+        "length_bucket": "short",
+        "word_count": 49,
+        "generator_note": "Formulaic LLM-style proxy text; not an authorized provider response.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-long-001",
+      "text_sha256": "867f09984549854a3412b2ec53faec6b10410fe50618dfd0c37d8087b937ff2f",
+      "text": "The morning fog had not yet lifted from the valley when the survey team set out across the meadow. They carried old brass instruments and notebooks bound in leather, and each of them moved slowly, mindful of the soft ground. By midday they had recorded their observations at seventeen stations, each one marked with a small wooden post. The work was painstaking and repetitive, but none of them complained. They had done it for years, through cold winters and long rains, because the maps depended on it. When the light finally broke through the clouds, the whole valley seemed to turn gold, and for a moment the effort felt like something more than duty.",
+      "metadata": {
+        "label": "human",
+        "domain": "fiction",
+        "length_bucket": "long",
+        "word_count": 114,
+        "generator_note": "Hand-written stable probe text (long).",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-human-long-002",
+      "text_sha256": "39f546623944914d8fb2af142e4f7e237e880a13caf6848faa654bf417677282",
+      "text": "In the years before the industrial revolution, the rhythms of daily life were governed by the seasons and the available daylight. Crops were planted and harvested according to weather patterns that farmers could read with remarkable accuracy, and the community calendar was structured around market days, festivals, and religious observances. Communication traveled slowly, a letter taking weeks to cross even modest distances, and the scope of most people's experience was bounded by the reach of their own walking legs. History would change all of that, and the changes would come faster than anyone could have anticipated at the time.",
+      "metadata": {
+        "label": "human",
+        "domain": "history",
+        "length_bucket": "medium",
+        "word_count": 99,
+        "generator_note": "Hand-written stable probe text (long).",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-ai-long-001",
+      "text_sha256": "a7554db8b608f1a0fd807c5e34aa29c1098290a03a83a4418cfeac6359f50d54",
+      "text": "The algorithm processed the incoming stream of sensor readings in real time, filtering out noise and flagging anomalies for further review. Its internal state machine had been carefully calibrated over months of iterative testing, and the engineering team monitored every metric with disciplined attention to detail. When a deviation exceeded the predefined threshold, the system generated a structured event record that downstream services could consume without manual intervention. This pipeline represented years of accumulated institutional knowledge, encoded into code that ran around the clock without fatigue or hesitation.",
+      "metadata": {
+        "label": "ai",
+        "domain": "engineering report",
+        "length_bucket": "medium",
+        "word_count": 88,
+        "generator_note": "Formulaic LLM-style proxy text (long); not an authorized provider response.",
+        "language": "en"
+      }
+    },
+    {
+      "id": "probe-ai-long-002",
+      "text_sha256": "3e38277af90968f73edb0ae2624c17574b9b195a62a2b0ff625128f44bc267c5",
+      "text": "The proposed policy framework introduces a comprehensive set of procedural safeguards intended to govern the deployment of autonomous decision-making systems in public institutions. Each component has been designed to address specific categories of risk, including algorithmic bias, insufficient human oversight, and the opacity of automated reasoning processes. Implementing the framework would require substantial investments in training, audit infrastructure, and inter-agency coordination, and the drafters acknowledge that the transition period will be complex and politically contentious. Nevertheless, they argue that the long-term benefits of increased accountability and public trust justify the short-term costs, and they have included phased implementation timelines to allow for iterative refinement as the system matures.",
+      "metadata": {
+        "label": "ai",
+        "domain": "policy",
+        "length_bucket": "long",
+        "word_count": 108,
+        "generator_note": "Formulaic LLM-style proxy text (long); not an authorized provider response.",
+        "language": "en"
+      }
+    }
+  ]
+}
