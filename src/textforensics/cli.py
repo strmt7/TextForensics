@@ -118,6 +118,11 @@ def build_parser() -> argparse.ArgumentParser:
         description="Audit AI-text detector evidence and reliability locally.",
     )
     parser.add_argument(
+        "--typer",
+        action="store_true",
+        help="Use the Typer-based CLI instead of argparse (requires textforensics[cli-typer]).",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"%(prog)s {get_version()}",
@@ -1022,6 +1027,28 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
 
 
 def main() -> int:
+    """Main entry point for the argparse-based CLI.
+    
+    Delegates to the Typer CLI if --typer flag is used or TEXTFORENSICS_CLI=typer env var is set.
+    """
+    import os
+    
+    # Check if Typer CLI should be used
+    use_typer = os.environ.get("TEXTFORENSICS_CLI") == "typer"
+    
+    # Check for --typer flag early (before full parsing)
+    if "--typer" in sys.argv:
+        use_typer = True
+        sys.argv = [a for a in sys.argv if a != "--typer"]
+    
+    if use_typer:
+        try:
+            from .typer_cli import main as typer_main
+            return typer_main()
+        except ImportError as exc:
+            print(f"error: Typer CLI not available. Install with: pip install textforensics[cli-typer]", file=sys.stderr)
+            return EXIT_ERROR
+    
     parser = build_parser()
     args = parser.parse_args()
     try:

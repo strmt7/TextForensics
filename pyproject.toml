@@ -56,6 +56,10 @@ all = [
 cli-rich = [
   "rich>=13,<14",
 ]
+cli-typer = [
+  "typer>=0.12,<1",
+  "rich>=13,<14",
+]
 dev = [
   "build>=1.2,<2",
   "coverage>=7.5,<8",
@@ -76,6 +80,7 @@ security = [
 textforensics = "textforensics.cli:main"
 textforensics-api = "textforensics.server:main"
 textforensics-mcp = "textforensics.mcp_server:main"
+textforensics-typer = "textforensics.typer_cli:main"
 
 [project.entry-points."textforensics.detectors"]
 
