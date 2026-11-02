@@ -130,6 +130,7 @@ def build_parser() -> argparse.ArgumentParser:
     scan = sub.add_parser("scan", help="Run the local alpha pattern baseline.")
     scan.add_argument("--file", "-f")
     scan.add_argument("--json", action="store_true")
+    scan.add_argument("--rich", action="store_true", help="Use Rich-formatted terminal output")
     scan.add_argument("--deterministic", action="store_true", help="Use fixed timestamp and remove runtime_ms for reproducible output")
 
     natural = sub.add_parser(
@@ -165,6 +166,7 @@ def build_parser() -> argparse.ArgumentParser:
     localize.add_argument("--output", "-o", help="Path to write the diff output.")
     # Anomalies arguments
     localize.add_argument("--threshold", type=float, default=2.0, help="Z-score threshold (default: 2.0).")
+    localize.add_argument("--rich", action="store_true", help="Use Rich-formatted terminal output")
 
     compare = sub.add_parser("compare", help="Compare two text versions.")
     compare.add_argument("before")
@@ -267,6 +269,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="List installed detector adapters.",
     )
     detectors.add_argument("--health", action="store_true")
+    detectors.add_argument("--rich", action="store_true", help="Use Rich-formatted terminal output")
 
     # Schema validation commands
     schema_cmd = sub.add_parser("schema", help="Validate and inspect JSON schemas.")
@@ -295,6 +298,7 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--output", "-o")
     report.add_argument("--deterministic", action="store_true", help="Use fixed timestamp for reproducible output")
     report.add_argument("--fixed-timestamp", help="Fixed ISO timestamp for reproducible output")
+    report.add_argument("--rich", action="store_true", help="Use Rich-formatted terminal output")
 
     case = sub.add_parser("case", help="Export or verify a sealed case file.")
     case_sub = case.add_subparsers(dest="case_command", required=True)
@@ -304,6 +308,7 @@ def build_parser() -> argparse.ArgumentParser:
     case_export.add_argument("--output", "-o", required=True)
     case_export.add_argument("--deterministic", action="store_true", help="Use fixed timestamp for reproducible output")
     case_export.add_argument("--fixed-timestamp", help="Fixed ISO timestamp for reproducible output")
+    case_export.add_argument("--rich", action="store_true", help="Use Rich-formatted terminal output")
     case_verify = case_sub.add_parser("verify", help="Verify case-file integrity.")
     case_verify.add_argument("case_file")
 
@@ -402,6 +407,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to a drift corpus JSON file.",
     )
     drift_report.add_argument("--output", "-o", help="Write the drift report to this JSON file.")
+    drift_report.add_argument("--rich", action="store_true", help="Use Rich-formatted terminal output")
 
     cap = sub.add_parser(
         "capability",
@@ -539,6 +545,16 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             if hasattr(args, "deterministic") and args.deterministic:
                 data = _strip_runtime_ms(data)
             _write_json(None, data)
+        elif getattr(args, "rich", False):
+            from .rich_output import HAS_RICH as _has_rich
+            from .rich_output import print_scan_results
+
+            if _has_rich:
+                print_scan_results(result)
+            else:
+                print("Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]")
+                print("Falling back to plain output.\n")
+                _pretty_analysis(result)
         else:
             _pretty_analysis(result)
 
@@ -571,7 +587,17 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
                 Path(args.output).write_text(diff_text, encoding="utf-8")
                 print(args.output)
             else:
-                print(diff_text)
+                if getattr(args, "rich", False):
+                    from .rich_output import HAS_RICH as _has_rich
+                    from .rich_output import print_diff
+
+                    if _has_rich:
+                        print_diff(text1, text2, style=args.style)
+                    else:
+                        print("Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]")
+                        print(diff_text)
+                else:
+                    print(diff_text)
         elif subcommand == "anomalies":
             # Use --file or positional file
             file_arg = args.file or args.file1
@@ -683,6 +709,14 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             "plugin_health": list_detector_health() if args.health else [],
         }
         _write_json(None, payload)
+        if getattr(args, "rich", False):
+            from .rich_output import HAS_RICH as _has_rich
+            from .rich_output import print_detector_health
+
+            if _has_rich:
+                print_detector_health(payload["plugin_health"])
+            else:
+                print("Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]")
 
     elif args.command == "schema":
         from .schema import (
@@ -733,6 +767,14 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         if args.deterministic:
             data = _strip_runtime_ms(data)
         _write_json(args.output, data)
+        if getattr(args, "rich", False):
+            from .rich_output import HAS_RICH as _has_rich
+            from .rich_output import print_report_summary
+
+            if _has_rich:
+                print_report_summary(bundle)
+            else:
+                print("Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]")
 
     elif args.command == "case":
         if args.case_command == "export":
@@ -747,6 +789,16 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
                 bundle_dict = _strip_runtime_ms(bundle_dict)
             write_case_file(args.output, bundle_dict, deterministic=args.deterministic, fixed_timestamp=args.fixed_timestamp)
             print(args.output)
+            if getattr(args, "rich", False):
+                from .rich_output import HAS_RICH as _has_rich
+                from .rich_output import print_case_summary
+
+                if _has_rich:
+                    # Need to read back the case file to show structure
+                    case_data = json.loads(Path(args.output).read_text(encoding="utf-8"))
+                    print_case_summary(case_data)
+                else:
+                    print("Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]")
         else:
             result = verify_case_file_path(args.case_file)
             _write_json(None, result)
@@ -794,6 +846,21 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             current = DriftObservatory.read_snapshot_file(args.current)
             report = observatory.compare_snapshots(baseline, current)
             _write_json(args.output, report)
+            if args.drift_command == "report" and getattr(args, "rich", False):
+                from .rich_output import HAS_RICH as _has_rich
+                from .rich_output import print_trust_map, print_detector_health
+
+                if _has_rich:
+                    # Print trust map if present in drift report
+                    trust_map = report.get("trust_map") or report.get("trust_map_comparison")
+                    if trust_map:
+                        print_trust_map(trust_map)
+                    # Print detector health
+                    detector_health = report.get("detector_health") or report.get("plugin_health")
+                    if detector_health:
+                        print_detector_health(detector_health)
+                else:
+                    print("Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]")
 
     elif args.command == "capability":
         # Load ledger from specified path or default location
