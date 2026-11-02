@@ -47,19 +47,24 @@ from .enterprise_policy import (
     compute_policy_digest,
     validate_enterprise_policy,
 )
-from .engine import analyze_text
-from .localize import (
-    detect_anomalous_segments,
-    localize_text,
-    segment_to_dict,
-    visual_diff,
-)
 from .audit_anchor import (
     AuditAnchor,
     CalibrationChain,
     RollbackError,
     export_audit_anchor,
     verify_audit_anchor,
+)
+from .emergency_stop import (
+    EmergencyStopError,
+    EmergencyStopSentinel,
+    check_emergency_stop,
+)
+from .engine import analyze_text
+from .localize import (
+    detect_anomalous_segments,
+    localize_text,
+    segment_to_dict,
+    visual_diff,
 )
 from .naturalness import audit_naturalness
 from .provenance import snapshot_file, verify_ledger
@@ -622,6 +627,40 @@ def build_parser() -> argparse.ArgumentParser:
     # Audit anchor subcommands are handled via the existing "audit" parser
     # (optional anchor_command positional for backward compatibility).
 
+    # --- Emergency stop commands ---
+    emergency = sub.add_parser(
+        "emergency",
+        help="Manage the out-of-band emergency stop sentinel.",
+    )
+    emergency_sub = emergency.add_subparsers(dest="emergency_command", required=True)
+
+    emergency_status = emergency_sub.add_parser(
+        "status",
+        help="Check the current emergency stop status.",
+    )
+    emergency_status.add_argument(
+        "--path",
+        help="Override the sentinel path (defaults to $TEXTFORENSICS_EMERGENCY_STOP).",
+    )
+
+    emergency_activate = emergency_sub.add_parser(
+        "activate",
+        help="Activate the emergency stop by creating the sentinel file.",
+    )
+    emergency_activate.add_argument(
+        "--path",
+        help="Override the sentinel path (defaults to $TEXTFORENSICS_EMERGENCY_STOP).",
+    )
+
+    emergency_deactivate = emergency_sub.add_parser(
+        "deactivate",
+        help="Deactivate the emergency stop by removing the sentinel file.",
+    )
+    emergency_deactivate.add_argument(
+        "--path",
+        help="Override the sentinel path (defaults to $TEXTFORENSICS_EMERGENCY_STOP).",
+    )
+
     return parser
 
 
@@ -692,6 +731,17 @@ def _trust_map_exit_code(bundle: dict[str, Any]) -> int:
 
 
 def _run(args: argparse.Namespace, settings: Settings) -> int:
+    # Emergency stop gate: checked at dispatch entry for all analysis
+    # commands. The emergency management command bypasses this gate so
+    # the sentinel can always be inspected/removed.
+    if args.command != "emergency" and check_emergency_stop():
+        print(
+            "error: emergency stop is active. All analysis, report, "
+            "audit, compare, benchmark, drift, and serve commands are blocked.",
+            file=sys.stderr,
+        )
+        return EXIT_ERROR
+
     if args.command == "scan":
         result = analyze_text(_read_text(args.file, settings))
         if args.json:
@@ -1174,6 +1224,9 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
     elif args.command == "audit":
         return _run_audit_command(args)
 
+    elif args.command == "emergency":
+        return _run_emergency_command(args)
+
     return EXIT_OK
 
 
@@ -1474,6 +1527,64 @@ def _run_policy_command(args: argparse.Namespace) -> int:
             "history": floor.state.history,
         }
         _write_json(None, result)
+        return EXIT_OK
+
+    return EXIT_ERROR
+
+
+def _run_emergency_command(args: argparse.Namespace) -> int:
+    """Handle emergency stop CLI subcommands (status/activate/deactivate)."""
+    sentinel = EmergencyStopSentinel()
+    if getattr(args, "path", None):
+        sentinel.configure(args.path)
+
+    if args.emergency_command == "status":
+        active = sentinel.is_active()
+        payload = {
+            "active": active,
+            "path": str(sentinel._resolve()) if sentinel._resolve() else None,
+            "env_var": "TEXTFORENSICS_EMERGENCY_STOP",
+        }
+        _write_json(None, payload)
+        print(
+            "EMERGENCY STOP: ACTIVE"
+            if active
+            else "Emergency stop: not active"
+        )
+        return EXIT_OK
+
+    elif args.emergency_command == "activate":
+        try:
+            path = sentinel.activate()
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return EXIT_ERROR
+        payload = {
+            "activated": True,
+            "path": str(path),
+            "active": True,
+        }
+        _write_json(None, payload)
+        print(f"Emergency stop activated: {path}")
+        return EXIT_OK
+
+    elif args.emergency_command == "deactivate":
+        try:
+            removed = sentinel.deactivate()
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return EXIT_ERROR
+        payload = {
+            "deactivated": True,
+            "removed": removed,
+            "active": sentinel.is_active(),
+        }
+        _write_json(None, payload)
+        print(
+            "Emergency stop deactivated."
+            if removed
+            else "No sentinel file was present."
+        )
         return EXIT_OK
 
     return EXIT_ERROR

@@ -4,6 +4,7 @@ import math
 import statistics
 
 from .analyzers import run_builtin_analyzers
+from .emergency_stop import assert_not_stopped
 from .features import extract_features
 from .models import AnalysisResult, AnalyzerResult
 from .robustness import benign_variants
@@ -52,6 +53,8 @@ def analyze_text(
     *,
     include_robustness: bool = True,
 ) -> AnalysisResult:
+    # Emergency stop gate: checked at dispatch entry before any analysis.
+    assert_not_stopped()
     if not isinstance(text, str) or not text.strip():
         raise ValueError("Text must not be empty.")
 
