@@ -386,5 +386,157 @@ class ThresholdTrackingTests(unittest.TestCase):
             self.assertNotEqual(eval_result.test_dataset_hash, eval_result.calibration_dataset_hash)
 
 
+class ThresholdSelectionResultTests(unittest.TestCase):
+    """Tests for ThresholdSelectionResult edge cases."""
+
+    def test_to_dict_with_warning(self):
+        """Test to_dict includes warning when present."""
+        from textforensics.threshold_selection import ThresholdSelectionResult
+        
+        result = ThresholdSelectionResult(
+            threshold=0.5,
+            observed_fpr=0.01,
+            observed_tpr=0.8,
+            target_fpr=0.01,
+            human_samples=10,
+            ai_samples=10,
+            detector_id="test",
+            detector_version="1.0",
+            calibration_dataset_hash="a" * 64,
+            warning="Custom warning message",
+        )
+        artifact = result.to_dict()
+        self.assertEqual(artifact["warning"], "Custom warning message")
+
+
+class ValidateNoContaminationTests(unittest.TestCase):
+    """Tests for validate_no_contamination edge cases."""
+
+    def test_validate_identical_files(self):
+        """Test that identical files are flagged as contaminated."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "same.jsonl"
+            write_calibration_dataset(path)
+
+            result = validate_no_contamination(path, path)
+
+            self.assertFalse(result["valid"])
+            self.assertTrue(result["contamination_detected"])
+            self.assertEqual(result["shared_samples"], -1)
+
+
+class GetTestSamplesTests(unittest.TestCase):
+    """Tests for _get_test_samples function."""
+
+    def test_get_test_samples_with_empty_lines(self):
+        """Test _get_test_samples skips empty lines."""
+        from textforensics.threshold_selection import _get_test_samples
+        
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "test.jsonl"
+            path.write_text(
+                '{"label": "human", "text": "sample 1"}\n\n{"label": "ai", "text": "sample 2"}\n',
+                encoding="utf-8",
+            )
+            
+            samples = _get_test_samples(path)
+            self.assertEqual(len(samples), 2)
+
+    def test_get_test_samples_skips_invalid_json(self):
+        """Test _get_test_samples skips invalid JSON lines."""
+        from textforensics.threshold_selection import _get_test_samples
+        
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "test.jsonl"
+            path.write_text(
+                '{"label": "human", "text": "sample 1"}\ninvalid json\n{"label": "ai", "text": "sample 2"}\n',
+                encoding="utf-8",
+            )
+            
+            samples = _get_test_samples(path)
+            self.assertEqual(len(samples), 2)
+
+    def test_get_test_samples_skips_non_dict(self):
+        """Test _get_test_samples skips non-dict JSON."""
+        from textforensics.threshold_selection import _get_test_samples
+        
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "test.jsonl"
+            path.write_text(
+                '"just a string"\n{"label": "human", "text": "sample 1"}\n',
+                encoding="utf-8",
+            )
+            
+            samples = _get_test_samples(path)
+            self.assertEqual(len(samples), 1)
+
+    def test_get_test_samples_skips_no_text_field(self):
+        """Test _get_test_samples skips rows without text field."""
+        from textforensics.threshold_selection import _get_test_samples
+        
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "test.jsonl"
+            path.write_text(
+                '{"label": "human"}\n{"label": "human", "text": "sample 1"}\n',
+                encoding="utf-8",
+            )
+            
+            samples = _get_test_samples(path)
+            self.assertEqual(len(samples), 1)
+
+
+class LoadThresholdArtifactTests(unittest.TestCase):
+    """Tests for load_threshold_artifact edge cases."""
+
+    def test_load_artifact_non_finite_threshold(self):
+        """Test artifact with non-finite threshold is rejected."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "artifact.json"
+            path.write_text(
+                json.dumps({
+                    "schema": "textforensics.threshold-selection/v1",
+                    "threshold": float("inf"),
+                    "calibration_dataset_hash": "a" * 64,
+                }),
+                encoding="utf-8",
+            )
+            
+            with self.assertRaises(ValueError) as ctx:
+                load_threshold_artifact(path)
+            
+            self.assertIn("finite", str(ctx.exception).lower())
+
+
+class RunCalibrationEvaluationEdgeCases(unittest.TestCase):
+    """Tests for run_calibration_evaluation edge cases."""
+
+    def test_run_calibration_evaluation_with_strict_false(self):
+        """Test run_calibration_evaluation with strict=False."""
+        with tempfile.TemporaryDirectory() as tmp:
+            cal_path = Path(tmp) / "calibration.jsonl"
+            eval_path = Path(tmp) / "evaluation.jsonl"
+            
+            # Create datasets with some invalid lines
+            cal_path.write_text(
+                '{"label": "human", "text": "sample 1"}\ninvalid\n{"label": "ai", "text": "sample 2"}\n',
+                encoding="utf-8",
+            )
+            eval_path.write_text(
+                '{"label": "human", "text": "eval 1"}\n{"label": "ai", "text": "eval 2"}\n',
+                encoding="utf-8",
+            )
+            
+            # Should work with strict=False
+            result = run_calibration_evaluation(
+                cal_path,
+                eval_path,
+                target_fpr=0.5,  # High target to ensure threshold found
+                strict=False,
+            )
+            
+            self.assertIn("calibration_result", result)
+            self.assertIn("evaluation_result", result)
+
+
 if __name__ == "__main__":
     unittest.main()

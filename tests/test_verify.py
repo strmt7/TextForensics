@@ -17,6 +17,9 @@ from textforensics.verify import (
     verify_benchmark,
     verify_calibration,
     verify_case_file,
+    verify_case_file_path,
+    _verify_trust_dimension,
+    _recompute_overall,
 )
 
 HUMAN = (
