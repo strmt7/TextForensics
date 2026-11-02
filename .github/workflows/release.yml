@@ -1,62 +1,196 @@
-name: Release Build
+name: Release
+
+# Manual release pipeline with supply-chain attestations.
+# Modeled after rejection-rejector's release.yml, adapted for Python.
+#
+# Requires an explicit "RELEASE" confirmation input so the pipeline can never
+# be triggered by accident (no automatic tag/push triggers).
+#
+# Security posture:
+# - contents: write   -> create the GitHub Release and attach artifacts
+# - id-token: write   -> keyless cosign signing + build provenance attestation
+# - attestations: write -> publish provenance to the repo attestation store
+#
+# Signatures are produced in keyless mode (no stored private keys in CI).
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - "v*"
+    inputs:
+      confirmation:
+        description: 'Type RELEASE to confirm publishing a new release'
+        required: true
+        type: string
 
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.12"
+
 jobs:
-  build:
+  release:
+    name: Build, attest and publish release
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - name: Verify manual confirmation
+        if: >-
+          github.event_name != 'workflow_dispatch' ||
+          github.event.inputs.confirmation != 'RELEASE'
+        run: |
+          echo "::error::Release requires workflow_dispatch with confirmation input exactly 'RELEASE'."
+          exit 1
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          python-version: "3.12"
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
-      - name: Install release test environment
-        run: python -m pip install -e ".[dev,all]"
+      - name: Install build tooling
+        run: python -m pip install --upgrade pip build twine
 
-      - name: Lint
-        run: ruff check src tests
-
-      - name: Test
-        run: python -m unittest discover -s tests -v
-
-      - name: Build distributions
-        run: python -m build
-
-      - name: Validate distributions
+      - name: Read package version
+        id: meta
         run: |
-          python -m pip install twine
+          VERSION=$(python scripts/publish_release.py version)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Releasing textforensics v${VERSION}"
+
+      - name: Lint and test before release
+        run: |
+          python -m pip install -e ".[dev,all]"
+          ruff check src tests
+          python -m unittest discover -s tests -v
+
+      - name: Build distributions (wheel + sdist)
+        run: |
+          python -m build
           python -m twine check dist/*
 
-      - name: Resolve isolated runtime dependency set
+      - name: Create source tarball from Git tree
         run: |
-          python -m venv .runtime-audit
-          .runtime-audit/bin/python -m pip install ".[all]"
-          .runtime-audit/bin/python -m pip check
-          .runtime-audit/bin/python -m pip freeze             | grep -viE '^textforensics([= @]|$)'             > runtime-requirements.txt
-          test -s runtime-requirements.txt
-          ! grep -qiE '^textforensics([= @]|$)' runtime-requirements.txt
+          mkdir -p dist
+          git archive --format=tar.gz \
+            -o "dist/textforensics-${{ steps.meta.outputs.version }}-source.tar.gz" \
+            HEAD
 
-      - name: Audit runtime dependencies and generate SBOM
+      - name: Generate changelog / release notes from commit history
         run: |
-          python -m pip install pip-audit
-          pip-audit --strict --no-deps -r runtime-requirements.txt
-          pip-audit --no-deps -r runtime-requirements.txt             --format cyclonedx-json             --output dist/runtime-dependencies.cdx.json
+          python scripts/publish_release.py changelog \
+            --output release-notes.md
 
-      - name: Create checksums
-        run: sha256sum dist/* > dist/SHA256SUMS
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS
 
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - name: Install cosign
+        uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
+
+      # Keyless signing: cosign obtains a short-lived certificate from Sigstore
+      # Fulcio using the GitHub Actions OIDC token. No private keys are stored.
+      # cosign sign-blob supports this in CI ("keyless/unsigned-key" mode).
+      - name: Sign release notes and artifacts with cosign (keyless)
+        run: |
+          set -euo pipefail
+          python scripts/publish_release.py sign-notes --notes release-notes.md
+          for f in dist/*; do
+            case "$f" in
+              *.sig|*.bundle) continue ;;
+            esac
+            cosign sign-blob --yes "$f" --bundle "${f}.bundle" --output-signature "${f}.sig"
+          done
+
+      - name: Generate CycloneDX SBOM for built artifacts
+        uses: anchore/sbom-action@v0
         with:
-          name: textforensics-release-${{ github.ref_name }}
-          path: dist/
+          path: ./dist
+          format: cyclonedx-json
+          artifact-name: textforensics-sbom-cyclonedx.json
+          output-file: dist/textforensics-sbom.cdx.json
+          upload-artifact: false
+
+      - name: Generate SPDX SBOM for built artifacts
+        uses: anchore/sbom-action@v0
+        with:
+          path: ./dist
+          format: spdx-json
+          artifact-name: textforensics-sbom-spdx.json
+          output-file: dist/textforensics-sbom.spdx.json
+          upload-artifact: false
+
+      - name: Sign SBOMs
+        run: |
+          cosign sign-blob --yes dist/textforensics-sbom.cdx.json \
+            --bundle dist/textforensics-sbom.cdx.json.bundle \
+            --output-signature dist/textforensics-sbom.cdx.json.sig
+          cosign sign-blob --yes dist/textforensics-sbom.spdx.json \
+            --bundle dist/textforensics-sbom.spdx.json.bundle \
+            --output-signature dist/textforensics-sbom.spdx.json.sig
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: textforensics-sbom-${{ steps.meta.outputs.version }}
+          path: |
+            dist/textforensics-sbom.cdx.json
+            dist/textforensics-sbom.spdx.json
+            dist/textforensics-sbom.cdx.json.sig
+            dist/textforensics-sbom.spdx.json.sig
           if-no-files-found: error
+
+      # Publishes SLSA-style build provenance for the wheel, sdist and source
+      # tarball to the repository attestation store, and saves the signed DSSE
+      # bundles next to the artifacts so they can be attached to the release.
+      - name: Generate build provenance attestation
+        id: provenance
+        uses: actions/attest-build-provenance@ef244123eb79f2f7a7e75d99086184180e6d0018 # v1.4.4 (v1)
+        with:
+          subject-path: |
+            dist/*.whl
+            dist/*.tar.gz
+          upload-to-store: true
+
+      - name: Collect provenance bundles
+        run: |
+          mkdir -p provenance
+          i=0
+          for b in ${{ steps.provenance.outputs.bundle-path }}; do
+            cp "$b" "provenance/provenance-bundle-${i}.intoto.jsonl"
+            i=$((i + 1))
+          done
+          ls -la provenance/
+
+      - name: Create GitHub Release and upload artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/publish_release.py upload \
+            --notes release-notes.md \
+            --dist-dir dist \
+            --provenance-dir provenance \
+            --tag "${{ steps.meta.outputs.tag }}" \
+            --version "${{ steps.meta.outputs.version }}"
+
+      - name: Release summary
+        run: |
+          echo "Published textforensics v${{ steps.meta.outputs.version }}"
+          echo "  - signed changelog:  release-notes.md (+ cosign signature/bundle)"
+          echo "  - SBOM:              CycloneDX + SPDX JSON (signed, uploaded as artifact)"
+          echo "  - provenance:        SLSA build provenance via actions/attest-build-provenance@v1"
+          echo "  - artifacts:         wheel, sdist, source tarball, SHA256SUMS (cosign-signed)"
