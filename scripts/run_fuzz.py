@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import sys
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -131,13 +131,19 @@ atheris.Fuzz()
     env["PYTHONPATH"] = str(SRC_DIR)
     env["TFUZZ_DURATION_SECONDS"] = str(duration_seconds)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Target: {target.name} — {target.description}")
     print(f"Duration: {duration_seconds}s")
     print(f"Artifacts: {ARTIFACTS_DIR / target.name}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
-    result: dict = {"target": target.name, "crashes": 0, "hangs": 0, "timed_out": False, "error": None}
+    result: dict = {
+        "target": target.name,
+        "crashes": 0,
+        "hangs": 0,
+        "timed_out": False,
+        "error": None,
+    }
     start = time.time()
 
     try:
@@ -169,7 +175,8 @@ atheris.Fuzz()
     # Count crash artifacts
     if crashes_dir.exists():
         crash_files = [
-            f for f in crashes_dir.iterdir()
+            f
+            for f in crashes_dir.iterdir()
             if f.is_file() and f.name not in (".gitkeep", "README.txt")
         ]
         result["crashes"] = len(crash_files)
@@ -234,8 +241,7 @@ def main() -> int:
         "--target",
         type=str,
         default="all",
-        help="Fuzz target to run (default: all). Available: "
-        + ", ".join(FUZZ_TARGETS.keys()),
+        help="Fuzz target to run (default: all). Available: " + ", ".join(FUZZ_TARGETS.keys()),
     )
     parser.add_argument(
         "--duration",
@@ -296,9 +302,9 @@ def main() -> int:
         results.append(result)
 
     # Summary
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("FUZZ SUMMARY")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     total_crashes = 0
     for r in results:
         status = "OK"
@@ -313,7 +319,7 @@ def main() -> int:
 
     if total_crashes:
         print(f"\n  *** {total_crashes} crash(es) found in {ARTIFACTS_DIR}/")
-        print(f"  *** Reproduce: python scripts/run_fuzz.py --target <name> --method direct")
+        print("  *** Reproduce: python scripts/run_fuzz.py --target <name> --method direct")
         return 1
     else:
         print("\n  No crashes detected.")

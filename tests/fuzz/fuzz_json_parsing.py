@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 # Try importing yaml; if unavailable, skip YAML fuzzing
 try:
     import yaml
+
     HAS_YAML = True
 except ImportError:
     HAS_YAML = False

@@ -13,8 +13,8 @@ import json
 import subprocess
 import sys
 import tempfile
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 
 class CosmicRayIntegrationTests(unittest.TestCase):
@@ -55,16 +55,17 @@ class CosmicRayIntegrationTests(unittest.TestCase):
     def test_config_file_valid_yaml(self):
         """Verify configuration file is valid YAML."""
         import yaml
+
         with open(self.config_path) as f:
             config = yaml.safe_load(f)
-        
+
         # Check required sections
         self.assertIn("mutation", config)
         self.assertIn("modules", config["mutation"])
         self.assertIn("excluded_modules", config["mutation"])
         self.assertIn("operators", config["mutation"])
         self.assertIn("test_runner", config["mutation"])
-        
+
         # Check target modules are present
         modules = config["mutation"]["modules"]
         expected_modules = [
@@ -75,12 +76,12 @@ class CosmicRayIntegrationTests(unittest.TestCase):
         ]
         for module in expected_modules:
             self.assertIn(module, modules, f"Expected module {module} not in config")
-        
+
         # Check excluded modules
         excluded = config["mutation"]["excluded_modules"]
         self.assertIn("textforensics.cli", excluded)
         self.assertIn("textforensics.typer_cli", excluded)
-        
+
         # Check operators include core operators
         operators = config["mutation"]["operators"]
         core_operators = [
@@ -90,7 +91,7 @@ class CosmicRayIntegrationTests(unittest.TestCase):
         ]
         for op in core_operators:
             self.assertIn(op, operators, f"Core operator {op} not in config")
-        
+
         # Check timeout
         self.assertEqual(config["mutation"]["test_runner"]["timeout"], 30)
 
@@ -117,17 +118,13 @@ class CosmicRayIntegrationTests(unittest.TestCase):
     def test_runner_check_results(self):
         """Verify runner can check results."""
         # Create a temporary summary file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            json.dump({
-                "total": 10,
-                "killed": 10,
-                "surviving": 0,
-                "timeout": 0,
-                "error": 0,
-                "skipped": 0
-            }, f)
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(
+                {"total": 10, "killed": 10, "surviving": 0, "timeout": 0, "error": 0, "skipped": 0},
+                f,
+            )
             temp_path = f.name
-        
+
         try:
             result = subprocess.run(
                 [sys.executable, str(self.runner_path), "--check-results", temp_path],
@@ -141,17 +138,13 @@ class CosmicRayIntegrationTests(unittest.TestCase):
 
     def test_runner_check_results_surviving(self):
         """Verify runner detects surviving mutants."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            json.dump({
-                "total": 10,
-                "killed": 8,
-                "surviving": 2,
-                "timeout": 0,
-                "error": 0,
-                "skipped": 0
-            }, f)
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(
+                {"total": 10, "killed": 8, "surviving": 2, "timeout": 0, "error": 0, "skipped": 0},
+                f,
+            )
             temp_path = f.name
-        
+
         try:
             result = subprocess.run(
                 [sys.executable, str(self.runner_path), "--check-results", temp_path],
@@ -165,17 +158,20 @@ class CosmicRayIntegrationTests(unittest.TestCase):
 
     def test_runner_check_results_budget_exceeded(self):
         """Verify runner detects budget exceeded (high timeout ratio)."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            json.dump({
-                "total": 100,
-                "killed": 50,
-                "surviving": 0,
-                "timeout": 20,  # 20% timeout ratio
-                "error": 0,
-                "skipped": 0
-            }, f)
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(
+                {
+                    "total": 100,
+                    "killed": 50,
+                    "surviving": 0,
+                    "timeout": 20,  # 20% timeout ratio
+                    "error": 0,
+                    "skipped": 0,
+                },
+                f,
+            )
             temp_path = f.name
-        
+
         try:
             result = subprocess.run(
                 [sys.executable, str(self.runner_path), "--check-results", temp_path],
@@ -210,7 +206,9 @@ class CosmicRayIntegrationTests(unittest.TestCase):
             cwd=self.project_root,
             timeout=60,
         )
-        self.assertEqual(result.returncode, 0, f"Baseline tests failed: {result.stdout}\n{result.stderr}")
+        self.assertEqual(
+            result.returncode, 0, f"Baseline tests failed: {result.stdout}\n{result.stderr}"
+        )
 
     def test_target_modules_importable(self):
         """Verify all target modules can be imported."""
@@ -226,7 +224,7 @@ class CosmicRayIntegrationTests(unittest.TestCase):
             "textforensics.casefile",
             "textforensics.robustness",
         ]
-        
+
         for module in target_modules:
             with self.subTest(module=module):
                 result = subprocess.run(
@@ -235,7 +233,9 @@ class CosmicRayIntegrationTests(unittest.TestCase):
                     text=True,
                     cwd=self.project_root,
                 )
-                self.assertEqual(result.returncode, 0, f"Failed to import {module}: {result.stderr}")
+                self.assertEqual(
+                    result.returncode, 0, f"Failed to import {module}: {result.stderr}"
+                )
 
 
 class MutationConfigTests(unittest.TestCase):
@@ -244,10 +244,11 @@ class MutationConfigTests(unittest.TestCase):
     def test_rejection_rejector_config(self):
         """Verify rejection-rejector pattern configuration."""
         import yaml
+
         config_path = Path(__file__).parent.parent / ".cosmic-ray.yml"
         with open(config_path) as f:
             config = yaml.safe_load(f)
-        
+
         self.assertIn("rejection_rejector", config)
         rr = config["rejection_rejector"]
         self.assertTrue(rr["track_surviving"])
@@ -258,10 +259,11 @@ class MutationConfigTests(unittest.TestCase):
     def test_diff_optimization_config(self):
         """Verify diff-based optimization configuration."""
         import yaml
+
         config_path = Path(__file__).parent.parent / ".cosmic-ray.yml"
         with open(config_path) as f:
             config = yaml.safe_load(f)
-        
+
         self.assertIn("diff_optimization", config)
         diff = config["diff_optimization"]
         self.assertTrue(diff["enabled"])

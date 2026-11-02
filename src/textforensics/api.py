@@ -67,9 +67,7 @@ def create_app(settings: Settings | None = None):
             return secure_response(
                 JSONResponse(
                     status_code=503,
-                    content={
-                        "detail": "Emergency stop is active. All API calls are blocked."
-                    },
+                    content={"detail": "Emergency stop is active. All API calls are blocked."},
                 )
             )
         if request.method in {"POST", "PUT", "PATCH"}:

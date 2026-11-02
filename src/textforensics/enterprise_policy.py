@@ -13,15 +13,13 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from functools import lru_cache
 from importlib.resources import files
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from cryptography.fernet import Fernet, InvalidToken
-
-from .constants import EXIT_ERROR, EXIT_OK, EXIT_INCOMPLETE
 
 __all__ = [
     "EnterprisePolicy",
@@ -36,6 +34,7 @@ __all__ = [
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def compute_policy_digest(policy: EnterprisePolicy) -> str:
     """Compute a SHA-256 digest of the policy's revision, settings, and rules.
@@ -69,6 +68,7 @@ def compute_policy_digest(policy: EnterprisePolicy) -> str:
 # JSON Schema
 # ---------------------------------------------------------------------------
 
+
 @lru_cache(maxsize=4)
 def _load_enterprise_policy_schema() -> dict[str, Any]:
     resource = files("textforensics").joinpath("schemas", "enterprise-policy.schema.json")
@@ -84,8 +84,7 @@ def validate_enterprise_policy(policy: dict[str, Any]) -> list[str]:
         import jsonschema
     except ImportError as exc:
         raise RuntimeError(
-            "jsonschema is required for policy validation. "
-            "Install with 'pip install jsonschema'."
+            "jsonschema is required for policy validation. Install with 'pip install jsonschema'."
         ) from exc
 
     schema = _load_enterprise_policy_schema()
@@ -102,6 +101,7 @@ def validate_enterprise_policy(policy: dict[str, Any]) -> list[str]:
 # Data model
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True, slots=True)
 class EnterprisePolicy:
     """An enterprise policy document.
@@ -112,6 +112,7 @@ class EnterprisePolicy:
         settings: Arbitrary settings dictionary.
         rules: List of enterprise rule dictionaries.
     """
+
     revision: int
     digest: str
     settings: dict[str, Any]
@@ -145,9 +146,11 @@ class EnterprisePolicy:
 # Encrypted state persistence
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class PolicyState:
     """Persisted state for the revision floor mechanism."""
+
     floor_revision: int = 0
     floor_digest: str = ""
     history: list[dict[str, Any]] = field(default_factory=list)
@@ -183,9 +186,9 @@ class PolicyRevisionFloor:
 
     def __init__(
         self,
-        state_path: Optional[Path] = None,
-        key: Optional[bytes] = None,
-        key_path: Optional[Path] = None,
+        state_path: Path | None = None,
+        key: bytes | None = None,
+        key_path: Path | None = None,
     ) -> None:
         self._state_path = (
             state_path
@@ -343,6 +346,7 @@ class PolicyRevisionFloor:
 # Policy engine
 # ---------------------------------------------------------------------------
 
+
 class EnterprisePolicyEngine:
     """Enforces enterprise policy rules against operations.
 
@@ -360,14 +364,14 @@ class EnterprisePolicyEngine:
 
     def __init__(
         self,
-        policy: Optional[EnterprisePolicy] = None,
-        floor: Optional[PolicyRevisionFloor] = None,
+        policy: EnterprisePolicy | None = None,
+        floor: PolicyRevisionFloor | None = None,
     ) -> None:
         self._policy = policy
         self._floor = floor
 
     @property
-    def policy(self) -> Optional[EnterprisePolicy]:
+    def policy(self) -> EnterprisePolicy | None:
         return self._policy
 
     @policy.setter
@@ -375,14 +379,14 @@ class EnterprisePolicyEngine:
         self._policy = value
 
     @property
-    def floor(self) -> Optional[PolicyRevisionFloor]:
+    def floor(self) -> PolicyRevisionFloor | None:
         return self._floor
 
     def load_policy(
         self,
         policy_data: dict[str, Any],
         *,
-        floor: Optional[PolicyRevisionFloor] = None,
+        floor: PolicyRevisionFloor | None = None,
     ) -> list[str]:
         """Load and validate a policy from a dictionary.
 
@@ -422,12 +426,11 @@ class EnterprisePolicyEngine:
         ).hexdigest()
 
         # If the policy has a digest field, compare
-        if "digest" in policy_data:
-            if policy_data["digest"] != computed_digest:
-                return [
-                    f"Digest mismatch: stored {policy_data['digest'][:16]}... "
-                    f"computed {computed_digest[:16]}..."
-                ]
+        if "digest" in policy_data and policy_data["digest"] != computed_digest:
+            return [
+                f"Digest mismatch: stored {policy_data['digest'][:16]}... "
+                f"computed {computed_digest[:16]}..."
+            ]
 
         policy = EnterprisePolicy(
             revision=int(policy_data["revision"]),

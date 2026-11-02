@@ -13,11 +13,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 __all__ = [
     "AuditAnchor",
@@ -38,6 +37,7 @@ SCHEMA_VERSION = 1
 # Exceptions
 # ---------------------------------------------------------------------------
 
+
 class RollbackError(Exception):
     """Raised when a rollback of calibration or benchmark artifacts is detected.
 
@@ -54,6 +54,7 @@ class RollbackError(Exception):
 # ---------------------------------------------------------------------------
 # Data model
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True, slots=True)
 class AuditAnchor:
@@ -101,6 +102,7 @@ class AuditAnchor:
 # Directory hashing
 # ---------------------------------------------------------------------------
 
+
 def _hash_directory(dir_path: Path) -> str:
     """Compute a deterministic SHA-256 hash of a directory tree.
 
@@ -127,15 +129,16 @@ def _hash_directory(dir_path: Path) -> str:
 # Core API
 # ---------------------------------------------------------------------------
 
+
 def _resolve_base_dir() -> Path:
     """Resolve the project base directory (parent of src/textforensics)."""
     return Path(__file__).resolve().parent.parent.parent
 
 
 def export_audit_anchor(
-    base_dir: Optional[Path] = None,
-    detector_versions: Optional[dict[str, str]] = None,
-    calibration_chain: Optional[list[str]] = None,
+    base_dir: Path | None = None,
+    detector_versions: dict[str, str] | None = None,
+    calibration_chain: list[str] | None = None,
 ) -> AuditAnchor:
     """Export an audit anchor for rollback detection.
 
@@ -187,8 +190,8 @@ def export_audit_anchor(
 
 def verify_audit_anchor(
     anchor: AuditAnchor,
-    current_chain: Optional[CalibrationChain] = None,
-    base_dir: Optional[Path] = None,
+    current_chain: CalibrationChain | None = None,
+    base_dir: Path | None = None,
 ) -> str:
     """Verify that the current state has not rolled back relative to *anchor*.
 
@@ -227,9 +230,8 @@ def verify_audit_anchor(
         return "no_changes"
 
     # Check 2: Chain verification – current chain extends anchor chain
-    if current_chain is not None:
-        if current_chain.extends_anchor(anchor):
-            return "chain_valid"
+    if current_chain is not None and current_chain.extends_anchor(anchor):
+        return "chain_valid"
 
     # Determine which artifact(s) changed
     reasons: list[str] = []
@@ -256,6 +258,7 @@ def verify_audit_anchor(
 # ---------------------------------------------------------------------------
 # Calibration chain
 # ---------------------------------------------------------------------------
+
 
 class CalibrationChain:
     """Tracks a monotonic chain of calibration artifact hashes.

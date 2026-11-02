@@ -276,7 +276,7 @@ When a case file's provenance chain is broken:
    report = obs.compare_snapshots(baseline, current)
    for detector in report["detectors"]:
        if detector["drift_detected"]:
-           print(f'{detector["detector_id"]}: {detector["findings"]}')
+           print(f"{detector['detector_id']}: {detector['findings']}")
    ```
 2. Determine trigger:
    - Detector version change? → Revalidate calibration
@@ -285,6 +285,7 @@ When a case file's provenance chain is broken:
 3. Revalidate calibration:
    ```python
    from textforensics import run_calibration_evaluation
+
    result = run_calibration_evaluation(cal_path, eval_path, target_fpr=0.01)
    ```
 4. If calibration revalidation passes: update artifact, archive old
@@ -303,10 +304,11 @@ When a case file's provenance chain is broken:
 2. Identify the contamination source:
    ```python
    from textforensics import validate_no_contamination
+
    report = validate_no_contamination(cal_path, eval_path)
    if report["contamination_detected"]:
-       print(f'Shared samples: {report["shared_samples"]}')
-       print(f'Shared hashes: {report["shared_hashes"][:5]}')
+       print(f"Shared samples: {report['shared_samples']}")
+       print(f"Shared hashes: {report['shared_hashes'][:5]}")
    ```
 3. Recreate disjoint datasets from authoritative source
 4. Re-run calibration and evaluation with fresh data
@@ -377,6 +379,7 @@ TextForensics has an emergency stop mechanism (`emergency_stop.py`). When activa
 **How to clear:**
 ```python
 from textforensics.emergency_stop import clear_emergency_stop
+
 clear_emergency_stop()
 ```
 
