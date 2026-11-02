@@ -8,19 +8,18 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from textforensics.report import build_forensic_bundle
 from textforensics.casefile import seal_case_file
+from textforensics.report import build_forensic_bundle
 from textforensics.schema import (
-    load_schema,
-    validate_forensic_bundle,
-    validate_detector_result,
-    validate_case_file,
-    validate_trust_map,
-    list_schemas,
-    validate,
     _SCHEMA_NAMES,
+    list_schemas,
+    load_schema,
+    validate,
+    validate_case_file,
+    validate_detector_result,
+    validate_forensic_bundle,
+    validate_trust_map,
 )
-
 
 TEXT = (
     "I tested the device twice yesterday and wrote down what changed. "
