@@ -7,9 +7,15 @@ Contributions are welcome, especially detector adapters, calibration/benchmark i
 Before changing architecture or score semantics, read:
 - [AGENTS.md](AGENTS.md) — hard development contract
 - [ARCHITECTURE.md](ARCHITECTURE.md)
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — living architecture documentation
+- [docs/TRUST_MODEL.md](docs/TRUST_MODEL.md) — trust boundaries and abstention
+- [docs/CALIBRATION.md](docs/CALIBRATION.md) — calibration methodology and artifacts
+- [docs/OPERATIONS.md](docs/OPERATIONS.md) — monitoring, backup, incident response
 - [docs/PRODUCT.md](docs/PRODUCT.md)
 - [docs/BENCHMARKING.md](docs/BENCHMARKING.md)
 - [docs/QUALITY_GATES.md](docs/QUALITY_GATES.md)
+
+---
 
 ## Ground rules
 
@@ -24,6 +30,8 @@ Before changing architecture or score semantics, read:
 - Do not put private raw text into logs or portable case files by default.
 - Avoid adding correlated detectors solely to inflate detector count.
 - Do not publish synthetic/demo fixture results as product accuracy.
+
+---
 
 ## Development
 
@@ -42,6 +50,8 @@ python -m unittest discover -s tests -v
 
 Before a PR, work through the applicable checks in [docs/QUALITY_GATES.md](docs/QUALITY_GATES.md).
 
+---
+
 ## Detector PRs
 
 A detector adapter should include:
@@ -57,6 +67,267 @@ A detector adapter should include:
 
 A detector can land experimentally before full validation if it is unmistakably marked experimental and cannot silently influence calibrated top-level outputs.
 
+---
+
 ## Performance claims
 
 Do not add README accuracy claims from external papers. Run TextForensics against the declared benchmark and archive the run provenance first.
+
+---
+
+## Review Checklist
+
+Every PR should be self-reviewed against the questions below **before** it is marked ready. These are derived from the AGENTS.md self-review section.
+
+### Score and Probability Semantics
+
+- [ ] Did I change score semantics? If so, is every display/serialization/CLI output updated?
+- [ ] Did I accidentally call an uncalibrated score a probability?
+- [ ] Did I average calibrated probabilities from different detectors? (This does not produce a calibrated average.)
+- [ ] Did I emit `calibrated_ai_probability` without a corresponding `calibration_id`?
+
+### Reliability and False Positives
+
+- [ ] Could this change increase false positives for human-authored text?
+- [ ] Is the input regime supported? (language, length, domain)
+- [ ] Are calibration and test sets disjoint? (`validate_no_contamination`)
+- [ ] Did I preserve abstention and warnings for out-of-scope inputs?
+- [ ] Could the report be misread as proof of authorship?
+
+### Testing and Evidence
+
+- [ ] Did I add or update tests for the changed behavior?
+- [ ] Are there tests for the failure/timeout paths?
+- [ ] Do existing tests still pass?
+- [ ] Is network behavior explicit? (No network by default.)
+
+### Provenance and Reproducibility
+
+- [ ] Are model/data licenses compatible with the project license?
+- [ ] Did I record detector/model/version for any new artifacts?
+- [ ] Does the change require a schema version bump?
+
+### Architecture Consistency
+
+- [ ] Did I keep detector observation, validation evidence, Trust Map, consensus, and provenance separate?
+- [ ] Does this duplicate an existing project rather than advance TextForensics' reliability-audit identity?
+
+**If any answer is unclear, stop and document the issue before merging.**
+
+---
+
+## Testing Requirements
+
+### 2.1 Unit Tests
+
+**Scope:** Individual functions and classes in isolation.
+
+**Requirements:**
+- Every public function has at least one happy-path test
+- Every `DetectorContractError` path has a test
+- Every verdict/abstention boundary has tests on both sides
+- Dataclass serialization (`to_dict`, `from_dict`) is round-trip tested
+- Schema validation catches all declared invariants
+
+**Location:** `tests/test_<module>.py`
+
+**Example patterns:**
+```python
+# Verify detector prediction validation
+def test_prediction_requires_calibration_id_with_probability(self):
+    pred = DetectorPrediction(
+        schema="textforensics.detector-result/v1",
+        detector_id="test", detector_version="1.0", detector_family="test",
+        execution="local", score=0.5, score_semantics="test", verdict="ai_like",
+        threshold=None, calibrated_ai_probability=0.7,  # Has probability
+        # Missing calibration_id → should raise
+    )
+    with self.assertRaises(DetectorContractError):
+        validate_prediction(pred)
+```
+
+### 2.2 Integration Tests
+
+**Scope:** Multi-component workflows (engine → detectors → trust map → consensus → bundle).
+
+**Requirements:**
+- Full analysis pipeline produces valid `ForensicBundle`
+- Case file seal/verify round-trip
+- Drift observatory snapshot → comparison → report
+- Calibration selection → contamination check → evaluation
+- Provenance ledger snapshot → verify
+- Multiple detectors with mixed success/failure produce valid bundle
+- Robustness probes execute and produce stability scores
+
+**Example patterns:**
+```python
+def test_full_analysis_pipeline(self):
+    text = "This is a sufficiently long sample text for analysis..." * 20
+    bundle = build_forensic_bundle(text)
+    self.assertEqual(bundle.schema, "textforensics.forensic-bundle/v1")
+    self.assertIn(bundle.overall, {"strong", "mixed", "insufficient"})
+    self.assertFalse(bundle.input["raw_text_included"])
+```
+
+### 2.3 Mutation Testing
+
+**Scope:** Detects insufficient test coverage by injecting faults and checking whether tests catch them.
+
+**Tool:** Cosmic Ray (`.cosmic-ray.yml`) or Hypothesis for property-based mutation.
+
+**Requirements:**
+- All critical paths (verdict logic, threshold selection, contamination detection) must have mutations killed
+- Kill rate target: ≥ 70% for new code
+- Mutation results archived in `mutation-results/`
+
+### 2.4 Fuzz Testing
+
+**Scope:** Input boundary testing for text parsing, JSON deserialization, and protocol validation.
+
+**Tool:** Hypothesis (`@given`) or `aflfast` for C-extensions.
+
+**Requirements:**
+- Detector `detect()` must not crash on adversarial input
+- `seal_case_file()` must validate input structure
+- JSON schema validators must reject malformed input
+- Evidence key filtering must catch all forbidden raw-text patterns
+
+**Example patterns:**
+```python
+from hypothesis import given, strategies as st
+
+@given(st.text(min_size=0, max_size=10000))
+def test_analyze_text_does_not_crash(self, text):
+    if not text.strip():
+        with self.assertRaises(ValueError):
+            analyze_text(text)
+        return
+    # Should not raise on any non-empty input
+    result = analyze_text(text)
+    self.assertIsInstance(result, AnalysisResult)
+```
+
+### 2.5 Performance Tests
+
+**Scope:** Ensure analysis latency and memory usage remain acceptable.
+
+**Requirements:**
+- Analysis of 500-word text completes in < 5 seconds (CPU-only baseline)
+- No unbounded memory growth over sequential analyses
+- Performance results archived in `pytest-performance.json`
+
+---
+
+## Benchmark Discipline
+
+### 3.1 Contamination Prevention
+
+**Rule (AGENTS.md §12):** Training, threshold selection, calibration, and final evaluation must be disjoint.
+
+**Before any benchmark run:**
+```python
+from textforensics import validate_no_contamination, fingerprint_dataset
+
+# 1. Verify disjointness
+report = validate_no_contamination(calibration_path, evaluation_path)
+assert report["contamination_detected"] is False, report
+
+# 2. Commit dataset fingerprints
+cal_fp = fingerprint_dataset(calibration_path)
+eval_fp = fingerprint_dataset(evaluation_path)
+cal_fp.save("artifacts/benchmark/cal_fingerprint.json")
+eval_fp.save("artifacts/benchmark/eval_fingerprint.json")
+```
+
+### 3.2 Evidence Requirements
+
+Every benchmark result claim requires:
+
+| Evidence | Where |
+|---|---|
+| TextForensics git SHA | Run manifest |
+| Detector/model versions | Run manifest |
+| Dependency lock | `requirements.txt` or `pip freeze` |
+| Dataset name/version/fingerprint | Committed fingerprint file |
+| Split and filters | Run manifest |
+| Threshold/calibration IDs | Calibration artifact |
+| Random seeds | Run manifest |
+| Hardware | Run manifest |
+| Runtime | Evaluation result |
+| Per-slice metrics and confidence intervals | Evaluation result |
+
+### 3.3 Run Manifest Format
+
+```json
+{
+  "schema": "textforensics.benchmark-run/v1",
+  "git_sha": "abc123...",
+  "textforensics_version": "0.1.0",
+  "detector": {
+    "id": "textforensics/builtin-heuristic",
+    "version": "0.1.0",
+    "family": "stylometric-heuristic"
+  },
+  "dataset": {
+    "name": "RAID-English",
+    "version": "v1.0",
+    "fingerprint_sha256": "def456..."
+  },
+  "splits": {
+    "calibration": {"path": "data/cal_en.jsonl", "samples": 250},
+    "evaluation": {"path": "data/eval_en.jsonl", "samples": 250}
+  },
+  "threshold": {
+    "target_fpr": 0.01,
+    "selected_threshold": 0.68,
+    "calibration_id": "cal-en-v0-1-0-20261102"
+  },
+  "hardware": "CPU-only, Intel i7",
+  "runtime_seconds": 12.5,
+  "generated_at_utc": "2026-11-02T12:00:00+00:00"
+}
+```
+
+---
+
+## Release Checklist
+
+### 4.1 Evidence Gates
+
+Before any release (including pre-releases):
+
+- [ ] All unit tests pass (`python -m unittest discover -s tests -v`)
+- [ ] All integration tests pass
+- [ ] Mutation kill rate ≥ 70% for changed code
+- [ ] Benchmark results are reproducible from committed artifacts
+- [ ] Calibration artifacts are valid and not expired
+- [ ] Drift observatory has no critical findings for the release window
+- [ ] No contamination between calibration and evaluation sets
+- [ ] Human false-positive rate meets quality gate for each detector
+
+### 4.2 Versioning (Semver)
+
+| Change | Bump |
+|---|---|
+| Schema version change, calibration invalidation, threshold change, new detector family | MAJOR |
+| New detector (compatible), new Trust Map dimension, new CLI command, calibration artifact update | MINOR |
+| Bug fix in non-semantic code, documentation, test improvements | PATCH |
+
+**Schema versions:** Use `/vN` suffix in schema strings. A schema change that alters field meaning requires a version bump.
+
+### 4.3 Provenance
+
+Every release must:
+
+- [ ] Update `CHANGELOG.md` with version-specific entries
+- [ ] Record the git SHA and version in release notes
+- [ ] Archive calibration artifacts for the release
+- [ ] Archive benchmark run manifests for the release
+- [ ] Include detector version inventory
+
+### 4.4 Post-Release
+
+- [ ] Verify case files from the release validate (`verify_case_file`)
+- [ ] Take a drift observatory snapshot with the release version
+- [ ] Register new capability claims with `valid_until` dates
+- [ ] Update Trust Map documentation with new evidence
