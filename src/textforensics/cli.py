@@ -36,7 +36,12 @@ from .constants import (
 from .detectors import list_detector_health, list_detector_metadata
 from .drift import DriftObservatory
 from .engine import analyze_text
-from .localize import localize_text
+from .localize import (
+    detect_anomalous_segments,
+    localize_text,
+    segment_to_dict,
+    visual_diff,
+)
 from .naturalness import audit_naturalness
 from .provenance import snapshot_file, verify_ledger
 from .report import build_forensic_bundle
@@ -136,10 +141,30 @@ def build_parser() -> argparse.ArgumentParser:
 
     localize = sub.add_parser(
         "localize",
-        help="Score consecutive text segments for diagnostic localization.",
+        help="Score consecutive text segments for diagnostic localization, diff texts, and detect anomalous segments.",
     )
+    # Add old-style arguments for backward compatibility
     localize.add_argument("--file", "-f")
     localize.add_argument("--sentences", type=int, default=4)
+    # Add new subcommand as optional positional
+    localize.add_argument(
+        "subcommand",
+        nargs="?",
+        choices=["diff", "anomalies", "segments"],
+        help=argparse.SUPPRESS,  # Hide from help, handled manually
+    )
+    # Diff arguments
+    localize.add_argument("file1", nargs="?", help=argparse.SUPPRESS)
+    localize.add_argument("file2", nargs="?", help=argparse.SUPPRESS)
+    localize.add_argument(
+        "--style",
+        choices=["side_by_side", "unified", "inline"],
+        default="side_by_side",
+        help="Diff rendering style (default: side_by_side).",
+    )
+    localize.add_argument("--output", "-o", help="Path to write the diff output.")
+    # Anomalies arguments
+    localize.add_argument("--threshold", type=float, default=2.0, help="Z-score threshold (default: 2.0).")
 
     compare = sub.add_parser("compare", help="Compare two text versions.")
     compare.add_argument("before")
@@ -522,16 +547,59 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         _write_json(None, result)
 
     elif args.command == "localize":
-        if args.sentences < 1:
-            raise ValueError("--sentences must be at least 1.")
-        result = [
-            row.to_dict()
-            for row in localize_text(
-                _read_text(args.file, settings),
-                sentences_per_segment=args.sentences,
-            )
-        ]
-        _write_json(None, result)
+        # Determine which subcommand to run
+        # Check if subcommand is explicitly given
+        subcommand = args.subcommand
+
+        # Backward compatibility: if --file is provided without subcommand, use segments
+        if subcommand is None and args.file:
+            subcommand = "segments"
+        # If file1 and file2 are provided without subcommand, use diff
+        elif subcommand is None and args.file1 and args.file2:
+            subcommand = "diff"
+        # Default to segments
+        elif subcommand is None:
+            subcommand = "segments"
+
+        if subcommand == "diff":
+            if not args.file1 or not args.file2:
+                raise ValueError("diff requires file1 and file2 arguments")
+            text1 = _read_file_text(args.file1, settings)
+            text2 = _read_file_text(args.file2, settings)
+            diff_text = visual_diff(text1, text2, style=args.style)
+            if args.output:
+                Path(args.output).write_text(diff_text, encoding="utf-8")
+                print(args.output)
+            else:
+                print(diff_text)
+        elif subcommand == "anomalies":
+            # Use --file or positional file
+            file_arg = args.file or args.file1
+            if not file_arg:
+                raise ValueError("anomalies requires --file or positional file argument")
+            text = _read_text(file_arg, settings)
+            result = detect_anomalous_segments(text, threshold=args.threshold)
+            if args.output:
+                Path(args.output).write_text(
+                    json.dumps(result, indent=2, ensure_ascii=False, allow_nan=False) + "\n",
+                    encoding="utf-8",
+                )
+                print(args.output)
+            else:
+                _write_json(None, result)
+        elif subcommand == "segments":
+            if args.sentences < 1:
+                raise ValueError("--sentences must be at least 1.")
+            result = [
+                segment_to_dict(row)
+                for row in localize_text(
+                    _read_text(args.file, settings),
+                    sentences_per_segment=args.sentences,
+                )
+            ]
+            _write_json(None, result)
+        else:
+            raise ValueError(f"Unknown localize command: {subcommand}")
 
     elif args.command == "compare":
         result = compare_texts(
