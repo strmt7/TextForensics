@@ -9,6 +9,15 @@ from .benchmark_fingerprint import (
     validate_disjointness,
     verify_fingerprint,
 )
+from .capability_ledger import (
+    CapabilityClaim,
+    CapabilityLedger,
+    EvidenceLabel,
+    EvidenceRef,
+    EvidenceTier,
+    ledger_to_trust_dimension,
+    validate_claim,
+)
 from .casefile import seal_case_file, verify_case_file
 from .compare import compare_texts
 from .drift import DriftObservatory
@@ -23,17 +32,24 @@ from .version import get_version
 __all__ = [
     "analyze_text",
     "build_forensic_bundle",
+    "CapabilityClaim",
+    "CapabilityLedger",
     "check_disjointness",
     "compare_texts",
     "DatasetFingerprint",
     "DriftObservatory",
     "evaluate_threshold",
+    "EvidenceLabel",
+    "EvidenceRef",
+    "EvidenceTier",
     "fingerprint_dataset",
     "get_version",
+    "ledger_to_trust_dimension",
     "load_fingerprint",
     "save_fingerprint",
     "select_threshold",
     "seal_case_file",
+    "validate_claim",
     "verify_fingerprint",
     "verify_case_file",
     "validate_disjointness",

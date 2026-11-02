@@ -12,6 +12,13 @@ from .benchmark import (
     calibrate_threshold_jsonl,
     load_calibration_artifact,
 )
+from .capability_ledger import (
+    CapabilityClaim,
+    CapabilityLedger,
+    EvidenceLabel,
+    EvidenceRef,
+    EvidenceTier,
+)
 from .benchmark_fingerprint import (
     check_disjointness,
     fingerprint_dataset,
@@ -302,6 +309,32 @@ def build_parser() -> argparse.ArgumentParser:
     )
     drift_report.add_argument("--output", "-o", help="Write the drift report to this JSON file.")
 
+    cap = sub.add_parser(
+        "capability",
+        help="Inspect detector capability claims in the capability ledger.",
+    )
+    cap_sub = cap.add_subparsers(dest="capability_command", required=True)
+
+    cap_list = cap_sub.add_parser("list", help="List all registered capabilities.")
+    cap_list.add_argument("--detector", help="Filter by detector ID.")
+
+    cap_check = cap_sub.add_parser(
+        "check",
+        help="Check whether a capability claim is validated.",
+    )
+    cap_check.add_argument("detector", help="Detector ID.")
+    cap_check.add_argument("capability", help="Capability name.")
+
+    cap_export = cap_sub.add_parser(
+        "export",
+        help="Export the capability ledger as JSON.",
+    )
+    cap_export.add_argument(
+        "--output",
+        "-o",
+        help="Path to write JSON (default: stdout).",
+    )
+
     return parser
 
 
@@ -323,6 +356,18 @@ def _settings_with_overrides(
         access_log=access_log if access_log is not None else base.access_log,
         log_level=base.log_level,
     )
+
+
+def _load_default_ledger() -> CapabilityLedger:
+    """Load the default capability ledger from disk, or return an empty one."""
+    ledger_path = Path(__file__).resolve().parent.parent.parent / "capability_ledger.json"
+    if ledger_path.exists():
+        try:
+            data = json.loads(ledger_path.read_text(encoding="utf-8"))
+            return CapabilityLedger.from_dict(data)
+        except (json.JSONDecodeError, KeyError):
+            pass
+    return CapabilityLedger()
 
 
 def _run(args: argparse.Namespace, settings: Settings) -> int:
@@ -507,6 +552,42 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             current = DriftObservatory.read_snapshot_file(args.current)
             report = observatory.compare_snapshots(baseline, current)
             _write_json(args.output, report)
+
+    elif args.command == "capability":
+        ledger = _load_default_ledger()
+        if args.capability_command == "list":
+            claims = ledger.to_dict()["claims"]
+            if args.detector:
+                claims = {args.detector: claims.get(args.detector, [])}
+            _write_json(None, claims)
+        elif args.capability_command == "check":
+            claim = ledger.enforce(args.detector, args.capability)
+            validated = claim.tier == EvidenceTier.VALIDATED
+            payload = {
+                "detector_id": args.detector,
+                "capability": args.capability,
+                "tier": claim.tier.value,
+                "validated": validated,
+                "evidence": [
+                    {
+                        "label": e.label.value,
+                        "tier": e.tier.value,
+                        "artifact": e.artifact,
+                        "detail": e.detail,
+                    }
+                    for e in claim.evidence
+                ],
+                "valid_until": claim.valid_until,
+            }
+            _write_json(None, payload)
+            if not validated:
+                print(
+                    f"warning: {args.detector}/{args.capability} is "
+                    f"{claim.tier.value}, not VALIDATED.",
+                    file=sys.stderr,
+                )
+        elif args.capability_command == "export":
+            _write_json(args.output, ledger.to_dict())
 
     return 0
 
