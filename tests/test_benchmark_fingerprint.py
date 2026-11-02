@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import tempfile
 import unittest
@@ -14,10 +13,9 @@ from textforensics.benchmark_fingerprint import (
     fingerprint_dataset,
     load_fingerprint,
     save_fingerprint,
-    verify_fingerprint,
     validate_disjointness,
+    verify_fingerprint,
 )
-
 
 HUMAN_SAMPLE = "I ran this test yesterday. The first result looked odd, " \
                "so I changed one cable, repeated it, and wrote down the result."
