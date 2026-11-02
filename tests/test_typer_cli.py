@@ -11,12 +11,21 @@ from pathlib import Path
 
 from textforensics.constants import EXIT_OK
 
+# Skip all tests if typer is not installed
+try:
+    import typer  # noqa: F401
+
+    TYPER_AVAILABLE = True
+except ImportError:
+    TYPER_AVAILABLE = False
+
 TEXT = (
     "I ran this test yesterday. The first result looked odd, so I "
     "changed one cable, repeated it, and wrote down the second result."
 )
 
 
+@unittest.skipIf(not TYPER_AVAILABLE, "typer not installed")
 class TyperCliTests(unittest.TestCase):
     """Tests for Typer CLI help commands."""
 
