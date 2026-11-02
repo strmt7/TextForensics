@@ -249,9 +249,9 @@ class TestPrecommitConfig:
         ]
 
         for required in required_hooks:
-            assert (
-                required in hook_ids
-            ), f"Required hook '{required}' not found in pre-commit config"
+            assert required in hook_ids, (
+                f"Required hook '{required}' not found in pre-commit config"
+            )
 
 
 class TestRenovateConfig:
@@ -280,9 +280,9 @@ class TestRenovateConfig:
 
         # Check schedule contains Monday 9 AM
         schedule = config.get("schedule", [])
-        assert any(
-            "Monday" in s and "09:00" in s for s in schedule
-        ), "Schedule should be Monday 09:00 UTC"
+        assert any("Monday" in s and "09:00" in s for s in schedule), (
+            "Schedule should be Monday 09:00 UTC"
+        )
 
     def test_automerge_patch_minor(self):
         """Test that patch/minor updates have automerge enabled."""
@@ -298,9 +298,9 @@ class TestRenovateConfig:
                 break
 
         assert patch_minor_rule is not None, "Should have rule for patch/minor updates"
-        assert (
-            patch_minor_rule.get("automerge") is True
-        ), "Patch/minor should have automerge enabled"
+        assert patch_minor_rule.get("automerge") is True, (
+            "Patch/minor should have automerge enabled"
+        )
 
     def test_major_updates_needs_review(self):
         """Test that major updates create PRs with needs-review label."""
@@ -340,9 +340,9 @@ class TestRenovateConfig:
 
         license_policy = config.get("licensePolicy", {})
         ignored = license_policy.get("ignore", [])
-        assert (
-            "AGPL-3.0" in ignored or "AGPL-3.0-or-later" in ignored
-        ), "AGPL-3.0 should be in ignore list"
+        assert "AGPL-3.0" in ignored or "AGPL-3.0-or-later" in ignored, (
+            "AGPL-3.0 should be in ignore list"
+        )
 
 
 if __name__ == "__main__":

@@ -114,6 +114,7 @@ class CosmicRayIntegrationTests(unittest.TestCase):
                 # In CI environments, the executable bit may not be preserved
                 # Skip this check but log a message instead of warning
                 import logging
+
                 logging.getLogger(__name__).info(
                     "Runner script missing executable bit (CI environment)"
                 )
