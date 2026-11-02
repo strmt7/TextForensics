@@ -118,7 +118,10 @@ class CosmicRayIntegrationTests(unittest.TestCase):
                 # Skip this check but warn
                 import warnings
 
-                warnings.warn("Runner script missing executable bit (CI environment)")
+                warnings.warn(
+                    "Runner script missing executable bit (CI environment)",
+                    stacklevel=2,
+                )
 
     def test_runner_help(self):
         """Verify runner script shows help."""
