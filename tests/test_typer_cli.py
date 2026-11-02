@@ -1,4 +1,5 @@
 """Tests for the Typer-based CLI."""
+
 from __future__ import annotations
 
 import json
@@ -8,8 +9,7 @@ import unittest
 from io import StringIO
 from pathlib import Path
 
-from textforensics.constants import EXIT_OK, EXIT_INCOMPLETE
-
+from textforensics.constants import EXIT_OK
 
 TEXT = (
     "I ran this test yesterday. The first result looked odd, so I "
@@ -24,6 +24,7 @@ class TyperCliTests(unittest.TestCase):
     def setUpClass(cls):
         """Import typer_cli module once."""
         import textforensics.typer_cli as typer_cli_module
+
         cls.typer_module = typer_cli_module
 
     def _run_app(self, argv: list[str], stdin: str | None = None) -> tuple[int, str, str]:
@@ -306,7 +307,15 @@ class FunctionalTests(TyperCliTests):
                 encoding="utf-8",
             )
             code, out, err = self._run_app(
-                ["fingerprint", str(dataset), "TestDataset", "--version", "1.0.0", "--split", "test"]
+                [
+                    "fingerprint",
+                    str(dataset),
+                    "TestDataset",
+                    "--version",
+                    "1.0.0",
+                    "--split",
+                    "test",
+                ]
             )
             self.assertEqual(code, EXIT_OK, err)
             payload = json.loads(out)
@@ -317,8 +326,12 @@ class FunctionalTests(TyperCliTests):
         with tempfile.TemporaryDirectory() as tmp:
             cal = Path(tmp) / "cal.jsonl"
             eval = Path(tmp) / "eval.jsonl"
-            cal.write_text(json.dumps({"label": "human", "text": "calibration human"}) + "\n", encoding="utf-8")
-            eval.write_text(json.dumps({"label": "human", "text": "evaluation human"}) + "\n", encoding="utf-8")
+            cal.write_text(
+                json.dumps({"label": "human", "text": "calibration human"}) + "\n", encoding="utf-8"
+            )
+            eval.write_text(
+                json.dumps({"label": "human", "text": "evaluation human"}) + "\n", encoding="utf-8"
+            )
 
             code, out, err = self._run_app(["check", str(cal), str(eval)])
             self.assertEqual(code, EXIT_OK, err)
@@ -329,7 +342,9 @@ class FunctionalTests(TyperCliTests):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "source.txt"
             source.write_text(TEXT * 4, encoding="utf-8")
-            code, out, err = self._run_app(["localize", "segments", str(source), "--sentences", "4"])
+            code, out, err = self._run_app(
+                ["localize", "segments", str(source), "--sentences", "4"]
+            )
             self.assertEqual(code, EXIT_OK, err)
             payload = json.loads(out)
             self.assertIsInstance(payload, list)
@@ -350,6 +365,7 @@ class DelegationTests(unittest.TestCase):
         """Test that --typer flag delegates to Typer CLI."""
         import subprocess
         import sys
+
         result = subprocess.run(
             [sys.executable, "-m", "textforensics.cli", "--typer", "--help"],
             capture_output=True,
