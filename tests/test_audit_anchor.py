@@ -16,12 +16,12 @@ from textforensics.audit_anchor import (
     export_audit_anchor,
     verify_audit_anchor,
 )
-from textforensics.constants import EXIT_ERROR, EXIT_OK
-
+from textforensics.constants import EXIT_ERROR
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_file(path: Path, content: str = "x") -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -43,6 +43,7 @@ def workspace(tmp_path: Path) -> Path:
 # ---------------------------------------------------------------------------
 # AuditAnchor serialization
 # ---------------------------------------------------------------------------
+
 
 class TestAuditAnchor:
     def test_to_dict_roundtrip(self):
@@ -73,6 +74,7 @@ class TestAuditAnchor:
 # ---------------------------------------------------------------------------
 # export_audit_anchor
 # ---------------------------------------------------------------------------
+
 
 class TestExportAuditAnchor:
     def test_export_computes_hashes(self, workspace: Path):
@@ -132,6 +134,7 @@ class TestExportAuditAnchor:
 # verify_audit_anchor
 # ---------------------------------------------------------------------------
 
+
 class TestVerifyAuditAnchor:
     def test_no_changes(self, workspace: Path):
         anchor = export_audit_anchor(base_dir=workspace, detector_versions={})
@@ -173,9 +176,7 @@ class TestVerifyAuditAnchor:
         current_chain = CalibrationChain()
         current_chain.append("c" * 64)
         current_chain.append("d" * 64)
-        status = verify_audit_anchor(
-            anchor, current_chain=current_chain, base_dir=workspace
-        )
+        status = verify_audit_anchor(anchor, current_chain=current_chain, base_dir=workspace)
         assert status == "chain_valid"
 
     def test_chain_too_short_rollback(self, workspace: Path):
@@ -191,9 +192,7 @@ class TestVerifyAuditAnchor:
         current_chain = CalibrationChain()
         current_chain.append("c" * 64)
         with pytest.raises(RollbackError, match="Calibration artifacts rolled back"):
-            verify_audit_anchor(
-                anchor, current_chain=current_chain, base_dir=workspace
-            )
+            verify_audit_anchor(anchor, current_chain=current_chain, base_dir=workspace)
 
     def test_chain_prefix_mismatch_rollback(self, workspace: Path):
         anchor_chain = CalibrationChain()
@@ -222,6 +221,7 @@ class TestVerifyAuditAnchor:
 # ---------------------------------------------------------------------------
 # CalibrationChain
 # ---------------------------------------------------------------------------
+
 
 class TestCalibrationChain:
     def test_append_and_hashes(self):
@@ -340,6 +340,7 @@ class TestCalibrationChain:
 # RollbackError
 # ---------------------------------------------------------------------------
 
+
 class TestRollbackError:
     def test_is_exception(self):
         assert issubclass(RollbackError, Exception)
@@ -352,6 +353,7 @@ class TestRollbackError:
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 class TestAuditAnchorCli:
     """CLI integration tests for `textforensics audit export/verify`."""
@@ -459,23 +461,17 @@ class TestAuditAnchorCli:
         assert data["calibration_chain"] == ["c" * 64]
 
     def test_cli_verify_missing_anchor_file(self, tmp_path: Path):
-        code, out, err = self._run_main(
-            ["audit", "verify", str(tmp_path / "missing.json")]
-        )
+        code, out, err = self._run_main(["audit", "verify", str(tmp_path / "missing.json")])
         assert code == EXIT_ERROR
         assert "failed to read anchor file" in err
 
     def test_cli_export_without_output(self, workspace: Path):
-        code, out, err = self._run_main(
-            ["audit", "export", "--base-dir", str(workspace)]
-        )
+        code, out, err = self._run_main(["audit", "export", "--base-dir", str(workspace)])
         assert code == EXIT_ERROR
         assert "requires an output path" in err
 
     def test_cli_verify_without_anchor(self, workspace: Path):
-        code, out, err = self._run_main(
-            ["audit", "verify", "--base-dir", str(workspace)]
-        )
+        code, out, err = self._run_main(["audit", "verify", "--base-dir", str(workspace)])
         assert code == EXIT_ERROR
         assert "requires an anchor file path" in err
 

@@ -91,11 +91,11 @@ out_of_scope = any(dimension.state == "out_of_scope" for dimension in dimensions
 partial = any(dimension.state == "partial" for dimension in dimensions)
 
 if out_of_scope or unknown_count >= 3:
-    overall = "insufficient"   # Too many unknowns; abstain
+    overall = "insufficient"  # Too many unknowns; abstain
 elif unknown_count or partial:
-    overall = "mixed"          # Partial evidence; proceed with caution
+    overall = "mixed"  # Partial evidence; proceed with caution
 else:
-    overall = "strong"         # All dimensions covered
+    overall = "strong"  # All dimensions covered
 ```
 
 **`trust_map_from_capability_ledger` uses similar logic** but maps from EvidenceTier:
@@ -144,19 +144,27 @@ else:
 The `CapabilityLedger` provides a mechanical way to register and query detector capabilities:
 
 ```python
-from textforensics import CapabilityClaim, CapabilityLedger, EvidenceTier, EvidenceRef, EvidenceLabel
+from textforensics import (
+    CapabilityClaim,
+    CapabilityLedger,
+    EvidenceTier,
+    EvidenceRef,
+    EvidenceLabel,
+)
 
 # Register a validated capability
 claim = CapabilityClaim(
     detector_id="textforensics/builtin-heuristic",
     capability="language_coverage.en",
     tier=EvidenceTier.VALIDATED,
-    evidence=[EvidenceRef(
-        label=EvidenceLabel.EXECUTED,
-        tier=EvidenceTier.VALIDATED,
-        artifact="artifacts/benchmark/en_raid_v1.json",
-        detail="RAID English slice, 500 human / 500 AI samples",
-    )],
+    evidence=[
+        EvidenceRef(
+            label=EvidenceLabel.EXECUTED,
+            tier=EvidenceTier.VALIDATED,
+            artifact="artifacts/benchmark/en_raid_v1.json",
+            detail="RAID English slice, 500 human / 500 AI samples",
+        )
+    ],
     valid_until="2027-01-01",
 )
 

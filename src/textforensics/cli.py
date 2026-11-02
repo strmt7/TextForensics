@@ -11,6 +11,13 @@ from ._build_info import (
     get_build_info,
     verify_build_identity,
 )
+from .audit_anchor import (
+    AuditAnchor,
+    CalibrationChain,
+    RollbackError,
+    export_audit_anchor,
+    verify_audit_anchor,
+)
 from .benchmark import (
     benchmark_jsonl,
     benchmark_with_calibration_jsonl,
@@ -40,26 +47,16 @@ from .constants import (
 )
 from .detectors import list_detector_health, list_detector_metadata
 from .drift import DriftObservatory
-from .enterprise_policy import (
-    EnterprisePolicy,
-    EnterprisePolicyEngine,
-    PolicyRevisionFloor,
-    compute_policy_digest,
-    validate_enterprise_policy,
-)
-from .audit_anchor import (
-    AuditAnchor,
-    CalibrationChain,
-    RollbackError,
-    export_audit_anchor,
-    verify_audit_anchor,
-)
 from .emergency_stop import (
-    EmergencyStopError,
     EmergencyStopSentinel,
     check_emergency_stop,
 )
 from .engine import analyze_text
+from .enterprise_policy import (
+    EnterprisePolicy,
+    PolicyRevisionFloor,
+    validate_enterprise_policy,
+)
 from .localize import (
     detect_anomalous_segments,
     localize_text,
@@ -325,7 +322,13 @@ def build_parser() -> argparse.ArgumentParser:
     schema_validate.add_argument("file", help="Path to the JSON file to validate.")
     schema_validate.add_argument(
         "--type",
-        choices=["forensic-bundle", "detector-result", "case-file", "trust-map", "enterprise-policy"],
+        choices=[
+            "forensic-bundle",
+            "detector-result",
+            "case-file",
+            "trust-map",
+            "enterprise-policy",
+        ],
         required=True,
         help="Schema type to validate against.",
     )
@@ -1222,7 +1225,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         return _run_policy_command(args)
 
     elif args.command == "audit":
-        return _run_audit_command(args)
+        return _run_audit_anchor_command(args)
 
     elif args.command == "emergency":
         return _run_emergency_command(args)
@@ -1546,11 +1549,7 @@ def _run_emergency_command(args: argparse.Namespace) -> int:
             "env_var": "TEXTFORENSICS_EMERGENCY_STOP",
         }
         _write_json(None, payload)
-        print(
-            "EMERGENCY STOP: ACTIVE"
-            if active
-            else "Emergency stop: not active"
-        )
+        print("EMERGENCY STOP: ACTIVE" if active else "Emergency stop: not active")
         return EXIT_OK
 
     elif args.emergency_command == "activate":
@@ -1580,11 +1579,7 @@ def _run_emergency_command(args: argparse.Namespace) -> int:
             "active": sentinel.is_active(),
         }
         _write_json(None, payload)
-        print(
-            "Emergency stop deactivated."
-            if removed
-            else "No sentinel file was present."
-        )
+        print("Emergency stop deactivated." if removed else "No sentinel file was present.")
         return EXIT_OK
 
     return EXIT_ERROR

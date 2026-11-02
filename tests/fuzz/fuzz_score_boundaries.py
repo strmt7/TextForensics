@@ -14,7 +14,6 @@ Covers:
 
 from __future__ import annotations
 
-import math
 import sys
 from pathlib import Path
 
@@ -41,6 +40,7 @@ def _to_floats(data: bytes) -> list[float]:
     # 2. Try to extract numeric literals from text
     try:
         import re
+
         for match in re.findall(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", text):
             try:
                 values.append(float(match))

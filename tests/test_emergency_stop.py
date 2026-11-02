@@ -189,8 +189,8 @@ class ApiIntegrationTests(unittest.TestCase):
             from textforensics.api import create_app
 
             cls.app = create_app()
-        except RuntimeError:
-            raise unittest.SkipTest("fastapi not installed")
+        except RuntimeError as e:
+            raise unittest.SkipTest("fastapi not installed") from e
         from fastapi.testclient import TestClient
 
         cls.client = TestClient(cls.app, raise_server_exceptions=False)
@@ -240,9 +240,11 @@ class McpServerIntegrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "sentinel"
             path.write_text("stop", encoding="utf-8")
-            with mock.patch.dict(os.environ, {ENV_VAR: str(path)}):
-                with self.assertRaises(UnexpectedToolError):
-                    self._call("analyze_ai_text", text=TEXT)
+            with (
+                mock.patch.dict(os.environ, {ENV_VAR: str(path)}),
+                self.assertRaises(UnexpectedToolError),
+            ):
+                self._call("analyze_ai_text", text=TEXT)
 
     def test_mcp_tool_allowed_when_inactive(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -259,8 +261,6 @@ class ModuleLevelGuardTests(unittest.TestCase):
     """Tests for module-level assert_not_stopped and get_sentinel."""
 
     def test_module_guard_raises_when_active(self):
-        from textforensics.emergency_stop import get_sentinel
-
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "sentinel"
             with mock.patch.dict(os.environ, {ENV_VAR: str(path)}):
@@ -325,24 +325,18 @@ class CliEmergencyCommandTests(unittest.TestCase):
     def test_status_with_configured_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "sentinel"
-            code, out, err = self._run_main(
-                ["emergency", "status", "--path", str(path)]
-            )
+            code, out, err = self._run_main(["emergency", "status", "--path", str(path)])
             self.assertEqual(code, 0)
             self.assertIn("not active", out)
 
     def test_activate_then_status_shows_active(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "sentinel"
-            code, out, err = self._run_main(
-                ["emergency", "activate", "--path", str(path)]
-            )
+            code, out, err = self._run_main(["emergency", "activate", "--path", str(path)])
             self.assertEqual(code, 0)
             self.assertTrue(path.exists())
 
-            code, out, err = self._run_main(
-                ["emergency", "status", "--path", str(path)]
-            )
+            code, out, err = self._run_main(["emergency", "status", "--path", str(path)])
             self.assertEqual(code, 0)
             self.assertIn("ACTIVE", out)
 
@@ -350,9 +344,7 @@ class CliEmergencyCommandTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "sentinel"
             path.write_text("stop", encoding="utf-8")
-            code, out, err = self._run_main(
-                ["emergency", "deactivate", "--path", str(path)]
-            )
+            code, out, err = self._run_main(["emergency", "deactivate", "--path", str(path)])
             self.assertEqual(code, 0)
             self.assertFalse(path.exists())
 

@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional
 
 ENV_VAR = "TEXTFORENSICS_EMERGENCY_STOP"
 
@@ -34,7 +33,7 @@ class EmergencyStopError(RuntimeError):
     """Raised when an emergency stop is active and the caller is blocked."""
 
 
-def _resolve_sentinel_path(path: Optional[str | os.PathLike[str]]) -> Optional[Path]:
+def _resolve_sentinel_path(path: str | os.PathLike[str] | None) -> Path | None:
     """Resolve a sentinel path string to a ``Path``.
 
     Returns ``None`` when no path is configured. Raises ``ValueError``
@@ -43,10 +42,7 @@ def _resolve_sentinel_path(path: Optional[str | os.PathLike[str]]) -> Optional[P
     """
     if path is None:
         return None
-    if isinstance(path, os.PathLike):
-        raw = os.fspath(path)
-    else:
-        raw = str(path)
+    raw = os.fspath(path) if isinstance(path, os.PathLike) else str(path)
     if not raw:
         raise ValueError("emergency stop path must not be empty")
     if "\x00" in raw:
@@ -55,7 +51,7 @@ def _resolve_sentinel_path(path: Optional[str | os.PathLike[str]]) -> Optional[P
 
 
 def check_emergency_stop(
-    path: Optional[str | os.PathLike[str]] = None,
+    path: str | os.PathLike[str] | None = None,
 ) -> bool:
     """Check whether the emergency stop sentinel is active.
 
@@ -97,7 +93,7 @@ class EmergencyStopSentinel:
     ``TEXTFORENSICS_EMERGENCY_STOP`` or by calling ``configure``.
     """
 
-    def __init__(self, path: Optional[str | os.PathLike[str]] = None) -> None:
+    def __init__(self, path: str | os.PathLike[str] | None = None) -> None:
         self._path = path
 
     # ------------------------------------------------------------------
@@ -112,7 +108,7 @@ class EmergencyStopSentinel:
         """
         self._path = path
 
-    def _resolve(self) -> Optional[Path]:
+    def _resolve(self) -> Path | None:
         """Resolve the effective sentinel path.
 
         Returns ``None`` when no path is configured (env var unset and
@@ -194,7 +190,7 @@ class EmergencyStopSentinel:
 # ----------------------------------------------------------------------
 # Module-level convenience singleton
 # ----------------------------------------------------------------------
-_sentinel: Optional[EmergencyStopSentinel] = None
+_sentinel: EmergencyStopSentinel | None = None
 
 
 def get_sentinel() -> EmergencyStopSentinel:

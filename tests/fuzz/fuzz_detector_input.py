@@ -194,7 +194,7 @@ def TestOneInput(data: bytes) -> None:
         ep = MockEntryPoint()
         with patch("textforensics.detectors._entry_points", return_value=[ep]):
             try:
-                registry = discover_detector_registry()
+                discover_detector_registry()
             except DetectorContractError:
                 pass
 
@@ -207,7 +207,7 @@ def TestOneInput(data: bytes) -> None:
 
         with patch("textforensics.detectors._entry_points", return_value=[MalformedEntryPoint()]):
             try:
-                registry = discover_detector_registry()
+                discover_detector_registry()
             except Exception:
                 pass
     except Exception:

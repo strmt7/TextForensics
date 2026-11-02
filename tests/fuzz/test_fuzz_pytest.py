@@ -271,7 +271,7 @@ class TestApiValidation:
         COMMON_INPUTS
         + [
             pytest.param(b'{"text": "test"}', id="json_request"),
-            pytest.param(b'{"text": "' + b"x" * 5000 + b'}', id="oversized_json"),
+            pytest.param(b'{"text": "' + b"x" * 5000 + b"}", id="oversized_json"),
         ],
     )
     def test_api_validation(self, input_data: bytes) -> None:

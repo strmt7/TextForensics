@@ -76,6 +76,7 @@ verify:
 MAX_EVIDENCE_AGE = timedelta(days=8)
 MAX_CLOCK_SKEW = timedelta(minutes=5)
 
+
 def _validate_run_outcome(run, workflow, commit, now):
     age = now - parse_time(run.get("updated_at"))
     if age < -MAX_CLOCK_SKEW or age > MAX_EVIDENCE_AGE:
@@ -153,7 +154,10 @@ def audit_binaries(paths: list[Path], output: Path):
     for path in paths:
         result = subprocess.run(
             ["cargo", "audit", "bin", str(path)],
-            capture_output=True, text=True, timeout=300, check=False
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=False,
         )
         (output / f"{path.stem}-binary-audit.txt").write_text(result.stdout + result.stderr)
         if result.returncode != 0:
@@ -364,6 +368,7 @@ fn enterprise_policy_is_monotone_and_idempotent_across_generated_settings() {
 **TextForensics Application:** Use Hypothesis for property-based testing:
 ```python
 from hypothesis import given, strategies as st
+
 
 @given(
     scores=st.lists(st.floats(min_value=0, max_value=1)),
@@ -681,18 +686,21 @@ DEEP = {
     "reproducibility.yml": "Windows reproducibility",
 }
 
+
 def collect_evidence(repository, commit, now):
     """Collect green evidence for every required workflow."""
     evidence = []
     for workflow in {**EXACT, **DEEP}:
         run = latest_run(repository, workflow, commit)
         validate_run(run, workflow, repository, commit, now)
-        evidence.append({
-            "workflow": workflow,
-            "run_id": run["id"],
-            "commit": run["head_sha"],
-            "conclusion": "success",
-        })
+        evidence.append(
+            {
+                "workflow": workflow,
+                "run_id": run["id"],
+                "commit": run["head_sha"],
+                "conclusion": "success",
+            }
+        )
     return {"automated_evidence": evidence}
 ```
 
@@ -744,6 +752,7 @@ BUILD_INFO = {
     "python_version": sys.version,
     "dependencies_sha256": hash_file("requirements.lock"),
 }
+
 
 @click.command()
 def build_info():
@@ -863,6 +872,7 @@ def verify(path: Path, commit: str, signing: str) -> dict:
 # Checked at dispatch entry AND again before network request
 EMERGENCY_STOP_FILE = os.environ.get("RR_EMERGENCY_STOP_FILE")
 
+
 def check_emergency_stop():
     if not EMERGENCY_STOP_FILE:
         return False  # Not configured
@@ -875,6 +885,7 @@ def check_emergency_stop():
         return True  # Sentinel present - STOP
 
     return False  # No sentinel - proceed
+
 
 # Usage in dispatch path
 if check_emergency_stop():
@@ -941,8 +952,7 @@ class PolicyRevisionFloor:
         if policy.revision < self.state["revision"]:
             raise PolicyRollbackError("Revision rollback detected")
 
-        if (policy.revision == self.state["revision"] and
-            policy.digest != self.state["digest"]):
+        if policy.revision == self.state["revision"] and policy.digest != self.state["digest"]:
             raise PolicyDriftError("Same-revision drift")
 
         if policy.revision > self.state["revision"]:
@@ -1055,6 +1065,7 @@ def export_audit_anchor():
         "detector_versions": get_detector_versions(),
         "exported_at": datetime.utcnow().isoformat(),
     }
+
 
 def verify_audit_anchor(anchor):
     """Verify no rollback occurred."""
@@ -1377,6 +1388,7 @@ REQUIRED_WORKFLOWS = {
     "supply-chain.yml": "Supply-chain security",
 }
 
+
 def get_workflow_run(repo: str, workflow: str, commit: str) -> dict:
     """Get latest workflow run for commit."""
     url = f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}/runs"
@@ -1390,6 +1402,7 @@ def get_workflow_run(repo: str, workflow: str, commit: str) -> dict:
         raise ValueError(f"No runs found for {workflow}")
 
     return data["workflow_runs"][0]
+
 
 def validate_run(run: dict, workflow: str, commit: str) -> None:
     """Validate workflow run meets evidence requirements."""
@@ -1407,6 +1420,7 @@ def validate_run(run: dict, workflow: str, commit: str) -> None:
     if age > MAX_EVIDENCE_AGE:
         raise ValueError(f"{workflow}: evidence too old ({age})")
 
+
 def collect_evidence(repo: str, commit: str) -> dict:
     """Collect all required evidence."""
     evidence = []
@@ -1415,14 +1429,16 @@ def collect_evidence(repo: str, commit: str) -> dict:
         run = get_workflow_run(repo, workflow, commit)
         validate_run(run, workflow, commit)
 
-        evidence.append({
-            "workflow": workflow,
-            "name": name,
-            "run_id": run["id"],
-            "commit": run["head_sha"],
-            "updated_at": run["updated_at"],
-            "conclusion": "success",
-        })
+        evidence.append(
+            {
+                "workflow": workflow,
+                "name": name,
+                "run_id": run["id"],
+                "commit": run["head_sha"],
+                "updated_at": run["updated_at"],
+                "conclusion": "success",
+            }
+        )
 
     return {
         "schema_version": 1,
@@ -1431,6 +1447,7 @@ def collect_evidence(repo: str, commit: str) -> dict:
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "automated_evidence": evidence,
     }
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:

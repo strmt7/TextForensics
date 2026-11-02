@@ -4,11 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
-import sys
-import tempfile
-from pathlib import Path
-from unittest import mock
 
 import pytest
 
@@ -21,10 +16,10 @@ from textforensics.enterprise_policy import (
     validate_enterprise_policy,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def policy_data():
@@ -92,6 +87,7 @@ def temp_state_dir(tmp_path):
 # EnterprisePolicy dataclass tests
 # ---------------------------------------------------------------------------
 
+
 class TestEnterprisePolicy:
     def test_from_dict(self, policy_data):
         policy = EnterprisePolicy.from_dict(policy_data)
@@ -135,6 +131,7 @@ class TestEnterprisePolicy:
 # ---------------------------------------------------------------------------
 # compute_policy_digest tests
 # ---------------------------------------------------------------------------
+
 
 class TestComputePolicyDigest:
     def test_deterministic(self, valid_policy):
@@ -187,6 +184,7 @@ class TestComputePolicyDigest:
 # ---------------------------------------------------------------------------
 # JSON Schema validation tests
 # ---------------------------------------------------------------------------
+
 
 class TestValidateEnterprisePolicy:
     def test_valid_policy(self, policy_data):
@@ -243,6 +241,7 @@ class TestValidateEnterprisePolicy:
 # PolicyState tests
 # ---------------------------------------------------------------------------
 
+
 class TestPolicyState:
     def test_defaults(self):
         state = PolicyState()
@@ -273,6 +272,7 @@ class TestPolicyState:
 # ---------------------------------------------------------------------------
 # PolicyRevisionFloor tests
 # ---------------------------------------------------------------------------
+
 
 class TestPolicyRevisionFloor:
     def test_initial_state(self, temp_state_dir):
@@ -464,6 +464,7 @@ class TestPolicyRevisionFloor:
 # EnterprisePolicyEngine tests
 # ---------------------------------------------------------------------------
 
+
 class TestEnterprisePolicyEngine:
     def test_engine_no_policy(self):
         engine = EnterprisePolicyEngine()
@@ -613,6 +614,7 @@ class TestEnterprisePolicyEngine:
 # CLI integration tests
 # ---------------------------------------------------------------------------
 
+
 class TestPolicyCLI:
     def _write_policy(self, tmp_path, data):
         f = tmp_path / "policy.json"
@@ -627,13 +629,20 @@ class TestPolicyCLI:
         from textforensics.cli import build_parser
 
         parser = build_parser()
-        args = parser.parse_args([
-            "policy", "load", str(policy_file),
-            "--state-path", str(state_dir / "state.enc"),
-            "--key-path", str(state_dir / "key.key"),
-        ])
-        from textforensics.config import Settings
+        args = parser.parse_args(
+            [
+                "policy",
+                "load",
+                str(policy_file),
+                "--state-path",
+                str(state_dir / "state.enc"),
+                "--key-path",
+                str(state_dir / "key.key"),
+            ]
+        )
         from textforensics.cli import _run
+        from textforensics.config import Settings
+
         result = _run(args, Settings())
         assert result == 0
 
@@ -642,10 +651,12 @@ class TestPolicyCLI:
         policy_file = self._write_policy(tmp_path, policy_data)
 
         from textforensics.cli import build_parser
+
         parser = build_parser()
         args = parser.parse_args(["policy", "load", str(policy_file)])
-        from textforensics.config import Settings
         from textforensics.cli import _run
+        from textforensics.config import Settings
+
         result = _run(args, Settings())
         assert result != 0
 
@@ -655,14 +666,22 @@ class TestPolicyCLI:
         state_dir.mkdir()
 
         from textforensics.cli import build_parser
+
         parser = build_parser()
-        args = parser.parse_args([
-            "policy", "check", str(policy_file),
-            "--state-path", str(state_dir / "state.enc"),
-            "--key-path", str(state_dir / "key.key"),
-        ])
-        from textforensics.config import Settings
+        args = parser.parse_args(
+            [
+                "policy",
+                "check",
+                str(policy_file),
+                "--state-path",
+                str(state_dir / "state.enc"),
+                "--key-path",
+                str(state_dir / "key.key"),
+            ]
+        )
         from textforensics.cli import _run
+        from textforensics.config import Settings
+
         result = _run(args, Settings())
         assert result == 0
 
@@ -671,14 +690,21 @@ class TestPolicyCLI:
         state_dir.mkdir()
 
         from textforensics.cli import build_parser
+
         parser = build_parser()
-        args = parser.parse_args([
-            "policy", "check",
-            "--state-path", str(state_dir / "state.enc"),
-            "--key-path", str(state_dir / "key.key"),
-        ])
-        from textforensics.config import Settings
+        args = parser.parse_args(
+            [
+                "policy",
+                "check",
+                "--state-path",
+                str(state_dir / "state.enc"),
+                "--key-path",
+                str(state_dir / "key.key"),
+            ]
+        )
         from textforensics.cli import _run
+        from textforensics.config import Settings
+
         result = _run(args, Settings())
         assert result == 0
 
@@ -688,14 +714,22 @@ class TestPolicyCLI:
         state_dir.mkdir()
 
         from textforensics.cli import build_parser
+
         parser = build_parser()
-        args = parser.parse_args([
-            "policy", "advance", str(policy_file),
-            "--state-path", str(state_dir / "state.enc"),
-            "--key-path", str(state_dir / "key.key"),
-        ])
-        from textforensics.config import Settings
+        args = parser.parse_args(
+            [
+                "policy",
+                "advance",
+                str(policy_file),
+                "--state-path",
+                str(state_dir / "state.enc"),
+                "--key-path",
+                str(state_dir / "key.key"),
+            ]
+        )
         from textforensics.cli import _run
+        from textforensics.config import Settings
+
         result = _run(args, Settings())
         assert result == 0
 
@@ -704,14 +738,21 @@ class TestPolicyCLI:
         state_dir.mkdir()
 
         from textforensics.cli import build_parser
+
         parser = build_parser()
-        args = parser.parse_args([
-            "policy", "export",
-            "--state-path", str(state_dir / "state.enc"),
-            "--key-path", str(state_dir / "key.key"),
-        ])
-        from textforensics.config import Settings
+        args = parser.parse_args(
+            [
+                "policy",
+                "export",
+                "--state-path",
+                str(state_dir / "state.enc"),
+                "--key-path",
+                str(state_dir / "key.key"),
+            ]
+        )
         from textforensics.cli import _run
+        from textforensics.config import Settings
+
         result = _run(args, Settings())
         assert result == 0
 
@@ -721,15 +762,23 @@ class TestPolicyCLI:
         state_dir.mkdir()
 
         from textforensics.cli import build_parser
+
         parser = build_parser()
-        args = parser.parse_args([
-            "policy", "load", str(policy_file),
-            "--state-path", str(state_dir / "state.enc"),
-            "--key-path", str(state_dir / "key.key"),
-            "--no-advance",
-        ])
-        from textforensics.config import Settings
+        args = parser.parse_args(
+            [
+                "policy",
+                "load",
+                str(policy_file),
+                "--state-path",
+                str(state_dir / "state.enc"),
+                "--key-path",
+                str(state_dir / "key.key"),
+                "--no-advance",
+            ]
+        )
         from textforensics.cli import _run
+        from textforensics.config import Settings
+
         result = _run(args, Settings())
         assert result == 0
 
@@ -738,10 +787,12 @@ class TestPolicyCLI:
         f.write_text("{invalid json", encoding="utf-8")
 
         from textforensics.cli import build_parser
+
         parser = build_parser()
         args = parser.parse_args(["policy", "load", str(f)])
-        from textforensics.config import Settings
         from textforensics.cli import _run
+        from textforensics.config import Settings
+
         result = _run(args, Settings())
         assert result != 0
 
@@ -750,17 +801,24 @@ class TestPolicyCLI:
         state_dir.mkdir()
 
         from textforensics.cli import build_parser
+
         parser = build_parser()
-        from textforensics.config import Settings
         from textforensics.cli import _run
+        from textforensics.config import Settings
 
         # First advance with v1
         policy_file = self._write_policy(tmp_path, policy_data)
-        args = parser.parse_args([
-            "policy", "advance", str(policy_file),
-            "--state-path", str(state_dir / "state.enc"),
-            "--key-path", str(state_dir / "key.key"),
-        ])
+        args = parser.parse_args(
+            [
+                "policy",
+                "advance",
+                str(policy_file),
+                "--state-path",
+                str(state_dir / "state.enc"),
+                "--key-path",
+                str(state_dir / "key.key"),
+            ]
+        )
         result = _run(args, Settings())
         assert result == 0
 
@@ -768,11 +826,17 @@ class TestPolicyCLI:
         old_data = dict(policy_data)
         old_data["revision"] = 0
         old_file = self._write_policy(tmp_path, old_data)
-        args = parser.parse_args([
-            "policy", "advance", str(old_file),
-            "--state-path", str(state_dir / "state.enc"),
-            "--key-path", str(state_dir / "key.key"),
-        ])
+        args = parser.parse_args(
+            [
+                "policy",
+                "advance",
+                str(old_file),
+                "--state-path",
+                str(state_dir / "state.enc"),
+                "--key-path",
+                str(state_dir / "key.key"),
+            ]
+        )
         result = _run(args, Settings())
         assert result != 0
 
@@ -781,13 +845,16 @@ class TestPolicyCLI:
 # Schema registration tests
 # ---------------------------------------------------------------------------
 
+
 class TestSchemaRegistration:
     def test_enterprise_policy_schema_in_schema_names(self):
         from textforensics.schema import _SCHEMA_NAMES
+
         assert "enterprise-policy" in _SCHEMA_NAMES
 
     def test_enterprise_policy_schema_loads(self):
         from textforensics.schema import load_schema
+
         schema = load_schema("enterprise-policy")
         assert schema["$schema"]
         assert "required" in schema
@@ -795,10 +862,12 @@ class TestSchemaRegistration:
 
     def test_list_schemas_includes_enterprise(self):
         from textforensics.schema import list_schemas
+
         names = list_schemas()
         assert "enterprise-policy" in names
 
     def test_validate_function_enterprise_policy(self, policy_data):
         from textforensics.schema import validate
+
         errors = validate(policy_data, "enterprise-policy")
         assert errors == []

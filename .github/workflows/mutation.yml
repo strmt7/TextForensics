@@ -156,7 +156,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Run | Status | Surviving | Killed | Timeout |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|-----------|--------|---------|" >> $GITHUB_STEP_SUMMARY
-          
+
           for artifact in artifacts/mutation-results-*/; do
             if [ -f "$artifact/summary.json" ]; then
               name=$(basename "$artifact")

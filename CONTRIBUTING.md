@@ -137,9 +137,15 @@ Every PR should be self-reviewed against the questions below **before** it is ma
 def test_prediction_requires_calibration_id_with_probability(self):
     pred = DetectorPrediction(
         schema="textforensics.detector-result/v1",
-        detector_id="test", detector_version="1.0", detector_family="test",
-        execution="local", score=0.5, score_semantics="test", verdict="ai_like",
-        threshold=None, calibrated_ai_probability=0.7,  # Has probability
+        detector_id="test",
+        detector_version="1.0",
+        detector_family="test",
+        execution="local",
+        score=0.5,
+        score_semantics="test",
+        verdict="ai_like",
+        threshold=None,
+        calibrated_ai_probability=0.7,  # Has probability
         # Missing calibration_id → should raise
     )
     with self.assertRaises(DetectorContractError):
@@ -195,6 +201,7 @@ def test_full_analysis_pipeline(self):
 **Example patterns:**
 ```python
 from hypothesis import given, strategies as st
+
 
 @given(st.text(min_size=0, max_size=10000))
 def test_analyze_text_does_not_crash(self, text):
