@@ -243,6 +243,24 @@ def build_parser() -> argparse.ArgumentParser:
     )
     detectors.add_argument("--health", action="store_true")
 
+    # Schema validation commands
+    schema_cmd = sub.add_parser("schema", help="Validate and inspect JSON schemas.")
+    schema_sub = schema_cmd.add_subparsers(dest="schema_command", required=True)
+
+    schema_validate = schema_sub.add_parser("validate", help="Validate a JSON file against a schema.")
+    schema_validate.add_argument("file", help="Path to the JSON file to validate.")
+    schema_validate.add_argument(
+        "--type",
+        choices=["forensic-bundle", "detector-result", "case-file", "trust-map"],
+        required=True,
+        help="Schema type to validate against.",
+    )
+
+    schema_list = schema_sub.add_parser("list", help="List available schemas.")
+
+    schema_show = schema_sub.add_parser("show", help="Show a schema definition.")
+    schema_show.add_argument("name", help="Schema name (e.g., forensic-bundle).")
+
     report = sub.add_parser(
         "report",
         help="Build a reproducible detector-evidence bundle.",
@@ -597,6 +615,44 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             "plugin_health": list_detector_health() if args.health else [],
         }
         _write_json(None, payload)
+
+    elif args.command == "schema":
+        from .schema import (
+            load_schema,
+            list_schemas,
+            validate_forensic_bundle,
+            validate_detector_result,
+            validate_case_file,
+            validate_trust_map,
+        )
+
+        if args.schema_command == "list":
+            _write_json(None, {"schemas": list_schemas()})
+        elif args.schema_command == "show":
+            schema = load_schema(args.name)
+            _write_json(None, schema)
+        elif args.schema_command == "validate":
+            with open(args.file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            if args.type == "forensic-bundle":
+                errors = validate_forensic_bundle(data)
+            elif args.type == "detector-result":
+                errors = validate_detector_result(data)
+            elif args.type == "case-file":
+                errors = validate_case_file(data)
+            elif args.type == "trust-map":
+                errors = validate_trust_map(data)
+            else:
+                raise ValueError(f"Unknown schema type: {args.type}")
+
+            result = {
+                "valid": len(errors) == 0,
+                "errors": errors,
+            }
+            _write_json(None, result)
+            if errors:
+                return EXIT_INCOMPLETE
 
     elif args.command == "report":
         bundle = build_forensic_bundle(
