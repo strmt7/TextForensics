@@ -367,6 +367,7 @@ class FunctionalTests(TyperCliTests):
         self.assertEqual(code, 3)
 
 
+@unittest.skipIf(not TYPER_AVAILABLE, "typer not installed")
 class DelegationTests(unittest.TestCase):
     """Tests for argparse to Typer delegation."""
 
