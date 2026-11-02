@@ -1,17 +1,72 @@
+# Version control
 .git
+.gitignore
+.gitattributes
+
+# GitHub / CI
 .github
-.venv
-venv
+CODEOWNERS
+dependabot.yml
+
+# Documentation
+*.md
+!README.md
+!LICENSE
+!SECURITY.md
+!CONTRIBUTING.md
+!CHANGELOG.md
+!ARCHITECTURE.md
+!SPEC.md
+!ROADMAP.md
+!SUPPORT.md
+
+# Tests
+tests
+testdata
+.pytest_cache
+.ruff_cache
+.coverage
+.coverage.*
+Cov.xml
+coverage.xml
+htmlcov
+bandit_report.json
+
+# Python build artifacts
 __pycache__
 *.py[cod]
 *.egg-info
-.pytest_cache
-.ruff_cache
-dist
+*.egg
+.eggs
 build
-tests
-examples
-docs
-*.md
-!README.md
+dist
+pip-wheel-metadata
+wheels
+
+# Virtual environments
+.venv
+venv
+env
+
+# IDE / editor
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# OS / temp
+.DS_Store
+Thumbs.db
+.tmp
+*.tmp
+
+# Local configuration / secrets
+.env
+.env.*
 .textforensics-ledger.jsonl
+
+# Docker
+Dockerfile
+.dockerignore
+compose.yaml
