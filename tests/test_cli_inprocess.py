@@ -260,5 +260,155 @@ class CliParserTests(unittest.TestCase):
         self.assertTrue(expected.issubset(subcommands))
 
 
+class BenchmarkSubcommandTests(unittest.TestCase):
+    """Tests for benchmark contamination prevention commands."""
+
+    def _run_main(self, argv: list[str]) -> tuple[int, str, str]:
+        """Run main() with given argv, return (exit_code, stdout, stderr)."""
+        old_argv = sys.argv
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        try:
+            sys.argv = ["textforensics", *argv]
+            sys.stdout = StringIO()
+            sys.stderr = StringIO()
+            exit_code = main()
+            return exit_code, sys.stdout.getvalue(), sys.stderr.getvalue()
+        except SystemExit as e:
+            return e.code, sys.stdout.getvalue(), sys.stderr.getvalue()
+        finally:
+            sys.argv = old_argv
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+
+    def test_fingerprint_command(self):
+        """Test fingerprint command."""
+        with tempfile.TemporaryDirectory() as tmp:
+            dataset = Path(tmp) / "test.jsonl"
+            dataset.write_text(
+                json.dumps({"label": "human", "text": "human text"}) + "\n" +
+                json.dumps({"label": "ai", "text": "ai text"}) + "\n",
+                encoding="utf-8",
+            )
+
+            code, out, err = self._run_main([
+                "fingerprint",
+                str(dataset),
+                "--name", "TestDataset",
+                "--version", "1.0.0",
+                "--split", "test",
+            ])
+            self.assertEqual(code, 0, err)
+            payload = json.loads(out)
+            self.assertEqual(payload["name"], "TestDataset")
+            self.assertEqual(payload["schema"], "textforensics.dataset-fingerprint/v1")
+
+    def test_fingerprint_with_output_file(self):
+        """Test fingerprint command with output file."""
+        with tempfile.TemporaryDirectory() as tmp:
+            dataset = Path(tmp) / "test.jsonl"
+            dataset.write_text(
+                json.dumps({"label": "human", "text": "human text"}) + "\n",
+                encoding="utf-8",
+            )
+
+            output = Path(tmp) / "fingerprint.json"
+            code, out, err = self._run_main([
+                "fingerprint",
+                str(dataset),
+                "--name", "TestDataset",
+                "--output", str(output),
+            ])
+            self.assertEqual(code, 0, err)
+            self.assertTrue(output.exists())
+
+    def test_check_command_disjoint(self):
+        """Test check command with disjoint datasets."""
+        with tempfile.TemporaryDirectory() as tmp:
+            cal = Path(tmp) / "cal.jsonl"
+            eval = Path(tmp) / "eval.jsonl"
+            cal.write_text(
+                json.dumps({"label": "human", "text": "calibration human"}) + "\n",
+                encoding="utf-8",
+            )
+            eval.write_text(
+                json.dumps({"label": "human", "text": "evaluation human"}) + "\n",
+                encoding="utf-8",
+            )
+
+            code, out, err = self._run_main([
+                "check",
+                str(cal),
+                str(eval),
+            ])
+            self.assertEqual(code, 0, err)
+            payload = json.loads(out)
+            self.assertTrue(payload["disjoint"])
+
+    def test_check_command_contamination(self):
+        """Test check command detects contamination."""
+        with tempfile.TemporaryDirectory() as tmp:
+            cal = Path(tmp) / "cal.jsonl"
+            eval = Path(tmp) / "eval.jsonl"
+            # Same sample in both
+            cal.write_text(
+                json.dumps({"label": "human", "text": "shared text"}) + "\n",
+                encoding="utf-8",
+            )
+            eval.write_text(
+                json.dumps({"label": "human", "text": "shared text"}) + "\n",
+                encoding="utf-8",
+            )
+
+            code, out, err = self._run_main([
+                "check",
+                str(cal),
+                str(eval),
+            ])
+            self.assertEqual(code, 0, err)
+            payload = json.loads(out)
+            self.assertFalse(payload["disjoint"])
+
+    def test_select_threshold_command(self):
+        """Test select-threshold command."""
+        with tempfile.TemporaryDirectory() as tmp:
+            dataset = Path(tmp) / "cal.jsonl"
+            dataset.write_text(
+                json.dumps({"label": "human", "text": "human text for calibration"}) + "\n" +
+                json.dumps({"label": "ai", "text": "ai text for calibration"}) + "\n",
+                encoding="utf-8",
+            )
+
+            code, out, err = self._run_main([
+                "select-threshold",
+                str(dataset),
+                "--target-fpr", "0.01",
+            ])
+            self.assertEqual(code, 0, err)
+            payload = json.loads(out)
+            self.assertIn("threshold", payload)
+            self.assertIn("calibration_dataset_hash", payload)
+
+    def test_select_threshold_with_output(self):
+        """Test select-threshold command with artifact output."""
+        with tempfile.TemporaryDirectory() as tmp:
+            dataset = Path(tmp) / "cal.jsonl"
+            dataset.write_text(
+                json.dumps({"label": "human", "text": "human content"}) + "\n" +
+                json.dumps({"label": "ai", "text": "ai content"}) + "\n",
+                encoding="utf-8",
+            )
+
+            artifact = Path(tmp) / "artifact.json"
+            code, out, err = self._run_main([
+                "select-threshold",
+                str(dataset),
+                "--target-fpr", "0.01",
+                "--output", str(artifact),
+            ])
+            self.assertEqual(code, 0, err)
+            self.assertTrue(artifact.exists())
+
+
 if __name__ == "__main__":
     unittest.main()

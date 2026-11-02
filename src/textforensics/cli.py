@@ -12,6 +12,15 @@ from .benchmark import (
     calibrate_threshold_jsonl,
     load_calibration_artifact,
 )
+from .benchmark_fingerprint import (
+    check_disjointness,
+    DatasetFingerprint,
+    fingerprint_dataset,
+    load_fingerprint,
+    save_fingerprint,
+    verify_fingerprint,
+    validate_disjointness,
+)
 from .casefile import verify_case_file_path, write_case_file
 from .compare import compare_texts
 from .config import Settings, read_text_file, validate_text_input
@@ -22,6 +31,11 @@ from .localize import localize_text
 from .naturalness import audit_naturalness
 from .provenance import snapshot_file, verify_ledger
 from .report import build_forensic_bundle
+from .threshold_selection import (
+    evaluate_threshold,
+    run_calibration_evaluation,
+    select_threshold,
+)
 from .version import get_version
 from .webapp import serve as serve_webapp
 
@@ -148,6 +162,7 @@ def build_parser() -> argparse.ArgumentParser:
     calibrate.add_argument("--target-fpr", type=float, default=0.01)
     calibrate.add_argument("--output", "-o")
 
+    # Original benchmark command (backward compatible)
     bench = sub.add_parser(
         "benchmark",
         help="Evaluate the built-in baseline on labeled JSONL.",
@@ -160,6 +175,61 @@ def build_parser() -> argparse.ArgumentParser:
         "--allow-same-dataset",
         action="store_true",
         help="Diagnostic only: permit evaluation on the calibration dataset.",
+    )
+    
+    # Separate commands for contamination prevention (AGENTS.md #12)
+    # These are distinct commands to avoid argparse positional/subparser conflicts
+    fp_cmd = sub.add_parser(
+        "fingerprint",
+        help="Create a dataset fingerprint for contamination tracking.",
+    )
+    fp_cmd.add_argument("dataset", help="Path to the JSONL dataset file.")
+    fp_cmd.add_argument("--name", required=True, help="Dataset identifier.")
+    fp_cmd.add_argument("--version", default="1.0.0", help="Dataset version.")
+    fp_cmd.add_argument("--split", default="test", help="Dataset split.")
+    fp_cmd.add_argument(
+        "--output", "-o", help="Path to write fingerprint JSON (default: stdout)."
+    )
+    fp_cmd.add_argument("--strict", action="store_true", default=True)
+    fp_cmd.add_argument("--no-strict", dest="strict", action="store_false")
+
+    check_cmd = sub.add_parser(
+        "check",
+        help="Check for benchmark contamination between datasets.",
+    )
+    check_cmd.add_argument("calibration", help="Path to calibration dataset.")
+    check_cmd.add_argument("evaluation", help="Path to evaluation dataset.")
+    check_cmd.add_argument(
+        "--output",
+        "-o",
+        help="Path to write check result JSON (default: stdout).",
+    )
+
+    select_cmd = sub.add_parser(
+        "select-threshold",
+        help="Select operating threshold on calibration-only data.",
+    )
+    select_cmd.add_argument("dataset", help="Path to calibration JSONL dataset.")
+    select_cmd.add_argument(
+        "--target-fpr",
+        type=float,
+        default=0.01,
+        help="Target false positive rate (default: 0.01).",
+    )
+    select_cmd.add_argument(
+        "--detector-id",
+        default="textforensics/builtin-heuristic",
+        help="Detector identifier for provenance.",
+    )
+    select_cmd.add_argument(
+        "--detector-version",
+        default="1.0.0",
+        help="Detector version for provenance.",
+    )
+    select_cmd.add_argument(
+        "--output",
+        "-o",
+        help="Path to write threshold artifact JSON (default: stdout).",
     )
 
     detectors = sub.add_parser(
@@ -331,6 +401,42 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
                 threshold=args.threshold if args.threshold is not None else 0.5,
             )
         _write_json(None, result)
+
+    elif args.command == "fingerprint":
+        fp = fingerprint_dataset(
+            args.dataset,
+            name=args.name,
+            version=args.version,
+            split=args.split,
+            strict=args.strict,
+        )
+        _write_json(args.output, fp.to_dict())
+
+    elif args.command == "check":
+        result = check_disjointness(
+            args.calibration,
+            fingerprint_dataset(args.calibration, name="calibration", split="calibration"),
+            args.evaluation,
+            fingerprint_dataset(args.evaluation, name="evaluation", split="evaluation"),
+        )
+        _write_json(args.output, result)
+
+    elif args.command == "select-threshold":
+        from .threshold_selection import select_threshold as _select_threshold
+        from .threshold_selection import create_calibration_artifact as _create_artifact
+
+        result = _select_threshold(
+            args.dataset,
+            target_fpr=args.target_fpr,
+            detector_id=args.detector_id,
+            detector_version=args.detector_version,
+        )
+
+        if args.output:
+            _create_artifact(result, args.output)
+            print(args.output)
+        else:
+            _write_json(None, result.to_dict())
 
     elif args.command == "detectors":
         payload = {
