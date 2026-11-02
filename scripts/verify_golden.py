@@ -112,8 +112,8 @@ def main() -> int:
         print(f"ERROR: Golden directory not found: {golden_dir}", file=sys.stderr)
         return EXIT_ERROR
 
-    # Find and verify all golden case files
-    golden_files = list(golden_dir.glob("*.json"))
+    # Find and verify all golden case files (exclude manifests and bundle files)
+    golden_files = [p for p in golden_dir.glob("*.json") if not p.name.endswith(".manifest.json")]
 
     if not golden_files:
         print(f"WARNING: No golden files found in {golden_dir}", file=sys.stderr)
