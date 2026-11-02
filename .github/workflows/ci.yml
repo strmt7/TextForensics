@@ -37,7 +37,7 @@ jobs:
       - name: Unit tests
         run: |
           set -o pipefail
-          coverage run -m pytest tests -q --tb=short 2>&1 | tee "$RUNNER_TEMP/unittest-py$PYTHON_VERSION.log"
+          coverage run --source=textforensics -m pytest tests -q --tb=short 2>&1 | tee "$RUNNER_TEMP/unittest-py$PYTHON_VERSION.log"
         env:
           PYTHON_VERSION: ${{ matrix.python-version }}
       - name: Golden file verification
