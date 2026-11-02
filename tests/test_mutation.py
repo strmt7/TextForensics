@@ -109,19 +109,18 @@ class CosmicRayIntegrationTests(unittest.TestCase):
         # On Windows, executable bit check doesn't apply the same way
         # On CI, the file may not have executable bit set due to git checkout
         if sys.platform != "win32":
-            try:
-                self.assertTrue(
-                    self.runner_path.stat().st_mode & 0o111, "Runner script not executable"
-                )
-            except AssertionError:
+            is_executable = bool(self.runner_path.stat().st_mode & 0o111)
+            if not is_executable:
                 # In CI environments, the executable bit may not be preserved
                 # Skip this check but warn
                 import warnings
-
                 warnings.warn(
                     "Runner script missing executable bit (CI environment)",
                     stacklevel=2,
                 )
+            # We don't fail the test if executable bit is missing in CI
+            # but we verify the file exists and is readable
+            self.assertTrue(self.runner_path.is_file(), "Runner script should be a file")
 
     def test_runner_help(self):
         """Verify runner script shows help."""
