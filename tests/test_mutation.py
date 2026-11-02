@@ -112,12 +112,10 @@ class CosmicRayIntegrationTests(unittest.TestCase):
             is_executable = bool(self.runner_path.stat().st_mode & 0o111)
             if not is_executable:
                 # In CI environments, the executable bit may not be preserved
-                # Skip this check but warn
-                import warnings
-
-                warnings.warn(
-                    "Runner script missing executable bit (CI environment)",
-                    stacklevel=2,
+                # Skip this check but log a message instead of warning
+                import logging
+                logging.getLogger(__name__).info(
+                    "Runner script missing executable bit (CI environment)"
                 )
             # We don't fail the test if executable bit is missing in CI
             # but we verify the file exists and is readable
