@@ -61,6 +61,7 @@ cli-typer = [
   "typer>=0.12,<1",
 ]
 dev = [
+  "atheris>=1.0,<2",
   "build>=1.2,<2",
   "coverage>=7.5,<8",
   "cosmic-ray>=8.0,<9",
