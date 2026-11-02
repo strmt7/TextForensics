@@ -17,11 +17,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from textforensics.casefile import seal_case_file
+
 # Import exit codes from the package
 from textforensics.constants import EXIT_ERROR, EXIT_OK
-from textforensics.casefile import seal_case_file
 from textforensics.report import build_forensic_bundle
-
 
 # Test configuration
 GOLDEN_TEST_TEXT = (

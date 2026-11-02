@@ -3,7 +3,6 @@
 import json
 import tempfile
 import unittest
-from copy import deepcopy
 from pathlib import Path
 
 from textforensics.benchmark import (
@@ -13,11 +12,11 @@ from textforensics.benchmark import (
 from textforensics.casefile import seal_case_file
 from textforensics.report import build_forensic_bundle
 from textforensics.verify import (
+    VerificationReport,
     verify_all,
     verify_benchmark,
     verify_calibration,
     verify_case_file,
-    VerificationReport,
 )
 
 HUMAN = (

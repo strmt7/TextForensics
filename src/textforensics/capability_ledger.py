@@ -114,7 +114,7 @@ class CapabilityLedger:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "CapabilityLedger":
+    def from_dict(cls, data: dict[str, Any]) -> CapabilityLedger:
         """Deserialize from dict."""
         ledger = cls()
         for det_id, claims in data.get("claims", {}).items():

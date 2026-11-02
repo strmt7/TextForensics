@@ -12,16 +12,16 @@ from .benchmark import (
     calibrate_threshold_jsonl,
     load_calibration_artifact,
 )
+from .benchmark_fingerprint import (
+    check_disjointness,
+    fingerprint_dataset,
+)
 from .capability_ledger import (
     CapabilityClaim,
     CapabilityLedger,
     EvidenceLabel,
     EvidenceRef,
     EvidenceTier,
-)
-from .benchmark_fingerprint import (
-    check_disjointness,
-    fingerprint_dataset,
 )
 from .casefile import verify_case_file_path, write_case_file
 from .compare import compare_texts
@@ -39,7 +39,7 @@ from .localize import localize_text
 from .naturalness import audit_naturalness
 from .provenance import snapshot_file, verify_ledger
 from .report import build_forensic_bundle
-from .verify import verify_all, verify_case_file_path as verify_case_file_path_nversion
+from .verify import verify_all
 from .version import get_version
 from .webapp import serve as serve_webapp
 
