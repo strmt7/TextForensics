@@ -113,8 +113,23 @@ def verify_case_file(payload: dict[str, Any]) -> dict[str, Any]:
         info["seal_verified"] = False
     else:
         # Re-derive the seal hash without the ``case_sha256`` field
+        # First sanitize to handle non-finite values that JSON can't serialize
         stripped = deepcopy(dict(payload))
         stripped.pop("case_sha256", None)
+
+        def _sanitize_for_json(obj):
+            """Replace non-finite floats with string representations for JSON serialization."""
+            if isinstance(obj, float):
+                if not math.isfinite(obj):
+                    return "Infinity" if obj > 0 else "-Infinity" if obj < 0 else "NaN"
+                return obj
+            elif isinstance(obj, dict):
+                return {k: _sanitize_for_json(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [_sanitize_for_json(v) for v in obj]
+            return obj
+
+        stripped = _sanitize_for_json(stripped)
         canonical = json.dumps(
             stripped,
             ensure_ascii=False,
@@ -484,7 +499,19 @@ def verify_case_file_path(path: str | Path) -> VerificationReport:
     -------
     VerificationReport with results.
     """
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        return VerificationReport(
+            case_file={
+                "valid": False,
+                "errors": [f"invalid JSON: {e}"],
+                "seal_verified": False,
+                "trust_map_verified": False,
+                "dimensions": {},
+            },
+            overall_valid=False,
+        )
     if not isinstance(payload, dict):
         return VerificationReport(
             case_file={

@@ -20,7 +20,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
 BUNDLE_SCHEMA = "textforensics.bundle-manifest/v1"
 
 
@@ -152,8 +151,8 @@ def _create_tar_gz(files: dict[str, bytes]) -> bytes:
     Uses fixed timestamp and mtime=0 to produce byte-identical archives
     across process invocations.
     """
-    import io
     import gzip
+    import io
     buf = io.BytesIO()
     # Create tar in memory first (without gzip)
     tar_buf = io.BytesIO()
@@ -298,12 +297,11 @@ def verify_bundle(
         )
 
     # 2. Optional: compare against supplied expected digest
-    if expected_digest is not None:
-        if actual_digest != expected_digest:
-            errors.append(
-                f"Digest does not match expected: expected {expected_digest}, "
-                f"got {actual_digest}"
-            )
+    if expected_digest is not None and actual_digest != expected_digest:
+        errors.append(
+            f"Digest does not match expected: expected {expected_digest}, "
+            f"got {actual_digest}"
+        )
 
     # 3. Verify per-file digests
     fmt = manifest.format

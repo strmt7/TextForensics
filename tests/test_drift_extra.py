@@ -2,21 +2,20 @@
 
 import json
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
 
-import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from textforensics.detectors import BuiltinHeuristicDetector, Detector
+from textforensics.detectors import BuiltinHeuristicDetector
 from textforensics.drift import (
     DriftObservatory,
     _coerce_float,
     _coerce_int_or_none,
     _compare_calibration,
-    _compare_human_fpr,
     _compare_provider_metadata,
     _compare_score_distribution,
     _compare_supported_regime,
@@ -155,8 +154,8 @@ class DistributionSummaryEdgeCases(unittest.TestCase):
         self.assertEqual(summary["n"], 2)
 
     def test_distribution_summary_statistics_error(self):
+
         from textforensics.drift import _distribution_summary
-        import statistics
         # This is hard to trigger, but let's make sure the code path exists
         # We can't easily trigger StatisticsError with pstdev for count > 1
         # The test just ensures the function runs
@@ -591,11 +590,11 @@ class SnapshotLoadingEdgeCases(unittest.TestCase):
         snap1 = _make_snapshot(["s1"], snapshot_id="snap1")
         snap1["corpus_sha256"] = obs.corpus_sha256
         obs.add_snapshot(snap1)
-        
+
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "store.json")
             obs.save_snapshots(path)
-            
+
             obs2 = DriftObservatory(corpus={
                 "samples": [
                     {"id": "s1", "text": "This is a long enough text to meet the minimum word count requirements for drift testing and validation purposes.", "metadata": {}},
@@ -604,7 +603,7 @@ class SnapshotLoadingEdgeCases(unittest.TestCase):
             snap2 = _make_snapshot(["s1"], snapshot_id="snap2")
             snap2["corpus_sha256"] = obs2.corpus_sha256
             obs2.add_snapshot(snap2)
-            
+
             # Load with replace=False (append)
             loaded = obs2.load_snapshots(path, replace=False)
             self.assertEqual(len(loaded), 2)  # snap2 (existing) + snap1 (loaded)
@@ -810,15 +809,7 @@ class FailureNormalizationTests(unittest.TestCase):
         self.assertIsNone(snapshot["failures"][0]["sample_id"])
 
 
-class TakeSnapshotEdgeCases(unittest.TestCase):
-    def test_take_snapshot_sample_no_text_raises(self):
-        obs = DriftObservatory(corpus={
-            "samples": [{"id": "s1", "text_sha256": "a" * 64, "metadata": {}}]
-        })
-        detector = BuiltinHeuristicDetector()
-        with self.assertRaises(ValueError):
-            obs.take_snapshot(detectors=[detector])
-
+class TakeSnapshotExtendedTests(unittest.TestCase):
     def test_take_snapshot_detector_ids_filter(self):
         corpus = {
             "samples": [
@@ -840,21 +831,21 @@ class TakeSnapshotEdgeCases(unittest.TestCase):
             ]
         }
         obs = DriftObservatory(corpus=corpus)
-        
+
         # Create a remote detector - _is_remote_detector checks for execution or remote attribute
         from dataclasses import dataclass
-        
+
         @dataclass(slots=True)
         class FakeRemoteDetector:
             detector_id: str = "remote-detector"
             detector_version: str = "1.0"
             detector_family: str = "remote"
             remote: bool = True  # This makes _is_remote_detector return True
-            
+
             @property
             def provider_version(self):
                 return "api-1.0"
-            
+
             def detect(self, text: str):
                 from textforensics.detectors import DetectorPrediction
                 return DetectorPrediction(

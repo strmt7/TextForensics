@@ -192,7 +192,7 @@ class MultiFileBundleTests(unittest.TestCase):
             case_dir = _make_multi_file_dir(Path(tmp))
             output = Path(tmp) / "multi.zip"
 
-            manifest = pack_bundle(case_dir, output)
+            pack_bundle(case_dir, output)
             result = verify_bundle(output)
             self.assertTrue(result.valid)
             self.assertEqual(len(result.per_file_status), 3)

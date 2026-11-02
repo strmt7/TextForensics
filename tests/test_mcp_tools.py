@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
-import json
 import unittest
 
 from textforensics import constants
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+from textforensics.casefile import _hash_without_seal
+from textforensics.detectors import text_sha256 as _text_sha256
 from textforensics.mcp_tools import (
     capability_check,
     capability_list,
@@ -17,13 +22,6 @@ from textforensics.mcp_tools import (
     fingerprint_dataset,
     verify_case_file,
 )
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-from textforensics.casefile import _hash_without_seal
-from textforensics.detectors import text_sha256 as _text_sha256
 
 SAMPLE_CORPUS = {
     "schema": "textforensics.drift-corpus/v1",
@@ -161,7 +159,7 @@ class TestCapabilityRegister(unittest.TestCase):
 
 class TestCapabilityCheck(unittest.TestCase):
     def _make_ledger(self, tier: str, evidence: list[dict] | None = None) -> dict:
-        cap_result = capability_register({
+        capability_register({
             "detector_id": "det_a",
             "capability": "language_coverage.en",
             "tier": tier,
