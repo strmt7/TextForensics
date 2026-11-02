@@ -54,6 +54,13 @@ from .localize import (
     segment_to_dict,
     visual_diff,
 )
+from .audit_anchor import (
+    AuditAnchor,
+    CalibrationChain,
+    RollbackError,
+    export_audit_anchor,
+    verify_audit_anchor,
+)
 from .naturalness import audit_naturalness
 from .provenance import snapshot_file, verify_ledger
 from .report import build_forensic_bundle
@@ -153,10 +160,24 @@ def build_parser() -> argparse.ArgumentParser:
 
     natural = sub.add_parser(
         "audit",
-        help="Audit formulaic/naturalness patterns without rewriting.",
+        help="Audit formulaic/naturalness patterns, or manage audit anchors via subcommands (export/verify).",
     )
     natural.add_argument("--file", "-f")
     natural.add_argument("--json", action="store_true")
+    # Optional subcommand for audit-anchor management (backward compatible:
+    # no subcommand keeps the legacy naturalness-audit behavior)
+    natural.add_argument(
+        "anchor_command",
+        nargs="?",
+        choices=["export", "verify"],
+        help=argparse.SUPPRESS,  # Hide from help, handled manually
+    )
+    natural.add_argument("anchor_arg", nargs="?", help=argparse.SUPPRESS)
+    natural.add_argument("--base-dir", help="Override the project root directory.")
+    natural.add_argument(
+        "--chain",
+        help="Path to a calibration chain JSON file.",
+    )
 
     localize = sub.add_parser(
         "localize",
@@ -598,6 +619,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to the enterprise policy JSON file.",
     )
 
+    # Audit anchor subcommands are handled via the existing "audit" parser
+    # (optional anchor_command positional for backward compatibility).
+
     return parser
 
 
@@ -691,6 +715,9 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             _pretty_analysis(result)
 
     elif args.command == "audit":
+        anchor_command = getattr(args, "anchor_command", None)
+        if anchor_command in ("export", "verify"):
+            return _run_audit_anchor_command(args)
         result = audit_naturalness(_read_text(args.file, settings))
         _write_json(None, result)
 
@@ -1144,7 +1171,85 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
     elif args.command == "policy":
         return _run_policy_command(args)
 
+    elif args.command == "audit":
+        return _run_audit_command(args)
+
     return EXIT_OK
+
+
+def _run_audit_anchor_command(args: argparse.Namespace) -> int:
+    """Handle audit anchor CLI commands (export/verify) for rollback detection."""
+    base_dir = Path(args.base_dir) if getattr(args, "base_dir", None) else None
+
+    if args.anchor_command == "export":
+        output = args.anchor_arg
+        if not output:
+            print("error: audit export requires an output path", file=sys.stderr)
+            return EXIT_ERROR
+
+        chain = None
+        if getattr(args, "chain", None):
+            chain = CalibrationChain()
+            chain.load_from_file(Path(args.chain))
+
+        anchor = export_audit_anchor(
+            base_dir=base_dir,
+            calibration_chain=chain.hashes if chain else None,
+        )
+        anchor_data = anchor.to_dict()
+        Path(output).write_text(
+            json.dumps(anchor_data, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        print(output)
+        return EXIT_OK
+
+    elif args.anchor_command == "verify":
+        anchor_path = args.anchor_arg
+        if not anchor_path:
+            print("error: audit verify requires an anchor file path", file=sys.stderr)
+            return EXIT_ERROR
+
+        try:
+            anchor_data = json.loads(Path(anchor_path).read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            print(f"error: failed to read anchor file: {exc}", file=sys.stderr)
+            return EXIT_ERROR
+
+        anchor = AuditAnchor.from_dict(anchor_data)
+
+        current_chain = None
+        if getattr(args, "chain", None):
+            current_chain = CalibrationChain()
+            current_chain.load_from_file(Path(args.chain))
+
+        try:
+            status = verify_audit_anchor(
+                anchor,
+                current_chain=current_chain,
+                base_dir=base_dir,
+            )
+        except RollbackError as exc:
+            print(f"error: rollback detected: {exc}", file=sys.stderr)
+            _write_json(
+                None,
+                {
+                    "valid": False,
+                    "error": str(exc),
+                    "anchor": anchor_data,
+                },
+            )
+            return EXIT_ERROR
+
+        result = {
+            "valid": True,
+            "status": status,
+            "anchor": anchor_data,
+        }
+        _write_json(None, result)
+        return EXIT_OK
+
+    return EXIT_ERROR
 
 
 def _run_policy_command(args: argparse.Namespace) -> int:
