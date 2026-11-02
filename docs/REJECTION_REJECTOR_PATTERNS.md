@@ -1,7 +1,7 @@
 # Rejection Rejector Enterprise Patterns for TextForensics
 
-**Research Date:** 2026-11-02  
-**Source Repository:** strmt7/rejection-rejector (main branch, 1,155+ commits)  
+**Research Date:** 2026-11-02
+**Source Repository:** strmt7/rejection-rejector (main branch, 1,155+ commits)
 **Repository Type:** Local-first Rust application with enterprise-grade CI/CD, security, and testing patterns
 
 ---
@@ -303,7 +303,7 @@ fuzz_target!(|data: &[u8]| {
     let _ = mail::mailbox(&text);
     let _ = mail::valid_message_id(&text);
     let _ = mail::current_text(&text);
-    
+
     // Verify bounded text extraction
     let budget = u16::from_le_bytes([data[0], data[1]]) as usize;
     let (bounded, complete) = mail::bounded_text(&text, budget);
@@ -335,7 +335,7 @@ const SEED: u64 = 0x5252_454A_4543_544F;  // Fixed seed for reproducibility
 #[test]
 fn enterprise_policy_is_monotone_and_idempotent_across_generated_settings() {
     let mut rng = StdRng::seed_from_u64(SEED);
-    
+
     for case in 0..10_000u32 {
         // Generate random settings
         let mut settings = Settings {
@@ -343,18 +343,18 @@ fn enterprise_policy_is_monotone_and_idempotent_across_generated_settings() {
             daily_send_limit: rng.random_range(1..=100),
             // ...
         };
-        
+
         // Generate random policy
         let policy = EnterprisePolicy {
             force_human_review: rng.random_bool(0.25),
             prohibit_sending: rng.random_bool(0.25),
             // ...
         };
-        
+
         // Verify invariants
         let first_changed = policy.enforce(&mut settings, true)?;
         let second_changed = policy.enforce(&mut settings, true)?;
-        
+
         assert_eq!(settings, once, "policy is not idempotent");
         assert!(!second_changed, "second enforcement reported drift");
     }
@@ -386,19 +386,19 @@ def test_ensemble_calibration_is_stable(scores, weights):
   run: |
     workspace="$RUNNER_TEMP/rr-enterprise-deep-workspace"
     backup="$RUNNER_TEMP/rr-enterprise-deep-backup"
-    
+
     # Create fresh workspace
     cargo run --bin rr -- --data-dir "$workspace" status
-    
+
     # Create backup
     cargo run --bin rr -- --data-dir "$workspace" backup --out "$backup"
-    
+
     # Verify backup
     cargo run --bin rr -- --data-dir "$workspace" verify-backup "$backup"
-    
+
     # Drill restore (isolated temp workspace)
     cargo run --bin rr -- --data-dir "$workspace" recovery-drill "$backup"
-    
+
     # Verify drill succeeded
     python3 - <<'PY'
     import json
@@ -819,30 +819,30 @@ gh attestation verify package.zip \
 ```python
 def verify(path: Path, commit: str, signing: str) -> dict:
     """Verify package bytes, checksums and metadata without extracting."""
-    
+
     # 1. Verify archive hash
     archive_hash = sha256_file(path)
     require(archive_hash == expected_sha256, "ZIP checksum mismatch")
-    
+
     # 2. Preflight ZIP directory (bound allocation)
     preflight_directory(handle, size)
-    
+
     # 3. Validate every entry name (Windows-safe, no traversal)
     files = inventory(archive)
     require(files.keys() >= REQUIRED, "Required files missing")
-    
+
     # 4. Verify checksum manifest covers exact file set
     manifest = checksum_manifest(read_member(archive, "SHA256SUMS.txt"))
     require(manifest.keys() == files.keys() - {"SHA256SUMS.txt"})
-    
+
     # 5. Verify each file against manifest
     for name, entry in files.items():
         digest = sha256_stream(archive.open(entry))
         require(digest == manifest[name], f"Checksum mismatch: {name}")
-    
+
     # 6. Cross-check metadata (build-info, contract-info, signing, evidence)
     metadata_check(data, manifest, commit, signing)
-    
+
     return {"schema_version": 1, "files_verified": len(manifest)}
 ```
 
@@ -866,14 +866,14 @@ EMERGENCY_STOP_FILE = os.environ.get("RR_EMERGENCY_STOP_FILE")
 def check_emergency_stop():
     if not EMERGENCY_STOP_FILE:
         return False  # Not configured
-    
+
     path = Path(EMERGENCY_STOP_FILE)
     if not path.is_absolute():
         return True  # Malformed config fails closed
-    
+
     if path.is_file():
         return True  # Sentinel present - STOP
-    
+
     return False  # No sentinel - proceed
 
 # Usage in dispatch path
@@ -909,24 +909,24 @@ struct PolicyRevisionFloor {
 
 fn observe(&mut self, loaded: &LoadedPolicy) -> Result<bool> {
     let revision = loaded.policy.revision.ok_or("v1 policy")?;
-    
+
     // Reject rollback
     if revision < self.highest_revision {
         return Err("Policy rollback detected");
     }
-    
+
     // Reject same-revision drift
     if revision == self.highest_revision && loaded.digest != self.highest_digest {
         return Err("Same-revision content drift");
     }
-    
+
     // Advance floor
     if revision > self.highest_revision {
         self.highest_revision = revision;
         self.highest_digest = loaded.digest.clone();
         return Ok(true);  // Floor advanced
     }
-    
+
     Ok(false)  // No change
 }
 ```
@@ -936,15 +936,15 @@ fn observe(&mut self, loaded: &LoadedPolicy) -> Result<bool> {
 class PolicyRevisionFloor:
     def __init__(self):
         self.state = load_encrypted_state()
-    
+
     def observe(self, policy: EnterprisePolicy):
         if policy.revision < self.state["revision"]:
             raise PolicyRollbackError("Revision rollback detected")
-        
-        if (policy.revision == self.state["revision"] and 
+
+        if (policy.revision == self.state["revision"] and
             policy.digest != self.state["digest"]):
             raise PolicyDriftError("Same-revision drift")
-        
+
         if policy.revision > self.state["revision"]:
             self.state = {"revision": policy.revision, "digest": policy.digest}
             save_encrypted_state(self.state)
@@ -978,7 +978,7 @@ let draft_safe = !automatic_draft_conflict(&draft_body, &signature);
 let under_ceiling = check_recipient_ceiling(&recipient, HOURS_24, MAX=2);
 
 // ALL must pass for unattended send
-if has_rejection_phrase && no_conflict && model_says_rejection 
+if has_rejection_phrase && no_conflict && model_says_rejection
     && verification_passed && draft_safe && under_ceiling {
     authorize_send()
 } else {
@@ -990,24 +990,24 @@ if has_rejection_phrase && no_conflict && model_says_rejection
 ```python
 def authorize_inference(text: str, context: InferenceContext) -> Authorization:
     """Multi-factor authorization for detector inference."""
-    
+
     # 1. Text meets minimum length
     if len(text) < MIN_LENGTH:
         return Authorization.ABSTAIN_INSUFFICIENT_LENGTH
-    
+
     # 2. Language supported
     if not is_supported_language(text):
         return Authorization.ABSTAIN_UNSUPPORTED_LANGUAGE
-    
+
     # 3. Within calibrated domain
     if not in_calibrated_domain(text):
         return Authorization.ABSTAIN_OUT_OF_DOMAIN
-    
+
     # 4. Trust map coverage adequate
     trust = trust_map.evaluate(text)
     if trust.status == TrustStatus.OUT_OF_SCOPE:
         return Authorization.ABSTAIN_OUT_OF_SCOPE
-    
+
     # All checks pass
     return Authorization.AUTHORIZED
 ```
@@ -1031,16 +1031,16 @@ def authorize_inference(text: str, context: InferenceContext) -> Authorization:
 // Later verification
 fn verify_audit_anchor(anchor: &AuditAnchor) -> Result {
     let current_head = db.get_audit_chain_head();
-    
+
     if current_head == anchor.audit_chain_head {
         return Ok("No changes since anchor")
     }
-    
+
     // Verify current chain extends anchor
     if db.audit_chain_contains(anchor.audit_chain_head) {
         return Ok("Audit chain valid")
     }
-    
+
     Err("Audit chain broken - possible rollback")
 }
 ```
@@ -1259,25 +1259,25 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      
+
       - name: Install dependencies
         run: |
           pip install --require-hashes -r requirements.txt
           pip install --require-hashes -r requirements-dev.txt
-      
+
       - name: Run detector tests
         run: pytest tests/detectors/ -v
-      
+
       - name: Run calibration tests
         run: pytest tests/calibration/ -v
-      
+
       - name: Run benchmark validation
         run: pytest tests/benchmarks/ -v
-      
+
       - name: Verify source unchanged
         run: git diff --exit-code HEAD
 
@@ -1316,15 +1316,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-python@v5
-      
+
       - name: Install pip-audit
         run: pip install pip-audit
-      
+
       - name: Run pip-audit
         run: pip-audit --require-hashes -r requirements.txt
-      
+
       - name: Run safety check
         run: safety check --full-report
 
@@ -1333,17 +1333,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-python@v5
-      
+
       - name: Install cyclonedx-bom
         run: pip install cyclonedx-bom
-      
+
       - name: Generate SBOM
         run: |
           cyclonedx-py requirements -i requirements.txt -o sbom.cdx.json
           sha256sum sbom.cdx.json > sbom.cdx.sha256
-      
+
       - name: Upload SBOM
         uses: actions/upload-artifact@v4
         with:
@@ -1381,27 +1381,27 @@ def get_workflow_run(repo: str, workflow: str, commit: str) -> dict:
     """Get latest workflow run for commit."""
     url = f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}/runs"
     url += f"?head_sha={commit}&per_page=1"
-    
+
     req = Request(url, headers={"Accept": "application/vnd.github+json"})
     with urlopen(req) as resp:
         data = json.loads(resp.read())
-    
+
     if not data["workflow_runs"]:
         raise ValueError(f"No runs found for {workflow}")
-    
+
     return data["workflow_runs"][0]
 
 def validate_run(run: dict, workflow: str, commit: str) -> None:
     """Validate workflow run meets evidence requirements."""
     if run["head_sha"] != commit:
         raise ValueError(f"{workflow}: wrong commit")
-    
+
     if run["status"] != "completed":
         raise ValueError(f"{workflow}: not completed")
-    
+
     if run["conclusion"] != "success":
         raise ValueError(f"{workflow}: not successful")
-    
+
     updated = datetime.fromisoformat(run["updated_at"].replace("Z", "+00:00"))
     age = datetime.now(timezone.utc) - updated
     if age > MAX_EVIDENCE_AGE:
@@ -1410,11 +1410,11 @@ def validate_run(run: dict, workflow: str, commit: str) -> None:
 def collect_evidence(repo: str, commit: str) -> dict:
     """Collect all required evidence."""
     evidence = []
-    
+
     for workflow, name in REQUIRED_WORKFLOWS.items():
         run = get_workflow_run(repo, workflow, commit)
         validate_run(run, workflow, commit)
-        
+
         evidence.append({
             "workflow": workflow,
             "name": name,
@@ -1423,7 +1423,7 @@ def collect_evidence(repo: str, commit: str) -> dict:
             "updated_at": run["updated_at"],
             "conclusion": "success",
         })
-    
+
     return {
         "schema_version": 1,
         "repository": repo,
@@ -1436,10 +1436,10 @@ if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: collect_evidence.py <repo> <commit>")
         sys.exit(1)
-    
+
     repo, commit = sys.argv[1], sys.argv[2]
     evidence = collect_evidence(repo, commit)
-    
+
     output = Path("release-evidence.json")
     output.write_text(json.dumps(evidence, indent=2))
     print(f"Evidence collected: {output}")
@@ -1447,6 +1447,6 @@ if __name__ == "__main__":
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** 2026-11-02  
+**Document Version:** 1.0
+**Last Updated:** 2026-11-02
 **Maintainer:** Research subagent for TextForensics project
