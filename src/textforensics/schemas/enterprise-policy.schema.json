@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/strmt7/TextForensics/schemas/enterprise-policy.schema.json",
+  "title": "TextForensics Enterprise Policy v1",
+  "type": "object",
+  "required": [
+    "revision",
+    "settings",
+    "rules"
+  ],
+  "properties": {
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Policy revision number. Must be non-negative and monotonically increasing."
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 digest of the policy content. Computed from revision, settings, and rules."
+    },
+    "settings": {
+      "type": "object",
+      "description": "Enterprise-wide settings that govern behavior.",
+      "properties": {
+        "enforce_local_first": {
+          "type": "boolean"
+        },
+        "max_input_bytes": {
+          "type": "integer",
+          "minimum": 1024
+        },
+        "allow_remote": {
+          "type": "boolean"
+        },
+        "require_provenance": {
+          "type": "boolean"
+        },
+        "policy_state_path": {
+          "type": "string"
+        },
+        "policy_key_path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Enterprise policy rules.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "description",
+          "action",
+          "scope"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z0-9-]+$",
+            "description": "Unique rule identifier."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable rule description."
+          },
+          "action": {
+            "enum": [
+              "enforce",
+              "warn",
+              "log",
+              "disable"
+            ],
+            "description": "Action to take when rule applies."
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Scope of the rule (e.g., 'all', 'analysis', 'detection')."
+          },
+          "conditions": {
+            "type": "object",
+            "description": "Optional conditions for rule applicability."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

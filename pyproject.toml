@@ -60,6 +60,9 @@ cli-typer = [
   "rich>=13,<14",
   "typer>=0.12,<1",
 ]
+enterprise = [
+  "cryptography>=42,<43",
+]
 dev = [
   "atheris>=1.0,<2",
   "build>=1.2,<2",

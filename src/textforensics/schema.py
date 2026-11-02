@@ -15,6 +15,7 @@ _SCHEMA_NAMES = {
     "forensic-bundle": "forensic-bundle.schema.json",
     "case-file": "case-file.schema.json",
     "trust-map": "trust-map.schema.json",
+    "enterprise-policy": "enterprise-policy.schema.json",
 }
 
 
@@ -111,6 +112,21 @@ def validate_trust_map(trust_map: dict[str, Any]) -> list[str]:
     return [f"{'.'.join(str(p) for p in err.path)}: {err.message}" for err in errors]
 
 
+def validate_enterprise_policy(policy: dict[str, Any]) -> list[str]:
+    """Validate an enterprise policy against its schema.
+
+    Args:
+        policy: The enterprise policy dictionary to validate.
+
+    Returns:
+        List of validation error messages (empty if valid).
+    """
+    schema = load_schema("enterprise-policy")
+    validator = _get_validator(schema)
+    errors = sorted(validator.iter_errors(policy), key=lambda e: e.path)
+    return [f"{'.'.join(str(p) for p in err.path)}: {err.message}" for err in errors]
+
+
 def list_schemas() -> list[str]:
     """List all available schema names.
 
@@ -150,6 +166,8 @@ def validate(bundle: dict[str, Any], schema_name: str) -> list[str]:
         return validate_case_file(bundle)
     elif schema_name == "trust-map":
         return validate_trust_map(bundle)
+    elif schema_name == "enterprise-policy":
+        return validate_enterprise_policy(bundle)
     else:
         raise ValueError(
             f"Unknown schema {schema_name!r}. Available: {', '.join(sorted(_SCHEMA_NAMES))}"
