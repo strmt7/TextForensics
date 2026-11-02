@@ -1,0 +1,120 @@
+# Cosmic Ray mutation testing configuration for TextForensics
+# Targets: core scoring, calibration, trust map, and ensemble logic
+# Baseline modules excluded from mutation: CLI entry points
+
+mutation:
+  # Modules to mutate - safety-critical scoring and decision logic
+  modules:
+    - "textforensics.benchmark"      # calibration, threshold selection, metrics
+    - "textforensics.trust"          # trust map building, dimensions, evidence
+    - "textforensics.consensus"      # ensemble consensus, family voting
+    - "textforensics.threshold_selection"  # threshold selection, calibration
+    - "textforensics.detectors"      # detector prediction validation, schemas
+    - "textforensics.analyzers"      # text analysis, scoring primitives
+    - "textforensics.engine"         # core analysis pipeline
+    - "textforensics.capability_ledger"  # capability claims, evidence tiers
+    - "textforensics.casefile"       # case file construction, provenance
+    - "textforensics.robustness"     # benign transformation stability
+
+  # Modules explicitly excluded from mutation (baseline - CLI, entry points)
+  excluded_modules:
+    - "textforensics.cli"
+    - "textforensics.typer_cli"
+    - "textforensics.server"
+    - "textforensics.mcp_server"
+    - "textforensics.webapp"
+    - "textforensics.version"
+    - "textforensics._build_info"
+    - "textforensics.config"
+    - "textforensics.constants"
+    - "textforensics.report"
+    - "textforensics.rich_output"
+    - "textforensics.schema"
+    - "textforensics.verify"
+    - "textforensics.provenance"
+    - "textforensics.bundle"
+    - "textforensics.benchmark_fingerprint"
+    - "textforensics.drift"
+    - "textforensics.localize"
+    - "textforensics.naturalness"
+    - "textforensics.features"
+    - "textforensics.mcp_tools"
+    - "textforensics.models"
+
+  # Operators - core arithmetic, comparison, logical mutations
+  operators:
+    # Arithmetic operators
+    - "number_replacer"
+    - "arithmetic_operator_replacement"
+    - "arithmetic_operator_deletion"
+    # Comparison operators
+    - "comparison_operator_replacement"
+    - "comparison_operator_deletion"
+    # Logical operators
+    - "boolean_operator_replacement"
+    - "boolean_operator_deletion"
+    # Unary operators
+    - "unary_operator_replacement"
+    # Function calls
+    - "function_call_with_argument_replacement"
+    - "function_call_argument_removal"
+    # Return values
+    - "return_value_replacement"
+    # Exception handling
+    - "exception_replacement"
+    - "exception_removal"
+    # Attributes
+    - "attribute_replacement"
+
+  # Test runner
+  test_runner:
+    command: "python -m pytest tests/ -x -q --tb=short"
+    timeout: 30  # seconds per test run
+
+  # Session configuration
+  session:
+    baseline: true  # run baseline tests first
+    verbose: true
+
+  # Exclusions - test files, generated files
+  exclude:
+    - "tests/**"
+    - "**/test_*.py"
+    - "**/*_test.py"
+    - "**/conftest.py"
+    - "**/*.pyc"
+    - "**/__pycache__/**"
+    - "build/**"
+    - "dist/**"
+    - ".pytest_cache/**"
+    - ".ruff_cache/**"
+    - ".tmp/**"
+    - "**/schemas/**"
+    - "**/testdata/**"
+    - "examples/**"
+    - "docs/**"
+    - "scripts/**"
+
+# Rejection-rejector pattern configuration
+# Mutations that survive are "rejections" - they indicate gaps in test coverage
+# Mutations that are caught are "rejectors" - they validate test effectiveness
+rejection_rejector:
+  # Track surviving mutants as rejections
+  track_surviving: true
+  # Minimum kill ratio for safety-critical modules
+  min_kill_ratio: 0.90
+  # Budget: max mutations per session (prevents CI timeout)
+  mutation_budget: 200
+  # Timeout per mutant execution
+  mutant_timeout: 30
+
+# Diff-based optimization configuration
+diff_optimization:
+  # On push: only mutate changed lines using git diff
+  enabled: true
+  # Path to git binary (optional, uses system PATH)
+  git_path: "git"
+  # Base branch for diff (on push)
+  base_branch: "origin/main"
+  # Include staged changes
+  include_staged: true
