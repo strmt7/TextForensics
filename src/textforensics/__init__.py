@@ -44,15 +44,6 @@ from .threshold_selection import (
     select_threshold,
 )
 from .trust import trust_map_from_capability_ledger
-from .telemetry import (
-    AnalysisTimer,
-    initialize_telemetry,
-    is_telemetry_initialized,
-    record_analysis,
-    record_error,
-    shutdown_telemetry,
-    timed_analysis,
-)
 from .verify import (
     VerificationReport,
     verify_all,
@@ -74,8 +65,15 @@ def _import_enterprise_policy():
     return enterprise_policy
 
 
+# Lazy import for telemetry features (opentelemetry is optional)
+def _import_telemetry():
+    """Lazily import telemetry module."""
+    from . import telemetry
+
+    return telemetry
+
+
 __all__ = [
-    "AnalysisTimer",
     "BUILD_INFO",
     "analyze_text",
     "build_forensic_bundle",
@@ -103,19 +101,13 @@ __all__ = [
     "get_build_info_json",
     "get_version",
     "initialize_build_info",
-    "initialize_telemetry",
-    "is_telemetry_initialized",
     "ledger_to_trust_dimension",
     "load_fingerprint",
     "PolicyRevisionFloor",
     "PolicyState",
-    "record_analysis",
-    "record_error",
     "save_fingerprint",
     "select_threshold",
     "seal_case_file",
-    "shutdown_telemetry",
-    "timed_analysis",
     "trust_map_from_capability_ledger",
     "validate_claim",
     "validate_disjointness",
@@ -133,3 +125,19 @@ __all__ = [
 ]
 
 __version__ = get_version()
+
+
+# Lazy __getattr__ for optional telemetry exports
+def __getattr__(name: str):
+    if name in {
+        "AnalysisTimer",
+        "initialize_telemetry",
+        "is_telemetry_initialized",
+        "record_analysis",
+        "record_error",
+        "shutdown_telemetry",
+        "timed_analysis",
+    }:
+        telemetry = _import_telemetry()
+        return getattr(telemetry, name)
+    raise AttributeError(f"module 'textforensics' has no attribute '{name}'")

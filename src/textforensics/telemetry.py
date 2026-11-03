@@ -236,11 +236,8 @@ def shutdown_telemetry() -> None:
             return
 
         if _meter_provider:
-            try:
+            with contextlib.suppress(Exception):
                 _meter_provider.shutdown()
-            except Exception:
-                # Ignore shutdown errors (e.g., already shutdown)
-                pass
             _meter_provider = None
 
         _telemetry_initialized = False

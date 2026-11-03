@@ -671,7 +671,7 @@ body {
     .charts-row {
         grid-template-columns: 1fr;
     }
-    
+
     .metrics-grid {
         grid-template-columns: 1fr 1fr;
     }
@@ -681,26 +681,26 @@ body {
     .main-content {
         padding: 16px;
     }
-    
+
     .metrics-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .input-controls {
         flex-direction: column;
         align-items: stretch;
     }
-    
+
     .checkbox-label {
         margin-left: 0;
         justify-content: center;
     }
-    
+
     .privacy-notice {
         margin-left: 0;
         text-align: center;
     }
-    
+
     .footer {
         flex-direction: column;
         gap: 4px;

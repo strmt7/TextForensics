@@ -2,14 +2,20 @@ from __future__ import annotations
 
 import math
 import statistics
-import time
+from typing import Any
 
 from .analyzers import run_builtin_analyzers
 from .emergency_stop import assert_not_stopped
 from .features import extract_features
 from .models import AnalysisResult, AnalyzerResult
 from .robustness import benign_variants
-from .telemetry import AnalysisTimer, is_telemetry_initialized, record_analysis, record_error
+
+
+def _import_telemetry():
+    """Lazily import telemetry module."""
+    from . import telemetry
+
+    return telemetry
 
 
 def _weighted_score(results: list[AnalyzerResult]) -> float:
@@ -61,8 +67,9 @@ def analyze_text(
         raise ValueError("Text must not be empty.")
 
     # Use telemetry timer if enabled
-    if is_telemetry_initialized():
-        with AnalysisTimer() as timer:
+    telemetry = _import_telemetry()
+    if telemetry.is_telemetry_initialized():
+        with telemetry.AnalysisTimer() as timer:
             return _analyze_text_internal(
                 text,
                 include_robustness=include_robustness,
@@ -80,7 +87,7 @@ def _analyze_text_internal(
     text: str,
     *,
     include_robustness: bool = True,
-    timer: AnalysisTimer | None = None,
+    timer: Any | None = None,
 ) -> AnalysisResult:
     try:
         score, results, features = _base_score(text)
@@ -114,7 +121,9 @@ def _analyze_text_internal(
                 "below the built-in baseline's 80-word minimum."
             )
         if disagreement > 0.45:
-            warnings.append("High analyzer disagreement: treat the aggregate score as weak evidence.")
+            warnings.append(
+                "High analyzer disagreement: treat the aggregate score as weak evidence."
+            )
         if stability < 0.85:
             warnings.append("The baseline score is sensitive to harmless formatting normalization.")
         warnings.extend(
@@ -150,7 +159,6 @@ def _analyze_text_internal(
             warnings=warnings,
         )
     except Exception as e:
-        from .telemetry import record_error
-
-        record_error(type(e).__name__, "engine")
+        telemetry = _import_telemetry()
+        telemetry.record_error(type(e).__name__, "engine")
         raise

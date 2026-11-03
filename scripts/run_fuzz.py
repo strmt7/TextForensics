@@ -65,6 +65,36 @@ FUZZ_TARGETS: dict[str, FuzzTarget] = {
         corpus_subdir="detector_input",
         description="Detector input validation",
     ),
+    "calibration": FuzzTarget(
+        name="calibration",
+        module="tests/fuzz/fuzz_calibration.py",
+        corpus_subdir="calibration",
+        description="Calibration artifact parsing, validation, and threshold selection",
+    ),
+    "drift": FuzzTarget(
+        name="drift",
+        module="tests/fuzz/fuzz_drift.py",
+        corpus_subdir="drift",
+        description="DriftObservatory corpus loading, snapshot creation, and comparison",
+    ),
+    "enterprise_policy": FuzzTarget(
+        name="enterprise_policy",
+        module="tests/fuzz/fuzz_enterprise_policy.py",
+        corpus_subdir="enterprise_policy",
+        description="Enterprise policy parsing, validation, and revision floor",
+    ),
+    "web_ui": FuzzTarget(
+        name="web_ui",
+        module="tests/fuzz/fuzz_web_ui.py",
+        corpus_subdir="web_ui",
+        description="WebSocket message handling and REST API inputs",
+    ),
+    "mcp": FuzzTarget(
+        name="mcp",
+        module="tests/fuzz/fuzz_mcp.py",
+        corpus_subdir="mcp",
+        description="MCP tool inputs and serialization",
+    ),
 }
 
 
