@@ -124,11 +124,54 @@
                     </div>
                 </div>
 
-                <!-- Warnings & Limitations -->
-                <details class="warnings-panel">
-                    <summary>Warnings & Limitations</summary>
-                    <div id="warningsList"></div>
-                </details>
+                <!-- Action buttons row -->
+                <div class="results-actions">
+                    <button id="exportJsonBtn" class="btn btn-secondary" title="Download JSON">
+                        <span>⬇ JSON</span>
+                    </button>
+                    <button id="exportCsvBtn" class="btn btn-secondary" title="Download CSV">
+                        <span>⬇ CSV</span>
+                    </button>
+                    <button id="exportHtmlBtn" class="btn btn-secondary" title="Download HTML">
+                        <span>⬇ HTML</span>
+                    </button>
+                    <button id="compareBtn" class="btn btn-secondary">
+                        <span>⇄ Compare</span>
+                    </button>
+                    <button id="loadHistoryBtn" class="btn btn-secondary">
+                        <span>↻ History</span>
+                    </button>
+                </div>
+
+                <!-- Compare view -->
+                <div id="compareView" class="compare-view hidden">
+                    <div class="compare-header">
+                        <h3>Side-by-Side Comparison</h3>
+                        <button id="closeCompareBtn" class="btn btn-secondary" style="padding: 4px 12px;">✕ Close</button>
+                    </div>
+                    <div class="compare-columns">
+                        <div class="compare-column">
+                            <div class="compare-label">Analysis A</div>
+                            <div id="compareASummary" class="compare-summary"></div>
+                        </div>
+                        <div class="compare-column">
+                            <div class="compare-label">Analysis B</div>
+                            <div id="compareBSummary" class="compare-summary"></div>
+                        </div>
+                    </div>
+                    <div class="compare-section">
+                        <h4>Detector Scores</h4>
+                        <div id="compareDetectors" class="compare-grid"></div>
+                    </div>
+                    <div class="compare-section">
+                        <h4>Trust Map</h4>
+                        <div id="compareTrustMap" class="compare-grid"></div>
+                    </div>
+                    <div class="compare-section">
+                        <h4>Verdict Diff</h4>
+                        <div id="compareVerdict" class="compare-verdict"></div>
+                    </div>
+                </div>
 
                 <!-- Raw Data (Collapsible) -->
                 <details class="raw-data-panel">

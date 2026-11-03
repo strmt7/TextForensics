@@ -6,12 +6,15 @@
 const state = {
     history: [],
     currentAnalysis: null,
+    secondAnalysis: null,
     ws: null,
     isStreaming: true,
     charts: {
         gauge: null,
         detector: null
-    }
+    },
+    serverHistory: [],
+    compareMode: false
 };
 
 // DOM Elements
@@ -40,7 +43,20 @@ const elements = {
     rawData: document.getElementById('rawData'),
     versionDisplay: document.getElementById('versionDisplay'),
     btnText: document.querySelector('.btn-text'),
-    btnLoader: document.querySelector('.btn-loader')
+    btnLoader: document.querySelector('.btn-loader'),
+    // New elements
+    exportJsonBtn: document.getElementById('exportJsonBtn'),
+    exportCsvBtn: document.getElementById('exportCsvBtn'),
+    exportHtmlBtn: document.getElementById('exportHtmlBtn'),
+    compareBtn: document.getElementById('compareBtn'),
+    loadHistoryBtn: document.getElementById('loadHistoryBtn'),
+    closeCompareBtn: document.getElementById('closeCompareBtn'),
+    compareView: document.getElementById('compareView'),
+    compareASummary: document.getElementById('compareASummary'),
+    compareBSummary: document.getElementById('compareBSummary'),
+    compareDetectors: document.getElementById('compareDetectors'),
+    compareTrustMap: document.getElementById('compareTrustMap'),
+    compareVerdict: document.getElementById('compareVerdict')
 };
 
 // Initialize
@@ -61,6 +77,18 @@ function setupEventListeners() {
     elements.streamToggle.addEventListener('change', (e) => {
         state.isStreaming = e.target.checked;
     });
+
+    // Export buttons
+    elements.exportJsonBtn.addEventListener('click', () => exportAnalysis('json'));
+    elements.exportCsvBtn.addEventListener('click', () => exportAnalysis('csv'));
+    elements.exportHtmlBtn.addEventListener('click', () => exportAnalysis('html'));
+
+    // Compare
+    elements.compareBtn.addEventListener('click', toggleCompareMode);
+    elements.closeCompareBtn.addEventListener('click', closeCompareView);
+
+    // Server history
+    elements.loadHistoryBtn.addEventListener('click', loadServerHistory);
 }
 
 // Update input statistics
@@ -699,3 +727,258 @@ window.addEventListener('beforeunload', () => {
         state.ws.close();
     }
 });
+
+// ────────────────────────────────────────────────────────────────────
+// New functionality: Export, Compare, History
+// ────────────────────────────────────────────────────────────────────
+
+function exportAnalysis(format) {
+    if (!state.currentAnalysis) {
+        alert('No analysis to export. Run an analysis first.');
+        return;
+    }
+
+    const exportData = {
+        data: state.currentAnalysis,
+        format: format
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: 'application/json'
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `textforensics-report-${Date.now()}.${format}`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function toggleCompareMode() {
+    if (!state.currentAnalysis) {
+        alert('No analysis to compare. Run an analysis first.');
+        return;
+    }
+
+    if (state.secondAnalysis) {
+        // Show comparison
+        state.compareMode = true;
+        renderCompareView();
+    } else {
+        // Load a history item for comparison
+        loadHistoryItemForCompare();
+    }
+}
+
+function loadHistoryItemForCompare() {
+    if (state.history.length === 0) {
+        alert('No history items available. Analyze some text first.');
+        return;
+    }
+
+    const selection = prompt(
+        `Select history item (1-${state.history.length}) for comparison:\nLeave empty to cancel.`,
+        '1'
+    );
+
+    const index = parseInt(selection, 10) - 1;
+    if (isNaN(index) || index < 0 || index >= state.history.length) {
+        return;
+    }
+
+    const item = state.history[index];
+    state.secondAnalysis = item.data;
+    renderCompareView();
+}
+
+function renderCompareView() {
+    elements.compareView.classList.remove('hidden');
+
+    const consensusA = state.currentAnalysis?.consensus || {};
+    const consensusB = state.secondAnalysis?.consensus || {};
+
+    const verdictLabels = {
+        'ai_like': 'AI-like',
+        'human_like': 'Human-like',
+        'abstain': 'Abstain',
+        'insufficient_evidence': 'Insufficient Evidence',
+        'mixed': 'Mixed'
+    };
+
+    elements.compareASummary.innerHTML = `
+        <div class="compare-metric"><strong>Verdict:</strong> ${verdictLabels[consensusA.verdict] || consensusA.verdict}</div>
+        <div class="compare-metric"><strong>AI Probability:</strong> ${consensusA.ai_probability !== null ? (consensusA.ai_probability * 100).toFixed(1) + '%' : 'Not calibrated'}</div>
+        <div class="compare-metric"><strong>Families:</strong> ${consensusA.independent_families || 0}</div>
+    `;
+
+    elements.compareBSummary.innerHTML = `
+        <div class="compare-metric"><strong>Verdict:</strong> ${verdictLabels[consensusB.verdict] || consensusB.verdict}</div>
+        <div class="compare-metric"><strong>AI Probability:</strong> ${consensusB.ai_probability !== null ? (consensusB.ai_probability * 100).toFixed(1) + '%' : 'Not calibrated'}</div>
+        <div class="compare-metric"><strong>Families:</strong> ${consensusB.independent_families || 0}</div>
+    `;
+
+    renderCompareDetectors();
+    renderCompareTrustMap();
+    renderCompareVerdict();
+}
+
+function renderCompareDetectors() {
+    const resultsA = state.currentAnalysis?.detector_results || [];
+    const resultsB = state.secondAnalysis?.detector_results || [];
+    const mapA = new Map(resultsA.map(d => [d.detector_id, d]));
+    const mapB = new Map(resultsB.map(d => [d.detector_id, d]));
+    const allIds = [...new Set([...mapA.keys(), ...mapB.keys()])].sort();
+
+    elements.compareDetectors.innerHTML = allIds.map(id => {
+        const a = mapA.get(id);
+        const b = mapB.get(id);
+        const scoreA = a?.calibrated_ai_probability ?? a?.score ?? null;
+        const scoreB = b?.calibrated_ai_probability ?? b?.score ?? null;
+        let diff = null;
+        if (scoreA !== null && scoreB !== null) {
+            diff = ((scoreB - scoreA) * 100).toFixed(1);
+        }
+        const verdictChanged = a?.verdict !== b?.verdict;
+
+        return `
+            <div class="compare-detector-item ${verdictChanged ? 'changed' : ''}">
+                <div class="detector-name">${escapeHtml(id)}</div>
+                <div class="detector-scores">
+                    <span class="score-a">${scoreA !== null ? (scoreA * 100).toFixed(1) + '%' : 'N/A'}</span>
+                    <span class="score-diff">${diff !== null ? (diff > 0 ? '↑ ' : '↓ ') + diff + 'pp' : 'N/A'}</span>
+                    <span class="score-b">${scoreB !== null ? (scoreB * 100).toFixed(1) + '%' : 'N/A'}</span>
+                </div>
+                <div class="detector-verdicts">
+                    <span class="verdict-badge ${a?.verdict || 'unknown'}">${formatVerdict(a?.verdict || 'unknown')}</span>
+                    <span class="verdict-badge ${b?.verdict || 'unknown'}">${formatVerdict(b?.verdict || 'unknown')}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderCompareTrustMap() {
+    const trustA = state.currentAnalysis?.trust_map?.dimensions || [];
+    const trustB = state.secondAnalysis?.trust_map?.dimensions || [];
+    const mapA = new Map(trustA.map(d => [d.dimension, d]));
+    const mapB = new Map(trustB.map(d => [d.dimension, d]));
+    const allDims = [...new Set([...mapA.keys(), ...mapB.keys()])].sort();
+
+    elements.compareTrustMap.innerHTML = allDims.map(dim => {
+        const a = mapA.get(dim);
+        const b = mapB.get(dim);
+        const stateChanged = a?.state !== b?.state;
+
+        return `
+            <div class="compare-trust-item ${stateChanged ? 'changed' : ''}">
+                <div class="trust-name">${escapeHtml(dim.replace(/_/g, ' '))}</div>
+                <div class="trust-states">
+                    <span class="trust-badge ${a?.state || 'unknown'}">${a?.state || 'N/A'}</span>
+                    <span class="trust-badge ${b?.state || 'unknown'}">${b?.state || 'N/A'}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderCompareVerdict() {
+    const consensusA = state.currentAnalysis?.consensus || {};
+    const consensusB = state.secondAnalysis?.consensus || {};
+
+    const verdictsMatch = consensusA.verdict === consensusB.verdict;
+    const familiesMatch = (consensusA.independent_families || 0) === (consensusB.independent_families || 0);
+
+    elements.compareVerdict.innerHTML = `
+        <div class="compare-verdict-diff">
+            <div class="verdict-item ${!verdictsMatch ? 'changed' : ''}">
+                <span class="label">Verdict Match:</span>
+                <span class="value ${!verdictsMatch ? 'changed' : ''}">${verdictsMatch ? 'Yes ✓' : 'No ✗'}</span>
+            </div>
+            <div class="verdict-item ${!familiesMatch ? 'changed' : ''}">
+                <span class="label">Family Count Match:</span>
+                <span class="value ${!familiesMatch ? 'changed' : ''}">${familiesMatch ? 'Yes ✓' : 'No ✗'}</span>
+            </div>
+        </div>
+    `;
+}
+
+function closeCompareView() {
+    state.compareMode = false;
+    state.secondAnalysis = null;
+    elements.compareView.classList.add('hidden');
+}
+
+async function loadServerHistory(filter = {}) {
+    try {
+        const params = new URLSearchParams();
+        if (filter.limit) params.append('limit', filter.limit);
+        if (filter.verdict) params.append('verdict', filter.verdict);
+        if (filter.family) params.append('family', filter.family);
+        if (filter.min_score !== undefined && filter.min_score !== null) params.append('min_score', filter.min_score);
+        if (filter.max_score !== undefined && filter.max_score !== null) params.append('max_score', filter.max_score);
+
+        const response = await fetch(`/api/history?${params}`);
+        const data = await response.json();
+        state.serverHistory = data.entries || [];
+
+        renderServerHistory();
+        return data;
+    } catch (e) {
+        console.error('Failed to load history:', e);
+        return [];
+    }
+}
+
+function renderServerHistory() {
+    const container = elements.historyList;
+
+    if (state.serverHistory.length === 0) {
+        container.innerHTML = '<div class="history-empty">No server history available.</div>';
+        return;
+    }
+
+    container.innerHTML = state.serverHistory.map((item, index) => `
+        <div class="history-item ${index === 0 ? 'active' : ''}" data-index="${index}" data-id="${item.id}">
+            <div class="history-preview">
+                <div class="history-text">${escapeHtml(item.content_sha256)}</div>
+                <div class="history-meta">
+                    <span>${item.word_count || 0} words</span>
+                    <span>${formatTime(item.stored_at)}</span>
+                </div>
+            </div>
+            <div class="history-verdict">
+                <span class="verdict-badge ${item.verdict}">${formatVerdict(item.verdict)}</span>
+                ${item.ai_probability !== null ?
+                    `<span style="font-size: 12px; color: var(--muted);">${(item.ai_probability * 100).toFixed(0)}%</span>` : ''}
+            </div>
+        </div>
+    `).join('');
+
+    // Add click handlers for history items
+    container.querySelectorAll('.history-item').forEach(el => {
+        el.addEventListener('click', () => {
+            const historyId = el.dataset.id;
+            loadHistoryItemById(historyId);
+        });
+    });
+}
+
+async function loadHistoryItemById(historyId) {
+    try {
+        const response = await fetch(`/api/history/${historyId}`);
+        if (!response.ok) {
+            alert('History item not found.');
+            return;
+        }
+        const data = await response.json();
+        state.currentAnalysis = data.data;
+        handleCompleteAnalysis(data.data, 0);
+
+        // Update active state in history list
+        elements.historyList.querySelectorAll('.history-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.id === historyId);
+        });
+    } catch (e) {
+        alert('Failed to load history item: ' + e.message);
+    }
+}
