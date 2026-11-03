@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import math
 import statistics
+import time
 
 from .analyzers import run_builtin_analyzers
 from .emergency_stop import assert_not_stopped
 from .features import extract_features
 from .models import AnalysisResult, AnalyzerResult
 from .robustness import benign_variants
+from .telemetry import AnalysisTimer, is_telemetry_initialized, record_analysis, record_error
 
 
 def _weighted_score(results: list[AnalyzerResult]) -> float:
@@ -58,61 +60,97 @@ def analyze_text(
     if not isinstance(text, str) or not text.strip():
         raise ValueError("Text must not be empty.")
 
-    score, results, features = _base_score(text)
-    disagreement = _disagreement(results)
-
-    stability = 1.0
-    if include_robustness:
-        variant_scores = []
-        for variant in benign_variants(text).values():
-            variant_score, _, _ = _base_score(variant)
-            variant_scores.append(variant_score)
-        if variant_scores:
-            stability = max(
-                0.0,
-                1.0 - (max(variant_scores) - min(variant_scores)),
+    # Use telemetry timer if enabled
+    if is_telemetry_initialized():
+        with AnalysisTimer() as timer:
+            return _analyze_text_internal(
+                text,
+                include_robustness=include_robustness,
+                timer=timer,
             )
-
-    length_reliability = min(1.0, features["word_count"] / 250.0)
-    diagnostic_reliability = (
-        length_reliability * (0.65 + 0.35 * (1.0 - disagreement)) * (0.7 + 0.3 * stability)
-    )
-    diagnostic_reliability = max(
-        0.0,
-        min(1.0, diagnostic_reliability),
-    )
-
-    warnings: list[str] = []
-    if features["word_count"] < 80:
-        warnings.append(
-            "Short text: detector-style signals are especially unreliable "
-            "below the built-in baseline's 80-word minimum."
+    else:
+        return _analyze_text_internal(
+            text,
+            include_robustness=include_robustness,
+            timer=None,
         )
-    if disagreement > 0.45:
-        warnings.append("High analyzer disagreement: treat the aggregate score as weak evidence.")
-    if stability < 0.85:
-        warnings.append("The baseline score is sensitive to harmless formatting normalization.")
-    warnings.extend(
-        [
-            (
-                "Diagnostic reliability is an uncalibrated alpha heuristic, "
-                "not an authorship probability or validated confidence."
-            ),
-            (
-                "This is a text-pattern assessment, not proof of authorship. "
-                "False positives and false negatives are expected."
-            ),
-        ]
-    )
 
-    return AnalysisResult(
-        score=round(score, 4),
-        verdict=_verdict(score, diagnostic_reliability),
-        confidence=round(diagnostic_reliability, 4),
-        disagreement=round(disagreement, 4),
-        robustness_stability=round(stability, 4),
-        word_count=features["word_count"],
-        analyzers=results,
-        features=features,
-        warnings=warnings,
-    )
+
+def _analyze_text_internal(
+    text: str,
+    *,
+    include_robustness: bool = True,
+    timer: AnalysisTimer | None = None,
+) -> AnalysisResult:
+    try:
+        score, results, features = _base_score(text)
+        disagreement = _disagreement(results)
+
+        stability = 1.0
+        if include_robustness:
+            variant_scores = []
+            for variant in benign_variants(text).values():
+                variant_score, _, _ = _base_score(variant)
+                variant_scores.append(variant_score)
+            if variant_scores:
+                stability = max(
+                    0.0,
+                    1.0 - (max(variant_scores) - min(variant_scores)),
+                )
+
+        length_reliability = min(1.0, features["word_count"] / 250.0)
+        diagnostic_reliability = (
+            length_reliability * (0.65 + 0.35 * (1.0 - disagreement)) * (0.7 + 0.3 * stability)
+        )
+        diagnostic_reliability = max(
+            0.0,
+            min(1.0, diagnostic_reliability),
+        )
+
+        warnings: list[str] = []
+        if features["word_count"] < 80:
+            warnings.append(
+                "Short text: detector-style signals are especially unreliable "
+                "below the built-in baseline's 80-word minimum."
+            )
+        if disagreement > 0.45:
+            warnings.append("High analyzer disagreement: treat the aggregate score as weak evidence.")
+        if stability < 0.85:
+            warnings.append("The baseline score is sensitive to harmless formatting normalization.")
+        warnings.extend(
+            [
+                (
+                    "Diagnostic reliability is an uncalibrated alpha heuristic, "
+                    "not an authorship probability or validated confidence."
+                ),
+                (
+                    "This is a text-pattern assessment, not proof of authorship. "
+                    "False positives and false negatives are expected."
+                ),
+            ]
+        )
+
+        verdict = _verdict(score, diagnostic_reliability)
+
+        # Update timer with verdict and detector info for metrics
+        if timer is not None:
+            timer.verdict = verdict
+            timer.detector_scores = [r.score for r in results]
+            timer.detector_names = [r.name for r in results]
+
+        return AnalysisResult(
+            score=round(score, 4),
+            verdict=verdict,
+            confidence=round(diagnostic_reliability, 4),
+            disagreement=round(disagreement, 4),
+            robustness_stability=round(stability, 4),
+            word_count=features["word_count"],
+            analyzers=results,
+            features=features,
+            warnings=warnings,
+        )
+    except Exception as e:
+        from .telemetry import record_error
+
+        record_error(type(e).__name__, "engine")
+        raise

@@ -147,6 +147,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use the Typer-based CLI instead of argparse (requires textforensics[cli-typer]).",
     )
     parser.add_argument(
+        "--metrics",
+        action="store_true",
+        help="Enable OpenTelemetry metrics with Prometheus exporter.",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"%(prog)s {get_version()}",
@@ -737,6 +742,12 @@ def _trust_map_exit_code(bundle: dict[str, Any]) -> int:
 
 
 def _run(args: argparse.Namespace, settings: Settings) -> int:
+    # Initialize telemetry if --metrics flag is provided
+    if getattr(args, "metrics", False):
+        from .telemetry import initialize_telemetry
+
+        initialize_telemetry()
+
     # Emergency stop gate: checked at dispatch entry for all analysis
     # commands. The emergency management command bypasses this gate so
     # the sentinel can always be inspected/removed.
@@ -1629,6 +1640,11 @@ def main() -> int:
     except RuntimeError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_ERROR
+    finally:
+        # Ensure telemetry is shut down (atexit may not run in all environments)
+        from .telemetry import shutdown_telemetry
+
+        shutdown_telemetry()
 
 
 if __name__ == "__main__":
