@@ -460,3 +460,190 @@ def check_contamination(params: dict[str, Any]) -> dict[str, Any]:
         {"contamination_check": result},
         constants.EXIT_DOWNGRADED if is_contaminated else constants.EXIT_OK,
     )
+
+
+# ---------------------------------------------------------------------------
+# Result Codec tools
+# ---------------------------------------------------------------------------
+
+
+def result_encode(params: dict[str, Any]) -> dict[str, Any]:
+    """Encode a forensic result with schema validation.
+
+    Expected input keys:
+        data (dict): result data to encode
+        schema (str): schema name (e.g., "forensic-bundle", "detector-result")
+        canonical (bool, optional): use canonical JSON (default: true)
+        validate (bool, optional): validate on encode (default: true)
+    """
+    try:
+        data = params["data"]
+        schema = params["schema"]
+    except (KeyError, TypeError):
+        return _error_response("Missing required keys: data and schema", constants.EXIT_ERROR)
+
+    if not isinstance(data, dict):
+        return _error_response("data must be a JSON object", constants.EXIT_ERROR)
+
+    try:
+        canonical = params.get("canonical", True)
+        validate = params.get("validate", True)
+
+        from .result_codec import ResultCodec, CodecConfig, CodecError
+
+        config = CodecConfig(
+            canonical_json=canonical,
+            validate_on_encode=validate,
+            validate_on_decode=False,
+        )
+        codec = ResultCodec(config)
+        encoded = codec.encode(data, schema)
+
+        return _ok_response(
+            {
+                "encoded": encoded.decode("utf-8"),
+                "size_bytes": len(encoded),
+            }
+        )
+    except CodecError as exc:
+        return _error_response(f"Encoding error: {exc}", constants.EXIT_ERROR)
+    except (ValueError, TypeError) as exc:
+        return _error_response(f"Encoding error: {exc}", constants.EXIT_ERROR)
+
+
+def result_decode(params: dict[str, Any]) -> dict[str, Any]:
+    """Decode a forensic result with schema validation.
+
+    Expected input keys:
+        encoded (str or bytes): encoded result
+        schema (str): schema name (e.g., "forensic-bundle", "detector-result")
+        validate (bool, optional): validate on decode (default: true)
+        strict_version (bool, optional): reject unknown versions (default: false)
+    """
+    try:
+        encoded = params["encoded"]
+        schema = params["schema"]
+    except (KeyError, TypeError):
+        return _error_response("Missing required keys: encoded and schema", constants.EXIT_ERROR)
+
+    if isinstance(encoded, str):
+        encoded = encoded.encode("utf-8")
+    elif not isinstance(encoded, bytes):
+        return _error_response("encoded must be string or bytes", constants.EXIT_ERROR)
+
+    try:
+        validate = params.get("validate", True)
+        strict_version = params.get("strict_version", False)
+
+        from .result_codec import ResultCodec, CodecConfig, CodecError, VersionMigrationError
+
+        config = CodecConfig(
+            validate_on_encode=False,
+            validate_on_decode=validate,
+            strict_version=strict_version,
+        )
+        codec = ResultCodec(config)
+        decoded = codec.decode(encoded, schema)
+
+        return _ok_response(
+            {
+                "decoded": decoded,
+                "schema": decoded.get("schema"),
+            }
+        )
+    except VersionMigrationError as exc:
+        return _error_response(f"Version migration error: {exc}", constants.EXIT_DOWNGRADED)
+    except CodecError as exc:
+        return _error_response(f"Decoding error: {exc}", constants.EXIT_ERROR)
+    except (ValueError, TypeError) as exc:
+        return _error_response(f"Decoding error: {exc}", constants.EXIT_ERROR)
+
+
+# ---------------------------------------------------------------------------
+# Capability Policy tools
+# ---------------------------------------------------------------------------
+
+
+def capability_policy_evaluate(params: dict[str, Any]) -> dict[str, Any]:
+    """Evaluate capability policies for a detector.
+
+    Expected input keys:
+        ledger (dict): capability ledger dict
+        detector_id (str): detector ID to evaluate
+        policy (str): policy bundle name - "production", "report", "calibration", "minimum"
+        custom_policy (list[dict], optional): custom policy rules
+    """
+    try:
+        ledger_data = params["ledger"]
+        detector_id = params["detector_id"]
+    except (KeyError, TypeError):
+        return _error_response("Missing required keys: ledger and detector_id", constants.EXIT_ERROR)
+
+    if not isinstance(ledger_data, dict):
+        return _error_response("ledger must be a dict", constants.EXIT_ERROR)
+
+    try:
+        from .capability_ledger import CapabilityLedger
+        from .capability_policy import (
+            CapabilityPolicy,
+            CapabilityPolicyEngine,
+            create_production_policy,
+            create_report_generation_policy,
+            create_calibration_policy,
+            create_minimum_viable_policy,
+        )
+
+        ledger = CapabilityLedger.from_dict(ledger_data)
+
+        # Built-in policy bundles
+        policy_bundles = {
+            "production": create_production_policy,
+            "report": create_report_generation_policy,
+            "calibration": create_calibration_policy,
+            "minimum": create_minimum_viable_policy,
+        }
+
+        custom_rules = params.get("custom_policy")
+        if custom_rules:
+            engine = CapabilityPolicyEngine()
+            for rule in custom_rules:
+                engine.add_policy(CapabilityPolicy(
+                    rule_id=rule.get("rule_id", f"custom-{len(engine.policies)}"),
+                    description=rule.get("description", ""),
+                    required_capabilities=rule.get("required_capabilities", []),
+                    detector_pattern=rule.get("detector_pattern", "*"),
+                    action_on_failure=rule.get("action_on_failure", "reject"),
+                ))
+        else:
+            policy_name = params.get("policy", "production")
+            if policy_name not in policy_bundles:
+                return _error_response(
+                    f"Unknown policy '{policy_name}'. Available: {', '.join(policy_bundles.keys())}",
+                    constants.EXIT_ERROR,
+                )
+            engine = policy_bundles[policy_name]()
+
+        results = engine.evaluate(ledger, detector_id)
+
+        all_passed = all(r.passed for r in results)
+
+        return _ok_response(
+            {
+                "detector_id": detector_id,
+                "policy": params.get("policy", "production"),
+                "all_passed": all_passed,
+                "results": [
+                    {
+                        "rule_id": r.rule_id,
+                        "passed": r.passed,
+                        "message": r.message,
+                        "missing_claims": r.missing_claims,
+                        "evidence_gaps": r.evidence_gaps,
+                    }
+                    for r in results
+                ],
+            },
+            constants.EXIT_OK if all_passed else constants.EXIT_DOWNGRADED,
+        )
+    except Exception as exc:
+        return _error_response(f"Policy evaluation error: {exc}", constants.EXIT_ERROR)
