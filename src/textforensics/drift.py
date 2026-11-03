@@ -1369,3 +1369,181 @@ def _is_remote_detector(detector: Detector) -> bool:
     return getattr(detector, "execution", None) == "remote" or bool(
         getattr(detector, "remote", False)
     )
+
+
+# ---------------------------------------------------------------------------
+# Drift alerting
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class DriftAlert:
+    """A detected drift alert with severity and recommended action."""
+
+    detector_id: str
+    severity: str  # "critical", "warning", "info"
+    category: str  # "behavioral", "configuration", "calibration", "human_fpr"
+    message: str
+    recommended_action: str
+    snapshot_id: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "detector_id": self.detector_id,
+            "severity": self.severity,
+            "category": self.category,
+            "message": self.message,
+            "recommended_action": self.recommended_action,
+            "snapshot_id": self.snapshot_id,
+        }
+
+
+def generate_drift_alerts(
+    reports: Sequence[Mapping[str, Any]],
+    *,
+    critical_severity: str = "critical",
+) -> list[DriftAlert]:
+    """Generate drift alerts from drift comparison reports.
+
+    Alerts are generated based on:
+    - Behavioral drift (score shifts, verdict flips)
+    - Configuration drift (threshold changes, calibration ID changes)
+    - Human FPR increases
+    - Provider metadata changes
+    """
+    alerts: list[DriftAlert] = []
+
+    for report in reports:
+        detector_id = str(report.get("detector_id", "unknown"))
+        status = str(report.get("status", "unknown"))
+
+        if status == "drift_detected":
+            score = report.get("score_distribution", {})
+            if score.get("significant"):
+                alerts.append(
+                    DriftAlert(
+                        detector_id=detector_id,
+                        severity="warning",
+                        category="behavioral",
+                        message=f"Score distribution shift detected for {detector_id}",
+                        recommended_action="Review detector performance on recent data.",
+                        snapshot_id=report.get("snapshot_id"),
+                    )
+                )
+
+            verdict = report.get("verdict_flips", {})
+            if verdict.get("significant"):
+                alerts.append(
+                    DriftAlert(
+                        detector_id=detector_id,
+                        severity="warning",
+                        category="behavioral",
+                        message=f"Verdict flip rate increased for {detector_id}",
+                        recommended_action="Investigate changes in verdict consistency.",
+                        snapshot_id=report.get("snapshot_id"),
+                    )
+                )
+
+            calibration = report.get("calibration_drift", {})
+            if calibration.get("probability_shift_significant"):
+                alerts.append(
+                    DriftAlert(
+                        detector_id=detector_id,
+                        severity="critical",
+                        category="calibration",
+                        message=f"Calibration probability shift detected for {detector_id}",
+                        recommended_action="Re-calibrate detector immediately.",
+                        snapshot_id=report.get("snapshot_id"),
+                    )
+                )
+
+            human = report.get("human_slice_fpr", {})
+            if human.get("significant_increase"):
+                alerts.append(
+                    DriftAlert(
+                        detector_id=detector_id,
+                        severity="critical",
+                        category="human_fpr",
+                        message=f"Human false positive rate increased for {detector_id}",
+                        recommended_action="Investigate false positive triggers.",
+                        snapshot_id=report.get("snapshot_id"),
+                    )
+                )
+
+            threshold = report.get("threshold_changes", {})
+            if threshold.get("threshold_changed"):
+                alerts.append(
+                    DriftAlert(
+                        detector_id=detector_id,
+                        severity="info",
+                        category="configuration",
+                        message=f"Threshold changed for {detector_id}",
+                        recommended_action="Verify threshold change was intentional.",
+                        snapshot_id=report.get("snapshot_id"),
+                    )
+                )
+
+            provider = report.get("provider_metadata", {})
+            if provider.get("provider_metadata_changed"):
+                alerts.append(
+                    DriftAlert(
+                        detector_id=detector_id,
+                        severity="info",
+                        category="configuration",
+                        message=f"Provider metadata changed for {detector_id}",
+                        recommended_action="Verify provider version is correct.",
+                        snapshot_id=report.get("snapshot_id"),
+                    )
+                )
+
+    return alerts
+
+
+def filter_alerts(
+    alerts: Sequence[DriftAlert],
+    *,
+    severity: str | None = None,
+    category: str | None = None,
+    detector_id: str | None = None,
+) -> list[DriftAlert]:
+    """Filter drift alerts by severity, category, or detector ID."""
+    filtered = list(alerts)
+
+    if severity is not None:
+        filtered = [a for a in filtered if a.severity == severity]
+
+    if category is not None:
+        filtered = [a for a in filtered if a.category == category]
+
+    if detector_id is not None:
+        filtered = [a for a in filtered if a.detector_id == detector_id]
+
+    return filtered
+
+
+def summarize_alerts(alerts: Sequence[DriftAlert]) -> dict[str, Any]:
+    """Summarize drift alerts by severity and category."""
+    summary: dict[str, Any] = {
+        "total": len(alerts),
+        "by_severity": {},
+        "by_category": {},
+        "critical_count": 0,
+        "warning_count": 0,
+        "info_count": 0,
+    }
+
+    for alert in alerts:
+        severity = alert.severity
+        category = alert.category
+
+        summary["by_severity"][severity] = summary["by_severity"].get(severity, 0) + 1
+        summary["by_category"][category] = summary["by_category"].get(category, 0) + 1
+
+        if severity == "critical":
+            summary["critical_count"] += 1
+        elif severity == "warning":
+            summary["warning_count"] += 1
+        elif severity == "info":
+            summary["info_count"] += 1
+
+    return summary
