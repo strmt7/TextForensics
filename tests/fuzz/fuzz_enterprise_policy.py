@@ -110,11 +110,13 @@ def _fuzz_policy_state(text: str) -> None:
         for floor_digest in [state_data.get("floor_digest", ""), "0" * 64, ""]:
             for history in [state_data.get("history", []), [], "not-list"]:
                 try:
-                    ps = PolicyState.from_dict({
-                        "floor_revision": floor_rev,
-                        "floor_digest": floor_digest,
-                        "history": history,
-                    })
+                    ps = PolicyState.from_dict(
+                        {
+                            "floor_revision": floor_rev,
+                            "floor_digest": floor_digest,
+                            "history": history,
+                        }
+                    )
                     d = ps.to_dict()
                     assert "floor_revision" in d
                 except (ValueError, TypeError, KeyError):
@@ -172,8 +174,12 @@ def _fuzz_revision_floor(text: str) -> None:
         # Rollback
         try:
             floor.reset()
-            floor.advance_floor(EnterprisePolicy(revision=5, digest="a" * 64, settings={}, rules=[]))
-            rejections = floor.check_policy(EnterprisePolicy(revision=3, digest="b" * 64, settings={}, rules=[]))
+            floor.advance_floor(
+                EnterprisePolicy(revision=5, digest="a" * 64, settings={}, rules=[])
+            )
+            rejections = floor.check_policy(
+                EnterprisePolicy(revision=3, digest="b" * 64, settings={}, rules=[])
+            )
             assert len(rejections) > 0  # rollback
         except Exception:
             pass
@@ -217,10 +223,13 @@ def _fuzz_policy_engine(text: str) -> None:
             policy_data["revision"] = max(0, rev)
             for scope in (text[:15] or "all", "analysis", "", "all"):
                 policy_data.setdefault("settings", {})
-                policy_data.setdefault("rules", [
-                    {"id": "r1", "description": "fuzz", "action": "enforce", "scope": scope},
-                    {"id": "r2", "description": "warn", "action": "warn", "scope": "all"},
-                ])
+                policy_data.setdefault(
+                    "rules",
+                    [
+                        {"id": "r1", "description": "fuzz", "action": "enforce", "scope": scope},
+                        {"id": "r2", "description": "warn", "action": "warn", "scope": "all"},
+                    ],
+                )
                 try:
                     rejections = engine.load_policy(policy_data)
                     assert isinstance(rejections, list)
@@ -300,7 +309,10 @@ def _fuzz_compute_digest(text: str) -> None:
 
     for rev in (0, 1, 100):
         for settings in ({}, {"fuzz": text[:20]}):
-            for rules in ([], [{"id": text[:10], "description": "", "action": "enforce", "scope": "all"}]):
+            for rules in (
+                [],
+                [{"id": text[:10], "description": "", "action": "enforce", "scope": "all"}],
+            ):
                 try:
                     ep = EnterprisePolicy(revision=rev, digest="", settings=settings, rules=rules)
                     digest = compute_policy_digest(ep)

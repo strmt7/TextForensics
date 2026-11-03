@@ -42,7 +42,7 @@ def _fuzz_distribution_summary(data: bytes) -> None:
     # Build values from raw bytes
     values: list[float] = []
     for i in range(0, min(len(data), 256), 4):
-        chunk = data[i:i + 4]
+        chunk = data[i : i + 4]
         if len(chunk) == 4:
             val = int.from_bytes(chunk, "little", signed=True) / 10000.0
             values.append(val)
@@ -78,9 +78,25 @@ def _fuzz_coerce_helpers(text: str) -> None:
 
     # Values to try
     vals = [
-        text[:10], 0, 1, -1, True, False, None,
-        "0.5", "nan", "inf", -0.5, float("nan"), float("inf"),
-        1e308, -1e308, 0.0, "", " ", 42,
+        text[:10],
+        0,
+        1,
+        -1,
+        True,
+        False,
+        None,
+        "0.5",
+        "nan",
+        "inf",
+        -0.5,
+        float("nan"),
+        float("inf"),
+        1e308,
+        -1e308,
+        0.0,
+        "",
+        " ",
+        42,
     ]
     if text:
         try:
@@ -117,11 +133,13 @@ def _fuzz_coerce_helpers(text: str) -> None:
 def _fuzz_corpus_loading(text: str) -> None:
     """Fuzz DriftObservatory corpus loading with malformed data."""
     try:
-        from textforensics.drift import DriftObservatory, DRIFT_CORPUS_SCHEMA
+        from textforensics.drift import DRIFT_CORPUS_SCHEMA, DriftObservatory
     except Exception:
         return
 
-    sample_id = _sample_id_from_bytes(data.encode("utf-8", errors="replace")) if text else "sample-1"
+    sample_id = (
+        _sample_id_from_bytes(text.encode("utf-8", errors="replace")) if text else "sample-1"
+    )
     hex_sha256 = text[:64].ljust(64, "0")[:64]
 
     # Make hex_sha256 valid hex by replacing non-hex chars
@@ -134,24 +152,30 @@ def _fuzz_corpus_loading(text: str) -> None:
             "samples": [],
         }
         if len(text) % 3 == 0:
-            corpus_map["samples"].append({
-                "id": sample_id,
-                "text_sha256": clean_hex,
-                "metadata": {"key": text[:20]},
-            })
+            corpus_map["samples"].append(
+                {
+                    "id": sample_id,
+                    "text_sha256": clean_hex,
+                    "metadata": {"key": text[:20]},
+                }
+            )
         if len(text) % 5 == 0:
-            corpus_map["samples"].append({
-                "id": f"{sample_id}-2",
-                "text_sha256": clean_hex,
-                "text": "probe sample text",
-                "metadata": {},
-            })
+            corpus_map["samples"].append(
+                {
+                    "id": f"{sample_id}-2",
+                    "text_sha256": clean_hex,
+                    "text": "probe sample text",
+                    "metadata": {},
+                }
+            )
         # Duplicate sample
         if len(text) % 7 == 0:
-            corpus_map["samples"].append({
-                "id": sample_id,
-                "text_sha256": clean_hex,
-            })
+            corpus_map["samples"].append(
+                {
+                    "id": sample_id,
+                    "text_sha256": clean_hex,
+                }
+            )
         try:
             DriftObservatory(corpus=corpus_map)
         except ValueError:
@@ -176,11 +200,13 @@ def _fuzz_corpus_loading(text: str) -> None:
         sid = f"sample-{len(seq_corpus)}"
         if not sid.startswith("sample-0") and sid == "sample-0":
             pass  # skip
-        seq_corpus.append({
-            "id": sid,
-            "text_sha256": clean_hex,
-            "metadata": {"line": line[:10]},
-        })
+        seq_corpus.append(
+            {
+                "id": sid,
+                "text_sha256": clean_hex,
+                "metadata": {"line": line[:10]},
+            }
+        )
     try:
         DriftObservatory(corpus=seq_corpus)
     except ValueError:
@@ -190,14 +216,17 @@ def _fuzz_corpus_loading(text: str) -> None:
 
     # 3. Bad sample entries
     for bad_sample in [
-        "", 123, [], {"id": "", "text_sha256": clean_hex},
+        "",
+        123,
+        [],
+        {"id": "", "text_sha256": clean_hex},
         {"id": "x", "text_sha256": "not-hex"},
         {"id": "x"},  # no sha and no text
         {"id": "x", "text": "", "text_sha256": clean_hex},  # empty text
         {"id": "x", "text_sha256": clean_hex, "metadata": "not-dict"},
     ]:
         try:
-            obs = DriftObservatory(corpus=[bad_sample])
+            DriftObservatory(corpus=[bad_sample])
         except ValueError:
             pass
         except Exception:
@@ -207,13 +236,23 @@ def _fuzz_corpus_loading(text: str) -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         corpus_path = tmpdir / "corpus.json"
-        corpus_path.write_text(json.dumps({
-            "schema": DRIFT_CORPUS_SCHEMA,
-            "samples": [
-                {"id": "s1", "text_sha256": clean_hex},
-                {"id": "s2", "text_sha256": clean_hex, "text": "hello world", "metadata": {"label": "human"}},
-            ],
-        }), encoding="utf-8")
+        corpus_path.write_text(
+            json.dumps(
+                {
+                    "schema": DRIFT_CORPUS_SCHEMA,
+                    "samples": [
+                        {"id": "s1", "text_sha256": clean_hex},
+                        {
+                            "id": "s2",
+                            "text_sha256": clean_hex,
+                            "text": "hello world",
+                            "metadata": {"label": "human"},
+                        },
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
         try:
             DriftObservatory(corpus_path=corpus_path)
         except Exception:
@@ -232,7 +271,7 @@ def _fuzz_corpus_loading(text: str) -> None:
 def _fuzz_observations_and_snapshots(text: str) -> None:
     """Fuzz observation normalization and snapshot creation."""
     try:
-        from textforensics.drift import DriftObservatory, DRIFT_SNAPSHOT_SCHEMA
+        from textforensics.drift import DRIFT_SNAPSHOT_SCHEMA, DriftObservatory
     except Exception:
         return
 
@@ -341,7 +380,7 @@ def _fuzz_observations_and_snapshots(text: str) -> None:
 def _fuzz_snapshot_comparison(text: str) -> None:
     """Fuzz compare_snapshots with crafted baseline/current snapshots."""
     try:
-        from textforensics.drift import DriftObservatory, DRIFT_SNAPSHOT_SCHEMA
+        from textforensics.drift import DRIFT_SNAPSHOT_SCHEMA, DriftObservatory
     except Exception:
         return
 
