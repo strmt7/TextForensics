@@ -55,13 +55,27 @@ jobs:
             BASE_SHA="origin/main"
           fi
           echo "base_sha=$BASE_SHA" >> $GITHUB_OUTPUT
-          git diff --name-only $BASE_SHA...HEAD -- '*.py' | grep -E '^src/textforensics/(benchmark|trust|consensus|threshold_selection|detectors|analyzers|engine|capability_ledger|casefile|robustness)\.py$' || true
+          CHANGED=$(git diff --name-only $BASE_SHA...HEAD -- '*.py' | grep -E '^src/textforensics/(benchmark|trust|consensus|threshold_selection|detectors|analyzers|engine|capability_ledger|casefile|robustness)\.py$' || true)
+          {
+            echo 'changed_files<<EOF'
+            echo "$CHANGED"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+          echo "Changed target modules:"
+          echo "$CHANGED"
 
       - name: Run diff-based mutation testing
         if: steps.changed-files.outputs.changed_files != ''
         id: mutation-diff
         run: |
           python scripts/run_mutation.py --mode diff --base-sha ${{ steps.changed-files.outputs.base_sha }}
+
+      - name: No mutation needed
+        if: steps.changed-files.outputs.changed_files == ''
+        run: |
+          echo "No safety-critical modules changed - writing empty summary"
+          mkdir -p mutation-results
+          echo '{"total": 0, "killed": 0, "surviving": 0, "timeout": 0, "error": 0, "skipped": 0}' > mutation-results/summary.json
 
       - name: Upload mutation results (diff)
         if: always()
