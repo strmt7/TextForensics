@@ -1158,8 +1158,13 @@ class TestPropertyInvariants:
             # Numeric features should be finite and in expected ranges
             if isinstance(value, float):
                 assert math.isfinite(value), f"Non-finite value for feature {key}: {value}"
-                if key in {"word_count", "sentence_count", "paragraph_count", "punctuation_variety"}:
-                    assert 0.0 <= value, f"Non-negative feature violation for {key}"
+                if key in {
+                    "word_count",
+                    "sentence_count",
+                    "paragraph_count",
+                    "punctuation_variety",
+                }:
+                    assert value >= 0.0, f"Non-negative feature violation for {key}"
 
     @PROPERTY_SETTINGS
     @given(text=text_st)
@@ -1175,7 +1180,7 @@ class TestPropertyInvariants:
         # Get baseline result
         baseline = analyze_text(text, include_robustness=False)
         baseline_verdict = baseline.verdict
-        baseline_score = baseline.score
+        _ = baseline.score  # unused but needed for potential future comparison
 
         # Apply each benign transformation
         variants = benign_variants(text)
@@ -1192,18 +1197,16 @@ class TestPropertyInvariants:
             # unless the text is already in an ambiguous state
             if baseline_verdict in {"machine_like_patterns", "human_like_patterns"}:
                 # For decisive verdicts, stability is expected
-                assert variant_result.verdict in {baseline_verdict, "indeterminate"}, (
-                    f"Verdict flip under {variant_name}: {baseline_verdict} -> {variant_result.verdict}"
-                )
+                assert (
+                    variant_result.verdict in {baseline_verdict, "indeterminate"}
+                ), f"Verdict flip under {variant_name}: {baseline_verdict} -> {variant_result.verdict}"
 
     @FILE_SETTINGS
     @given(
         scores=st.lists(score_st, min_size=1, max_size=5),
         target_fpr=score_st,
     )
-    def test_threshold_selection_edge_cases(
-        self, scores: list[float], target_fpr: float
-    ) -> None:
+    def test_threshold_selection_edge_cases(self, scores: list[float], target_fpr: float) -> None:
         """Threshold selection handles empty datasets, single-class datasets, extreme FPR targets.
 
         Edge cases:
@@ -1219,7 +1222,9 @@ class TestPropertyInvariants:
                 path = Path(td) / "calibration.jsonl"
 
                 # Write at least one human sample
-                path.write_text(json.dumps({"label": "human", "text": "sample"}) + "\n", encoding="utf-8")
+                path.write_text(
+                    json.dumps({"label": "human", "text": "sample"}) + "\n", encoding="utf-8"
+                )
 
                 with patch(
                     "textforensics.threshold_selection._load_scores",
@@ -1231,7 +1236,11 @@ class TestPropertyInvariants:
                         assert math.isfinite(result.threshold)
                     except ValueError as e:
                         # Expected: single-class dataset without both labels
-                        assert "human" in str(e).lower() or "ai" in str(e).lower() or "both" in str(e).lower()
+                        assert (
+                            "human" in str(e).lower()
+                            or "ai" in str(e).lower()
+                            or "both" in str(e).lower()
+                        )
 
         # Test single-class AI dataset
         with tempfile.TemporaryDirectory() as td:
@@ -1248,7 +1257,11 @@ class TestPropertyInvariants:
                     result = select_threshold(path, target_fpr=target_fpr)
                     assert math.isfinite(result.threshold)
                 except ValueError as e:
-                    assert "human" in str(e).lower() or "ai" in str(e).lower() or "both" in str(e).lower()
+                    assert (
+                        "human" in str(e).lower()
+                        or "ai" in str(e).lower()
+                        or "both" in str(e).lower()
+                    )
 
     @PROPERTY_SETTINGS
     @given(
@@ -1257,7 +1270,13 @@ class TestPropertyInvariants:
         robustness=st.lists(robustness_row_st, max_size=3),
         failure_count=st.integers(min_value=0, max_value=3),
     )
-    def test_trust_map_dimension_consistency(self, predictions: list[DetectorPrediction], word_count: int, robustness: list[dict], failure_count: int) -> None:
+    def test_trust_map_dimension_consistency(
+        self,
+        predictions: list[DetectorPrediction],
+        word_count: int,
+        robustness: list[dict],
+        failure_count: int,
+    ) -> None:
         """Adding/removing detectors doesn't break dimension logic.
 
         The trust map dimension calculation should be robust to varying numbers
@@ -1277,9 +1296,14 @@ class TestPropertyInvariants:
         # Dimensions should always be from the expected set
         dimension_names = {d.dimension for d in trust_map.dimensions}
         expected_dimensions = {
-            "language", "text_length", "domain_genre", "editing_revision",
-            "human_false_positive_evidence", "detector_diversity",
-            "benign_stability", "temporal_version_stability"
+            "language",
+            "text_length",
+            "domain_genre",
+            "editing_revision",
+            "human_false_positive_evidence",
+            "detector_diversity",
+            "benign_stability",
+            "temporal_version_stability",
         }
         assert dimension_names == expected_dimensions
 
@@ -1311,9 +1335,7 @@ class TestPropertyInvariants:
         assert result["valid"] is True
 
         # Simulate "old" schema by checking all expected fields exist
-        required_fields = {
-            "schema", "tool", "forensic_bundle", "raw_text_included", "case_sha256"
-        }
+        required_fields = {"schema", "tool", "forensic_bundle", "raw_text_included", "case_sha256"}
         assert required_fields.issubset(set(case.keys())), "Missing required fields"
 
         # Forensic bundle should have required field
@@ -1335,32 +1357,34 @@ class TestPropertyInvariants:
         for detector_id, detector in registry.detectors.items():
             prediction, failure = execute_detector(detector, text)
 
-            assert failure is None, f"Detector {detector_id} failed: {failure.message if failure else ''}"
+            assert (
+                failure is None
+            ), f"Detector {detector_id} failed: {failure.message if failure else ''}"
             assert prediction is not None, f"Detector {detector_id} returned no prediction"
 
             # Native score must be in [0, 1] if not None
             if prediction.score is not None:
-                assert 0.0 <= prediction.score <= 1.0, (
-                    f"Detector {detector_id} score {prediction.score} out of bounds [0, 1]"
-                )
+                assert (
+                    0.0 <= prediction.score <= 1.0
+                ), f"Detector {detector_id} score {prediction.score} out of bounds [0, 1]"
 
             # Calibrated probability must be in [0, 1] if not None
             if prediction.calibrated_ai_probability is not None:
-                assert 0.0 <= prediction.calibrated_ai_probability <= 1.0, (
-                    f"Detector {detector_id} calibrated_prob {prediction.calibrated_ai_probability} out of bounds"
-                )
+                assert (
+                    0.0 <= prediction.calibrated_ai_probability <= 1.0
+                ), f"Detector {detector_id} calibrated_prob {prediction.calibrated_ai_probability} out of bounds"
 
             # Reliability must be in [0, 1] if not None
             if prediction.reliability is not None:
-                assert 0.0 <= prediction.reliability <= 1.0, (
-                    f"Detector {detector_id} reliability {prediction.reliability} out of bounds"
-                )
+                assert (
+                    0.0 <= prediction.reliability <= 1.0
+                ), f"Detector {detector_id} reliability {prediction.reliability} out of bounds"
 
             # Threshold must be in [0, 1] if not None
             if prediction.threshold is not None:
-                assert 0.0 <= prediction.threshold <= 1.0, (
-                    f"Detector {detector_id} threshold {prediction.threshold} out of bounds"
-                )
+                assert (
+                    0.0 <= prediction.threshold <= 1.0
+                ), f"Detector {detector_id} threshold {prediction.threshold} out of bounds"
 
     @PROPERTY_SETTINGS
     @given(bundle=forensic_bundle_st())
@@ -1383,9 +1407,9 @@ class TestPropertyInvariants:
         )
 
         # Hashes should be identical
-        assert case_1["case_sha256"] == case_2["case_sha256"], (
-            "Case hash not deterministic: same bundle produces different hashes"
-        )
+        assert (
+            case_1["case_sha256"] == case_2["case_sha256"]
+        ), "Case hash not deterministic: same bundle produces different hashes"
 
         # Full case content should be identical (except for any non-deterministic fields)
         # Note: generated_at_utc and tool.version are time/version dependent
@@ -1398,9 +1422,9 @@ class TestPropertyInvariants:
             fixed_timestamp="2026-01-01T00:00:00+00:00",
         )
 
-        assert case_3["case_sha256"] == case_1["case_sha256"], (
-            "Case hash not deterministic across multiple sealing operations"
-        )
+        assert (
+            case_3["case_sha256"] == case_1["case_sha256"]
+        ), "Case hash not deterministic across multiple sealing operations"
 
         # Verify all cases pass validation
         assert verify_case_file(case_1)["valid"]
