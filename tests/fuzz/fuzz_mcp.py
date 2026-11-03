@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import json
 import sys
-import tempfile
 from pathlib import Path
 
 import atheris
@@ -60,11 +59,13 @@ def _fuzz_capability_register(text: str) -> None:
         for cap in (text[30:50] or "analyze", ""):
             for tier in ("readable", "tool_backed", "validated", "bad-tier", "", 123):
                 try:
-                    result = capability_register({
-                        "detector_id": det_id,
-                        "capability": cap,
-                        "tier": tier,
-                    })
+                    result = capability_register(
+                        {
+                            "detector_id": det_id,
+                            "capability": cap,
+                            "tier": tier,
+                        }
+                    )
                     assert "success" in result
                 except Exception:
                     pass
@@ -78,12 +79,14 @@ def _fuzz_capability_register(text: str) -> None:
         [{"label": 123, "tier": "readable", "artifact": ""}],
     ]:
         try:
-            result = capability_register({
-                "detector_id": "fuzz",
-                "capability": "test",
-                "tier": "readable",
-                "evidence": evidence,
-            })
+            result = capability_register(
+                {
+                    "detector_id": "fuzz",
+                    "capability": "test",
+                    "tier": "readable",
+                    "evidence": evidence,
+                }
+            )
             assert "success" in result
         except Exception:
             pass
@@ -123,11 +126,13 @@ def _fuzz_capability_check(text: str) -> None:
 
     # 3. Valid ledger but no matching claim
     try:
-        result = capability_check({
-            "ledger": {"_claims": {}},
-            "detector_id": "nonexistent",
-            "capability": "test",
-        })
+        result = capability_check(
+            {
+                "ledger": {"_claims": {}},
+                "detector_id": "nonexistent",
+                "capability": "test",
+            }
+        )
         assert "success" in result
     except Exception:
         pass
@@ -140,11 +145,13 @@ def _fuzz_capability_check(text: str) -> None:
     except json.JSONDecodeError:
         ledger_data = {}
     try:
-        result = capability_check({
-            "ledger": ledger_data,
-            "detector_id": text[:20] or "x",
-            "capability": text[20:40] or "y",
-        })
+        result = capability_check(
+            {
+                "ledger": ledger_data,
+                "detector_id": text[:20] or "x",
+                "capability": text[20:40] or "y",
+            }
+        )
         assert "success" in result
     except Exception:
         pass
@@ -338,12 +345,14 @@ def _fuzz_fingerprint_and_contamination(text: str) -> None:
 
     # check_contamination — bad fingerprints
     try:
-        result = check_contamination({
-            "dataset1_path": "/no/file1",
-            "fingerprint1": "not-a-dict",
-            "dataset2_path": "/no/file2",
-            "fingerprint2": {"name": "x"},
-        })
+        result = check_contamination(
+            {
+                "dataset1_path": "/no/file1",
+                "fingerprint1": "not-a-dict",
+                "dataset2_path": "/no/file2",
+                "fingerprint2": {"name": "x"},
+            }
+        )
         assert "success" in result
     except Exception:
         pass

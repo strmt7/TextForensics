@@ -77,7 +77,11 @@ def _fuzz_threshold_artifact_parsing(text: str) -> None:
                 artifact = {
                     "schema": schema,
                 }
-                if threshold_val is not None and isinstance(threshold_val, str) and threshold_val not in ("nan", "inf"):
+                if (
+                    threshold_val is not None
+                    and isinstance(threshold_val, str)
+                    and threshold_val not in ("nan", "inf")
+                ):
                     try:
                         artifact["threshold"] = float(threshold_val)
                     except ValueError:
@@ -232,7 +236,10 @@ def _fuzz_no_contamination(text: str) -> None:
         p1 = tmpdir / "cal.jsonl"
         p2 = tmpdir / "test.jsonl"
         p1.write_text(jsonl_content + "\n", encoding="utf-8")
-        p2.write_text(jsonl_content + "\n" + json.dumps({"label": "ai", "text": "extra"}) + "\n", encoding="utf-8")
+        p2.write_text(
+            jsonl_content + "\n" + json.dumps({"label": "ai", "text": "extra"}) + "\n",
+            encoding="utf-8",
+        )
 
         try:
             result = validate_no_contamination(p1, p2)

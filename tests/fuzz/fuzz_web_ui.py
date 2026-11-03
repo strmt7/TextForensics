@@ -98,6 +98,7 @@ def _fuzz_websocket_messages(text: str) -> None:
     # 4. Validate via checked()
     try:
         from textforensics.config import Settings, validate_text_input
+
         settings = Settings.from_env()
         checked_text = validate_text_input(
             text_field,
@@ -105,6 +106,7 @@ def _fuzz_websocket_messages(text: str) -> None:
         )
         # 5. Run analysis
         from textforensics.engine import analyze_text
+
         result = analyze_text(checked_text)
         assert hasattr(result, "score")
     except ValueError:
@@ -148,6 +150,7 @@ def _fuzz_request_guard(text: str) -> None:
     # 3. Oversized Content-Length
     try:
         from textforensics.config import Settings
+
         settings = Settings.from_env()
         max_body = settings.max_input_bytes * 2 + 65_536
         for raw in (str(max_body + 1), str(10**12)):
@@ -200,6 +203,7 @@ def _fuzz_create_web_app(text: str) -> None:
     # Create app with various settings
     try:
         from textforensics.web_ui.main import create_web_app
+
         settings = Settings(
             host="127.0.0.1",
             port=9999,
