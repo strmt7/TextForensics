@@ -69,6 +69,31 @@ try:
 except ImportError:
     DetectorRegistryTest = None
 
+try:
+    from tests.fuzz.fuzz_calibration import TestOneInput as CalibrationTest
+except ImportError:
+    CalibrationTest = None
+
+try:
+    from tests.fuzz.fuzz_drift import TestOneInput as DriftTest
+except ImportError:
+    DriftTest = None
+
+try:
+    from tests.fuzz.fuzz_enterprise_policy import TestOneInput as EnterprisePolicyTest
+except ImportError:
+    EnterprisePolicyTest = None
+
+try:
+    from tests.fuzz.fuzz_web_ui import TestOneInput as WebUITest
+except ImportError:
+    WebUITest = None
+
+try:
+    from tests.fuzz.fuzz_mcp import TestOneInput as McpTest
+except ImportError:
+    McpTest = None
+
 # ---------------------------------------------------------------------------
 # Shared test inputs
 # ---------------------------------------------------------------------------
@@ -300,3 +325,128 @@ class TestDetectorRegistry:
         if DetectorRegistryTest is None:
             pytest.skip("fuzz_detector_registry module not available")
         DetectorRegistryTest(input_data)
+
+
+# ---------------------------------------------------------------------------
+# 11. Calibration
+# ---------------------------------------------------------------------------
+
+
+class TestCalibration:
+    """Fuzz tests for calibration artifact parsing, validation, and threshold selection."""
+
+    @pytest.mark.parametrize(
+        "input_data",
+        COMMON_INPUTS
+        + [
+            pytest.param(b'{"label": "human", "text": "test"}', id="calib_line"),
+            pytest.param(b'{"label": "ai", "text": "machine"}', id="ai_line"),
+            pytest.param(
+                b'{"threshold": 0.5, "schema": "textforensics.threshold-selection/v1"}',
+                id="artifact",
+            ),
+            pytest.param(b'{"schema": "wrong"}', id="wrong_schema"),
+        ],
+    )
+    def test_calibration(self, input_data: bytes) -> None:
+        if CalibrationTest is None:
+            pytest.skip("fuzz_calibration module not available")
+        CalibrationTest(input_data)
+
+
+# ---------------------------------------------------------------------------
+# 12. Drift Observatory
+# ---------------------------------------------------------------------------
+
+
+class TestDrift:
+    """Fuzz tests for DriftObservatory corpus loading, snapshot creation, and comparison."""
+
+    @pytest.mark.parametrize(
+        "input_data",
+        COMMON_INPUTS
+        + [
+            pytest.param(
+                b'{"schema": "textforensics.drift-corpus/v1", "samples": []}', id="empty_corpus"
+            ),
+            pytest.param(
+                b'{"schema": "textforensics.drift-snapshot/v1", "records": []}', id="empty_snapshot"
+            ),
+            pytest.param(b'{"schema": "textforensics.drift-report/v1"}', id="empty_report"),
+        ],
+    )
+    def test_drift(self, input_data: bytes) -> None:
+        if DriftTest is None:
+            pytest.skip("fuzz_drift module not available")
+        DriftTest(input_data)
+
+
+# ---------------------------------------------------------------------------
+# 13. Enterprise Policy
+# ---------------------------------------------------------------------------
+
+
+class TestEnterprisePolicy:
+    """Fuzz tests for enterprise policy parsing, validation, and revision floor."""
+
+    @pytest.mark.parametrize(
+        "input_data",
+        COMMON_INPUTS
+        + [
+            pytest.param(b'{"revision": 0, "settings": {}, "rules": []}', id="minimal_policy"),
+            pytest.param(b'{"revision": -1}', id="negative_revision"),
+            pytest.param(b'{"revision": 1, "digest": "0" * 64}', id="bad_digest_len"),
+        ],
+    )
+    def test_enterprise_policy(self, input_data: bytes) -> None:
+        if EnterprisePolicyTest is None:
+            pytest.skip("fuzz_enterprise_policy module not available")
+        EnterprisePolicyTest(input_data)
+
+
+# ---------------------------------------------------------------------------
+# 14. Web UI
+# ---------------------------------------------------------------------------
+
+
+class TestWebUI:
+    """Fuzz tests for WebSocket message handling and REST API inputs."""
+
+    @pytest.mark.parametrize(
+        "input_data",
+        COMMON_INPUTS
+        + [
+            pytest.param(b'{"type": "analyze", "text": "test"}', id="ws_analyze"),
+            pytest.param(b'{"text": "test"}', id="rest_analyze"),
+            pytest.param(b'{"before": "a", "after": "b"}', id="rest_compare"),
+        ],
+    )
+    def test_web_ui(self, input_data: bytes) -> None:
+        if WebUITest is None:
+            pytest.skip("fuzz_web_ui module not available")
+        WebUITest(input_data)
+
+
+# ---------------------------------------------------------------------------
+# 15. MCP
+# ---------------------------------------------------------------------------
+
+
+class TestMCP:
+    """Fuzz tests for MCP tool inputs and serialization."""
+
+    @pytest.mark.parametrize(
+        "input_data",
+        COMMON_INPUTS
+        + [
+            pytest.param(
+                b'{"detector_id": "x", "capability": "y", "tier": "readable"}', id="cap_register"
+            ),
+            pytest.param(b'{"case_file": {}}', id="verify_case"),
+            pytest.param(b'{"corpus": {}, "observations": []}', id="drift_snapshot"),
+        ],
+    )
+    def test_mcp(self, input_data: bytes) -> None:
+        if McpTest is None:
+            pytest.skip("fuzz_mcp module not available")
+        McpTest(input_data)

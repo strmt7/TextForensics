@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import time
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -122,7 +121,7 @@ class TestAnalysisTimer:
     def test_timer_records_on_exit(self) -> None:
         """Timer should record metrics on exit."""
         initialize_telemetry()
-        with AnalysisTimer(verdict="machine_like_patterns") as timer:
+        with AnalysisTimer(verdict="machine_like_patterns"):
             time.sleep(0.01)  # Small delay to ensure measurable latency
         # Should not raise
 
@@ -176,7 +175,9 @@ class TestEngineIntegration:
 
     def test_analyze_text_without_telemetry(self) -> None:
         """Engine should work without telemetry initialized."""
-        result = analyze_text("This is a test sentence with enough words to meet the minimum length requirement for analysis.")
+        result = analyze_text(
+            "This is a test sentence with enough words to meet the minimum length requirement for analysis."
+        )
         assert result.verdict in [
             "machine_like_patterns",
             "human_like_patterns",
@@ -187,7 +188,9 @@ class TestEngineIntegration:
     def test_analyze_text_with_telemetry(self) -> None:
         """Engine should work with telemetry initialized."""
         initialize_telemetry()
-        result = analyze_text("This is a test sentence with enough words to meet the minimum length requirement for analysis.")
+        result = analyze_text(
+            "This is a test sentence with enough words to meet the minimum length requirement for analysis."
+        )
         assert result.verdict in [
             "machine_like_patterns",
             "human_like_patterns",
@@ -199,7 +202,9 @@ class TestEngineIntegration:
         """Engine should record metrics when telemetry is enabled."""
         initialize_telemetry()
         # This should not raise and should record metrics internally
-        result = analyze_text("This is a test sentence with enough words to meet the minimum length requirement for analysis.")
+        result = analyze_text(
+            "This is a test sentence with enough words to meet the minimum length requirement for analysis."
+        )
         assert result is not None
 
 

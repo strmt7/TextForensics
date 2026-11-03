@@ -421,21 +421,23 @@ def run_all_detectors(text: str) -> list[dict[str, Any]]:
     """Run all discovered detectors on the given text and return their predictions as dicts."""
     registry = discover_detector_registry()
     detector_list = list(registry.detectors.values())
-    
+
     results = []
     for detector in detector_list:
         prediction, failure = execute_detector(detector, text)
         if prediction is not None:
             results.append(prediction.to_dict())
         elif failure is not None:
-            results.append({
-                "detector_id": failure.detector_id,
-                "detector_version": failure.detector_version,
-                "detector_family": failure.detector_family,
-                "error_type": failure.error_type,
-                "message": failure.message,
-                "runtime_ms": failure.runtime_ms,
-                "failed": True,
-            })
-    
+            results.append(
+                {
+                    "detector_id": failure.detector_id,
+                    "detector_version": failure.detector_version,
+                    "detector_family": failure.detector_family,
+                    "error_type": failure.error_type,
+                    "message": failure.message,
+                    "runtime_ms": failure.runtime_ms,
+                    "failed": True,
+                }
+            )
+
     return results

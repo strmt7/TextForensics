@@ -14,7 +14,6 @@ from pydantic import BaseModel
 
 from ..config import Settings, ensure_bind_allowed, validate_text_input
 from ..detectors import list_detector_health, list_detector_metadata
-from ..engine import analyze_text
 from ..report import build_forensic_bundle
 from ..version import get_version
 
@@ -32,7 +31,7 @@ class AnalyzeResponse(BaseModel):
 def create_web_app(settings: Settings | None = None) -> FastAPI:
     """Create the FastAPI web application with WebSocket support."""
     active_settings = settings or Settings.from_env()
-    
+
     app = FastAPI(
         title="TextForensics Web UI",
         version=get_version(),
@@ -56,6 +55,7 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
             )
         except ValueError as exc:
             from fastapi import HTTPException
+
             status = 413 if "exceeds" in str(exc) else 422
             raise HTTPException(
                 status_code=status,
@@ -73,6 +73,7 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
     async def request_guard_and_security_headers(request: Request, call_next):
         # Emergency stop gate
         from ..emergency_stop import check_emergency_stop
+
         if check_emergency_stop():
             return secure_response(
                 JSONResponse(
@@ -153,6 +154,7 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
     def analyze(req: TextRequest):
         """Batch analysis endpoint - returns full forensic bundle."""
         from ..emergency_stop import assert_not_stopped
+
         assert_not_stopped()
         try:
             bundle = build_forensic_bundle(checked(req.text))
@@ -169,66 +171,56 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                 # Receive message from client
                 data = await websocket.receive_text()
                 message = json.loads(data)
-                
+
                 if message.get("type") == "analyze":
                     text = message.get("text", "")
                     if not text:
-                        await websocket.send_json({
-                            "type": "error",
-                            "message": "Empty text provided"
-                        })
+                        await websocket.send_json(
+                            {"type": "error", "message": "Empty text provided"}
+                        )
                         continue
-                    
+
                     # Validate input
                     try:
                         validated_text = checked(text)
                     except ValueError as e:
-                        await websocket.send_json({
-                            "type": "error",
-                            "message": str(e)
-                        })
+                        await websocket.send_json({"type": "error", "message": str(e)})
                         continue
-                    
+
                     # Send analysis started
-                    await websocket.send_json({
-                        "type": "started",
-                        "message": "Analysis started"
-                    })
-                    
+                    await websocket.send_json({"type": "started", "message": "Analysis started"})
+
                     # Run analysis in thread pool to avoid blocking
                     loop = asyncio.get_event_loop()
-                    
+
                     # Stream detector results one by one
                     from ..detectors import run_all_detectors
+
                     detector_results = await loop.run_in_executor(
                         None, run_all_detectors, validated_text
                     )
-                    
+
                     for i, result in enumerate(detector_results):
-                        await websocket.send_json({
-                            "type": "detector_result",
-                            "index": i,
-                            "total": len(detector_results),
-                            "data": result
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "detector_result",
+                                "index": i,
+                                "total": len(detector_results),
+                                "data": result,
+                            }
+                        )
                         # Small delay to simulate streaming
                         await asyncio.sleep(0.05)
-                    
+
                     # Build and send final bundle
                     bundle = build_forensic_bundle(validated_text)
-                    await websocket.send_json({
-                        "type": "complete",
-                        "data": bundle.to_dict()
-                    })
-                    
+                    await websocket.send_json({"type": "complete", "data": bundle.to_dict()})
+
         except WebSocketDisconnect:
             pass
         except Exception as e:
             with suppress(Exception):
-                await websocket.send_json({
-                    "type": "error",
-                    "message": str(e)
-                })
+                await websocket.send_json({"type": "error", "message": str(e)})
 
     return app
 
@@ -237,6 +229,7 @@ app = None
 # Lets `uvicorn textforensics.web_ui.main:app` work when extras are installed.
 with suppress(RuntimeError, ValueError):
     from ..config import Settings
+
     app = create_web_app()
 
 

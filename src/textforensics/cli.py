@@ -426,7 +426,9 @@ def build_parser() -> argparse.ArgumentParser:
     web.add_argument("--no-browser", action="store_true")
     web.add_argument("--allow-remote", action="store_true")
 
-    web_fastapi = sub.add_parser("web-fastapi", help="Run the FastAPI WebSocket UI with real-time analysis.")
+    web_fastapi = sub.add_parser(
+        "web-fastapi", help="Run the FastAPI WebSocket UI with real-time analysis."
+    )
     web_fastapi.add_argument("--host")
     web_fastapi.add_argument("--port", type=int)
     web_fastapi.add_argument("--allow-remote", action="store_true")
@@ -1068,6 +1070,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
 
     elif args.command == "web-fastapi":
         from .web_ui.main import serve_web
+
         active = _settings_with_overrides(
             settings,
             host=args.host,

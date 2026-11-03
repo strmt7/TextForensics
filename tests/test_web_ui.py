@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -15,20 +15,16 @@ if str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
 
 try:
-    import httpx
-    HAS_HTTPX = True
-except ImportError:
-    HAS_HTTPX = False
-
-try:
     from fastapi.testclient import TestClient
+
     HAS_FASTAPI = True
 except ImportError:
     HAS_FASTAPI = False
 
 try:
     from textforensics.config import Settings
-    from textforensics.web_ui.main import create_web_app, AnalyzeResponse
+    from textforensics.web_ui.main import AnalyzeResponse
+
     HAS_WEB_UI = True
 except ImportError as e:
     print(f"WEB_UI import error: {e}")
@@ -63,6 +59,7 @@ def client(test_app):
 
 
 # ── Page rendering ──────────────────────────────────────────────────
+
 
 @pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
 class TestPageRendering:
@@ -102,6 +99,7 @@ class TestPageRendering:
 
 # ── Health / Version endpoints ──────────────────────────────────────
 
+
 @pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
 class TestHealthEndpoints:
     def test_healthz(self, client):
@@ -133,10 +131,14 @@ class TestHealthEndpoints:
 
 # ── REST /api/analyze ──────────────────────────────────────────────
 
+
 @pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
 class TestRESTAnalyze:
     def test_analyze_basic(self, client):
-        text = "This is a sample paragraph with multiple sentences. It provides enough content for the built-in detectors to produce meaningful analysis results that can be evaluated." * 3
+        text = (
+            "This is a sample paragraph with multiple sentences. It provides enough content for the built-in detectors to produce meaningful analysis results that can be evaluated."
+            * 3
+        )
         resp = client.post("/api/analyze", json={"text": text})
         assert resp.status_code == 200
         data = resp.json()
@@ -165,16 +167,22 @@ class TestRESTAnalyze:
         assert resp.status_code == 422
 
     def test_analyze_content_length_required(self, client):
-        resp = client.post("/api/analyze", content=b'{}', headers={"Content-Type": "application/json"})
+        resp = client.post(
+            "/api/analyze", content=b"{}", headers={"Content-Type": "application/json"}
+        )
         assert resp.status_code in (411, 422)
 
 
 # ── WebSocket endpoint ──────────────────────────────────────────────
 
+
 @pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
 class TestWebSocketEndpoint:
     def test_websocket_analyze(self, client):
-        text = "This is a sample paragraph for testing WebSocket analysis. It provides enough content for the detectors to analyze and produce meaningful forensic results that demonstrate the streaming capability." * 3
+        text = (
+            "This is a sample paragraph for testing WebSocket analysis. It provides enough content for the detectors to analyze and produce meaningful forensic results that demonstrate the streaming capability."
+            * 3
+        )
         with client.websocket_connect("/ws/analyze") as ws:
             ws.send_json({"type": "analyze", "text": text})
 
@@ -201,6 +209,7 @@ class TestWebSocketEndpoint:
 
 # ── AnalyzeResponse model ──────────────────────────────────────────
 
+
 @pytest.mark.skipif(not HAS_WEB_UI, reason="web_ui module not available")
 class TestAnalyzeResponseModel:
     def test_success_response(self):
@@ -216,18 +225,27 @@ class TestAnalyzeResponseModel:
 
 # ── Integration: run_all_detectors ─────────────────────────────────
 
+
 @pytest.mark.skipif(not HAS_WEB_UI, reason="web_ui module not available")
 class TestRunAllDetectors:
     def test_returns_list(self):
         from textforensics.detectors import run_all_detectors
-        text = "This is a test paragraph with enough words for analysis. It should trigger the built-in heuristics and produce results from all available detectors." * 3
+
+        text = (
+            "This is a test paragraph with enough words for analysis. It should trigger the built-in heuristics and produce results from all available detectors."
+            * 3
+        )
         results = run_all_detectors(text)
         assert isinstance(results, list)
         assert len(results) >= 1
 
     def test_results_have_detector_id(self):
         from textforensics.detectors import run_all_detectors
-        text = "This is a test paragraph with enough words for analysis. It should trigger the built-in heuristics and produce results from all available detectors." * 3
+
+        text = (
+            "This is a test paragraph with enough words for analysis. It should trigger the built-in heuristics and produce results from all available detectors."
+            * 3
+        )
         results = run_all_detectors(text)
         for result in results:
             assert "detector_id" in result
@@ -235,38 +253,45 @@ class TestRunAllDetectors:
 
 # ── App factory ─────────────────────────────────────────────────────
 
+
 @pytest.mark.skipif(not HAS_WEB_UI, reason="web_ui module not available")
 class TestAppFactory:
     def test_create_app_returns_fastapi_app(self, settings):
         from textforensics.web_ui.main import create_web_app
+
         app = create_web_app(settings)
         from fastapi import FastAPI
+
         assert isinstance(app, FastAPI)
 
     def test_create_app_with_no_settings(self):
         from textforensics.web_ui.main import create_web_app
+
         app = create_web_app()
         from fastapi import FastAPI
+
         assert isinstance(app, FastAPI)
 
 
 # ── Module-level app ───────────────────────────────────────────────
 
+
 @pytest.mark.skipif(not HAS_WEB_UI, reason="web_ui module not available")
 class TestModuleLevelApp:
     def test_app_attribute(self):
-        from textforensics.web_ui import main
         # app should be either a FastAPI instance or None (if dependencies not met)
-        assert main.app is not None or True  # lenient: may be None if deps missing
+        assert True  # lenient: may be None if deps missing
 
 
 # ── serve_web function ─────────────────────────────────────────────
+
 
 @pytest.mark.skipif(not HAS_WEB_UI, reason="web_ui module not available")
 class TestServeWeb:
     @patch("uvicorn.run")
     def test_serve_web_calls_uvicorn(self, mock_run):
         from textforensics.web_ui.main import serve_web
+
         serve_web(host="127.0.0.1", port=9999)
         mock_run.assert_called_once()
         call_kwargs = mock_run.call_args[1]
@@ -275,6 +300,7 @@ class TestServeWeb:
 
 
 # ── Middleware / Emergency stop ─────────────────────────────────────
+
 
 @pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
 class TestEmergencyStop:
@@ -287,6 +313,7 @@ class TestEmergencyStop:
 
 # ── Input validation ───────────────────────────────────────────────
 
+
 @pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
 class TestInputValidation:
     def test_rejects_oversized_body(self, client, settings):
@@ -295,7 +322,10 @@ class TestInputValidation:
         resp = client.post(
             "/api/analyze",
             content=huge_body.encode(),
-            headers={"Content-Type": "application/json", "Content-Length": str(len(huge_body.encode()))},
+            headers={
+                "Content-Type": "application/json",
+                "Content-Length": str(len(huge_body.encode())),
+            },
         )
         # Either 413 (too large) or it gets through and validation fails
         assert resp.status_code in (413, 422)
@@ -314,6 +344,7 @@ class TestInputValidation:
 
 # ── Package structure ──────────────────────────────────────────────
 
+
 class TestPackageStructure:
     def test_web_ui_dir_exists(self):
         web_ui_dir = Path(__file__).parent.parent / "src" / "textforensics" / "web_ui"
@@ -324,11 +355,25 @@ class TestPackageStructure:
         assert main_file.is_file()
 
     def test_template_exists(self):
-        template = Path(__file__).parent.parent / "src" / "textforensics" / "web_ui" / "templates" / "index.html"
+        template = (
+            Path(__file__).parent.parent
+            / "src"
+            / "textforensics"
+            / "web_ui"
+            / "templates"
+            / "index.html"
+        )
         assert template.is_file()
 
     def test_static_css_exists(self):
-        css = Path(__file__).parent.parent / "src" / "textforensics" / "web_ui" / "static" / "style.css"
+        css = (
+            Path(__file__).parent.parent
+            / "src"
+            / "textforensics"
+            / "web_ui"
+            / "static"
+            / "style.css"
+        )
         assert css.is_file()
 
     def test_static_js_exists(self):
@@ -336,7 +381,14 @@ class TestPackageStructure:
         assert js.is_file()
 
     def test_index_html_has_required_sections(self):
-        template = Path(__file__).parent.parent / "src" / "textforensics" / "web_ui" / "templates" / "index.html"
+        template = (
+            Path(__file__).parent.parent
+            / "src"
+            / "textforensics"
+            / "web_ui"
+            / "templates"
+            / "index.html"
+        )
         content = template.read_text()
         assert "textInput" in content
         assert "analyzeBtn" in content

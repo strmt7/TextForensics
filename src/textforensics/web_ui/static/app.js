@@ -53,11 +53,11 @@ document.addEventListener('DOMContentLoaded', () => {
 // Event Listeners
 function setupEventListeners() {
     elements.textInput.addEventListener('input', updateInputStats);
-    
+
     elements.analyzeBtn.addEventListener('click', handleAnalyze);
-    
+
     elements.clearBtn.addEventListener('click', handleClear);
-    
+
     elements.streamToggle.addEventListener('change', (e) => {
         state.isStreaming = e.target.checked;
     });
@@ -68,7 +68,7 @@ function updateInputStats() {
     const text = elements.textInput.value;
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
     const chars = text.length;
-    
+
     elements.wordCount.textContent = `${words} word${words !== 1 ? 's' : ''}`;
     elements.charCount.textContent = `${chars} character${chars !== 1 ? 's' : ''}`;
 }
@@ -91,16 +91,16 @@ async function handleAnalyze() {
         alert('Please enter some text to analyze.');
         return;
     }
-    
+
     setAnalyzing(true);
     clearResults();
-    
+
     if (state.isStreaming) {
         await analyzeWithWebSocket(text);
     } else {
         await analyzeWithREST(text);
     }
-    
+
     setAnalyzing(false);
 }
 
@@ -122,44 +122,44 @@ async function analyzeWithWebSocket(text) {
     return new Promise((resolve, reject) => {
         const ws = new WebSocket(`ws://${window.location.host}/ws/analyze`);
         state.ws = ws;
-        
+
         const detectorResults = [];
         let startTime = Date.now();
-        
+
         ws.onopen = () => {
             ws.send(JSON.stringify({ type: 'analyze', text }));
         };
-        
+
         ws.onmessage = (event) => {
             const message = JSON.parse(event.data);
-            
+
             switch (message.type) {
                 case 'started':
                     break;
-                    
+
                 case 'detector_result':
                     detectorResults.push(message.data);
                     updateStreamingDetectorList(detectorResults);
                     break;
-                    
+
                 case 'complete':
                     const elapsed = Date.now() - startTime;
                     handleCompleteAnalysis(message.data, elapsed);
                     ws.close();
                     resolve();
                     break;
-                    
+
                 case 'error':
                     ws.close();
                     reject(new Error(message.message));
                     break;
             }
         };
-        
+
         ws.onerror = (error) => {
             reject(new Error('WebSocket connection failed'));
         };
-        
+
         ws.onclose = () => {
             state.ws = null;
         };
@@ -169,21 +169,21 @@ async function analyzeWithWebSocket(text) {
 // Handle REST API analysis
 async function analyzeWithREST(text) {
     const startTime = Date.now();
-    
+
     try {
         const response = await fetch('/api/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text })
         });
-        
+
         const result = await response.json();
         const elapsed = Date.now() - startTime;
-        
+
         if (!result.success) {
             throw new Error(result.error || 'Analysis failed');
         }
-        
+
         handleCompleteAnalysis(result.data, elapsed);
     } catch (error) {
         alert(`Analysis failed: ${error.message}`);
@@ -200,13 +200,13 @@ function updateStreamingDetectorList(results) {
 // Handle complete analysis result
 function handleCompleteAnalysis(data, elapsedMs) {
     state.currentAnalysis = data;
-    
+
     // Show results panel
     elements.resultsPanel.classList.remove('hidden');
-    
+
     // Update metrics
     updateMetrics(data, elapsedMs);
-    
+
     // Render visualizations
     renderGaugeChart(data);
     renderDetectorChart(data.consensus);
@@ -215,10 +215,10 @@ function handleCompleteAnalysis(data, elapsedMs) {
     renderVerdictDisplay(data);
     renderWarnings(data);
     renderRawData(data);
-    
+
     // Add to history
     addToHistory(data);
-    
+
     // Scroll to results
     elements.resultsPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -227,26 +227,26 @@ function handleCompleteAnalysis(data, elapsedMs) {
 function updateMetrics(data, elapsedMs) {
     const consensus = data.consensus;
     const trustMap = data.trust_map;
-    
+
     // Consensus verdict
     elements.consensusVerdict.textContent = formatVerdict(consensus.verdict);
     elements.consensusVerdict.className = `metric-value verdict-${consensus.verdict}`;
-    
+
     if (consensus.ai_probability !== null && consensus.ai_probability !== undefined) {
         elements.consensusConfidence.textContent = `AI Probability: ${(consensus.ai_probability * 100).toFixed(1)}%`;
     } else {
         elements.consensusConfidence.textContent = `Families agreeing: ${consensus.independent_families || 0}`;
     }
-    
+
     // Trust coverage
     elements.trustCoverage.textContent = formatTrustState(trustMap.overall);
     elements.trustCoverage.className = `metric-value trust-${trustMap.overall}`;
     elements.trustDetails.textContent = `${trustMap.dimensions?.filter(d => d.state === 'supported').length || 0} of ${trustMap.dimensions?.length || 0} dimensions supported`;
-    
+
     // Family count
     elements.familyCount.textContent = consensus.independent_families || 0;
     elements.familyDetails.textContent = `${data.detector_results?.length || 0} detectors total`;
-    
+
     // Analysis time
     elements.analysisTime.textContent = `${elapsedMs}ms`;
 }
@@ -280,7 +280,7 @@ function formatTrustState(state) {
 // Gauge Chart
 function renderGaugeChart(data) {
     const ctx = elements.gaugeChart.getContext('2d');
-    
+
     // Determine AI probability
     let aiProb = 0;
     if (data.consensus.ai_probability !== null && data.consensus.ai_probability !== undefined) {
@@ -292,12 +292,12 @@ function renderGaugeChart(data) {
     } else {
         aiProb = 50;
     }
-    
+
     // Destroy existing chart
     if (state.charts.gauge) {
         state.charts.gauge.destroy();
     }
-    
+
     state.charts.gauge = new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -322,29 +322,29 @@ function renderGaugeChart(data) {
             }
         }
     });
-    
+
     // Add center text
     const originalDraw = state.charts.gauge.draw;
     state.charts.gauge.draw = function(...args) {
         originalDraw.apply(this, args);
-        
+
         const ctx = this.ctx;
         const centerX = this.chartArea.left + this.chartArea.width / 2;
         const centerY = this.chartArea.top + this.chartArea.height / 2 + 20;
-        
+
         ctx.save();
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.font = 'bold 36px system-ui';
         ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#f4f7fa';
         ctx.fillText(`${aiProb.toFixed(0)}%`, centerX, centerY);
-        
+
         ctx.font = '12px system-ui';
         ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#9aa4af';
         ctx.fillText('AI Probability', centerX, centerY + 30);
         ctx.restore();
     };
-    
+
     state.charts.gauge.update();
 }
 
@@ -357,17 +357,17 @@ function getGaugeColor(prob) {
 // Detector Breakdown Chart
 function renderDetectorChart(consensus) {
     const ctx = elements.detectorChart.getContext('2d');
-    
+
     // Prepare data from family votes
     const families = consensus.family_votes || [];
     const labels = families.map(f => f.detector_family.replace(/-/g, ' '));
     const scores = families.map(f => f.calibrated_ai_probability !== null ? f.calibrated_ai_probability * 100 : 50);
     const colors = scores.map(s => getGaugeColor(s));
-    
+
     if (state.charts.detector) {
         state.charts.detector.destroy();
     }
-    
+
     state.charts.detector = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -411,21 +411,21 @@ function renderDetectorChart(consensus) {
 // Detector List
 function renderDetectorList(results) {
     const container = elements.detectorList;
-    
+
     if (!results || results.length === 0) {
         container.innerHTML = '<div class="detector-empty">No detector results</div>';
         return;
     }
-    
+
     container.innerHTML = results.map((result, index) => {
         const isFailed = result.failed === true;
         const score = isFailed ? null : result.score;
         const verdict = isFailed ? 'error' : (result.verdict || 'unknown');
         const calibrated = result.calibrated_ai_probability;
-        
+
         let displayScore = '—';
         let scorePercent = 0;
-        
+
         if (calibrated !== null && calibrated !== undefined) {
             displayScore = `${(calibrated * 100).toFixed(1)}%`;
             scorePercent = calibrated * 100;
@@ -435,7 +435,7 @@ function renderDetectorList(results) {
             displayScore = `${(normalized * 100).toFixed(1)}%`;
             scorePercent = normalized * 100;
         }
-        
+
         return `
             <div class="detector-item">
                 <div class="detector-info">
@@ -459,12 +459,12 @@ function renderDetectorList(results) {
 // Trust Map Visualization
 function renderTrustMap(trustMap) {
     const container = elements.trustMap;
-    
+
     if (!trustMap || !trustMap.dimensions) {
         container.innerHTML = '<div class="trust-empty">Trust map data unavailable</div>';
         return;
     }
-    
+
     container.innerHTML = trustMap.dimensions.map(dim => `
         <div class="trust-dimension">
             <div class="dimension-header">
@@ -481,9 +481,9 @@ function renderVerdictDisplay(data) {
     const container = elements.verdictDisplay;
     const consensus = data.consensus;
     const input = data.input;
-    
+
     const verdictClass = `verdict-${consensus.verdict}`;
-    
+
     container.innerHTML = `
         <div class="verdict-card">
             <h4>Consensus Summary</h4>
@@ -549,20 +549,20 @@ function renderVerdictDisplay(data) {
 // Warnings
 function renderWarnings(data) {
     const container = elements.warningsList;
-    
+
     const warnings = [
         ...(data.consensus.warnings || []),
         ...(data.detector_results || []).flatMap(d => d.warnings || []),
         ...(data.limitations || [])
     ];
-    
+
     const uniqueWarnings = [...new Set(warnings)];
-    
+
     if (uniqueWarnings.length === 0) {
         container.innerHTML = '<div style="color: var(--success);">No warnings or limitations.</div>';
         return;
     }
-    
+
     container.innerHTML = uniqueWarnings.map(w => `
         <div class="warning-item">
             <span class="warning-icon">⚠</span>
@@ -588,25 +588,25 @@ function addToHistory(data) {
         wordCount: data.input.word_count,
         data: data
     };
-    
+
     state.history.unshift(historyItem);
-    
+
     // Keep only last 20 items
     if (state.history.length > 20) {
         state.history = state.history.slice(0, 20);
     }
-    
+
     renderHistory();
 }
 
 function renderHistory() {
     const container = elements.historyList;
-    
+
     if (state.history.length === 0) {
         container.innerHTML = '<div class="history-empty">No analyses yet. Analyze some text to see history.</div>';
         return;
     }
-    
+
     container.innerHTML = state.history.map((item, index) => `
         <div class="history-item ${index === 0 ? 'active' : ''}" data-index="${index}">
             <div class="history-preview">
@@ -618,12 +618,12 @@ function renderHistory() {
             </div>
             <div class="history-verdict">
                 <span class="verdict-badge ${item.verdict}">${formatVerdict(item.verdict)}</span>
-                ${item.aiProbability !== null && item.aiProbability !== undefined ? 
+                ${item.aiProbability !== null && item.aiProbability !== undefined ?
                     `<span style="font-size: 12px; color: var(--muted);">${(item.aiProbability * 100).toFixed(0)}%</span>` : ''}
             </div>
         </div>
     `).join('');
-    
+
     // Add click handlers
     container.querySelectorAll('.history-item').forEach(el => {
         el.addEventListener('click', () => {
@@ -636,14 +636,14 @@ function renderHistory() {
 function loadHistoryItem(index) {
     const item = state.history[index];
     if (!item) return;
-    
+
     // Update input
     elements.textInput.value = item.text;
     updateInputStats();
-    
+
     // Show results
     handleCompleteAnalysis(item.data, 0);
-    
+
     // Update active state
     elements.historyList.querySelectorAll('.history-item').forEach((el, i) => {
         el.classList.toggle('active', i === index);
@@ -655,7 +655,7 @@ function handleClear() {
     elements.textInput.value = '';
     updateInputStats();
     clearResults();
-    
+
     if (state.ws) {
         state.ws.close();
         state.ws = null;
