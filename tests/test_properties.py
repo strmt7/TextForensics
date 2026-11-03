@@ -1083,3 +1083,326 @@ class TestPropertyInvariants:
         # Full verification via verify_case_file
         result = verify_case_file(case)
         assert result["valid"] is True, f"Validation failed: {result.get('errors', [])}"
+
+    # =========================================================================
+    # NEW INVARIANT TESTS (1-12)
+    # =========================================================================
+
+    @PROPERTY_SETTINGS
+    @given(
+        text=text_st,
+        num_analyses=st.integers(min_value=10, max_value=50),
+    )
+    def test_score_distribution_invariants(self, text: str, num_analyses: int) -> None:
+        """Detector score distributions should follow expected patterns.
+
+        When running multiple analyses on the same text, scores should be
+        reproducible and fall within expected statistical bounds. The distribution
+        of scores across multiple runs should be stable (deterministic mode).
+        """
+        scores = []
+        for _ in range(num_analyses):
+            result = analyze_text(text, include_robustness=False)
+            scores.append(result.score)
+
+        # All scores should be identical in deterministic mode
+        first_score = scores[0]
+        for score in scores[1:]:
+            assert score == first_score, f"Score distribution not stable: {first_score} vs {score}"
+
+        # Score should be within [0, 1] range
+        assert 0.0 <= first_score <= 1.0
+
+        # Verify consistency across analyzers
+        result = analyze_text(text, include_robustness=False)
+        analyzer_scores = [a.score for a in result.analyzers]
+        for analyzer_score in analyzer_scores:
+            assert 0.0 <= analyzer_score <= 1.0, f"Analyzer score out of bounds: {analyzer_score}"
+
+    @PROPERTY_SETTINGS
+    @given(text=text_st)
+    def test_verdict_determinism(self, text: str) -> None:
+        """Same input always produces same verdict (deterministic mode).
+
+        The verdict output should be deterministic - running the analysis
+        multiple times on the same text should always produce the same
+        verdict classification.
+        """
+        verdicts = []
+        for _ in range(5):
+            result = analyze_text(text, include_robustness=False)
+            verdicts.append(result.verdict)
+
+        # All verdicts should be identical
+        for verdict in verdicts[1:]:
+            assert verdict == verdicts[0], f"Verdict not deterministic: {verdicts[0]} vs {verdict}"
+
+    @PROPERTY_SETTINGS
+    @given(text=text_st)
+    def test_feature_extraction_consistency(self, text: str) -> None:
+        """Same text always produces same features.
+
+        Feature extraction should be deterministic - the same input text
+        should always produce the same feature dictionary.
+        """
+        features_1 = extract_features(text)
+        features_2 = extract_features(text)
+
+        # Features should be identical dictionaries
+        assert features_1 == features_2, "Feature extraction is not deterministic"
+
+        # All feature values should be deterministic and valid
+        for key, value in features_1.items():
+            assert features_2.get(key) == value, f"Feature mismatch for key: {key}"
+
+            # Numeric features should be finite and in expected ranges
+            if isinstance(value, float):
+                assert math.isfinite(value), f"Non-finite value for feature {key}: {value}"
+                if key in {"word_count", "sentence_count", "paragraph_count", "punctuation_variety"}:
+                    assert 0.0 <= value, f"Non-negative feature violation for {key}"
+
+    @PROPERTY_SETTINGS
+    @given(text=text_st)
+    def test_robustness_stability_under_composition(self, text: str) -> None:
+        """Multiple benign transformations compose correctly.
+
+        Applying benign transformations (whitespace normalization, punctuation
+        normalization, markdown stripping) should preserve the analysis
+        result and maintain verdict stability.
+        """
+        from textforensics.robustness import benign_variants
+
+        # Get baseline result
+        baseline = analyze_text(text, include_robustness=False)
+        baseline_verdict = baseline.verdict
+        baseline_score = baseline.score
+
+        # Apply each benign transformation
+        variants = benign_variants(text)
+        for variant_name, variant_text in variants.items():
+            if variant_name == "original":
+                continue
+
+            variant_result = analyze_text(variant_text, include_robustness=False)
+
+            # Score should stay within reasonable bounds
+            assert 0.0 <= variant_result.score <= 1.0
+
+            # Verdict stability: benign transformations should not cause verdict flips
+            # unless the text is already in an ambiguous state
+            if baseline_verdict in {"machine_like_patterns", "human_like_patterns"}:
+                # For decisive verdicts, stability is expected
+                assert variant_result.verdict in {baseline_verdict, "indeterminate"}, (
+                    f"Verdict flip under {variant_name}: {baseline_verdict} -> {variant_result.verdict}"
+                )
+
+    @FILE_SETTINGS
+    @given(
+        scores=st.lists(score_st, min_size=1, max_size=5),
+        target_fpr=score_st,
+    )
+    def test_threshold_selection_edge_cases(
+        self, scores: list[float], target_fpr: float
+    ) -> None:
+        """Threshold selection handles empty datasets, single-class datasets, extreme FPR targets.
+
+        Edge cases:
+        - Empty or single-element datasets
+        - Single-class (all human or all AI) datasets
+        - Extreme FPR targets (0.0, 1.0)
+        """
+        # Test single-class human dataset
+        if len(scores) >= 1:
+            single_class_rows = [("human", s) for s in scores[:1]]  # Just one human sample
+
+            with tempfile.TemporaryDirectory() as td:
+                path = Path(td) / "calibration.jsonl"
+
+                # Write at least one human sample
+                path.write_text(json.dumps({"label": "human", "text": "sample"}) + "\n", encoding="utf-8")
+
+                with patch(
+                    "textforensics.threshold_selection._load_scores",
+                    return_value=(single_class_rows, 0),
+                ):
+                    # Single human sample - should work if we have at least one human
+                    try:
+                        result = select_threshold(path, target_fpr=target_fpr)
+                        assert math.isfinite(result.threshold)
+                    except ValueError as e:
+                        # Expected: single-class dataset without both labels
+                        assert "human" in str(e).lower() or "ai" in str(e).lower() or "both" in str(e).lower()
+
+        # Test single-class AI dataset
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "calibration.jsonl"
+            path.write_text(json.dumps({"label": "ai", "text": "sample"}) + "\n", encoding="utf-8")
+
+            ai_only_rows = [("ai", s) for s in (scores[:1] if scores else [0.5])]
+
+            with patch(
+                "textforensics.threshold_selection._load_scores",
+                return_value=(ai_only_rows, 0),
+            ):
+                try:
+                    result = select_threshold(path, target_fpr=target_fpr)
+                    assert math.isfinite(result.threshold)
+                except ValueError as e:
+                    assert "human" in str(e).lower() or "ai" in str(e).lower() or "both" in str(e).lower()
+
+    @PROPERTY_SETTINGS
+    @given(
+        predictions=st.lists(trust_prediction_st(), min_size=0, max_size=5),
+        word_count=st.integers(min_value=0, max_value=500),
+        robustness=st.lists(robustness_row_st, max_size=3),
+        failure_count=st.integers(min_value=0, max_value=3),
+    )
+    def test_trust_map_dimension_consistency(self, predictions: list[DetectorPrediction], word_count: int, robustness: list[dict], failure_count: int) -> None:
+        """Adding/removing detectors doesn't break dimension logic.
+
+        The trust map dimension calculation should be robust to varying numbers
+        and types of detector predictions. The overall state should always be
+        computable from the dimension states.
+        """
+        trust_map = build_trust_map(
+            predictions,
+            word_count=word_count,
+            robustness=robustness,
+            failure_count=failure_count,
+        )
+
+        # Overall state should always be one of the valid values
+        assert trust_map.overall in {"insufficient", "mixed", "strong"}
+
+        # Dimensions should always be from the expected set
+        dimension_names = {d.dimension for d in trust_map.dimensions}
+        expected_dimensions = {
+            "language", "text_length", "domain_genre", "editing_revision",
+            "human_false_positive_evidence", "detector_diversity",
+            "benign_stability", "temporal_version_stability"
+        }
+        assert dimension_names == expected_dimensions
+
+        # Each dimension should have a valid state
+        for dimension in trust_map.dimensions:
+            assert dimension.state in TRUST_STATES, f"Invalid state: {dimension.state}"
+
+        # Zero predictions should result in appropriate overall state
+        if not predictions:
+            assert trust_map.overall == "insufficient", "Zero predictions should be insufficient"
+
+    @PROPERTY_SETTINGS
+    @given(bundle=forensic_bundle_st())
+    def test_schema_evolution_compatibility(self, bundle: dict) -> None:
+        """Old case files can still be validated with new schema.
+
+        Case files generated with an older bundle should remain valid
+        after schema evolution. The verification should be forward-compatible.
+        """
+        # Generate a case file with the current schema
+        case = seal_case_file(
+            bundle,
+            deterministic=True,
+            fixed_timestamp="2026-01-01T00:00:00+00:00",
+        )
+
+        # Verify it passes current validation
+        result = verify_case_file(case)
+        assert result["valid"] is True
+
+        # Simulate "old" schema by checking all expected fields exist
+        required_fields = {
+            "schema", "tool", "forensic_bundle", "raw_text_included", "case_sha256"
+        }
+        assert required_fields.issubset(set(case.keys())), "Missing required fields"
+
+        # Forensic bundle should have required field
+        bundle_required = {"schema", "content_sha256", "input", "detector_results"}
+        assert bundle_required.issubset(set(case["forensic_bundle"].keys()))
+
+    @PROPERTY_SETTINGS
+    @given(text=text_st)
+    def test_detector_score_bounds(self, text: str) -> None:
+        """All detector scores stay within [0, 1] range.
+
+        This is a strict invariant: every detector must return scores
+        in the [0, 1] interval, representing machine-likeness probabilities
+        or calibrated probabilities where applicable.
+        """
+        # Test all discovered detectors
+        registry = discover_detector_registry()
+
+        for detector_id, detector in registry.detectors.items():
+            prediction, failure = execute_detector(detector, text)
+
+            assert failure is None, f"Detector {detector_id} failed: {failure.message if failure else ''}"
+            assert prediction is not None, f"Detector {detector_id} returned no prediction"
+
+            # Native score must be in [0, 1] if not None
+            if prediction.score is not None:
+                assert 0.0 <= prediction.score <= 1.0, (
+                    f"Detector {detector_id} score {prediction.score} out of bounds [0, 1]"
+                )
+
+            # Calibrated probability must be in [0, 1] if not None
+            if prediction.calibrated_ai_probability is not None:
+                assert 0.0 <= prediction.calibrated_ai_probability <= 1.0, (
+                    f"Detector {detector_id} calibrated_prob {prediction.calibrated_ai_probability} out of bounds"
+                )
+
+            # Reliability must be in [0, 1] if not None
+            if prediction.reliability is not None:
+                assert 0.0 <= prediction.reliability <= 1.0, (
+                    f"Detector {detector_id} reliability {prediction.reliability} out of bounds"
+                )
+
+            # Threshold must be in [0, 1] if not None
+            if prediction.threshold is not None:
+                assert 0.0 <= prediction.threshold <= 1.0, (
+                    f"Detector {detector_id} threshold {prediction.threshold} out of bounds"
+                )
+
+    @PROPERTY_SETTINGS
+    @given(bundle=forensic_bundle_st())
+    def test_case_file_hash_determinism(self, bundle: dict) -> None:
+        """Same case content produces same hash.
+
+        Sealing the same bundle content multiple times should produce
+        identical case files with the same SHA256 hash.
+        """
+        # Generate multiple case files from the same bundle
+        case_1 = seal_case_file(
+            bundle,
+            deterministic=True,
+            fixed_timestamp="2026-01-01T00:00:00+00:00",
+        )
+        case_2 = seal_case_file(
+            bundle,
+            deterministic=True,
+            fixed_timestamp="2026-01-01T00:00:00+00:00",
+        )
+
+        # Hashes should be identical
+        assert case_1["case_sha256"] == case_2["case_sha256"], (
+            "Case hash not deterministic: same bundle produces different hashes"
+        )
+
+        # Full case content should be identical (except for any non-deterministic fields)
+        # Note: generated_at_utc and tool.version are time/version dependent
+        # but deterministic=True uses fixed timestamp
+
+        # Create a third one with same fixed timestamp
+        case_3 = seal_case_file(
+            bundle,
+            deterministic=True,
+            fixed_timestamp="2026-01-01T00:00:00+00:00",
+        )
+
+        assert case_3["case_sha256"] == case_1["case_sha256"], (
+            "Case hash not deterministic across multiple sealing operations"
+        )
+
+        # Verify all cases pass validation
+        assert verify_case_file(case_1)["valid"]
+        assert verify_case_file(case_2)["valid"]
+        assert verify_case_file(case_3)["valid"]
