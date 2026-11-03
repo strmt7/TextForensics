@@ -1,40 +1,85 @@
-"""OpenTelemetry metrics instrumentation for TextForensics."""
+"""OpenTelemetry metrics instrumentation for TextForensics.
+
+This module provides optional OpenTelemetry metrics instrumentation.
+The opentelemetry imports are lazy - they are only imported when
+the telemetry is actually initialized, allowing the module to be
+imported without opentelemetry being installed.
+"""
 
 from __future__ import annotations
 
-import atexit
 import contextlib
 import threading
 import time
 from typing import Any
 
-from opentelemetry import metrics
-from opentelemetry.exporter.prometheus import PrometheusMetricReader
-from opentelemetry.metrics import CallbackOptions, Observation
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import MetricExporter, MetricExportResult
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-
 # Global state for telemetry
 _telemetry_initialized = False
 _telemetry_lock = threading.Lock()
-_meter_provider: MeterProvider | None = None
-_meter: metrics.Meter | None = None
+_meter_provider: Any = None
+_meter: Any = None
 
 # Metrics
-_analyses_total: metrics.Counter | None = None
-_analysis_latency: metrics.Histogram | None = None
-_verdicts_total: metrics.Counter | None = None
-_detector_scores: metrics.Histogram | None = None
-_active_detectors: metrics.ObservableGauge | None = None
-_errors_total: metrics.Counter | None = None
+_analyses_total: Any = None
+_analysis_latency: Any = None
+_verdicts_total: Any = None
+_detector_scores: Any = None
+_active_detectors: Any = None
+_errors_total: Any = None
 
 # Runtime state for gauges
 _active_detector_count = 0
 _active_detector_lock = threading.Lock()
 
 
-class _ConsoleExporter(MetricExporter):
+def _import_opentelemetry():
+    """Lazily import opentelemetry modules."""
+    try:
+        from opentelemetry import metrics
+        from opentelemetry.exporter.prometheus import PrometheusMetricReader
+        from opentelemetry.metrics import CallbackOptions, Observation
+        from opentelemetry.sdk.metrics import MeterProvider
+        from opentelemetry.sdk.metrics.export import MetricExporter, MetricExportResult
+        from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+    except ImportError as exc:
+        raise RuntimeError(
+            "opentelemetry is required for telemetry features. "
+            "Install with: pip install textforensics[dev]"
+        ) from exc
+
+    return {
+        "metrics": metrics,
+        "PrometheusMetricReader": PrometheusMetricReader,
+        "CallbackOptions": CallbackOptions,
+        "Observation": Observation,
+        "MeterProvider": MeterProvider,
+        "MetricExporter": MetricExporter,
+        "MetricExportResult": MetricExportResult,
+        "SERVICE_NAME": SERVICE_NAME,
+        "Resource": Resource,
+    }
+
+
+# Global state for telemetry
+_telemetry_initialized = False
+_telemetry_lock = threading.Lock()
+_meter_provider: Any = None
+_meter: Any = None
+
+# Metrics
+_analyses_total: Any = None
+_analysis_latency: Any = None
+_verdicts_total: Any = None
+_detector_scores: Any = None
+_active_detectors: Any = None
+_errors_total: Any = None
+
+# Runtime state for gauges
+_active_detector_count = 0
+_active_detector_lock = threading.Lock()
+
+
+class _ConsoleExporter:
     """Simple console exporter for debugging that implements the MetricExporter interface."""
 
     def __init__(self) -> None:
@@ -46,8 +91,10 @@ class _ConsoleExporter(MetricExporter):
         metrics_data: Any,
         timeout_millis: float = 30_000,
         **kwargs: Any,
-    ) -> MetricExportResult:
+    ) -> Any:
         # No-op for now, can be used for debugging
+        from opentelemetry.sdk.metrics.export import MetricExportResult
+
         return MetricExportResult.SUCCESS
 
     def shutdown(self, timeout_millis: float = 30_000, **kwargs: Any) -> None:
@@ -82,24 +129,31 @@ def initialize_telemetry(
         if _telemetry_initialized:
             return False
 
-        # Create resource
-        resource = Resource.create({SERVICE_NAME: service_name})
+        # Lazy import opentelemetry
+        otel = _import_opentelemetry()
 
         # Create readers
         readers = []
 
         # Prometheus reader (for Prometheus scraping)
-        prometheus_reader = PrometheusMetricReader()
+        prometheus_reader = otel["PrometheusMetricReader"]()
         readers.append(prometheus_reader)
 
         # Create meter provider
-        _meter_provider = MeterProvider(resource=resource, metric_readers=readers)
-        metrics.set_meter_provider(_meter_provider)
+        _meter_provider = otel["MeterProvider"](
+            resource=otel["Resource"].create({otel["SERVICE_NAME"]: service_name}),
+            metric_readers=[otel["PrometheusMetricReader"]()],
+        )
+        otel["metrics"].set_meter_provider(_meter_provider)
 
         # Get meter
+        global _meter
         _meter = _meter_provider.get_meter("textforensics")
 
         # Create instruments
+        global _analyses_total, _analysis_latency, _verdicts_total
+        global _detector_scores, _active_detectors, _errors_total
+
         _analyses_total = _meter.create_counter(
             name="textforensics.analyses.total",
             description="Total number of text analyses performed",
@@ -140,13 +194,18 @@ def initialize_telemetry(
         _telemetry_initialized = True
 
         # Register shutdown handler
+        import atexit
+
         atexit.register(shutdown_telemetry)
 
         return True
 
 
-def _active_detectors_callback(options: CallbackOptions) -> list[Observation]:
+def _active_detectors_callback(options) -> list:
     """Callback for active detectors gauge."""
+    global _active_detector_count
+    from opentelemetry.metrics import Observation
+
     with _active_detector_lock:
         return [Observation(_active_detector_count, {})]
 
@@ -184,19 +243,23 @@ def record_analysis(
         return
 
     # Record total analyses
+    global _analyses_total
     if _analyses_total:
         _analyses_total.add(1)
 
     # Record latency
+    global _analysis_latency
     if _analysis_latency:
         _analysis_latency.record(latency_ms)
 
     # Record verdict
+    global _verdicts_total
     if _verdicts_total:
         verdict_normalized = verdict.lower().replace(" ", "_").replace("-", "_")
         _verdicts_total.add(1, {"verdict": verdict_normalized})
 
     # Record detector scores
+    global _detector_scores
     if detector_scores and _detector_scores:
         for i, score in enumerate(detector_scores):
             attributes = {}
@@ -215,6 +278,7 @@ def record_error(error_type: str, component: str | None = None) -> None:
     if not _telemetry_initialized:
         return
 
+    global _errors_total
     if _errors_total:
         attributes = {"error_type": error_type}
         if component:
@@ -277,25 +341,6 @@ class AnalysisTimer:
             )
         if exc_type is not None:
             record_error("analysis_exception", "engine")
-
-
-class _ConsoleExporter:
-    """Simple console exporter for debugging."""
-
-    def export(
-        self,
-        metrics_data: Any,
-        timeout_millis: float = 30_000,
-        **kwargs: Any,
-    ) -> None:
-        # No-op for now, can be used for debugging
-        pass
-
-    def shutdown(self, timeout_millis: float = 30_000, **kwargs: Any) -> None:
-        pass
-
-    def force_flush(self, timeout_millis: float = 30_000) -> bool:
-        return True
 
 
 # Module-level convenience functions
