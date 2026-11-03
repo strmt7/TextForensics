@@ -28,14 +28,14 @@ The module follows AGENTS.md principles:
 from __future__ import annotations
 
 import hashlib
-import math
 import re
 import statistics
 import uuid
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional, Sequence
+from typing import Any
 
 __all__ = [
     "HumanizationPattern",
@@ -63,7 +63,7 @@ class HumanizationPattern:
     threshold: float
     severity: str  # "critical", "high", "medium", "low"
     confidence: float  # 0-1, how reliable this pattern is
-    tool_attribution: Optional[str] = None  # Known tool if identified
+    tool_attribution: str | None = None  # Known tool if identified
     false_positive_rate: float = 0.0  # Estimated FPR at threshold
 
     def to_dict(self) -> dict[str, Any]:
@@ -450,7 +450,6 @@ def detect_perplexity_anomalies(text: str) -> list[AdversarialFinding]:
     mean_score = statistics.mean(scores)
     stdev = statistics.stdev(scores) if len(scores) > 1 else 0.0
 
-    findings = []
     # Suspiciously flat (humanizer smoothing)
     if stdev < 0.02 and mean_score > 0.1:
         return [AdversarialFinding(
@@ -501,7 +500,7 @@ _HUMANIZATION_PATTERNS: dict[str, Callable[[str], list[AdversarialFinding]]] = {
 class HumanizationPatternLibrary:
     """Registry of humanization detection patterns."""
 
-    def __init__(self, custom_patterns: Optional[dict[str, Callable[[str], list[AdversarialFinding]]]] = None):
+    def __init__(self, custom_patterns: dict[str, Callable[[str], list[AdversarialFinding]]] | None = None):
         self._patterns = dict(_HUMANIZATION_PATTERNS)
         if custom_patterns:
             self._patterns.update(custom_patterns)
@@ -516,7 +515,7 @@ class HumanizationPatternLibrary:
             return True
         return False
 
-    def get(self, name: str) -> Optional[Callable[[str], list[AdversarialFinding]]]:
+    def get(self, name: str) -> Callable[[str], list[AdversarialFinding]] | None:
         return self._patterns.get(name)
 
     def list_patterns(self) -> list[str]:
@@ -525,7 +524,7 @@ class HumanizationPatternLibrary:
     def run_all(self, text: str) -> list[AdversarialFinding]:
         """Run all registered pattern detectors on text."""
         all_findings = []
-        for name, detector_fn in self._patterns.items():
+        for _name, detector_fn in self._patterns.items():
             try:
                 findings = detector_fn(text)
                 all_findings.extend(findings)
@@ -548,8 +547,8 @@ class AdversarialDetector:
 
     def __init__(
         self,
-        pattern_library: Optional[HumanizationPatternLibrary] = None,
-        risk_thresholds: Optional[dict[str, float]] = None,
+        pattern_library: HumanizationPatternLibrary | None = None,
+        risk_thresholds: dict[str, float] | None = None,
     ) -> None:
         self.pattern_library = pattern_library or HumanizationPatternLibrary()
         self.risk_thresholds = risk_thresholds or {
@@ -563,8 +562,8 @@ class AdversarialDetector:
         self,
         text: str,
         *,
-        detector_outputs: Optional[dict[str, Any]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        detector_outputs: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> HumanizationReport:
         """Analyze text for adversarial humanization artifacts.
 
@@ -584,8 +583,8 @@ class AdversarialDetector:
                 limitations=["Empty input text"],
             )
 
-        text_sha256 = _sha256(text)
-        text_length = len(text)
+        _sha256(text)
+        len(text)
 
         # Run all pattern detectors
         all_findings = self.pattern_library.run_all(text)
@@ -652,9 +651,9 @@ class AdversarialDetector:
 def detect_humanization(
     text: str,
     *,
-    detector_outputs: Optional[dict[str, Any]] = None,
-    custom_patterns: Optional[dict[str, Callable[[str], list[AdversarialFinding]]]] = None,
-    metadata: Optional[dict[str, Any]] = None,
+    detector_outputs: dict[str, Any] | None = None,
+    custom_patterns: dict[str, Callable[[str], list[AdversarialFinding]]] | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> HumanizationReport:
     """Convenience function for one-shot humanization detection.
 

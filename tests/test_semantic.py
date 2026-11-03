@@ -8,16 +8,15 @@ from textforensics.semantic import (
     SemanticConsistencyChecker,
     SemanticConsistencyReport,
     SemanticSegment,
-    analyze_semantic_consistency,
-    _detect_excessive_coherence,
-    _detect_structural_rigidity,
-    _detect_semantic_overcoherence,
-    _detect_lack_of_digression,
-    _detect_repetitive_structures,
     _analyze_segment,
-    _split_into_segments,
+    _detect_excessive_coherence,
+    _detect_lack_of_digression,
+    _detect_semantic_overcoherence,
+    _detect_structural_rigidity,
     _sha256,
+    _split_into_segments,
     _uuid,
+    analyze_semantic_consistency,
 )
 
 
@@ -210,7 +209,7 @@ class TestSemanticOvercoherence:
 
 class TestLackOfDigression:
     def test_consistent_awl_flagged(self):
-        segments = [
+        [
             SemanticSegment(
                 index=i,
                 text="test",
@@ -225,9 +224,9 @@ class TestLackOfDigression:
             )
             for i in range(6)
         ]
-        findings = _detect_lack_of_digression([])
+        _detect_lack_of_digression([])
         # Wait, need to pass the actual segments
-        findings = _detect_lack_of_digression([
+        _detect_lack_of_digression([
             type("Segment", (), {
                 "avg_word_length": 5.0,
                 "word_count": 100,
@@ -246,7 +245,7 @@ class TestLackOfDigression:
 class TestRepetitiveStructures:
     def test_identical_word_counts_flagged(self):
         # Create segments with identical word counts
-        segments = [
+        [
             type("Seg", (), {
                 "word_count": 50,
                 "sentence_count": 3,
@@ -257,10 +256,6 @@ class TestRepetitiveStructures:
                 "entropy": 4.0,
                 "index": i,
                 "avg_word_length": 5.0,
-                "hapax_ratio": 0.3,
-                "pos_distribution": {},
-                "semantic_density": 10.0,
-                "entropy": 4.0,
             })()
             for i in range(5)
         ]
@@ -276,7 +271,6 @@ class TestFullChecker:
 
     def test_short_text(self):
         checker = SemanticConsistencyChecker()
-        text = "Short text here."
         report = checker.analyze("Short text.")
         assert report.n_segments >= 1
 
@@ -288,23 +282,17 @@ class TestFullChecker:
 
     def test_consistency_score_range(self):
         checker = SemanticConsistencyChecker()
-        text = "This is a test. " * 10
+        # Very repetitive text should have high consistency score
+        text = "The same sentence repeated. " * 10
         report = checker.analyze(text)
-        assert 0.0 <= report.overall_consistency_score <= 1.0
+        # Highly repetitive should score high (AI-like)
+        assert report.overall_consistency_score >= 0.0
 
     def test_risk_levels(self):
         checker = SemanticConsistencyChecker()
         # Clean text should be low risk
         report = checker.analyze("This is a normal piece of text with natural variation in sentence structure and vocabulary.")
         assert report.risk_level in {"none", "low", "medium", "high", "critical"}
-
-    def test_consistency_score_range(self):
-        checker = SemanticConsistencyChecker()
-        # Very repetitive text should have high consistency score
-        text = "The same sentence repeated. " * 10
-        report = checker.analyze(text)
-        # Highly repetitive should score high (AI-like)
-        assert report.overall_consistency_score >= 0.0
 
 
 class TestConvenienceFunction:

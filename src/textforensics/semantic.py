@@ -23,7 +23,7 @@ import uuid
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional, Sequence
+from typing import Any
 
 __all__ = [
     "SemanticSegment",
@@ -415,7 +415,7 @@ class SemanticConsistencyChecker:
     def __init__(self, segment_word_target: int = 100):
         self.segment_word_target = segment_word_target
 
-    def analyze(self, text: str, *, metadata: Optional[dict[str, Any]] = None) -> "SemanticConsistencyReport":
+    def analyze(self, text: str, *, metadata: dict[str, Any] | None = None) -> SemanticConsistencyReport:
         """Analyze text for semantic consistency anomalies."""
         if not text or not text.strip():
             return SemanticConsistencyReport(
@@ -425,8 +425,8 @@ class SemanticConsistencyChecker:
                 limitations=["Empty input text"],
             )
 
-        text_sha256 = _sha256(text)
-        text_length = len(text)
+        _sha256(text)
+        len(text)
 
         # Split into segments
         raw_segments = _split_into_segments(text, self.segment_word_target)
@@ -528,7 +528,6 @@ class SemanticConsistencyChecker:
         if not findings:
             return "none", 1.0
 
-        severity_weights = {"critical": 1.5, "high": 1.0, "medium": 0.6, "low": 0.3}
         total_weight = sum(
             {"critical": 1.5, "high": 1.0, "medium": 0.6, "low": 0.3}.get(f.get("severity", "low"), 0.3) *
             f.get("confidence", 0.5)
@@ -562,8 +561,8 @@ def analyze_semantic_consistency(
     text: str,
     *,
     segment_word_target: int = 100,
-    metadata: Optional[dict[str, Any]] = None,
-) -> "SemanticConsistencyReport":
+    metadata: dict[str, Any] | None = None,
+) -> SemanticConsistencyReport:
     """Convenience function for one-shot semantic consistency analysis."""
     checker = SemanticConsistencyChecker(segment_word_target=segment_word_target)
     return checker.analyze(text, metadata=metadata)

@@ -7,6 +7,14 @@ from ._build_info import (
     initialize_build_info,
     verify_build_identity,
 )
+from .adversarial import (
+    AdversarialDetector,
+    AdversarialFinding,
+    HumanizationPatternLibrary,
+    HumanizationReport,
+    detect_humanization,
+    detect_humanization_simple,
+)
 from .benchmark_fingerprint import (
     DatasetFingerprint,
     check_disjointness,
@@ -38,7 +46,22 @@ from .constants import (
 )
 from .drift import DriftObservatory
 from .engine import analyze_text
+from .explain import (
+    CounterfactualExplainer,
+    ExplanationReport,
+    SegmentAttribution,
+    explain_verdict,
+    load_explanation_report,
+    save_explanation_report,
+    split_sentences,
+)
 from .report import build_forensic_bundle
+from .semantic import (
+    SemanticConsistencyChecker,
+    SemanticConsistencyReport,
+    SemanticSegment,
+    analyze_semantic_consistency,
+)
 from .threshold_selection import (
     evaluate_threshold,
     select_threshold,
@@ -53,30 +76,6 @@ from .verify import (
 )
 from .verify import (
     verify_case_file as verify_case_file_nversion,
-)
-from .explain import (
-    CounterfactualExplainer,
-    ExplanationReport,
-    SegmentAttribution,
-    explain_verdict,
-    save_explanation_report,
-    load_explanation_report,
-    split_sentences,
-)
-from .adversarial import (
-    AdversarialDetector,
-    AdversarialFinding,
-    HumanizationPatternLibrary,
-    HumanizationReport,
-    detect_humanization,
-    detect_humanization_simple,
-    HumanizationPatternLibrary,
-)
-from .semantic import (
-    SemanticConsistencyChecker,
-    SemanticConsistencyReport,
-    SemanticSegment,
-    analyze_semantic_consistency,
 )
 from .version import get_version
 
