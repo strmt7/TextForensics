@@ -11,7 +11,7 @@ from contextlib import suppress
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -21,6 +21,125 @@ from ..config import Settings, ensure_bind_allowed, validate_text_input
 from ..detectors import list_detector_health, list_detector_metadata
 from ..report import build_forensic_bundle
 from ..version import get_version
+
+
+# ── Session Manager for real-time collaboration ──────────────────────
+
+
+class SessionManager:
+    """In-memory session management for real-time collaboration."""
+
+    def __init__(
+        self,
+        max_sessions: int = 100,
+        max_users_per_session: int = 10,
+        session_timeout_seconds: int = 3600,
+    ):
+        self.max_sessions = max_sessions
+        self.max_users_per_session = max_users_per_session
+        self.session_timeout_seconds = session_timeout_seconds
+        self._sessions: dict[str, dict[str, Any]] = {}
+        self._ws_map: dict[str, str] = {}
+
+    def generate_session_id(self) -> str:
+        return uuid.uuid4().hex[:8]
+
+    def create_session(self, session_id: str | None = None) -> str:
+        if session_id is None:
+            session_id = self.generate_session_id()
+        if session_id in self._sessions:
+            return session_id
+        if len(self._sessions) >= self.max_sessions:
+            self._evict_expired()
+            if len(self._sessions) >= self.max_sessions:
+                raise ValueError("Maximum sessions reached")
+        self._sessions[session_id] = {
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "users": {},
+            "connections": {},
+        }
+        return session_id
+
+    def get_session(self, session_id: str) -> dict[str, Any] | None:
+        return self._sessions.get(session_id)
+
+    def has_session(self, session_id: str) -> bool:
+        return session_id in self._sessions
+
+    def join_user(
+        self,
+        session_id: str,
+        ws_key: str,
+        websocket: WebSocket,
+        display_name: str = "Anonymous",
+    ) -> dict[str, Any]:
+        session = self._sessions.get(session_id)
+        if session is None:
+            raise ValueError(f"Session {session_id} not found")
+        if len(session["users"]) >= self.max_users_per_session:
+            raise ValueError("Session is full")
+        user_info = {
+            "ws_key": ws_key,
+            "display_name": display_name,
+            "joined_at": datetime.now(timezone.utc).isoformat(),
+        }
+        session["users"][ws_key] = user_info
+        session["connections"][ws_key] = websocket
+        self._ws_map[ws_key] = session_id
+        return user_info
+
+    def leave_user(self, ws_key: str) -> str | None:
+        session_id = self._ws_map.pop(ws_key, None)
+        if session_id is None:
+            return None
+        session = self._sessions.get(session_id)
+        if session is None:
+            return session_id
+        session["users"].pop(ws_key, None)
+        session["connections"].pop(ws_key, None)
+        if not session["users"]:
+            self._sessions.pop(session_id, None)
+        return session_id
+
+    def list_users(self, session_id: str) -> list[dict[str, Any]]:
+        session = self._sessions.get(session_id)
+        if session is None:
+            return []
+        return list(session["users"].values())
+
+    def get_connected(self, session_id: str) -> list[WebSocket]:
+        session = self._sessions.get(session_id)
+        if session is None:
+            return []
+        return list(session["connections"].values())
+
+    def session_info(self, session_id: str) -> dict[str, Any] | None:
+        session = self._sessions.get(session_id)
+        if session is None:
+            return None
+        return {
+            "session_id": session_id,
+            "created_at": session["created_at"],
+            "user_count": len(session["users"]),
+            "users": session["users"],
+        }
+
+    def _evict_expired(self) -> None:
+        to_remove = []
+        for sid, session in self._sessions.items():
+            if not session["users"]:
+                to_remove.append(sid)
+        for sid in to_remove:
+            self._sessions.pop(sid, None)
+
+    def cleanup(self) -> int:
+        """Remove empty/expired sessions. Returns number removed."""
+        before = len(self._sessions)
+        self._evict_expired()
+        return before - len(self._sessions)
+
+
+session_manager = SessionManager()
 
 
 class TextRequest(BaseModel):
@@ -218,10 +337,13 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/", response_class=HTMLResponse)
     async def index(request: Request):
+        session_id = request.query_params.get("session")
         return templates.TemplateResponse(
             "index.html",
-            {"request": request, "version": get_version()},
+            {"request": request, "version": get_version(), "session_id": session_id},
         )
+
+    # ── Collaboration REST endpoints ─────────────────────────────────
 
     @app.get("/healthz", include_in_schema=False)
     def health() -> dict[str, str]:
@@ -241,6 +363,33 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
             "detectors": list_detector_metadata(),
             "plugin_health": list_detector_health(),
         }
+
+    # ── Collaboration REST endpoints ──────────────────────────────────────
+
+    @app.post("/api/session")
+    def create_session() -> dict[str, str]:
+        """Create a new collaboration session."""
+        session_id = session_manager.create_session()
+        return {"session_id": session_id}
+
+    @app.get("/api/session/{session_id}")
+    def get_session_info(session_id: str) -> dict[str, Any]:
+        """Get session info including connected users."""
+        info = session_manager.session_info(session_id)
+        if info is None:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+        return info
+
+    @app.get("/api/session/{session_id}/users")
+    def get_session_users(session_id: str) -> list[dict[str, Any]]:
+        """List users in a session."""
+        return session_manager.list_users(session_id)
+
+    @app.delete("/api/session")
+    def cleanup_sessions() -> dict[str, int]:
+        """Clean up empty/expired sessions."""
+        removed = session_manager.cleanup()
+        return {"removed": removed}
 
     @app.post("/api/analyze", response_model=AnalyzeResponse)
     def analyze(req: TextRequest):
@@ -352,15 +501,99 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
 
     @app.websocket("/ws/analyze")
     async def websocket_analyze(websocket: WebSocket):
-        """WebSocket endpoint for real-time analysis streaming."""
+        """WebSocket endpoint for real-time analysis streaming with collaboration support."""
         await websocket.accept()
+        ws_key = str(uuid.uuid4())
+
+        # Optional session parameter from query string
+        session_id = websocket.query_params.get("session")
+
         try:
             while True:
                 # Receive message from client
                 data = await websocket.receive_text()
                 message = json.loads(data)
+                msg_type = message.get("type")
 
-                if message.get("type") == "analyze":
+                # ── Collaboration messages ────────────────────────
+                if msg_type == "join_session":
+                    sess_id = message.get("session_id") or session_id
+                    display_name = message.get("display_name", "Anonymous")
+                    try:
+                        user_info = session_manager.join_user(
+                            sess_id, ws_key, websocket, display_name
+                        )
+                        await websocket.send_json(
+                            {
+                                "type": "session_joined",
+                                "session_id": sess_id,
+                                "user": user_info,
+                                "users": session_manager.list_users(sess_id),
+                            }
+                        )
+                        # Register ws_key for later cleanup
+                        session_manager._ws_map[ws_key] = id(websocket)
+                        # Broadcast to other users in the session
+                        for conn_ws in session_manager.get_connected(sess_id):
+                            if id(conn_ws) != id(websocket):
+                                try:
+                                    await conn_ws.send_json(
+                                        {
+                                            "type": "user_joined",
+                                            "user": user_info,
+                                            "users": session_manager.list_users(sess_id),
+                                        }
+                                    )
+                                except Exception:
+                                    pass
+                    except ValueError as e:
+                        await websocket.send_json({"type": "error", "message": str(e)})
+                    continue
+
+                elif msg_type == "leave_session":
+                    sess_id = session_manager._ws_map.pop(ws_key, None)
+                    if sess_id:
+                        session_manager.leave_user(ws_key)
+                        try:
+                            await websocket.send_json(
+                                {"type": "session_left", "session_id": sess_id}
+                            )
+                        except Exception:
+                            pass
+                        # Broadcast to remaining users
+                        for conn_ws in session_manager.get_connected(sess_id):
+                            try:
+                                await conn_ws.send_json(
+                                    {
+                                        "type": "user_left",
+                                        "users": session_manager.list_users(sess_id),
+                                    }
+                                )
+                            except Exception:
+                                pass
+                    continue
+
+                elif msg_type == "analysis_shared":
+                    sess_id = session_manager._ws_map.get(ws_key)
+                    if sess_id:
+                        analysis_data = message.get("data")
+                        if analysis_data:
+                            store_analysis(analysis_data)
+                            for conn_ws in session_manager.get_connected(sess_id):
+                                try:
+                                    await conn_ws.send_json(
+                                        {
+                                            "type": "analysis_shared",
+                                            "data": analysis_data,
+                                            "shared_by": message.get("shared_by", ws_key),
+                                        }
+                                    )
+                                except Exception:
+                                    pass
+                    continue
+
+                # ── Existing analysis protocol ────────────────────
+                elif msg_type == "analyze":
                     text = message.get("text", "")
                     if not text:
                         await websocket.send_json(
@@ -403,7 +636,23 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                     # Build and send final bundle
                     bundle = build_forensic_bundle(validated_text)
                     result_data = bundle.to_dict()
-                    store_analysis(result_data)
+                    analysis_id = store_analysis(result_data)
+
+                    # If in a session, broadcast to other collaborators
+                    if session_id and session_manager.has_session(session_id):
+                        for conn_ws in session_manager.get_connected(session_id):
+                            if id(conn_ws) != id(websocket):
+                                try:
+                                    await conn_ws.send_json(
+                                        {
+                                            "type": "analysis_result_shared",
+                                            "data": result_data,
+                                            "analysis_id": analysis_id,
+                                        }
+                                    )
+                                except Exception:
+                                    pass
+
                     await websocket.send_json({"type": "complete", "data": result_data})
 
         except WebSocketDisconnect:
@@ -411,6 +660,9 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
         except Exception as e:
             with suppress(Exception):
                 await websocket.send_json({"type": "error", "message": str(e)})
+        finally:
+            # Always clean up on disconnect
+            session_manager.leave_user(ws_key)
 
     return app
 

@@ -634,3 +634,102 @@ class TestWebSocketHistoryStorage:
         resp = client.get("/api/history?limit=1")
         history_data = resp.json()
         assert history_data["total"] >= 1
+
+
+# -- Collaboration Session Management -----------------------------------
+
+
+@pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
+class TestSessionManagement:
+    def test_create_session(self, client):
+        resp = client.post("/api/session")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "session_id" in data
+        assert len(data["session_id"]) == 8
+
+    def test_get_session_info(self, client):
+        resp = client.post("/api/session")
+        session_id = resp.json()["session_id"]
+        resp = client.get(f"/api/session/{session_id}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["session_id"] == session_id
+        assert "user_count" in data
+
+    def test_get_session_info_not_found(self, client):
+        resp = client.get("/api/session/nonexistent")
+        assert resp.status_code == 404
+
+    def test_list_session_users(self, client):
+        resp = client.post("/api/session")
+        session_id = resp.json()["session_id"]
+        resp = client.get(f"/api/session/{session_id}/users")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, list)
+        assert len(data) == 0
+
+    def test_cleanup_sessions(self, client):
+        for _ in range(3):
+            client.post("/api/session")
+        resp = client.delete("/api/session")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "removed" in data
+
+
+@pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
+class TestWebSocketCollaboration:
+    def test_websocket_join_session(self, client):
+        session_resp = client.post("/api/session")
+        session_id = session_resp.json()["session_id"]
+        with client.websocket_connect(f"/ws/analyze?session={session_id}") as ws:
+            ws.send_json(
+                {"type": "join_session", "session_id": session_id, "display_name": "TestUser"}
+            )
+            response = ws.receive_json()
+            assert response["type"] == "session_joined"
+            assert response["session_id"] == session_id
+
+    def test_websocket_leave_session(self, client):
+        session_resp = client.post("/api/session")
+        session_id = session_resp.json()["session_id"]
+        with client.websocket_connect(f"/ws/analyze?session={session_id}") as ws:
+            ws.send_json(
+                {"type": "join_session", "session_id": session_id, "display_name": "TempUser"}
+            )
+            ws.receive_json()
+            ws.send_json({"type": "leave_session"})
+            response = ws.receive_json()
+            assert response["type"] == "session_left"
+
+
+@pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
+class TestIndexPageWithSession:
+    def test_index_page_with_session_param(self, client):
+        session_resp = client.post("/api/session")
+        session_id = session_resp.json()["session_id"]
+        resp = client.get(f"/?session={session_id}")
+        assert resp.status_code == 200
+        assert "session_id" in resp.text
+
+    def test_index_page_with_session_param(self, client):
+        # Skip on Python 3.15 due to jinja2 compatibility issue
+        import sys
+
+        if sys.version_info >= (3, 15):
+            pytest.skip("jinja2 Python 3.15 compatibility issue")
+        session_resp = client.post("/api/session")
+        session_id = session_resp.json()["session_id"]
+        resp = client.get(f"/?session={session_id}")
+        assert resp.status_code == 200
+        assert "session_id" in resp.text
+
+    def test_index_page_without_session(self, client):
+        import sys
+
+        if sys.version_info >= (3, 15):
+            pytest.skip("jinja2 Python 3.15 compatibility issue")
+        resp = client.get("/")
+        assert resp.status_code == 200

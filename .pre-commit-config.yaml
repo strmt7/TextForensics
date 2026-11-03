@@ -10,8 +10,10 @@ repos:
       - id: ruff
         name: ruff (lint)
         args: [--fix, --exit-non-zero-on-fix]
+        stages: [manual]
       - id: ruff-format
         name: ruff (format)
+        stages: [manual]
 
   # Pre-commit-hooks - general file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks

@@ -8,10 +8,43 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
+    <!-- Session Join/Create Modal -->
+    <div id="sessionModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Join or Create Session</h3>
+            <div class="session-form">
+                <input type="text" id="sessionIdInput" placeholder="Enter session code (or leave empty to create)">
+                <input type="text" id="displayNameInput" placeholder="Your name">
+                <button id="joinSessionBtn" class="btn btn-primary">Join Session</button>
+                <button id="createSessionBtn" class="btn btn-secondary">Create New</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Presence Sidebar -->
+    <div id="presenceSidebar" class="presence-sidebar">
+        <div class="presence-header">
+            <span class="presence-title">👥 Session</span>
+            <button id="leaveSessionBtn" class="btn btn-secondary btn-sm">Leave</button>
+        </div>
+        <div id="userList" class="user-list">
+            <div class="user-item">Not in a session</div>
+        </div>
+        <div class="session-url">
+            <span id="sessionUrlLabel">Session URL:</span>
+            <code id="sessionUrlDisplay" class="session-url-code"></code>
+            <button id="copySessionUrlBtn" class="btn btn-secondary btn-sm">Copy</button>
+        </div>
+        <button id="shareSessionBtn" class="btn btn-primary btn-sm">Share</button>
+    </div>
+
     <div class="app-container">
         <header class="header">
             <h1>TextForensics</h1>
             <div class="header-subtitle">AI-Text Detector Evidence & Reliability Audit Dashboard</div>
+            <div class="session-top-bar">
+                <span id="sessionIdDisplay" class="session-id-display hidden"></span>
+            </div>
         </header>
 
         <main class="main-content">
@@ -29,6 +62,7 @@
                         <span class="btn-loader hidden"><span class="spinner"></span>Analyzing...</span>
                     </button>
                     <button id="clearBtn" class="btn btn-secondary">Clear</button>
+                    <button id="joinSessionTriggerBtn" class="btn btn-secondary">Join Session</button>
                     <label class="checkbox-label">
                         <input type="checkbox" id="streamToggle" checked>
                         <span>Real-time streaming</span>
