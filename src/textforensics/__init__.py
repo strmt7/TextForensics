@@ -72,6 +72,12 @@ from .adversarial import (
     detect_humanization_simple,
     HumanizationPatternLibrary,
 )
+from .semantic import (
+    SemanticConsistencyChecker,
+    SemanticConsistencyReport,
+    SemanticSegment,
+    analyze_semantic_consistency,
+)
 from .version import get_version
 
 
@@ -156,6 +162,10 @@ __all__ = [
     "detect_humanization",
     "detect_humanization_simple",
     "HumanizationPatternLibrary",
+    "SemanticConsistencyChecker",
+    "SemanticConsistencyReport",
+    "SemanticSegment",
+    "analyze_semantic_consistency",
 ]
 
 __version__ = get_version()
