@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TextForensics - AI Text Detection Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <h1>TextForensics</h1>
+            <div class="header-subtitle">AI-Text Detector Evidence & Reliability Audit Dashboard</div>
+        </header>
+
+        <main class="main-content">
+            <!-- Input Panel -->
+            <section class="panel input-panel">
+                <h2><span class="icon">✎</span> Text Input</h2>
+                <textarea 
+                    id="textInput" 
+                    placeholder="Paste text here for real-time AI detection analysis. The analysis runs locally on your machine — no data leaves your browser unless you opt in to remote detectors."
+                    rows="8"
+                ></textarea>
+                <div class="input-controls">
+                    <button id="analyzeBtn" class="btn btn-primary">
+                        <span class="btn-text">Analyze</span>
+                        <span class="btn-loader hidden"><span class="spinner"></span>Analyzing...</span>
+                    </button>
+                    <button id="clearBtn" class="btn btn-secondary">Clear</button>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="streamToggle" checked>
+                        <span>Real-time streaming</span>
+                    </label>
+                    <div class="privacy-notice">Local-first · No telemetry · Your text stays on this machine</div>
+                </div>
+                <div class="input-stats">
+                    <span id="wordCount">0 words</span>
+                    <span id="charCount">0 characters</span>
+                </div>
+            </section>
+
+            <!-- Results Dashboard -->
+            <section id="resultsPanel" class="panel results-panel hidden">
+                <!-- Top Metrics Row -->
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">Consensus Verdict</div>
+                        <div class="metric-value" id="consensusVerdict">—</div>
+                        <div class="metric-sub" id="consensusConfidence"></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Trust Map Coverage</div>
+                        <div class="metric-value" id="trustCoverage">—</div>
+                        <div class="metric-sub" id="trustDetails"></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Detector Families</div>
+                        <div class="metric-value" id="familyCount">—</div>
+                        <div class="metric-sub" id="familyDetails"></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Analysis Time</div>
+                        <div class="metric-value" id="analysisTime">—</div>
+                        <div class="metric-sub">Total runtime</div>
+                    </div>
+                </div>
+
+                <!-- Gauge Chart + Detector Breakdown -->
+                <div class="charts-row">
+                    <div class="chart-panel">
+                        <h3>AI Probability Gauge</h3>
+                        <div class="gauge-container">
+                            <canvas id="gaugeChart"></canvas>
+                            <div class="gauge-labels">
+                                <span class="label-human">Human-like</span>
+                                <span class="label-unsure">Uncertain</span>
+                                <span class="label-ai">AI-like</span>
+                            </div>
+                        </div>
+                        <div class="gauge-legend">
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #22c55e"></span>
+                                <span>Human-like (0-30%)</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #f59e0b"></span>
+                                <span>Uncertain (30-70%)</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #ef4444"></span>
+                                <span>AI-like (70-100%)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-panel">
+                        <h3>Detector Breakdown</h3>
+                        <div class="detector-breakdown" id="detectorBreakdown">
+                            <canvas id="detectorChart"></canvas>
+                        </div>
+                        <div class="detector-list" id="detectorList"></div>
+                    </div>
+                </div>
+
+                <!-- Trust Map Visualization -->
+                <div class="chart-panel full-width">
+                    <h3>Trust Map — Evidence Coverage Assessment</h3>
+                    <div class="trust-map" id="trustMap"></div>
+                </div>
+
+                <!-- Verdict Display -->
+                <div class="chart-panel full-width">
+                    <h3>Detailed Verdict</h3>
+                    <div class="verdict-display" id="verdictDisplay"></div>
+                </div>
+
+                <!-- Historical Analysis List -->
+                <div class="chart-panel full-width">
+                    <h3>Analysis History</h3>
+                    <div class="history-list" id="historyList">
+                        <div class="history-empty">No analyses yet. Analyze some text to see history.</div>
+                    </div>
+                </div>
+
+                <!-- Warnings & Limitations -->
+                <details class="warnings-panel">
+                    <summary>Warnings & Limitations</summary>
+                    <div id="warningsList"></div>
+                </details>
+
+                <!-- Raw Data (Collapsible) -->
+                <details class="raw-data-panel">
+                    <summary>Raw Forensic Bundle (JSON)</summary>
+                    <pre id="rawData"></pre>
+                </details>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <span>TextForensics v<span id="versionDisplay"></span></span>
+            <span>| Local-first AI text detection audit layer</span>
+        </footer>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

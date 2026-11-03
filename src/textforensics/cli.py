@@ -426,6 +426,12 @@ def build_parser() -> argparse.ArgumentParser:
     web.add_argument("--no-browser", action="store_true")
     web.add_argument("--allow-remote", action="store_true")
 
+    web_fastapi = sub.add_parser("web-fastapi", help="Run the FastAPI WebSocket UI with real-time analysis.")
+    web_fastapi.add_argument("--host")
+    web_fastapi.add_argument("--port", type=int)
+    web_fastapi.add_argument("--allow-remote", action="store_true")
+    web_fastapi.add_argument("--access-log", action="store_true")
+
     serve = sub.add_parser("serve", help="Run the optional ASGI API server.")
     serve.add_argument("--host")
     serve.add_argument("--port", type=int)
@@ -1058,6 +1064,23 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             open_browser=not args.no_browser,
             allow_remote=active.allow_remote,
             max_input_bytes=active.max_input_bytes,
+        )
+
+    elif args.command == "web-fastapi":
+        from .web_ui.main import serve_web
+        active = _settings_with_overrides(
+            settings,
+            host=args.host,
+            port=args.port,
+            allow_remote=True if args.allow_remote else settings.allow_remote,
+            access_log=True if args.access_log else settings.access_log,
+        )
+        serve_web(
+            active.host,
+            active.port,
+            allow_remote=active.allow_remote,
+            access_log=active.access_log,
+            log_level=active.log_level,
         )
 
     elif args.command == "serve":
