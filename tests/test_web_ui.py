@@ -403,3 +403,234 @@ class TestPackageStructure:
         content = js.read_text()
         assert "WebSocket" in content
         assert "ws/analyze" in content
+
+
+# ── Export endpoint ───────────────────────────────────────────────────
+
+
+@pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
+class TestExportEndpoint:
+    def test_export_json(self, client):
+        text = (
+            "This is a sample paragraph for export testing. It has enough content for meaningful analysis results that can be exported as JSON."
+            * 3
+        )
+        resp = client.post("/api/analyze", json={"text": text})
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+
+        resp = client.post("/api/export", json={"data": data, "format": "json"})
+        assert resp.status_code == 200
+        assert "application/json" in resp.headers["content-type"]
+        content = resp.content.decode("utf-8")
+        parsed = json.loads(content)
+        assert "consensus" in parsed
+
+    def test_export_csv(self, client):
+        text = "This is a sample paragraph for CSV export testing. It has enough content." * 3
+        resp = client.post("/api/analyze", json={"text": text})
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+
+        resp = client.post("/api/export", json={"data": data, "format": "csv"})
+        assert resp.status_code == 200
+        assert "text/csv" in resp.headers["content-type"]
+        content = resp.content.decode("utf-8")
+        assert "Section" in content
+        assert "Consensus" in content
+
+    def test_export_html(self, client):
+        text = (
+            "This is a sample paragraph for HTML export testing. It has enough content for analysis."
+            * 3
+        )
+        resp = client.post("/api/analyze", json={"text": text})
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+
+        resp = client.post("/api/export", json={"data": data, "format": "html"})
+        assert resp.status_code == 200
+        assert "text/html" in resp.headers["content-type"]
+        content = resp.content.decode("utf-8")
+        assert "<!DOCTYPE html>" in content
+        assert "TextForensics" in content
+
+    def test_export_invalid_format(self, client):
+        text = "Sample text for testing invalid export format."
+        resp = client.post("/api/analyze", json={"text": text})
+        data = resp.json()["data"]
+
+        resp = client.post("/api/export", json={"data": data, "format": "xml"})
+        assert resp.status_code == 400
+
+
+# ── Compare endpoint ────────────────────────────────────────────────
+
+
+@pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
+class TestCompareEndpoint:
+    def get_sample_analysis(self):
+        text = "Sample text for comparison testing. It has multiple sentences for analysis."
+        resp = self.client.post("/api/analyze", json={"text": text})
+        return resp.json()["data"]
+
+    def test_compare_identical(self, client):
+        text = "Test text for identical comparison. Has enough content."
+        resp = client.post("/api/analyze", json={"text": text})
+        data = resp.json()["data"]
+
+        resp = client.post("/api/compare", json={"a": data, "b": data})
+        assert resp.status_code == 200
+        result = resp.json()
+        assert result["summary"]["verdict_changed"] is False
+        assert result["summary"]["verdict_a"] == result["summary"]["verdict_b"]
+
+    def test_compare_different_verdicts(self, client):
+        # Create two different analyses
+        text_a = (
+            "This is human-like text with natural language patterns that suggest human authorship."
+        )
+        text_b = (
+            "This is AI-generated text. It contains common patterns from language models. "
+            "The text exhibits typical AI writing characteristics."
+        )
+
+        resp_a = client.post("/api/analyze", json={"text": text_a})
+        resp_b = client.post("/api/analyze", json={"text": text_b})
+
+        data_a = resp_a.json()["data"]
+        data_b = resp_b.json()["data"]
+
+        resp = client.post("/api/compare", json={"a": data_a, "b": data_b})
+        assert resp.status_code == 200
+        result = resp.json()
+        assert "summary" in result
+        assert "detector_comparison" in result
+        assert "trust_map_comparison" in result
+
+    def test_compare_missing_detectors(self, client):
+        data_a = {"consensus": {}, "detector_results": [], "trust_map": {}}
+        data_b = {"consensus": {}, "detector_results": [], "trust_map": {}}
+
+        resp = client.post("/api/compare", json={"a": data_a, "b": data_b})
+        assert resp.status_code == 200
+        result = resp.json()
+        assert "detector_comparison" in result
+        assert isinstance(result["detector_comparison"], list)
+
+
+# ── History endpoint ───────────────────────────────────────────────
+
+
+@pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
+class TestHistoryEndpoint:
+    def test_get_history_empty(self, client):
+        # Use a fresh app instance to get empty history
+        resp = client.get("/api/history")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "entries" in data
+        assert "total" in data
+
+    def test_get_history_with_analyses(self, client):
+        # Run a few analyses first
+        for i in range(3):
+            text = f"Sample text number {i} for history testing. Has enough content."
+            client.post("/api/analyze", json={"text": text})
+
+        resp = client.get("/api/history?limit=10")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] >= 3
+
+    def test_history_pagination(self, client):
+        # Run analyses
+        for i in range(5):
+            text = f"History pagination test text number {i}."
+            client.post("/api/analyze", json={"text": text})
+
+        resp = client.get("/api/history?limit=2&offset=0")
+        data = resp.json()
+        assert data["returned"] == 2
+
+        resp = client.get("/api/history?limit=2&offset=2")
+        data = resp.json()
+        assert data["returned"] == 2
+
+    def test_history_verdict_filter(self, client):
+        # Run analyses
+        for i in range(3):
+            text = f"Test text for verdict filter number {i}."
+            client.post("/api/analyze", json={"text": text})
+
+        resp = client.get("/api/history?verdict=ai_like")
+        data = resp.json()
+        assert "entries" in data
+        for entry in data["entries"]:
+            assert entry["verdict"] == "ai_like"
+
+    def test_history_by_id(self, client):
+        # Run analysis
+        text = "Single text for history ID lookup."
+        resp = client.post("/api/analyze", json={"text": text})
+        data = resp.json()["data"]
+        _ = data.get("id", "")
+
+        # Note: The current implementation stores with UUID, so we need to get it from history first
+        resp = client.get("/api/history?limit=1")
+        history_data = resp.json()
+        entries = history_data.get("entries", [])
+
+        if entries:
+            entry_id = entries[0]["id"]
+            resp = client.get(f"/api/history/{entry_id}")
+            assert resp.status_code == 200
+
+    def test_history_not_found(self, client):
+        resp = client.get("/api/history/nonexistent-id")
+        assert resp.status_code == 404
+
+    def test_clear_history(self, client):
+        # Run some analyses
+        for i in range(3):
+            text = f"Text to be cleared number {i}."
+            client.post("/api/analyze", json={"text": text})
+
+        resp = client.get("/api/history")
+        assert resp.json()["total"] >= 3
+
+        resp = client.delete("/api/history")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "cleared"
+
+        resp = client.get("/api/history")
+        assert resp.json()["total"] == 0
+
+
+# ── WebSocket with history storage ───────────────────────────────────
+
+
+@pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
+class TestWebSocketHistoryStorage:
+    def test_websocket_stores_in_history(self, client):
+        text = "WebSocket test text for history storage verification. Has enough content."
+
+        with client.websocket_connect("/ws/analyze") as ws:
+            ws.send_json({"type": "analyze", "text": text})
+
+            messages = []
+            for _ in range(20):
+                try:
+                    data = ws.receive_json()
+                    messages.append(data)
+                    if data.get("type") == "complete":
+                        break
+                except Exception:
+                    break
+
+        assert len(messages) >= 1
+
+        # Check that analysis was stored in history
+        resp = client.get("/api/history?limit=1")
+        history_data = resp.json()
+        assert history_data["total"] >= 1

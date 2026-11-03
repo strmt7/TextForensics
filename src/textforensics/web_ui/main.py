@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+import csv
+import io
 import json
 import os
+import uuid
+from collections import OrderedDict
 from contextlib import suppress
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -26,6 +31,25 @@ class AnalyzeResponse(BaseModel):
     success: bool
     data: dict[str, Any] | None = None
     error: str | None = None
+
+
+class ExportRequest(BaseModel):
+    data: dict[str, Any]
+    format: str = "json"  # json | csv | html
+
+
+class CompareRequest(BaseModel):
+    a: dict[str, Any]
+    b: dict[str, Any]
+
+
+class HistoryQueryRequest(BaseModel):
+    limit: int = 50
+    offset: int = 0
+    verdict: str | None = None
+    family: str | None = None
+    min_score: float | None = None
+    max_score: float | None = None
 
 
 def create_web_app(settings: Settings | None = None) -> FastAPI:
@@ -61,6 +85,74 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                 status_code=status,
                 detail="Invalid text input.",
             ) from exc
+
+    # ── Server-side history ring buffer ──────────────────────────────
+    max_history = int(os.environ.get("TEXTFORENSICS_HISTORY_MAX", "100"))
+    history_buffer: OrderedDict[str, dict[str, Any]] = OrderedDict()
+
+    def store_analysis(data: dict[str, Any]) -> str:
+        """Insert or update an analysis result in the ring buffer. Returns its ID."""
+        analysis_id = str(uuid.uuid4())
+        entry = {
+            "id": analysis_id,
+            "stored_at": datetime.now(timezone.utc).isoformat(),
+            "data": data,
+        }
+        history_buffer[analysis_id] = entry
+        # Evict oldest entries beyond max_history
+        while len(history_buffer) > max_history:
+            history_buffer.popitem(last=False)
+        return analysis_id
+
+    def query_history(
+        limit: int = 50,
+        offset: int = 0,
+        verdict: str | None = None,
+        family: str | None = None,
+        min_score: float | None = None,
+        max_score: float | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return filtered, paginated history entries (metadata only, no full data)."""
+        entries = list(history_buffer.values())
+        # Apply filters
+        filtered = []
+        for entry in entries:
+            data = entry.get("data", {})
+            consensus = data.get("consensus", {})
+
+            if verdict is not None and consensus.get("verdict") != verdict:
+                continue
+            if family is not None:
+                families = [
+                    v.get("detector_family", "") for v in (consensus.get("family_votes") or [])
+                ]
+                if family not in families:
+                    continue
+            if min_score is not None:
+                score = consensus.get("ai_probability")
+                if score is None or score < min_score:
+                    continue
+            if max_score is not None:
+                score = consensus.get("ai_probability")
+                if score is None or score > max_score:
+                    continue
+
+            filtered.append(
+                {
+                    "id": entry["id"],
+                    "stored_at": entry["stored_at"],
+                    "verdict": consensus.get("verdict"),
+                    "ai_probability": consensus.get("ai_probability"),
+                    "independent_families": consensus.get("independent_families"),
+                    "word_count": data.get("input", {}).get("word_count"),
+                    "content_sha256": data.get("content_sha256", "")[:16] + "…",
+                    "trust_overall": data.get("trust_map", {}).get("overall"),
+                    "detector_count": len(data.get("detector_results") or []),
+                }
+            )
+        # Sort by stored_at descending (newest first)
+        filtered.sort(key=lambda e: e["stored_at"], reverse=True)
+        return filtered[offset : offset + limit]
 
     def secure_response(response):
         response.headers["Cache-Control"] = "no-store"
@@ -158,9 +250,105 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
         assert_not_stopped()
         try:
             bundle = build_forensic_bundle(checked(req.text))
-            return AnalyzeResponse(success=True, data=bundle.to_dict())
+            result = bundle.to_dict()
+            store_analysis(result)
+            return AnalyzeResponse(success=True, data=result)
         except Exception as e:
             return AnalyzeResponse(success=False, error=str(e))
+
+    # ── Export endpoint ─────────────────────────────────────────────
+
+    @app.post("/api/export")
+    def export_report(req: ExportRequest):
+        """Export analysis results as JSON, CSV, or HTML report."""
+        fmt = req.format.lower()
+        if fmt not in ("json", "csv", "html"):
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"Unsupported format: {fmt}. Use json, csv, or html."},
+            )
+
+        if fmt == "json":
+            content = json.dumps(req.data, indent=2, ensure_ascii=False)
+            return StreamingResponse(
+                io.BytesIO(content.encode("utf-8")),
+                media_type="application/json",
+                headers={
+                    "Content-Disposition": f'attachment; filename="textforensics-report-{_report_timestamp()}.json"',
+                },
+            )
+
+        if fmt == "csv":
+            csv_buf = io.StringIO()
+            writer = csv.writer(csv_buf)
+            _write_csv_report(writer, req.data)
+            return StreamingResponse(
+                io.BytesIO(csv_buf.getvalue().encode("utf-8")),
+                media_type="text/csv",
+                headers={
+                    "Content-Disposition": f'attachment; filename="textforensics-report-{_report_timestamp()}.csv"',
+                },
+            )
+
+        # html
+        html_content = _build_html_report(req.data)
+        return StreamingResponse(
+            io.BytesIO(html_content.encode("utf-8")),
+            media_type="text/html",
+            headers={
+                "Content-Disposition": f'attachment; filename="textforensics-report-{_report_timestamp()}.html"',
+            },
+        )
+
+    # ── Compare endpoint ─────────────────────────────────────────────
+
+    @app.post("/api/compare")
+    def compare_analyses(req: CompareRequest):
+        """Return a side-by-side diff of two analysis results."""
+        return _build_comparison(req.a, req.b)
+
+    # ── History endpoint ─────────────────────────────────────────────
+
+    @app.get("/api/history")
+    def get_history(
+        limit: int = 50,
+        offset: int = 0,
+        verdict: str | None = None,
+        family: str | None = None,
+        min_score: float | None = None,
+        max_score: float | None = None,
+    ):
+        """Return paginated, filtered analysis history (metadata only)."""
+        entries = query_history(
+            limit=limit,
+            offset=offset,
+            verdict=verdict,
+            family=family,
+            min_score=min_score,
+            max_score=max_score,
+        )
+        return {
+            "entries": entries,
+            "total": len(history_buffer),
+            "returned": len(entries),
+        }
+
+    @app.delete("/api/history")
+    def clear_history():
+        """Clear all stored analysis history."""
+        history_buffer.clear()
+        return {"status": "cleared", "count": 0}
+
+    @app.get("/api/history/{analysis_id}")
+    def get_history_item(analysis_id: str):
+        """Return a single stored analysis result by ID."""
+        entry = history_buffer.get(analysis_id)
+        if entry is None:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "Analysis not found in history"},
+            )
+        return {"id": entry["id"], "stored_at": entry["stored_at"], "data": entry["data"]}
 
     @app.websocket("/ws/analyze")
     async def websocket_analyze(websocket: WebSocket):
@@ -214,7 +402,9 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
 
                     # Build and send final bundle
                     bundle = build_forensic_bundle(validated_text)
-                    await websocket.send_json({"type": "complete", "data": bundle.to_dict()})
+                    result_data = bundle.to_dict()
+                    store_analysis(result_data)
+                    await websocket.send_json({"type": "complete", "data": result_data})
 
         except WebSocketDisconnect:
             pass
@@ -265,6 +455,221 @@ def serve_web(
         access_log=settings.access_log,
         log_level=settings.log_level.lower(),
     )
+
+
+def _report_timestamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+
+
+def _write_csv_report(writer: csv.writer, data: dict[str, Any]) -> None:
+    """Write a CSV report from a forensic bundle dict."""
+    # Section: consensus
+    consensus = data.get("consensus", {})
+    writer.writerow(["Section", "Field", "Value"])
+    writer.writerow(["Consensus", "Verdict", consensus.get("verdict", "")])
+    writer.writerow(["Consensus", "AI Probability", consensus.get("ai_probability", "N/A")])
+    writer.writerow(["Consensus", "Independent Families", consensus.get("independent_families", 0)])
+    writer.writerow(["Consensus", "Family Agreement", consensus.get("family_agreement", "N/A")])
+    # Section: detectors
+    for det in data.get("detector_results", []):
+        writer.writerow(["Detector", det.get("detector_id", ""), ""])
+        writer.writerow(["Detector", "Version", det.get("detector_version", "")])
+        writer.writerow(["Detector", "Family", det.get("detector_family", "")])
+        writer.writerow(["Detector", "Score", det.get("score", "")])
+        writer.writerow(["Detector", "Verdict", det.get("verdict", "")])
+        writer.writerow(
+            [
+                "Detector",
+                "Calibrated AI Probability",
+                det.get("calibrated_ai_probability", "N/A"),
+            ]
+        )
+        writer.writerow(["Detector", "Execution", det.get("execution", "")])
+        writer.writerow([])
+    # Section: trust map
+    trust_map = data.get("trust_map", {})
+    writer.writerow(["Trust Map", "Overall", trust_map.get("overall", "")])
+    for dim in trust_map.get("dimensions", []):
+        writer.writerow(["Trust Map", dim.get("dimension", ""), dim.get("state", "")])
+        writer.writerow(["Trust Map", "Reason", dim.get("reason", "")])
+    # Section: input
+    inp = data.get("input", {})
+    writer.writerow(["Input", "Word Count", inp.get("word_count", "")])
+    writer.writerow(["Input", "Sentence Count", inp.get("sentence_count", "")])
+    writer.writerow(["Input", "Paragraph Count", inp.get("paragraph_count", "")])
+    writer.writerow(["Input", "Content SHA256", data.get("content_sha256", "")])
+    writer.writerow(["Input", "Generated At", data.get("generated_at_utc", "")])
+
+
+def _build_html_report(data: dict[str, Any]) -> str:
+    """Build a simple HTML report from a forensic bundle dict."""
+    consensus = data.get("consensus", {})
+    verdict = consensus.get("verdict", "unknown")
+    verdict_labels = {
+        "ai_like": "AI-like",
+        "human_like": "Human-like",
+        "abstain": "Abstain",
+        "insufficient_evidence": "Insufficient Evidence",
+        "mixed": "Mixed",
+    }
+    verdict_text = verdict_labels.get(verdict, verdict)
+    ai_prob = consensus.get("ai_probability")
+    ai_prob_str = f"{ai_prob * 100:.1f}%" if ai_prob is not None else "Not calibrated"
+
+    trust_map = data.get("trust_map", {})
+    trust_overall = trust_map.get("overall", "unknown")
+    dims = trust_map.get("dimensions", [])
+
+    detectors = data.get("detector_results", [])
+    inp = data.get("input", {})
+
+    detectors_html = "".join(
+        f"""<tr>
+            <td>{d.get('detector_id', '')}</td>
+            <td>{d.get('detector_version', '')}</td>
+            <td>{d.get('detector_family', '')}</td>
+            <td>{d.get('score', '')}</td>
+            <td>{d.get('verdict', '')}</td>
+            <td>{d.get('calibrated_ai_probability', 'N/A')}</td>
+        </tr>"""
+        for d in detectors
+    )
+
+    trust_dims_html = "".join(
+        f"""<tr>
+            <td>{dim.get('dimension', '')}</td>
+            <td>{dim.get('state', '')}</td>
+            <td>{dim.get('reason', '')}</td>
+        </tr>"""
+        for dim in dims
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<title>TextForensics Report — {_report_timestamp()}</title>
+<style>
+body {{ font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }}
+h1 {{ border-bottom: 2px solid #333; padding-bottom: 0.5rem; }}
+h2 {{ margin-top: 2rem; color: #444; }}
+table {{ border-collapse: collapse; width: 100%; margin: 1rem 0; }}
+th, td {{ border: 1px solid #ccc; padding: 8px 12px; text-align: left; }}
+th {{ background: #f5f5f5; }}
+.verdict {{ font-size: 1.5rem; font-weight: bold; padding: 0.5rem 1rem; border-radius: 6px; display: inline-block; }}
+.verdict-ai_like {{ background: #fee2e2; color: #991b1b; }}
+.verdict-human_like {{ background: #dcfce7; color: #166534; }}
+.verdict-abstain, .verdict-insufficient_evidence {{ background: #fef3c7; color: #92400e; }}
+.meta {{ margin: 1rem 0; color: #666; }}
+</style></head><body>
+<h1>TextForensics — Forensic Bundle Report</h1>
+<p class="meta">Generated: {data.get('generated_at_utc', 'N/A')} &middot; SHA256: {data.get('content_sha256', '')[:16]}&hellip;</p>
+
+<h2>Consensus Verdict</h2>
+<div class="verdict verdict-{verdict}">{verdict_text}</div>
+<p>AI Probability: {ai_prob_str} &middot; Independent Families: {consensus.get('independent_families', 'N/A')}</p>
+
+<h2>Input Statistics</h2>
+<p>Words: {inp.get('word_count', 'N/A')} &middot; Sentences: {inp.get('sentence_count', 'N/A')} &middot; Paragraphs: {inp.get('paragraph_count', 'N/A')}</p>
+
+<h2>Detector Results</h2>
+<table><tr><th>Detector</th><th>Version</th><th>Family</th><th>Score</th><th>Verdict</th><th>Cal. AI Prob.</th></tr>{detectors_html}</table>
+
+<h2>Trust Map</h2>
+<p>Overall: {trust_overall}</p>
+<table><tr><th>Dimension</th><th>State</th><th>Reason</th></tr>{trust_dims_html}</table>
+
+<h2>Warnings &amp; Limitations</h2>
+<ul>{"".join(f"<li>{w}</li>" for w in (data.get('limitations') or []))}</ul>
+
+</body></html>"""
+
+
+def _build_comparison(data_a: dict[str, Any], data_b: dict[str, Any]) -> dict[str, Any]:
+    """Build a side-by-side comparison of two forensic bundles."""
+    consensus_a = data_a.get("consensus", {})
+    consensus_b = data_b.get("consensus", {})
+
+    def _compare_detectors(results_a: list[dict], results_b: list[dict]) -> list[dict[str, Any]]:
+        """Pair detector results by detector_id and compute differences."""
+        map_a = {d.get("detector_id"): d for d in results_a}
+        map_b = {d.get("detector_id"): d for d in results_b}
+        all_ids = sorted(set(map_a.keys()) | set(map_b.keys()))
+
+        comparison = []
+        for det_id in all_ids:
+            a = map_a.get(det_id)
+            b = map_b.get(det_id)
+            score_a = a.get("calibrated_ai_probability") if a else None
+            score_b = b.get("calibrated_ai_probability") if b else None
+
+            diff = None
+            if score_a is not None and score_b is not None:
+                diff = round(score_b - score_a, 6)
+
+            verdict_a = a.get("verdict") if a else None
+            verdict_b = b.get("verdict") if b else None
+
+            comparison.append(
+                {
+                    "detector_id": det_id,
+                    "score_a": score_a,
+                    "score_b": score_b,
+                    "score_diff": diff,
+                    "verdict_a": verdict_a,
+                    "verdict_b": verdict_b,
+                    "verdict_changed": verdict_a != verdict_b,
+                    "family": (a.get("detector_family") if a else None),
+                }
+            )
+        return comparison
+
+    def _compare_trust(trust_a: dict, trust_b: dict) -> list[dict[str, Any]]:
+        """Compare trust map dimensions."""
+        dims_a = {d.get("dimension"): d for d in trust_a.get("dimensions", [])}
+        dims_b = {d.get("dimension"): d for d in trust_b.get("dimensions", [])}
+        all_dims = sorted(set(dims_a.keys()) | set(dims_b.keys()))
+
+        comparison = []
+        for dim in all_dims:
+            a = dims_a.get(dim)
+            b = dims_b.get(dim)
+            comparison.append(
+                {
+                    "dimension": dim,
+                    "state_a": a.get("state") if a else None,
+                    "state_b": b.get("state") if b else None,
+                    "state_changed": (a.get("state") if a else None)
+                    != (b.get("state") if b else None),
+                    "reason_a": a.get("reason") if a else None,
+                    "reason_b": b.get("reason") if b else None,
+                }
+            )
+        return comparison
+
+    return {
+        "summary": {
+            "verdict_a": consensus_a.get("verdict"),
+            "verdict_b": consensus_b.get("verdict"),
+            "verdict_changed": consensus_a.get("verdict") != consensus_b.get("verdict"),
+            "ai_probability_a": consensus_a.get("ai_probability"),
+            "ai_probability_b": consensus_b.get("ai_probability"),
+            "families_a": consensus_a.get("independent_families"),
+            "families_b": consensus_b.get("independent_families"),
+            "trust_overall_a": data_a.get("trust_map", {}).get("overall"),
+            "trust_overall_b": data_b.get("trust_map", {}).get("overall"),
+        },
+        "detector_comparison": _compare_detectors(
+            data_a.get("detector_results", []),
+            data_b.get("detector_results", []),
+        ),
+        "trust_map_comparison": _compare_trust(
+            data_a.get("trust_map", {}),
+            data_b.get("trust_map", {}),
+        ),
+        "content_hash_a": data_a.get("content_sha256", ""),
+        "content_hash_b": data_b.get("content_sha256", ""),
+        "generated_at_a": data_a.get("generated_at_utc", ""),
+        "generated_at_b": data_b.get("generated_at_utc", ""),
+    }
 
 
 def main() -> None:
