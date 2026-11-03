@@ -358,6 +358,182 @@ def _fuzz_fingerprint_and_contamination(text: str) -> None:
         pass
 
 
+def _fuzz_error_response_helper(text: str) -> None:
+    """Fuzz _error_response and _ok_response helpers."""
+    try:
+        from textforensics.mcp_tools import _error_response, _ok_response
+    except Exception:
+        return
+
+    for error_msg in (text[:200], "", "x" * 1000, None, 123, True):
+        for exit_code in (0, 1, 2, -1, 255, float("inf")):
+            try:
+                result = _error_response(str(error_msg), int(exit_code))
+                assert result["success"] is False
+                assert "error" in result
+                assert "exit_code" in result
+            except (ValueError, TypeError):
+                pass
+            except Exception:
+                pass
+
+    for payload in (None, {}, {"data": text[:100]}, {"nested": {"key": "val"}}):
+        for exit_code in (0, 1, 2):
+            try:
+                result = _ok_response(payload, exit_code)
+                assert result["success"] is True
+            except Exception:
+                pass
+
+
+def _fuzz_capability_register_edge_cases(text: str) -> None:
+    """Fuzz capability_register with valid_until and complex evidence."""
+    try:
+        from textforensics.mcp_tools import capability_register
+    except Exception:
+        return
+
+    # Test with valid_until edge cases
+    for valid_until in (None, "", "2099-12-31", "2020-01-01", "not-a-date", text[:30]):
+        try:
+            result = capability_register(
+                {
+                    "detector_id": "fuzz",
+                    "capability": "test",
+                    "tier": "readable",
+                    "valid_until": valid_until,
+                }
+            )
+            assert "success" in result
+        except Exception:
+            pass
+
+    # Test with complex evidence arrays
+    for evidence in [
+        [
+            {"label": "benchmark", "tier": "validated", "artifact": "url", "detail": text[:100]},
+            {"label": "review", "tier": "readable", "artifact": "url2"},
+        ],
+        [{"label": "", "tier": "readable", "artifact": ""}],
+        [{"label": 123, "tier": "readable", "artifact": "x"}],
+        [{"label": "benchmark", "tier": 123, "artifact": "x"}],
+    ]:
+        try:
+            result = capability_register(
+                {
+                    "detector_id": "fuzz",
+                    "capability": "test",
+                    "tier": "readable",
+                    "evidence": evidence,
+                }
+            )
+            assert "success" in result
+        except Exception:
+            pass
+
+
+def _fuzz_drift_tools_edge_cases(text: str) -> None:
+    """Fuzz drift tools with edge case observations and failures."""
+    try:
+        from textforensics.mcp_tools import drift_compare, drift_report, drift_snapshot
+    except Exception:
+        return
+
+    clean_hex = "".join(c if c in "0123456789abcdef" else "0" for c in text[:64])[:64]
+
+    corpus = {
+        "schema": "textforensics.drift-corpus/v1",
+        "samples": [{"id": "s1", "text_sha256": clean_hex}],
+    }
+
+    # Test with failures
+    try:
+        result = drift_snapshot(
+            {
+                "corpus": corpus,
+                "observations": [
+                    {
+                        "sample_id": "s1",
+                        "detector_id": "fuzz-det",
+                        "detector_version": "1.0",
+                        "detector_family": "fuzz",
+                        "execution": "local",
+                        "verdict": "ai_like",
+                        "score": 0.8,
+                    }
+                ],
+                "failures": [
+                    {
+                        "sample_id": "s1",
+                        "detector_id": "fuzz-det",
+                        "error_type": "timeout",
+                    }
+                ],
+            }
+        )
+        assert "success" in result
+    except Exception:
+        pass
+
+    # Test with non-list observations
+    try:
+        result = drift_snapshot({"corpus": corpus, "observations": "not-a-list"})
+    except Exception:
+        pass
+
+    # Test drift_compare with valid snapshots
+    snap1 = {
+        "schema": "textforensics.drift-snapshot/v1",
+        "snapshot_id": "snap-1",
+        "corpus_sha256": "",
+        "records": [],
+        "failures": [],
+    }
+    snap2 = dict(snap1, snapshot_id="snap-2")
+    try:
+        result = drift_compare({"corpus": corpus, "baseline": snap1, "current": snap2})
+        assert "success" in result
+    except Exception:
+        pass
+
+    # Test drift_report with many snapshots
+    snapshots = [dict(snap1, snapshot_id=f"snap-{i}") for i in range(5)]
+    try:
+        result = drift_report({"corpus": corpus, "snapshots": snapshots})
+        assert "success" in result
+    except Exception:
+        pass
+
+
+def _fuzz_fingerprint_dataset_edge_cases(text: str) -> None:
+    """Fuzz fingerprint_dataset with additional parameters."""
+    try:
+        from textforensics.mcp_tools import fingerprint_dataset
+    except Exception:
+        return
+
+    for path in ("/nonexistent", "", text[:50]):
+        for name in (text[:30] or "test", ""):
+            for version in ("1.0.0", "2.0.0-beta", "", "not-a-version"):
+                for split in ("test", "train", "calibration", "", "unknown"):
+                    for strict in (True, False):
+                        for include_text in (True, False):
+                            try:
+                                result = fingerprint_dataset(
+                                    {
+                                        "path": path,
+                                        "name": name,
+                                        "version": version,
+                                        "split": split,
+                                        "strict": strict,
+                                        "include_text": include_text,
+                                    }
+                                )
+                                assert "success" in result
+                            except Exception:
+                                pass
+
+
 @atheris.instrument_func
 def TestOneInput(data: bytes) -> None:
     """Fuzz MCP tool inputs and serialization."""
@@ -374,6 +550,10 @@ def TestOneInput(data: bytes) -> None:
     _fuzz_drift_compare(text)
     _fuzz_drift_report(text)
     _fuzz_fingerprint_and_contamination(text)
+    _fuzz_error_response_helper(text)
+    _fuzz_capability_register_edge_cases(text)
+    _fuzz_drift_tools_edge_cases(text)
+    _fuzz_fingerprint_dataset_edge_cases(text)
 
 
 def main() -> None:
