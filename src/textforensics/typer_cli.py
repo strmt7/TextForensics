@@ -948,6 +948,31 @@ def web(
         raise typer.Exit(EXIT_ERROR)
 
 
+@app.command("web-fastapi")
+def web_fastapi(
+    host: str | None = typer.Option(None, "--host", help="Host to bind to."),
+    port: int | None = typer.Option(None, "--port", help="Port to bind to."),
+    allow_remote: bool = typer.Option(False, "--allow-remote", help="Allow remote connections."),
+    access_log: bool = typer.Option(False, "--access-log", help="Enable access log."),
+):
+    """Run the FastAPI WebSocket UI with real-time analysis and visualization."""
+    try:
+        from .config import Settings
+        from .web_ui.main import serve_web
+
+        settings = Settings.from_env()
+        serve_web(
+            host or settings.host,
+            port if port is not None else settings.port,
+            allow_remote=allow_remote or settings.allow_remote,
+            access_log=access_log or settings.access_log,
+            log_level=settings.log_level,
+        )
+    except Exception as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(EXIT_ERROR)
+
+
 @app.command()
 def serve(
     host: str | None = typer.Option(None, "--host", help="Host to bind to."),
