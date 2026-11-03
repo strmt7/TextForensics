@@ -609,6 +609,86 @@ def capability_export(
         raise typer.Exit(EXIT_ERROR)
 
 
+@capability_app.command("policy")
+def capability_policy(
+    detector: str = typer.Argument(..., help="Detector ID to check policies for."),
+    ledger: Path | None = typer.Option(
+        None, "--ledger", help="Path to the capability ledger JSON file."
+    ),
+    policy: str = typer.Option(
+        "production",
+        "--policy",
+        "-p",
+        help="Policy bundle: production, report, calibration, minimum.",
+    ),
+    json: bool = typer.Option(False, "--json", "-j", help="Output as JSON."),
+):
+    """Evaluate capability ledger policies for a detector.
+
+    Policy bundles:
+      production  - requires VALIDATED language coverage, TOOL_BACKED length/domain
+      report      - requires trust map claims
+      calibration - requires EXECUTED calibration evidence
+      minimum     - requires READABLE documentation
+    """
+    try:
+        from .capability_ledger import CapabilityLedger
+        from .capability_policy import (
+            CapabilityPolicyEngine,
+            create_production_policy,
+            create_report_generation_policy,
+            create_calibration_policy,
+            create_minimum_viable_policy,
+        )
+
+        ledger_path = (
+            ledger or Path(__file__).resolve().parent.parent.parent / "capability_ledger.json"
+        )
+        if ledger_path.exists():
+            try:
+                data = json.loads(ledger_path.read_text(encoding="utf-8"))
+                ledger_obj = CapabilityLedger.from_dict(data)
+            except (json.JSONDecodeError, KeyError):
+                ledger_obj = CapabilityLedger()
+        else:
+            ledger_obj = CapabilityLedger()
+
+        policy_map = {
+            "production": create_production_policy,
+            "report": create_report_generation_policy,
+            "calibration": create_calibration_policy,
+            "minimum": create_minimum_viable_policy,
+        }
+        if policy not in policy_map:
+            typer.echo(f"error: unknown policy '{policy}'. Use one of: {', '.join(policy_map.keys())}", err=True)
+            raise typer.Exit(EXIT_ERROR)
+
+        engine = policy_map[policy]()
+        results = engine.evaluate(ledger_obj, detector)
+
+        if json:
+            _write_json(None, [r.to_dict() for r in results])
+        else:
+            typer.echo(f"Policy evaluation: {policy} for {detector}")
+            all_passed = True
+            for result in results:
+                status = "PASS" if result.passed else result.rule_id.upper()
+                typer.echo(f"  [{status}] {result.message}")
+                if result.missing_claims:
+                    for m in result.missing_claims:
+                        typer.echo(f"    MISSING: {m}")
+                if result.evidence_gaps:
+                    for g in result.evidence_gaps:
+                        typer.echo(f"    GAP: {g}")
+                if not result.passed:
+                    all_passed = False
+
+        raise typer.Exit(EXIT_OK if all_passed else EXIT_INCOMPLETE)
+    except Exception as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(EXIT_ERROR)
+
+
 @verify_app.command("case")
 def verify_case(
     case_file: Path = typer.Argument(..., help="Path to a sealed case file."),
