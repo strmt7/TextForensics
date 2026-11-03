@@ -89,7 +89,7 @@ jobs:
           retention-days: 90
 
       - name: Check mutation results (diff)
-        if: always()
+        if: steps.changed-files.outputs.changed_files != ''
         run: |
           if [ -f mutation-results/summary.json ]; then
             python scripts/run_mutation.py --check-results mutation-results/summary.json
