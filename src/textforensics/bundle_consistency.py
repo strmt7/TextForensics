@@ -136,16 +136,15 @@ def _check_bundle_consistency(bundle: dict[str, Any]) -> list[ConsistencyIssue]:
         )
     else:
         verdict = consensus.get("verdict")
-        if verdict not in ("ai_like", "human_like", "abstain", "insufficient_evidence", "mixed"):
-            if verdict is not None:
-                issues.append(
-                    ConsistencyIssue(
-                        field="consensus.verdict",
-                        issue_type="invalid",
-                        message=f"Invalid verdict value: {verdict}",
-                        severity="warning",
-                    )
+        if verdict is not None and verdict not in ("ai_like", "human_like", "abstain", "insufficient_evidence", "mixed"):
+            issues.append(
+                ConsistencyIssue(
+                    field="consensus.verdict",
+                    issue_type="invalid",
+                    message=f"Invalid verdict value: {verdict}",
+                    severity="warning",
                 )
+            )
 
         # Check AI probability range if present
         ai_prob = consensus.get("ai_probability")
@@ -196,9 +195,8 @@ def _check_bundle_consistency(bundle: dict[str, Any]) -> list[ConsistencyIssue]:
             # Check score range for uncalibrated
             score = result.get("score")
             reliability = result.get("reliability")
-            if score is not None and reliability is not None:
-                # Uncalibrated scores should have low reliability
-                if reliability < 0.1 and score is not None:
+            if score is not None and reliability is not None and reliability < 0.1:
+                    # Uncalibrated scores with low reliability
                     issues.append(
                         ConsistencyIssue(
                             field=f"detector_results[{i}].reliability",
@@ -212,16 +210,15 @@ def _check_bundle_consistency(bundle: dict[str, Any]) -> list[ConsistencyIssue]:
     trust_map = bundle.get("trust_map", {})
     if isinstance(trust_map, dict):
         overall = trust_map.get("overall")
-        if overall not in ("supported", "partial", "unknown", "out_of_scope"):
-            if overall is not None:
-                issues.append(
-                    ConsistencyIssue(
-                        field="trust_map.overall",
-                        issue_type="invalid",
-                        message=f"Invalid overall trust state: {overall}",
-                        severity="warning",
-                    )
+        if overall is not None and overall not in ("supported", "partial", "unknown", "out_of_scope"):
+            issues.append(
+                ConsistencyIssue(
+                    field="trust_map.overall",
+                    issue_type="invalid",
+                    message=f"Invalid overall trust state: {overall}",
+                    severity="warning",
                 )
+            )
 
         dims = trust_map.get("dimensions", [])
         if isinstance(dims, list):
@@ -237,16 +234,15 @@ def _check_bundle_consistency(bundle: dict[str, Any]) -> list[ConsistencyIssue]:
                     )
                     continue
                 state = dim.get("state")
-                if state not in ("supported", "partial", "unknown", "out_of_scope"):
-                    if state is not None:
-                        issues.append(
-                            ConsistencyIssue(
-                                field=f"trust_map.dimensions[{i}].state",
-                                issue_type="invalid",
-                                message=f"Invalid dimension state: {state}",
-                                severity="warning",
-                            )
+                if state is not None and state not in ("supported", "partial", "unknown", "out_of_scope"):
+                    issues.append(
+                        ConsistencyIssue(
+                            field=f"trust_map.dimensions[{i}].state",
+                            issue_type="invalid",
+                            message=f"Invalid dimension state: {state}",
+                            severity="warning",
                         )
+                    )
 
     # Check input statistics
     inp = bundle.get("input", {})
@@ -264,16 +260,15 @@ def _check_bundle_consistency(bundle: dict[str, Any]) -> list[ConsistencyIssue]:
 
         sentence_count = inp.get("sentence_count")
         inp.get("paragraph_count")
-        if word_count is not None and sentence_count is not None:
-            if word_count > 0 and sentence_count == 0:
-                issues.append(
-                    ConsistencyIssue(
-                        field="input.sentence_count",
-                        issue_type="mismatch",
-                        message=f"Word count is {word_count} but sentence count is 0.",
-                        severity="warning",
-                    )
+        if word_count is not None and sentence_count is not None and word_count > 0 and sentence_count == 0:
+            issues.append(
+                ConsistencyIssue(
+                    field="input.sentence_count",
+                    issue_type="mismatch",
+                    message=f"Word count is {word_count} but sentence count is 0.",
+                    severity="warning",
                 )
+            )
 
     # Check content_sha256
     content_sha256 = bundle.get("content_sha256")

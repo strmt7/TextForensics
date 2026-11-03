@@ -8,20 +8,16 @@ from textforensics.adversarial import (
     AdversarialDetector,
     AdversarialFinding,
     HumanizationPatternLibrary,
-    HumanizationReport,
+    detect_deliberate_typos,
+    detect_discourse_overload,
+    detect_forced_contractions,
+    detect_hedge_overload,
     detect_humanization,
     detect_humanization_simple,
-    detect_humanization_simple,
-    detect_regex_artifacts,
-    detect_mechanical_variation,
     detect_mechanical_transitions,
-    detect_deliberate_typos,
-    detect_forced_contractions,
-    detect_discourse_overload,
-    detect_hedge_overload,
+    detect_mechanical_variation,
     detect_perplexity_anomalies,
-    HumanizationPatternLibrary,
-    AdversarialDetector,
+    detect_regex_artifacts,
 )
 
 
@@ -286,7 +282,7 @@ class TestAdversarialDetectorRiskAssessment:
 class TestCustomPatternRegistration:
     def test_custom_pattern_registration(self):
         library = HumanizationPatternLibrary()
-        
+
         def my_detector(text):
             if "secret_pattern" in text:
                 return [AdversarialFinding(
@@ -299,7 +295,7 @@ class TestCustomPatternRegistration:
                     description="Secret pattern found",
                 )]
             return []
-        
+
         library.register("secret", lambda t: [])
         # Actually test the registration
         library._patterns["secret_test"] = lambda t: [AdversarialFinding(
@@ -311,7 +307,7 @@ class TestCustomPatternRegistration:
             location=(0, 10),
             description="Secret pattern found",
         )] if "secret_pattern" in t else []
-        
+
         # Test that custom pattern is in registry
         assert "secret_test" in library.list_patterns()
 

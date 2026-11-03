@@ -379,7 +379,7 @@ class CalibrationManager:
             for i in range(n_bins):
                 if bin_boundaries[i] <= s < bin_boundaries[i + 1] or (i == n_bins - 1 and s == 1.0):
                     bin_scores[i].append(s)
-                    bin_labels[i].append(l)
+                    bin_labels[i].append(label)
                     break
 
         ece = 0.0

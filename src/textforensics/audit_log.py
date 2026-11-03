@@ -134,12 +134,11 @@ class AuditLog:
                     data = json.loads(line)
                     entry = AuditLogEntry.from_dict(data)
                     # Verify chain integrity on load
-                    if self._entries:
-                        if entry.prev_hash != self._entries[-1].entry_hash:
-                            raise AuditLogError(
-                                f"Hash chain broken at entry {entry.index}: "
-                                f"prev_hash mismatch (line {line_num})"
-                            )
+                    if self._entries and entry.prev_hash != self._entries[-1].entry_hash:
+                        raise AuditLogError(
+                            f"Hash chain broken at entry {entry.index}: "
+                            f"prev_hash mismatch (line {line_num})"
+                        )
                     if entry.entry_hash != _compute_entry_hash(entry.to_dict()):
                         raise AuditLogError(
                             f"Entry hash mismatch at entry {entry.index} (line {line_num})"
