@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import tempfile
 import pathlib
+import tempfile
+
 import pytest
 
 from textforensics.adapter_scanner import (
@@ -16,7 +17,6 @@ from textforensics.adapter_scanner import (
     verify_local_only,
 )
 
-
 # ---------------------------------------------------------------------------
 # Test source snippets
 # ---------------------------------------------------------------------------
@@ -28,130 +28,131 @@ def analyze(text: str) -> dict:
     return {"score": 0.5}
 '''
 
-NETWORK_URLLIB_SOURCE = '''from __future__ import annotations
+NETWORK_URLLIB_SOURCE = """from __future__ import annotations
 import urllib.request
 
 def fetch(url: str) -> str:
     return urllib.request.urlopen(url).read().decode()
-'''
+"""
 
-NETWORK_REQUESTS_SOURCE = '''from __future__ import annotations
+NETWORK_REQUESTS_SOURCE = """from __future__ import annotations
 import requests
 
 def fetch(url: str) -> str:
     return requests.get(url).text
-'''
+"""
 
-NETWORK_HTTPCLIENT_SOURCE = '''from __future__ import annotations
+NETWORK_HTTPCLIENT_SOURCE = """from __future__ import annotations
 import http.client
 
 def fetch(host: str) -> str:
     conn = http.client.HTTPConnection(host)
     conn.request("GET", "/")
     return conn.getresponse().read().decode()
-'''
+"""
 
-SUBPROCESS_SOURCE = '''from __future__ import annotations
+SUBPROCESS_SOURCE = """from __future__ import annotations
 import os
 
 def run_cmd(cmd: str) -> str:
     return os.system(cmd)
-'''
+"""
 
-SUBPROCESS_POPEN_SOURCE = '''from __future__ import annotations
+SUBPROCESS_POPEN_SOURCE = """from __future__ import annotations
 import subprocess
 
 def run(cmd: list[str]) -> str:
     result = subprocess.run(cmd, capture_output=True, text=True)
     return result.stdout
-'''
+"""
 
-DYN_EVAL_SOURCE = '''from __future__ import annotations
+DYN_EVAL_SOURCE = """from __future__ import annotations
 
 def run_code(code: str) -> Any:
     return eval(code)
-'''
+"""
 
-DYN_EXEC_SOURCE = '''from __future__ import annotations
+DYN_EXEC_SOURCE = """from __future__ import annotations
 
 def run_code(code: str) -> None:
     exec(code)
-'''
+"""
 
-DYN_IMPORTLIB_SOURCE = '''from __future__ import annotations
+DYN_IMPORTLIB_SOURCE = """from __future__ import annotations
 import importlib
 
 def load(name: str):
     return importlib.import_module(name)
-'''
+"""
 
-FS_WRITE_SOURCE = '''from __future__ import annotations
+FS_WRITE_SOURCE = """from __future__ import annotations
 
 def write_file(path: str, data: str) -> None:
     with open(path, "w") as f:
         f.write(data)
-'''
+"""
 
-FS_WRITE_BINARY_SOURCE = '''from __future__ import annotations
+FS_WRITE_BINARY_SOURCE = """from __future__ import annotations
 
 def write_binary(path: str, data: bytes) -> None:
     with open(path, "wb") as f:
         f.write(data)
-'''
+"""
 
-FS_WRITE_MODE_KW_SOURCE = '''from __future__ import annotations
+FS_WRITE_MODE_KW_SOURCE = """from __future__ import annotations
 
 def write_file(path: str, data: str) -> None:
     with open(path, mode="w") as f:
         f.write(data)
-'''
+"""
 
-FS_READ_SOURCE = '''from __future__ import annotations
+FS_READ_SOURCE = """from __future__ import annotations
 
 def read_file(path: str) -> str:
     with open(path, "r") as f:
         return f.read()
-'''
+"""
 
-FS_OS_REMOVE_SOURCE = '''from __future__ import annotations
+FS_OS_REMOVE_SOURCE = """from __future__ import annotations
 import os
 
 def delete(path: str) -> None:
     os.remove(path)
-'''
+"""
 
-FS_PATH_WRITE_SOURCE = '''from __future__ import annotations
+FS_PATH_WRITE_SOURCE = """from __future__ import annotations
 from pathlib import Path
 
 def write(path: Path, data: str) -> None:
     path.write_text(data)
-'''
+"""
 
-TELEMETRY_SOURCE = '''from __future__ import annotations
+TELEMETRY_SOURCE = """from __future__ import annotations
 import sentry_sdk
 
 def init() -> None:
     sentry_sdk.init("dsn")
-'''
+"""
 
-OBFUSCATION_SOURCE = '''from __future__ import annotations
+OBFUSCATION_SOURCE = """from __future__ import annotations
 import base64
 
 def decode_and_run(encoded: str) -> None:
     decoded = base64.b64decode(encoded).decode()
     exec(decoded)
-'''
+"""
 
-SYNTAX_ERROR_SOURCE = '''from __future__ import annotations
+SYNTAX_ERROR_SOURCE = """from __future__ import annotations
 
 def broken(:
     pass
-'''
+"""
 
 
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_clean_source_no_findings():
     """Clean local adapter produces zero findings and local_only_verified=True."""
@@ -365,10 +366,10 @@ def test_verify_local_only_false_telemetry():
 def test_deduplication():
     """Same rule at same line should be deduplicated."""
     # Two open('w') calls on same line (artificial)
-    source = '''from __future__ import annotations
+    source = """from __future__ import annotations
 def f():
     open("a.txt", "w"); open("b.txt", "w")
-'''
+"""
     report = scan_adapter_source(source, "dedup")
     fs_findings = [f for f in report.findings if f.category == "filesystem"]
     # Both calls on line 3 should produce one finding
@@ -381,8 +382,12 @@ def test_report_to_dict_roundtrip():
     report = scan_adapter_source(CLEAN_SOURCE, "test")
     d = report.to_dict()
     assert set(d.keys()) == {
-        "module_name", "findings", "scanned_at",
-        "source_sha256", "lines_scanned", "local_only_verified"
+        "module_name",
+        "findings",
+        "scanned_at",
+        "source_sha256",
+        "lines_scanned",
+        "local_only_verified",
     }
     assert isinstance(d["findings"], list)
     assert isinstance(d["scanned_at"], str)
@@ -430,10 +435,10 @@ def test_syntax_error_produces_critical_finding():
 
 def test_socket_create_connection_critical():
     """socket.create_connection -> critical."""
-    source = '''from __future__ import annotations
+    source = """from __future__ import annotations
 import socket
 def conn(): socket.create_connection(("example.com", 80))
-'''
+"""
     report = scan_adapter_source(source, "sock")
     findings = [f for f in report.findings if f.category == "network"]
     assert any(f.rule_id == "NET-011" and f.severity == "critical" for f in findings)
@@ -441,10 +446,10 @@ def conn(): socket.create_connection(("example.com", 80))
 
 def test_socket_socket_critical():
     """socket.socket -> critical."""
-    source = '''from __future__ import annotations
+    source = """from __future__ import annotations
 import socket
 def conn(): socket.socket()
-'''
+"""
     report = scan_adapter_source(source, "sock2")
     findings = [f for f in report.findings if f.category == "network"]
     assert any(f.rule_id == "NET-012" and f.severity == "critical" for f in findings)
@@ -452,10 +457,10 @@ def conn(): socket.socket()
 
 def test_codecs_decode_obfuscation():
     """codecs.decode -> obfuscation medium."""
-    source = '''from __future__ import annotations
+    source = """from __future__ import annotations
 import codecs
 def decode(s): codecs.decode(s, "rot_13")
-'''
+"""
     report = scan_adapter_source(source, "codecs")
     findings = [f for f in report.findings if f.category == "obfuscation"]
     assert any(f.rule_id == "OBF-003" for f in findings)
@@ -464,9 +469,9 @@ def decode(s): codecs.decode(s, "rot_13")
 def test_long_string_exec_critical():
     """Long string literal passed to exec -> critical."""
     long_str = '"' + "x" * 250 + '"'
-    source = f'''from __future__ import annotations
+    source = f"""from __future__ import annotations
 def run(): exec({long_str})
-'''
+"""
     report = scan_adapter_source(source, "long")
     findings = [f for f in report.findings if f.category == "obfuscation"]
     assert any(f.rule_id == "OBF-002" and f.severity == "critical" for f in findings)
@@ -475,9 +480,9 @@ def run(): exec({long_str})
 def test_long_string_eval_critical():
     """Long string literal passed to eval -> critical."""
     long_str = '"' + "x" * 250 + '"'
-    source = f'''from __future__ import annotations
+    source = f"""from __future__ import annotations
 def run(): eval({long_str})
-'''
+"""
     report = scan_adapter_source(source, "long2")
     findings = [f for f in report.findings if f.category == "obfuscation"]
     assert any(f.rule_id == "OBF-002" and f.severity == "critical" for f in findings)

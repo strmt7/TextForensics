@@ -20,7 +20,7 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 __all__ = [
     "ProvenanceNode",
@@ -57,7 +57,7 @@ class ProvenanceNode:
     timestamp: str
     metadata: dict[str, Any]
     operation: str
-    actor: Optional[str] = None
+    actor: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -156,9 +156,9 @@ class ProvenanceGraph:
         content: Any,
         operation: str,
         *,
-        metadata: Optional[dict[str, Any]] = None,
-        actor: Optional[str] = None,
-        node_id: Optional[str] = None,
+        metadata: dict[str, Any] | None = None,
+        actor: str | None = None,
+        node_id: str | None = None,
     ) -> ProvenanceNode:
         """Add a node to the graph.
 
@@ -205,7 +205,7 @@ class ProvenanceGraph:
         source_id: str,
         target_id: str,
         edge_type: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ProvenanceEdge:
         """Add a directed edge between nodes.
 
@@ -257,7 +257,7 @@ class ProvenanceGraph:
             stack.extend(self._adjacency.get(current, set()))
         return False
 
-    def get_node(self, node_id: str) -> Optional[ProvenanceNode]:
+    def get_node(self, node_id: str) -> ProvenanceNode | None:
         """Get a node by ID."""
         return self._nodes.get(node_id)
 
@@ -322,7 +322,7 @@ class ProvenanceGraph:
             "descendant_count": len(descendants),
         }
 
-    def get_subgraph(self, node_ids: set[str]) -> "ProvenanceGraph":
+    def get_subgraph(self, node_ids: set[str]) -> ProvenanceGraph:
         """Extract a subgraph containing only specified nodes and their connecting edges."""
         subgraph = ProvenanceGraph()
         for node_id in node_ids:
@@ -396,9 +396,9 @@ def create_evidence_node(
     content: Any,
     operation: str,
     *,
-    parents: Optional[list[str]] = None,
-    metadata: Optional[dict[str, Any]] = None,
-    actor: Optional[str] = None,
+    parents: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+    actor: str | None = None,
 ) -> ProvenanceNode:
     """Convenience function to create a node and link it to parent nodes.
 

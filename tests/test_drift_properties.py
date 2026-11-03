@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from hypothesis import given, settings, strategies as st
-
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from textforensics.drift import (
     DriftAlert,
@@ -218,15 +218,15 @@ class TestDriftProperties:
             for det_id, sev, cat, msg, action in alerts_data
         ]
         summary = summarize_alerts(alerts)
-        
+
         # Total count
         assert summary["total"] == len(alerts)
-        
+
         # Severity counts
         critical_count = sum(1 for a in alerts if a.severity == "critical")
         warning_count = sum(1 for a in alerts if a.severity == "warning")
         info_count = sum(1 for a in alerts if a.severity == "info")
-        
+
         assert summary["critical_count"] == critical_count
         assert summary["warning_count"] == warning_count
         assert summary["info_count"] == info_count
@@ -258,7 +258,7 @@ class TestDriftProperties:
             for det_id, sev, cat, msg, action in alerts_data
         ]
         summary = summarize_alerts(alerts)
-        
+
         for cat in ["behavioral", "configuration", "calibration", "human_fpr"]:
             expected = sum(1 for a in alerts if a.category == cat)
             assert summary["by_category"].get(cat, 0) == expected
@@ -281,7 +281,7 @@ class TestDriftProperties:
         """generate_drift_alerts should be deterministic for same input."""
         # Create mock reports from the data
         reports = []
-        for i, (det_id, sev, cat, msg, action) in enumerate(reports_data):
+        for i, (det_id, _sev, cat, _msg, _action) in enumerate(reports_data):
             reports.append({
                 "detector_id": det_id,
                 "status": "drift_detected",
@@ -293,12 +293,12 @@ class TestDriftProperties:
                 "threshold_changes": {"threshold_changed": cat == "configuration"},
                 "provider_metadata": {"provider_metadata_changed": False},
             })
-        
+
         alerts1 = generate_drift_alerts(reports)
         alerts2 = generate_drift_alerts(reports)
-        
+
         assert len(alerts1) == len(alerts2)
-        for a1, a2 in zip(alerts1, alerts2):
+        for a1, a2 in zip(alerts1, alerts2, strict=False):
             assert a1.detector_id == a2.detector_id
             assert a1.severity == a2.severity
             assert a1.category == a2.category
@@ -331,7 +331,7 @@ class TestDriftProperties:
             )
             for i, (det_id, sev, cat, msg, action) in enumerate(alerts_data)
         ]
-        
+
         for alert in alerts:
             d = alert.to_dict()
             assert d["detector_id"] == alert.detector_id

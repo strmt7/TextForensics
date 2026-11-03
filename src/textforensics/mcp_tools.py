@@ -489,7 +489,7 @@ def result_encode(params: dict[str, Any]) -> dict[str, Any]:
         canonical = params.get("canonical", True)
         validate = params.get("validate", True)
 
-        from .result_codec import ResultCodec, CodecConfig, CodecError
+        from .result_codec import CodecConfig, CodecError, ResultCodec
 
         config = CodecConfig(
             canonical_json=canonical,
@@ -535,7 +535,7 @@ def result_decode(params: dict[str, Any]) -> dict[str, Any]:
         validate = params.get("validate", True)
         strict_version = params.get("strict_version", False)
 
-        from .result_codec import ResultCodec, CodecConfig, CodecError, VersionMigrationError
+        from .result_codec import CodecConfig, CodecError, ResultCodec, VersionMigrationError
 
         config = CodecConfig(
             validate_on_encode=False,
@@ -587,10 +587,10 @@ def capability_policy_evaluate(params: dict[str, Any]) -> dict[str, Any]:
         from .capability_policy import (
             CapabilityPolicy,
             CapabilityPolicyEngine,
-            create_production_policy,
-            create_report_generation_policy,
             create_calibration_policy,
             create_minimum_viable_policy,
+            create_production_policy,
+            create_report_generation_policy,
         )
 
         ledger = CapabilityLedger.from_dict(ledger_data)

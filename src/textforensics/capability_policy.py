@@ -12,9 +12,11 @@ Example policies:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .capability_ledger import CapabilityLedger
 
 
 class PolicyResult:
@@ -77,7 +79,7 @@ class CapabilityPolicyEngine:
 
     def evaluate(
         self,
-        ledger: "CapabilityLedger",
+        ledger: CapabilityLedger,
         detector_id: str,
         operation: str = "use",
     ) -> list[PolicyResult]:
@@ -85,7 +87,6 @@ class CapabilityPolicyEngine:
 
         Returns list of PolicyResult objects, one per matching policy.
         """
-        from .capability_ledger import EvidenceTier
 
         results: list[PolicyResult] = []
 

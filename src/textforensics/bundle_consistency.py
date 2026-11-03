@@ -263,7 +263,7 @@ def _check_bundle_consistency(bundle: dict[str, Any]) -> list[ConsistencyIssue]:
             )
 
         sentence_count = inp.get("sentence_count")
-        paragraph_count = inp.get("paragraph_count")
+        inp.get("paragraph_count")
         if word_count is not None and sentence_count is not None:
             if word_count > 0 and sentence_count == 0:
                 issues.append(

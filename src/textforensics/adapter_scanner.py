@@ -17,7 +17,7 @@ import hashlib
 import importlib.metadata
 import inspect
 import pathlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
@@ -206,18 +206,19 @@ def _scan(
             )
         )
 
-    # Pre-collect: does the file contain both base64.b64decode and exec/eval?
+    # Pre-collect: does the file contain both base64.b64decode?
     has_base64_decode = False
-    has_exec_or_eval = False
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             func = node.func
-            if isinstance(func, ast.Attribute) and func.attr == "b64decode":
-                if isinstance(func.value, ast.Name) and func.value.id == "base64":
-                    has_base64_decode = True
-            if isinstance(func, ast.Name) and func.id in ("exec", "eval"):
-                has_exec_or_eval = True
+            if (
+                isinstance(func, ast.Attribute)
+                and func.attr == "b64decode"
+                and isinstance(func.value, ast.Name)
+                and func.value.id == "base64"
+            ):
+                has_base64_decode = True
 
     for node in ast.walk(tree):
         # ----- Import statements -----
@@ -261,17 +262,41 @@ def _scan(
                 mod_name = node.module or ""
                 top = _resolve_import_name(mod_name)
                 if mod_name in _NETWORK_MODULES_CRITICAL:
-                    _add("NET-001", "high", "network", f"From-import of network module '{mod_name}'", node)
+                    _add(
+                        "NET-001",
+                        "high",
+                        "network",
+                        f"From-import of network module '{mod_name}'",
+                        node,
+                    )
                 elif mod_name in _NETWORK_MODULES_HIGH:
-                    _add("NET-002", "high", "network", f"From-import of network library '{mod_name}'", node)
+                    _add(
+                        "NET-002",
+                        "high",
+                        "network",
+                        f"From-import of network library '{mod_name}'",
+                        node,
+                    )
                 elif mod_name in _NETWORK_MODULES_MEDIUM or top in _NETWORK_MODULES_MEDIUM:
-                    _add("NET-003", "medium", "network", f"From-import of network module '{mod_name}'", node)
+                    _add(
+                        "NET-003",
+                        "medium",
+                        "network",
+                        f"From-import of network module '{mod_name}'",
+                        node,
+                    )
                 elif mod_name in _TELEMETRY_MODULES or top in _TELEMETRY_MODULES:
-                    _add("TEL-001", "medium", "telemetry", f"From-import of telemetry/cloud module '{mod_name}'", node)
+                    _add(
+                        "TEL-001",
+                        "medium",
+                        "telemetry",
+                        f"From-import of telemetry/cloud module '{mod_name}'",
+                        node,
+                    )
                 elif mod_name == "subprocess" or top == "subprocess":
-                    _add("SUB-001", "high", "subprocess", f"Import of subprocess module", node)
+                    _add("SUB-001", "high", "subprocess", "Import of subprocess module", node)
                 elif mod_name == "commands" or top == "commands":
-                    _add("SUB-002", "high", "subprocess", f"Import of commands module", node)
+                    _add("SUB-002", "high", "subprocess", "Import of commands module", node)
 
         # ----- Call nodes -----
         if isinstance(node, ast.Call):
@@ -314,39 +339,85 @@ def _scan(
             # Subprocess calls
             if call_name in ("system", "popen") and call_base in ("os.system", "os.popen"):
                 _add("SUB-002", "high", "subprocess", f"Call to {call_base}", node)
-            if call_name in ("Popen", "run", "call", "check_output", "check_call") and call_base.startswith("subprocess."):
+            if call_name in (
+                "Popen",
+                "run",
+                "call",
+                "check_output",
+                "check_call",
+            ) and call_base.startswith("subprocess."):
                 _add("SUB-003", "high", "subprocess", f"Call to subprocess.{call_name}", node)
-            elif isinstance(func, ast.Name) and func.id in ("Popen", "run", "call", "check_output", "check_call"):
+            elif isinstance(func, ast.Name) and func.id in (
+                "Popen",
+                "run",
+                "call",
+                "check_output",
+                "check_call",
+            ):
                 # Could be from subprocess import Popen
-                _add("SUB-003", "high", "subprocess", f"Call to subprocess.{call_name} (from-import)", node)
+                _add(
+                    "SUB-003",
+                    "high",
+                    "subprocess",
+                    f"Call to subprocess.{call_name} (from-import)",
+                    node,
+                )
 
             # Dynamic execution
             if call_name == "eval":
                 # Check for obfuscation pattern: long string literal to eval
                 arg_is_long_string = False
-                if node.args:
-                    first_arg = node.args[0]
-                    if isinstance(first_arg, ast.Constant) and isinstance(first_arg.value, str):
-                        if len(first_arg.value) > 200:
-                            arg_is_long_string = True
+                if (
+                    node.args
+                    and isinstance(node.args[0], ast.Constant)
+                    and isinstance(node.args[0].value, str)
+                    and len(node.args[0].value) > 200
+                ):
+                    arg_is_long_string = True
                 if arg_is_long_string and has_base64_decode:
-                    _add("OBF-002", "critical", "obfuscation", "Long string literal passed to eval combined with base64 decode in same file", node)
+                    _add(
+                        "OBF-002",
+                        "critical",
+                        "obfuscation",
+                        "Long string literal passed to eval combined with base64 decode in same file",
+                        node,
+                    )
                 elif arg_is_long_string:
-                    _add("OBF-002", "critical", "obfuscation", "Long string literal passed to eval", node)
+                    _add(
+                        "OBF-002",
+                        "critical",
+                        "obfuscation",
+                        "Long string literal passed to eval",
+                        node,
+                    )
                 else:
                     _add("DYN-001", "high", "dynamic_execution", "Call to eval()", node)
             elif call_name == "exec":
                 arg_is_long_string = False
-                if node.args:
-                    first_arg = node.args[0]
-                    if isinstance(first_arg, ast.Constant) and isinstance(first_arg.value, str):
-                        if len(first_arg.value) > 200:
-                            arg_is_long_string = True
+                if (
+                    node.args
+                    and isinstance(node.args[0], ast.Constant)
+                    and isinstance(node.args[0].value, str)
+                    and len(node.args[0].value) > 200
+                ):
+                    arg_is_long_string = True
                 # Obfuscation: base64 + exec in same file
                 if has_base64_decode:
-                    _add("OBF-001", "critical", "obfuscation", "exec() used in file that also uses base64.b64decode", node)
+                    _add(
+                        "OBF-001",
+                        "critical",
+                        "obfuscation",
+                        "exec() used in file that also uses base64.b64decode",
+                        node,
+                    )
                 if arg_is_long_string:
-                    _add("OBF-002", "critical", "obfuscation", "Long string literal passed to exec", node)
+                    _add(
+                        "OBF-002",
+                        "critical",
+                        "obfuscation",
+                        "Long string literal passed to exec",
+                        node,
+                    )
                 else:
                     _add("DYN-002", "high", "dynamic_execution", "Call to exec()", node)
             elif call_name == "compile":
@@ -358,7 +429,13 @@ def _scan(
                 if node.args:
                     first_arg = node.args[0]
                     if not isinstance(first_arg, ast.Constant):
-                        _add("DYN-005", "medium", "dynamic_execution", "importlib.import_module with non-literal argument", node)
+                        _add(
+                            "DYN-005",
+                            "medium",
+                            "dynamic_execution",
+                            "importlib.import_module with non-literal argument",
+                            node,
+                        )
 
             # Obfuscation: codecs.decode
             if call_base == "codecs.decode":
@@ -422,9 +499,7 @@ def scan_adapter_source(
             )
         ]
 
-    has_unsafe = any(
-        f.category in {"network", "subprocess", "telemetry"} for f in findings
-    )
+    has_unsafe = any(f.category in {"network", "subprocess", "telemetry"} for f in findings)
 
     return AdapterScanReport(
         module_name=module_name,
@@ -480,21 +555,23 @@ def scan_adapter_entry_points() -> list[AdapterScanReport]:
             reports.append(scan_adapter_source(source, module_name=f"plugin:{ep_name}"))
         except Exception:
             # One failing plugin doesn't break the scan
-            reports.append(AdapterScanReport(
-                module_name=f"plugin:{ep_name}",
-                findings=[
-                    SecurityFinding(
-                        rule_id="DYN-998",
-                        severity="critical",
-                        category="dynamic_execution",
-                        message=f"Module could not be inspected: {ep_name}",
-                        line=None,
-                        snippet=None,
-                    )
-                ],
-                scanned_at=datetime.now(timezone.utc).isoformat(),
-                source_sha256="",
-                lines_scanned=0,
-                local_only_verified=False,
-            ))
+            reports.append(
+                AdapterScanReport(
+                    module_name=f"plugin:{ep_name}",
+                    findings=[
+                        SecurityFinding(
+                            rule_id="DYN-998",
+                            severity="critical",
+                            category="dynamic_execution",
+                            message=f"Module could not be inspected: {ep_name}",
+                            line=None,
+                            snippet=None,
+                        )
+                    ],
+                    scanned_at=datetime.now(timezone.utc).isoformat(),
+                    source_sha256="",
+                    lines_scanned=0,
+                    local_only_verified=False,
+                )
+            )
     return reports

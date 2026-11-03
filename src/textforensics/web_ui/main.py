@@ -9,13 +9,6 @@ import os
 import uuid
 from collections import OrderedDict
 from contextlib import suppress
-
-
-def _escape(value: object) -> str:
-    """Escape a value for safe inclusion in HTML output."""
-    if value is None:
-        return ""
-    return html.escape(str(value))
 from datetime import datetime, timezone
 from typing import Any
 
@@ -30,6 +23,12 @@ from ..detectors import list_detector_health, list_detector_metadata
 from ..report import build_forensic_bundle
 from ..version import get_version
 
+
+def _escape(value: object) -> str:
+    """Escape a value for safe inclusion in HTML output."""
+    if value is None:
+        return ""
+    return html.escape(str(value))
 
 # ── Session Manager for real-time collaboration ──────────────────────
 
@@ -544,7 +543,7 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                         # Broadcast to other users in the session
                         for conn_ws in session_manager.get_connected(sess_id):
                             if id(conn_ws) != id(websocket):
-                                try:
+                                with suppress(Exception):
                                     await conn_ws.send_json(
                                         {
                                             "type": "user_joined",
@@ -552,8 +551,6 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                                             "users": session_manager.list_users(sess_id),
                                         }
                                     )
-                                except Exception:
-                                    pass
                     except ValueError as e:
                         error_msg = {"type": "error", "message": str(e)}
                         await websocket.send_json(error_msg)
@@ -563,23 +560,19 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                     sess_id = session_manager._ws_map.pop(ws_key, None)
                     if sess_id:
                         session_manager.leave_user(ws_key)
-                        try:
+                        with suppress(Exception):
                             await websocket.send_json(
                                 {"type": "session_left", "session_id": sess_id}
                             )
-                        except Exception:
-                            pass
                         # Broadcast to remaining users
                         for conn_ws in session_manager.get_connected(sess_id):
-                            try:
+                            with suppress(Exception):
                                 await conn_ws.send_json(
                                     {
                                         "type": "user_left",
                                         "users": session_manager.list_users(sess_id),
                                     }
                                 )
-                            except Exception:
-                                pass
                     continue
 
                 elif msg_type == "analysis_shared":
@@ -589,7 +582,7 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                         if analysis_data:
                             store_analysis(analysis_data)
                             for conn_ws in session_manager.get_connected(sess_id):
-                                try:
+                                with suppress(Exception):
                                     await conn_ws.send_json(
                                         {
                                             "type": "analysis_shared",
@@ -597,8 +590,6 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                                             "shared_by": message.get("shared_by", ws_key),
                                         }
                                     )
-                                except Exception:
-                                    pass
                     continue
 
                 # ── Existing analysis protocol ────────────────────
@@ -652,7 +643,7 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                     if session_id and session_manager.has_session(session_id):
                         for conn_ws in session_manager.get_connected(session_id):
                             if id(conn_ws) != id(websocket):
-                                try:
+                                with suppress(Exception):
                                     await conn_ws.send_json(
                                         {
                                             "type": "analysis_result_shared",
@@ -660,8 +651,6 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                                             "analysis_id": analysis_id,
                                         }
                                     )
-                                except Exception:
-                                    pass
 
                     await websocket.send_json({"type": "complete", "data": result_data})
 

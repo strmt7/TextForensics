@@ -16,11 +16,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 __all__ = [
     "AuditLogEntry",
@@ -54,9 +53,9 @@ class AuditLogEntry:
     index: int
     timestamp: str
     operation: str
-    actor: Optional[str]
-    input_hash: Optional[str]
-    output_hash: Optional[str]
+    actor: str | None
+    input_hash: str | None
+    output_hash: str | None
     metadata: dict[str, Any]
     prev_hash: str
     entry_hash: str
@@ -159,10 +158,10 @@ class AuditLog:
         self,
         operation: str,
         *,
-        actor: Optional[str] = None,
-        input_data: Optional[Any] = None,
-        output_data: Optional[Any] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        actor: str | None = None,
+        input_data: Any | None = None,
+        output_data: Any | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> AuditLogEntry:
         """Append a new entry to the audit log.
 
@@ -232,13 +231,13 @@ class AuditLog:
 
         return entry
 
-    def get_entry(self, index: int) -> Optional[AuditLogEntry]:
+    def get_entry(self, index: int) -> AuditLogEntry | None:
         """Get an entry by index."""
         if 0 <= index < len(self._entries):
             return self._entries[index]
         return None
 
-    def get_entries(self, start: int = 0, end: Optional[int] = None) -> list[AuditLogEntry]:
+    def get_entries(self, start: int = 0, end: int | None = None) -> list[AuditLogEntry]:
         """Get a range of entries."""
         return self._entries[start:end]
 
