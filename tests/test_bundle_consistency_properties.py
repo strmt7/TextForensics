@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from hypothesis import given, settings as hypothesis_settings, strategies as st
-
 import pytest
+from hypothesis import given
+from hypothesis import settings as hypothesis_settings
+from hypothesis import strategies as st
 
 from textforensics.bundle_consistency import (
     ConsistencyIssue,
@@ -175,7 +176,7 @@ class TestConsistencyReportInvariants:
         """Report should always have expected structure."""
         bundle = {"schema": "textforensics.forensic-bundle/v1"}
         report = check_bundle_consistency(bundle)
-        
+
         assert hasattr(report, "is_consistent")
         assert hasattr(report, "issues")
         assert hasattr(report, "checked_fields")

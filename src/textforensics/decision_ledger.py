@@ -13,10 +13,11 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Any
 
 __all__ = [
     "DecisionLedgerError",
@@ -34,6 +35,7 @@ LEDGER_SCHEMA = "textforensics.decision-record/v1"
 
 class DecisionLedgerError(Exception):
     """Base exception for decision ledger errors."""
+
     pass
 
 
@@ -180,8 +182,8 @@ class DecisionLedger:
         text_hash = text_sha256(text)
         _validate_sha256(text_hash, "text_sha256")
 
-        detector_id, detector_version, raw_score, verdict, runtime_ms = self._extract_prediction_fields(
-            prediction
+        detector_id, detector_version, raw_score, verdict, runtime_ms = (
+            self._extract_prediction_fields(prediction)
         )
 
         record = DecisionRecord(
@@ -203,7 +205,9 @@ class DecisionLedger:
         """Record multiple detector decisions for the same text."""
         return [self.record(text, pred) for pred in predictions]
 
-    def _find_last(self, detector_id: str, detector_version: str, text_sha256: str) -> DecisionRecord | None:
+    def _find_last(
+        self, detector_id: str, detector_version: str, text_sha256: str
+    ) -> DecisionRecord | None:
         """Find the most recent record matching detector_id, detector_version, and text_sha256."""
         for record in reversed(self._records):
             if (
@@ -227,8 +231,8 @@ class DecisionLedger:
         text_hash = text_sha256(text)
         _validate_sha256(text_hash, "text_sha256")
 
-        detector_id, detector_version, raw_score, verdict, runtime_ms = self._extract_prediction_fields(
-            prediction
+        detector_id, detector_version, raw_score, verdict, runtime_ms = (
+            self._extract_prediction_fields(prediction)
         )
 
         existing = self._find_last(detector_id, detector_version, text_hash)
@@ -422,7 +426,9 @@ def detect_drift(
             {
                 "detector_id": detector_id,
                 "paired_count": paired_count,
-                "mean_score_delta": round(mean_score_delta, 6) if mean_score_delta is not None else None,
+                "mean_score_delta": round(mean_score_delta, 6)
+                if mean_score_delta is not None
+                else None,
                 "verdict_flips": verdict_flips,
                 "drift_detected": drift_detected,
             }

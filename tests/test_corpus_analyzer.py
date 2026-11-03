@@ -175,7 +175,7 @@ class TestOutlierDetection:
     def test_no_outliers_uniform(self):
         """Uniform documents should have no outliers."""
         analyzer = CorpusAnalyzer()
-        for i in range(20):
+        for _i in range(20):
             analyzer.add_document("Same length text here.")
 
         outliers = analyzer.detect_outliers(method="iqr")

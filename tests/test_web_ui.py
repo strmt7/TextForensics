@@ -708,13 +708,6 @@ class TestWebSocketCollaboration:
 @pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
 class TestIndexPageWithSession:
     def test_index_page_with_session_param(self, client):
-        session_resp = client.post("/api/session")
-        session_id = session_resp.json()["session_id"]
-        resp = client.get(f"/?session={session_id}")
-        assert resp.status_code == 200
-        assert "session_id" in resp.text
-
-    def test_index_page_with_session_param(self, client):
         # Skip on Python 3.15 due to jinja2 compatibility issue
         import sys
 

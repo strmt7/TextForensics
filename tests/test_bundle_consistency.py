@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from textforensics.bundle_consistency import (
     ConsistencyIssue,
     ConsistencyReport,
@@ -149,7 +147,7 @@ class TestBundleConsistency:
         """Report should have expected fields."""
         bundle = {"schema": "textforensics.forensic-bundle/v1"}
         report = check_bundle_consistency(bundle)
-        
+
         assert isinstance(report, ConsistencyReport)
         assert hasattr(report, "is_consistent")
         assert hasattr(report, "issues")

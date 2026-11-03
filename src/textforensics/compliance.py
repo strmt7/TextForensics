@@ -123,7 +123,7 @@ class ComplianceReport:
         )
 
     @classmethod
-    def load(cls, path: str | Path) -> "ComplianceReport":
+    def load(cls, path: str | Path) -> ComplianceReport:
         """Load report from JSON file."""
         data = json.loads(Path(path).read_text(encoding="utf-8"))
         return cls(
@@ -161,7 +161,7 @@ class ComplianceReportBuilder:
         self.checks: list[ComplianceCheck] = []
         self.operation_context: dict[str, Any] = {}
 
-    def set_context(self, **context: Any) -> "ComplianceReportBuilder":
+    def set_context(self, **context: Any) -> ComplianceReportBuilder:
         """Set operation context for the report."""
         self.operation_context.update(context)
         return self

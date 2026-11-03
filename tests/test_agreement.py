@@ -7,8 +7,6 @@ import math
 import pytest
 
 from textforensics.agreement import (
-    AgreementMatrix,
-    PairwiseAgreement,
     _interpret_kappa,
     build_agreement_matrix,
     cohens_kappa,

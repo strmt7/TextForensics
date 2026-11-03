@@ -243,8 +243,6 @@ class TestCapabilityPolicyMCP:
         from textforensics.capability_ledger import (
             CapabilityClaim,
             CapabilityLedger,
-            EvidenceLabel,
-            EvidenceRef,
             EvidenceTier,
         )
 
@@ -276,8 +274,6 @@ class TestCapabilityPolicyMCP:
         from textforensics.capability_ledger import (
             CapabilityClaim,
             CapabilityLedger,
-            EvidenceLabel,
-            EvidenceRef,
             EvidenceTier,
         )
 

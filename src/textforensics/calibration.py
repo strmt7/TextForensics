@@ -113,7 +113,6 @@ class CalibrationCurve:
 
         elif self.method == "beta":
             # Beta calibration: calibrated = beta_cdf(score; a, b)
-            from math import comb
             a = self.parameters.get("a", 1.0)
             b = self.parameters.get("b", 1.0)
             # Regularized incomplete beta function approximation
@@ -127,7 +126,7 @@ class CalibrationCurve:
             return score ** a * (1 - score) ** b  # Simplified
 
         else:
-            warnings.warn(f"Unknown calibration method: {self.method}, returning raw score")
+            warnings.warn(f"Unknown calibration method: {self.method}, returning raw score", stacklevel=2)
             return score
 
 
@@ -236,7 +235,7 @@ class CalibrationManager:
                 artifact = CalibrationArtifact.from_dict(data)
                 self._artifacts[artifact.artifact_id] = artifact
             except (json.JSONDecodeError, KeyError, ValueError) as exc:
-                warnings.warn(f"Failed to load calibration artifact {file_path}: {exc}")
+                warnings.warn(f"Failed to load calibration artifact {file_path}: {exc}", stacklevel=2)
 
     def _artifact_path(self, artifact_id: str) -> Path:
         return self.storage_path / f"{artifact_id}.json"
@@ -368,7 +367,7 @@ class CalibrationManager:
         import math
 
         # Brier score
-        brier = sum((s - l) ** 2 for s, l in zip(scores, labels)) / len(scores)
+        brier = sum((s - label) ** 2 for s, label in zip(scores, labels, strict=False)) / len(scores)
 
         # Calibration error (ECE - Expected Calibration Error)
         n_bins = 10
@@ -376,7 +375,7 @@ class CalibrationManager:
         bin_scores = [[] for _ in range(n_bins)]
         bin_labels = [[] for _ in range(n_bins)]
 
-        for s, l in zip(scores, labels):
+        for s, label in zip(scores, labels, strict=False):
             for i in range(n_bins):
                 if bin_boundaries[i] <= s < bin_boundaries[i + 1] or (i == n_bins - 1 and s == 1.0):
                     bin_scores[i].append(s)
@@ -393,8 +392,8 @@ class CalibrationManager:
         # Log loss
         eps = 1e-15
         log_loss = -sum(
-            l * math.log(max(s, eps)) + (1 - l) * math.log(max(1 - s, eps))
-            for s, l in zip(scores, labels)
+            label * math.log(max(s, eps)) + (1 - label) * math.log(max(1 - s, eps))
+            for s, label in zip(scores, labels, strict=False)
         ) / len(scores)
 
         results = {

@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from hypothesis import given, settings as hypothesis_settings, strategies as st
-
 import pytest
+from hypothesis import given
+from hypothesis import settings as hypothesis_settings
+from hypothesis import strategies as st
 
 from textforensics.capability_ledger import (
     CapabilityClaim,
     CapabilityLedger,
-    EvidenceLabel,
-    EvidenceRef,
     EvidenceTier,
 )
 from textforensics.capability_policy import (
@@ -107,7 +106,7 @@ class TestPolicyProperties:
         results2 = engine.evaluate(ledger, detector_id)
 
         assert len(results1) == len(results2)
-        for r1, r2 in zip(results1, results2):
+        for r1, r2 in zip(results1, results2, strict=False):
             assert r1.passed == r2.passed
             assert r1.rule_id == r2.rule_id
             assert r1.missing_claims == r2.missing_claims

@@ -9,11 +9,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 import statistics
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 __all__ = [
     "CorpusAnalyzer",
@@ -101,8 +100,8 @@ class CorpusAnalyzer:
         self,
         text: str,
         *,
-        document_id: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        document_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Add a document to the corpus.
 
@@ -291,7 +290,7 @@ def load_corpus_from_jsonl(path: str, analyzer: CorpusAnalyzer) -> None:
 
     Expected format: one JSON object per line with 'text' field.
     """
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         for line_num, line in enumerate(f, 1):
             if not line.strip():
                 continue
@@ -320,6 +319,6 @@ def save_stats_to_json(stats: CorpusStats, path: str) -> None:
 
 def load_stats_from_json(path: str) -> CorpusStats:
     """Load corpus statistics from a JSON file."""
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         data = json.load(f)
     return CorpusStats.from_dict(data)

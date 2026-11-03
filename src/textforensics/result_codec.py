@@ -20,7 +20,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
-from .schema import load_schema, validate
+from .schema import validate
 
 __all__ = [
     "ResultCodec",
@@ -95,7 +95,7 @@ def _migrate_result(data: dict[str, Any], from_version: str, to_version: str) ->
     warnings.warn(
         f"No migration path from {from_version} to {to_version}. "
         "Returning data unchanged.",
-        UserWarning,
+        UserWarning, stacklevel=2,
     )
     return data
 
@@ -188,16 +188,15 @@ class ResultCodec:
         found_version = _extract_schema_version(result)
         expected_version = _SCHEMA_VERSIONS.get(schema_name)
 
-        if expected_version and found_version:
-            if found_version != expected_version:
-                if self.config.strict_version:
-                    raise VersionMigrationError(
-                        f"Schema version mismatch: expected {expected_version}, "
-                        f"got {found_version}"
-                    )
-                # Attempt migration
-                result = _migrate_result(result, found_version, expected_version)
-                result["schema"] = expected_version
+        if expected_version and found_version and found_version != expected_version:
+            if self.config.strict_version:
+                raise VersionMigrationError(
+                    f"Schema version mismatch: expected {expected_version}, "
+                    f"got {found_version}"
+                )
+            # Attempt migration
+            result = _migrate_result(result, found_version, expected_version)
+            result["schema"] = expected_version
 
         if validate:
             errors = self._validate(result, schema_name)

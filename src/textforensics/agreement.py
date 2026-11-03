@@ -20,8 +20,9 @@ from __future__ import annotations
 
 import math
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Optional, Sequence
+from typing import Any
 
 __all__ = [
     "PairwiseAgreement",
@@ -51,7 +52,7 @@ class PairwiseAgreement:
     detector_b: str
     paired_n: int
     percent_agreement: float
-    cohens_kappa: Optional[float]
+    cohens_kappa: float | None
     kappa_interpretation: str
     confusion: dict[str, int]
 
@@ -73,7 +74,7 @@ class AgreementMatrix:
 
     detectors: list[str]
     pairwise: list[PairwiseAgreement]
-    fleiss_kappa: Optional[float]
+    fleiss_kappa: float | None
     fleiss_n_texts: int
     fleiss_n_raters: int
     warnings: list[str] = field(default_factory=list)
@@ -136,7 +137,7 @@ def _interpret_kappa(kappa: float) -> str:
     return "almost perfect"
 
 
-def _is_abstain(verdict: Optional[str]) -> bool:
+def _is_abstain(verdict: str | None) -> bool:
     """Treat None and 'abstain' as missing observations (never agreement)."""
     if verdict is None:
         return True
@@ -144,8 +145,8 @@ def _is_abstain(verdict: Optional[str]) -> bool:
 
 
 def percent_agreement(
-    verdicts_a: Sequence[Optional[str]],
-    verdicts_b: Sequence[Optional[str]],
+    verdicts_a: Sequence[str | None],
+    verdicts_b: Sequence[str | None],
 ) -> tuple[float, int]:
     """Raw percentage agreement between two verdict sequences.
 
@@ -159,7 +160,7 @@ def percent_agreement(
 
     paired = 0
     agreed = 0
-    for a, b in zip(verdicts_a, verdicts_b):
+    for a, b in zip(verdicts_a, verdicts_b, strict=False):
         if _is_abstain(a) or _is_abstain(b):
             continue
         paired += 1
@@ -172,9 +173,9 @@ def percent_agreement(
 
 
 def cohens_kappa(
-    verdicts_a: Sequence[Optional[str]],
-    verdicts_b: Sequence[Optional[str]],
-) -> tuple[Optional[float], float, int, dict[str, int]]:
+    verdicts_a: Sequence[str | None],
+    verdicts_b: Sequence[str | None],
+) -> tuple[float | None, float, int, dict[str, int]]:
     """Cohen's kappa between two raters over paired verdicts.
 
     kappa = (p_o - p_e) / (1 - p_e), where p_o is observed agreement and
@@ -193,7 +194,7 @@ def cohens_kappa(
     paired = 0
     agreed = 0
 
-    for a, b in zip(verdicts_a, verdicts_b):
+    for a, b in zip(verdicts_a, verdicts_b, strict=False):
         if _is_abstain(a) or _is_abstain(b):
             continue
         va = str(a).strip().lower()
@@ -225,8 +226,8 @@ def cohens_kappa(
 
 
 def fleiss_kappa(
-    verdict_matrix: Sequence[Sequence[Optional[str]]],
-) -> tuple[Optional[float], int, int, list[str]]:
+    verdict_matrix: Sequence[Sequence[str | None]],
+) -> tuple[float | None, int, int, list[str]]:
     """Fleiss' kappa across multiple raters over shared items.
 
     Args:
@@ -300,7 +301,7 @@ def fleiss_kappa(
 
 
 def build_agreement_matrix(
-    detector_verdicts: dict[str, Sequence[Optional[str]]],
+    detector_verdicts: dict[str, Sequence[str | None]],
 ) -> AgreementMatrix:
     """Build a full agreement analysis across detectors.
 
@@ -352,7 +353,7 @@ def build_agreement_matrix(
     # Fleiss' kappa over the full matrix (texts as rows)
     matrix = [
         list(detector_veroids)
-        for detector_veroids in zip(*(detector_verdicts[d] for d in detector_ids))
+        for detector_veroids in zip(*(detector_verdicts[d] for d in detector_ids), strict=False)
     ]
     fleiss, n_usable, n_raters, warnings = fleiss_kappa(matrix)
 
