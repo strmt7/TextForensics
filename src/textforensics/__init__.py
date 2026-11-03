@@ -63,6 +63,15 @@ from .explain import (
     load_explanation_report,
     split_sentences,
 )
+from .adversarial import (
+    AdversarialDetector,
+    AdversarialFinding,
+    HumanizationPatternLibrary,
+    HumanizationReport,
+    detect_humanization,
+    detect_humanization_simple,
+    HumanizationPatternLibrary,
+)
 from .version import get_version
 
 
@@ -84,6 +93,8 @@ def _import_telemetry():
 
 __all__ = [
     "BUILD_INFO",
+    "AdversarialDetector",
+    "AdversarialFinding",
     "analyze_text",
     "build_forensic_bundle",
     "CapabilityClaim",
@@ -138,6 +149,13 @@ __all__ = [
     "verify_case_file_path",
     "verify_fingerprint",
     "VerificationReport",
+    "AdversarialDetector",
+    "AdversarialFinding",
+    "HumanizationPatternLibrary",
+    "HumanizationReport",
+    "detect_humanization",
+    "detect_humanization_simple",
+    "HumanizationPatternLibrary",
 ]
 
 __version__ = get_version()
