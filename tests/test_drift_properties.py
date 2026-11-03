@@ -59,13 +59,12 @@ class TestDriftProperties:
     )
     @settings(deadline=None)
     def test_round_precision(self, value: float, digits: int):
-        """_round should return a value with appropriate precision."""
+        """_round should match Python's built-in round behavior."""
         result = _round(value, digits)
         if result is not None:
-            # Check that result has at most 'digits' decimal places
-            scale = 10**digits
-            # Use a more tolerant comparison for floating point
-            assert abs(result * scale - round(value * scale)) < 1e-6
+            # _round should match Python's round
+            expected = round(value, digits)
+            assert result == expected
 
     @given(
         st.lists(
