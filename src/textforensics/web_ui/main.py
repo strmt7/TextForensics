@@ -547,7 +547,8 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                                 except Exception:
                                     pass
                     except ValueError as e:
-                        await websocket.send_json({"type": "error", "message": str(e)})
+                        error_msg = {"type": "error", "message": str(e)}
+                        await websocket.send_json(error_msg)
                     continue
 
                 elif msg_type == "leave_session":
@@ -605,7 +606,8 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                     try:
                         validated_text = checked(text)
                     except ValueError as e:
-                        await websocket.send_json({"type": "error", "message": str(e)})
+                        error_msg = {"type": "error", "message": str(e)}
+                        await websocket.send_json(error_msg)
                         continue
 
                     # Send analysis started
@@ -659,7 +661,8 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
             pass
         except Exception as e:
             with suppress(Exception):
-                await websocket.send_json({"type": "error", "message": str(e)})
+                error_msg = {"type": "error", "message": str(e)}
+                await websocket.send_json(error_msg)
         finally:
             # Always clean up on disconnect
             session_manager.leave_user(ws_key)
