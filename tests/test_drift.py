@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from textforensics.detectors import BuiltinHeuristicDetector
 from textforensics.drift import (
+    DriftAlert,
     DriftObservatory,
     _distribution_summary,
     _index_by_sample,
@@ -22,6 +23,9 @@ from textforensics.drift import (
     _records_by_detector,
     _round,
     _unique_scalars,
+    filter_alerts,
+    generate_drift_alerts,
+    summarize_alerts,
 )
 
 CORPUS_PATH = os.path.join(os.path.dirname(__file__), "..", "testdata", "drift_corpus.json")
@@ -851,6 +855,207 @@ class E2EBuiltinSnapshotTests(unittest.TestCase):
             )
             report = obs2.compare_snapshots(snap1_loaded, snap2)
             self.assertIn("detectors", report)
+
+
+# ── Drift Alerting ───────────────────────────────────────────────
+
+    def test_generate_alerts_for_drift_detected(self):
+        """generate_drift_alerts should create alerts for drift_detected status."""
+        reports = [
+            {
+                "detector_id": "test/detector",
+                "status": "drift_detected",
+                "snapshot_id": "snap-123",
+                "score_distribution": {"significant": True},
+                "verdict_flips": {"significant": False},
+                "calibration_drift": {"probability_shift_significant": False},
+                "human_slice_fpr": {"significant_increase": False},
+                "threshold_changes": {"threshold_changed": False},
+                "provider_metadata": {"provider_metadata_changed": False},
+            }
+        ]
+        alerts = generate_drift_alerts(reports)
+        self.assertEqual(len(alerts), 1)
+        self.assertEqual(alerts[0].detector_id, "test/detector")
+        self.assertEqual(alerts[0].severity, "warning")
+        self.assertEqual(alerts[0].category, "behavioral")
+        self.assertEqual(alerts[0].snapshot_id, "snap-123")
+
+    def test_generate_alerts_for_critical_calibration_shift(self):
+        """generate_drift_alerts should create critical alerts for calibration shift."""
+        reports = [
+            {
+                "detector_id": "test/detector",
+                "status": "drift_detected",
+                "calibration_drift": {"probability_shift_significant": True},
+            }
+        ]
+        alerts = generate_drift_alerts(reports)
+        self.assertEqual(len(alerts), 1)
+        self.assertEqual(alerts[0].severity, "critical")
+        self.assertEqual(alerts[0].category, "calibration")
+
+    def test_generate_alerts_for_critical_human_fpr(self):
+        """generate_drift_alerts should create critical alerts for human FPR increase."""
+        reports = [
+            {
+                "detector_id": "test/detector",
+                "status": "drift_detected",
+                "human_slice_fpr": {"significant_increase": True},
+            }
+        ]
+        alerts = generate_drift_alerts(reports)
+        self.assertEqual(len(alerts), 1)
+        self.assertEqual(alerts[0].severity, "critical")
+        self.assertEqual(alerts[0].category, "human_fpr")
+
+    def test_generate_alerts_for_info_threshold_change(self):
+        """generate_drift_alerts should create info alerts for threshold changes."""
+        reports = [
+            {
+                "detector_id": "test/detector",
+                "status": "drift_detected",
+                "threshold_changes": {"threshold_changed": True},
+            }
+        ]
+        alerts = generate_drift_alerts(reports)
+        self.assertEqual(len(alerts), 1)
+        self.assertEqual(alerts[0].severity, "info")
+        self.assertEqual(alerts[0].category, "configuration")
+
+    def test_generate_alerts_for_info_provider_metadata(self):
+        """generate_drift_alerts should create info alerts for provider metadata changes."""
+        reports = [
+            {
+                "detector_id": "test/detector",
+                "status": "drift_detected",
+                "provider_metadata": {"provider_metadata_changed": True},
+            }
+        ]
+        alerts = generate_drift_alerts(reports)
+        self.assertEqual(len(alerts), 1)
+        self.assertEqual(alerts[0].severity, "info")
+        self.assertEqual(alerts[0].category, "configuration")
+
+    def test_generate_alerts_stable_no_alerts(self):
+        """generate_drift_alerts should return empty list for stable status."""
+        reports = [
+            {
+                "detector_id": "test/detector",
+                "status": "stable",
+            }
+        ]
+        alerts = generate_drift_alerts(reports)
+        self.assertEqual(len(alerts), 0)
+
+    def test_generate_alerts_insufficient_evidence_no_alerts(self):
+        """generate_drift_alerts should return empty list for insufficient_evidence."""
+        reports = [
+            {
+                "detector_id": "test/detector",
+                "status": "insufficient_evidence",
+            }
+        ]
+        alerts = generate_drift_alerts(reports)
+        self.assertEqual(len(alerts), 0)
+
+    def test_generate_alerts_multiple_detectors(self):
+        """generate_drift_alerts should handle multiple detector reports."""
+        reports = [
+            {
+                "detector_id": "detector/a",
+                "status": "drift_detected",
+                "score_distribution": {"significant": True},
+            },
+            {
+                "detector_id": "detector/b",
+                "status": "drift_detected",
+                "verdict_flips": {"significant": True},
+            },
+        ]
+        alerts = generate_drift_alerts(reports)
+        self.assertEqual(len(alerts), 2)
+        self.assertEqual(alerts[0].detector_id, "detector/a")
+        self.assertEqual(alerts[1].detector_id, "detector/b")
+
+    def test_filter_alerts_by_severity(self):
+        """filter_alerts should filter by severity."""
+        alerts = [
+            DriftAlert(detector_id="a", severity="critical", category="cat1", message="m", recommended_action="a"),
+            DriftAlert(detector_id="b", severity="warning", category="cat2", message="m", recommended_action="a"),
+            DriftAlert(detector_id="c", severity="info", category="cat3", message="m", recommended_action="a"),
+        ]
+        critical = filter_alerts(alerts, severity="critical")
+        self.assertEqual(len(critical), 1)
+        self.assertEqual(critical[0].detector_id, "a")
+
+    def test_filter_alerts_by_category(self):
+        """filter_alerts should filter by category."""
+        alerts = [
+            DriftAlert(detector_id="a", severity="critical", category="calibration", message="m", recommended_action="a"),
+            DriftAlert(detector_id="b", severity="warning", category="behavioral", message="m", recommended_action="a"),
+            DriftAlert(detector_id="c", severity="info", category="calibration", message="m", recommended_action="a"),
+        ]
+        calibration = filter_alerts(alerts, category="calibration")
+        self.assertEqual(len(calibration), 2)
+
+    def test_filter_alerts_by_detector_id(self):
+        """filter_alerts should filter by detector_id."""
+        alerts = [
+            DriftAlert(detector_id="detector/a", severity="critical", category="cat1", message="m", recommended_action="a"),
+            DriftAlert(detector_id="detector/b", severity="warning", category="cat2", message="m", recommended_action="a"),
+        ]
+        filtered = filter_alerts(alerts, detector_id="detector/a")
+        self.assertEqual(len(filtered), 1)
+        self.assertEqual(filtered[0].detector_id, "detector/a")
+
+    def test_filter_alerts_combined(self):
+        """filter_alerts should support combined filters."""
+        alerts = [
+            DriftAlert(detector_id="a", severity="critical", category="calibration", message="m", recommended_action="a"),
+            DriftAlert(detector_id="b", severity="critical", category="behavioral", message="m", recommended_action="a"),
+        ]
+        filtered = filter_alerts(alerts, severity="critical", category="calibration")
+        self.assertEqual(len(filtered), 1)
+        self.assertEqual(filtered[0].detector_id, "a")
+
+    def test_summarize_alerts(self):
+        """summarize_alerts should count by severity and category."""
+        alerts = [
+            DriftAlert(detector_id="a", severity="critical", category="calibration", message="m", recommended_action="a"),
+            DriftAlert(detector_id="b", severity="warning", category="behavioral", message="m", recommended_action="a"),
+            DriftAlert(detector_id="c", severity="warning", category="behavioral", message="m", recommended_action="a"),
+            DriftAlert(detector_id="d", severity="info", category="configuration", message="m", recommended_action="a"),
+        ]
+        summary = summarize_alerts(alerts)
+        self.assertEqual(summary["total"], 4)
+        self.assertEqual(summary["critical_count"], 1)
+        self.assertEqual(summary["warning_count"], 2)
+        self.assertEqual(summary["info_count"], 1)
+        self.assertEqual(summary["by_severity"]["critical"], 1)
+        self.assertEqual(summary["by_severity"]["warning"], 2)
+        self.assertEqual(summary["by_severity"]["info"], 1)
+        self.assertEqual(summary["by_category"]["calibration"], 1)
+        self.assertEqual(summary["by_category"]["behavioral"], 2)
+        self.assertEqual(summary["by_category"]["configuration"], 1)
+
+    def test_drift_alert_to_dict(self):
+        """DriftAlert.to_dict should serialize all fields."""
+        alert = DriftAlert(
+            detector_id="test/detector",
+            severity="critical",
+            category="calibration",
+            message="Test message",
+            recommended_action="Re-calibrate",
+            snapshot_id="snap-123",
+        )
+        d = alert.to_dict()
+        self.assertEqual(d["detector_id"], "test/detector")
+        self.assertEqual(d["severity"], "critical")
+        self.assertEqual(d["category"], "calibration")
+        self.assertEqual(d["message"], "Test message")
+        self.assertEqual(d["recommended_action"], "Re-calibrate")
+        self.assertEqual(d["snapshot_id"], "snap-123")
 
 
 if __name__ == "__main__":
