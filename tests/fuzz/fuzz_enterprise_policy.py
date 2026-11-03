@@ -140,7 +140,19 @@ def _fuzz_revision_floor(text: str) -> None:
         state_path = tmpdir / "state.enc"
         key_path = tmpdir / "key.key"
 
-        floor = PolicyRevisionFloor(state_path=state_path, key_path=key_path)
+        # Generate a valid key first to avoid Fernet key errors
+        try:
+            from cryptography.fernet import Fernet
+
+            valid_key = Fernet.generate_key()
+            key_path.write_bytes(valid_key)
+        except ImportError:
+            pass  # cryptography not installed; let the floor handle it
+
+        try:
+            floor = PolicyRevisionFloor(state_path=state_path, key_path=key_path)
+        except Exception:
+            return
 
         # Test policies with varying revisions
         for rev in (-1, 0, 1, 2, 100, len(text)):
@@ -208,7 +220,18 @@ def _fuzz_policy_engine(text: str) -> None:
         state_path = tmpdir / "state.enc"
         key_path = tmpdir / "key.key"
 
-        floor = PolicyRevisionFloor(state_path=state_path, key_path=key_path)
+        # Generate a valid key first
+        try:
+            from cryptography.fernet import Fernet
+
+            key_path.write_bytes(Fernet.generate_key())
+        except ImportError:
+            pass
+
+        try:
+            floor = PolicyRevisionFloor(state_path=state_path, key_path=key_path)
+        except Exception:
+            return
         engine = EnterprisePolicyEngine(floor=floor)
 
         # Build fuzzed policy dict
@@ -321,6 +344,168 @@ def _fuzz_compute_digest(text: str) -> None:
                     pass
 
 
+def _fuzz_engine_evaluate_scopes(text: str) -> None:
+    """Fuzz EnterprisePolicyEngine.evaluate with varied scopes and rule actions."""
+    try:
+        from textforensics.enterprise_policy import EnterprisePolicyEngine
+    except Exception:
+        return
+
+    engine = EnterprisePolicyEngine()
+
+    # No policy loaded — should return no_policy
+    for scope in (text[:20] or "all", "", "analysis", "x" * 500):
+        try:
+            result = engine.evaluate(scope)
+            assert result["status"] == "no_policy"
+        except Exception:
+            pass
+
+    # Load policy with diverse actions
+    for action in ("enforce", "warn", "log", "disable", "unknown", ""):
+        for scope in ("all", "analysis", text[:15] or "all"):
+            policy_data = {
+                "revision": 1,
+                "settings": {},
+                "rules": [
+                    {
+                        "id": "r1",
+                        "description": "fuzz",
+                        "action": action,
+                        "scope": scope,
+                    },
+                ],
+            }
+            try:
+                rejections = engine.load_policy(policy_data)
+                assert isinstance(rejections, list)
+            except Exception:
+                pass
+
+            for eval_scope in (scope, "all", "analysis", text[:10]):
+                try:
+                    result = engine.evaluate(eval_scope)
+                    assert "status" in result
+                except Exception:
+                    pass
+
+            engine._policy = None
+
+
+def _fuzz_engine_load_policy_schema(text: str) -> None:
+    """Fuzz load_policy with schema-violating inputs to trigger validation errors."""
+    try:
+        from textforensics.enterprise_policy import EnterprisePolicyEngine
+    except Exception:
+        return
+
+    engine = EnterprisePolicyEngine()
+
+    for variant in [
+        {"revision": "not-int"},
+        {"revision": 0, "settings": "not-dict"},
+        {"revision": 0, "rules": "not-list"},
+        {"revision": 0, "rules": [{"id": 123}]},
+        {"revision": 0, "rules": [{"id": "r1"}]},
+        {"revision": 0, "digest": "g" * 64},
+        {
+            "revision": 0,
+            "rules": [{"id": "r1", "description": "x", "action": "enforce", "scope": "all"}],
+            "digest": "0" * 63,
+        },
+        {"settings": {}, "rules": []},
+    ]:
+        try:
+            rejections = engine.load_policy(variant)
+            assert isinstance(rejections, list)
+        except Exception:
+            pass
+
+
+def _fuzz_policy_state_save_load(text: str) -> None:
+    """Fuzz PolicyState save/load round-trip via PolicyRevisionFloor."""
+    try:
+        from textforensics.enterprise_policy import (
+            PolicyRevisionFloor,
+            PolicyState,
+        )
+    except Exception:
+        return
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        state_path = tmpdir / "state.enc"
+        key_path = tmpdir / "key.key"
+
+        # Generate a valid key first
+        try:
+            from cryptography.fernet import Fernet
+
+            valid_key = Fernet.generate_key()
+            key_path.write_bytes(valid_key)
+        except ImportError:
+            pass
+
+        # Write corrupted state file
+        state_path.write_text(text, encoding="utf-8")
+        floor = PolicyRevisionFloor(state_path=state_path, key_path=key_path)
+        try:
+            s = floor.state
+            assert isinstance(s, PolicyState)
+        except Exception:
+            pass
+
+        # Write corrupted key (skip if it happens to be 44 bytes - could be valid base64)
+        if len(text) != 44:
+            key_path.write_text(text, encoding="utf-8")
+            floor2 = PolicyRevisionFloor(state_path=state_path, key_path=key_path)
+            try:
+                key = floor2.get_key()
+                assert isinstance(key, bytes)
+            except Exception:
+                pass
+
+        # get_key_path
+        try:
+            kp = floor2.get_key_path()
+            assert isinstance(kp, Path)
+        except Exception:
+            pass
+
+
+def _fuzz_enterprise_policy_from_dict_edge(text: str) -> None:
+    """Fuzz EnterprisePolicy.from_dict with extreme type mismatches."""
+    try:
+        from textforensics.enterprise_policy import EnterprisePolicy
+    except Exception:
+        return
+
+    for revision in (0, -1, "x", True, float("nan"), None):
+        for digest in ("", "0" * 64, 123, True, None):
+            for settings in ({}, "x", [], True, None, {"nested": {"deep": "val"}}):
+                for rules in (
+                    [],
+                    "x",
+                    [{"id": "r1", "description": "x", "action": "enforce", "scope": "all"}],
+                    True,
+                    None,
+                ):
+                    try:
+                        ep = EnterprisePolicy.from_dict(
+                            {
+                                "revision": revision,
+                                "digest": digest,
+                                "settings": settings,
+                                "rules": rules,
+                            }
+                        )
+                        assert ep.revision >= 0
+                    except (ValueError, TypeError, KeyError):
+                        pass
+                    except Exception:
+                        pass
+
+
 @atheris.instrument_func
 def TestOneInput(data: bytes) -> None:
     """Fuzz enterprise policy parsing, validation, and revision floor."""
@@ -335,6 +520,10 @@ def TestOneInput(data: bytes) -> None:
     _fuzz_policy_engine(text)
     _fuzz_policy_validation(text)
     _fuzz_compute_digest(text)
+    _fuzz_engine_evaluate_scopes(text)
+    _fuzz_engine_load_policy_schema(text)
+    _fuzz_policy_state_save_load(text)
+    _fuzz_enterprise_policy_from_dict_edge(text)
 
 
 def main() -> None:

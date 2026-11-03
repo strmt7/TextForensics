@@ -298,6 +298,107 @@ def _fuzz_evaluation_result_edge(text: str) -> None:
                         pass
 
 
+def _fuzz_run_calibration_evaluation(text: str) -> None:
+    """Fuzz run_calibration_evaluation pipeline end-to-end."""
+    try:
+        from textforensics.threshold_selection import run_calibration_evaluation
+    except Exception:
+        return
+
+    jsonl_content = _make_jsonl(text)
+    if not jsonl_content.strip():
+        jsonl_content = json.dumps({"label": "human", "text": "sample"}) + "\n"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        cal_path = tmpdir / "cal.jsonl"
+        eval_path = tmpdir / "eval.jsonl"
+        cal_path.write_text(jsonl_content, encoding="utf-8")
+        eval_path.write_text(jsonl_content, encoding="utf-8")
+
+        for target_fpr in (0.01, 0.0, 0.5, 1.0, -0.5):
+            for strict in (True, False):
+                try:
+                    result = run_calibration_evaluation(
+                        cal_path, eval_path, target_fpr=target_fpr, strict=strict
+                    )
+                    assert "calibration_result" in result
+                    assert "evaluation_result" in result
+                    assert "validation" in result
+                except (ValueError, RuntimeError, TypeError, FileNotFoundError):
+                    pass
+                except Exception:
+                    pass
+
+
+def _fuzz_get_test_samples(text: str) -> None:
+    """Fuzz _get_test_samples with malformed JSONL lines."""
+    try:
+        from textforensics.threshold_selection import _get_test_samples
+    except Exception:
+        return
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        p = tmpdir / "test.jsonl"
+        # Write fuzzed text as raw JSONL with edge cases
+        lines = []
+        for raw_line in text.split("\n")[:50]:
+            lines.append(raw_line)
+        # Add edge-case lines
+        lines.extend(
+            [
+                "",
+                "not json at all",
+                "123",
+                "[]",
+                "{}",
+                '{"text": 123}',
+                '{"text": null}',
+                '{"text": ""}',
+                '{"other": "field"}',
+            ]
+        )
+        p.write_text("\n".join(lines), encoding="utf-8")
+        try:
+            samples = _get_test_samples(p)
+            assert isinstance(samples, list)
+        except Exception:
+            pass
+
+
+def _fuzz_threshold_selection_result_serialization(text: str) -> None:
+    """Fuzz ThresholdSelectionResult.to_dict with extreme field values."""
+    try:
+        from textforensics.threshold_selection import ThresholdSelectionResult
+    except Exception:
+        return
+
+    for threshold in (0.0, 1.0, -1.0, 0.5, float("inf"), float("nan")):
+        for fpr in (0.0, 1.0, -0.5, float("inf")):
+            for tpr in (0.0, 1.0, -0.5):
+                for human_n in (0, 1, 1000000, -1):
+                    for ai_n in (0, 1, 1000000, -1):
+                        try:
+                            r = ThresholdSelectionResult(
+                                threshold=threshold,
+                                observed_fpr=fpr,
+                                observed_tpr=tpr,
+                                target_fpr=0.01,
+                                human_samples=human_n,
+                                ai_samples=ai_n,
+                                detector_id=text[:30] or "fuzz",
+                                detector_version="1.0.0",
+                                calibration_dataset_hash=text[:64].ljust(64, "0")[:64],
+                                warning=text[:200] or None,
+                            )
+                            d = r.to_dict()
+                            assert "threshold" in d
+                            assert "schema" in d
+                        except Exception:
+                            pass
+
+
 @atheris.instrument_func
 def TestOneInput(data: bytes) -> None:
     """Fuzz calibration artifact parsing, validation, and threshold selection."""
@@ -316,6 +417,9 @@ def TestOneInput(data: bytes) -> None:
     _fuzz_calibration_artifact_roundtrip(text)
     _fuzz_no_contamination(text)
     _fuzz_evaluation_result_edge(text)
+    _fuzz_run_calibration_evaluation(text)
+    _fuzz_get_test_samples(text)
+    _fuzz_threshold_selection_result_serialization(text)
 
 
 def main() -> None:

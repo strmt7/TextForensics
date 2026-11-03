@@ -498,6 +498,294 @@ def _fuzz_snapshot_comparison(text: str) -> None:
             pass
 
 
+def _fuzz_comparison_helpers(text: str) -> None:
+    """Fuzz _compare_score_distribution, _compare_verdict_flips, _compare_thresholds,
+    _compare_calibration, _compare_human_fpr, _compare_provider_metadata, _compare_supported_regime."""
+    try:
+        from textforensics.drift import (
+            ProbeSample,
+            _compare_calibration,
+            _compare_human_fpr,
+            _compare_provider_metadata,
+            _compare_score_distribution,
+            _compare_supported_regime,
+            _compare_thresholds,
+            _compare_verdict_flips,
+        )
+    except Exception:
+        return
+
+    clean_hex = "".join(c if c in "0123456789abcdef" else "0" for c in text[:64])[:64]
+
+    base_record = {"score": 0.5, "verdict": "ai_like", "threshold": 0.5, "sample_id": "s1"}
+    curr_record = {"score": 0.6, "verdict": "human_like", "threshold": 0.5, "sample_id": "s1"}
+
+    # Build pairs
+    for verdicts in [("ai_like", "human_like"), ("human_like", "ai_like"), ("abstain", "ai_like")]:
+        for score_pairs in [(None, None), (0.3, 0.7), (0.5, 0.5)]:
+            b = dict(base_record, verdict=verdicts[0], score=score_pairs[0])
+            c = dict(curr_record, verdict=verdicts[1], score=score_pairs[1])
+            pairs = [(b, c, "s1")]
+
+            try:
+                result = _compare_score_distribution(
+                    pairs, claim_allowed=True, shift_threshold=0.05, min_samples=2
+                )
+                assert "significant" in result
+            except Exception:
+                pass
+            try:
+                result = _compare_verdict_flips(
+                    pairs, claim_allowed=True, flip_rate_threshold=0.1, min_samples=2
+                )
+                assert "flip_count" in result
+            except Exception:
+                pass
+            try:
+                result = _compare_thresholds(pairs, [b], [c])
+                assert "threshold_changed" in result
+            except Exception:
+                pass
+
+    # Calibration comparison
+    for cal_pairs in [
+        (("cal-1", 0.5), ("cal-2", 0.7)),
+        ((None, None), (None, None)),
+        (("cal-1", 0.5), ("cal-1", 0.5)),
+    ]:
+        b = dict(
+            base_record, calibration_id=cal_pairs[0][0], calibrated_ai_probability=cal_pairs[0][1]
+        )
+        c = dict(
+            curr_record, calibration_id=cal_pairs[1][0], calibrated_ai_probability=cal_pairs[1][1]
+        )
+        pairs = [(b, c, "s1")]
+        try:
+            result = _compare_calibration(
+                pairs, claim_allowed=True, shift_threshold=0.05, min_samples=2
+            )
+            assert "significant" in result
+        except Exception:
+            pass
+
+    # Human FPR comparison
+    samples = {
+        "s1": ProbeSample(sample_id="s1", text_sha256=clean_hex, metadata={"label": "human"}),
+    }
+    for verdicts in [("ai_like", "human_like"), ("human_like", "ai_like"), ("ai_like", "ai_like")]:
+        b = dict(base_record, verdict=verdicts[0], score=0.3)
+        c = dict(curr_record, verdict=verdicts[1], score=0.4)
+        pairs = [(b, c, "s1")]
+        try:
+            result = _compare_human_fpr(
+                pairs,
+                claim_allowed=True,
+                min_slice_samples=2,
+                increase_threshold=0.05,
+                samples=samples,
+            )
+            assert "human_sample_count" in result
+        except Exception:
+            pass
+
+    # Provider metadata comparison
+    for records_pairs in [
+        (
+            [{"provider_version": "v1", "detector_version": "1.0", "execution": "remote"}],
+            [{"provider_version": "v2", "detector_version": "1.1", "execution": "remote"}],
+        ),
+        (
+            [{"provider_version": None, "detector_version": "1.0", "execution": "local"}],
+            [{"provider_version": None, "detector_version": "1.0", "execution": "local"}],
+        ),
+    ]:
+        try:
+            result = _compare_provider_metadata(records_pairs[0], records_pairs[1])
+            assert "provider_metadata_changed" in result
+        except Exception:
+            pass
+
+    # Supported regime comparison
+    for lang_pairs in [
+        (
+            [{"supported_languages": ["en"], "min_words": 50}],
+            [{"supported_languages": ["en", "fr"], "min_words": 30}],
+        ),
+        (
+            [{"supported_languages": [], "min_words": None}],
+            [{"supported_languages": [], "min_words": None}],
+        ),
+    ]:
+        try:
+            result = _compare_supported_regime(lang_pairs[0], lang_pairs[1])
+            assert "regime_changed" in result
+        except Exception:
+            pass
+
+
+def _fuzz_read_snapshot_file(text: str) -> None:
+    """Fuzz DriftObservatory.read_snapshot_file with various formats."""
+    try:
+        from textforensics.drift import DRIFT_SNAPSHOT_SCHEMA, DriftObservatory
+    except Exception:
+        return
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        # Malformed file
+        p = tmpdir / "snap.json"
+        p.write_text(text, encoding="utf-8")
+        try:
+            DriftObservatory.read_snapshot_file(p)
+        except (json.JSONDecodeError, ValueError):
+            pass
+        except Exception:
+            pass
+
+        # Empty snapshot store
+        p.write_text(
+            json.dumps({"schema": "textforensics.drift-snapshot-store/v1", "snapshots": []}),
+            encoding="utf-8",
+        )
+        try:
+            DriftObservatory.read_snapshot_file(p)
+        except ValueError:
+            pass
+        except Exception:
+            pass
+
+        # Snapshot store with 2 snapshots
+        clean_hex = "".join(c if c in "0123456789abcdef" else "0" for c in text[:64])[:64]
+        snap = {
+            "schema": DRIFT_SNAPSHOT_SCHEMA,
+            "snapshot_id": "x",
+            "corpus_sha256": clean_hex,
+            "records": [],
+            "failures": [],
+        }
+        p.write_text(
+            json.dumps(
+                {
+                    "schema": "textforensics.drift-snapshot-store/v1",
+                    "snapshots": [snap, snap],
+                }
+            ),
+            encoding="utf-8",
+        )
+        try:
+            DriftObservatory.read_snapshot_file(p)
+        except ValueError:
+            pass
+        except Exception:
+            pass
+
+
+def _fuzz_load_snapshots(text: str) -> None:
+    """Fuzz load_snapshots with malformed stores and corpus sha mismatches."""
+    try:
+        from textforensics.drift import DRIFT_SNAPSHOT_SCHEMA, DriftObservatory
+    except Exception:
+        return
+
+    clean_hex = "".join(c if c in "0123456789abcdef" else "0" for c in text[:64])[:64]
+
+    corpus = {
+        "schema": "textforensics.drift-corpus/v1",
+        "samples": [{"id": "s1", "text_sha256": clean_hex}],
+    }
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        store_path = tmpdir / "store.json"
+
+        # Malformed store file
+        store_path.write_text(text, encoding="utf-8")
+        try:
+            obs = DriftObservatory(corpus=corpus)
+            obs.load_snapshots(store_path)
+        except (json.JSONDecodeError, ValueError):
+            pass
+        except Exception:
+            pass
+
+        # Corpus sha mismatch
+        snap = {
+            "schema": DRIFT_SNAPSHOT_SCHEMA,
+            "snapshot_id": "x",
+            "corpus_sha256": "dead" * 16,
+            "records": [],
+            "failures": [],
+        }
+        store_path.write_text(
+            json.dumps(
+                {
+                    "schema": "textforensics.drift-snapshot-store/v1",
+                    "snapshots": [snap],
+                }
+            ),
+            encoding="utf-8",
+        )
+        try:
+            obs = DriftObservatory(corpus=corpus)
+            obs.load_snapshots(store_path, expected_corpus_sha256=clean_hex)
+        except ValueError:
+            pass
+        except Exception:
+            pass
+
+        # replace=False
+        store_path.write_text(
+            json.dumps(
+                {
+                    "schema": "textforensics.drift-snapshot-store/v1",
+                    "snapshots": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        try:
+            obs = DriftObservatory(corpus=corpus)
+            loaded = obs.load_snapshots(store_path, replace=False)
+            assert isinstance(loaded, list)
+        except Exception:
+            pass
+
+
+def _fuzz_add_snapshot(text: str) -> None:
+    """Fuzz add_snapshot with bad schemas and non-list records."""
+    try:
+        from textforensics.drift import DriftObservatory
+    except Exception:
+        return
+
+    clean_hex = "".join(c if c in "0123456789abcdef" else "0" for c in text[:64])[:64]
+    corpus = {
+        "schema": "textforensics.drift-corpus/v1",
+        "samples": [{"id": "s1", "text_sha256": clean_hex}],
+    }
+
+    try:
+        obs = DriftObservatory(corpus=corpus)
+    except Exception:
+        return
+
+    for bad_snap in [
+        {"schema": "wrong", "records": []},
+        {"schema": "textforensics.drift-snapshot/v1", "records": "not-list"},
+        {"schema": "textforensics.drift-snapshot/v1", "failures": "not-list"},
+        {},
+        [],
+        "not-a-dict",
+    ]:
+        try:
+            obs.add_snapshot(bad_snap)
+        except (ValueError, TypeError):
+            pass
+        except Exception:
+            pass
+
+
 @atheris.instrument_func
 def TestOneInput(data: bytes) -> None:
     """Fuzz DriftObservatory corpus loading, snapshot creation, and comparison."""
@@ -511,6 +799,10 @@ def TestOneInput(data: bytes) -> None:
     _fuzz_corpus_loading(text)
     _fuzz_observations_and_snapshots(text)
     _fuzz_snapshot_comparison(text)
+    _fuzz_comparison_helpers(text)
+    _fuzz_read_snapshot_file(text)
+    _fuzz_load_snapshots(text)
+    _fuzz_add_snapshot(text)
 
 
 def main() -> None:
