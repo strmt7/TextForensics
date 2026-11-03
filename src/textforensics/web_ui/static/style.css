@@ -938,3 +938,216 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* ── Collaboration Session ─────────────────────────────────────────── */
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: var(--panel);
+    padding: 24px;
+    border-radius: var(--radius);
+    min-width: 300px;
+    max-width: 400px;
+    border: 1px solid var(--line);
+}
+
+.modal-content h3 {
+    margin-bottom: 16px;
+    font-size: 18px;
+}
+
+.session-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.session-form input {
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--line);
+    background: #0f1216;
+    color: var(--text);
+    font-size: 14px;
+}
+
+.session-form input::placeholder {
+    color: var(--muted);
+}
+
+.session-top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 12px;
+    padding: 8px 16px;
+    background: rgba(91, 184, 255, 0.1);
+    border-radius: var(--radius-sm);
+}
+
+.session-id-display {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.presence-sidebar {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    width: 300px;
+    height: 100vh;
+    background: var(--panel);
+    border-left: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.3);
+    z-index: 500;
+}
+
+.presence-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+}
+
+.presence-title {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.btn-sm {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+.user-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    overflow-y: auto;
+    max-height: 300px;
+    margin-bottom: 16px;
+}
+
+.user-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+}
+
+.user-item.not-in-session {
+    color: var(--muted);
+    font-style: italic;
+}
+
+.user-badge {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.session-url {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.session-url-Code {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 11px;
+    word-break: break-all;
+    background: #0a0c0f;
+    padding: 8px;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.session-url-code {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 11px;
+    word-break: break-all;
+    background: #0a0c0f;
+    padding: 8px;
+    border-radius: 4px;
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.share-section {
+    margin-top: 12px;
+}
+
+.user-other {
+    background: rgba(91, 184, 255, 0.2);
+}
+
+.user-other::before {
+    content: "👤";
+}
+
+.user-you {
+    background: rgba(34, 197, 94, 0.2);
+}
+
+.user-you::before {
+    content: "👑";
+}
+
+/* ── Modal ────────────────────────────────────────────────────────── */
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: var(--panel);
+    padding: 24px;
+    border-radius: var(--radius);
+    min-width: 300px;
+    max-width: 400px;
+    border: 1px solid var(--line);
+}
+
+.modal-content h3 {
+    margin-bottom: 16px;
+    font-size: 18px;
+}
+
+.session-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
