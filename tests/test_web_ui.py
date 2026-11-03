@@ -733,3 +733,112 @@ class TestIndexPageWithSession:
             pytest.skip("jinja2 Python 3.15 compatibility issue")
         resp = client.get("/")
         assert resp.status_code == 200
+
+
+# ── XSS Protection ──────────────────────────────────────────────────
+
+
+@pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
+class TestXSSProtection:
+    """Tests that user-provided values are properly escaped in HTML output."""
+
+    def test_html_report_escapes_detector_ids(self, client):
+        """Detector IDs with HTML special chars must be escaped."""
+        malicious_text = "test text"
+        # First analyze to get data, then export as HTML
+        analyze_resp = client.post(
+            "/api/analyze",
+            json={"text": malicious_text},
+        )
+        assert analyze_resp.status_code == 200
+        data = analyze_resp.json()["data"]
+        resp = client.post(
+            "/api/export",
+            json={"data": data, "format": "html"},
+        )
+        assert resp.status_code == 200
+        html = resp.text
+        # No raw <script> tags from user data
+        assert "<script>alert" not in html
+        # HTML entities should be used for special chars
+        assert "&lt;" in html or "&gt;" in html or "&amp;" in html
+
+    def test_html_report_escapes_consensus_verdict(self, client):
+        """Consensus verdict values must be escaped."""
+        analyze_resp = client.post("/api/analyze", json={"text": "test"})
+        data = analyze_resp.json()["data"]
+        resp = client.post("/api/export", json={"data": data, "format": "html"})
+        assert resp.status_code == 200
+        html = resp.text
+        assert "<script>" not in html.lower()
+
+    def test_html_report_escapes_trust_map_reasons(self, client):
+        """Trust map dimension reasons must be escaped."""
+        analyze_resp = client.post("/api/analyze", json={"text": "test"})
+        data = analyze_resp.json()["data"]
+        resp = client.post("/api/export", json={"data": data, "format": "html"})
+        assert resp.status_code == 200
+        html = resp.text
+        assert "<script>" not in html.lower()
+
+    def test_html_report_escapes_limitations(self, client):
+        """Limitations/warnings must be escaped."""
+        analyze_resp = client.post("/api/analyze", json={"text": "test"})
+        data = analyze_resp.json()["data"]
+        resp = client.post("/api/export", json={"data": data, "format": "html"})
+        assert resp.status_code == 200
+        html = resp.text
+        assert "<script>" not in html.lower()
+
+    def test_html_report_escapes_input_stats(self, client):
+        """Input statistics must be escaped."""
+        analyze_resp = client.post("/api/analyze", json={"text": "test"})
+        data = analyze_resp.json()["data"]
+        resp = client.post("/api/export", json={"data": data, "format": "html"})
+        assert resp.status_code == 200
+        html = resp.text
+        assert "<script>" not in html.lower()
+
+    def test_build_html_report_escapes_all_fields(self):
+        """Direct test of _build_html_report with malicious input."""
+        from textforensics.web_ui.main import _build_html_report
+
+        malicious_data = {
+            "consensus": {
+                "verdict": "<script>alert('xss')</script>",
+                "ai_probability": 0.5,
+                "independent_families": 2,
+            },
+            "trust_map": {
+                "overall": "<img src=x onerror=alert(1)>",
+                "dimensions": [
+                    {
+                        "dimension": "<script>dim</script>",
+                        "state": "<b>state</b>",
+                        "reason": "<script>reason</script>",
+                    }
+                ],
+            },
+            "detector_results": [
+                {
+                    "detector_id": "<script>det</script>",
+                    "detector_version": "<script>ver</script>",
+                    "detector_family": "<script>fam</script>",
+                    "score": "<script>score</script>",
+                    "verdict": "<script>verdict</script>",
+                    "calibrated_ai_probability": "<script>cal</script>",
+                }
+            ],
+            "input": {
+                "word_count": "<script>words</script>",
+                "sentence_count": "<script>sents</script>",
+                "paragraph_count": "<script>paras</script>",
+            },
+            "generated_at_utc": "<script>time</script>",
+            "content_sha256": "<script>hash</script>",
+            "limitations": ["<script>limit</script>"],
+        }
+        html = _build_html_report(malicious_data)
+        # All script tags should be escaped
+        assert "<script>" not in html
+        assert "&lt;script&gt;" in html
