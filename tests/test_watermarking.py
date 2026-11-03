@@ -3,18 +3,16 @@
 from __future__ import annotations
 
 import base64
-import json
 import tempfile
 from pathlib import Path
 
 import pytest
 
 from textforensics.watermarking import (
-    WatermarkError,
     WatermarkKeyPair,
+    WatermarkManager,
     WatermarkPublicKey,
     WatermarkSignature,
-    WatermarkManager,
     embed_watermark_in_prediction,
     extract_watermark_from_prediction,
     strip_watermark_from_prediction,
@@ -540,8 +538,8 @@ class TestWatermarkKeyPairPersistence:
         with tempfile.TemporaryDirectory() as tmp:
             manager = WatermarkManager(Path(tmp))
 
-            kp1 = manager.generate_key(key_id="key1")
-            kp2 = manager.generate_key(key_id="key2")
+            manager.generate_key(key_id="key1")
+            manager.generate_key(key_id="key2")
 
             assert len(manager._keys) == 2
             keys = manager.list_keys()

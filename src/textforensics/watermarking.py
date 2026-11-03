@@ -27,15 +27,14 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
 __all__ = [
@@ -70,7 +69,7 @@ class WatermarkKeyPair:
     public_key: str
     key_id: str
     created_at: str
-    expires_at: Optional[str] = None
+    expires_at: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -84,7 +83,7 @@ class WatermarkKeyPair:
         }
 
     @classmethod
-    def generate(cls, key_id: Optional[str] = None, expires_days: int = 365) -> "WatermarkKeyPair":
+    def generate(cls, key_id: str | None = None, expires_days: int = 365) -> WatermarkKeyPair:
         """Generate a new Ed25519 key pair."""
         private_key = ed25519.Ed25519PrivateKey.generate()
         public_key = private_key.public_key()
@@ -120,7 +119,7 @@ class WatermarkKeyPair:
         return private_key.sign(data)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "WatermarkKeyPair":
+    def from_dict(cls, data: dict[str, Any]) -> WatermarkKeyPair:
         return cls(
             private_key=str(data["private_key"]),
             public_key=str(data["public_key"]),
@@ -138,7 +137,7 @@ class WatermarkPublicKey:
     public_key: str
     key_id: str
     created_at: str
-    expires_at: Optional[str] = None
+    expires_at: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def verify(self, data: bytes, signature: bytes) -> bool:
@@ -162,7 +161,7 @@ class WatermarkPublicKey:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "WatermarkPublicKey":
+    def from_dict(cls, data: dict[str, Any]) -> WatermarkPublicKey:
         return cls(
             public_key=str(data["public_key"]),
             key_id=str(data["key_id"]),
@@ -172,7 +171,7 @@ class WatermarkPublicKey:
         )
 
     @classmethod
-    def from_keypair(cls, keypair: "WatermarkKeyPair") -> "WatermarkPublicKey":
+    def from_keypair(cls, keypair: WatermarkKeyPair) -> WatermarkPublicKey:
         return cls(
             public_key=keypair.public_key,
             key_id=keypair.key_id,
@@ -208,7 +207,7 @@ class WatermarkSignature:
     signed_at: str
     payload_hash: str
     payload: dict[str, Any]
-    expires_at: Optional[str] = None
+    expires_at: str | None = None
     algorithm: str = "ed25519"
 
     def to_dict(self) -> dict[str, Any]:
@@ -223,7 +222,7 @@ class WatermarkSignature:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "WatermarkSignature":
+    def from_dict(cls, data: dict[str, Any]) -> WatermarkSignature:
         return cls(
             key_id=str(data["key_id"]),
             signature=str(data["signature"]),
@@ -247,7 +246,7 @@ class WatermarkManager:
     for detector output watermarking.
     """
 
-    def __init__(self, key_dir: Optional[str | Path] = None):
+    def __init__(self, key_dir: str | Path | None = None):
         self.key_dir = Path(key_dir) if key_dir else None
         if self.key_dir:
             self.key_dir.mkdir(parents=True, exist_ok=True)
@@ -262,7 +261,7 @@ class WatermarkManager:
                 data = json.loads(key_file.read_text(encoding="utf-8"))
                 keypair = WatermarkKeyPair.from_dict(data)
                 self._keys[keypair.key_id] = keypair
-            except (json.JSONDecodeError, KeyError, ValueError) as exc:
+            except (json.JSONDecodeError, KeyError, ValueError):
                 # Log but don't fail - corrupted key files shouldn't break the manager
                 pass
 
@@ -275,21 +274,21 @@ class WatermarkManager:
             encoding="utf-8",
         )
 
-    def generate_key(self, key_id: Optional[str] = None, expires_days: int = 365) -> WatermarkKeyPair:
+    def generate_key(self, key_id: str | None = None, expires_days: int = 365) -> WatermarkKeyPair:
         """Generate and store a new key pair."""
         keypair = WatermarkKeyPair.generate(key_id=key_id, expires_days=expires_days)
         self._keys[keypair.key_id] = keypair
         self._save_key(keypair)
         return keypair
 
-    def get_keypair(self, key_id: str) -> Optional[WatermarkKeyPair]:
+    def get_keypair(self, key_id: str) -> WatermarkKeyPair | None:
         return self._keys.get(key_id)
 
-    def get_public_key(self, key_id: str) -> Optional["WatermarkPublicKey"]:
+    def get_public_key(self, key_id: str) -> WatermarkPublicKey | None:
         keypair = self._keys.get(key_id)
         return WatermarkPublicKey.from_keypair(keypair) if keypair else None
 
-    def list_keys(self) -> list["WatermarkPublicKey"]:
+    def list_keys(self) -> list[WatermarkPublicKey]:
         return [WatermarkPublicKey.from_keypair(k) for k in self._keys.values()]
 
     def revoke_key(self, key_id: str) -> bool:
@@ -307,11 +306,11 @@ class WatermarkManager:
         detector_id: str,
         detector_version: str,
         text_sha256: str,
-        score: Optional[float],
+        score: float | None,
         verdict: str,
-        key_id: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-    ) -> "WatermarkSignature":
+        key_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> WatermarkSignature:
         """Create a watermark signature for a detector output.
 
         Args:
@@ -376,8 +375,8 @@ class WatermarkManager:
 
     def verify_signature(
         self,
-        signature: "WatermarkSignature",
-        public_key: Optional["WatermarkPublicKey"] = None,
+        signature: WatermarkSignature,
+        public_key: WatermarkPublicKey | None = None,
     ) -> bool:
         """Verify a watermark signature.
 
@@ -412,10 +411,10 @@ def verify_watermark(
     detector_id: str,
     detector_version: str,
     text_sha256: str,
-    score: Optional[float],
+    score: float | None,
     verdict: str,
     signature: WatermarkSignature,
-    public_key: "WatermarkPublicKey",
+    public_key: WatermarkPublicKey,
 ) -> bool:
     """Standalone function to verify a detector output watermark.
 
@@ -460,15 +459,12 @@ def verify_watermark(
         return False
     if payload.get("score") != score:
         return False
-    if payload.get("verdict") != verdict:
-        return False
-
-    return True
+    return payload.get("verdict") == verdict
 
 
 def embed_watermark_in_prediction(
     prediction: dict[str, Any],
-    signature: "WatermarkSignature",
+    signature: WatermarkSignature,
 ) -> dict[str, Any]:
     """Embed a watermark signature into a detector prediction dict.
 
@@ -491,7 +487,7 @@ def embed_watermark_in_prediction(
 
 def extract_watermark_from_prediction(
     prediction: dict[str, Any],
-) -> Optional["WatermarkSignature"]:
+) -> WatermarkSignature | None:
     """Extract watermark signature from a detector prediction.
 
     Args:
