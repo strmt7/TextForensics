@@ -288,6 +288,45 @@ def bundle_list(
         raise typer.Exit(EXIT_ERROR)
 
 
+@bundle_app.command("check")
+def bundle_check(
+    bundle: Path = typer.Argument(..., help="Path to the bundle archive or JSON file."),
+    json: bool = typer.Option(False, "--json", "-j", help="Output as JSON."),
+):
+    """Check internal consistency of a forensic bundle.
+
+    Validates field relationships, types, and value ranges to detect
+    potentially corrupted or incorrectly constructed bundles.
+    """
+    try:
+        from .bundle import read_bundle
+        from .bundle_consistency import check_bundle_consistency
+
+        data = read_bundle(str(bundle))
+        report = check_bundle_consistency(data)
+        result = {
+            "is_consistent": report.is_consistent,
+            "issues": [
+                {"field": i.field, "type": i.issue_type, "message": i.message, "severity": i.severity}
+                for i in report.issues
+            ],
+            "checked_fields": report.checked_fields,
+        }
+        if json:
+            _write_json(None, result)
+        else:
+            typer.echo(f"Bundle consistency: {'PASS' if report.is_consistent else 'FAIL'}")
+            if report.issues:
+                for issue in report.issues:
+                    typer.echo(f"  [{issue.severity.upper()}] {issue.field}: {issue.message}")
+            else:
+                typer.echo("  No issues found.")
+        raise typer.Exit(EXIT_OK if report.is_consistent else EXIT_INCOMPLETE)
+    except Exception as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(EXIT_ERROR)
+
+
 @drift_app.command("snapshot")
 def drift_snapshot(
     corpus: Path = typer.Option(
