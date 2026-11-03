@@ -51,7 +51,9 @@ class TestDriftProperties:
         values_sorted = sorted(values)
         result = _percentile(values_sorted, q)
         if result is not None:
-            assert values_sorted[0] <= result <= values_sorted[-1]
+            # Use small epsilon for floating-point precision
+            eps = 1e-12
+            assert values_sorted[0] - eps <= result <= values_sorted[-1] + eps
 
     @given(
         st.floats(min_value=-100.0, max_value=100.0, allow_nan=False, allow_infinity=False),
