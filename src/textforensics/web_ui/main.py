@@ -2,12 +2,20 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import html
 import io
 import json
 import os
 import uuid
 from collections import OrderedDict
 from contextlib import suppress
+
+
+def _escape(value: object) -> str:
+    """Escape a value for safe inclusion in HTML output."""
+    if value is None:
+        return ""
+    return html.escape(str(value))
 from datetime import datetime, timezone
 from typing import Any
 
@@ -780,28 +788,28 @@ def _build_html_report(data: dict[str, Any]) -> str:
 
     detectors_html = "".join(
         f"""<tr>
-            <td>{d.get('detector_id', '')}</td>
-            <td>{d.get('detector_version', '')}</td>
-            <td>{d.get('detector_family', '')}</td>
-            <td>{d.get('score', '')}</td>
-            <td>{d.get('verdict', '')}</td>
-            <td>{d.get('calibrated_ai_probability', 'N/A')}</td>
+            <td>{_escape(d.get('detector_id', ''))}</td>
+            <td>{_escape(d.get('detector_version', ''))}</td>
+            <td>{_escape(d.get('detector_family', ''))}</td>
+            <td>{_escape(d.get('score', ''))}</td>
+            <td>{_escape(d.get('verdict', ''))}</td>
+            <td>{_escape(d.get('calibrated_ai_probability', 'N/A'))}</td>
         </tr>"""
         for d in detectors
     )
 
     trust_dims_html = "".join(
         f"""<tr>
-            <td>{dim.get('dimension', '')}</td>
-            <td>{dim.get('state', '')}</td>
-            <td>{dim.get('reason', '')}</td>
+            <td>{_escape(dim.get('dimension', ''))}</td>
+            <td>{_escape(dim.get('state', ''))}</td>
+            <td>{_escape(dim.get('reason', ''))}</td>
         </tr>"""
         for dim in dims
     )
 
     return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
-<title>TextForensics Report — {_report_timestamp()}</title>
+<title>TextForensics Report — {_escape(_report_timestamp())}</title>
 <style>
 body {{ font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }}
 h1 {{ border-bottom: 2px solid #333; padding-bottom: 0.5rem; }}
@@ -816,24 +824,24 @@ th {{ background: #f5f5f5; }}
 .meta {{ margin: 1rem 0; color: #666; }}
 </style></head><body>
 <h1>TextForensics — Forensic Bundle Report</h1>
-<p class="meta">Generated: {data.get('generated_at_utc', 'N/A')} &middot; SHA256: {data.get('content_sha256', '')[:16]}&hellip;</p>
+<p class="meta">Generated: {_escape(data.get('generated_at_utc', 'N/A'))} &middot; SHA256: {_escape(data.get('content_sha256', '')[:16])}&hellip;</p>
 
 <h2>Consensus Verdict</h2>
-<div class="verdict verdict-{verdict}">{verdict_text}</div>
-<p>AI Probability: {ai_prob_str} &middot; Independent Families: {consensus.get('independent_families', 'N/A')}</p>
+<div class="verdict verdict-{_escape(verdict)}">{_escape(verdict_text)}</div>
+<p>AI Probability: {_escape(ai_prob_str)} &middot; Independent Families: {_escape(consensus.get('independent_families', 'N/A'))}</p>
 
 <h2>Input Statistics</h2>
-<p>Words: {inp.get('word_count', 'N/A')} &middot; Sentences: {inp.get('sentence_count', 'N/A')} &middot; Paragraphs: {inp.get('paragraph_count', 'N/A')}</p>
+<p>Words: {_escape(inp.get('word_count', 'N/A'))} &middot; Sentences: {_escape(inp.get('sentence_count', 'N/A'))} &middot; Paragraphs: {_escape(inp.get('paragraph_count', 'N/A'))}</p>
 
 <h2>Detector Results</h2>
 <table><tr><th>Detector</th><th>Version</th><th>Family</th><th>Score</th><th>Verdict</th><th>Cal. AI Prob.</th></tr>{detectors_html}</table>
 
 <h2>Trust Map</h2>
-<p>Overall: {trust_overall}</p>
+<p>Overall: {_escape(trust_overall)}</p>
 <table><tr><th>Dimension</th><th>State</th><th>Reason</th></tr>{trust_dims_html}</table>
 
 <h2>Warnings &amp; Limitations</h2>
-<ul>{"".join(f"<li>{w}</li>" for w in (data.get('limitations') or []))}</ul>
+<ul>{"".join(f"<li>{_escape(w)}</li>" for w in (data.get('limitations') or []))}</ul>
 
 </body></html>"""
 
