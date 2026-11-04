@@ -5,8 +5,10 @@ Fuzz target for text input validation in config.py and cli.py
 
 import sys
 
-import atheris
-
+try:
+    import atheris
+except ImportError:  # atheris optional; TestOneInput still importable
+    atheris = None
 
 def TestOneInput(data: bytes) -> None:
     """Fuzz text input validation functions."""

@@ -12,7 +12,10 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-import atheris
+try:
+    import atheris
+except ImportError:  # atheris optional; TestOneInput still importable
+    atheris = None
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 

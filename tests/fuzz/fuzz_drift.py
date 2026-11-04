@@ -19,7 +19,14 @@ import sys
 import tempfile
 from pathlib import Path
 
-import atheris
+try:
+    import atheris
+except ImportError:  # atheris optional; TestOneInput still importable
+    atheris = None
+    def instrument_func(func):
+        return func
+    if atheris is not None:
+        instrument_func = atheris.instrument_func
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
@@ -786,7 +793,7 @@ def _fuzz_add_snapshot(text: str) -> None:
             pass
 
 
-@atheris.instrument_func
+@instrument_func
 def TestOneInput(data: bytes) -> None:
     """Fuzz DriftObservatory corpus loading, snapshot creation, and comparison."""
     try:

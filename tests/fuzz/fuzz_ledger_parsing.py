@@ -8,8 +8,10 @@ import sys
 import tempfile
 from pathlib import Path
 
-import atheris
-
+try:
+    import atheris
+except ImportError:  # atheris optional; TestOneInput still importable
+    atheris = None
 
 def TestOneInput(data: bytes) -> None:
     """Fuzz ledger parsing and validation."""
