@@ -6,8 +6,10 @@ Fuzz target for schema validation in schema.py
 import json
 import sys
 
-import atheris
-
+try:
+    import atheris
+except ImportError:  # atheris optional; TestOneInput still importable
+    atheris = None
 
 def TestOneInput(data: bytes) -> None:
     """Fuzz schema loading and validation."""

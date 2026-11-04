@@ -115,6 +115,9 @@ filterwarnings = [
   "error",
   "ignore::DeprecationWarning",
   "ignore::PendingDeprecationWarning",
+  # pytest-benchmark's internal HTTP server emits ResourceWarning on
+  # socket teardown (esp. Windows); a plugin artifact, not project code.
+  "ignore::ResourceWarning",
 ]
 
 # pytest-benchmark configuration for performance regression detection

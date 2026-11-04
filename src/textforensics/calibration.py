@@ -99,13 +99,15 @@ class CalibrationCurve:
 
         elif self.method == "platt":
             # Platt scaling: sigmoid(A * score + B)
+            # Higher score -> higher probability (sigmoid with negative exponent)
             A = self.parameters.get("A", 1.0)
             B = self.parameters.get("B", 0.0)
             import math
-            return 1.0 / (1.0 + math.exp(A * score + B))
+            return 1.0 / (1.0 + math.exp(-(A * score + B)))
 
         elif self.method == "temperature":
-            # Temperature scaling: softmax(score / T)
+            # Temperature scaling: sigmoid(score / T)
+            # Higher score -> higher probability
             T = self.parameters.get("T", 1.0)
             import math
             scaled = score / T

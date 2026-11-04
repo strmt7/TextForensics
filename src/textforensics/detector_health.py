@@ -175,6 +175,8 @@ class HealthCheck:
         critical_threshold: float,
         severity: AlertSeverity = AlertSeverity.WARNING,
         description: str = "",
+        source_metric: str | None = None,
+        inverted: bool = False,
     ):
         self.name = name
         self.metric_name = metric_name
@@ -183,8 +185,16 @@ class HealthCheck:
         self.critical_threshold = critical_threshold
         self.severity = severity
         self.description = description
+        # The raw per-event series this check reads. Defaults to metric_name
+        # when the check consumes the same series it reports on.
+        self.source_metric = source_metric or metric_name
+        # If True, LOWER values are worse (e.g., entropy ratio).
+        # If False (default), HIGHER values are worse (e.g., error rate, latency).
+        self.inverted = inverted
 
-    def evaluate(self, values: list[float]) -> HealthAlert | None:
+    def evaluate(
+        self, values: list[float], detector_id: str = ""
+    ) -> HealthAlert | None:
         """Evaluate the health check against a series of values."""
         if not values:
             return None
@@ -193,18 +203,30 @@ class HealthCheck:
         if passed:
             return None
 
-        if value >= self.critical_threshold:
-            severity = AlertSeverity.CRITICAL
-        elif value >= self.warning_threshold:
-            severity = AlertSeverity.WARNING
+        # For inverted checks (e.g., entropy), LOWER value is worse
+        if self.inverted:
+            if value <= self.critical_threshold:
+                severity = AlertSeverity.CRITICAL
+            elif value <= self.warning_threshold:
+                severity = AlertSeverity.WARNING
+            else:
+                return None
+            cmp_word = "below"
         else:
-            return None
+            # Normal: HIGHER value is worse
+            if value >= self.critical_threshold:
+                severity = AlertSeverity.CRITICAL
+            elif value >= self.warning_threshold:
+                severity = AlertSeverity.WARNING
+            else:
+                return None
+            cmp_word = "exceeds"
 
         return HealthAlert(
             alert_id=f"alert-{hashlib.md5(f'{self.name}{time.time()}'.encode()).hexdigest()[:8]}",
-            detector_id="",  # Set by monitor
+            detector_id=detector_id,
             severity=severity,
-            message=f"{self.name}: {value} exceeds {self.critical_threshold if severity == AlertSeverity.CRITICAL else self.warning_threshold}",
+            message=f"{self.name}: {value} {cmp_word} {self.critical_threshold if severity == AlertSeverity.CRITICAL else self.warning_threshold}",
             metric_name=self.metric_name,
             metric_value=value,
             threshold=self.critical_threshold if severity == AlertSeverity.CRITICAL else self.warning_threshold,
@@ -240,30 +262,35 @@ def _create_error_rate_check() -> HealthCheck:
         critical_threshold=0.10,
         severity=AlertSeverity.CRITICAL,
         description="Error rate exceeds threshold",
+        source_metric="error",
     )
 
 
 def _create_score_distribution_check() -> HealthCheck:
     def check(values: list[float]) -> tuple[bool, float]:
-        # Check for suspicious score distributions (too uniform)
+        # Check for suspicious score distributions (too uniform = low entropy)
+        # Returns (passed, entropy_ratio) where passed=True means healthy (high entropy)
         if len(values) < 10:
-            return True, 0.0
+            return True, 1.0
         # Calculate entropy of score distribution
         bins = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-        hist, _ = np.histogram(values, bins=bins) if 'np' in globals() else ([0]*10, None)
-        if 'np' not in globals():
-            # Manual histogram
+        if np is not None:
+            hist, _ = np.histogram(values, bins=bins)
+        else:
+            # Manual histogram (numpy is an optional dependency)
             hist = [0] * 10
             for v in values:
                 idx = min(int(v * 10), 9)
                 hist[idx] += 1
         total = sum(hist)
         if total == 0:
-            return True, 0.0
+            return True, 1.0
         probs = [h/total for h in hist if h > 0]
         entropy = -sum(p * math.log2(p) for p in probs)
         max_entropy = math.log2(len([h for h in hist if h > 0]))
-        return entropy > max_entropy * 0.3, entropy / max_entropy if max_entropy > 0 else 0.0
+        entropy_ratio = entropy / max_entropy if max_entropy > 0 else 0.0
+        # Healthy if entropy_ratio > 0.3 (not too uniform)
+        return entropy_ratio > 0.3, entropy_ratio
     return HealthCheck(
         name="score_distribution_entropy",
         metric_name="score_entropy_ratio",
@@ -272,6 +299,8 @@ def _create_score_distribution_check() -> HealthCheck:
         critical_threshold=0.3,
         severity=AlertSeverity.WARNING,
         description="Score distribution entropy too low (suspiciously uniform)",
+        source_metric="score",
+        inverted=True,
     )
 
 
@@ -292,6 +321,7 @@ def _create_throughput_check() -> HealthCheck:
         warning_threshold=0.5,
         critical_threshold=0.1,
         severity=AlertSeverity.WARNING,
+        source_metric="request_timestamp",
         description="Throughput below threshold",
     )
 
@@ -365,6 +395,9 @@ class DetectorHealthMonitor:
         self.record_metric(detector_id, "latency_ms", latency_ms, "ms")
 
     def record_error(self, detector_id: str, is_error: bool) -> None:
+        # Record the per-event error flag. The error_rate health check reads
+        # this series and derives its rate, so every event must be recorded —
+        # recording only on failure would make the series all-1.0.
         self.record_metric(detector_id, "error", 1.0 if is_error else 0.0, "count")
 
     def record_score(self, detector_id: str, score: float) -> None:
@@ -377,13 +410,12 @@ class DetectorHealthMonitor:
         self._ensure_detector_checks(detector_id)
 
         for check in self._health_checks[detector_id]:
-            values = [m.value for m in self._metrics[detector_id].get(check.metric_name, [])]
+            values = [m.value for m in self._metrics[detector_id].get(check.source_metric, [])]
             if not values:
                 continue
 
-            alert = check.evaluate(values)
+            alert = check.evaluate(values, detector_id=detector_id)
             if alert:
-                alert.detector_id = detector_id
                 self._alerts.append(alert)
                 if self.alert_callback:
                     self.alert_callback(alert)
@@ -408,7 +440,13 @@ class DetectorHealthMonitor:
         return report
 
     def _compute_overall_health(self, detector_id: str) -> tuple[HealthState, float]:
-        """Compute overall health state and score."""
+        """Compute overall health state and score.
+
+        Evaluates the checks for state/scoring only — it must not append to
+        ``self._alerts``. ``_evaluate_health_checks`` is the single place that
+        records alerts; re-firing here on every report call would duplicate
+        them indefinitely.
+        """
         checks = self._health_checks.get(detector_id, [])
         if not checks:
             return HealthState.UNKNOWN, 0.0
@@ -418,11 +456,11 @@ class DetectorHealthMonitor:
         total_checks = 0
 
         for check in checks:
-            values = [m.value for m in self._metrics[detector_id].get(check.metric_name, [])]
+            values = [m.value for m in self._metrics[detector_id].get(check.source_metric, [])]
             if not values:
                 continue
             total_checks += 1
-            alert = check.evaluate(values)
+            alert = check.evaluate(values, detector_id=detector_id)
             if alert:
                 if alert.severity == AlertSeverity.CRITICAL:
                     critical_count += 1
@@ -481,8 +519,10 @@ class HighLevelDetectorHealthMonitor:
         self.monitor.record_latency(detector_id, latency_ms)
         if score is not None:
             self.monitor.record_score(detector_id, score)
-        if is_error:
-            self.monitor.record_error(detector_id, True)
+        # Always record the per-event error flag: the error-rate health check
+        # derives its rate from this series, and recording only on failure
+        # would leave the series all-1.0 (100% error rate forever).
+        self.monitor.record_error(detector_id, is_error)
         self.monitor.record_request(detector_id)
 
     def get_detector_health(self, detector_id: str) -> DetectorHealthReport:

@@ -15,3 +15,7 @@ Cov.xml
 bandit_report.json
 .tmp/
 mutation-results/
+cov*.txt
+full*.txt
+perf.txt
+patch_fuzz.py
