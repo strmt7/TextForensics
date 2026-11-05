@@ -250,7 +250,7 @@ class SchemaCLITests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0)
         schema = json.loads(result.stdout)
-        self.assertEqual(schema["title"], "TextForensics Forensic Bundle v1")
+        self.assertEqual(schema["title"], "TextForensics Forensic Bundle")
 
     def test_cli_schema_show_unknown(self):
         """Test CLI schema show command for unknown schema."""

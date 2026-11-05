@@ -284,11 +284,11 @@ class TestRetryGateEdgeCases:
         assert gate.policy.max_retries == 0
 
     def test_circuit_reset_timeout_zero(self):
-        # Very small timeout
-        gate = create_retry_gate(circuit_open_after=1, circuit_reset_timeout=0.001)
+        # Small timeout - use 50ms to work with Windows timer resolution
+        gate = create_retry_gate(circuit_open_after=1, circuit_reset_timeout=0.05)
         gate.failure()
         assert gate.state == CircuitState.OPEN
-        time.sleep(0.01)
+        time.sleep(0.1)  # Sleep longer than reset timeout
         # Call ready() to trigger the transition
         allowed, _ = gate.ready()
         assert allowed is True

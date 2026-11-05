@@ -1,5 +1,6 @@
 {
-  "case_sha256": "0c01d9f5a057ca10168eaf5801aebd378b1a6f24a1216253da0db7dc9e3f8f8a",
+  "case_sha256": "5fca15d50ebde22af1134ecf37b8b71d478fbfb51f475b9d8f1a4d215075dcbd",
+  "created_at_utc": "1970-01-01T00:00:00+00:00",
   "forensic_bundle": {
     "consensus": {
       "calibrated_ai_probability": null,
@@ -26,9 +27,21 @@
     },
     "content_sha256": "3c6a9d9e66d03095d9e2610b19d9c40655904a023a34b130267365741fd2c177",
     "detector_failures": [],
+    "detector_protocols": {
+      "accepted_legacy_schemas": [
+        "textforensics.detector-result/v1"
+      ],
+      "detector_result_schema": "textforensics.detector-result/v2",
+      "evidence_schema": "textforensics.detector-evidence/v1",
+      "normalized_from_tfdp1": [],
+      "observed_schemas": [
+        "textforensics.detector-result/v2"
+      ]
+    },
     "detector_results": [
       {
         "calibrated_ai_probability": null,
+        "calibration": null,
         "calibration_id": null,
         "detector_family": "stylometric-heuristic",
         "detector_id": "textforensics/builtin-heuristic",
@@ -50,15 +63,37 @@
             "score": 0.3
           }
         ],
+        "evidence_schema": "textforensics.detector-evidence/v1",
         "execution": "local",
         "min_words": 80,
+        "native_score_direction": "higher_means_ai",
+        "normalized_from": null,
+        "protocol_version": "TFDP/2",
         "reliability": 0.0623,
-        "schema": "textforensics.detector-result/v1",
+        "runtime": {
+          "device": "cpu",
+          "mode": "local",
+          "model_id": "builtin-stylometric-heuristic",
+          "provider": "textforensics",
+          "provider_version": "0.1.0"
+        },
+        "schema": "textforensics.detector-result/v2",
         "score": 0.4373,
+        "score_range": [
+          0.0,
+          1.0
+        ],
         "score_semantics": "higher_means_more_machine_like; uncalibrated pattern score",
+        "supported_domains": [],
+        "supported_editing_regimes": [],
+        "supported_generators": [],
         "supported_languages": [
           "en"
         ],
+        "supported_length": {
+          "max_words": null,
+          "min_words": 80
+        },
         "threshold": null,
         "verdict": "abstain",
         "warnings": [
@@ -70,6 +105,13 @@
         ]
       }
     ],
+    "evidence_registry": {
+      "record_count": 0,
+      "registry_id": null,
+      "summary": null,
+      "verification_status": "not_supplied",
+      "verified": false
+    },
     "generated_at_utc": "1970-01-01T00:00:00+00:00",
     "input": {
       "paragraph_count": 1,
@@ -77,11 +119,50 @@
       "sentence_count": 2,
       "word_count": 20
     },
+    "input_conditions": {
+      "char_count": 119,
+      "cues": {
+        "domain": {
+          "domain_hits": {},
+          "reason": "no_domain_cues"
+        },
+        "language": {
+          "best_hits": 7,
+          "best_language": "en",
+          "second_hits": 1,
+          "stopword_hits": {
+            "de": 1,
+            "en": 7,
+            "it": 1,
+            "nl": 1
+          }
+        }
+      },
+      "declared": {
+        "fields": [],
+        "source": "none",
+        "values": {}
+      },
+      "domain_confidence": "low",
+      "domain_genre": "general",
+      "editing_regime": "unknown",
+      "extraction_version": "1",
+      "generator": null,
+      "human_population": "unknown",
+      "language": "en",
+      "language_confidence": "high",
+      "length_band": "very_short",
+      "schema": "textforensics.input-conditions/v1",
+      "script": "latin",
+      "word_count": 20
+    },
+    "legacy": null,
     "limitations": [
       "Text-only detector evidence is not proof of authorship. False positives and false negatives remain possible.",
       "Detector-native scores are not treated as comparable probabilities unless explicit calibration evidence exists.",
       "The Trust Map describes evidence coverage; it is not an authorship probability.",
-      "Verdict Integrity is a deprecated alpha heuristic retained for compatibility and is not a validated trust score."
+      "A Trust Map 'supported' state requires registered, held-out, evidence-grade validation slices for this input regime.",
+      "No validation evidence registry was supplied; evidence dimensions cannot be supported."
     ],
     "plugin_health": [
       {
@@ -122,65 +203,161 @@
         }
       ]
     },
-    "schema": "textforensics.forensic-bundle/v1",
+    "schema": "textforensics.forensic-bundle/v2",
     "trust_map": {
+      "coverage": {
+        "out_of_scope": 1,
+        "partial": 2,
+        "supported": 1,
+        "unknown": 6
+      },
       "dimensions": [
         {
+          "detectors": {
+            "textforensics/builtin-heuristic": "partial"
+          },
           "dimension": "language",
           "evidence_refs": [],
-          "limitations": [],
-          "observed": {},
-          "reason": "The core does not yet have validated language-identification evidence for this document.",
-          "state": "unknown"
+          "limitations": [
+            "Capability metadata is not held-out validation evidence."
+          ],
+          "observed": {
+            "detector_observed": {
+              "textforensics/builtin-heuristic": {
+                "input_language": "en",
+                "metadata_only": true,
+                "supported_languages": [
+                  "en"
+                ]
+              }
+            },
+            "detector_states": {
+              "textforensics/builtin-heuristic": "partial"
+            }
+          },
+          "reason": "Detector metadata lists the input language, but no validation slice is registered.",
+          "state": "partial"
         },
         {
+          "detectors": {
+            "textforensics/builtin-heuristic": "out_of_scope"
+          },
           "dimension": "text_length",
           "evidence_refs": [],
           "limitations": [
-            "Declared minimum length is capability metadata, not proof of held-out performance at this exact length."
+            "Declared minimum length is capability metadata, not held-out performance."
           ],
           "observed": {
-            "supported_detectors": [],
-            "unsupported_detectors": [
-              {
-                "detector_id": "textforensics/builtin-heuristic",
-                "min_words": 80
+            "detector_observed": {
+              "textforensics/builtin-heuristic": {
+                "max_words": null,
+                "min_words": 80,
+                "word_count": 20
               }
-            ],
-            "word_count": 20
+            },
+            "detector_states": {
+              "textforensics/builtin-heuristic": "out_of_scope"
+            }
           },
-          "reason": "The text is below every detector's declared minimum word count.",
+          "reason": "Input is below the detector's declared minimum word count.",
           "state": "out_of_scope"
         },
         {
+          "detectors": {
+            "textforensics/builtin-heuristic": "unknown"
+          },
           "dimension": "domain_genre",
           "evidence_refs": [],
           "limitations": [],
-          "observed": {},
-          "reason": "No benchmark-backed domain or genre match is available in the current alpha.",
+          "observed": {
+            "detector_states": {
+              "textforensics/builtin-heuristic": "unknown"
+            }
+          },
+          "reason": "No validation evidence covers this domain.",
           "state": "unknown"
         },
         {
+          "detectors": {
+            "textforensics/builtin-heuristic": "unknown"
+          },
           "dimension": "editing_revision",
           "evidence_refs": [],
           "limitations": [],
-          "observed": {},
-          "reason": "No benchmark-backed evidence for this document's editing or revision regime is available.",
+          "observed": {
+            "detector_states": {
+              "textforensics/builtin-heuristic": "unknown"
+            }
+          },
+          "reason": "No validation evidence covers this editing regime.",
           "state": "unknown"
         },
         {
+          "detectors": {
+            "textforensics/builtin-heuristic": "unknown"
+          },
+          "dimension": "generator_scope",
+          "evidence_refs": [],
+          "limitations": [],
+          "observed": {
+            "detector_states": {
+              "textforensics/builtin-heuristic": "unknown"
+            }
+          },
+          "reason": "No validation evidence declares generator scope.",
+          "state": "unknown"
+        },
+        {
+          "detectors": {
+            "textforensics/builtin-heuristic": "unknown"
+          },
+          "dimension": "human_population",
+          "evidence_refs": [],
+          "limitations": [],
+          "observed": {
+            "detector_states": {
+              "textforensics/builtin-heuristic": "unknown"
+            }
+          },
+          "reason": "No validation evidence declares human-population coverage.",
+          "state": "unknown"
+        },
+        {
+          "detectors": {
+            "textforensics/builtin-heuristic": "unknown"
+          },
           "dimension": "human_false_positive_evidence",
           "evidence_refs": [],
           "limitations": [],
-          "observed": {},
-          "reason": "No nearest-slice held-out human false-positive evidence is registered yet.",
+          "observed": {
+            "detector_states": {
+              "textforensics/builtin-heuristic": "unknown"
+            }
+          },
+          "reason": "No held-out human false-positive evidence is registered.",
           "state": "unknown"
         },
         {
+          "detectors": {
+            "textforensics/builtin-heuristic": "unknown"
+          },
+          "dimension": "temporal_version_stability",
+          "evidence_refs": [],
+          "limitations": [],
+          "observed": {
+            "detector_states": {
+              "textforensics/builtin-heuristic": "unknown"
+            }
+          },
+          "reason": "No longitudinal drift evidence is registered.",
+          "state": "unknown"
+        },
+        {
+          "detectors": {},
           "dimension": "detector_diversity",
           "evidence_refs": [],
           "limitations": [
-            "Family labels are methodological metadata; empirical error correlation must still be measured."
+            "Family labels are methodological metadata; empirical error correlation has not been measured here."
           ],
           "observed": {
             "detector_failures": 0,
@@ -189,10 +366,11 @@
             ],
             "independent_family_count": 1
           },
-          "reason": "Detector-family diversity is limited or one or more configured detectors failed.",
+          "reason": "Detector-family diversity is limited, or one or more configured detectors failed.",
           "state": "partial"
         },
         {
+          "detectors": {},
           "dimension": "benign_stability",
           "evidence_refs": [],
           "limitations": [
@@ -203,51 +381,86 @@
             "detectors": [
               {
                 "detector_id": "textforensics/builtin-heuristic",
-                "native_score_range": 0.0,
-                "verdict_stability": 1.0
+                "native_score_range": 0.0
               }
-            ]
+            ],
+            "max_native_drift_policy": 0.1,
+            "verdict_stability_floor": 1.0
           },
-          "reason": "All usable detectors kept the same categorical verdict under the current benign probes.",
+          "reason": "Every usable detector kept its categorical verdict and native-score drift stayed within the declared bound under benign probes.",
           "state": "supported"
-        },
-        {
-          "dimension": "temporal_version_stability",
-          "evidence_refs": [],
-          "limitations": [],
-          "observed": {},
-          "reason": "No longitudinal detector/provider observatory evidence is registered yet.",
-          "state": "unknown"
         }
       ],
+      "evidence_registry": {
+        "record_count": 0,
+        "registry_id": null,
+        "verification_status": "not_checked",
+        "verified": false
+      },
+      "generated_at_utc": "1970-01-01T00:00:00+00:00",
+      "input_conditions": {
+        "char_count": 119,
+        "cues": {
+          "domain": {
+            "domain_hits": {},
+            "reason": "no_domain_cues"
+          },
+          "language": {
+            "best_hits": 7,
+            "best_language": "en",
+            "second_hits": 1,
+            "stopword_hits": {
+              "de": 1,
+              "en": 7,
+              "it": 1,
+              "nl": 1
+            }
+          }
+        },
+        "declared": {
+          "fields": [],
+          "source": "none",
+          "values": {}
+        },
+        "domain_confidence": "low",
+        "domain_genre": "general",
+        "editing_regime": "unknown",
+        "extraction_version": "1",
+        "generator": null,
+        "human_population": "unknown",
+        "language": "en",
+        "language_confidence": "high",
+        "length_band": "very_short",
+        "schema": "textforensics.input-conditions/v1",
+        "script": "latin",
+        "word_count": 20
+      },
       "limitations": [
         "Trust Map states describe evidence coverage, not probability of authorship.",
-        "The alpha Trust Map is intentionally conservative until benchmark registries provide slice-level validation evidence."
+        "A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.",
+        "Text-only detection cannot prove authorship.",
+        "No validation evidence registry was supplied."
       ],
       "overall": "insufficient",
-      "schema": "textforensics.trust-map/v1"
-    },
-    "verdict_integrity": {
-      "calibrated_detector_count": 0,
-      "detector_count": 1,
-      "factors": [
-        "legacy_unvalidated_integrity_heuristic",
-        "short_text_limits_detector_evidence",
-        "single_detector_family",
-        "no_probability_calibration",
-        "agreement_unavailable"
-      ],
-      "grade": "INSUFFICIENT",
-      "independent_families": 1,
-      "robustness_stability": 1.0,
-      "score": 0.2,
-      "status": "alpha_unvalidated_heuristic",
-      "verdict_agreement": null
+      "schema": "textforensics.trust-map/v2"
+    }
+  },
+  "manifest": {
+    "calibration_ids": [],
+    "content_sha256": "3c6a9d9e66d03095d9e2610b19d9c40655904a023a34b130267365741fd2c177",
+    "git_sha": null,
+    "registry_id": null,
+    "registry_sha256": "e21e2fb86a38fae28699db65aaaaa828b348938a85b729a626740e16ffcb971c",
+    "schema_versions": {
+      "detector_result": "textforensics.detector-result/v2",
+      "forensic_bundle": "textforensics.forensic-bundle/v2",
+      "trust_map": "textforensics.trust-map/v2"
     }
   },
   "raw_text_included": false,
-  "schema": "textforensics.case-file/v1",
+  "schema": "textforensics.case-file/v2",
   "tool": {
+    "git_sha": null,
     "name": "TextForensics",
     "version": "0.2.0"
   }

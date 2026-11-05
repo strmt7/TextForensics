@@ -41,15 +41,15 @@ class CaseAndSchemaTests(unittest.TestCase):
         case = load_schema("case-file")
         self.assertEqual(
             detector["title"],
-            "TextForensics Detector Result v1",
+            "TextForensics Detector Result",
         )
         self.assertEqual(
             forensic["title"],
-            "TextForensics Forensic Bundle v1",
+            "TextForensics Forensic Bundle",
         )
         self.assertEqual(
             case["title"],
-            "TextForensics Case File v1",
+            "TextForensics Case File",
         )
 
     @unittest.skipUnless(

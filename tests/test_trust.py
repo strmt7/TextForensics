@@ -2,7 +2,16 @@ from __future__ import annotations
 
 import unittest
 
+from textforensics.conditions import InputConditions
 from textforensics.detectors import DetectorPrediction
+from textforensics.evidence import (
+    EvidenceRecord,
+    EvidenceRegistry,
+    MetricEstimate,
+    RunProvenance,
+    SliceConditions,
+    ValidationSlice,
+)
 from textforensics.trust import (
     TRUST_STATES,
     TrustDimension,
@@ -17,9 +26,10 @@ def prediction(
     verdict="ai_like",
     score=0.8,
     min_words=None,
+    supported_languages=("en",),
 ):
     return DetectorPrediction(
-        schema="textforensics.detector-result/v1",
+        schema="textforensics.detector-result/v2",
         detector_id=detector_id,
         detector_version="1",
         detector_family=family,
@@ -30,8 +40,119 @@ def prediction(
         threshold=0.5,
         calibrated_ai_probability=None,
         calibration_id=None,
-        supported_languages=["en"],
+        supported_languages=list(supported_languages),
         min_words=min_words,
+    )
+
+
+def hex64(seed: int) -> str:
+    return f"{seed:064x}"
+
+
+def _slice(
+    *,
+    languages=("en",),
+    domains=("general",),
+    editing=("human_only",),
+    n_human=200,
+    n_ai=200,
+    fpr=0.02,
+    fpr_ci=(0.01, 0.03),
+    generators=("g1", "g2", "g3"),
+    generator_scope="multi",
+    human_populations=("pop_a", "pop_b"),
+):
+    fpr_metric = MetricEstimate(value=fpr, n=n_human, ci_lower=fpr_ci[0], ci_upper=fpr_ci[1], method="wilson")
+    return ValidationSlice(
+        slice_id="s1",
+        conditions=SliceConditions(
+            languages=languages,
+            domains=domains,
+            editing_regimes=editing,
+            min_words=100,
+            max_words=1000,
+            generators=generators,
+            generator_scope=generator_scope,
+            human_populations=human_populations,
+        ),
+        n_human=n_human,
+        n_ai=n_ai,
+        metrics={"fpr": fpr_metric, "auroc": MetricEstimate(value=0.95, n=n_human + n_ai, ci_lower=0.94, ci_upper=0.96, method="wilson")},
+        threshold=0.5,
+    )
+
+
+def _record(
+    detector_id="a",
+    detector_version="1",
+    detector_family="fam1",
+    slice_=None,
+    evaluated_at="2026-11-01T00:00:00+00:00",
+):
+    return EvidenceRecord(
+        evidence_id=f"ev-{detector_id}",
+        detector_id=detector_id,
+        detector_version=detector_version,
+        detector_family=detector_family,
+        evaluated_at_utc=evaluated_at,
+        benchmark=__import__("textforensics.evidence", fromlist=["BenchmarkProvenance"]).BenchmarkProvenance(
+            name="raid",
+            version="1.0",
+            fingerprint_sha256=hex64(1),
+            split="test",
+            license="MIT",
+            artifact_path="data/raid.jsonl",
+            artifact_sha256=hex64(2),
+            contamination_controls=["disjoint_sample_ids"],
+        ),
+        slices=(slice_ or _slice(),),
+        provenance=RunProvenance(
+            git_sha="abc1234",
+            command="textforensics benchmark",
+            environment_sha256=hex64(3),
+            executed_at_utc=evaluated_at,
+            run_artifact_path="runs/1.json",
+            run_artifact_sha256=hex64(4),
+        ),
+    )
+
+
+def _registry(*records) -> EvidenceRegistry:
+    return EvidenceRegistry(list(records))
+
+
+def _stale_record(detector_id: str = "a") -> EvidenceRecord:
+    """An evidence record old enough to fail the freshness window."""
+    return _record(detector_id=detector_id, evaluated_at="2025-06-01T00:00:00+00:00")
+
+
+def _declared_conditions(word_count: int = 200) -> InputConditions:
+    """Conditions whose language/domain/editing are explicitly declared so
+    that a matching registry slice can actually apply."""
+    return InputConditions(
+        schema="textforensics.input-conditions/v1",
+        language="en",
+        language_confidence="declared",
+        script="latin",
+        word_count=word_count,
+        char_count=word_count * 5,
+        length_band="medium",
+        domain_genre="general",
+        domain_confidence="declared",
+        editing_regime="human_only",
+        generator=None,
+        human_population="unknown",
+        declared={
+            "source": "caller",
+            "fields": ["language", "domain_genre", "editing_regime"],
+            "values": {
+                "language": "en",
+                "domain_genre": "general",
+                "editing_regime": "human_only",
+            },
+        },
+        cues={},
+        extraction_version="1",
     )
 
 
@@ -57,11 +178,25 @@ class TrustMapContractTests(unittest.TestCase):
         )
         self.assertEqual(tm.to_dict()["overall"], "mixed")
 
-    def test_length_supported_when_above_minimum(self):
+    def test_length_partial_when_metadata_admits_input_without_registry(self):
+        # Detector metadata alone can only ever reach partial: held-out
+        # validation evidence is required for supported.
         tm = build_trust_map(
             [prediction(min_words=80)],
             word_count=200,
             robustness=[],
+        )
+        dim = next(d for d in tm.dimensions if d.dimension == "text_length")
+        self.assertEqual(dim.state, "partial")
+
+    def test_length_supported_when_registry_matches(self):
+        registry = _registry(_record(detector_id="detector"))
+        tm = build_trust_map(
+            [prediction(min_words=80)],
+            word_count=200,
+            robustness=[],
+            registry=registry,
+            conditions=_declared_conditions(),
         )
         dim = next(d for d in tm.dimensions if d.dimension == "text_length")
         self.assertEqual(dim.state, "supported")
@@ -169,11 +304,13 @@ class TrustMapContractTests(unittest.TestCase):
         self.assertEqual(tm.overall, "insufficient")
 
     def test_overall_is_mixed_with_some_unknown(self):
-        # The current alpha has five static dimensions that are always
-        # unknown (language, domain_genre, editing_revision,
-        # human_false_positive_evidence, temporal_version_stability), so
-        # "mixed" is unreachable today; this test documents that the
-        # rule that drives overall is the unknown/out_of_scope count.
+        # With a stale-but-present registry the evidence dimensions are
+        # partial (freshness fails) while the live dimensions are supported,
+        # so overall is mixed.
+        registry = _registry(
+            _record(detector_id="a", evaluated_at="2025-06-01T00:00:00+00:00"),
+            _record(detector_id="b", evaluated_at="2025-06-01T00:00:00+00:00"),
+        )
         robustness = [
             {
                 "detector_id": "a",
@@ -185,17 +322,17 @@ class TrustMapContractTests(unittest.TestCase):
             [prediction("a", "fam1"), prediction("b", "fam2")],
             word_count=200,
             robustness=robustness,
+            registry=registry,
+            conditions=_declared_conditions(),
         )
-        self.assertEqual(tm.overall, "insufficient")
-        unknown = sum(d.state == "unknown" for d in tm.dimensions)
-        self.assertGreaterEqual(unknown, 3)
+        self.assertEqual(tm.overall, "mixed")
+        partial = sum(d.state == "partial" for d in tm.dimensions)
+        self.assertGreaterEqual(partial, 3)
 
     def test_overall_is_strong_only_when_no_unknown_and_no_partial(self):
-        # Force every dimension to a supported state by supplying enough
-        # evidence: two families, supported length, stable probes. The
-        # static language/domain/human-FPR/temporal dimensions remain
-        # unknown in the current alpha, so "strong" is unreachable today;
-        # this test documents that invariant.
+        # With a registry that covers every evidence dimension and live
+        # dimensions fully supported, overall reaches strong.
+        registry = _registry(_record(detector_id="a"), _record(detector_id="b"))
         robustness = [
             {
                 "detector_id": "a",
@@ -209,9 +346,30 @@ class TrustMapContractTests(unittest.TestCase):
             },
         ]
         tm = build_trust_map(
-            [prediction("a", "fam1", min_words=80), prediction("b", "fam2", min_words=80)],
+            [
+                prediction("a", "fam1", min_words=80),
+                prediction("b", "fam2", min_words=80),
+            ],
             word_count=200,
             robustness=robustness,
+            registry=registry,
+            conditions=_declared_conditions(),
+        )
+        # Nine of ten dimensions are supported; temporal_version_stability is
+        # partial because no longitudinal drift snapshots are registered, so
+        # overall is mixed, not strong.  Strong remains unreachable today.
+        self.assertEqual(tm.overall, "mixed")
+        self.assertEqual(
+            sum(d.state == "supported" for d in tm.dimensions), len(tm.dimensions) - 1
+        )
+
+    def test_overall_is_insufficient_without_registry(self):
+        # Without a registry every evidence dimension is unknown and no
+        # benign-stability probes are supplied, so overall is insufficient.
+        tm = build_trust_map(
+            [prediction("a", "fam1")],
+            word_count=200,
+            robustness=[],
         )
         self.assertEqual(tm.overall, "insufficient")
 

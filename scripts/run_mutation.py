@@ -190,21 +190,21 @@ def check_results(summary_path: Path) -> int:
         return 1
 
     if summary.get("surviving", 0) > 0:
-        print(f"⚠️  {summary['surviving']} surviving mutant(s) detected!")
+        print(f"[WARNING] {summary['surviving']} surviving mutant(s) detected!")
         return 2
 
     if summary.get("timeout", 0) > 0:
-        print(f"⚠️  {summary['timeout']} mutation(s) timed out")
+        print(f"[WARNING] {summary['timeout']} mutation(s) timed out")
         # Timeouts don't necessarily mean failure, but could indicate budget issues
         if summary.get("total", 0) > 0 and summary["timeout"] / summary["total"] > 0.1:
-            print("⚠️  High timeout ratio - mutation budget may be exceeded")
+            print("[WARNING] High timeout ratio - mutation budget may be exceeded")
             return 3
 
     if summary.get("total", 0) == 0:
         print("No mutations were run")
         return 1
 
-    print("✅ All mutations caught!")
+    print("[OK] All mutations caught!")
     return 0
 
 

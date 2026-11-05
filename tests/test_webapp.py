@@ -19,7 +19,7 @@ class TestAnalyzePayload(unittest.TestCase):
         result = analyze_payload({"text": "This is a test sentence."})
         self.assertIsInstance(result, dict)
         self.assertIn("trust_map", result)
-        self.assertEqual(result["schema"], "textforensics.forensic-bundle/v1")
+        self.assertEqual(result["schema"], "textforensics.forensic-bundle/v2")
 
     def test_humanish_text_returns_valid_result(self):
         """More realistic human text returns valid result."""

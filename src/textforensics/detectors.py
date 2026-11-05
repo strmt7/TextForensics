@@ -14,9 +14,36 @@ class DetectorContractError(ValueError):
     """Raised when a detector violates the public TFDP contract."""
 
 
+DETECTOR_SCHEMA_V1 = "textforensics.detector-result/v1"
+DETECTOR_SCHEMA_V2 = "textforensics.detector-result/v2"
+DETECTOR_EVIDENCE_SCHEMA = "textforensics.detector-evidence/v1"
+
+_NATIVE_SCORE_DIRECTIONS = frozenset(
+    {"higher_means_ai", "lower_means_ai", "not_applicable", "unknown"}
+)
+_SUPPORTED_EDITING_REGIMES = frozenset(
+    {
+        "human_only",
+        "machine_only",
+        "machine_then_human_edited",
+        "machine_then_machine_paraphrased",
+        "mixed",
+        "*",
+    }
+)
+_CALIBRATION_METHODS = frozenset(
+    {"platt", "temperature", "isotonic", "beta", "identity"}
+)
+
+
 @dataclass(slots=True)
 class DetectorPrediction:
-    """Portable detector output for the TextForensics Detector Protocol (TFDP/1).
+    """Portable detector output for the TextForensics Detector Protocol.
+
+    TFDP/2 adds explicit score direction, score range, supported-condition
+    metadata, calibration provenance and runtime provenance.  TFDP/1
+    predictions remain accepted and are normalized by
+    :func:`normalize_prediction`.
 
     `score` is an instrument output, not automatically a probability.
     `calibrated_ai_probability` may only be populated with a calibration ID.
@@ -39,6 +66,17 @@ class DetectorPrediction:
     evidence: list[dict[str, Any]] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     runtime_ms: float | None = None
+    native_score_direction: str = "unknown"
+    score_range: list[float] | None = None
+    supported_length: dict[str, int | None] | None = None
+    supported_domains: list[str] = field(default_factory=list)
+    supported_editing_regimes: list[str] = field(default_factory=list)
+    supported_generators: list[str] = field(default_factory=list)
+    calibration: dict[str, Any] | None = None
+    runtime: dict[str, Any] | None = None
+    evidence_schema: str = DETECTOR_EVIDENCE_SCHEMA
+    protocol_version: str = "TFDP/2"
+    normalized_from: str | None = None
 
     def validate(self, *, detector: Detector | None = None) -> DetectorPrediction:
         validate_prediction(self, detector=detector)
@@ -160,6 +198,135 @@ def _validate_no_source_echo(prediction: DetectorPrediction, source_text: str) -
             raise DetectorContractError("Detector output appears to echo submitted source text.")
 
 
+def normalize_prediction(prediction: DetectorPrediction) -> DetectorPrediction:
+    """Normalize TFDP/1 predictions to TFDP/2 without inventing evidence.
+
+    The normalization is recorded on the prediction so a report can state
+    exactly what was upgraded.  Missing TFDP/2 metadata remains ``unknown``;
+    it is never guessed from the detector's name or output.
+    """
+    if not isinstance(prediction, DetectorPrediction):
+        raise DetectorContractError("Detector must return DetectorPrediction.")
+    if prediction.schema == DETECTOR_SCHEMA_V2:
+        return prediction
+    if prediction.schema != DETECTOR_SCHEMA_V1:
+        raise DetectorContractError("Unsupported detector-result schema.")
+
+    prediction.schema = DETECTOR_SCHEMA_V2
+    prediction.protocol_version = "TFDP/1"
+    prediction.normalized_from = DETECTOR_SCHEMA_V1
+    if prediction.native_score_direction == "unknown" and prediction.score is not None:
+        # TFDP/1 did not declare direction.  ``unknown`` is retained rather
+        # than guessed from score_semantics prose.
+        prediction.native_score_direction = "unknown"
+    if prediction.supported_length is None and prediction.min_words is not None:
+        prediction.supported_length = {
+            "min_words": prediction.min_words,
+            "max_words": None,
+        }
+    if prediction.runtime is None:
+        prediction.runtime = {"mode": prediction.execution}
+    return prediction
+
+
+def _validate_string_list(values: Any, field_name: str) -> None:
+    if not isinstance(values, list) or any(
+        not isinstance(item, str) or not item.strip() for item in values
+    ):
+        raise DetectorContractError(f"{field_name} must be a list of non-empty strings.")
+
+
+def _validate_supported_length(value: Any) -> None:
+    if value is None:
+        return
+    if not isinstance(value, dict):
+        raise DetectorContractError("supported_length must be an object or null.")
+    unknown = set(value) - {"min_words", "max_words"}
+    if unknown:
+        raise DetectorContractError(
+            f"supported_length has unknown key(s): {', '.join(sorted(unknown))}."
+        )
+    if not value:
+        raise DetectorContractError("supported_length must declare at least one bound.")
+    minimum = value.get("min_words")
+    maximum = value.get("max_words")
+    for name, bound in (("min_words", minimum), ("max_words", maximum)):
+        if bound is None:
+            continue
+        if isinstance(bound, bool) or not isinstance(bound, int):
+            raise DetectorContractError(f"supported_length.{name} must be an integer or null.")
+        if bound < 0:
+            raise DetectorContractError(f"supported_length.{name} must be non-negative.")
+    if minimum is not None and maximum is not None and minimum > maximum:
+        raise DetectorContractError(
+            "supported_length.min_words cannot exceed supported_length.max_words."
+        )
+
+
+def _validate_score_range(prediction: DetectorPrediction) -> None:
+    if prediction.score_range is None:
+        return
+    if (
+        not isinstance(prediction.score_range, (list, tuple))
+        or len(prediction.score_range) != 2
+    ):
+        raise DetectorContractError("score_range must be a two-element sequence or null.")
+    minimum = prediction.score_range[0]
+    maximum = prediction.score_range[1]
+    _require_finite_number(minimum, "score_range[0]")
+    _require_finite_number(maximum, "score_range[1]")
+    if float(minimum) >= float(maximum):
+        raise DetectorContractError("score_range minimum must be below maximum.")
+    if prediction.score is not None and not (
+        float(minimum) <= float(prediction.score) <= float(maximum)
+    ):
+        raise DetectorContractError("score lies outside the declared score_range.")
+
+
+def _validate_calibration_metadata(prediction: DetectorPrediction) -> None:
+    if prediction.calibration is None:
+        return
+    if not isinstance(prediction.calibration, dict):
+        raise DetectorContractError("calibration must be an object or null.")
+    calibration_id = prediction.calibration.get("calibration_id")
+    _require_nonempty_string(calibration_id, "calibration.calibration_id")
+    method = prediction.calibration.get("method")
+    if method not in _CALIBRATION_METHODS:
+        raise DetectorContractError(
+            "calibration.method must be one of "
+            f"{', '.join(sorted(_CALIBRATION_METHODS))}."
+        )
+    fingerprint = prediction.calibration.get("evaluation_fingerprint")
+    if fingerprint is not None and (
+        not isinstance(fingerprint, str)
+        or len(fingerprint) != 64
+        or any(character not in "0123456789abcdef" for character in fingerprint)
+    ):
+        raise DetectorContractError(
+            "calibration.evaluation_fingerprint must be a 64-character lowercase hex digest."
+        )
+    if prediction.calibration_id is not None and prediction.calibration_id != calibration_id:
+        raise DetectorContractError(
+            "calibration.calibration_id does not match calibration_id."
+        )
+
+
+def _validate_runtime_metadata(prediction: DetectorPrediction) -> None:
+    if prediction.runtime is None:
+        return
+    if not isinstance(prediction.runtime, dict):
+        raise DetectorContractError("runtime must be an object or null.")
+    mode = prediction.runtime.get("mode")
+    if mode not in {"local", "remote"}:
+        raise DetectorContractError("runtime.mode must be 'local' or 'remote'.")
+    if mode != prediction.execution:
+        raise DetectorContractError("runtime.mode must match execution.")
+    for key in ("provider", "provider_version", "model_id", "device"):
+        value = prediction.runtime.get(key)
+        if value is not None and (not isinstance(value, str) or not value.strip()):
+            raise DetectorContractError(f"runtime.{key} must be a non-empty string or null.")
+
+
 def validate_prediction(
     prediction: DetectorPrediction,
     *,
@@ -168,8 +335,14 @@ def validate_prediction(
     if not isinstance(prediction, DetectorPrediction):
         raise DetectorContractError("Detector must return DetectorPrediction.")
 
-    if prediction.schema != "textforensics.detector-result/v1":
-        raise DetectorContractError("Unsupported detector-result schema.")
+    normalize_prediction(prediction)
+
+    if prediction.protocol_version not in {"TFDP/1", "TFDP/2"}:
+        raise DetectorContractError("Unsupported detector protocol version.")
+    if prediction.evidence_schema != DETECTOR_EVIDENCE_SCHEMA:
+        raise DetectorContractError("Unsupported detector-evidence schema.")
+    if prediction.native_score_direction not in _NATIVE_SCORE_DIRECTIONS:
+        raise DetectorContractError("Invalid native_score_direction.")
 
     for name in (
         "detector_id",
@@ -226,6 +399,32 @@ def validate_prediction(
     ):
         raise DetectorContractError("supported_languages must be a list of non-empty strings.")
 
+    _validate_supported_length(prediction.supported_length)
+    if (
+        prediction.supported_length is not None
+        and prediction.min_words is not None
+        and prediction.supported_length.get("min_words") != prediction.min_words
+    ):
+        raise DetectorContractError(
+            "supported_length.min_words does not match min_words."
+        )
+    _validate_score_range(prediction)
+    _validate_calibration_metadata(prediction)
+    _validate_runtime_metadata(prediction)
+    _validate_string_list(prediction.supported_domains, "supported_domains")
+    _validate_string_list(
+        prediction.supported_editing_regimes, "supported_editing_regimes"
+    )
+    _validate_string_list(prediction.supported_generators, "supported_generators")
+    invalid_editing = set(prediction.supported_editing_regimes) - _SUPPORTED_EDITING_REGIMES
+    if invalid_editing:
+        raise DetectorContractError(
+            "supported_editing_regimes contains unsupported value(s): "
+            f"{', '.join(sorted(invalid_editing))}."
+        )
+    if prediction.normalized_from not in {None, DETECTOR_SCHEMA_V1}:
+        raise DetectorContractError("normalized_from must be null or a TFDP/1 schema.")
+
     if not isinstance(prediction.warnings, list) or any(
         not isinstance(item, str) for item in prediction.warnings
     ):
@@ -273,7 +472,7 @@ class BuiltinHeuristicDetector:
         ]
 
         prediction = DetectorPrediction(
-            schema="textforensics.detector-result/v1",
+            schema=DETECTOR_SCHEMA_V2,
             detector_id=self.detector_id,
             detector_version=self.detector_version,
             detector_family=self.detector_family,
@@ -296,6 +495,20 @@ class BuiltinHeuristicDetector:
                 ),
             ],
             runtime_ms=round((time.perf_counter() - started) * 1000, 3),
+            native_score_direction="higher_means_ai",
+            score_range=[0.0, 1.0],
+            supported_length={"min_words": 80, "max_words": None},
+            supported_domains=[],
+            supported_editing_regimes=[],
+            supported_generators=[],
+            calibration=None,
+            runtime={
+                "mode": "local",
+                "provider": "textforensics",
+                "provider_version": self.detector_version,
+                "model_id": "builtin-stylometric-heuristic",
+                "device": "cpu",
+            },
         )
         return prediction.validate(detector=self)
 

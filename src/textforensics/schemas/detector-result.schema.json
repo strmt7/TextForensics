@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/strmt7/TextForensics/schemas/detector-result.schema.json",
-  "title": "TextForensics Detector Result v1",
+  "title": "TextForensics Detector Result",
   "type": "object",
   "required": [
     "schema",
@@ -19,11 +19,15 @@
     "supported_languages",
     "min_words",
     "evidence",
-    "warnings",
-    "runtime_ms"
+    "warnings"
   ],
   "properties": {
-    "schema": {"const": "textforensics.detector-result/v1"},
+    "schema": {
+      "enum": [
+        "textforensics.detector-result/v1",
+        "textforensics.detector-result/v2"
+      ]
+    },
     "detector_id": {"type": "string", "minLength": 1},
     "detector_version": {"type": "string", "minLength": 1},
     "detector_family": {"type": "string", "minLength": 1},
@@ -50,8 +54,78 @@
     "min_words": {"type": ["integer", "null"], "minimum": 0},
     "evidence": {"type": "array", "items": {"type": "object"}},
     "warnings": {"type": "array", "items": {"type": "string"}},
-    "runtime_ms": {"type": ["number", "null"], "minimum": 0}
+    "runtime_ms": {"type": ["number", "null"], "minimum": 0},
+    "native_score_direction": {
+      "enum": [
+        "higher_means_ai",
+        "lower_means_ai",
+        "not_applicable",
+        "unknown"
+      ]
+    },
+    "score_range": {
+      "type": ["array", "null"],
+      "items": {"type": "number"},
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "supported_length": {
+      "type": ["object", "null"],
+      "properties": {
+        "min_words": {"type": ["integer", "null"], "minimum": 0},
+        "max_words": {"type": ["integer", "null"], "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "supported_domains": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "supported_editing_regimes": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "supported_generators": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "calibration": {
+      "type": ["object", "null"],
+      "required": ["calibration_id", "method"],
+      "properties": {
+        "calibration_id": {"type": "string", "minLength": 1},
+        "method": {
+          "enum": ["platt", "temperature", "isotonic", "beta", "identity"]
+        },
+        "evaluation_fingerprint": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": true
+    },
+    "runtime": {
+      "type": ["object", "null"],
+      "required": ["mode"],
+      "properties": {
+        "mode": {"enum": ["local", "remote"]},
+        "provider": {"type": ["string", "null"]},
+        "provider_version": {"type": ["string", "null"]},
+        "model_id": {"type": ["string", "null"]},
+        "device": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "evidence_schema": {
+      "const": "textforensics.detector-evidence/v1"
+    },
+    "protocol_version": {"enum": ["TFDP/1", "TFDP/2"]},
+    "normalized_from": {
+      "type": ["string", "null"],
+      "enum": ["textforensics.detector-result/v1", null]
+    }
   },
+  "additionalProperties": false,
   "allOf": [
     {
       "if": {
@@ -66,7 +140,27 @@
         },
         "required": ["calibration_id"]
       }
+    },
+    {
+      "if": {
+        "properties": {"schema": {"const": "textforensics.detector-result/v2"}},
+        "required": ["schema"]
+      },
+      "then": {
+        "required": [
+          "native_score_direction",
+          "score_range",
+          "supported_length",
+          "supported_domains",
+          "supported_editing_regimes",
+          "supported_generators",
+          "calibration",
+          "runtime",
+          "evidence_schema",
+          "protocol_version",
+          "normalized_from"
+        ]
+      }
     }
-  ],
-  "additionalProperties": false
+  ]
 }

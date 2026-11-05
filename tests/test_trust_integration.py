@@ -54,10 +54,10 @@ class TrustMapFromLedgerTests(unittest.TestCase):
 
         trust_map = trust_map_from_capability_ledger(ledger)
 
-        # Find the dimension for language_coverage.en
+        # Find the dimension for language_coverage.en (maps to "language")
         dim = None
         for d in trust_map.dimensions:
-            if d.dimension == "language_coverage_en":
+            if d.dimension == "language":
                 dim = d
                 break
 
@@ -87,7 +87,7 @@ class TrustMapFromLedgerTests(unittest.TestCase):
 
         dim = None
         for d in trust_map.dimensions:
-            if d.dimension == "length_robustness_medium":
+            if d.dimension == "text_length":
                 dim = d
                 break
 
@@ -117,7 +117,7 @@ class TrustMapFromLedgerTests(unittest.TestCase):
 
         dim = None
         for d in trust_map.dimensions:
-            if d.dimension == "domain_news":
+            if d.dimension == "domain_genre":
                 dim = d
                 break
 
@@ -160,7 +160,7 @@ class TrustMapFromLedgerTests(unittest.TestCase):
 
         trust_map = trust_map_from_capability_ledger(ledger)
 
-        dim = next(d for d in trust_map.dimensions if d.dimension == "lang_en")
+        dim = next(d for d in trust_map.dimensions if d.dimension == "language")
         self.assertIn("run/lang-en.json", dim.evidence_refs)
         self.assertIn("run/lang-en-2.json", dim.evidence_refs)
 
@@ -185,7 +185,7 @@ class TrustMapFromLedgerTests(unittest.TestCase):
 
         trust_map = trust_map_from_capability_ledger(ledger)
 
-        dim = next(d for d in trust_map.dimensions if d.dimension == "lang_fr")
+        dim = next(d for d in trust_map.dimensions if d.dimension == "language")
         self.assertTrue(any("2026-12-31" in lim for lim in dim.limitations))
 
     def test_empty_ledger_returns_insufficient_trust_map(self):
@@ -308,8 +308,8 @@ class CapabilityLedgerIntegrationTests(unittest.TestCase):
 
         trust_map = trust_map_from_capability_ledger(ledger)
 
-        # Find the language.en dimension
-        lang_dim = next((d for d in trust_map.dimensions if d.dimension == "language_en"), None)
+        # Find the language dimension (language_coverage.en maps to "language")
+        lang_dim = next((d for d in trust_map.dimensions if d.dimension == "language"), None)
 
         self.assertIsNotNone(lang_dim)
         self.assertEqual(lang_dim.state, "supported")

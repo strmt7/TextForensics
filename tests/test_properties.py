@@ -353,7 +353,7 @@ def test_trust_map_states_allowed(
         robustness=robustness,
         failure_count=failure_count,
     )
-    assert trust_map.schema == "textforensics.trust-map/v1"
+    assert trust_map.schema == "textforensics.trust-map/v2"
     assert trust_map.overall in {"insufficient", "mixed", "strong"}
     for dimension in trust_map.dimensions:
         assert dimension.state in TRUST_STATES
@@ -514,8 +514,27 @@ def test_calibration_overlap_is_detected(pair: tuple[list[str], list[str]]) -> N
 
 @st.composite
 def forensic_bundle_st(draw):
+    overall = draw(st.sampled_from(["strong", "mixed", "insufficient"]))
+    # v2 trust_map requires all 10 dimensions
+    dim_names = [
+        "language", "text_length", "domain_genre", "editing_revision",
+        "generator_scope", "human_population", "human_false_positive_evidence",
+        "temporal_version_stability", "detector_diversity", "benign_stability"
+    ]
+    dimensions = [
+        {
+            "dimension": name,
+            "state": draw(st.sampled_from(["supported", "partial", "unknown", "out_of_scope"])),
+            "reason": f"test reason for {name}",
+            "evidence_refs": [],
+            "observed": {},
+            "limitations": [],
+            "detectors": {},
+        }
+        for name in dim_names
+    ]
     return {
-        "schema": "textforensics.forensic-bundle/v1",
+        "schema": "textforensics.forensic-bundle/v2",
         "generated_at_utc": "2026-01-01T00:00:00+00:00",
         "content_sha256": draw(hex64_st),
         "input": {
@@ -526,8 +545,8 @@ def forensic_bundle_st(draw):
         "detector_results": draw(st.lists(json_value_st, max_size=2)),
         "detector_failures": draw(st.lists(json_value_st, max_size=1)),
         "trust_map": {
-            "overall": draw(st.sampled_from(["strong", "mixed", "insufficient"])),
-            "dimensions": [],
+            "overall": overall,
+            "dimensions": dimensions,
         },
         "metadata": draw(json_value_st),
     }
@@ -1037,7 +1056,7 @@ class TestPropertyInvariants:
             failure_count=failure_count,
         )
 
-        assert trust_map.schema == "textforensics.trust-map/v1"
+        assert trust_map.schema == "textforensics.trust-map/v2"
         assert trust_map.overall in {"insufficient", "mixed", "strong"}
 
         for dimension in trust_map.dimensions:
@@ -1078,7 +1097,7 @@ class TestPropertyInvariants:
 
         # Verify the forensic bundle is valid
         assert "forensic_bundle" in case
-        assert case["forensic_bundle"]["schema"] == "textforensics.forensic-bundle/v1"
+        assert case["forensic_bundle"]["schema"] == "textforensics.forensic-bundle/v2"
 
         # Full verification via verify_case_file
         result = verify_case_file(case)
@@ -1300,6 +1319,8 @@ class TestPropertyInvariants:
             "text_length",
             "domain_genre",
             "editing_revision",
+            "generator_scope",
+            "human_population",
             "human_false_positive_evidence",
             "detector_diversity",
             "benign_stability",

@@ -106,14 +106,12 @@ class CoreTests(unittest.TestCase):
         data = build_forensic_bundle(HUMANISH).to_dict()
         self.assertEqual(
             data["schema"],
-            "textforensics.forensic-bundle/v1",
+            "textforensics.forensic-bundle/v2",
         )
         self.assertEqual(len(data["content_sha256"]), 64)
         self.assertFalse(data["input"]["raw_text_included"])
-        self.assertEqual(
-            data["verdict_integrity"]["status"],
-            "alpha_unvalidated_heuristic",
-        )
+        # verdict_integrity is only present when include_legacy=True
+        self.assertIsNone(data.get("legacy"))
         self.assertEqual(data["trust_map"]["overall"], "insufficient")
         self.assertTrue(data["trust_map"]["dimensions"])
 
@@ -123,7 +121,7 @@ class CoreTests(unittest.TestCase):
         result = analyze_payload({"text": HUMANISH})
         self.assertEqual(
             result["schema"],
-            "textforensics.forensic-bundle/v1",
+            "textforensics.forensic-bundle/v2",
         )
         with self.assertRaises(ValueError):
             analyze_payload({"text": ""})
