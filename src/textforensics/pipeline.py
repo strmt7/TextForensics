@@ -455,9 +455,9 @@ class FeatureFlag:
             user_id = context.get("user_id", "")
             if not user_id:
                 return False
-            # Deterministic hash-based assignment
+            # Deterministic hash-based assignment (SHA-256 for consistency, not security)
             hash_input = f"{self.name}:{user_id}"
-            hash_val = int(hashlib.md5(hash_input.encode()).hexdigest(), 16)
+            hash_val = int(hashlib.sha256(hash_input.encode()).hexdigest(), 16)
             return (hash_val % 100) / 100 < self.rollout_percentage
 
         return True
