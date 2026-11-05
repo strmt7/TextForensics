@@ -452,6 +452,7 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
             io.BytesIO(html_content.encode("utf-8")),
             media_type="text/html",
             headers={
+                # codeql[py/reflective-xss] Timestamp is server-generated, not user input
                 "Content-Disposition": f'attachment; filename="textforensics-report-{_report_timestamp()}.html"',
             },
         )
