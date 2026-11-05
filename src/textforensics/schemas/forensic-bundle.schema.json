@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/strmt7/TextForensics/schemas/forensic-bundle.schema.json",
-  "title": "TextForensics Forensic Bundle v1",
+  "title": "TextForensics Forensic Bundle",
   "type": "object",
   "required": [
     "schema",
@@ -13,13 +13,17 @@
     "plugin_health",
     "consensus",
     "trust_map",
-    "verdict_integrity",
     "robustness",
     "provenance",
     "limitations"
   ],
   "properties": {
-    "schema": {"const": "textforensics.forensic-bundle/v1"},
+    "schema": {
+      "enum": [
+        "textforensics.forensic-bundle/v1",
+        "textforensics.forensic-bundle/v2"
+      ]
+    },
     "generated_at_utc": {"type": "string", "minLength": 1},
     "content_sha256": {
       "type": "string",
@@ -41,25 +45,80 @@
       },
       "additionalProperties": true
     },
+    "input_conditions": {"type": ["object", "null"]},
     "detector_results": {"type": "array", "items": {"type": "object"}},
     "detector_failures": {"type": "array", "items": {"type": "object"}},
     "plugin_health": {"type": "array", "items": {"type": "object"}},
+    "detector_protocols": {"type": ["object", "null"]},
     "consensus": {"type": "object"},
     "trust_map": {
       "type": "object",
       "required": ["schema", "overall", "dimensions", "limitations"],
       "properties": {
-        "schema": {"const": "textforensics.trust-map/v1"},
+        "schema": {
+          "enum": ["textforensics.trust-map/v1", "textforensics.trust-map/v2"]
+        },
         "overall": {"enum": ["strong", "mixed", "insufficient"]},
         "dimensions": {"type": "array", "items": {"type": "object"}},
-        "limitations": {"type": "array", "items": {"type": "string"}}
+        "limitations": {"type": "array", "items": {"type": "string"}},
+        "input_conditions": {"type": ["object", "null"]},
+        "evidence_registry": {"type": ["object", "null"]},
+        "coverage": {"type": ["object", "null"]},
+        "generated_at_utc": {"type": ["string", "null"]}
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {"schema": {"const": "textforensics.trust-map/v2"}},
+            "required": ["schema"]
+          },
+          "then": {
+            "required": [
+              "input_conditions",
+              "evidence_registry",
+              "coverage",
+              "generated_at_utc"
+            ]
+          }
+        }
+      ]
     },
-    "verdict_integrity": {"type": "object"},
+    "verdict_integrity": {"type": ["object", "null"]},
+    "legacy": {"type": ["object", "null"]},
     "robustness": {"type": "object"},
     "provenance": {"type": ["object", "null"]},
+    "evidence_registry": {"type": ["object", "null"]},
     "limitations": {"type": "array", "items": {"type": "string"}}
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {"schema": {"const": "textforensics.forensic-bundle/v2"}},
+        "required": ["schema"]
+      },
+      "then": {
+        "required": [
+          "input_conditions",
+          "detector_protocols",
+          "evidence_registry"
+        ],
+        "properties": {
+          "trust_map": {
+            "properties": {
+              "schema": {"const": "textforensics.trust-map/v2"}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"schema": {"const": "textforensics.forensic-bundle/v1"}},
+        "required": ["schema"]
+      },
+      "then": {"required": ["verdict_integrity"]}
+    }
+  ]
 }

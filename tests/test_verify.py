@@ -85,9 +85,13 @@ class VerifyCaseFileTests(unittest.TestCase):
 
     def test_raw_text_included_fails(self):
         """A case file that includes raw text should fail."""
-        bundle = build_forensic_bundle(self.TEXT).to_dict()
-        case = seal_case_file(bundle)
-        case["raw_text_included"] = True
+        # Use a v1 case so the raw-text policy check is the first error
+        # encountered (the schema check runs first on v2 payloads).
+        case = {
+            "schema": "textforensics.case-file/v1",
+            "raw_text_included": True,
+            "case_sha256": "a" * 64,
+        }
         result = verify_case_file(case)
         self.assertFalse(result["valid"])
         self.assertIn("raw_text_included", result.get("errors", [""])[0])
@@ -398,7 +402,8 @@ class RecomputeOverallTests(unittest.TestCase):
         self.assertEqual(_recompute_overall(dims), "strong")
 
     def test_unknown_count_3_returns_insufficient(self):
-        """Test 3 unknown returns insufficient."""
+        """Under v2, three unknown dimensions with no supported/partial
+        state yields insufficient (supported==0 and partial==0)."""
         dims = [
             {"dimension": "d1", "state": "unknown", "reason": "r1"},
             {"dimension": "d2", "state": "unknown", "reason": "r2"},
@@ -406,13 +411,40 @@ class RecomputeOverallTests(unittest.TestCase):
         ]
         self.assertEqual(_recompute_overall(dims), "insufficient")
 
-    def test_out_of_scope_returns_insufficient(self):
-        """Test out_of_scope returns insufficient."""
+    def test_unknown_4_returns_insufficient(self):
+        """Test 4 unknown returns insufficient under v2."""
         dims = [
-            {"dimension": "d1", "state": "out_of_scope", "reason": "r1"},
+            {"dimension": "d1", "state": "unknown", "reason": "r1"},
+            {"dimension": "d2", "state": "unknown", "reason": "r2"},
+            {"dimension": "d3", "state": "unknown", "reason": "r3"},
+            {"dimension": "d4", "state": "unknown", "reason": "r4"},
+        ]
+        self.assertEqual(_recompute_overall(dims), "insufficient")
+
+    def test_out_of_scope_on_language_returns_insufficient(self):
+        """Under v2, out_of_scope on the language dimension yields insufficient."""
+        dims = [
+            {"dimension": "language", "state": "out_of_scope", "reason": "r1"},
             {"dimension": "d2", "state": "supported", "reason": "r2"},
         ]
         self.assertEqual(_recompute_overall(dims), "insufficient")
+
+    def test_out_of_scope_on_text_length_returns_insufficient(self):
+        """Under v2, out_of_scope on text_length yields insufficient."""
+        dims = [
+            {"dimension": "text_length", "state": "out_of_scope", "reason": "r1"},
+            {"dimension": "d2", "state": "supported", "reason": "r2"},
+        ]
+        self.assertEqual(_recompute_overall(dims), "insufficient")
+
+    def test_out_of_scope_on_other_dimension_is_not_insufficient(self):
+        """Under v2, out_of_scope on a non-language/length dimension alone
+        does not force insufficient."""
+        dims = [
+            {"dimension": "domain_genre", "state": "out_of_scope", "reason": "r1"},
+            {"dimension": "d2", "state": "supported", "reason": "r2"},
+        ]
+        self.assertEqual(_recompute_overall(dims), "mixed")
 
     def test_partial_returns_mixed(self):
         """Test partial returns mixed."""

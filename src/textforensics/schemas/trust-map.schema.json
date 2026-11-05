@@ -1,47 +1,103 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/strmt7/TextForensics/schemas/trust-map.schema.json",
-  "title": "TextForensics Trust Map v1",
+  "title": "TextForensics Trust Map",
   "type": "object",
-  "required": [
-    "schema",
-    "overall",
-    "dimensions",
-    "limitations"
-  ],
+  "required": ["schema", "overall", "dimensions", "limitations"],
   "properties": {
-    "schema": {"const": "textforensics.trust-map/v1"},
+    "schema": {
+      "enum": ["textforensics.trust-map/v1", "textforensics.trust-map/v2"]
+    },
     "overall": {"enum": ["strong", "mixed", "insufficient"]},
     "dimensions": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "dimension",
-          "state",
-          "reason"
-        ],
+        "required": ["dimension", "state", "reason"],
         "properties": {
           "dimension": {"type": "string", "minLength": 1},
           "state": {"enum": ["supported", "partial", "unknown", "out_of_scope"]},
           "reason": {"type": "string", "minLength": 1},
-          "evidence_refs": {
-            "type": "array",
-            "items": {"type": "string"}
-          },
+          "evidence_refs": {"type": "array", "items": {"type": "string"}},
           "observed": {"type": "object"},
-          "limitations": {
-            "type": "array",
-            "items": {"type": "string"}
+          "limitations": {"type": "array", "items": {"type": "string"}},
+          "detectors": {
+            "type": "object",
+            "additionalProperties": {
+              "enum": ["supported", "partial", "unknown", "out_of_scope"]
+            }
           }
         },
         "additionalProperties": false
       }
     },
-    "limitations": {
-      "type": "array",
-      "items": {"type": "string"}
-    }
+    "limitations": {"type": "array", "items": {"type": "string"}},
+    "input_conditions": {"type": ["object", "null"]},
+    "evidence_registry": {
+      "type": ["object", "null"],
+      "properties": {
+        "registry_id": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "record_count": {"type": "integer", "minimum": 0},
+        "verified": {"type": "boolean"},
+        "verification_status": {
+          "enum": ["verified", "failed", "not_checked", "not_supplied"]
+        },
+        "summary": {"type": ["object", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "coverage": {
+      "type": "object",
+      "required": ["supported", "partial", "unknown", "out_of_scope"],
+      "properties": {
+        "supported": {"type": "integer", "minimum": 0},
+        "partial": {"type": "integer", "minimum": 0},
+        "unknown": {"type": "integer", "minimum": 0},
+        "out_of_scope": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "generated_at_utc": {"type": ["string", "null"]}
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {"schema": {"const": "textforensics.trust-map/v2"}},
+        "required": ["schema"]
+      },
+      "then": {
+        "required": [
+          "input_conditions",
+          "evidence_registry",
+          "coverage",
+          "generated_at_utc"
+        ],
+        "properties": {
+          "dimensions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "dimension": {
+                  "enum": [
+                    "language",
+                    "text_length",
+                    "domain_genre",
+                    "editing_revision",
+                    "generator_scope",
+                    "human_population",
+                    "human_false_positive_evidence",
+                    "detector_diversity",
+                    "benign_stability",
+                    "temporal_version_stability"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

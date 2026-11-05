@@ -21,7 +21,7 @@ class BundleContractTests(unittest.TestCase):
     def test_bundle_schema_and_sha(self):
         bundle = build_forensic_bundle(TEXT)
         self.assertIsInstance(bundle, ForensicBundle)
-        self.assertEqual(bundle.schema, "textforensics.forensic-bundle/v1")
+        self.assertEqual(bundle.schema, "textforensics.forensic-bundle/v2")
         self.assertEqual(len(bundle.content_sha256), 64)
         self.assertFalse(bundle.input["raw_text_included"])
         self.assertEqual(bundle.input["word_count"], len(TEXT.split()))
@@ -32,10 +32,22 @@ class BundleContractTests(unittest.TestCase):
         self.assertNotIn(TEXT, serialized)
         self.assertIn("trust_map", serialized)
         self.assertIn("consensus", serialized)
-        self.assertIn("verdict_integrity", serialized)
         self.assertIn("robustness", serialized)
         self.assertIn("provenance", serialized)
         self.assertIn("limitations", serialized)
+        # verdict_integrity is excluded from the default v2 bundle; it is only
+        # present when explicitly requested via include_legacy=True.
+        self.assertNotIn("verdict_integrity", serialized)
+        self.assertIsNone(data["legacy"])
+
+    def test_bundle_includes_legacy_when_requested(self):
+        data = build_forensic_bundle(TEXT, include_legacy=True).to_dict()
+        self.assertIsNotNone(data["legacy"])
+        self.assertIn("verdict_integrity", data["legacy"])
+        self.assertEqual(
+            data["legacy"]["verdict_integrity"]["status"],
+            "alpha_unvalidated_heuristic",
+        )
 
     def test_bundle_includes_plugin_health(self):
         data = build_forensic_bundle(TEXT).to_dict()
@@ -123,9 +135,9 @@ class RobustnessProbeTests(unittest.TestCase):
 
 class IntegrityTests(unittest.TestCase):
     def test_integrity_status_is_alpha_unvalidated(self):
-        bundle = build_forensic_bundle(TEXT).to_dict()
+        bundle = build_forensic_bundle(TEXT, include_legacy=True).to_dict()
         self.assertEqual(
-            bundle["verdict_integrity"]["status"],
+            bundle["legacy"]["verdict_integrity"]["status"],
             "alpha_unvalidated_heuristic",
         )
 

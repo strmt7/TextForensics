@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
-from textforensics.trust import TrustDimension
+from textforensics.trust import TrustDimension, _legacy_dimension_name
 
 
 class EvidenceTier(Enum):
@@ -173,7 +173,7 @@ def ledger_to_trust_dimension(
 
     if not relevant:
         return TrustDimension(
-            dimension=capability_prefix.replace(".", "_"),
+            dimension=_legacy_dimension_name(capability_prefix),
             state="unknown",
             reason=(
                 f"No capability claims registered for {detector_id} "
@@ -208,8 +208,9 @@ def ledger_to_trust_dimension(
         if c.valid_until:
             limitations.append(f"Claim for {c.capability} expires {c.valid_until}.")
 
+    dimension_name = _legacy_dimension_name(capability_prefix)
     return TrustDimension(
-        dimension=capability_prefix.replace(".", "_"),
+        dimension=dimension_name,
         state=state,
         reason=reason,
         evidence_refs=evidence_refs,

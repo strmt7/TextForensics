@@ -25,6 +25,23 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 _TRUST_STATES = frozenset({"supported", "partial", "unknown", "out_of_scope"})
+_TRUST_MAP_V2_SCHEMA = "textforensics.trust-map/v2"
+_TRUST_MAP_V1_SCHEMA = "textforensics.trust-map/v1"
+
+# Schemas accepted by the N-version replay.  v2 is primary; v1 is accepted
+# for legacy artifacts so that older case files can still be replayed.
+_CASE_FILE_SCHEMAS = frozenset(
+    {"textforensics.case-file/v2", "textforensics.case-file/v1"}
+)
+_BUNDLE_SCHEMAS = frozenset(
+    {"textforensics.forensic-bundle/v2", "textforensics.forensic-bundle/v1"}
+)
+_DETECTOR_RESULT_SCHEMAS = frozenset(
+    {"textforensics.detector-result/v2", "textforensics.detector-result/v1"}
+)
+_CALIBRATION_SCHEMAS = frozenset(
+    {"textforensics.calibration-artifact/v2", "textforensics.calibration/v1"}
+)
 
 
 def _verify_trust_dimension(dim: dict[str, Any]) -> str:
@@ -48,27 +65,35 @@ def _recompute_overall(dimensions: list[dict[str, Any]]) -> str | None:
     """Re-derive the Trust Map ``overall`` state from stored dimensions.
 
     This is an *independent* implementation of the logic in
-    ``trust.build_trust_map``. If the two disagree the case file has
-    been tampered with.
+    ``trust._overall_state``.  It must agree with the primary path for a
+    legitimately produced case file; disagreement signals tampering.
+
+    The rules mirror the v2 contract:
+    * ``out_of_scope`` on language or text_length, or no supported state at
+      all, yields ``insufficient``;
+    * four or more ``unknown`` dimensions also yields ``insufficient``;
+    * any ``partial`` or ``unknown`` (but fewer than four) yields ``mixed``;
+    * otherwise ``strong``.
     """
-    unknown_count = 0
-    out_of_scope = False
-    partial = False
+    states = [dim.get("state", "") for dim in dimensions]
+    by_name = {dim.get("dimension"): dim.get("state", "") for dim in dimensions}
+    supported = sum(state == "supported" for state in states)
+    partial = sum(state == "partial" for state in states)
+    unknown = sum(state == "unknown" for state in states)
+    out_of_scope = sum(state == "out_of_scope" for state in states)
 
-    for dim in dimensions:
-        state = dim.get("state", "")
-        if state == "unknown":
-            unknown_count += 1
-        if state == "out_of_scope":
-            out_of_scope = True
-        if state == "partial":
-            partial = True
-
-    if out_of_scope or unknown_count >= 3:
+    if out_of_scope > 0 and (
+        by_name.get("language") == "out_of_scope"
+        or by_name.get("text_length") == "out_of_scope"
+    ):
         return "insufficient"
-    if unknown_count or partial:
-        return "mixed"
-    return "strong"
+    if supported == len(dimensions):
+        return "strong"
+    if supported == 0 and partial == 0:
+        return "insufficient"
+    if supported == 0 and unknown >= 4:
+        return "insufficient"
+    return "mixed"
 
 
 def verify_case_file(payload: dict[str, Any]) -> dict[str, Any]:
@@ -99,7 +124,7 @@ def verify_case_file(payload: dict[str, Any]) -> dict[str, Any]:
 
     # --- Schema ---
     case_schema = payload.get("schema", "")
-    if case_schema != "textforensics.case-file/v1":
+    if case_schema not in _CASE_FILE_SCHEMAS:
         errors.append(f"unexpected case schema: {case_schema!r}")
 
     # --- Raw text policy ---
@@ -112,10 +137,13 @@ def verify_case_file(payload: dict[str, Any]) -> dict[str, Any]:
         errors.append("forensic_bundle is not a dict")
         info["seal_verified"] = False
     else:
-        # Re-derive the seal hash without the ``case_sha256`` field
-        # First sanitize to handle non-finite values that JSON can't serialize
+        # Re-derive the seal hash without the ``case_sha256`` field.  The
+        # v2 seal also excludes ``created_at_utc`` so that sealing the same
+        # content twice produces the same digest regardless of when it was
+        # sealed; the independent replay path must match that exclusion.
         stripped = deepcopy(dict(payload))
         stripped.pop("case_sha256", None)
+        stripped.pop("created_at_utc", None)
 
         def _sanitize_for_json(obj):
             """Replace non-finite floats with string representations for JSON serialization."""
@@ -152,6 +180,9 @@ def verify_case_file(payload: dict[str, Any]) -> dict[str, Any]:
     trust_map = bundle.get("trust_map") if isinstance(bundle, dict) else None
     dimensions_status = {}
     if isinstance(trust_map, dict):
+        tm_schema = trust_map.get("schema")
+        if tm_schema not in (_TRUST_MAP_V2_SCHEMA, _TRUST_MAP_V1_SCHEMA):
+            errors.append(f"trust_map has unexpected schema: {tm_schema!r}")
         dims = trust_map.get("dimensions")
         if not isinstance(dims, list):
             errors.append("trust_map.dimensions is not a list")
@@ -176,7 +207,7 @@ def verify_case_file(payload: dict[str, Any]) -> dict[str, Any]:
 
     # --- Forensic bundle structural checks (independent path) ---
     if isinstance(bundle, dict):
-        if bundle.get("schema") != "textforensics.forensic-bundle/v1":
+        if bundle.get("schema") not in _BUNDLE_SCHEMAS:
             errors.append("forensic_bundle has unexpected schema")
 
         content_hash = bundle.get("content_sha256")
@@ -194,7 +225,7 @@ def verify_case_file(payload: dict[str, Any]) -> dict[str, Any]:
         # --- Detector results sanity ---
         for dr in bundle.get("detector_results", []):
             if isinstance(dr, dict):
-                if dr.get("schema") != "textforensics.detector-result/v1":
+                if dr.get("schema") not in _DETECTOR_RESULT_SCHEMAS:
                     errors.append(f"detector {dr.get('detector_id')} has wrong schema")
                 score = dr.get("score")
                 if score is not None:

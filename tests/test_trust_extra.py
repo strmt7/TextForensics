@@ -1,16 +1,15 @@
-"""Additional tests for trust.py uncovered lines 233-236.
+"""Additional tests for trust.py overall-state logic.
 
-Lines 233-236 in trust.py handle the overall trust state determination:
-    if out_of_scope or unknown_count >= 3:
-        overall = "insufficient"
-    elif unknown_count or partial:
-        overall = "mixed"
-    else:
-        overall = "strong"
+The v2 ``_overall_state`` contract is:
 
-The current alpha implementation has 5 static dimensions that are hardcoded to "unknown",
-making "mixed" unreachable (would be "insufficient" with 5 unknowns).
-"strong" is also unreachable until those dimensions have evidence.
+* ``out_of_scope`` on ``language`` or ``text_length`` -> ``insufficient``
+* all dimensions ``supported`` -> ``strong``
+* ``supported == 0`` and ``partial == 0`` -> ``insufficient``
+* ``supported == 0`` and ``unknown >= 4`` -> ``insufficient``
+* otherwise -> ``mixed``
+
+These tests exercise that contract directly with hand-built dimension lists,
+so they do not depend on the registry-backed ``build_trust_map`` path.
 """
 
 from __future__ import annotations
@@ -21,6 +20,7 @@ from textforensics.detectors import DetectorPrediction
 from textforensics.trust import (
     TrustDimension,
     TrustMap,
+    _overall_state,
     build_trust_map,
 )
 
@@ -34,7 +34,7 @@ def prediction(
 ) -> DetectorPrediction:
     """Create a DetectorPrediction for testing."""
     return DetectorPrediction(
-        schema="textforensics.detector-result/v1",
+        schema="textforensics.detector-result/v2",
         detector_id=detector_id,
         detector_version="1",
         detector_family=family,
@@ -50,129 +50,107 @@ def prediction(
     )
 
 
+def _dim(name: str, state: str) -> TrustDimension:
+    return TrustDimension(dimension=name, state=state, reason=f"{name}:{state}")
+
+
 class TrustMapOverallStateLogicTests(unittest.TestCase):
-    """Tests for the overall state logic in build_trust_map (lines 231-236).
+    """Tests for the overall state logic in trust._overall_state."""
 
-    We test the logic directly since the alpha implementation has hardcoded
-    unknown dimensions.
-    """
+    def test_out_of_scope_on_language_is_insufficient(self):
+        dims = [
+            _dim("language", "out_of_scope"),
+            _dim("text_length", "supported"),
+        ]
+        self.assertEqual(_overall_state(dims), "insufficient")
 
-    def test_insufficient_branch_with_out_of_scope(self):
-        """Test line 231: if out_of_scope -> overall = 'insufficient'."""
-        # Create a scenario where length is out_of_scope
-        tm = build_trust_map(
-            [prediction("a", min_words=500)],
-            word_count=10,
-            robustness=[],
+    def test_out_of_scope_on_text_length_is_insufficient(self):
+        dims = [
+            _dim("language", "supported"),
+            _dim("text_length", "out_of_scope"),
+        ]
+        self.assertEqual(_overall_state(dims), "insufficient")
+
+    def test_out_of_scope_on_other_dimension_is_not_insufficient(self):
+        # Under v2 only language/text_length out_of_scope forces insufficient.
+        dims = [
+            _dim("language", "supported"),
+            _dim("text_length", "supported"),
+            _dim("domain_genre", "out_of_scope"),
+        ]
+        self.assertEqual(_overall_state(dims), "mixed")
+
+    def test_all_supported_is_strong(self):
+        dims = [
+            _dim("language", "supported"),
+            _dim("text_length", "supported"),
+            _dim("domain_genre", "supported"),
+            _dim("editing_revision", "supported"),
+            _dim("generator_scope", "supported"),
+            _dim("human_population", "supported"),
+            _dim("human_false_positive_evidence", "supported"),
+            _dim("temporal_version_stability", "supported"),
+            _dim("detector_diversity", "supported"),
+            _dim("benign_stability", "supported"),
+        ]
+        self.assertEqual(_overall_state(dims), "strong")
+
+    def test_no_supported_no_partial_is_insufficient(self):
+        dims = [
+            _dim("language", "unknown"),
+            _dim("text_length", "unknown"),
+            _dim("domain_genre", "unknown"),
+        ]
+        self.assertEqual(_overall_state(dims), "insufficient")
+
+    def test_four_unknowns_with_no_supported_is_insufficient(self):
+        # Rule: supported==0 and unknown>=4 -> insufficient
+        dims = [
+            _dim("language", "unknown"),
+            _dim("text_length", "unknown"),
+            _dim("domain_genre", "unknown"),
+            _dim("editing_revision", "unknown"),
+        ]
+        self.assertEqual(_overall_state(dims), "insufficient")
+
+    def test_partial_yields_mixed(self):
+        dims = [
+            _dim("language", "supported"),
+            _dim("text_length", "supported"),
+            _dim("domain_genre", "partial"),
+        ]
+        self.assertEqual(_overall_state(dims), "mixed")
+
+    def test_single_unknown_yields_mixed(self):
+        dims = [
+            _dim("language", "supported"),
+            _dim("text_length", "supported"),
+            _dim("domain_genre", "unknown"),
+        ]
+        self.assertEqual(_overall_state(dims), "mixed")
+
+    def test_three_unknowns_with_supported_yields_mixed(self):
+        dims = [
+            _dim("language", "supported"),
+            _dim("text_length", "supported"),
+            _dim("domain_genre", "unknown"),
+            _dim("editing_revision", "unknown"),
+            _dim("generator_scope", "unknown"),
+        ]
+        self.assertEqual(_overall_state(dims), "mixed")
+
+    def test_trust_map_overall_matches_recomputed(self):
+        dims = [
+            _dim("language", "supported"),
+            _dim("text_length", "supported"),
+            _dim("domain_genre", "partial"),
+        ]
+        tm = TrustMap(
+            schema="textforensics.trust-map/v2",
+            overall=_overall_state(dims),
+            dimensions=dims,
         )
-        self.assertEqual(tm.overall, "insufficient")
-
-    def test_mixed_branch_logic(self):
-        """Test lines 233-234: elif unknown_count or partial -> overall = 'mixed'.
-
-        Since alpha has hardcoded unknowns, we test the logic directly.
-        """
-        # Create dimensions that would result in 'mixed' if unknowns < 3
-        dimensions = [
-            TrustDimension(
-                dimension="language", state="supported", reason="ok"
-            ),  # Override the default unknown
-            TrustDimension(dimension="text_length", state="supported", reason="ok"),
-            TrustDimension(dimension="domain_genre", state="supported", reason="ok"),
-            TrustDimension(dimension="editing_revision", state="supported", reason="ok"),
-            TrustDimension(
-                dimension="human_false_positive_evidence",
-                state="partial",
-                reason="some evidence",
-            ),  # partial here
-            TrustDimension(dimension="detector_diversity", state="supported", reason="ok"),
-            TrustDimension(dimension="benign_stability", state="supported", reason="ok"),
-            TrustDimension(dimension="temporal_version_stability", state="supported", reason="ok"),
-        ]
-
-        unknown_count = sum(d.state == "unknown" for d in dimensions)
-        out_of_scope = any(d.state == "out_of_scope" for d in dimensions)
-        partial = any(d.state == "partial" for d in dimensions)
-
-        # Apply the logic from lines 231-236
-        if out_of_scope or unknown_count >= 3:
-            overall = "insufficient"
-        elif unknown_count or partial:
-            overall = "mixed"  # This line (233-234) covers the elif branch
-        else:
-            overall = "strong"
-
-        self.assertEqual(unknown_count, 0)
-        self.assertTrue(partial)
-        self.assertFalse(out_of_scope)
-        self.assertEqual(overall, "mixed")
-
-    def test_strong_branch_logic(self):
-        """Test line 236: else -> overall = 'strong'.
-
-        This is the ideal case with no unknowns, no partials, no out_of_scope.
-        """
-        dimensions = [
-            TrustDimension(dimension="language", state="supported", reason="ok"),
-            TrustDimension(dimension="text_length", state="supported", reason="ok"),
-            TrustDimension(dimension="domain_genre", state="supported", reason="ok"),
-            TrustDimension(dimension="editing_revision", state="supported", reason="ok"),
-            TrustDimension(
-                dimension="human_false_positive_evidence",
-                state="supported",
-                reason="ok",
-            ),
-            TrustDimension(dimension="detector_diversity", state="supported", reason="ok"),
-            TrustDimension(dimension="benign_stability", state="supported", reason="ok"),
-            TrustDimension(dimension="temporal_version_stability", state="supported", reason="ok"),
-        ]
-
-        unknown_count = sum(d.state == "unknown" for d in dimensions)
-        out_of_scope = any(d.state == "out_of_scope" for d in dimensions)
-        partial = any(d.state == "partial" for d in dimensions)
-
-        # Apply the logic from lines 231-236
-        if out_of_scope or unknown_count >= 3:
-            overall = "insufficient"
-        elif unknown_count or partial:
-            overall = "mixed"
-        else:
-            overall = "strong"  # This line (235-236) covers the else branch
-
-        self.assertEqual(unknown_count, 0)
-        self.assertFalse(partial)
-        self.assertFalse(out_of_scope)
-        self.assertEqual(overall, "strong")
-
-    def test_insufficient_with_many_unknowns(self):
-        """Test line 231: >=3 unknowns triggers insufficient."""
-        dimensions = [
-            TrustDimension(dimension="language", state="unknown", reason="unknown"),
-            TrustDimension(dimension="text_length", state="supported", reason="ok"),
-            TrustDimension(dimension="domain_genre", state="unknown", reason="unknown"),
-            TrustDimension(dimension="editing_revision", state="unknown", reason="unknown"),
-            TrustDimension(
-                dimension="human_false_positive_evidence",
-                state="supported",
-                reason="ok",
-            ),
-            TrustDimension(dimension="detector_diversity", state="supported", reason="ok"),
-            TrustDimension(dimension="benign_stability", state="supported", reason="ok"),
-            TrustDimension(dimension="temporal_version_stability", state="known", reason="ok"),
-        ]
-
-        unknown_count = sum(d.state == "unknown" for d in dimensions)
-        out_of_scope = any(d.state == "out_of_scope" for d in dimensions)
-
-        if out_of_scope or unknown_count >= 3:
-            overall = "insufficient"
-        elif unknown_count or False:
-            overall = "mixed"
-        else:
-            overall = "strong"
-
-        self.assertGreaterEqual(unknown_count, 3)
-        self.assertEqual(overall, "insufficient")
+        self.assertEqual(tm.overall, "mixed")
 
 
 class TrustMapDimensionTests(unittest.TestCase):
@@ -244,13 +222,13 @@ class TrustMapSerializationTests(unittest.TestCase):
     def test_trust_map_to_dict(self):
         """Test TrustMap.to_dict() method."""
         tm = TrustMap(
-            schema="textforensics.trust-map/v1",
+            schema="textforensics.trust-map/v2",
             overall="mixed",
             dimensions=[TrustDimension(dimension="text_length", state="supported", reason="ok")],
         )
         data = tm.to_dict()
 
-        self.assertEqual(data["schema"], "textforensics.trust-map/v1")
+        self.assertEqual(data["schema"], "textforensics.trust-map/v2")
         self.assertEqual(data["overall"], "mixed")
         self.assertTrue(len(data["dimensions"]) > 0)
 
