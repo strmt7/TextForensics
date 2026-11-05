@@ -223,7 +223,7 @@ class HealthCheck:
             cmp_word = "exceeds"
 
         return HealthAlert(
-            alert_id=f"alert-{hashlib.md5(f'{self.name}{time.time()}'.encode()).hexdigest()[:8]}",
+            alert_id=f"alert-{hashlib.sha256(f'{self.name}{time.time()}'.encode()).hexdigest()[:8]}",
             detector_id=detector_id,
             severity=severity,
             message=f"{self.name}: {value} {cmp_word} {self.critical_threshold if severity == AlertSeverity.CRITICAL else self.warning_threshold}",
