@@ -81,8 +81,7 @@ class TestValidateSchemas:
         """
         repo_root = Path(__file__).parent.parent
         assert not (repo_root / "schemas").exists(), (
-            "top-level schemas/ must not exist; "
-            "src/textforensics/schemas/ is the single source"
+            "top-level schemas/ must not exist; src/textforensics/schemas/ is the single source"
         )
         packaged = repo_root / "src" / "textforensics" / "schemas"
         names = sorted(p.name for p in packaged.glob("*.json"))

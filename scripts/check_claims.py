@@ -12,15 +12,12 @@ on the machine running CI, and console scripts may not be on PATH.
 
 from __future__ import annotations
 
-import json
-import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
 import yaml
-
 
 REPO_ROOT = Path(__file__).parent.parent
 CLAIMS_FILE = REPO_ROOT / "docs" / "CLAIMS.yaml"
@@ -191,7 +188,7 @@ def verify_claim(claim: dict[str, Any]) -> tuple[bool, str]:
     status = claim.get("status", "unverified")
 
     if status in ("unverified", "false", "stale"):
-        return False, f"Claim status is '{status}' - requires verification"
+        return False, f"Claim {claim_id}: status is '{status}' - requires verification"
 
     try:
         if evidence_type == "test":

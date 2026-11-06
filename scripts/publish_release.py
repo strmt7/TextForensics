@@ -24,10 +24,9 @@ import os
 import shutil
 import subprocess
 import sys
-from datetime import datetime, timezone
-from pathlib import Path
-
 import tomllib
+from datetime import UTC, datetime
+from pathlib import Path
 
 CONFIRMATION_ENV = "RELEASE_CONFIRMATION"
 CONFIRMATION_VALUE = "RELEASE"
@@ -135,7 +134,7 @@ def cmd_changelog(args: argparse.Namespace) -> int:
 
     sha = run_git("rev-parse", "HEAD")
     short_sha = sha[:12]
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     lines: list[str] = [
         f"# textforensics v{version}",
