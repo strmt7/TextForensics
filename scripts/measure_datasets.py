@@ -14,11 +14,15 @@ registry.
 
 No dataset text is written to the repo: caches live outside it (XDG
 cache dir, ``TEXTFORENSICS_DATASETS_DIR`` override) and artifacts carry
-counts, hashes and metrics only. Sample sizes are deliberately small
-(RAID n=600 strided — its human rows are ~2.5% of train, so 200 rows
-yielded only 5 humans; MAGE n=200, Beemo n=100 records, OpAI-Bench
-n=100) — these are preliminary slices, not full-corpus evaluations;
-the drops manifest of each artifact says so.
+counts, hashes and metrics only. Sample sizes are grown slices, not
+full-corpus evaluations; the drops manifest of each artifact says so.
+RAID n=3000 strided — its human rows are only ~3.3% of train, so 600
+rows yielded just 20 humans and 3000 rows yield ~100, the minimum
+human sample for a supported slice; MAGE n=400 (~118 humans, up from
+200); OpAI-Bench n=500 (~115 binary-labelled endpoint rows, up from
+100); Beemo unchanged at n=100 records (200 humans already). The
+wave-1 preliminary sizes (RAID 600, MAGE 200, OpAI-Bench 100) are
+superseded by these larger samples.
 
 Usage:
     python scripts/measure_datasets.py [--only raid,mage] [--force]
@@ -52,6 +56,11 @@ from textforensics.datasets import (  # noqa: E402
 )
 from textforensics.detectors import BuiltinHeuristicDetector  # noqa: E402
 
+# Sample sizes (U1 growth, 2026-11-06): RAID 3000 strided so the ~3.3%
+# human fraction yields ~100 humans (the minimum human sample for a
+# supported slice); MAGE 400 (~118 humans); OpAI-Bench 500 (~115
+# binary-labelled v0/v8 endpoint rows); Beemo unchanged at 100 records
+# (200 humans already). Wave-1 sizes (600/200/100) were preliminary.
 # Verified row counts (datasets-server /size, 2026-11-06). These are the
 # denominators for strided sampling; if the server reports a different
 # total the script refuses rather than sampling a stale plan.
@@ -59,7 +68,7 @@ SAMPLE_PLAN = {
     "raid": {
         "config": "raid",
         "split": "train",
-        "n": 600,
+        "n": 3000,
         "method": "strided",
         "total": 2_270_000,
         "disjoint": {
@@ -73,7 +82,7 @@ SAMPLE_PLAN = {
     "mage": {
         "config": "default",
         "split": "train",
-        "n": 200,
+        "n": 400,
         "method": "strided",
         "total": 319_071,
         "disjoint": {
@@ -95,7 +104,7 @@ SAMPLE_PLAN = {
     "opai_bench": {
         "config": "default",
         "split": "train",
-        "n": 100,
+        "n": 500,
         "method": "strided",
         "total": 196_029,
         "disjoint": {

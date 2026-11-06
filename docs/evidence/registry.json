@@ -18,17 +18,17 @@
     {
       "evidence_record_id": "EV-20261106-dataset-mage",
       "run_artifact": "docs/evidence/runs/EV-20261106-dataset-mage.json",
-      "run_artifact_sha256": "a9099b56f154722cc5416c0aa2366d4d92381cce76a3614f73bedfd2c84a6913"
+      "run_artifact_sha256": "5fd28a3fc0c36c4660fc04decea1e554f209b8a78e2f050709b048c7c7a9559d"
     },
     {
       "evidence_record_id": "EV-20261106-dataset-opai-bench",
       "run_artifact": "docs/evidence/runs/EV-20261106-dataset-opai-bench.json",
-      "run_artifact_sha256": "651fe8f20dd8bbe3286a70a5beb0adcab1a253a8f3af8ae8e4162bc014bea7b1"
+      "run_artifact_sha256": "399c62c77005dcc9ea38e0c96af5fb181effd1282add4c098111ff3e489e3ed6"
     },
     {
       "evidence_record_id": "EV-20261106-dataset-raid",
       "run_artifact": "docs/evidence/runs/EV-20261106-dataset-raid.json",
-      "run_artifact_sha256": "80381a18645f53aa0b035559c925d54bd533f04d36df5a247fbc61c88f8ed113"
+      "run_artifact_sha256": "707124a0a7c1cd8924a1af24f2d40b89a7997836b8f5c773b6c826491df9c00d"
     },
     {
       "evidence_record_id": "EV-20261106-determinism",

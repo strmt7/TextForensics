@@ -92,6 +92,12 @@ def test_sample_plan_covers_verified_datasets_only(measure):
     assert plan["mage"]["total"] == 319_071
     assert plan["beemo"]["total"] == 2_187
     assert plan["opai_bench"]["total"] == 196_029
+    # U1 grown sample sizes (plan change, 2026-11-06): RAID 3000 strided
+    # for ~100 humans, MAGE 400, OpAI-Bench 500; Beemo unchanged.
+    assert plan["raid"]["n"] == 3000
+    assert plan["mage"]["n"] == 400
+    assert plan["beemo"]["n"] == 100
+    assert plan["opai_bench"]["n"] == 500
     for entry in plan.values():
         assert entry["method"] in ("first", "strided")
         assert entry["n"] > 0

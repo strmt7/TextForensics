@@ -1,11 +1,11 @@
 {
   "badge": "available",
-  "code_version": "829fe007ee304ccca6b19ef3901394b9273c2c8c",
+  "code_version": "5cfd6a6e1320933e5d9329d1dc430a15abc96663",
   "command": "python scripts/measure_datasets.py --only raid",
   "drops": [
     {
       "item": "full-corpus evaluation",
-      "reason": "preliminary sample only (n=600 normalised rows from 2270000 split rows)"
+      "reason": "preliminary sample only (n=3000 normalised rows from 2270000 split rows)"
     },
     {
       "item": "Python 3.11, 3.13, 3.14, 3.15",
@@ -24,13 +24,13 @@
   "evidence_record_id": "EV-20261106-dataset-raid",
   "kind": "command",
   "results": {
-    "auroc": 0.6414,
-    "cache_file_sha256": "46bfa9fa843d753dc66315c676ecda74168a33d03d045bfe9f7e9b79d65f88ad",
+    "auroc": 0.5937,
+    "cache_file_sha256": "f689a30963024b2dc1fa159f2888e1d2ba36e68263d467ab7f73db5d9e780c00",
     "config": "raid",
     "dataset": "raid",
     "detector": "textforensics/builtin-heuristic",
-    "detector_abstentions": 303,
-    "detector_evaluated_rows": 600,
+    "detector_abstentions": 1490,
+    "detector_evaluated_rows": 3000,
     "detector_version": "0.1.0",
     "disjointness": {
       "against": "raid_test/test (n=50)",
@@ -42,40 +42,40 @@
     },
     "hf_id": "liamdugan/raid",
     "label_counts": {
-      "0": 20,
-      "1": 580
+      "0": 92,
+      "1": 2908
     },
     "licence": "MIT",
     "mean_score_by_kind": {
-      "raid": 0.3311
+      "raid": 0.3284
     },
     "preliminary": true,
     "rows_by_kind": {
-      "raid": 600
+      "raid": 3000
     },
-    "rows_fetched": 600,
-    "rows_normalised": 600,
+    "rows_fetched": 3000,
+    "rows_normalised": 3000,
     "sampling": "strided",
     "score_by_label": {
       "human": {
-        "max": 0.5498,
-        "mean": 0.2668,
-        "median": 0.244,
+        "max": 0.5805,
+        "mean": 0.2841,
+        "median": 0.2756,
         "min": 0.0324,
-        "n": 20
+        "n": 92
       },
       "machine": {
-        "max": 0.7273,
-        "mean": 0.3333,
-        "median": 0.3219,
+        "max": 0.784,
+        "mean": 0.3298,
+        "median": 0.3161,
         "min": 0.0,
-        "n": 580
+        "n": 2908
       }
     },
     "split": "train",
     "split_rows_total": 2270000,
-    "tpr_at_1pct_fpr": 0.0862,
-    "tpr_at_5pct_fpr": 0.0862
+    "tpr_at_1pct_fpr": 0.0454,
+    "tpr_at_5pct_fpr": 0.1348
   },
   "run_date": "2026-11-06",
   "schema": "textforensics.run-artifact/v1"

@@ -1,11 +1,11 @@
 {
   "badge": "available",
-  "code_version": "879817097966b8b79e25a59f39839054263b9730",
+  "code_version": "5cfd6a6e1320933e5d9329d1dc430a15abc96663",
   "command": "python scripts/measure_datasets.py --only mage",
   "drops": [
     {
       "item": "full-corpus evaluation",
-      "reason": "preliminary sample only (n=200 normalised rows from 319071 split rows)"
+      "reason": "preliminary sample only (n=400 normalised rows from 319071 split rows)"
     },
     {
       "item": "Python 3.11, 3.13, 3.14, 3.15",
@@ -24,13 +24,13 @@
   "evidence_record_id": "EV-20261106-dataset-mage",
   "kind": "command",
   "results": {
-    "auroc": 0.5417,
-    "cache_file_sha256": "e9fbc27da0488f3e14aa1c7da52d6835b4d48f893e629fd474ee82a7093ca031",
+    "auroc": 0.5567,
+    "cache_file_sha256": "8969989f35f6affbfc07d1b6846e9acdb481790b964563289342aa075d06eba3",
     "config": "default",
     "dataset": "mage",
     "detector": "textforensics/builtin-heuristic",
-    "detector_abstentions": 107,
-    "detector_evaluated_rows": 200,
+    "detector_abstentions": 217,
+    "detector_evaluated_rows": 400,
     "detector_version": "0.1.0",
     "disjointness": {
       "against": "default/validation (n=50)",
@@ -42,40 +42,40 @@
     },
     "hf_id": "yaful/MAGE",
     "label_counts": {
-      "0": 59,
-      "1": 141
+      "0": 117,
+      "1": 283
     },
     "licence": "Apache-2.0 (LICENSE file, repo metadata, HF tag); README badge asserts CC BY 4.0 \u2014 record both, attribute the authors",
     "mean_score_by_kind": {
-      "mage": 0.2789
+      "mage": 0.2811
     },
     "preliminary": true,
     "rows_by_kind": {
-      "mage": 200
+      "mage": 400
     },
-    "rows_fetched": 200,
-    "rows_normalised": 200,
+    "rows_fetched": 400,
+    "rows_normalised": 400,
     "sampling": "strided",
     "score_by_label": {
       "human": {
         "max": 0.526,
-        "mean": 0.2556,
-        "median": 0.2239,
+        "mean": 0.2533,
+        "median": 0.2363,
         "min": 0.1162,
-        "n": 59
+        "n": 117
       },
       "machine": {
         "max": 0.724,
-        "mean": 0.2886,
-        "median": 0.268,
-        "min": 0.0552,
-        "n": 141
+        "mean": 0.2926,
+        "median": 0.2799,
+        "min": 0.04,
+        "n": 283
       }
     },
     "split": "train",
     "split_rows_total": 319071,
-    "tpr_at_1pct_fpr": 0.0567,
-    "tpr_at_5pct_fpr": 0.1631
+    "tpr_at_1pct_fpr": 0.106,
+    "tpr_at_5pct_fpr": 0.1661
   },
   "run_date": "2026-11-06",
   "schema": "textforensics.run-artifact/v1"

@@ -548,16 +548,27 @@ spaced rows across the split (`scripts/measure_datasets.py`,
 refuses to run if the server's split total differs from the plan.
 
 ```bash
-python scripts/measure_datasets.py --only raid        # n=600 strided
-python scripts/measure_datasets.py --only mage        # n=200 strided
-python scripts/measure_datasets.py --only beemo       # n=100 records strided
-python scripts/measure_datasets.py --only opai_bench  # n=100 strided
+python scripts/measure_datasets.py --only raid        # n=3000 strided (U1 growth; was 600)
+python scripts/measure_datasets.py --only mage        # n=400 strided (U1 growth; was 200)
+python scripts/measure_datasets.py --only beemo       # n=100 records strided (unchanged)
+python scripts/measure_datasets.py --only opai_bench  # n=500 strided (U1 growth; was 100)
 python scripts/measure_datasets.py --list             # print the plan, no network
 ```
 
+U1 (2026-11-06) grew the plan so the thin slices strengthen: RAID
+3000 strided for ~100 humans (its train human fraction is only
+~3.3%), MAGE 400, OpAI-Bench 500. Beemo is unchanged (200 humans
+already). The wave-1 preliminary numbers below are superseded by
+the larger samples.
+
 ### Measured numbers (BuiltinHeuristicDetector 0.1.0, Python 3.12.3, all preliminary)
 
-Final verification at HEAD `2e2d81a` (2026-11-06):
+Re-measured with the grown U1 samples on 2026-11-06 (artifacts
+`EV-20261106-dataset-{raid,mage,opai-bench}`, `code_version`
+`5cfd6a6e`); Beemo unchanged from wave 1. The wave-1 numbers
+(RAID n=600 AUROC 0.6414, MAGE n=200 AUROC 0.5417, OpAI-Bench n=100
+AUROC 0.4697) are superseded by the table below. Wave-1 verification
+at HEAD `2e2d81a` (2026-11-06) stands as history:
 
 - Full suite, extras venv: **2396 passed, 0 failed, 86% coverage**
   (11,840 stmts, 1,325 missed, 3,988 branches, 570 partial).
@@ -571,32 +582,33 @@ Final verification at HEAD `2e2d81a` (2026-11-06):
 
 | Dataset | Sample | Labels (0 / 1 / None) | AUROC | TPR@1% FPR | TPR@5% FPR | Abstentions |
 | --- | --- | --- | --- | --- | --- | --- |
-| RAID | 600 strided train | 20 / 580 / 0 | 0.6414 | 0.0862 | 0.0862 | 303/600 |
-| MAGE | 200 strided train | 59 / 141 / 0 | 0.5417 | 0.0567 | 0.1631 | 107/200 |
+| RAID | 3000 strided train | 92 / 2908 / 0 | 0.5937 | 0.0454 | 0.1348 | 1490/3000 |
+| MAGE | 400 strided train | 117 / 283 / 0 | 0.5567 | 0.1060 | 0.1661 | 217/400 |
 | Beemo | 100 records -> 900 rows | 200 / 700 / 0 | 0.3976 | 0.0129 | 0.0586 | 487/900 |
-| OpAI-Bench | 100 strided train | 12 / 11 / 77 | 0.4697 | 0.0 | 0.0 | 11/23 |
+| OpAI-Bench | 500 strided train | 56 / 55 / 389 | 0.3961 | 0.0 | 0.0 | 55/111 |
 
-- RAID: human mean score 0.2668 vs machine 0.3333. Train human
-  fraction is only ~3.3%, so 600 rows yield just 20 humans; TPR@1%
-  and TPR@5% coincide because one false positive is already 5% FPR
-  with 20 human rows. Disjointness vs `raid_test`/test (n=50):
-  **disjoint, verified, 0 shared**.
-- MAGE: human mean 0.2556 vs machine 0.2886. The native polarity
-  flip held on all 200 rows (every `src` cross-check passed:
+- RAID: human mean score 0.2841 vs machine 0.3298. Train human
+  fraction is only ~3.3%, so 3000 rows yield 92 humans — just short
+  of the 100-human minimum for a `supported` slice, so the U1 RAID
+  seed record stays `partial` on sample size alone. Disjointness
+  vs `raid_test`/test (n=50): **disjoint, verified, 0 shared**.
+- MAGE: human mean 0.2533 vs machine 0.2926. The native polarity
+  flip held on all 400 rows (every `src` cross-check passed:
   `_human` <-> native 1, `_machine_` <-> native 0). The strided
-  sample covers 11 testbeds with ~1 row per (testbed, generator)
-  machine cell. Disjointness vs validation (n=50): **disjoint,
-  verified, 0 shared**.
+  sample covers 11 testbeds. Disjointness vs validation (n=50):
+  **disjoint, verified, 0 shared**.
 - Beemo: AUROC **below chance (0.3976)** — the heuristic scores
   expert human text higher than machine text (human mean 0.2859 vs
   machine 0.2505; per-kind, plain human 0.2987 is the highest mean,
   llama-3.1-70b P2 0.202 the lowest). The expert-edited regime
   inverts the baseline. Disjointness not checkable (single split);
   recorded in the artifact drops.
-- OpAI-Bench: only 23 rows carry a binary label (v0 pure human,
-  v8 fully machine, mean AI ratio rising monotonically v0 0.0 ->
-  v8 1.0); the 77 partial rows take no binary label and are
-  reported by `ai_sentence_ratio`. AUROC 0.4697 on n=23 is recorded,
+- OpAI-Bench: only 111 of 500 rows carry a binary label (v0 pure
+  human, v8 fully machine, 56 vs 55); the 389 partial rows take no
+  binary label and are reported by `ai_sentence_ratio`. AUROC
+  **below chance (0.3961)** on n=111 — the heuristic scores pure
+  human text higher than fully machine text here (human mean 0.3334
+  vs machine 0.2951), so TPR@1% and TPR@5% are both 0.0. Recorded,
   not claimed. Disjointness vs dev (n=50): **disjoint, verified,
   0 shared**.
 - AUROC/TPR@FPR are threshold-free (no threshold was fitted on any
@@ -608,9 +620,11 @@ Final verification at HEAD `2e2d81a` (2026-11-06):
 - **No new claims.** The claims gate stays **33/33**; dataset
   numbers are preliminary evidence records only (registry now 15
   records). The report card still honestly leads with worst-slice
-  human FPR = unknown: these are small preliminary samples, not
-  release-gate human-FPR evidence. That arrives with U1 + larger
-  samples and is a Phase 5 release gate.
+  human FPR = unknown: the grown samples are still preliminary
+  slices, not release-gate human-FPR evidence, and the RAID human
+  slice (n=92) is still below the 100-human minimum. Whether the
+  U1 seed records promote the report-card lead is a claims
+  decision for the Phase 5 release gate, not U1.
 - **MixSet**: no live rows, no measurement (licence unresolved).
 - **Full-corpus runs**: every measurement is a small documented
   sample (see the table). Full-corpus evaluation is U1/U3 work.
