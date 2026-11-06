@@ -289,13 +289,6 @@ def _import_enterprise_policy():
     return policy
 
 
-def _import_telemetry():
-    """Lazily import the optional telemetry module."""
-    from . import telemetry
-
-    return telemetry
-
-
 def __getattr__(name: str):
     enterprise_names = {
         "EnterprisePolicy",
@@ -308,15 +301,4 @@ def __getattr__(name: str):
     if name in enterprise_names:
         policy = _import_enterprise_policy()
         return getattr(policy, name)
-    if name in {
-        "AnalysisTimer",
-        "initialize_telemetry",
-        "is_telemetry_initialized",
-        "record_analysis",
-        "record_error",
-        "shutdown_telemetry",
-        "timed_analysis",
-    }:
-        telemetry = _import_telemetry()
-        return getattr(telemetry, name)
     raise AttributeError(f"module 'textforensics' has no attribute '{name}'")

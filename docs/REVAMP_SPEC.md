@@ -41,7 +41,7 @@ These are derived from `AGENTS.md` and are enforced in code and tests.
 | I4 | Do not hide disagreement. | Per-detector observations and failures remain in the bundle; family votes are visible. |
 | I5 | Provenance is first-class. | Detector/version, calibration ID, registry ID, git SHA, run artifact hash, environment hash, and dataset fingerprint are recorded. |
 | I6 | Core is local-first. | Core dependencies are stdlib-only; remote adapters require explicit configuration. |
-| I7 | No silent telemetry. | Telemetry is opt-in and local; no network by default. |
+| I7 | No telemetry. | The package contains no telemetry/metrics code; nothing is recorded or transmitted. |
 | I8 | Raw text is excluded from portable case files by default. | Deterministic seal rejects forbidden raw-text keys; `raw_text_included=false`. |
 | I9 | A claim must trace to a reproducible artifact. | `docs/CLAIMS.yaml` + `scripts/check_claims.py`; CI gate. |
 | I10 | Sentence/chunk scores are not sentence-level probabilities. | Segment outputs carry `uncalibrated_diagnostic` semantics. |

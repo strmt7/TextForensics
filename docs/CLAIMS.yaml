@@ -40,14 +40,14 @@ claims:
     notes: "The only network client import in src/ is ollama.py (opt-in Ollama adapter). adapter_scanner.py only names network libraries inside static-analysis rules; it imports none of them."
 
   - id: "core.no_telemetry"
-    statement: "No silent telemetry: metrics are recorded only after explicit --metrics opt-in, and no raw text is recorded in logs or metrics"
+    statement: "No telemetry of any kind: the package contains no metrics/telemetry collection code, no --metrics flag, and no OpenTelemetry import; nothing is recorded or transmitted"
     category: "privacy"
     status: "verified"
     evidence_type: "test"
-    evidence_path: "tests/test_telemetry.py"
+    evidence_path: "tests/test_no_telemetry.py"
     owner: "core"
     last_verified: "2026-11-06"
-    notes: "telemetry.initialize_telemetry() is called only from cli.py when --metrics is passed; engine.py records only when is_telemetry_initialized(). The exporter is a local Prometheus reader; instruments are counts/latencies, never text."
+    notes: "telemetry.py was deleted in Phase 2 wave (f): it was load-bearing (imported on every analyze_text() call and every CLI run) rather than a clean optional extra. The --metrics flag, the [telemetry] extra, and the OpenTelemetry pins were removed with it. adapter_scanner.py still names 'telemetry' as a finding category for third-party adapters (it flags adapters that import telemetry); it collects nothing itself."
 
   - id: "core.agpl_license"
     statement: "Licensed under AGPL-3.0-or-later"

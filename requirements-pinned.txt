@@ -8,7 +8,7 @@
 # no release exists yet and the file must install from a checkout.
 
 # Local package (editable, from this checkout)
--e .[dev,enterprise,api,mcp,cli-rich,telemetry,ollama,diagnostics]
+-e .[dev,enterprise,api,mcp,cli-rich,ollama,diagnostics]
 
 # Build & packaging
 setuptools>=75,<80
@@ -61,11 +61,6 @@ psutil>=6,<8
 
 # Cryptography (enterprise extra)
 cryptography>=42.0.8,<43
-
-# OpenTelemetry (telemetry extra)
-opentelemetry-api>=1.20,<2
-opentelemetry-sdk>=1.20,<2
-opentelemetry-exporter-prometheus>=0.60b0,<1
 
 # Schema validation
 jsonschema>=4.23,<5
