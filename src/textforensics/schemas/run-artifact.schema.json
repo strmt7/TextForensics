@@ -1,0 +1,133 @@
+{
+  "$id": "https://github.com/strmt7/TextForensics/schemas/run-artifact.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A committed record of one measured run that a docs/CLAIMS.yaml claim cites as evidence. The artifact file is hashed; the hash is recorded in docs/evidence/registry.json and in the citing claim. If the file changes, the gate fails. The drops manifest lists everything the run excluded (skipped tests, unmeasured versions, known flakes); a missing drops key makes the artifact incomplete and its claims fail.",
+  "properties": {
+    "badge": {
+      "description": "ACM artifact-badge vocabulary, adapted in-repo (see docs/evidence/README.md): available = artifact committed and hash-verified; functional = the gate re-ran the artifact's command successfully; reproduced = an independent run (CI) reproduced the numbers.",
+      "enum": [
+        "available",
+        "functional",
+        "reproduced"
+      ],
+      "type": "string"
+    },
+    "cited_content": {
+      "description": "Doc records only: the exact content the citing claim relies on (e.g. the license field, the CI matrix versions).",
+      "type": "string"
+    },
+    "code_version": {
+      "description": "Full git SHA of the repo HEAD at run time.",
+      "pattern": "^[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "command": {
+      "description": "The exact command that produced this run. For doc records, the verification act (reading the document and recording the cited content).",
+      "minLength": 1,
+      "type": "string"
+    },
+    "detector_version": {
+      "description": "Builtin detector version at run time (BuiltinHeuristicDetector.detector_version). Present only on records that exercise the detector; the gate fails claims whose record carries a detector version different from the current one.",
+      "type": "string"
+    },
+    "document": {
+      "description": "Doc records only: repo-relative path of the document this record attests.",
+      "type": "string"
+    },
+    "document_sha256": {
+      "description": "Doc records only: SHA-256 of the document at record time. The gate re-hashes the document; a changed document fails the claim until the record is refreshed.",
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "drops": {
+      "description": "Drops manifest: everything this run excluded, each with a reason. The key must be present (an empty list means nothing was dropped); a missing key makes the artifact incomplete. Skipped tests, unmeasured Python versions, and known host flakes are recorded here, never silently omitted.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "item": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "item",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "environment": {
+      "additionalProperties": false,
+      "properties": {
+        "extras": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "python": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "python"
+      ],
+      "type": "object"
+    },
+    "evidence_record_id": {
+      "pattern": "^EV-[0-9]{8}-[a-z0-9-]+$",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "test-suite",
+        "test",
+        "command",
+        "doc",
+        "determinism",
+        "schema-validation",
+        "security-scan",
+        "dependency-audit",
+        "code-audit"
+      ],
+      "type": "string"
+    },
+    "notes": {
+      "description": "Free-form notes for the human reader; never load-bearing for the gate.",
+      "type": "string"
+    },
+    "results": {
+      "description": "Measured numbers from the run. Claims cite these through their numbers map; the gate compares claim numbers against this object.",
+      "type": "object"
+    },
+    "run_date": {
+      "description": "ISO calendar date of the run. Claims citing a record older than 90 days fail as stale.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "type": "string"
+    },
+    "schema": {
+      "const": "textforensics.run-artifact/v1"
+    }
+  },
+  "required": [
+    "schema",
+    "evidence_record_id",
+    "kind",
+    "command",
+    "environment",
+    "code_version",
+    "run_date",
+    "results",
+    "drops",
+    "badge"
+  ],
+  "title": "TextForensics run artifact (U7 claim-to-evidence gate)",
+  "type": "object"
+}

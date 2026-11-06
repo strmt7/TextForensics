@@ -16,6 +16,8 @@ _SCHEMA_NAMES = {
     "case-file": "case-file.schema.json",
     "trust-map": "trust-map.schema.json",
     "enterprise-policy": "enterprise-policy.schema.json",
+    "run-artifact": "run-artifact.schema.json",
+    "evidence-registry": "evidence-registry.schema.json",
 }
 
 

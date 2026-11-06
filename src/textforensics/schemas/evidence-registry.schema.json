@@ -1,0 +1,43 @@
+{
+  "$id": "https://github.com/strmt7/TextForensics/schemas/evidence-registry.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Index of evidence records. Each entry binds an evidence_record_id to a run-artifact file and its SHA-256. The gate re-hashes every artifact and compares it against both this registry and the citing claim; any mismatch fails. The registry is the single index; the artifact files under docs/evidence/runs/ are the evidence.",
+  "properties": {
+    "records": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_record_id": {
+            "pattern": "^EV-[0-9]{8}-[a-z0-9-]+$",
+            "type": "string"
+          },
+          "run_artifact": {
+            "description": "Repo-relative path of the artifact file, e.g. docs/evidence/runs/EV-20261106-suite.json.",
+            "type": "string"
+          },
+          "run_artifact_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_record_id",
+          "run_artifact",
+          "run_artifact_sha256"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema": {
+      "const": "textforensics.evidence-registry/v1"
+    }
+  },
+  "required": [
+    "schema",
+    "records"
+  ],
+  "title": "TextForensics evidence registry (U7 claim-to-evidence gate)",
+  "type": "object"
+}
