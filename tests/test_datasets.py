@@ -156,6 +156,27 @@ class ClientTests(unittest.TestCase):
             DatasetsServerClient(retries=2, timeout_s=1)._get_json("/splits", {"dataset": "x"})
         self.assertEqual(urlopen.call_count, 3)
 
+    def test_remote_disconnect_is_retried(self) -> None:
+        # RemoteDisconnected escapes urlopen raw (not wrapped in
+        # URLError); a single transient proxy reset must not kill a
+        # long strided fetch. Regression test for the RAID n=600 run.
+        import http.client
+
+        calls = {"n": 0}
+
+        def _flaky(*args: object, **kwargs: object) -> mock.MagicMock:
+            calls["n"] += 1
+            if calls["n"] < 3:
+                raise http.client.RemoteDisconnected("Remote end closed connection")
+            return _fake_response({"rows": [{"row": {"a": 1}}]})
+
+        with mock.patch("urllib.request.urlopen", side_effect=_flaky):
+            payload = DatasetsServerClient(retries=3, timeout_s=1)._get_json(
+                "/rows", {"dataset": "x"}
+            )
+        self.assertEqual(payload, {"rows": [{"row": {"a": 1}}]})
+        self.assertEqual(calls["n"], 3)
+
 
 class FetchSampleTests(unittest.TestCase):
     def test_licence_gate_blocks_before_http(self) -> None:

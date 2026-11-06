@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import http.client
 import json
 import os
 import time
@@ -366,7 +367,17 @@ class DatasetsServerClient:
             try:
                 with urllib.request.urlopen(request, timeout=self.timeout_s) as response:
                     return json.loads(response.read().decode("utf-8"))
-            except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+            except (
+                urllib.error.URLError,
+                TimeoutError,
+                http.client.HTTPException,
+                ConnectionError,
+                json.JSONDecodeError,
+            ) as exc:
+                # RemoteDisconnected / BadStatusLine escape urlopen raw
+                # (they are NOT wrapped in URLError); without catching
+                # them a single transient proxy reset kills a 600-row
+                # strided fetch. Retried with back-off like the rest.
                 last_error = exc
                 if attempt < self.retries:
                     time.sleep(2**attempt)
