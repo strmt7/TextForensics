@@ -10,11 +10,11 @@ from __future__ import annotations
 from typing import Any
 
 from . import constants
-from .benchmark_fingerprint import (
+from .benchmark import (
     DatasetFingerprint,
     check_disjointness,
 )
-from .benchmark_fingerprint import (
+from .benchmark import (
     fingerprint_dataset as _fingerprint_dataset,
 )
 from .drift import DriftObservatory

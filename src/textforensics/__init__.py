@@ -21,7 +21,7 @@ from .adversarial import (
     detect_humanization,
     detect_humanization_simple,
 )
-from .benchmark_fingerprint import (
+from .benchmark import (
     DatasetFingerprint,
     check_disjointness,
     fingerprint_dataset,

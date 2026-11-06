@@ -14,11 +14,9 @@ from .benchmark import (
     benchmark_jsonl,
     benchmark_with_calibration_jsonl,
     calibrate_threshold_jsonl,
-    load_calibration_artifact,
-)
-from .benchmark_fingerprint import (
     check_disjointness,
     fingerprint_dataset,
+    load_calibration_artifact,
 )
 from .bundle import list_bundle, pack_bundle, read_bundle, verify_bundle
 from .bundle_consistency import check_bundle_consistency

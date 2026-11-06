@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from textforensics.benchmark_fingerprint import (
+from textforensics.benchmark import (
     DatasetFingerprint,
     _compute_content_hash,
     _compute_sample_hashes,

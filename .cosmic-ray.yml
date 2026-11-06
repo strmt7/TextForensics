@@ -32,7 +32,6 @@ mutation:
     - "textforensics.verify"
     - "textforensics.ledger"
     - "textforensics.bundle"
-    - "textforensics.benchmark_fingerprint"
     - "textforensics.drift"
     - "textforensics.localize"
     - "textforensics.naturalness"

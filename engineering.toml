@@ -414,7 +414,7 @@ require_fingerprint = true
 fingerprint_schema = "textforensics.dataset-fingerprint/v1"
 
 # Validation function that must pass before calibration+evaluation:
-disjointness_check = "textforensics.benchmark_fingerprint.validate_disjointness"
+disjointness_check = "textforensics.benchmark.validate_disjointness"
 
 # Dataset fingerprints must be archived alongside run manifests:
 archive_fingerprints = true

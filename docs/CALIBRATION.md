@@ -105,7 +105,7 @@ if shared:
 
 ### 2.3 Dataset Fingerprinting
 
-`benchmark_fingerprint.py` provides dataset fingerprinting for contamination tracking:
+`benchmark.py` provides dataset fingerprinting for contamination tracking:
 
 ```python
 from textforensics import fingerprint_dataset, verify_fingerprint, check_disjointness
