@@ -1,7 +1,7 @@
 # TextForensics v1.0 Design Specification
 
-**Status:** implementation contract  
-**Supersedes:** alpha behavior in `SPEC.md`, `ARCHITECTURE.md`, and the README's alpha claims  
+**Status:** implementation contract
+**Supersedes:** alpha behavior in `SPEC.md`, `ARCHITECTURE.md`, and the README's alpha claims
 **Research input:** [`REVAMP_RESEARCH_2026.md`](REVAMP_RESEARCH_2026.md)
 
 ---

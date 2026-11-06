@@ -1,6 +1,6 @@
 # TextForensics 2026 Revamp Research
 
-**Research cut-off:** 2026-11-05  
+**Research cut-off:** 2026-11-05
 **Purpose:** establish, from current primary sources, what TextForensics must become, what it must not become, and which claims are defensible.
 
 This document is an input to [`REVAMP_SPEC.md`](REVAMP_SPEC.md). It is deliberately conservative: product claims are separated from research findings, and no benchmark number is copied into the README without a committed, reproducible run artifact.
@@ -48,7 +48,7 @@ Inclusion criteria: directly relevant to machine-generated text detection, detec
 ## 3. Market landscape
 
 ### 3.1 Direct and adjacent open-source projects
- 
+
 | Project | What it is | Strengths | What it does not solve |
 |---|---|---|---|
 | [SlopTotal](https://github.com/pablocaeg/sloptotal) | Self-hosted 23-engine detector with a calibrated ensemble and a public SlopBench evaluation (95★, MIT, updated 2026-11-03) | Genuine detector breadth, measured benchmark, multilingual slices, explicit false-positive reporting | It is still a **detector/ensemble**. Trust is attached to its own score; it does not audit third-party detectors against the exact input's validation coverage. |
@@ -120,7 +120,7 @@ That is the TextForensics gap.
 ## 4. What the science says
 
 ### 4.1 In-distribution strength does not survive distribution shift
- 
+
 - **“Rethinking AI-Generated Text Detection: A Strong Baseline and the Distribution-Shift Problem That Remains”** (arXiv:2607.03680, 2026-07-04) finds that a plain fully fine-tuned RoBERTa matches or exceeds specialized detectors across several benchmarks, and that distribution shift remains unresolved, including high-confidence false machine labels on unseen human domains. This is a direct argument for **input-conditioned coverage**, not another architecture.
 - **“Spotlights and Blindspots: Evaluating Machine-Generated Text Detection”** (arXiv:2604.16607, 2026-04-17) evaluates 15 detectors from six systems plus seven trained models across seven evaluation settings and reports high variance across datasets and metrics, with poor performance on novel human-written high-risk domains. This is a direct argument for **sliced evidence and abstention**.
 - **RAID** (Dugan et al., ACL 2024) shows that detection performance varies substantially by model, domain, decoding strategy, and attack. A single aggregate accuracy is not an operating condition.
