@@ -7,6 +7,10 @@ on:
     - cron: '0 0 * * 0'  # Weekly on Sunday at midnight UTC
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: write
+
 env:
   PIP_DISABLE_PIP_VERSION_CHECK: 1
   PIP_NO_WARN_SCRIPT_LOCATION: 1
@@ -17,6 +21,9 @@ jobs:
   build-reproducibility:
     name: Build Reproducibility
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -78,6 +85,9 @@ jobs:
   cli-determinism:
     name: CLI Determinism (jq-filtered)
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -143,6 +153,9 @@ jobs:
   case-file-determinism:
     name: Case File Determinism
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -188,6 +201,9 @@ jobs:
   detector-determinism:
     name: Detector Determinism (jq-filtered)
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -253,7 +269,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-reproducibility, cli-determinism, case-file-determinism, detector-determinism]
     if: always()
-
+    permissions:
+      actions: write
+      contents: read
     steps:
       - name: Check all reproducibility results
         run: |
