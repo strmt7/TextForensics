@@ -9,8 +9,8 @@
 # secret scan" on commit 46f2ade (36 findings, all in
 # `.secrets.baseline`, all in that one commit).
 #
-# Allowlisting this one path does NOT hide secrets: no raw secret can
-# ever appear in the baseline (detect-secrets stores hashes only), and
+# Allowlisting this one path hides nothing: the file can only ever
+# hold hashes of audited values, never the values themselves, and
 # the detect-secrets hook still guards new additions to the file — a
 # new high-entropy string not already in the baseline fails
 # pre-commit. Do NOT extend this allowlist to other paths without the
