@@ -6,7 +6,7 @@
   "required": ["schema", "overall", "dimensions", "limitations"],
   "properties": {
     "schema": {
-      "enum": ["textforensics.trust-map/v1", "textforensics.trust-map/v2"]
+      "enum": ["textforensics.trust-map/v1", "textforensics.trust-map/v2", "textforensics.trust-map/v3"]
     },
     "overall": {"enum": ["strong", "mixed", "insufficient"]},
     "dimensions": {
@@ -16,7 +16,7 @@
         "required": ["dimension", "state", "reason"],
         "properties": {
           "dimension": {"type": "string", "minLength": 1},
-          "state": {"enum": ["supported", "partial", "unknown", "out_of_scope"]},
+          "state": {"enum": ["supported", "partial", "unknown", "out_of_scope", "stale"]},
           "reason": {"type": "string", "minLength": 1},
           "evidence_refs": {"type": "array", "items": {"type": "string"}},
           "observed": {"type": "object"},
@@ -24,7 +24,7 @@
           "detectors": {
             "type": "object",
             "additionalProperties": {
-              "enum": ["supported", "partial", "unknown", "out_of_scope"]
+              "enum": ["supported", "partial", "unknown", "out_of_scope", "stale"]
             }
           }
         },
@@ -53,7 +53,8 @@
         "supported": {"type": "integer", "minimum": 0},
         "partial": {"type": "integer", "minimum": 0},
         "unknown": {"type": "integer", "minimum": 0},
-        "out_of_scope": {"type": "integer", "minimum": 0}
+        "out_of_scope": {"type": "integer", "minimum": 0},
+        "stale": {"type": "integer", "minimum": 0}
       },
       "additionalProperties": false
     },
@@ -61,6 +62,29 @@
   },
   "additionalProperties": false,
   "allOf": [
+    {
+      "if": {
+        "properties": {"schema": {"const": "textforensics.trust-map/v1"}},
+        "required": ["schema"]
+      },
+      "then": {
+        "properties": {
+          "dimensions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "state": {"enum": ["supported", "partial", "unknown", "out_of_scope"]},
+                "detectors": {
+                  "type": "object",
+                  "additionalProperties": {"enum": ["supported", "partial", "unknown", "out_of_scope"]}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     {
       "if": {
         "properties": {"schema": {"const": "textforensics.trust-map/v2"}},
@@ -92,9 +116,80 @@
                     "benign_stability",
                     "temporal_version_stability"
                   ]
+                },
+                "state": {"enum": ["supported", "partial", "unknown", "out_of_scope"]},
+                "detectors": {
+                  "type": "object",
+                  "additionalProperties": {"enum": ["supported", "partial", "unknown", "out_of_scope"]}
                 }
               }
             }
+          },
+          "coverage": {
+            "type": "object",
+            "required": ["supported", "partial", "unknown", "out_of_scope"],
+            "properties": {
+              "supported": {"type": "integer", "minimum": 0},
+              "partial": {"type": "integer", "minimum": 0},
+              "unknown": {"type": "integer", "minimum": 0},
+              "out_of_scope": {"type": "integer", "minimum": 0}
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"schema": {"const": "textforensics.trust-map/v3"}},
+        "required": ["schema"]
+      },
+      "then": {
+        "required": [
+          "input_conditions",
+          "evidence_registry",
+          "coverage",
+          "generated_at_utc"
+        ],
+        "properties": {
+          "dimensions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "dimension": {
+                  "enum": [
+                    "language",
+                    "text_length",
+                    "domain_genre",
+                    "editing_revision",
+                    "generator_scope",
+                    "human_population",
+                    "human_false_positive_evidence",
+                    "detector_diversity",
+                    "benign_stability",
+                    "temporal_version_stability"
+                  ]
+                },
+                "state": {"enum": ["supported", "partial", "unknown", "out_of_scope", "stale"]},
+                "detectors": {
+                  "type": "object",
+                  "additionalProperties": {"enum": ["supported", "partial", "unknown", "out_of_scope", "stale"]}
+                }
+              }
+            }
+          },
+          "coverage": {
+            "type": "object",
+            "required": ["supported", "partial", "unknown", "out_of_scope", "stale"],
+            "properties": {
+              "supported": {"type": "integer", "minimum": 0},
+              "partial": {"type": "integer", "minimum": 0},
+              "unknown": {"type": "integer", "minimum": 0},
+              "out_of_scope": {"type": "integer", "minimum": 0},
+              "stale": {"type": "integer", "minimum": 0}
+            },
+            "additionalProperties": false
           }
         }
       }

@@ -55,7 +55,25 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from .evidence import EvidenceError, MetricEstimate
+from .conditions import InputConditions
+from .detectors import DetectorPrediction
+from .evidence import (
+    DEFAULT_FPR_CEILING,
+    MIN_AI_SAMPLES,
+    MIN_HUMAN_SAMPLES,
+    EvidenceError,
+    MetricEstimate,
+)
+from .trust import (
+    EVIDENCE_DIMENSIONS,
+    TRUST_SCHEMA_V3,
+    TRUST_STATES_V3,
+    TrustDimension,
+    TrustMap,
+    _coverage_counts,
+    _diversity_dimension,
+    _stability_dimension,
+)
 
 EVIDENCE_RECORD_SCHEMA = "textforensics.evidence-record/v1"
 VALIDATION_REGISTRY_SCHEMA = "textforensics.validation-registry/v1"
@@ -1750,6 +1768,742 @@ class ValidationRegistry:
 
 
 # ---------------------------------------------------------------------------
+# Trust Map v3 derivation engine (Package B)
+#
+# derive_trust_map() derives the 8 evidence dimensions of a Trust Map v3
+# from U1 ValidationRegistry records ONLY. It never reads the v1
+# EvidenceRegistry. Live dimensions (detector_diversity, benign_stability)
+# reuse trust.py's private helpers when live observations are supplied,
+# else they are unknown with a reason.
+#
+# Matching rules (locked in the U1 design note):
+# * unknown = no evidence speaks to the dimension at all (no records for
+#   the detector, or the input condition itself is unobservable, e.g.
+#   language "und").
+# * out_of_scope = the registry HAS records for the detector but their
+#   declared scope explicitly excludes this input (language, domain, word
+#   count, generator family, or editing regime not covered).
+# * stale = a matching record exists but its effective status is stale and
+#   no non-stale matching record exists. The reason cites the stale record
+#   id and why (version change / due date passed / demotion). Staleness is
+#   always computed with the CURRENT detector_version and now, never
+#   trusted from the stored status.
+# * supported requires a matching record with effective status "supported"
+#   AND n_human >= 100 AND n_ai >= 100 AND contamination_flag == "no".
+#   Contamination "yes"/"unknown" caps the dimension at partial with the
+#   contamination label; a contested record caps at partial; a record with
+#   effective status "unknown" (or "partial") also caps at partial.
+# * human_false_positive_evidence additionally requires an fpr_native
+#   metric with CI and ci_upper <= fpr_ceiling for supported.
+# * temporal_version_stability caps at partial from a single snapshot;
+#   longitudinal data is U3's job.
+# * Every dimension cites its matching record ids in evidence_refs.
+# * Overall: strong iff all 10 dimensions are supported; insufficient iff
+#   language or text_length is out_of_scope, or supported == 0 and
+#   partial == 0; else mixed. Stale counts as neither supported nor
+#   partial. Because temporal_version_stability caps at partial from a
+#   single snapshot, a v3 map derived from U1 records alone is at most
+#   mixed until U3 supplies longitudinal evidence.
+# ---------------------------------------------------------------------------
+
+#: Mapping from ``InputConditions`` editing regimes onto the U1 record
+#: vocabulary. Records with ``LLM-edited``/``humanised`` regimes are stored
+#: and citable but are NOT auto-matched by the v3 engine: no input
+#: condition maps onto them, so they can never make a dimension
+#: ``supported`` on their own. A future conditions extension can add them.
+INPUT_EDITING_REGIME_MAP: dict[str, str] = {
+    "machine_only": "raw",
+    "human_only": "raw",
+    "machine_then_human_edited": "human-edited",
+    "machine_then_machine_paraphrased": "paraphrased",
+    "mixed": "mixed-origin",
+    "unknown": "unknown",
+}
+
+_TEMPORAL_SINGLE_SNAPSHOT_LIMITATION = (
+    "A single snapshot cannot establish version stability; longitudinal data is U3's job."
+)
+_FPR_OPERATING_POINT_LIMITATION = (
+    "FPR is measured at the detector's native categorical operating point; "
+    "no score threshold is fitted."
+)
+
+
+def _stale_triggers(
+    record: ValidationRecord,
+    *,
+    detector_version: str,
+    now: datetime | str | None,
+) -> tuple[str, ...]:
+    """Return the reason(s) a record is effectively stale (empty when fresh)."""
+    triggers: list[str] = []
+    if detector_version != record.detector_version:
+        triggers.append(
+            f"detector version {detector_version!r} differs from the record's "
+            f"version {record.detector_version!r}"
+        )
+    if record.limits.demoted_by:
+        triggers.append(f"demoted by {record.limits.demoted_by}")
+    try:
+        due = _parse_date(record.limits.next_revalidation_due, "limits.next_revalidation_due")
+    except ValidationError:
+        triggers.append("next_revalidation_due is missing or unparsable")
+    else:
+        try:
+            current = _coerce_now(now)
+        except ValidationError:
+            triggers.append("evaluation time could not be parsed")
+        else:
+            if current.date() > due:
+                triggers.append(f"next_revalidation_due {due.isoformat()} has passed")
+    return tuple(triggers)
+
+
+# --- Regime-aspect matchers: one per Trust Map evidence dimension --------
+# Each matcher answers "does this record's declared regime cover this
+# aspect of the input?" The caller decides what an empty match set means
+# for the dimension (unknown when the aspect is unobservable, else
+# out_of_scope when records exist for the detector).
+
+
+def _record_matches_language(record: ValidationRecord, conditions: InputConditions) -> bool:
+    return record.regime.language == conditions.effective_language
+
+
+def _record_matches_length(record: ValidationRecord, conditions: InputConditions) -> bool:
+    bucket = record.regime.length_bucket
+    if conditions.word_count < bucket.floor_words:
+        return False
+    return bucket.max_words is None or conditions.word_count <= bucket.max_words
+
+
+def _record_matches_domain(record: ValidationRecord, conditions: InputConditions) -> bool:
+    return conditions.effective_domain in record.regime.domain
+
+
+def _record_matches_editing(record: ValidationRecord, conditions: InputConditions) -> bool:
+    mapped = INPUT_EDITING_REGIME_MAP.get(conditions.effective_editing_regime, "unknown")
+    return mapped != "unknown" and record.regime.editing_regime == mapped
+
+
+def _record_matches_generator(record: ValidationRecord, conditions: InputConditions) -> bool:
+    return (
+        conditions.generator is not None
+        and conditions.generator in record.regime.generator.families
+    )
+
+
+def _record_matches_population(record: ValidationRecord, conditions: InputConditions) -> bool:
+    return (
+        conditions.human_population != "unknown"
+        and conditions.human_population in record.regime.human_population.populations
+    )
+
+
+def _record_matches_full_regime(record: ValidationRecord, conditions: InputConditions) -> bool:
+    """True when a record covers the whole observable input regime.
+
+    Language, length, domain, and editing must all match. Generator and
+    human population are only required when the caller declared them; an
+    undeclared generator/population does not exclude a record.
+    """
+    if not (
+        _record_matches_language(record, conditions)
+        and _record_matches_length(record, conditions)
+        and _record_matches_domain(record, conditions)
+        and _record_matches_editing(record, conditions)
+    ):
+        return False
+    if conditions.generator is not None and not _record_matches_generator(record, conditions):
+        return False
+    if conditions.human_population == "unknown":
+        return True
+    return _record_matches_population(record, conditions)
+
+
+def _fpr_blockers(record: ValidationRecord, fpr_ceiling: float) -> list[str]:
+    """Blockers to ``supported`` for human_false_positive_evidence."""
+    with_ci = [item for item in record.metrics if item.fpr_native.has_ci]
+    if not with_ci:
+        return ["no fpr_native metric carries a confidence interval"]
+    best_upper = min(
+        item.fpr_native.ci_upper for item in with_ci if item.fpr_native.ci_upper is not None
+    )
+    if best_upper > fpr_ceiling:
+        return [
+            f"best fpr_native ci_upper is {best_upper}, which exceeds the ceiling {fpr_ceiling}"
+        ]
+    return []
+
+
+def _support_blockers(
+    record: ValidationRecord,
+    *,
+    dimension: str,
+    detector_version: str,
+    now: datetime | str | None,
+    fpr_ceiling: float,
+) -> list[str]:
+    """Reasons a fresh matching record cannot yield ``supported``.
+
+    An empty list means the record can support the dimension.
+    """
+    blockers: list[str] = []
+    status = effective_status(record, detector_version=detector_version, now=now)
+    if status != "supported":
+        blockers.append(f"effective record status is {status!r}")
+    if record.data.n_human < MIN_HUMAN_SAMPLES or record.data.n_ai < MIN_AI_SAMPLES:
+        blockers.append(
+            f"sample counts are thin (n_human={record.data.n_human}, "
+            f"n_ai={record.data.n_ai}; at least {MIN_HUMAN_SAMPLES} each "
+            "are required)"
+        )
+    label = contamination_label(record)
+    if label is not None:
+        blockers.append(label)
+    if dimension == "human_false_positive_evidence":
+        blockers.extend(_fpr_blockers(record, fpr_ceiling))
+    if dimension == "temporal_version_stability":
+        # A single snapshot can never support version stability, however
+        # fresh the record is; longitudinal data is U3's job.
+        blockers.append(
+            "a single snapshot cannot establish version stability; longitudinal data is U3's job"
+        )
+    return blockers
+
+
+def _derive_evidence_dimension(
+    name: str,
+    *,
+    matching: tuple[ValidationRecord, ...],
+    detector_records: tuple[ValidationRecord, ...],
+    detector_id: str,
+    detector_version: str,
+    now: datetime | str | None,
+    fpr_ceiling: float,
+    unobservable: bool,
+    unobservable_reason: str,
+    out_of_scope_reason: str,
+    out_of_scope_observed: dict[str, Any],
+) -> TrustDimension:
+    """Derive one evidence dimension from its regime-matching records.
+
+    ``matching`` is the subset of ``detector_records`` whose declared regime
+    covers this dimension's aspect of the input. When ``matching`` is empty
+    the dimension is ``unknown`` if the aspect itself is unobservable, else
+    ``out_of_scope`` (records exist for the detector but exclude the input).
+    When every matching record is stale the dimension is ``stale``; when at
+    least one fresh matching record can support the dimension it is
+    ``supported``; any fresh matching record that cannot support it yields
+    ``partial`` with the blocker named.
+    """
+    record_ids = sorted({record.record_id for record in matching})
+    if not detector_records:
+        return TrustDimension(
+            dimension=name,
+            state="unknown",
+            reason=f"No validation records exist for detector {detector_id!r}.",
+            observed={"record_count_for_detector": 0},
+            detectors={detector_id: "unknown"},
+        )
+    if unobservable:
+        return TrustDimension(
+            dimension=name,
+            state="unknown",
+            reason=unobservable_reason,
+            detectors={detector_id: "unknown"},
+        )
+    if not matching:
+        return TrustDimension(
+            dimension=name,
+            state="out_of_scope",
+            reason=out_of_scope_reason,
+            observed=out_of_scope_observed,
+            detectors={detector_id: "out_of_scope"},
+        )
+
+    limitations: list[str] = []
+    for record in matching:
+        label = contamination_label(record)
+        if label is not None and label not in limitations:
+            limitations.append(label)
+    if any(
+        effective_status(record, detector_version=detector_version, now=now) == "contested"
+        for record in matching
+    ):
+        limitations.append("A matching record is contested; it can never yield supported.")
+    if name == "temporal_version_stability":
+        limitations.append(_TEMPORAL_SINGLE_SNAPSHOT_LIMITATION)
+    if name == "human_false_positive_evidence":
+        limitations.append(_FPR_OPERATING_POINT_LIMITATION)
+
+    fresh = tuple(
+        record
+        for record in matching
+        if effective_status(record, detector_version=detector_version, now=now) != "stale"
+    )
+    if not fresh:
+        triggers: list[str] = []
+        for record in matching:
+            for trigger in _stale_triggers(record, detector_version=detector_version, now=now):
+                triggers.append(f"{record.record_id}: {trigger}")
+        if not triggers:  # pragma: no cover - effective_status said stale
+            triggers = [
+                f"{record.record_id}: stale for an unspecified reason" for record in matching
+            ]
+        return TrustDimension(
+            dimension=name,
+            state="stale",
+            reason="Matching record(s) are stale: " + "; ".join(triggers) + ".",
+            evidence_refs=record_ids,
+            observed={"record_ids": record_ids},
+            limitations=limitations,
+            detectors={detector_id: "stale"},
+        )
+
+    supporting = tuple(
+        record
+        for record in fresh
+        if not _support_blockers(
+            record,
+            dimension=name,
+            detector_version=detector_version,
+            now=now,
+            fpr_ceiling=fpr_ceiling,
+        )
+    )
+    if supporting:
+        supporting_ids = sorted({record.record_id for record in supporting})
+        reason = (
+            f"Matching record(s) {', '.join(supporting_ids)} cover this input "
+            f"with effective status supported, n_human >= {MIN_HUMAN_SAMPLES}, "
+            f"n_ai >= {MIN_AI_SAMPLES}, and no contamination."
+        )
+        observed: dict[str, Any] = {"record_ids": record_ids}
+        if name == "human_false_positive_evidence":
+            best_upper = min(
+                item.fpr_native.ci_upper
+                for record in supporting
+                for item in record.metrics
+                if item.fpr_native.has_ci and item.fpr_native.ci_upper is not None
+            )
+            observed["fpr_ci_upper"] = best_upper
+            observed["fpr_ceiling"] = fpr_ceiling
+            reason += f" Best fpr_native ci_upper is {best_upper} (ceiling {fpr_ceiling})."
+        return TrustDimension(
+            dimension=name,
+            state="supported",
+            reason=reason,
+            evidence_refs=record_ids,
+            observed=observed,
+            limitations=limitations,
+            detectors={detector_id: "supported"},
+        )
+
+    details = []
+    for record in fresh:
+        blockers = _support_blockers(
+            record,
+            dimension=name,
+            detector_version=detector_version,
+            now=now,
+            fpr_ceiling=fpr_ceiling,
+        )
+        details.append(f"{record.record_id}: {'; '.join(blockers)}")
+    return TrustDimension(
+        dimension=name,
+        state="partial",
+        reason=(
+            f"Matching record(s) {', '.join(record_ids)} cover this input but "
+            f"cannot support {name}: " + " | ".join(details) + "."
+        ),
+        evidence_refs=record_ids,
+        observed={"record_ids": record_ids},
+        limitations=limitations,
+        detectors={detector_id: "partial"},
+    )
+
+
+def _overall_state_v3(dimensions: list[TrustDimension]) -> str:
+    """Overall state for a Trust Map v3.
+
+    Strong iff every dimension is supported; insufficient iff language or
+    text_length is out_of_scope, or no dimension is supported or partial;
+    else mixed. Stale counts as neither supported nor partial.
+    """
+    by_name = {item.dimension: item.state for item in dimensions}
+    supported = sum(state == "supported" for state in by_name.values())
+    partial = sum(state == "partial" for state in by_name.values())
+    if by_name.get("language") == "out_of_scope" or by_name.get("text_length") == "out_of_scope":
+        return "insufficient"
+    if supported == len(dimensions):
+        return "strong"
+    if supported == 0 and partial == 0:
+        return "insufficient"
+    return "mixed"
+
+
+def _live_dimensions(
+    predictions: list[DetectorPrediction],
+    robustness: list[Mapping[str, Any]],
+    failure_count: int,
+) -> tuple[TrustDimension, TrustDimension]:
+    """Live dimensions from observations, else unknown with a reason."""
+    if predictions:
+        diversity = _diversity_dimension(predictions, failure_count)
+    else:
+        diversity = TrustDimension(
+            dimension="detector_diversity",
+            state="unknown",
+            reason=(
+                "No detector observations were supplied, so detector diversity cannot be assessed."
+            ),
+            limitations=[
+                "Family labels are methodological metadata; empirical error "
+                "correlation has not been measured here."
+            ],
+        )
+    if robustness:
+        # 0.10 mirrors assess_trust_map's default max_native_drift.
+        stability = _stability_dimension(robustness, max_native_drift=0.10)
+    else:
+        stability = TrustDimension(
+            dimension="benign_stability",
+            state="unknown",
+            reason=(
+                "No benign-transformation probes were supplied, so benign "
+                "stability cannot be assessed."
+            ),
+            limitations=[
+                "Representation probes are not semantic rewrites and do not "
+                "establish paraphrase robustness."
+            ],
+        )
+    return diversity, stability
+
+
+def derive_trust_map(
+    conditions: InputConditions,
+    registry: ValidationRegistry,
+    *,
+    detector_id: str,
+    detector_version: str,
+    now: datetime | str | None = None,
+    fpr_ceiling: float = DEFAULT_FPR_CEILING,
+    predictions: Iterable[DetectorPrediction] = (),
+    robustness: Iterable[Mapping[str, Any]] = (),
+    failure_count: int = 0,
+) -> TrustMap:
+    """Derive a Trust Map v3 for one input condition set from U1 records.
+
+    The 8 evidence dimensions are derived from ``registry`` records for
+    ``detector_id`` ONLY — the v1 ``EvidenceRegistry`` is never consulted.
+    A dimension is ``supported`` only when a regime-matching record has
+    effective status ``supported`` (computed with the CURRENT
+    ``detector_version`` and ``now``, never trusted from the stored
+    status), n_human >= 100 and n_ai >= 100, and contamination_flag
+    ``"no"``. Contamination ``"yes"``/``"unknown"`` and contested records
+    cap at ``partial``. ``human_false_positive_evidence`` additionally
+    requires an ``fpr_native`` metric with CI and ci_upper <=
+    ``fpr_ceiling``. ``temporal_version_stability`` caps at ``partial``
+    from a single snapshot. The 2 live dimensions reuse trust.py's
+    private helpers when ``predictions``/``robustness`` observations are
+    supplied, else they are ``unknown`` with a reason.
+
+    Input editing regimes are mapped onto the record vocabulary as
+    machine_only/human_only -> raw, machine_then_human_edited ->
+    human-edited, machine_then_machine_paraphrased -> paraphrased, mixed
+    -> mixed-origin, unknown -> unknown. Records with ``LLM-edited`` or
+    ``humanised`` regimes are stored but not auto-matched by this engine
+    (documented limitation).
+
+    Overall is ``strong`` iff all 10 dimensions are supported,
+    ``insufficient`` iff language or text_length is out_of_scope or no
+    dimension is supported or partial, else ``mixed``. Because temporal
+    stability caps at partial from a single snapshot, a v3 map derived
+    from U1 records alone is at most ``mixed`` until U3 supplies
+    longitudinal evidence.
+    """
+    if not isinstance(conditions, InputConditions):
+        raise TypeError("conditions must be an InputConditions instance.")
+    if not isinstance(registry, ValidationRegistry):
+        raise TypeError("registry must be a ValidationRegistry instance.")
+    detector_id = _require_nonempty_string(detector_id, "detector_id")
+    detector_version = _require_nonempty_string(detector_version, "detector_version")
+    if isinstance(fpr_ceiling, bool) or not isinstance(fpr_ceiling, (int, float)):
+        raise TypeError("fpr_ceiling must be a number.")
+    if not 0.0 <= float(fpr_ceiling) <= 1.0:
+        raise ValueError("fpr_ceiling must be between 0 and 1.")
+    if isinstance(failure_count, bool) or not isinstance(failure_count, int):
+        raise TypeError("failure_count must be an integer.")
+    if failure_count < 0:
+        raise ValueError("failure_count must be non-negative.")
+    prediction_list = list(predictions)
+    robustness_list = list(robustness)
+
+    records = registry.records_for(detector_id)
+    language = conditions.effective_language
+    domain = conditions.effective_domain
+    mapped_editing = INPUT_EDITING_REGIME_MAP.get(conditions.effective_editing_regime, "unknown")
+    common = {
+        "detector_records": records,
+        "detector_id": detector_id,
+        "detector_version": detector_version,
+        "now": now,
+        "fpr_ceiling": fpr_ceiling,
+    }
+
+    dimensions: list[TrustDimension] = []
+    # language: unknown when the input language itself is unobservable
+    # ("und"); out_of_scope when records exist but none covers it.
+    dimensions.append(
+        _derive_evidence_dimension(
+            "language",
+            matching=tuple(
+                record for record in records if _record_matches_language(record, conditions)
+            ),
+            unobservable=language == "und",
+            unobservable_reason=(
+                "The input language could not be determined (und), so no "
+                "language evidence can be matched."
+            ),
+            out_of_scope_reason=(
+                f"Records exist for detector {detector_id!r} but none covers language {language!r}."
+            ),
+            out_of_scope_observed={
+                "languages_covered": sorted({record.regime.language for record in records})
+            },
+            **common,
+        )
+    )
+    # text_length: always observable (word count); out_of_scope when the
+    # word count is below every record's floor (or above every maximum).
+    dimensions.append(
+        _derive_evidence_dimension(
+            "text_length",
+            matching=tuple(
+                record for record in records if _record_matches_length(record, conditions)
+            ),
+            unobservable=False,
+            unobservable_reason="",
+            out_of_scope_reason=(
+                f"Input word count {conditions.word_count} is outside every "
+                f"record's length bucket for detector {detector_id!r}."
+            ),
+            out_of_scope_observed={
+                "length_floors": sorted(
+                    {record.regime.length_bucket.floor_words for record in records}
+                ),
+                "length_maxima": sorted(
+                    {
+                        record.regime.length_bucket.max_words
+                        for record in records
+                        if record.regime.length_bucket.max_words is not None
+                    }
+                ),
+            },
+            **common,
+        )
+    )
+    # domain_genre: unknown when the domain itself is unobservable
+    # ("unknown"); out_of_scope when records exist but none covers it.
+    dimensions.append(
+        _derive_evidence_dimension(
+            "domain_genre",
+            matching=tuple(
+                record for record in records if _record_matches_domain(record, conditions)
+            ),
+            unobservable=domain == "unknown",
+            unobservable_reason=(
+                "The input domain could not be determined (unknown), so no "
+                "domain evidence can be matched."
+            ),
+            out_of_scope_reason=(
+                f"Records exist for detector {detector_id!r} but none covers domain {domain!r}."
+            ),
+            out_of_scope_observed={
+                "domains_covered": sorted(
+                    {item for record in records for item in record.regime.domain}
+                )
+            },
+            **common,
+        )
+    )
+    # editing_revision: unknown when the input editing regime is
+    # undeclared ("unknown"); out_of_scope when records exist but none
+    # covers the mapped regime. LLM-edited/humanised records never match
+    # here: no input condition maps onto them.
+    dimensions.append(
+        _derive_evidence_dimension(
+            "editing_revision",
+            matching=tuple(
+                record for record in records if _record_matches_editing(record, conditions)
+            ),
+            unobservable=mapped_editing == "unknown",
+            unobservable_reason=(
+                "The input editing regime is unknown, so no editing evidence can be matched."
+            ),
+            out_of_scope_reason=(
+                f"Records exist for detector {detector_id!r} but none covers "
+                f"editing regime {mapped_editing!r} (input "
+                f"{conditions.editing_regime!r}). Records with LLM-edited or "
+                "humanised regimes are stored but not auto-matched."
+            ),
+            out_of_scope_observed={
+                "editing_regimes_covered": sorted(
+                    {record.regime.editing_regime for record in records}
+                )
+            },
+            **common,
+        )
+    )
+    # generator_scope: unknown when no generator was declared (None);
+    # out_of_scope when records exist but none lists the family.
+    dimensions.append(
+        _derive_evidence_dimension(
+            "generator_scope",
+            matching=tuple(
+                record for record in records if _record_matches_generator(record, conditions)
+            ),
+            unobservable=conditions.generator is None,
+            unobservable_reason=(
+                "No generator was declared for the input, so no generator evidence can be matched."
+            ),
+            out_of_scope_reason=(
+                f"Records exist for detector {detector_id!r} but none lists "
+                f"generator family {conditions.generator!r}."
+            ),
+            out_of_scope_observed={
+                "generator_families_covered": sorted(
+                    {family for record in records for family in record.regime.generator.families}
+                )
+            },
+            **common,
+        )
+    )
+    # human_population: unknown when the population is undeclared
+    # ("unknown"); out_of_scope when records exist but none covers it.
+    dimensions.append(
+        _derive_evidence_dimension(
+            "human_population",
+            matching=tuple(
+                record for record in records if _record_matches_population(record, conditions)
+            ),
+            unobservable=conditions.human_population == "unknown",
+            unobservable_reason=(
+                "No human population was declared for the input, so no "
+                "human-population evidence can be matched."
+            ),
+            out_of_scope_reason=(
+                f"Records exist for detector {detector_id!r} but none covers "
+                f"human population {conditions.human_population!r}."
+            ),
+            out_of_scope_observed={
+                "human_populations_covered": sorted(
+                    {
+                        item
+                        for record in records
+                        for item in record.regime.human_population.populations
+                    }
+                )
+            },
+            **common,
+        )
+    )
+    # human_false_positive_evidence and temporal_version_stability are
+    # regime-level dimensions: a record speaks to them only when it covers
+    # the whole observable input regime. When the core regime itself is
+    # unobservable (language und, domain unknown, or editing unknown) the
+    # dimension is unknown, not out_of_scope; when records exist but none
+    # covers the full regime, it is out_of_scope.
+    full_matching = tuple(
+        record for record in records if _record_matches_full_regime(record, conditions)
+    )
+    unobservable_aspects = [
+        label
+        for label, is_unknown in (
+            ("language und", language == "und"),
+            ("domain unknown", domain == "unknown"),
+            ("editing regime unknown", mapped_editing == "unknown"),
+        )
+        if is_unknown
+    ]
+    regime_unobservable = bool(unobservable_aspects)
+    regime_unobservable_reason = (
+        "The input regime cannot be observed ("
+        + ", ".join(unobservable_aspects)
+        + "), so no false-positive or version-stability evidence can be "
+        "tied to it."
+    )
+    regime_out_of_scope_reason = (
+        f"Records exist for detector {detector_id!r} but none covers the "
+        f"full input regime (language {language!r}, "
+        f"{conditions.word_count} words, domain {domain!r}, editing "
+        f"{mapped_editing!r})."
+    )
+    regime_out_of_scope_observed = {"record_count_for_detector": len(records)}
+    dimensions.append(
+        _derive_evidence_dimension(
+            "human_false_positive_evidence",
+            matching=full_matching,
+            unobservable=regime_unobservable,
+            unobservable_reason=regime_unobservable_reason,
+            out_of_scope_reason=regime_out_of_scope_reason,
+            out_of_scope_observed=regime_out_of_scope_observed,
+            **common,
+        )
+    )
+    dimensions.append(
+        _derive_evidence_dimension(
+            "temporal_version_stability",
+            matching=full_matching,
+            unobservable=regime_unobservable,
+            unobservable_reason=regime_unobservable_reason,
+            out_of_scope_reason=regime_out_of_scope_reason,
+            out_of_scope_observed=regime_out_of_scope_observed,
+            **common,
+        )
+    )
+    assert [item.dimension for item in dimensions] == list(EVIDENCE_DIMENSIONS)
+    dimensions.extend(_live_dimensions(prediction_list, robustness_list, failure_count))
+
+    limitations = [
+        "Trust Map states describe evidence coverage, not probability of authorship.",
+        "Trust Map v3 states are derived from U1 validation records only; "
+        "the v1 EvidenceRegistry is never consulted.",
+        "A supported state requires a matching U1 record with effective "
+        "status supported, at least 100 human and 100 AI samples, and no "
+        "contamination.",
+        "Temporal version stability is capped at partial from a single "
+        "snapshot; longitudinal data is U3's job.",
+        "Text-only detection cannot prove authorship.",
+    ]
+    if not records:
+        limitations.append(f"No validation records exist for detector {detector_id!r}.")
+
+    try:
+        generated_at_utc = _coerce_now(now).isoformat()
+    except ValidationError:
+        generated_at_utc = datetime.now(UTC).isoformat()
+
+    return TrustMap(
+        schema=TRUST_SCHEMA_V3,
+        overall=_overall_state_v3(dimensions),
+        dimensions=dimensions,
+        limitations=limitations,
+        input_conditions=conditions.to_dict(),
+        evidence_registry={
+            "registry_id": registry.registry_id,
+            "record_count": len(registry.records),
+            "verified": False,
+            "verification_status": "not_checked",
+        },
+        coverage=_coverage_counts(dimensions, TRUST_STATES_V3),
+        generated_at_utc=generated_at_utc,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Convenience
 # ---------------------------------------------------------------------------
 
@@ -1769,6 +2523,7 @@ __all__ = [
     "DEFAULT_REVALIDATION_DAYS",
     "EDITING_REGIMES",
     "EVIDENCE_RECORD_SCHEMA",
+    "INPUT_EDITING_REGIME_MAP",
     "SPLIT_ROLES",
     "VALIDATION_REGISTRY_SCHEMA",
     "VALIDATION_STATUSES",
@@ -1788,6 +2543,7 @@ __all__ = [
     "compute_signature",
     "contamination_label",
     "default_next_revalidation_due",
+    "derive_trust_map",
     "effective_status",
     "empty_validation_registry",
     "load_validation_registry",

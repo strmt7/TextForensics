@@ -13,6 +13,10 @@ Two surfaces are exposed:
 * :func:`assess_trust_map` — Trust Map v2, driven by
   :mod:`textforensics.conditions`, :mod:`textforensics.evidence`, live
   detector observations and benign-transformation probes.
+* :func:`textforensics.validation.derive_trust_map` — Trust Map v3, derived
+  from U1 :class:`textforensics.validation.ValidationRegistry` records only
+  (never from the v1 ``EvidenceRegistry``).  V3 adds the ``stale`` state:
+  a matching record exists but its effective status is stale.
 * :func:`trust_map_from_capability_ledger` — a legacy v1 compatibility view of
   capability claims.  It is **not** evidence-conditioned and must not be used
   to claim Trust Map v2 coverage.
@@ -37,7 +41,9 @@ from .evidence import (
 )
 
 TRUST_STATES = ("supported", "partial", "unknown", "out_of_scope")
+TRUST_STATES_V3 = TRUST_STATES + ("stale",)
 TRUST_SCHEMA = "textforensics.trust-map/v2"
+TRUST_SCHEMA_V3 = "textforensics.trust-map/v3"
 LEGACY_TRUST_SCHEMA = "textforensics.trust-map/v1"
 
 EVIDENCE_DIMENSIONS = (
@@ -69,7 +75,10 @@ class TrustDimension:
     def __post_init__(self) -> None:
         if self.dimension not in TRUST_DIMENSIONS:
             raise ValueError(f"Unknown Trust Map dimension: {self.dimension!r}.")
-        if self.state not in TRUST_STATES:
+        # TrustDimension accepts the union of the v2 and v3 states; which
+        # states a given map version may carry is enforced by the map's
+        # schema (see TrustMap) and by the trust-map JSON schema.
+        if self.state not in TRUST_STATES_V3:
             raise ValueError(f"Invalid Trust Map state: {self.state!r}.")
         if not isinstance(self.reason, str) or not self.reason.strip():
             raise ValueError("Trust Map dimension reason must be non-empty.")
@@ -92,14 +101,26 @@ class TrustMap:
     generated_at_utc: str | None = None
 
     def __post_init__(self) -> None:
-        if self.schema not in {TRUST_SCHEMA, LEGACY_TRUST_SCHEMA}:
+        if self.schema not in {TRUST_SCHEMA, TRUST_SCHEMA_V3, LEGACY_TRUST_SCHEMA}:
             raise ValueError("Unsupported Trust Map schema.")
         if self.overall not in {"strong", "mixed", "insufficient"}:
             raise ValueError("Invalid Trust Map overall state.")
         if self.coverage:
-            missing = set(TRUST_STATES) - set(self.coverage)
-            if missing:
-                raise ValueError(f"coverage is missing state(s): {', '.join(sorted(missing))}.")
+            # Coverage validation is schema-dependent: v2 (and v1) require
+            # exactly the four v2 states; v3 requires exactly the five
+            # v3 states, including "stale".  A v2 map carrying a "stale"
+            # count — or a v3 map missing one — is rejected here.
+            expected = TRUST_STATES_V3 if self.schema == TRUST_SCHEMA_V3 else TRUST_STATES
+            keys = set(self.coverage)
+            missing = set(expected) - keys
+            extra = keys - set(expected)
+            if missing or extra:
+                details = []
+                if missing:
+                    details.append(f"missing state(s): {', '.join(sorted(missing))}")
+                if extra:
+                    details.append(f"unexpected state(s): {', '.join(sorted(extra))}")
+                raise ValueError(f"coverage for {self.schema} has {'; '.join(details)}.")
 
     def dimension(self, name: str) -> TrustDimension | None:
         return next((item for item in self.dimensions if item.dimension == name), None)
@@ -278,8 +299,11 @@ def _overall_state(dimensions: list[TrustDimension]) -> str:
     return "mixed"
 
 
-def _coverage_counts(dimensions: Iterable[TrustDimension]) -> dict[str, int]:
-    counts = {state: 0 for state in TRUST_STATES}
+def _coverage_counts(
+    dimensions: Iterable[TrustDimension],
+    states: tuple[str, ...] = TRUST_STATES,
+) -> dict[str, int]:
+    counts = {state: 0 for state in states}
     for dimension in dimensions:
         counts[dimension.state] += 1
     return counts
@@ -565,7 +589,9 @@ __all__ = [
     "LIVE_DIMENSIONS",
     "TRUST_DIMENSIONS",
     "TRUST_SCHEMA",
+    "TRUST_SCHEMA_V3",
     "TRUST_STATES",
+    "TRUST_STATES_V3",
     "TrustDimension",
     "TrustMap",
     "assess_trust_map",
