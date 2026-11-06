@@ -6,7 +6,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from textforensics.drift import (
+from textforensics.observatory import (
     DriftAlert,
     DriftObservatory,
     _distribution_summary,

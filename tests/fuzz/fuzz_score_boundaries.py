@@ -284,7 +284,7 @@ def _fuzz_benchmark_threshold(scores: list[float]) -> None:
 
     # Fuzz _coerce_float from drift module
     try:
-        from textforensics.drift import _coerce_float
+        from textforensics.observatory import _coerce_float
 
         for val in scores:
             try:

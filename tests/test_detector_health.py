@@ -1,4 +1,4 @@
-"""Tests for detector_health.py — comprehensive coverage for the DetectorHealthMonitor.
+"""Tests for observatory.py (live per-detector health half) — comprehensive coverage for the DetectorHealthMonitor.
 
 This module was previously at 0% coverage. These tests exercise:
 - Metric recording (latency, error, score, request_timestamp)
@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from textforensics.detector_health import (
+from textforensics.observatory import (
     AlertSeverity,
     DetectorHealthMonitor,
     DetectorHealthReport,
@@ -38,7 +38,7 @@ class TestHealthMetric:
     """Tests for HealthMetric dataclass."""
 
     def test_to_dict(self):
-        from textforensics.detector_health import HealthMetric
+        from textforensics.observatory import HealthMetric
 
         m = HealthMetric(
             name="latency_ms",
@@ -60,7 +60,7 @@ class TestHealthAlert:
     """Tests for HealthAlert dataclass."""
 
     def test_to_dict(self):
-        from textforensics.detector_health import AlertSeverity, HealthAlert
+        from textforensics.observatory import AlertSeverity, HealthAlert
 
         a = HealthAlert(
             alert_id="alert-123",

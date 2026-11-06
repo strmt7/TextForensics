@@ -322,7 +322,7 @@ Calibration artifacts are detector-version-bound. The following changes **invali
 
 ### 5.4 Drift Observatory as Revalidation Signal
 
-The drift observatory (`drift.py`) automatically detects calibration-relevant changes:
+The drift observatory (`observatory.py`) automatically detects calibration-relevant changes:
 
 - `calibration_id_changed` → calibration artifact changed between snapshots
 - `calibrated_probability_shift_significant` → probability distribution shifted

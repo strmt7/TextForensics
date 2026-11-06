@@ -17,7 +17,7 @@ from .benchmark import (
 from .benchmark import (
     fingerprint_dataset as _fingerprint_dataset,
 )
-from .drift import DriftObservatory
+from .observatory import DriftObservatory
 from .policy import (
     CapabilityClaim,
     CapabilityLedger,

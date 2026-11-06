@@ -28,9 +28,9 @@ from textforensics.detectors import (
     execute_detector,
     validate_prediction,
 )
-from textforensics.drift import DRIFT_CORPUS_SCHEMA, DriftObservatory
 from textforensics.engine import _verdict, analyze_text
 from textforensics.features import extract_features
+from textforensics.observatory import DRIFT_CORPUS_SCHEMA, DriftObservatory
 from textforensics.trust import TRUST_STATES, build_trust_map
 
 PROPERTY_SETTINGS = settings(

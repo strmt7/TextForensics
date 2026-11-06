@@ -156,7 +156,7 @@ current v2 for the four formats that have one (forensic-bundle,
 detector-result, case-file, trust-map); legacy v1 artifacts still
 decode, keeping their v1 label.
 
-### 1.8 Drift Observatory (`src/textforensics/drift.py`)
+### 1.8 Drift Observatory (`src/textforensics/observatory.py`)
 
 Longitudinal detector reliability tracking:
 - `DriftObservatory` loads a probe corpus (`textforensics.drift-corpus/v1`)

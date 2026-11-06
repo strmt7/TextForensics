@@ -85,7 +85,6 @@ from .detectors import (
     normalize_prediction,
     validate_prediction,
 )
-from .drift import DriftObservatory
 from .engine import analyze_text
 from .evidence import (
     EVIDENCE_SCHEMA,
@@ -115,6 +114,7 @@ from .explain import (
     save_explanation_report,
     split_sentences,
 )
+from .observatory import DriftObservatory
 from .policy import (
     CapabilityClaim,
     CapabilityLedger,

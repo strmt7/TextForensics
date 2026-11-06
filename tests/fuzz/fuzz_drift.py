@@ -44,7 +44,7 @@ def _sample_id_from_bytes(data: bytes) -> str:
 def _fuzz_distribution_summary(data: bytes) -> None:
     """Fuzz _distribution_summary with extreme value sequences."""
     try:
-        from textforensics.drift import _distribution_summary
+        from textforensics.observatory import _distribution_summary
     except Exception:
         return
 
@@ -81,7 +81,7 @@ def _fuzz_distribution_summary(data: bytes) -> None:
 def _fuzz_coerce_helpers(text: str) -> None:
     """Fuzz _coerce_float and _coerce_int_or_none."""
     try:
-        from textforensics.drift import _coerce_float, _coerce_int_or_none
+        from textforensics.observatory import _coerce_float, _coerce_int_or_none
     except Exception:
         return
 
@@ -142,7 +142,7 @@ def _fuzz_coerce_helpers(text: str) -> None:
 def _fuzz_corpus_loading(text: str) -> None:
     """Fuzz DriftObservatory corpus loading with malformed data."""
     try:
-        from textforensics.drift import DRIFT_CORPUS_SCHEMA, DriftObservatory
+        from textforensics.observatory import DRIFT_CORPUS_SCHEMA, DriftObservatory
     except Exception:
         return
 
@@ -280,7 +280,7 @@ def _fuzz_corpus_loading(text: str) -> None:
 def _fuzz_observations_and_snapshots(text: str) -> None:
     """Fuzz observation normalization and snapshot creation."""
     try:
-        from textforensics.drift import DRIFT_SNAPSHOT_SCHEMA, DriftObservatory
+        from textforensics.observatory import DRIFT_SNAPSHOT_SCHEMA, DriftObservatory
     except Exception:
         return
 
@@ -389,7 +389,7 @@ def _fuzz_observations_and_snapshots(text: str) -> None:
 def _fuzz_snapshot_comparison(text: str) -> None:
     """Fuzz compare_snapshots with crafted baseline/current snapshots."""
     try:
-        from textforensics.drift import DRIFT_SNAPSHOT_SCHEMA, DriftObservatory
+        from textforensics.observatory import DRIFT_SNAPSHOT_SCHEMA, DriftObservatory
     except Exception:
         return
 
@@ -511,7 +511,7 @@ def _fuzz_comparison_helpers(text: str) -> None:
     """Fuzz _compare_score_distribution, _compare_verdict_flips, _compare_thresholds,
     _compare_calibration, _compare_human_fpr, _compare_provider_metadata, _compare_supported_regime."""
     try:
-        from textforensics.drift import (
+        from textforensics.observatory import (
             ProbeSample,
             _compare_calibration,
             _compare_human_fpr,
@@ -635,7 +635,7 @@ def _fuzz_comparison_helpers(text: str) -> None:
 def _fuzz_read_snapshot_file(text: str) -> None:
     """Fuzz DriftObservatory.read_snapshot_file with various formats."""
     try:
-        from textforensics.drift import DRIFT_SNAPSHOT_SCHEMA, DriftObservatory
+        from textforensics.observatory import DRIFT_SNAPSHOT_SCHEMA, DriftObservatory
     except Exception:
         return
 
@@ -693,7 +693,7 @@ def _fuzz_read_snapshot_file(text: str) -> None:
 def _fuzz_load_snapshots(text: str) -> None:
     """Fuzz load_snapshots with malformed stores and corpus sha mismatches."""
     try:
-        from textforensics.drift import DRIFT_SNAPSHOT_SCHEMA, DriftObservatory
+        from textforensics.observatory import DRIFT_SNAPSHOT_SCHEMA, DriftObservatory
     except Exception:
         return
 
@@ -764,7 +764,7 @@ def _fuzz_load_snapshots(text: str) -> None:
 def _fuzz_add_snapshot(text: str) -> None:
     """Fuzz add_snapshot with bad schemas and non-list records."""
     try:
-        from textforensics.drift import DriftObservatory
+        from textforensics.observatory import DriftObservatory
     except Exception:
         return
 

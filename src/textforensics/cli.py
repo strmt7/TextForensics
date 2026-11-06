@@ -30,7 +30,6 @@ from .constants import (
     EXIT_OK,
 )
 from .detectors import list_detector_health, list_detector_metadata
-from .drift import DriftObservatory
 from .emergency_stop import (
     EmergencyStopSentinel,
     check_emergency_stop,
@@ -52,6 +51,7 @@ from .localize import (
     visual_diff,
 )
 from .naturalness import audit_naturalness
+from .observatory import DriftObservatory
 from .policy import (
     CapabilityClaim,
     CapabilityLedger,

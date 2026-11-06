@@ -11,7 +11,7 @@ from typing import Any
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from textforensics.detectors import BuiltinHeuristicDetector
-from textforensics.drift import (
+from textforensics.observatory import (
     DriftObservatory,
     _coerce_float,
     _coerce_int_or_none,
@@ -139,25 +139,25 @@ class RoundEdgeCaseTests(unittest.TestCase):
 
 class DistributionSummaryEdgeCases(unittest.TestCase):
     def test_distribution_summary_ignores_none(self):
-        from textforensics.drift import _distribution_summary
+        from textforensics.observatory import _distribution_summary
 
         summary = _distribution_summary([0.5, None, 0.9])
         self.assertEqual(summary["n"], 2)
 
     def test_distribution_summary_ignores_bool(self):
-        from textforensics.drift import _distribution_summary
+        from textforensics.observatory import _distribution_summary
 
         summary = _distribution_summary([0.5, True, 0.9])
         self.assertEqual(summary["n"], 2)
 
     def test_distribution_summary_ignores_string(self):
-        from textforensics.drift import _distribution_summary
+        from textforensics.observatory import _distribution_summary
 
         summary = _distribution_summary([0.5, "abc", 0.9])
         self.assertEqual(summary["n"], 2)
 
     def test_distribution_summary_statistics_error(self):
-        from textforensics.drift import _distribution_summary
+        from textforensics.observatory import _distribution_summary
 
         # This is hard to trigger, but let's make sure the code path exists
         # We can't easily trigger StatisticsError with pstdev for count > 1
@@ -168,13 +168,13 @@ class DistributionSummaryEdgeCases(unittest.TestCase):
 
 class UniqueScalarsEdgeCases(unittest.TestCase):
     def test_unique_scalars_with_bool(self):
-        from textforensics.drift import _unique_scalars
+        from textforensics.observatory import _unique_scalars
 
         result = _unique_scalars([True, 1, 2])
         self.assertIn(True, result)
 
     def test_unique_scalars_with_string(self):
-        from textforensics.drift import _unique_scalars
+        from textforensics.observatory import _unique_scalars
 
         result = _unique_scalars(["a", "b", 1])
         self.assertIn("a", result)

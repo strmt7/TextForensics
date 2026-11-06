@@ -100,7 +100,7 @@ These are derived from `AGENTS.md` and are enforced in code and tests.
 | `report.py` | Forensic Bundle v2 orchestration and deterministic serialization. |
 | `casefile.py` | Sealed case file, portable manifest, replay. |
 | `verify.py` | Independent re-derivation and verification paths. |
-| `drift.py` | Longitudinal probe snapshots and drift reports. |
+| `observatory.py` | Longitudinal probe snapshots and drift reports. |
 | `benchmark.py` | Dataset scoring, threshold selection, evidence-record generation. |
 | `cli.py` | Canonical CLI. |
 | `api.py` | Canonical HTTP API. |

@@ -12,7 +12,7 @@ from typing import Any
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from textforensics.detectors import BuiltinHeuristicDetector
-from textforensics.drift import (
+from textforensics.observatory import (
     DriftAlert,
     DriftObservatory,
     _distribution_summary,

@@ -32,7 +32,7 @@ mutation:
     - "textforensics.verify"
     - "textforensics.ledger"
     - "textforensics.bundle"
-    - "textforensics.drift"
+    - "textforensics.observatory"
     - "textforensics.localize"
     - "textforensics.naturalness"
     - "textforensics.features"
