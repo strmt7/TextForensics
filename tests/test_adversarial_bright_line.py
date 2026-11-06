@@ -12,10 +12,10 @@ The line this test draws, in four independent checks:
    pasted back as a replacement for the input.
 2. No rewrite/evasion vocabulary appears anywhere in the outputs — neither
    in dict keys nor in string values.
-3. No output string is a rewritten copy of the input. Every long string in
-   the output is either a verbatim quote of the input (the ``segment``
-   field, truncated with an ellipsis) or module-fixed wording / hashes that
-   look nothing like the input.
+3. No output string is a rewritten copy of the input, and no output
+   string is a verbatim quote of it either. Every long string in the
+   output is module-fixed wording or a hash (the ``segment`` field is
+   a SHA-256 reference, never raw text — AGENTS.md rule 22).
 4. The public API has no evasion-named function. Adding one (``suggest_*``,
    ``rewrite_*``, ``humanize_*``, ...) fails this test on purpose: such a
    feature needs an explicit decision, not a quiet addition.
@@ -239,10 +239,12 @@ class AdversarialBrightLineTests(unittest.TestCase):
     def test_no_output_string_is_rewritten_input(self):
         """Test that no long output string is a rewritten copy of the input.
 
-        A verbatim quote (the ``segment`` field, truncated with "...") is
-        allowed; module-fixed wording and hashes are nothing like the input.
-        A rewritten passage would be near-identical to the input without
-        being a verbatim quote of it — exactly what this rejects.
+        No output string may be a verbatim quote of the input either
+        (AGENTS.md rule 22: findings carry content references, never
+        raw text). Module-fixed wording and hashes score far below the
+        near-copy threshold, so a rewritten passage — near-identical
+        to the input without being a verbatim quote — is exactly what
+        this rejects.
         """
         for text in INPUTS:
             if len(text) < _MIN_REWRITE_LENGTH:
@@ -251,11 +253,7 @@ class AdversarialBrightLineTests(unittest.TestCase):
                 for leaf in _string_leaves(output):
                     if len(leaf) < _MIN_REWRITE_LENGTH:
                         continue
-                    # A trailing ellipsis marks truncation of a verbatim quote.
-                    core = leaf[:-3] if leaf.endswith("...") else leaf
-                    if core in text:
-                        continue
-                    ratio = SequenceMatcher(None, core, text).ratio()
+                    ratio = SequenceMatcher(None, leaf, text).ratio()
                     self.assertLess(
                         ratio,
                         _NEAR_COPY_RATIO,
@@ -263,12 +261,13 @@ class AdversarialBrightLineTests(unittest.TestCase):
                         f"(ratio {ratio:.2f}): {leaf!r}",
                     )
 
-    def test_findings_quote_only_verbatim_evidence(self):
-        """Test that findings quote the input verbatim and carry no text.
+    def test_findings_carry_no_raw_text(self):
+        """Test that findings carry content references, never raw text.
 
-        ``segment`` is either the literal "full_text" or a verbatim prefix
-        of the input; ``evidence`` is a number (a count or a statistic),
-        never replacement text.
+        ``segment`` is either the literal "full_text" or a
+        "sha256:<hex>" reference to the matched span (offsets in
+        ``location``); ``evidence`` is a number (a count or a
+        statistic), never replacement text.
         """
         for text in INPUTS:
             for finding in _findings_for(text):
@@ -276,10 +275,10 @@ class AdversarialBrightLineTests(unittest.TestCase):
                 segment = finding.segment
                 if segment == "full_text":
                     continue
-                core = segment[:-3] if segment.endswith("...") else segment
-                self.assertTrue(
-                    text.startswith(core) or core in text,
-                    f"finding segment is not a verbatim quote: {segment!r}",
+                self.assertRegex(
+                    segment,
+                    r"^sha256:[0-9a-f]{64}$",
+                    f"finding segment is not a content reference: {segment!r}",
                 )
 
     def test_public_api_has_no_evasion_verbs(self):

@@ -87,7 +87,11 @@ class AdversarialFinding:
 
     Attributes:
         pattern_id: The pattern that triggered this finding.
-        segment: Text segment where pattern was detected (or "full_text").
+        segment: Content reference for the matched span, never raw text
+            (AGENTS.md rule 22): either the literal "full_text" or
+            "sha256:<hex>" of the matched span, whose character offsets
+            are in `location`. A holder of the original text can
+            recompute the hash to identify the span.
         evidence: Quantitative evidence (e.g., score, p-value, count).
         severity: Finding severity.
         confidence: Confidence in this finding (0-1).
@@ -292,10 +296,15 @@ def detect_regex_artifacts(text: str) -> list[AdversarialFinding]:
         count = _detect_regex_patterns(text, config["patterns"])
         if count > 0:
             severity = "high" if config["weight"] > 1.3 else "medium"
+            segment_text = text[:200]
             findings.append(
                 AdversarialFinding(
                     pattern_id=f"regex_{artifact_id}",
-                    segment=text[:200] + "..." if len(text) > 200 else text,
+                    # Content reference, never raw text (AGENTS.md rule 22):
+                    # the SHA-256 of the matched span. A holder of the
+                    # original text can recompute it to identify the span;
+                    # the offsets are in `location`.
+                    segment=f"sha256:{_sha256(segment_text)}",
                     evidence=float(count),
                     severity=severity,
                     confidence=min(0.8, 0.3 + 0.1 * count),

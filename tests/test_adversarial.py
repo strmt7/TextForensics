@@ -327,5 +327,80 @@ class TestCustomPatternRegistration:
         assert "secret_test" in library.list_patterns()
 
 
+class TestNoRawTextInFindings:
+    """Regression tests: findings never carry raw input text (AGENTS.md rule 22).
+
+    A canary string planted in the input must not appear anywhere in
+    any finding — not in ``segment`` (which used to embed up to 200
+    chars of raw text), not in any description, and not in any
+    serialized report. The input is crafted to trigger regex-artifact
+    findings (deliberate typos + forced contractions), so the test
+    exercises the leak path rather than an empty findings list.
+    """
+
+    CANARY = "CANARY-7f3a9-ZEBRA-QUARTZ-4417"
+
+    TEXT_WITH_CANARY = (
+        "Furthermore, teh CANARY-7f3a9-ZEBRA-QUARTZ-4417 solution is gonna "
+        "change everything, frankly. It is sort of amazing, kinda sorta. "
+        "Additionally, moreover, therefore the results are definately "
+        "recieveing attention from thier team."
+    )
+
+    def _all_string_leaves(self, value):
+        """Every string leaf in a nested output structure."""
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, dict):
+            leaves = []
+            for key, item in value.items():
+                leaves.append(str(key))
+                leaves.extend(self._all_string_leaves(item))
+            return leaves
+        if isinstance(value, (list, tuple)):
+            leaves = []
+            for item in value:
+                leaves.extend(self._all_string_leaves(item))
+            return leaves
+        return []
+
+    def test_canary_absent_from_regex_findings(self):
+        """Test that regex-artifact findings contain no raw input text."""
+        findings = detect_regex_artifacts(self.TEXT_WITH_CANARY)
+        # The leak path is exercised: at least one finding triggered.
+        assert len(findings) > 0
+        for finding in findings:
+            assert self.CANARY not in finding.segment
+            assert self.CANARY not in finding.description
+            assert self.CANARY not in finding.to_dict()["segment"]
+            # The segment is a content reference, not quoted text.
+            assert finding.segment.startswith("sha256:")
+            assert len(finding.segment) == len("sha256:") + 64
+
+    def test_canary_absent_from_all_findings_and_reports(self):
+        """Test that no entry point leaks the canary anywhere."""
+        text = self.TEXT_WITH_CANARY
+        outputs = [
+            detect_humanization(text).to_dict(),
+            detect_humanization_simple(text),
+            AdversarialDetector().analyze(text).to_dict(),
+            [f.to_dict() for f in HumanizationPatternLibrary().run_all(text)],
+        ]
+        for output in outputs:
+            for leaf in self._all_string_leaves(output):
+                assert self.CANARY not in leaf, f"canary leaked in: {leaf!r}"
+
+    def test_segment_reference_matches_matched_span(self):
+        """Test that the segment hash identifies the matched span."""
+        import hashlib
+
+        findings = detect_regex_artifacts(self.TEXT_WITH_CANARY)
+        assert len(findings) > 0
+        expected = hashlib.sha256(self.TEXT_WITH_CANARY[:200].encode("utf-8")).hexdigest()
+        for finding in findings:
+            assert finding.segment == f"sha256:{expected}"
+            assert finding.location == (0, min(len(self.TEXT_WITH_CANARY), 200))
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
