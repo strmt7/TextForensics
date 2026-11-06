@@ -22,7 +22,7 @@ from .benchmark_fingerprint import (
 )
 from .bundle import list_bundle, pack_bundle, read_bundle, verify_bundle
 from .bundle_consistency import check_bundle_consistency
-from .casefile import verify_case_file_path, write_case_file
+from .casefile import write_case_file
 from .compare import compare_texts
 from .config import Settings, read_text_file, validate_text_input
 from .constants import (
@@ -66,7 +66,7 @@ from .policy import (
     create_report_generation_policy,
 )
 from .report import build_forensic_bundle
-from .verify import verify_all
+from .verify import verify_all, verify_case_file_path_combined
 from .version import get_version
 
 
@@ -1088,7 +1088,9 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
                         "Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]"
                     )
         else:
-            result = verify_case_file_path(args.case_file)
+            # Combined verification (N-version replay AND primary-path
+            # seal check) — the same answer `verify` gives for this file.
+            result = verify_case_file_path_combined(args.case_file)
             _write_json(None, result)
             return EXIT_OK if result.get("valid") else EXIT_INCOMPLETE
 

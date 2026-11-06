@@ -145,8 +145,15 @@ from .verify import (
     verify_all,
     verify_benchmark,
     verify_calibration,
+    verify_case_file_combined,
+    verify_case_file_path_combined,
 )
 from .verify import verify_case_file as verify_case_file_legacy
+
+# Backwards-compatible alias for the N-version replay. The "legacy"
+# name predates the combined entry point; the replay is not deprecated
+# — it is one half of the combined verification.
+from .verify import verify_case_file as verify_case_file_nversion
 from .version import get_version
 
 __all__ = [
@@ -263,8 +270,11 @@ __all__ = [
     "verify_build_identity",
     "verify_calibration",
     "verify_case_file",
+    "verify_case_file_combined",
     "verify_case_file_legacy",
+    "verify_case_file_nversion",
     "verify_case_file_path",
+    "verify_case_file_path_combined",
     "verify_fingerprint",
     "write_case_file",
 ]

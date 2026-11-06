@@ -394,10 +394,17 @@ class RecomputeOverallTests(unittest.TestCase):
     """Tests for _recompute_overall function."""
 
     def test_all_supported(self):
-        """Test all supported returns strong."""
+        """Test all supported returns strong.
+
+        "All" means the full declared dimension set: the re-derivation
+        must agree with trust._overall_state, which requires every
+        declared dimension present and supported for "strong" (a
+        partial set of supported dimensions is "mixed", not "strong").
+        """
+        from textforensics.trust import TRUST_DIMENSIONS
+
         dims = [
-            {"dimension": "d1", "state": "supported", "reason": "r1"},
-            {"dimension": "d2", "state": "supported", "reason": "r2"},
+            {"dimension": name, "state": "supported", "reason": "r"} for name in TRUST_DIMENSIONS
         ]
         self.assertEqual(_recompute_overall(dims), "strong")
 

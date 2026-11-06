@@ -17,7 +17,6 @@ from .benchmark_fingerprint import (
 from .benchmark_fingerprint import (
     fingerprint_dataset as _fingerprint_dataset,
 )
-from .casefile import verify_case_file as casefile_verify
 from .drift import DriftObservatory
 from .policy import (
     CapabilityClaim,
@@ -27,7 +26,7 @@ from .policy import (
     EvidenceTier,
     validate_claim,
 )
-from .verify import verify_case_file as nversion_verify
+from .verify import verify_case_file_combined
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -213,7 +212,7 @@ def capability_list(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def verify_case_file(params: dict[str, Any]) -> dict[str, Any]:
-    """Run N-version integrity replay on a case file.
+    """Run combined case-file verification (N-version replay + seal check).
 
     Expected input keys:
         case_file (dict): parsed case file JSON object
@@ -226,22 +225,18 @@ def verify_case_file(params: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(case_payload, dict):
         return _error_response("case_file must be a JSON object", constants.EXIT_ERROR)
 
-    # Run both verification paths
-    nversion_result = nversion_verify(case_payload)
-    casefile_result = casefile_verify(case_payload)
-
-    # Aggregate
-    all_errors = list(nversion_result.get("errors", []))
-    all_errors.extend(casefile_result.get("errors", []))
-    overall_valid = nversion_result.get("valid", False) and casefile_result.get("valid", False)
+    # One entry point runs both verification paths and requires both to
+    # pass; the per-path sub-results are kept in the response.
+    combined = verify_case_file_combined(case_payload)
+    overall_valid = combined["valid"]
 
     return {
         "success": True,
         "exit_code": constants.EXIT_OK if overall_valid else constants.EXIT_DOWNGRADED,
         "overall_valid": overall_valid,
-        "nversion_replay": nversion_result,
-        "casefile_verify": casefile_result,
-        "errors": all_errors,
+        "nversion_replay": combined["nversion"],
+        "casefile_verify": combined["primary"],
+        "errors": combined["errors"],
     }
 
 

@@ -18,7 +18,7 @@ from textforensics.result_codec import (
 
 # Minimal valid forensic bundle for testing
 MINIMAL_BUNDLE = {
-    "schema": "textforensics.forensic-bundle/v1",
+    "schema": "textforensics.forensic-bundle/v2",
     "generated_at_utc": "2024-01-01T00:00:00+00:00",
     "content_sha256": "0" * 64,
     "input": {
@@ -36,15 +36,24 @@ MINIMAL_BUNDLE = {
         "independent_families": 1,
     },
     "trust_map": {
-        "schema": "textforensics.trust-map/v1",
+        "schema": "textforensics.trust-map/v2",
         "overall": "strong",
         "dimensions": [],
         "limitations": [],
+        # Required by the trust-map v2 schema (allOf branch).
+        "input_conditions": {},
+        "evidence_registry": {},
+        "coverage": {"supported": 0, "partial": 0, "unknown": 0, "out_of_scope": 0},
+        "generated_at_utc": "2024-01-01T00:00:00+00:00",
     },
     "verdict_integrity": {},
     "robustness": {},
     "provenance": None,
     "limitations": [],
+    # Required by the forensic-bundle v2 schema (allOf branch).
+    "input_conditions": {},
+    "detector_protocols": {},
+    "evidence_registry": {},
 }
 
 
@@ -70,7 +79,7 @@ class TestResultCodec:
         codec = ResultCodec()
         encoded = codec.encode(data, "forensic-bundle")
         decoded = json.loads(encoded)
-        assert decoded["schema"] == "textforensics.forensic-bundle/v1"
+        assert decoded["schema"] == "textforensics.forensic-bundle/v2"
 
     def test_decode_validates_against_schema(self):
         """Decode should validate against schema."""
@@ -85,7 +94,7 @@ class TestResultCodec:
     def test_strict_version_rejects_mismatch(self):
         """Strict version mode should reject mismatched versions."""
         data = dict(MINIMAL_BUNDLE)
-        data["schema"] = "textforensics.forensic-bundle/v2"  # Wrong version
+        data["schema"] = "textforensics.forensic-bundle/v1"  # Wrong version (v2 is current)
         codec = ResultCodec(CodecConfig(strict_version=True))
         encoded = json.dumps(data).encode()
         with pytest.raises(VersionMigrationError):
@@ -105,7 +114,7 @@ class TestResultCodec:
         codec = ResultCodec(CodecConfig(canonical_json=False))
         encoded = codec.encode(data, "forensic-bundle")
         decoded = json.loads(encoded)
-        assert decoded["schema"] == "textforensics.forensic-bundle/v1"
+        assert decoded["schema"] == "textforensics.forensic-bundle/v2"
 
     def test_validate_only_mode(self):
         """Validation-only mode should check without encoding."""
@@ -138,7 +147,7 @@ class TestResultCodec:
         path = tmp_path / "test.json"
         codec.encode_file(data, path, "forensic-bundle")
         decoded = codec.decode_file(path, "forensic-bundle")
-        assert decoded["schema"] == "textforensics.forensic-bundle/v1"
+        assert decoded["schema"] == "textforensics.forensic-bundle/v2"
 
     def test_stream_encode(self):
         """Stream encoding produces BytesIO."""
@@ -147,7 +156,7 @@ class TestResultCodec:
         stream = codec.stream_encode(data, "forensic-bundle")
         assert hasattr(stream, "read")
         decoded = json.loads(stream.getvalue().decode())
-        assert decoded["schema"] == "textforensics.forensic-bundle/v1"
+        assert decoded["schema"] == "textforensics.forensic-bundle/v2"
 
     def test_invalid_json_raises(self):
         """Invalid JSON should raise CodecError."""

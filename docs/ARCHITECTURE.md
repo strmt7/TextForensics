@@ -136,8 +136,25 @@ Portable, reproducible audit artifact:
 - Wraps a forensic bundle with tool version and integrity seal
 - `seal_case_file(bundle)` → adds schema, version, `case_sha256`
 - `verify_case_file(payload)` → validates structure, hash, raw-text policy
+- `verify_case_file_combined(payload)` (in `verify.py`) → the single
+  entry point for case-file verification: runs BOTH the N-version
+  replay (Trust Map re-derivation, detector-result checks,
+  independent seal recomputation) AND the primary-path seal check
+  (seal, manifest, raw-text portability, tool identity) and requires
+  both to pass. Used by `case verify`, `verify`, and the MCP
+  `verify_case_file` tool, so all three give one answer. The two
+  verifiers stay separate code paths — that independence is the point
+  of N-version replay.
 - Deterministic mode strips `runtime_ms` and uses fixed timestamps
 - Atomic write via temp file + `os.replace`
+
+One bundle format, three layers (not three formats): the forensic
+bundle JSON is the data; the sealed case file is its integrity
+wrapper; the bundle archive (`bundle.py`: `.tar.gz`/`.zip` +
+manifest) is transport for case files. The result codec speaks the
+current v2 for the four formats that have one (forensic-bundle,
+detector-result, case-file, trust-map); legacy v1 artifacts still
+decode, keeping their v1 label.
 
 ### 1.8 Drift Observatory (`src/textforensics/drift.py`)
 
@@ -423,7 +440,7 @@ User Input (text)
            │
   ┌────────▼───────────────────────┐
   │  _validate_portable_bundle()   │
-  │  • schema = forensic-bundle/v1 │
+  │  • schema = forensic-bundle/v1 or v2 │
   │  • content_sha256 valid        │
   │  • raw_text_included = false   │
   │  • no forbidden raw-text keys  │

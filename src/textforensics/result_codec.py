@@ -65,12 +65,19 @@ class CodecConfig:
 DEFAULT_CONFIG = CodecConfig()
 
 
-# Schema version mapping
+# Schema version mapping — the CURRENT version of each format. The four
+# formats with a v2 are v2 here (v2 is what the system produces
+# everywhere else: report.py, casefile.py, trust.py); the remaining
+# formats have no v2 yet and stay v1. The codec must not maintain a
+# parallel v1 dialect of a current format: previously this map was
+# v1-only, so decoding a current v2 artifact silently relabelled it
+# v1. Legacy v1 artifacts still decode (with a warning); they keep
+# their v1 label — see decode().
 _SCHEMA_VERSIONS = {
-    "forensic-bundle": "textforensics.forensic-bundle/v1",
-    "detector-result": "textforensics.detector-result/v1",
-    "case-file": "textforensics.case-file/v1",
-    "trust-map": "textforensics.trust-map/v1",
+    "forensic-bundle": "textforensics.forensic-bundle/v2",
+    "detector-result": "textforensics.detector-result/v2",
+    "case-file": "textforensics.case-file/v2",
+    "trust-map": "textforensics.trust-map/v2",
     "enterprise-policy": "textforensics.enterprise-policy/v1",
     "drift-report": "textforensics.drift-report/v1",
     "calibration": "textforensics.calibration/v1",
@@ -195,9 +202,13 @@ class ResultCodec:
                 raise VersionMigrationError(
                     f"Schema version mismatch: expected {expected_version}, got {found_version}"
                 )
-            # Attempt migration
+            # Attempt migration. NOTE: there is no real v1<->v2 migration
+            # yet (_migrate_result warns and returns the data unchanged),
+            # so the found version label is KEPT — relabelling data the
+            # codec cannot migrate would silently rewrite the artifact's
+            # declared format. The data is validated as-is below (the
+            # JSON schemas accept both v1 and v2 for these formats).
             result = _migrate_result(result, found_version, expected_version)
-            result["schema"] = expected_version
 
         if validate:
             errors = self._validate(result, schema_name)

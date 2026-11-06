@@ -14,7 +14,7 @@ from textforensics.mcp_tools import (
 
 # Reuse the minimal bundle from test_result_codec
 MINIMAL_BUNDLE = {
-    "schema": "textforensics.forensic-bundle/v1",
+    "schema": "textforensics.forensic-bundle/v2",
     "generated_at_utc": "2024-01-01T00:00:00+00:00",
     "content_sha256": "0" * 64,
     "input": {
@@ -32,15 +32,24 @@ MINIMAL_BUNDLE = {
         "independent_families": 1,
     },
     "trust_map": {
-        "schema": "textforensics.trust-map/v1",
+        "schema": "textforensics.trust-map/v2",
         "overall": "strong",
         "dimensions": [],
         "limitations": [],
+        # Required by the trust-map v2 schema (allOf branch).
+        "input_conditions": {},
+        "evidence_registry": {},
+        "coverage": {"supported": 0, "partial": 0, "unknown": 0, "out_of_scope": 0},
+        "generated_at_utc": "2024-01-01T00:00:00+00:00",
     },
     "verdict_integrity": {},
     "robustness": {},
     "provenance": None,
     "limitations": [],
+    # Required by the forensic-bundle v2 schema (allOf branch).
+    "input_conditions": {},
+    "detector_protocols": {},
+    "evidence_registry": {},
 }
 
 
@@ -64,7 +73,7 @@ class TestResultCodecMCP:
         assert result["success"] is True
         encoded = result["encoded"]
         decoded = json.loads(encoded)
-        assert decoded["schema"] == "textforensics.forensic-bundle/v1"
+        assert decoded["schema"] == "textforensics.forensic-bundle/v2"
 
     def test_result_encode_canonical_false(self):
         """Non-canonical encoding should work."""
@@ -89,7 +98,7 @@ class TestResultCodecMCP:
     def test_result_decode_strict_version(self):
         """Strict version mode should reject mismatched versions."""
         data = dict(MINIMAL_BUNDLE)
-        data["schema"] = "textforensics.forensic-bundle/v2"
+        data["schema"] = "textforensics.forensic-bundle/v1"  # Wrong version (v2 is current)
         encoded = json.dumps(data).encode()
         result = result_decode(
             {"encoded": encoded.decode(), "schema": "forensic-bundle", "strict_version": True}

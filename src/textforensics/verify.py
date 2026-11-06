@@ -72,19 +72,30 @@ def _recompute_overall(dimensions: list[dict[str, Any]]) -> str | None:
     * four or more ``unknown`` dimensions also yields ``insufficient``;
     * any ``partial`` or ``unknown`` (but fewer than four) yields ``mixed``;
     * otherwise ``strong``.
+
+    Agreement with the primary path is exact, not approximate: dimensions
+    are deduplicated by name (a duplicated ``supported`` dimension must
+    not stand in for a missing one), ``strong`` requires every declared
+    dimension present and supported, and an empty dimension list yields
+    ``insufficient`` — never ``strong``.  Only the declared dimension
+    names are imported from ``trust`` (data, not logic); the derivation
+    itself stays an independent implementation.  Non-dict entries are
+    skipped here — they are already reported as errors by
+    ``_verify_trust_dimension``.
     """
-    states = [dim.get("state", "") for dim in dimensions]
-    by_name = {dim.get("dimension"): dim.get("state", "") for dim in dimensions}
+    from .trust import TRUST_DIMENSIONS
+
+    by_name = {
+        dim.get("dimension"): dim.get("state", "") for dim in dimensions if isinstance(dim, dict)
+    }
+    states = by_name.values()
     supported = sum(state == "supported" for state in states)
     partial = sum(state == "partial" for state in states)
     unknown = sum(state == "unknown" for state in states)
-    out_of_scope = sum(state == "out_of_scope" for state in states)
 
-    if out_of_scope > 0 and (
-        by_name.get("language") == "out_of_scope" or by_name.get("text_length") == "out_of_scope"
-    ):
+    if by_name.get("language") == "out_of_scope" or by_name.get("text_length") == "out_of_scope":
         return "insufficient"
-    if supported == len(dimensions):
+    if supported == len(TRUST_DIMENSIONS):
         return "strong"
     if supported == 0 and partial == 0:
         return "insufficient"
@@ -241,6 +252,110 @@ def verify_case_file(payload: dict[str, Any]) -> dict[str, Any]:
         "trust_map_verified": info.get("trust_map_verified"),
         "dimensions": dimensions_status,
     }
+
+
+# ---------------------------------------------------------------------------
+# Combined case-file verification — the single entry point
+# ---------------------------------------------------------------------------
+
+
+def verify_case_file_combined(payload: dict[str, Any]) -> dict[str, Any]:
+    """Verify a case file through BOTH independent verifiers.
+
+    This is the single entry point for case-file verification, used by
+    ``case verify``, ``verify`` (via :func:`verify_all`) and the MCP
+    ``verify_case_file`` tool.  It runs the N-version replay above
+    (Trust Map re-derivation, detector-result checks, independent seal
+    recomputation) AND the primary-path check in
+    ``casefile.verify_case_file`` (seal, manifest, raw-text portability,
+    tool identity) and requires both to pass.  The two verifiers stay
+    separate code paths — that independence is the point of N-version
+    replay — but no caller may pick only one of them any more: before
+    this function, the same file could be "valid" under ``case verify``
+    and "invalid" under ``verify`` (e.g. a tampered Trust Map overall
+    passed the seal check but failed the replay, and a stale manifest
+    passed the replay but failed the seal check).
+
+    The combined result is valid only when both verifiers pass, so the
+    change is strictness in one direction only: no file that was valid
+    under both verifiers becomes invalid, and no file that was invalid
+    under either becomes valid.
+
+    The primary-path check raises ``ValueError`` on non-finite floats
+    (its canonical JSON uses ``allow_nan=False``); the combined entry
+    point never raises for bad data — it reports the file invalid
+    instead.
+
+    Returns a dict with the N-version keys (``valid``, ``errors``,
+    ``seal_verified``, ``trust_map_verified``, ``dimensions``) plus the
+    primary-path keys (``schema``, ``case_sha256``, ``note``) and the
+    two sub-results under ``nversion`` and ``primary`` (kept so the MCP
+    tool can still report each path separately).
+    """
+    nversion = verify_case_file(payload)
+    try:
+        from .casefile import verify_case_file as _casefile_verify
+
+        primary = _casefile_verify(payload)
+    except ValueError as exc:
+        primary = {
+            "valid": False,
+            "errors": [f"primary verification failed: {exc}"],
+            "schema": payload.get("schema"),
+            "case_sha256": payload.get("case_sha256"),
+            "note": None,
+        }
+    errors = list(nversion.get("errors", [])) + list(primary.get("errors", []))
+    return {
+        "valid": bool(nversion.get("valid", False) and primary.get("valid", False)),
+        "errors": errors,
+        "seal_verified": nversion.get("seal_verified"),
+        "trust_map_verified": nversion.get("trust_map_verified"),
+        "dimensions": nversion.get("dimensions", {}),
+        "schema": primary.get("schema"),
+        "case_sha256": primary.get("case_sha256"),
+        "note": primary.get("note"),
+        "nversion": nversion,
+        "primary": primary,
+    }
+
+
+def verify_case_file_path_combined(path: str | Path) -> dict[str, Any]:
+    """Load a case file from disk and run the combined verification.
+
+    Unlike ``casefile.verify_case_file_path`` this never raises for bad
+    input: malformed JSON or a non-dict payload returns a failed dict
+    (same contract as :func:`verify_case_file_path`).
+    """
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return {
+            "valid": False,
+            "errors": [f"invalid JSON: {exc}"],
+            "seal_verified": False,
+            "trust_map_verified": False,
+            "dimensions": {},
+            "schema": None,
+            "case_sha256": None,
+            "note": None,
+            "nversion": None,
+            "primary": None,
+        }
+    if not isinstance(payload, dict):
+        return {
+            "valid": False,
+            "errors": ["case file must be a JSON object"],
+            "seal_verified": False,
+            "trust_map_verified": False,
+            "dimensions": {},
+            "schema": None,
+            "case_sha256": None,
+            "note": None,
+            "nversion": None,
+            "primary": None,
+        }
+    return verify_case_file_combined(payload)
 
 
 # ---------------------------------------------------------------------------
@@ -480,7 +595,10 @@ def verify_all(
     results = []
 
     if case_payload is not None:
-        report.case_file = verify_case_file(case_payload)
+        # The case-file part is the combined verification (N-version
+        # replay AND primary-path seal check) — see
+        # verify_case_file_combined.  A file must pass both.
+        report.case_file = verify_case_file_combined(case_payload)
         results.append(report.case_file)
 
     if calibration_artifact is not None:
@@ -536,7 +654,9 @@ def verify_case_file_path(path: str | Path) -> VerificationReport:
 
 __all__ = [
     "verify_case_file",
+    "verify_case_file_combined",
     "verify_case_file_path",
+    "verify_case_file_path_combined",
     "verify_calibration",
     "verify_benchmark",
     "verify_all",
