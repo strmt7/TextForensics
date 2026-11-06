@@ -619,3 +619,51 @@ Final verification at HEAD `2e2d81a` (2026-11-06):
 - **PAN 2025**: untouched in wave 1 (wave 2, gated on Greg's TIRA
   registration). RealDet / CrisisFake: no loader (no verified
   route). MultiSocial: dropped by Greg's decision.
+
+### CI fixes after the wave-1 push (2026-11-06)
+
+CI run 42291714530 on head `5919a8a` was RED: all five Core jobs
+failed at pre-commit hooks; the claims-gate job passed, as did
+Reproducibility, Supply-chain, Scorecard, Semver and Repository
+Integrity. No test ran in Core (pre-commit aborts first).
+
+- Failure 1 — `end-of-file-fixer`: wave 1 left a trailing blank
+  line at the end of this file. Fixed by committing the hook's own
+  change (commit `f545c52`).
+- Failure 2 — `detect-secrets`: the hook flagged 12 hex values wave
+  1 added as "Hex High Entropy String": the 4 dataset `code_version`
+  commit SHAs, the 4 `cache_file_sha256` values and the 4 registry
+  `run_artifact_sha256` values. Every value was audited by
+  recomputation (44/44 checks): each `code_version` is a real commit
+  and an ancestor of HEAD; each cache hash equals the manifest
+  `file_sha256` and the recomputed SHA-256 of the local cache file;
+  each registry hash equals the recomputed SHA-256 of its artifact
+  file. No credentials, tokens or keys. Only the 12 audited entries
+  were grafted into `.secrets.baseline` (80 -> 92 entries, 0 dropped;
+  commit `e142bbd`).
+- The hook itself then normalised the 40 legacy backslash-keyed
+  baseline entries to forward slashes and refreshed stale registry
+  line numbers on its first run (exit 3, by design); that rewrite was
+  verified entry-by-entry (same 92 hashed secrets,
+  plugins/filters/version unchanged) and staged. This permanently
+  removes the backslash-key trap documented after the U7 fix: future
+  baseline updates can no longer silently drop those entries. Four
+  legacy entries for hook-excluded test files still carry stale line
+  numbers from the 2026-11-02 Windows baseline; they are untouched
+  (pre-existing, excluded from the scan) and are not a regression.
+- Gitleaks 8.24.3 (CI version): range `5919a8a^..HEAD` and wider
+  range `1cf9716^..HEAD`: **0 leaks**, exit 0. The `.gitleaks.toml`
+  path allowlist for `.secrets.baseline` covers the new entries.
+
+### Measured numbers after the wave-1 CI fixes (HEAD `e142bbd`, 2026-11-06, Python 3.12.3)
+
+- Full suite, extras venv: **2395 passed, 1 failed, 86%** coverage
+  (11,840 stmts, 1,328 missed, 3,988 branches, 571 partial) in
+  134.28 s. The 1 failure is the known `test_memory_check`
+  host-memory flake (VM at ~94% memory; passes in isolation — 1
+  passed in 0.48 s immediately afterwards).
+- pre-commit `--all-files`: **13 hooks pass, 0 fail**.
+- Claims gate: **33 passed, 0 failed**; report-card diff clean.
+- ruff: 0 errors. Schemas: 7 OK.
+- Seeded wave-1 evidence records: unchanged — no re-seeding was
+  needed or done; the wave-1 measured numbers above still stand.
