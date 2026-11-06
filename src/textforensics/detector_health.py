@@ -29,10 +29,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from textforensics.pipeline import PipelineOrchestrator
+from typing import Any
 
 __all__ = [
     "HealthState",
@@ -503,10 +500,6 @@ class HighLevelDetectorHealthMonitor:
         alert_callback: Callable[[HealthAlert], None] | None = None,
     ):
         self.monitor = DetectorHealthMonitor(max_history, alert_callback)
-        self._orchestrator: PipelineOrchestrator | None = None
-
-    def set_orchestrator(self, orchestrator: PipelineOrchestrator) -> None:
-        self._orchestrator = orchestrator
 
     def record_detector_result(
         self,

@@ -382,15 +382,6 @@ class TestHighLevelDetectorHealthMonitor:
         rh = h.get_detector_health("dy")
         assert rh.overall_state == HealthState.HEALTHY
 
-    def test_set_orchestrator(self):
-        h = create_detector_health_monitor()
-        # Just verify it accepts the call without error
-        class MockOrchestrator:
-            pass
-
-        h.set_orchestrator(MockOrchestrator())
-        assert h._orchestrator is not None
-
     def test_get_all_health(self):
         h = create_detector_health_monitor()
         h.record_detector_result("d1", 10.0, score=0.5, is_error=False)

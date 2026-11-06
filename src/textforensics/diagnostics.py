@@ -39,7 +39,6 @@ import psutil
 
 if TYPE_CHECKING:
     from textforensics.engine import Engine
-    from textforensics.pipeline import PipelineOrchestrator
 
 __all__ = [
     "ReadinessState",
@@ -351,11 +350,9 @@ class DiagnosticsEngine:
     def __init__(
         self,
         engine: Engine | None = None,
-        pipeline_orchestrator: PipelineOrchestrator | None = None,
         storage_paths: list[Path] | None = None,
     ):
         self.engine = engine
-        self.pipeline_orchestrator = pipeline_orchestrator
         self.storage_paths = storage_paths or [Path.cwd()]
         self.metrics_collector = MetricsCollector()
         self.readiness_assessor = ReadinessAssessor()
@@ -552,11 +549,10 @@ class DiagnosticsEngine:
 
 def create_diagnostics_engine(
     engine: Engine | None = None,
-    pipeline_orchestrator: PipelineOrchestrator | None = None,
     storage_paths: list[Path] | None = None,
 ) -> DiagnosticsEngine:
     """Create a diagnostics engine with default configuration."""
-    return DiagnosticsEngine(engine, pipeline_orchestrator, storage_paths)
+    return DiagnosticsEngine(engine, storage_paths)
 
 
 # Convenience function for quick diagnostics
