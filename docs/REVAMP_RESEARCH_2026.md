@@ -215,6 +215,8 @@ Source: <https://artificialintelligenceact.eu/article/50/>
 
 The C2PA specification (2.2/2.5) defines cryptographically signed provenance metadata for digital content. C2PA is a **provenance** mechanism. It can coexist with detector evidence, but it is not a text detector and cannot by itself establish human authorship.
 
+Verified 2026-11-06 against the C2PA specification version history (spec.c2pa.org): 2.5 is current (October 2026); 2.4 April 2026; 2.3 December 2025; 2.2 May 2025. The source link below points at the 2.2 specification.
+
 Source: <https://c2pa.org/specifications/specifications/2.2/index.html>
 
 ### 5.3 NIST AI Risk Management Framework
