@@ -551,11 +551,20 @@ def check_disjointness(
 
     This is critical for preventing benchmark contamination.
 
+    Fail-closed: if the content hashes for either dataset cannot be
+    computed, the check is unverifiable and the result must NOT claim
+    disjointness. ``disjoint`` is False, ``verified`` is False, and the
+    reason is recorded in ``errors`` (and ``warnings``). A caller that
+    checks only ``disjoint`` therefore treats an unreadable dataset as
+    contaminated, never as clean.
+
     Returns a result dict with:
         - disjoint: True if datasets have no overlapping samples
         - shared_samples: count of overlapping samples
         - shared_hashes: list of shared content hashes
         - warnings: list of potential issues
+        - errors: list of failures that prevented verification
+        - verified: True only if both datasets were hashed successfully
     """
     path1 = Path(path1)
     path2 = Path(path2)
@@ -565,6 +574,8 @@ def check_disjointness(
         "shared_samples": 0,
         "shared_hashes": [],
         "warnings": [],
+        "errors": [],
+        "verified": True,
     }
 
     # Compute hashes for both datasets
@@ -574,13 +585,21 @@ def check_disjointness(
     try:
         hashes1_raw, _ = _compute_sample_hashes(path1, strict=strict)
     except Exception as exc:
-        result["warnings"].append(f"Could not compute hashes for path1: {exc}")
+        message = f"Could not compute hashes for path1: {exc}"
+        result["warnings"].append(message)
+        result["errors"].append(message)
+        result["disjoint"] = False
+        result["verified"] = False
         return result
 
     try:
         hashes2_raw, _ = _compute_sample_hashes(path2, strict=strict)
     except Exception as exc:
-        result["warnings"].append(f"Could not compute hashes for path2: {exc}")
+        message = f"Could not compute hashes for path2: {exc}"
+        result["warnings"].append(message)
+        result["errors"].append(message)
+        result["disjoint"] = False
+        result["verified"] = False
         return result
 
     hashes1 = set(hashes1_raw)
@@ -629,7 +648,9 @@ def validate_disjointness(
     """Validate that calibration and evaluation datasets are disjoint.
 
     Raises:
-        ValueError: If datasets share samples (contamination detected).
+        ValueError: If datasets share samples (contamination detected),
+            or if disjointness could not be verified (fail-closed: an
+            unverifiable check is refused, never passed).
     """
     result = check_disjointness(
         calibration_path,
@@ -637,6 +658,13 @@ def validate_disjointness(
         evaluation_path,
         evaluation_fp,
     )
+
+    if result.get("errors"):
+        raise ValueError(
+            "Benchmark disjointness could not be verified: "
+            + "; ".join(result["errors"])
+            + ". Refusing to treat unverifiable datasets as disjoint."
+        )
 
     if not result["disjoint"]:
         raise ValueError(

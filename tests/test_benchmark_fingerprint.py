@@ -672,6 +672,102 @@ class CheckDisjointnessErrorHandlingTests(unittest.TestCase):
             self.assertTrue(len(result["warnings"]) > 0)
 
 
+class CheckDisjointnessFailClosedTests(unittest.TestCase):
+    """Fail-closed regression tests: an unverifiable check is never clean.
+
+    If the content hashes for either dataset cannot be computed (missing
+    or corrupt input), ``check_disjointness`` must not report the pair as
+    disjoint — a caller checking only ``disjoint`` would otherwise treat
+    an unreadable dataset as clean (the pre-fix fail-open behaviour).
+    """
+
+    def test_missing_path1_is_not_disjoint(self):
+        """Test that a missing first dataset is never reported disjoint."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path1 = Path(tmp) / "missing.jsonl"
+            path2 = Path(tmp) / "good.jsonl"
+            write_test_dataset(path2)
+
+            fp1 = DatasetFingerprint(
+                name="Test",
+                version="1.0",
+                split="calibration",
+                dataset_hash="a" * 64,
+            )
+            fp2 = fingerprint_dataset(path2, name="Test", version="1.0", split="evaluation")
+
+            result = check_disjointness(path1, fp1, path2, fp2)
+            self.assertFalse(result["disjoint"])
+            self.assertFalse(result["verified"])
+            self.assertTrue(len(result["errors"]) > 0)
+            self.assertTrue(len(result["warnings"]) > 0)
+
+    def test_missing_path2_is_not_disjoint(self):
+        """Test that a missing second dataset is never reported disjoint."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path1 = Path(tmp) / "good.jsonl"
+            path2 = Path(tmp) / "missing.jsonl"
+            write_test_dataset(path1)
+
+            fp1 = fingerprint_dataset(path1, name="Test", version="1.0", split="calibration")
+            fp2 = DatasetFingerprint(
+                name="Test",
+                version="1.0",
+                split="evaluation",
+                dataset_hash="b" * 64,
+            )
+
+            result = check_disjointness(path1, fp1, path2, fp2)
+            self.assertFalse(result["disjoint"])
+            self.assertFalse(result["verified"])
+            self.assertTrue(len(result["errors"]) > 0)
+
+    def test_corrupt_file_is_not_disjoint(self):
+        """Test that a corrupt dataset is never reported disjoint."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path1 = Path(tmp) / "corrupt.jsonl"
+            path2 = Path(tmp) / "good.jsonl"
+            path1.write_text(
+                '{"label": "human", "text": "I tested device one"}\nnot json\n',
+                encoding="utf-8",
+            )
+            write_test_dataset(path2)
+
+            fp1 = DatasetFingerprint(
+                name="Test",
+                version="1.0",
+                split="calibration",
+                dataset_hash="c" * 64,
+            )
+            fp2 = fingerprint_dataset(path2, name="Test", version="1.0", split="evaluation")
+
+            result = check_disjointness(path1, fp1, path2, fp2)
+            self.assertFalse(result["disjoint"])
+            self.assertFalse(result["verified"])
+            self.assertTrue(len(result["errors"]) > 0)
+
+    def test_validate_disjointness_raises_on_unverifiable(self):
+        """Test that validate_disjointness refuses unverifiable datasets."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path1 = Path(tmp) / "missing.jsonl"
+            path2 = Path(tmp) / "good.jsonl"
+            write_test_dataset(path2)
+
+            fp1 = DatasetFingerprint(
+                name="Test",
+                version="1.0",
+                split="calibration",
+                dataset_hash="a" * 64,
+            )
+            fp2 = fingerprint_dataset(path2, name="Test", version="1.0", split="evaluation")
+
+            with self.assertRaises(ValueError) as ctx:
+                validate_disjointness(path1, fp1, path2, fp2)
+
+            self.assertIn("could not be verified", str(ctx.exception).lower())
+            self.assertNotIn("contamination", str(ctx.exception).lower())
+
+
 class LoadFingerprintTests(unittest.TestCase):
     """Tests for load_fingerprint function."""
 
