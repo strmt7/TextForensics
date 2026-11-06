@@ -4,16 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from textforensics.capability_ledger import (
+from textforensics.policy import (
     CapabilityClaim,
     CapabilityLedger,
+    CapabilityPolicy,
+    CapabilityPolicyEngine,
     EvidenceLabel,
     EvidenceRef,
     EvidenceTier,
-)
-from textforensics.capability_policy import (
-    CapabilityPolicy,
-    CapabilityPolicyEngine,
     PolicyResult,
     create_calibration_policy,
     create_minimum_viable_policy,

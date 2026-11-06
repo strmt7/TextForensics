@@ -7,14 +7,12 @@ from hypothesis import given
 from hypothesis import settings as hypothesis_settings
 from hypothesis import strategies as st
 
-from textforensics.capability_ledger import (
+from textforensics.policy import (
     CapabilityClaim,
     CapabilityLedger,
-    EvidenceTier,
-)
-from textforensics.capability_policy import (
     CapabilityPolicy,
     CapabilityPolicyEngine,
+    EvidenceTier,
     PolicyResult,
     create_production_policy,
 )

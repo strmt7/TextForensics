@@ -12,7 +12,7 @@ mutation:
     - "textforensics.detectors"      # detector prediction validation, schemas
     - "textforensics.analyzers"      # text analysis, scoring primitives
     - "textforensics.engine"         # core analysis pipeline
-    - "textforensics.capability_ledger"  # capability claims, evidence tiers
+    - "textforensics.policy"  # capability claims, evidence tiers
     - "textforensics.casefile"       # case file construction, provenance
     - "textforensics.robustness"     # benign transformation stability
 
@@ -31,7 +31,7 @@ mutation:
     - "textforensics.rich_output"
     - "textforensics.schema"
     - "textforensics.verify"
-    - "textforensics.provenance"
+    - "textforensics.ledger"
     - "textforensics.bundle"
     - "textforensics.benchmark_fingerprint"
     - "textforensics.drift"

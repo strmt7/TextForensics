@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from textforensics.provenance import (
+from textforensics.ledger import (
     _verify_ledger_unlocked,
     sha256_bytes,
     snapshot_file,

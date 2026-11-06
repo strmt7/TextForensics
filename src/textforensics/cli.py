@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import sys
 from pathlib import Path
@@ -10,13 +9,6 @@ from typing import Any
 from ._build_info import (
     get_build_info,
     verify_build_identity,
-)
-from .audit_anchor import (
-    AuditAnchor,
-    CalibrationChain,
-    RollbackError,
-    export_audit_anchor,
-    verify_audit_anchor,
 )
 from .benchmark import (
     benchmark_jsonl,
@@ -29,13 +21,6 @@ from .benchmark_fingerprint import (
     fingerprint_dataset,
 )
 from .bundle import list_bundle, pack_bundle, verify_bundle
-from .capability_ledger import (
-    CapabilityClaim,
-    CapabilityLedger,
-    EvidenceLabel,
-    EvidenceRef,
-    EvidenceTier,
-)
 from .casefile import verify_case_file_path, write_case_file
 from .compare import compare_texts
 from .config import Settings, read_text_file, validate_text_input
@@ -52,6 +37,15 @@ from .emergency_stop import (
     check_emergency_stop,
 )
 from .engine import analyze_text
+from .ledger import (
+    AuditAnchor,
+    CalibrationChain,
+    RollbackError,
+    export_audit_anchor,
+    snapshot_file,
+    verify_audit_anchor,
+    verify_ledger,
+)
 from .localize import (
     detect_anomalous_segments,
     localize_text,
@@ -59,7 +53,13 @@ from .localize import (
     visual_diff,
 )
 from .naturalness import audit_naturalness
-from .provenance import snapshot_file, verify_ledger
+from .policy import (
+    CapabilityClaim,
+    CapabilityLedger,
+    EvidenceLabel,
+    EvidenceRef,
+    EvidenceTier,
+)
 from .report import build_forensic_bundle
 from .verify import verify_all
 from .version import get_version
@@ -69,7 +69,7 @@ from .webapp import serve as serve_webapp
 # Lazy imports for enterprise features (dependency optional)
 def _import_enterprise():
     """Lazily import enterprise policy module."""
-    from . import enterprise_policy as ep
+    from . import policy as ep
 
     return ep
 
@@ -1377,27 +1377,15 @@ def _run_policy_command(args: argparse.Namespace) -> int:
                 print(f"  - {err}", file=sys.stderr)
             return EXIT_INCOMPLETE
 
-        # Compute digest
-        computed_digest = hashlib.sha256(
-            json.dumps(
-                {
-                    "revision": policy_data["revision"],
-                    "settings": policy_data.get("settings", {}),
-                    "rules": [
-                        {
-                            "id": r["id"],
-                            "description": r["description"],
-                            "action": r["action"],
-                            "scope": r["scope"],
-                        }
-                        for r in policy_data.get("rules", [])
-                    ],
-                },
-                sort_keys=True,
-                separators=(",", ":"),
-                ensure_ascii=True,
-            ).encode("utf-8")
-        ).hexdigest()
+        # Compute digest (single implementation: ep.compute_policy_digest)
+        computed_digest = ep.compute_policy_digest(
+            ep.EnterprisePolicy(
+                revision=int(policy_data["revision"]),
+                digest="",
+                settings=dict(policy_data.get("settings", {})),
+                rules=[dict(r) for r in policy_data.get("rules", [])],
+            )
+        )
 
         # Check digest if provided
         if "digest" in policy_data and policy_data["digest"] != computed_digest:
@@ -1445,27 +1433,15 @@ def _run_policy_command(args: argparse.Namespace) -> int:
                 print(f"error: failed to read policy file: {exc}", file=sys.stderr)
                 return EXIT_ERROR
 
-            # Compute digest
-            computed_digest = hashlib.sha256(
-                json.dumps(
-                    {
-                        "revision": policy_data["revision"],
-                        "settings": policy_data.get("settings", {}),
-                        "rules": [
-                            {
-                                "id": r["id"],
-                                "description": r["description"],
-                                "action": r["action"],
-                                "scope": r["scope"],
-                            }
-                            for r in policy_data.get("rules", [])
-                        ],
-                    },
-                    sort_keys=True,
-                    separators=(",", ":"),
-                    ensure_ascii=True,
-                ).encode("utf-8")
-            ).hexdigest()
+            # Compute digest (single implementation: ep.compute_policy_digest)
+            computed_digest = ep.compute_policy_digest(
+                ep.EnterprisePolicy(
+                    revision=int(policy_data["revision"]),
+                    digest="",
+                    settings=dict(policy_data.get("settings", {})),
+                    rules=[dict(r) for r in policy_data.get("rules", [])],
+                )
+            )
 
             policy = ep.EnterprisePolicy(
                 revision=int(policy_data["revision"]),
@@ -1508,27 +1484,15 @@ def _run_policy_command(args: argparse.Namespace) -> int:
                 print(f"  - {err}", file=sys.stderr)
             return EXIT_INCOMPLETE
 
-        # Compute digest
-        computed_digest = hashlib.sha256(
-            json.dumps(
-                {
-                    "revision": policy_data["revision"],
-                    "settings": policy_data.get("settings", {}),
-                    "rules": [
-                        {
-                            "id": r["id"],
-                            "description": r["description"],
-                            "action": r["action"],
-                            "scope": r["scope"],
-                        }
-                        for r in policy_data.get("rules", [])
-                    ],
-                },
-                sort_keys=True,
-                separators=(",", ":"),
-                ensure_ascii=True,
-            ).encode("utf-8")
-        ).hexdigest()
+        # Compute digest (single implementation: ep.compute_policy_digest)
+        computed_digest = ep.compute_policy_digest(
+            ep.EnterprisePolicy(
+                revision=int(policy_data["revision"]),
+                digest="",
+                settings=dict(policy_data.get("settings", {})),
+                rules=[dict(r) for r in policy_data.get("rules", [])],
+            )
+        )
 
         if "digest" in policy_data and policy_data["digest"] != computed_digest:
             print(

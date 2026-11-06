@@ -34,7 +34,7 @@ from .detectors import (
 )
 from .evidence import EvidenceRegistry, load_registry
 from .features import extract_features
-from .provenance import verify_ledger
+from .ledger import verify_ledger
 from .robustness import benign_variants
 from .trust import TrustMap, assess_trust_map
 

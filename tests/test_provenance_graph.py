@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from textforensics.provenance_graph import (
+from textforensics.ledger import (
     ProvenanceEdge,
     ProvenanceGraph,
     ProvenanceGraphError,

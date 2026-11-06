@@ -41,15 +41,6 @@ from .calibration import (
     save_calibration_artifact,
     validate_calibration_artifact,
 )
-from .capability_ledger import (
-    CapabilityClaim,
-    CapabilityLedger,
-    EvidenceLabel,
-    EvidenceRef,
-    EvidenceTier,
-    ledger_to_trust_dimension,
-    validate_claim,
-)
 from .casefile import (
     replay_case_file,
     replay_case_file_path,
@@ -121,6 +112,15 @@ from .explain import (
     load_explanation_report,
     save_explanation_report,
     split_sentences,
+)
+from .policy import (
+    CapabilityClaim,
+    CapabilityLedger,
+    EvidenceLabel,
+    EvidenceRef,
+    EvidenceTier,
+    ledger_to_trust_dimension,
+    validate_claim,
 )
 from .report import ForensicBundle, VerdictIntegrity, build_forensic_bundle
 from .semantic import (
@@ -274,9 +274,9 @@ __version__ = get_version()
 
 def _import_enterprise_policy():
     """Lazily import the optional enterprise-policy module."""
-    from . import enterprise_policy
+    from . import policy
 
-    return enterprise_policy
+    return policy
 
 
 def _import_telemetry():

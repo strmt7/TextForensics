@@ -453,18 +453,18 @@ def trust_map_from_capability_ledger(ledger: Any) -> TrustMap:
     evidence-conditioned, intentionally stays on schema v1, and must not be
     presented as a Trust Map v2 result.
     """
-    from .capability_ledger import EvidenceTier
+    from .policy import EvidenceTier
 
     dimensions: list[TrustDimension] = []
     detector_capabilities: dict[str, set[str]] = {}
-    for detector_id, claims in ledger._claims.items():
+    for detector_id, claims in ledger.claims().items():
         capabilities: set[str] = set()
         for claim in claims:
             capabilities.add(claim.capability)
         detector_capabilities[detector_id] = capabilities
 
     for detector_id in sorted(detector_capabilities):
-        claims = ledger._claims.get(detector_id, [])
+        claims = ledger.claims().get(detector_id, [])
         for capability in sorted(detector_capabilities[detector_id]):
             relevant = [claim for claim in claims if claim.capability == capability]
             evidence_refs: list[str] = []

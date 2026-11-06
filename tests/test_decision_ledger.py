@@ -8,7 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from textforensics.decision_ledger import (
+from textforensics.detectors import DetectorPrediction
+from textforensics.ledger import (
     DecisionLedger,
     DecisionLedgerError,
     DecisionRecord,
@@ -18,7 +19,6 @@ from textforensics.decision_ledger import (
     save_ledger,
     text_sha256,
 )
-from textforensics.detectors import DetectorPrediction
 
 
 def make_prediction(

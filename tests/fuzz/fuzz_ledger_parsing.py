@@ -23,7 +23,7 @@ def TestOneInput(data: bytes) -> None:
 
     # Test verify_ledger with fuzzed input
     try:
-        from textforensics.provenance import _verify_ledger_unlocked, verify_ledger
+        from textforensics.ledger import _verify_ledger_unlocked, verify_ledger
 
         with tempfile.TemporaryDirectory() as tmpdir:
             ledger_path = Path(tmpdir) / "test_ledger.jsonl"
@@ -41,7 +41,7 @@ def TestOneInput(data: bytes) -> None:
 
     # Test _verify_ledger_unlocked with individual JSON lines
     try:
-        from textforensics.provenance import (
+        from textforensics.ledger import (
             _canonical_record_payload,
             _verify_ledger_unlocked,
             sha256_bytes,
@@ -87,7 +87,7 @@ def TestOneInput(data: bytes) -> None:
 
     # Test snapshot_file with fuzzed inputs
     try:
-        from textforensics.provenance import snapshot_file
+        from textforensics.ledger import snapshot_file
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)

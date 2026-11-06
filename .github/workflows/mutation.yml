@@ -62,7 +62,7 @@ jobs:
             BASE_SHA="origin/main"
           fi
           echo "base_sha=$BASE_SHA" >> $GITHUB_OUTPUT
-          git diff --name-only $BASE_SHA...HEAD -- '*.py' | grep -E '^src/textforensics/(benchmark|trust|consensus|threshold_selection|detectors|analyzers|engine|capability_ledger|casefile|robustness)\.py$' || true
+          git diff --name-only $BASE_SHA...HEAD -- '*.py' | grep -E '^src/textforensics/(benchmark|trust|consensus|threshold_selection|detectors|analyzers|engine|policy|casefile|robustness)\.py$' || true
 
       - name: Run diff-based mutation testing
         if: steps.changed-files.outputs.changed_files != ''

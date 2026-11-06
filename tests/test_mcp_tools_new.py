@@ -126,7 +126,7 @@ class TestResultCodecMCP:
 class TestCapabilityPolicyMCP:
     def test_capability_policy_evaluate_production(self):
         """Evaluate production policy."""
-        from textforensics.capability_ledger import (
+        from textforensics.policy import (
             CapabilityClaim,
             CapabilityLedger,
             EvidenceLabel,
@@ -174,7 +174,7 @@ class TestCapabilityPolicyMCP:
 
     def test_capability_policy_evaluate_report(self):
         """Evaluate report policy."""
-        from textforensics.capability_ledger import (
+        from textforensics.policy import (
             CapabilityClaim,
             CapabilityLedger,
             EvidenceLabel,
@@ -206,7 +206,7 @@ class TestCapabilityPolicyMCP:
 
     def test_capability_policy_evaluate_calibration(self):
         """Evaluate calibration policy."""
-        from textforensics.capability_ledger import (
+        from textforensics.policy import (
             CapabilityClaim,
             CapabilityLedger,
             EvidenceLabel,
@@ -238,7 +238,7 @@ class TestCapabilityPolicyMCP:
 
     def test_capability_policy_evaluate_minimum(self):
         """Evaluate minimum policy."""
-        from textforensics.capability_ledger import (
+        from textforensics.policy import (
             CapabilityClaim,
             CapabilityLedger,
             EvidenceTier,
@@ -269,7 +269,7 @@ class TestCapabilityPolicyMCP:
 
     def test_capability_policy_evaluate_custom_policy(self):
         """Custom policy rules should work."""
-        from textforensics.capability_ledger import (
+        from textforensics.policy import (
             CapabilityClaim,
             CapabilityLedger,
             EvidenceTier,

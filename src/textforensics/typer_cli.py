@@ -451,7 +451,7 @@ def capability_register(
 ):
     """Register a capability claim in the ledger."""
     try:
-        from .capability_ledger import (
+        from .policy import (
             CapabilityClaim,
             CapabilityLedger,
             EvidenceLabel,
@@ -514,7 +514,7 @@ def capability_check(
 ):
     """Check whether a capability claim is validated."""
     try:
-        from .capability_ledger import CapabilityLedger
+        from .policy import CapabilityLedger
 
         ledger_path = (
             ledger or Path(__file__).resolve().parent.parent.parent / "capability_ledger.json"
@@ -564,7 +564,7 @@ def capability_list(
 ):
     """List all registered capabilities."""
     try:
-        from .capability_ledger import CapabilityLedger
+        from .policy import CapabilityLedger
 
         ledger_path = (
             ledger or Path(__file__).resolve().parent.parent.parent / "capability_ledger.json"
@@ -595,7 +595,7 @@ def capability_export(
 ):
     """Export the capability ledger as JSON."""
     try:
-        from .capability_ledger import CapabilityLedger
+        from .policy import CapabilityLedger
 
         ledger_path = (
             ledger or Path(__file__).resolve().parent.parent.parent / "capability_ledger.json"
@@ -637,8 +637,8 @@ def capability_policy(
       minimum     - requires READABLE documentation
     """
     try:
-        from .capability_ledger import CapabilityLedger
-        from .capability_policy import (
+        from .policy import (
+            CapabilityLedger,
             create_calibration_policy,
             create_minimum_viable_policy,
             create_production_policy,
@@ -1174,7 +1174,7 @@ def snapshot(
 ):
     """Append a tamper-evident draft snapshot to a local ledger."""
     try:
-        from .provenance import snapshot_file
+        from .ledger import snapshot_file
 
         result = snapshot_file(str(file), str(ledger or ".textforensics-ledger.jsonl"))
         _write_json(None, result)
@@ -1189,7 +1189,7 @@ def verify_ledger_cmd(
 ):
     """Verify the local provenance ledger hash chain."""
     try:
-        from .provenance import verify_ledger
+        from .ledger import verify_ledger
 
         result = verify_ledger(str(ledger or ".textforensics-ledger.jsonl"))
         _write_json(None, result)

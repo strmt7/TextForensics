@@ -8,7 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from textforensics.audit_anchor import (
+from textforensics.constants import EXIT_ERROR
+from textforensics.ledger import (
     SCHEMA_VERSION,
     AuditAnchor,
     CalibrationChain,
@@ -16,7 +17,6 @@ from textforensics.audit_anchor import (
     export_audit_anchor,
     verify_audit_anchor,
 )
-from textforensics.constants import EXIT_ERROR
 
 # ---------------------------------------------------------------------------
 # Helpers

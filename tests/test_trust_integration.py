@@ -10,14 +10,14 @@ import json
 import unittest
 from pathlib import Path
 
-from textforensics.capability_ledger import (
+from textforensics.casefile import seal_case_file
+from textforensics.policy import (
     CapabilityClaim,
     CapabilityLedger,
     EvidenceLabel,
     EvidenceRef,
     EvidenceTier,
 )
-from textforensics.casefile import seal_case_file
 from textforensics.report import build_forensic_bundle
 from textforensics.trust import trust_map_from_capability_ledger
 

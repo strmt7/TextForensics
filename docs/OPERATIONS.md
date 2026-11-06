@@ -188,7 +188,7 @@ print('FPR:', artifact['observed_false_positive_rate'])
 ```bash
 # Verify ledger chain integrity after restore
 python -c "
-from textforensics import verify_ledger
+from textforensics.ledger import verify_ledger
 result = verify_ledger('data/provenance/ledger.jsonl')
 print('Valid:', result['valid'], 'Records:', result['records'])
 if result['errors']:

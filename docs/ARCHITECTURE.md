@@ -147,7 +147,7 @@ Longitudinal detector reliability tracking:
 - `compare_snapshots(baseline, current)` produces a per-detector drift report
 - Metrics: score distribution shift, verdict flips, threshold changes, calibration drift, human-slice FPR, provider metadata changes, supported regime changes
 
-### 1.9 Capability Ledger (`src/textforensics/capability_ledger.py`)
+### 1.9 Capability Ledger (`src/textforensics/policy.py`)
 
 Mechanical claim gating for detector capabilities:
 - Three evidence tiers: `READABLE`, `TOOL_BACKED`, `VALIDATED`

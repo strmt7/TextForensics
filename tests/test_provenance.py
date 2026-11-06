@@ -6,7 +6,7 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from textforensics.provenance import (
+from textforensics.ledger import (
     _canonical_record_payload,
     _verify_ledger_unlocked,
     sha256_bytes,

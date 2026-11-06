@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from textforensics.audit_log import (
+from textforensics.ledger import (
     AuditLog,
     AuditLogEntry,
     AuditLogError,

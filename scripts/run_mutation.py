@@ -239,7 +239,7 @@ def main():
         "textforensics.detectors",
         "textforensics.analyzers",
         "textforensics.engine",
-        "textforensics.capability_ledger",
+        "textforensics.policy",
         "textforensics.casefile",
         "textforensics.robustness",
     ]

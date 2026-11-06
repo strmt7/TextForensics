@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from textforensics.detectors import BuiltinHeuristicDetector
-from textforensics.provenance import snapshot_file
+from textforensics.ledger import snapshot_file
 
 
 def generate_json_corpus(output_dir: Path) -> None:

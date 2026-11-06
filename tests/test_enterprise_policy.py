@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from textforensics.enterprise_policy import (
+from textforensics.policy import (
     EnterprisePolicy,
     EnterprisePolicyEngine,
     PolicyRevisionFloor,

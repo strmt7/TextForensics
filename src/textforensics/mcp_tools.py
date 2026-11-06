@@ -17,7 +17,9 @@ from .benchmark_fingerprint import (
 from .benchmark_fingerprint import (
     fingerprint_dataset as _fingerprint_dataset,
 )
-from .capability_ledger import (
+from .casefile import verify_case_file as casefile_verify
+from .drift import DriftObservatory
+from .policy import (
     CapabilityClaim,
     CapabilityLedger,
     EvidenceLabel,
@@ -25,8 +27,6 @@ from .capability_ledger import (
     EvidenceTier,
     validate_claim,
 )
-from .casefile import verify_case_file as casefile_verify
-from .drift import DriftObservatory
 from .verify import verify_case_file as nversion_verify
 
 # ---------------------------------------------------------------------------
@@ -191,7 +191,7 @@ def capability_list(params: dict[str, Any]) -> dict[str, Any]:
     detector_filter = params.get("detector_id")
 
     result = {}
-    for det_id, claims in ledger._claims.items():
+    for det_id, claims in ledger.claims().items():
         if detector_filter and det_id != detector_filter:
             continue
         result[det_id] = [
@@ -585,8 +585,8 @@ def capability_policy_evaluate(params: dict[str, Any]) -> dict[str, Any]:
         return _error_response("ledger must be a dict", constants.EXIT_ERROR)
 
     try:
-        from .capability_ledger import CapabilityLedger
-        from .capability_policy import (
+        from .policy import (
+            CapabilityLedger,
             CapabilityPolicy,
             CapabilityPolicyEngine,
             create_calibration_policy,

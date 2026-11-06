@@ -96,7 +96,7 @@ These are derived from `AGENTS.md` and are enforced in code and tests.
 | `trust.py` | Aggregation of per-detector coverage and live observations into Trust Map v2. |
 | `calibration.py` | Fit/apply/validate detector-local calibration; fail-closed semantics. |
 | `detectors.py` | TFDP/2 protocol, prediction validation, plugin discovery, execution isolation. |
-| `capability_ledger.py` | Claim records tied to verified evidence artifacts and expiry. |
+| `policy.py` | Claim records tied to verified evidence artifacts and expiry. |
 | `report.py` | Forensic Bundle v2 orchestration and deterministic serialization. |
 | `casefile.py` | Sealed case file, portable manifest, replay. |
 | `verify.py` | Independent re-derivation and verification paths. |

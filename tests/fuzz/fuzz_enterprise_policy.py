@@ -35,7 +35,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 def _fuzz_policy_from_dict(text: str) -> None:
     """Fuzz EnterprisePolicy.from_dict with malformed data."""
     try:
-        from textforensics.enterprise_policy import EnterprisePolicy
+        from textforensics.policy import EnterprisePolicy
     except Exception:
         return
 
@@ -104,7 +104,7 @@ def _fuzz_policy_from_dict(text: str) -> None:
 def _fuzz_policy_state(text: str) -> None:
     """Fuzz PolicyState.from_dict / to_dict."""
     try:
-        from textforensics.enterprise_policy import PolicyState
+        from textforensics.policy import PolicyState
     except Exception:
         return
 
@@ -137,7 +137,7 @@ def _fuzz_policy_state(text: str) -> None:
 def _fuzz_revision_floor(text: str) -> None:
     """Fuzz PolicyRevisionFloor: check_policy and advance_floor."""
     try:
-        from textforensics.enterprise_policy import (
+        from textforensics.policy import (
             EnterprisePolicy,
             PolicyRevisionFloor,
         )
@@ -217,7 +217,7 @@ def _fuzz_revision_floor(text: str) -> None:
 def _fuzz_policy_engine(text: str) -> None:
     """Fuzz EnterprisePolicyEngine: load_policy, evaluate, get_status."""
     try:
-        from textforensics.enterprise_policy import (
+        from textforensics.policy import (
             EnterprisePolicyEngine,
             PolicyRevisionFloor,
         )
@@ -298,7 +298,7 @@ def _fuzz_policy_engine(text: str) -> None:
 def _fuzz_policy_validation(text: str) -> None:
     """Fuzz validate_enterprise_policy with fuzzed dicts."""
     try:
-        from textforensics.enterprise_policy import validate_enterprise_policy
+        from textforensics.policy import validate_enterprise_policy
     except Exception:
         return
 
@@ -332,7 +332,7 @@ def _fuzz_policy_validation(text: str) -> None:
 def _fuzz_compute_digest(text: str) -> None:
     """Fuzz compute_policy_digest."""
     try:
-        from textforensics.enterprise_policy import (
+        from textforensics.policy import (
             EnterprisePolicy,
             compute_policy_digest,
         )
@@ -356,7 +356,7 @@ def _fuzz_compute_digest(text: str) -> None:
 def _fuzz_engine_evaluate_scopes(text: str) -> None:
     """Fuzz EnterprisePolicyEngine.evaluate with varied scopes and rule actions."""
     try:
-        from textforensics.enterprise_policy import EnterprisePolicyEngine
+        from textforensics.policy import EnterprisePolicyEngine
     except Exception:
         return
 
@@ -404,7 +404,7 @@ def _fuzz_engine_evaluate_scopes(text: str) -> None:
 def _fuzz_engine_load_policy_schema(text: str) -> None:
     """Fuzz load_policy with schema-violating inputs to trigger validation errors."""
     try:
-        from textforensics.enterprise_policy import EnterprisePolicyEngine
+        from textforensics.policy import EnterprisePolicyEngine
     except Exception:
         return
 
@@ -434,7 +434,7 @@ def _fuzz_engine_load_policy_schema(text: str) -> None:
 def _fuzz_policy_state_save_load(text: str) -> None:
     """Fuzz PolicyState save/load round-trip via PolicyRevisionFloor."""
     try:
-        from textforensics.enterprise_policy import (
+        from textforensics.policy import (
             PolicyRevisionFloor,
             PolicyState,
         )
@@ -485,7 +485,7 @@ def _fuzz_policy_state_save_load(text: str) -> None:
 def _fuzz_enterprise_policy_from_dict_edge(text: str) -> None:
     """Fuzz EnterprisePolicy.from_dict with extreme type mismatches."""
     try:
-        from textforensics.enterprise_policy import EnterprisePolicy
+        from textforensics.policy import EnterprisePolicy
     except Exception:
         return
 

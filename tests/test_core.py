@@ -4,9 +4,9 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from textforensics import analyze_text, compare_texts
+from textforensics.ledger import snapshot_file, verify_ledger
 from textforensics.localize import localize_text
 from textforensics.naturalness import audit_naturalness
-from textforensics.provenance import snapshot_file, verify_ledger
 from textforensics.report import build_forensic_bundle
 from textforensics.webapp import HTML, analyze_payload
 

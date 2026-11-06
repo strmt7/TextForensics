@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import unittest
 
-from textforensics.capability_ledger import (
+from textforensics.policy import (
     CapabilityClaim,
     CapabilityLedger,
     EvidenceLabel,
