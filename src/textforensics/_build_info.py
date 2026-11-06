@@ -3,7 +3,7 @@
 This module embeds build-time identity information following the rejection-rejector pattern:
 - Source commit hash (verified via git)
 - Dependencies hash (from requirements.lock or pyproject.toml)
-- Contract info hashes (from docs/ and schemas/)
+- Contract info hashes (from docs/ and src/textforensics/schemas/)
 - Python version
 - API and schema version identifiers
 
@@ -113,17 +113,15 @@ def _compute_contract_info() -> dict[str, str]:
     Returns a dict with hashes of:
     - API spec (if exists)
     - Detector adapter API doc (if exists)
-    - All schemas in schemas/ directory
+    - All schemas in src/textforensics/schemas/ (the single source)
     - engineering.toml (if exists)
     - AGENTS.md (development contract)
     """
     base = Path(__file__).resolve().parent.parent.parent
     contract_info: dict[str, str] = {}
 
-    # Hash all schema files
+    # Hash all schema files (packaged schemas are the single source)
     schemas_dir = base / "src" / "textforensics" / "schemas"
-    if not schemas_dir.exists():
-        schemas_dir = base / "schemas"
 
     if schemas_dir.exists():
         schema_hashes = {}

@@ -22,10 +22,8 @@ repos:
     hooks:
       - id: check-yaml
         name: check-yaml
-        exclude: ^schemas/
       - id: check-json
         name: check-json
-        exclude: ^schemas/
       - id: check-toml
         name: check-toml
       - id: check-merge-conflict
@@ -45,7 +43,7 @@ repos:
       - id: detect-secrets
         name: detect-secrets
         args: [--baseline, .secrets.baseline]
-        exclude: ^testdata/|^schemas/|^tests/|^pytest-performance\.json$|^tests/golden/
+        exclude: ^testdata/|^tests/|^tests/golden/
 
   # JSON Schema validator - validate against packaged schemas
   - repo: local
@@ -55,7 +53,7 @@ repos:
         entry: python scripts/validate_schemas.py
         language: system
         types: [json]
-        files: ^schemas/
+        files: ^src/textforensics/schemas/
         additional_dependencies: []
         verbose: true
 

@@ -72,6 +72,28 @@ class TestValidateSchemas:
         assert not ok
         assert "Schema validation error" in msg
 
+    def test_packaged_schemas_are_the_single_source(self):
+        """No top-level schemas/ duplicate may exist.
+
+        Regression test for the diverged duplicate: the golden case file
+        validated against the packaged schema but was rejected by the
+        stale top-level copy.
+        """
+        repo_root = Path(__file__).parent.parent
+        assert not (repo_root / "schemas").exists(), (
+            "top-level schemas/ must not exist; "
+            "src/textforensics/schemas/ is the single source"
+        )
+        packaged = repo_root / "src" / "textforensics" / "schemas"
+        names = sorted(p.name for p in packaged.glob("*.json"))
+        assert names == [
+            "case-file.schema.json",
+            "detector-result.schema.json",
+            "enterprise-policy.schema.json",
+            "forensic-bundle.schema.json",
+            "trust-map.schema.json",
+        ]
+
 
 class TestValidateAgentsRules:
     """Tests for validate_agents_rules.py script."""

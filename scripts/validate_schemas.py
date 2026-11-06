@@ -2,8 +2,10 @@
 """
 Validate JSON schema files against JSON Schema Draft 2020-12 meta-schema.
 
-This script validates that all schema files in the schemas/ directory
-are valid JSON Schema documents.
+This script validates that all schema files in the packaged
+``src/textforensics/schemas/`` directory are valid JSON Schema
+documents. That directory is the single source of truth for schemas;
+there is no top-level ``schemas/`` copy.
 """
 
 import json
@@ -43,7 +45,7 @@ def validate_schema_file(schema_path: Path) -> tuple[bool, str]:
 
 def main() -> int:
     """Main entry point."""
-    schemas_dir = Path(__file__).parent.parent / "schemas"
+    schemas_dir = Path(__file__).parent.parent / "src" / "textforensics" / "schemas"
 
     if not schemas_dir.exists():
         print(f"Schemas directory not found: {schemas_dir}")
