@@ -160,7 +160,7 @@ jobs:
       # bundles next to the artifacts so they can be attached to the release.
       - name: Generate build provenance attestation
         id: provenance
-        uses: actions/attest-build-provenance@ef244123eb79f2f7a7e75d99086184180e6d0018 # v1.4.4 (v1)
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
             dist/*.whl
@@ -193,5 +193,5 @@ jobs:
           echo "Published textforensics v${{ steps.meta.outputs.version }}"
           echo "  - signed changelog:  release-notes.md (+ cosign signature/bundle)"
           echo "  - SBOM:              CycloneDX + SPDX JSON (signed, uploaded as artifact)"
-          echo "  - provenance:        SLSA build provenance via actions/attest-build-provenance@v1"
+          echo "  - provenance:        SLSA build provenance via actions/attest-build-provenance@v4"
           echo "  - artifacts:         wheel, sdist, source tarball, SHA256SUMS (cosign-signed)"
