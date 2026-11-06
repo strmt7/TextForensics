@@ -25,11 +25,13 @@ Design principles:
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlparse
 
 import aiohttp
 
@@ -71,6 +73,50 @@ class OllamaTimeoutError(OllamaError):
     pass
 
 
+def _is_loopback_host(host: str) -> bool:
+    """True for loopback hosts only (localhost, 127/8, ::1)."""
+    normalized = host.strip().lower().rstrip(".")
+    if normalized == "localhost" or normalized.endswith(".localhost"):
+        return True
+    try:
+        return ipaddress.ip_address(normalized).is_loopback
+    except ValueError:
+        return False
+
+
+def _validate_base_url(base_url: str, *, allow_remote_host: bool) -> None:
+    """Reject non-loopback Ollama endpoints unless explicitly opted in.
+
+    An Ollama URL is an SSRF vector: every request POSTs submitted text
+    to it. The default therefore allows only loopback hosts; a remote
+    host (including a LAN/Docker service name) requires
+    ``allow_remote_host=True`` — an explicit, auditable opt-in.
+    """
+    parsed = urlparse(base_url)
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError(f"Ollama base_url must use http(s): {base_url!r}")
+    host = parsed.hostname
+    if not host:
+        raise ValueError(f"Ollama base_url has no host: {base_url!r}")
+    if not allow_remote_host and not _is_loopback_host(host):
+        raise ValueError(
+            "Refusing non-loopback Ollama base_url without explicit opt-in. "
+            f"Got {base_url!r}; pass allow_remote_host=True to use a remote host."
+        )
+
+
+async def _iter_capped_lines(
+    response: aiohttp.ClientResponse, *, max_bytes: int
+) -> AsyncIterator[bytes]:
+    """Yield streamed response lines, enforcing a total size cap."""
+    total = 0
+    async for line in response.content:
+        total += len(line)
+        if total > max_bytes:
+            raise OllamaError(f"Ollama response exceeds {max_bytes} bytes")
+        yield line
+
+
 @dataclass(frozen=True, slots=True)
 class OllamaConfig:
     """Configuration for Ollama client."""
@@ -83,6 +129,8 @@ class OllamaConfig:
     retry_backoff: float = 2.0
     verify_ssl: bool = True
     default_model: str | None = None
+    allow_remote_host: bool = False
+    max_response_bytes: int = 10_000_000  # 10 MB cap on any single response
     preferred_models: list[str] = field(
         default_factory=lambda: [
             "llama3.1:8b",
@@ -96,6 +144,9 @@ class OllamaConfig:
     )
 
     def __post_init__(self) -> None:
+        if self.max_response_bytes <= 0:
+            raise ValueError("max_response_bytes must be positive")
+        _validate_base_url(self.base_url, allow_remote_host=self.allow_remote_host)
         if not self.base_url.endswith("/"):
             object.__setattr__(self, "base_url", self.base_url + "/")
 
@@ -393,8 +444,15 @@ class OllamaClient:
                 if status >= 400:
                     error_text = await response.text()
                     if status == 404:
-                        raise OllamaModelNotFoundError(f"Model not found: {error_text}")
-                    raise OllamaError(f"HTTP {status}: {error_text}")
+                        raise OllamaModelNotFoundError(f"Model not found: {error_text[:500]}")
+                    raise OllamaError(f"HTTP {status}: {error_text[:500]}")
+
+                if not stream:
+                    body = await response.read()
+                    if len(body) > self.config.max_response_bytes:
+                        raise OllamaError(
+                            f"Ollama response exceeds {self.config.max_response_bytes} bytes"
+                        )
 
                 return response
 
@@ -446,7 +504,9 @@ class OllamaClient:
         response = await self._request("POST", "api/pull", {"name": name, "stream": stream})
 
         if stream:
-            async for line in response.content:
+            async for line in _iter_capped_lines(
+                response, max_bytes=self.config.max_response_bytes
+            ):
                 if line:
                     yield json.loads(line)
         else:
@@ -492,7 +552,9 @@ class OllamaClient:
             f"{self.config.base_url}api/generate",
             json=data,
         ) as response:
-            async for line in response.content:
+            async for line in _iter_capped_lines(
+                response, max_bytes=self.config.max_response_bytes
+            ):
                 if line:
                     data = json.loads(line)
                     yield GenerationResponse.from_dict(data)
@@ -525,7 +587,9 @@ class OllamaClient:
             f"{self.config.base_url}api/chat",
             json=data,
         ) as response:
-            async for line in response.content:
+            async for line in _iter_capped_lines(
+                response, max_bytes=self.config.max_response_bytes
+            ):
                 if line:
                     yield json.loads(line)
 

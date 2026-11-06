@@ -25,6 +25,7 @@ from textforensics.ollama import (
     OllamaModel,
     OllamaModelNotFoundError,
     OllamaTimeoutError,
+    _iter_capped_lines,
 )
 
 
@@ -40,15 +41,16 @@ class TestOllamaConfig:
         assert config.default_model is None
 
     def test_base_url_normalization(self):
-        config = OllamaConfig(base_url="http://remote:11434")
+        config = OllamaConfig(base_url="http://remote:11434", allow_remote_host=True)
         assert config.base_url == "http://remote:11434/"
 
-        config2 = OllamaConfig(base_url="http://remote:11434/")
+        config2 = OllamaConfig(base_url="http://remote:11434/", allow_remote_host=True)
         assert config2.base_url == "http://remote:11434/"
 
     def test_custom_config(self):
         config = OllamaConfig(
             base_url="http://remote:11434",
+            allow_remote_host=True,
             timeout_seconds=600,
             max_retries=5,
             default_model="llama3.1:8b",
@@ -65,6 +67,40 @@ class TestOllamaConfig:
         config = OllamaConfig()
         with pytest.raises(AttributeError):
             config.timeout_seconds = 1.0
+
+    def test_remote_base_url_rejected_by_default(self):
+        """Non-loopback hosts are an SSRF vector and need explicit opt-in."""
+        for url in (
+            "http://remote:11434",
+            "http://192.168.1.5:11434",
+            "http://10.0.0.2:11434",
+            "https://ollama.example.com",
+        ):
+            with pytest.raises(ValueError, match="non-loopback"):
+                OllamaConfig(base_url=url)
+
+    def test_remote_base_url_allowed_with_opt_in(self):
+        config = OllamaConfig(base_url="http://remote:11434", allow_remote_host=True)
+        assert config.base_url == "http://remote:11434/"
+
+    def test_loopback_hosts_allowed(self):
+        for url in (
+            "http://localhost:11434",
+            "http://127.0.0.1:11434",
+            "http://127.0.0.2:11434",
+            "http://[::1]:11434",
+            "http://api.localhost:11434",
+        ):
+            assert OllamaConfig(base_url=url).base_url == url + "/"
+
+    def test_non_http_scheme_rejected(self):
+        for url in ("ftp://localhost:11434", "file:///tmp/ollama", "localhost:11434"):
+            with pytest.raises(ValueError):
+                OllamaConfig(base_url=url)
+
+    def test_max_response_bytes_must_be_positive(self):
+        with pytest.raises(ValueError):
+            OllamaConfig(max_response_bytes=0)
 
 
 class TestModelCapabilities:
@@ -295,7 +331,7 @@ class TestOllamaErrors:
 
 class TestOllamaClient:
     def test_client_creation(self):
-        config = OllamaConfig(base_url="http://test:11434")
+        config = OllamaConfig(base_url="http://test:11434", allow_remote_host=True)
         client = OllamaClient(config)
         assert client.config == config
         assert client._session is None
@@ -324,7 +360,9 @@ class TestOllamaDetectorMixin:
         class TestDetector(OllamaDetectorMixin):
             pass
 
-        mixin = TestDetector(ollama_config=OllamaConfig(base_url="http://custom:11434"))
+        mixin = TestDetector(
+            ollama_config=OllamaConfig(base_url="http://custom:11434", allow_remote_host=True)
+        )
         assert mixin._ollama_config.base_url == "http://custom:11434/"
 
     def test_mixin_lazy_client(self):
@@ -362,6 +400,68 @@ class TestRequestSerialization:
         resp = GenerationResponse(model="m", created_at="t", response="r", done=True)
         d = resp.to_dict()
         assert json.dumps(d)
+
+
+class TestResponseCaps:
+    """Response-size caps: a malicious/compromised server must not OOM us."""
+
+    @pytest.mark.asyncio
+    async def test_iter_capped_lines_passes_small_responses(self):
+        class FakeResponse:
+            def __init__(self, lines):
+                self.content = self._gen(lines)
+
+            async def _gen(self, lines):
+                for line in lines:
+                    yield line
+
+        lines = [
+            line async for line in _iter_capped_lines(FakeResponse([b"a", b"bc"]), max_bytes=10)
+        ]
+        assert lines == [b"a", b"bc"]
+
+    @pytest.mark.asyncio
+    async def test_iter_capped_lines_rejects_oversized_responses(self):
+        class FakeResponse:
+            def __init__(self, lines):
+                self.content = self._gen(lines)
+
+            async def _gen(self, lines):
+                for line in lines:
+                    yield line
+
+        with pytest.raises(OllamaError, match="exceeds"):
+            [
+                line
+                async for line in _iter_capped_lines(
+                    FakeResponse([b"a" * 6, b"b" * 6]), max_bytes=10
+                )
+            ]
+
+    @pytest.mark.asyncio
+    async def test_request_rejects_oversized_body(self):
+        class FakeResponse:
+            status = 200
+
+            async def read(self):
+                return b"x" * 11
+
+            async def json(self):
+                return {}
+
+            async def text(self):
+                return ""
+
+        class FakeSession:
+            closed = False
+
+            async def request(self, *args, **kwargs):
+                return FakeResponse()
+
+        client = OllamaClient(OllamaConfig(max_response_bytes=10, max_retries=0))
+        client._session = FakeSession()
+        with pytest.raises(OllamaError, match="exceeds"):
+            await client._request("GET", "api/tags")
 
 
 if __name__ == "__main__":
