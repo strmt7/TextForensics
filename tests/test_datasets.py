@@ -24,10 +24,13 @@ from textforensics.datasets import (
     cache_path,
     default_cache_dir,
     fetch_sample,
+    fetch_strided_sample,
     get_spec,
     manifest_path,
+    map_row,
     read_sample_cache,
     require_licence,
+    sample_offsets,
     write_sample_cache,
 )
 
@@ -220,6 +223,145 @@ class CacheTests(unittest.TestCase):
         self.assertIn("text", data)
         self.assertIn("label", data)
         self.assertEqual(data["text"], "some text")
+
+
+class StridedSampleTests(unittest.TestCase):
+    def test_sample_offsets_evenly_spaced(self) -> None:
+        self.assertEqual(sample_offsets(100, 4), [0, 25, 50, 75])
+        self.assertEqual(sample_offsets(10, 10), list(range(10)))
+        self.assertEqual(sample_offsets(319071, 1), [0])
+
+    def test_sample_offsets_rejects_bad_inputs(self) -> None:
+        for total, n in ((0, 1), (10, 0), (10, 11)):
+            with self.assertRaises(ValueError):
+                sample_offsets(total, n)
+
+    def test_fetch_strided_sample_uses_offsets(self) -> None:
+        client = mock.MagicMock()
+        client.rows.side_effect = lambda *a, **k: [{"offset": k["offset"]}]
+        rows = fetch_strided_sample(get_spec("raid"), "raid", "train", 4, 100, client=client)
+        self.assertEqual([r["offset"] for r in rows], [0, 25, 50, 75])
+
+    def test_fetch_strided_sample_empty_page_raises(self) -> None:
+        client = mock.MagicMock()
+        client.rows.return_value = []
+        with self.assertRaises(DatasetFetchError):
+            fetch_strided_sample(get_spec("raid"), "raid", "train", 2, 100, client=client)
+
+
+class MapperTests(unittest.TestCase):
+    def test_raid_human_and_machine(self) -> None:
+        human = map_row(
+            "raid",
+            {"id": "a", "generation": "human text", "model": "human", "domain": "news"},
+            "raid",
+            "train",
+        )[0]
+        self.assertEqual((human.label, human.regime), (0, "raid"))
+        machine = map_row(
+            "raid",
+            {
+                "id": "b",
+                "generation": "machine text",
+                "model": "gpt4",
+                "domain": "news",
+                "attack": "none",
+            },
+            "raid",
+            "train",
+        )[0]
+        self.assertEqual(machine.label, 1)
+        self.assertEqual(machine.meta["model"], "gpt4")
+
+    def test_raid_test_split_is_unlabelled(self) -> None:
+        (row,) = map_row("raid", {"id": "c", "generation": "test text"}, "raid_test", "test")
+        self.assertIsNone(row.label)
+
+    def test_mage_flips_inverted_polarity(self) -> None:
+        (machine,) = map_row(
+            "mage", {"text": "m", "label": 0, "src": "cmv_machine_gpt4"}, "default", "train"
+        )
+        self.assertEqual(machine.label, 1)
+        (human,) = map_row(
+            "mage", {"text": "h", "label": 1, "src": "cmv_human"}, "default", "train"
+        )
+        self.assertEqual(human.label, 0)
+        self.assertTrue(human.source_id.startswith("mage:"))
+
+    def test_mage_polarity_mismatch_fails_closed(self) -> None:
+        with self.assertRaises(DatasetFetchError):
+            map_row("mage", {"text": "x", "label": 0, "src": "cmv_human"}, "default", "train")
+        with self.assertRaises(DatasetFetchError):
+            map_row(
+                "mage", {"text": "x", "label": 1, "src": "cmv_machine_gpt4"}, "default", "train"
+            )
+
+    def test_beemo_expands_to_kinds(self) -> None:
+        row = {
+            "id": 7,
+            "category": "Closed QA",
+            "model": "zephyr-7b-beta",
+            "prompt_id": "p1",
+            "human_output": "human answer",
+            "model_output": "machine answer",
+            "human_edits": "human rewrite",
+            "llama-3.1-70b_edits": "[{'P1': 'llama light'}, {'P2': 'llama mid'}, {'P3': 'llama heavy'}]",
+            "gpt-4o_edits": "[{'P1': 'gpt light'}, {'P2': 'gpt mid'}, {'P3': 'gpt heavy'}]",
+        }
+        rows = map_row("beemo", row, "default", "train")
+        by_kind = {r.meta["kind"]: r for r in rows}
+        self.assertEqual(len(rows), 9)
+        self.assertEqual(by_kind["human"].label, 0)
+        self.assertEqual(by_kind["model_output"].label, 1)
+        self.assertEqual(by_kind["human_edits"].label, 0)
+        self.assertEqual(by_kind["llama-3.1-70b_P1"].label, 1)
+        self.assertEqual(by_kind["gpt-4o_P3"].text, "gpt heavy")
+        self.assertEqual(by_kind["human"].source_id, "beemo-7:human")
+
+    def test_beemo_bad_edits_literal_fails_closed(self) -> None:
+        row = {
+            "id": 1,
+            "human_output": "h",
+            "model_output": "m",
+            "human_edits": "",
+            "llama-3.1-70b_edits": "not a literal",
+            "gpt-4o_edits": "[{'P1': 'x'}]",
+        }
+        with self.assertRaises(DatasetFetchError):
+            map_row("beemo", row, "default", "train")
+
+    def test_opai_bench_v0_human_and_partial_unlabelled(self) -> None:
+        base = {
+            "record_id": "opt-1",
+            "text": "some document",
+            "version": "v0",
+            "generator": "gemini-2.5-flash",
+            "domain": "abstracts",
+            "document_hash_id": "d1",
+        }
+        (human,) = map_row("opai_bench", {**base, "ai_sentence_ratio": 0.0}, "default", "train")
+        self.assertEqual(human.label, 0)
+        (full,) = map_row(
+            "opai_bench",
+            {**base, "record_id": "opt-2", "ai_sentence_ratio": 1.0},
+            "default",
+            "train",
+        )
+        self.assertEqual(full.label, 1)
+        (partial,) = map_row(
+            "opai_bench",
+            {**base, "record_id": "opt-3", "ai_sentence_ratio": 0.2},
+            "default",
+            "train",
+        )
+        self.assertIsNone(partial.label)
+        self.assertEqual(partial.meta["ai_sentence_ratio"], 0.2)
+
+    def test_mixset_mapper_refuses(self) -> None:
+        # Licence gate fires first (DatasetLicenceError); even if it
+        # did not, the mapper itself refuses on unverified polarity.
+        with self.assertRaises(DatasetLicenceError):
+            map_row("mixset", {"text": "x", "binary": 1}, "default", "train")
 
 
 if __name__ == "__main__":

@@ -27,9 +27,11 @@ Design rules
   :func:`default_cache_dir`); run artifacts record hashes and counts,
   never raw text. Dataset text is never committed to the repo.
 * Determinism. Samples are the first *n* rows by server row index
-  (paginated, 100 rows per request); no randomness, no wall-clock in
-  output. A cache manifest records source URL, fetch date, row count and
-  file SHA-256 so a sample can be re-verified later.
+  (paginated, 100 rows per request), or — where a split is ordered by
+  testbed/label, so first-*n* would be one-sided — *n* evenly spaced
+  rows across the split (:func:`fetch_strided_sample`); no randomness,
+  no wall-clock in output. A cache manifest records source URL, fetch
+  date, row count and file SHA-256 so a sample can be re-verified later.
 * Disjointness. Cache files are JSONL with ``text``/``label`` fields, the
   exact format :func:`textforensics.benchmark.fingerprint_dataset` and
   :func:`textforensics.benchmark.check_disjointness` consume, so split
@@ -42,6 +44,7 @@ was dropped by Greg's decision.
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import os
@@ -446,6 +449,313 @@ def fetch_sample(
                 f"{offset - len(page)} added no rows"
             )
     return rows[:n]
+
+
+def sample_offsets(total: int, n: int) -> list[int]:
+    """Evenly spaced row offsets covering ``0 .. total - 1``.
+
+    Deterministic (no randomness): offset ``i`` is ``i * total // n``.
+    Used when a split is ordered by testbed or label, so first-*n*
+    sampling would return one side only (MAGE train is blocked by
+    ``src``; see the MAGE mapper). ``n`` must not exceed ``total``.
+    """
+    if total <= 0:
+        raise ValueError("total must be positive")
+    if n <= 0:
+        raise ValueError("n must be positive")
+    if n > total:
+        raise ValueError(f"n ({n}) exceeds split size ({total})")
+    return [i * total // n for i in range(n)]
+
+
+def fetch_strided_sample(
+    spec: DatasetSpec,
+    config: str,
+    split: str,
+    n: int,
+    total: int,
+    *,
+    client: DatasetsServerClient | None = None,
+) -> list[dict[str, Any]]:
+    """Fetch ``n`` rows evenly spaced across a config/split.
+
+    Same licence gate and determinism guarantees as
+    :func:`fetch_sample`; each offset is one ``/rows`` request of
+    length 1, so this costs ``n`` requests. Prefer it over
+    :func:`fetch_sample` when the split is ordered (MAGE, OpAI-Bench
+    version blocks); use :func:`fetch_sample` when rows are already
+    interleaved (RAID train).
+    """
+    require_licence(spec)
+    client = client or DatasetsServerClient()
+    rows: list[dict[str, Any]] = []
+    for offset in sample_offsets(total, n):
+        page = client.rows(spec.hf_id, config, split, offset=offset, length=1)
+        if not page:
+            raise DatasetFetchError(
+                f"{spec.hf_id} {config}/{split}: server returned no row at offset {offset}"
+            )
+        rows.extend(page)
+    return rows
+
+
+def _require_text(row: dict[str, Any], field: str, key: str) -> str:
+    text = row.get(field)
+    if not isinstance(text, str) or not text.strip():
+        raise DatasetFetchError(f"{key}: row has no usable text in field {field!r}")
+    return text
+
+
+def _meta(row: dict[str, Any], fields: tuple[str, ...]) -> dict[str, Any]:
+    return {f: row[f] for f in fields if row.get(f) is not None}
+
+
+def _map_raid(row: dict[str, Any], config: str, split: str) -> list[NormalizedRow]:
+    """RAID: ``generation`` is the text; ``model == 'human'`` marks humans.
+
+    Verified live 2026-11-06: train rows carry 11 columns; the
+    ``raid_test`` config carries only ``id`` + ``generation`` and is
+    unlabelled, so those rows normalise with ``label=None``.
+    """
+    text = _require_text(row, "generation", "raid")
+    model = row.get("model")
+    if model is None:
+        label: int | None = None
+    elif not isinstance(model, str):
+        raise DatasetFetchError(f"raid: unexpected model value {model!r}")
+    else:
+        label = 0 if model == "human" else 1
+    return [
+        NormalizedRow(
+            text=text,
+            label=label,
+            dataset="raid",
+            config=config,
+            split=split,
+            source_id=str(row.get("id", "")),
+            regime="raid",
+            meta=_meta(
+                row,
+                (
+                    "domain",
+                    "model",
+                    "attack",
+                    "decoding",
+                    "repetition_penalty",
+                    "source_id",
+                    "adv_source_id",
+                ),
+            ),
+        )
+    ]
+
+
+def _map_mage(row: dict[str, Any], config: str, split: str) -> list[NormalizedRow]:
+    """MAGE: native polarity is INVERTED (0 = machine, 1 = human).
+
+    The flip is verified from the data itself (2026-11-06): every
+    probed row with ``src`` ending ``_human`` has label 1, every row
+    with ``_machine_`` in ``src`` has label 0. The mapper cross-checks
+    the two signals on every row and refuses on a mismatch — a silent
+    polarity error would invert every downstream metric. MAGE has no
+    row id, so ``source_id`` is the first 16 hex of the text SHA-256.
+    """
+    text = _require_text(row, "text", "mage")
+    native = row.get("label")
+    if native not in (0, 1):
+        raise DatasetFetchError(f"mage: unexpected native label {native!r}")
+    src = row.get("src")
+    if not isinstance(src, str):
+        raise DatasetFetchError(f"mage: row has no src field: {sorted(row)}")
+    if src.endswith("_human") and native != 1:
+        raise DatasetFetchError(f"mage: src {src!r} is human but native label is {native}")
+    if "_machine_" in src and native != 0:
+        raise DatasetFetchError(f"mage: src {src!r} is machine but native label is {native}")
+    return [
+        NormalizedRow(
+            text=text,
+            label=1 - int(native),
+            dataset="mage",
+            config=config,
+            split=split,
+            source_id=f"mage:{hashlib.sha256(text.encode('utf-8')).hexdigest()[:16]}",
+            regime="mage",
+            meta={"src": src, "native_label": int(native)},
+        )
+    ]
+
+
+def _parse_beemo_edits(value: Any, field: str) -> list[dict[str, str]]:
+    """Beemo edit columns arrive as a string holding a Python literal.
+
+    The datasets-server stringifies the sequence-of-struct column, so
+    ``llama-3.1-70b_edits`` is ``"[{'P1': '...'}, {'P2': '...'},
+    {'P3': '...'}]"`` — single quotes, so ``json.loads`` fails and
+    :func:`ast.literal_eval` is the safe parser. Anything else is a
+    schema change and fails closed.
+    """
+    if not isinstance(value, str):
+        raise DatasetFetchError(f"beemo: {field} is {type(value).__name__}, expected str")
+    try:
+        parsed = ast.literal_eval(value)
+    except (ValueError, SyntaxError) as exc:
+        raise DatasetFetchError(f"beemo: {field} did not parse as a Python literal") from exc
+    if not isinstance(parsed, list) or not parsed:
+        raise DatasetFetchError(
+            f"beemo: {field} parsed to {type(parsed).__name__}, expected non-empty list"
+        )
+    edits: list[dict[str, str]] = []
+    for item in parsed:
+        if not isinstance(item, dict) or not item:
+            raise DatasetFetchError(f"beemo: {field} contains a non-dict item: {item!r:.80}")
+        for level, text in item.items():
+            if not isinstance(level, str) or not isinstance(text, str) or not text.strip():
+                raise DatasetFetchError(f"beemo: {field} has an unusable {level!r} edit")
+            edits.append({level: text})
+    return edits
+
+
+def _map_beemo(row: dict[str, Any], config: str, split: str) -> list[NormalizedRow]:
+    """Beemo: one dataset row expands to ~10 normalised rows.
+
+    ``human_output`` (label 0) and ``model_output`` (label 1) are the
+    plain slice; ``human_edits`` is an expert human rewrite of the
+    human text (label 0 — still human-authored); each P1/P2/P3 edit by
+    Llama-3.1-70B and GPT-4o is a machine-edited text (label 1). The
+    ``kind`` in ``meta`` (and in ``source_id``) keeps the slices
+    separable — measurements must report per-kind, never one pooled
+    number, or the hard edited slice disappears into the average.
+    """
+    base_id = row.get("id")
+    if base_id is None:
+        raise DatasetFetchError("beemo: row has no id")
+    category = row.get("category")
+    prompt_id = row.get("prompt_id")
+    model = row.get("model")
+    out: list[NormalizedRow] = []
+
+    def _row(text: str, label: int, kind: str, **extra: Any) -> NormalizedRow:
+        meta: dict[str, Any] = {"kind": kind}
+        if category is not None:
+            meta["category"] = category
+        if prompt_id is not None:
+            meta["prompt_id"] = prompt_id
+        if model is not None:
+            meta["generator"] = model
+        meta.update(extra)
+        return NormalizedRow(
+            text=text,
+            label=label,
+            dataset="beemo",
+            config=config,
+            split=split,
+            source_id=f"beemo-{base_id}:{kind}",
+            regime="beemo",
+            meta=meta,
+        )
+
+    out.append(_row(_require_text(row, "human_output", "beemo"), 0, "human"))
+    out.append(_row(_require_text(row, "model_output", "beemo"), 1, "model_output"))
+    human_edits = row.get("human_edits")
+    if isinstance(human_edits, str) and human_edits.strip():
+        out.append(_row(human_edits, 0, "human_edits"))
+    for column, editor in (
+        ("llama-3.1-70b_edits", "llama-3.1-70b"),
+        ("gpt-4o_edits", "gpt-4o"),
+    ):
+        for item in _parse_beemo_edits(row.get(column), column):
+            for level, text in item.items():
+                out.append(_row(text, 1, f"{editor}_{level}", editor=editor, prompt_level=level))
+    return out
+
+
+def _map_opai_bench(row: dict[str, Any], config: str, split: str) -> list[NormalizedRow]:
+    """OpAI-Bench: binary label only at the ends of the edit ladder.
+
+    ``v0`` rows have ``ai_sentence_ratio == 0.0`` (pure human, label 0);
+    a row with ratio 1.0 would be fully machine (label 1). Partial
+    rows (0 < ratio < 1) get ``label=None`` — assigning a binary label
+    to a mixed-origin document would be a lie, and these rows are the
+    U4 spine, reported by ratio, not pooled. ``id`` is the document
+    title, not an identifier; ``record_id`` is the per-version key.
+    """
+    text = _require_text(row, "text", "opai_bench")
+    ratio = row.get("ai_sentence_ratio")
+    if not isinstance(ratio, (int, float)) or isinstance(ratio, bool):
+        raise DatasetFetchError(f"opai_bench: bad ai_sentence_ratio {ratio!r}")
+    ratio = float(ratio)
+    if ratio == 0.0:
+        label: int | None = 0
+    elif ratio == 1.0:
+        label = 1
+    elif 0.0 < ratio < 1.0:
+        label = None
+    else:
+        raise DatasetFetchError(f"opai_bench: ai_sentence_ratio out of range: {ratio}")
+    return [
+        NormalizedRow(
+            text=text,
+            label=label,
+            dataset="opai_bench",
+            config=config,
+            split=split,
+            source_id=str(row.get("record_id", "")),
+            regime="opai_bench",
+            meta=_meta(
+                row,
+                (
+                    "version",
+                    "version_index",
+                    "edit_operation",
+                    "generator",
+                    "domain",
+                    "document_hash_id",
+                    "ai_sentence_ratio",
+                    "ai_token_ratio",
+                    "ai_char_ratio",
+                    "boundary_pattern",
+                    "subset",
+                    "ablation_type",
+                ),
+            ),
+        )
+    ]
+
+
+def _map_mixset(row: dict[str, Any], config: str, split: str) -> list[NormalizedRow]:
+    """MixSet: refused until the label polarity is verified from data.
+
+    The loader is code-complete but the licence is unresolved (see
+    ``phase3-datasets-licences.md``), so no live row has ever been
+    inspected; the ``binary`` field's polarity is unverified and the
+    mapper fails closed instead of guessing. Revisit only after the
+    licence is clarified AND a live row has been read.
+    """
+    raise DatasetFetchError(
+        "mixset: label polarity unverified — no live row inspected "
+        "(licence unresolved); refusing to map"
+    )
+
+
+_MAPPERS: dict[str, Any] = {
+    "raid": _map_raid,
+    "mage": _map_mage,
+    "beemo": _map_beemo,
+    "mixset": _map_mixset,
+    "opai_bench": _map_opai_bench,
+}
+
+
+def map_row(key: str, row: dict[str, Any], config: str, split: str) -> list[NormalizedRow]:
+    """Normalise one raw server row to TextForensics rows.
+
+    Returns a list because one Beemo record expands to ~10 rows. The
+    licence gate is enforced here too: mapping is part of fetching, so
+    an unresolved licence refuses before any row is normalised.
+    """
+    spec = get_spec(key)
+    require_licence(spec)
+    return _MAPPERS[key](row, config, split)
 
 
 def write_sample_cache(
