@@ -67,6 +67,23 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  pinned:
+    name: Pinned requirements install
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install from requirements-pinned.txt
+        run: python -m pip install -r requirements-pinned.txt
+      - name: Dependency consistency
+        run: python -m pip check
+      - name: CLI smoke
+        run: textforensics --version
+
   os-smoke:
     name: OS smoke ${{ matrix.os }} Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
