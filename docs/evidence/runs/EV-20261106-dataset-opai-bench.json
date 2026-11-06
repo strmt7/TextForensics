@@ -1,0 +1,141 @@
+{
+  "badge": "available",
+  "code_version": "8cd8a00a89b3430c628d55a85b8828d8c3901c54",
+  "command": "python scripts/measure_datasets.py --only opai_bench",
+  "drops": [
+    {
+      "item": "full-corpus evaluation",
+      "reason": "preliminary sample only (n=100 normalised rows from 196029 split rows)"
+    },
+    {
+      "item": "Python 3.11, 3.13, 3.14, 3.15",
+      "reason": "measured on the local interpreter only; CI covers the matrix"
+    },
+    {
+      "item": "train/test threshold selection",
+      "reason": "no threshold was fitted on this sample; AUROC/TPR@FPR are threshold-free"
+    }
+  ],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261106-dataset-opai-bench",
+  "kind": "command",
+  "results": {
+    "ai_sentence_ratio_values": [
+      "0.0",
+      "0.15",
+      "0.1666666666666666",
+      "0.1785714285714285",
+      "0.1818181818181818",
+      "0.1904761904761904",
+      "0.2",
+      "0.2142857142857142",
+      "0.25",
+      "0.2631578947368421",
+      "0.2666666666666666",
+      "0.2727272727272727",
+      "0.2758620689655172",
+      "0.2857142857142857",
+      "0.3",
+      "0.4",
+      "0.4117647058823529",
+      "0.4166666666666667",
+      "0.4230769230769231",
+      "0.4285714285714285",
+      "0.4444444444444444",
+      "0.4545454545454545",
+      "0.5",
+      "0.5111111111111111",
+      "0.5142857142857142",
+      "0.52",
+      "0.5238095238095238",
+      "0.5384615384615384",
+      "0.5454545454545454",
+      "0.6",
+      "0.6086956521739131",
+      "0.6136363636363636",
+      "0.6153846153846154",
+      "0.6190476190476191",
+      "0.625",
+      "0.631578947368421",
+      "0.6666666666666666",
+      "0.75",
+      "0.7551020408163265",
+      "0.76",
+      "0.7647058823529411",
+      "0.7666666666666667",
+      "0.7692307692307693",
+      "0.8",
+      "0.8181818181818182",
+      "0.9",
+      "0.902439024390244",
+      "0.9111111111111112",
+      "0.9130434782608696",
+      "0.9166666666666666",
+      "0.925925925925926",
+      "0.9285714285714286",
+      "0.9375",
+      "0.9411764705882352",
+      "0.9473684210526316",
+      "1.0"
+    ],
+    "auroc": 0.4697,
+    "cache_file_sha256": "52b2ef9439652b49ff7b021a977d821b4e2377ae2512fdaa173e535254817a0c",
+    "config": "default",
+    "dataset": "opai_bench",
+    "detector": "textforensics/builtin-heuristic",
+    "detector_abstentions": 11,
+    "detector_evaluated_rows": 23,
+    "detector_version": "0.1.0",
+    "disjointness": {
+      "against": "default/dev (n=50)",
+      "checked": true,
+      "disjoint": true,
+      "errors": [],
+      "shared_samples": 0,
+      "verified": true
+    },
+    "hf_id": "OpAI-Bench1/OpAI-Bench",
+    "label_counts": {
+      "0": 12,
+      "1": 11,
+      "None": 77
+    },
+    "licence": "Apache-2.0",
+    "mean_score_by_kind": {
+      "opai_bench": 0.306
+    },
+    "preliminary": true,
+    "rows_by_kind": {
+      "opai_bench": 23
+    },
+    "rows_fetched": 100,
+    "rows_normalised": 100,
+    "sampling": "strided",
+    "score_by_label": {
+      "human": {
+        "max": 0.499,
+        "mean": 0.3131,
+        "median": 0.3024,
+        "min": 0.1823,
+        "n": 12
+      },
+      "machine": {
+        "max": 0.3892,
+        "mean": 0.2983,
+        "median": 0.3029,
+        "min": 0.1533,
+        "n": 11
+      }
+    },
+    "split": "train",
+    "split_rows_total": 196029,
+    "tpr_at_1pct_fpr": 0.0,
+    "tpr_at_5pct_fpr": 0.0
+  },
+  "run_date": "2026-11-06",
+  "schema": "textforensics.run-artifact/v1"
+}

@@ -21,6 +21,11 @@
       "run_artifact_sha256": "a9099b56f154722cc5416c0aa2366d4d92381cce76a3614f73bedfd2c84a6913"
     },
     {
+      "evidence_record_id": "EV-20261106-dataset-opai-bench",
+      "run_artifact": "docs/evidence/runs/EV-20261106-dataset-opai-bench.json",
+      "run_artifact_sha256": "651fe8f20dd8bbe3286a70a5beb0adcab1a253a8f3af8ae8e4162bc014bea7b1"
+    },
+    {
       "evidence_record_id": "EV-20261106-dataset-raid",
       "run_artifact": "docs/evidence/runs/EV-20261106-dataset-raid.json",
       "run_artifact_sha256": "80381a18645f53aa0b035559c925d54bd533f04d36df5a247fbc61c88f8ed113"
