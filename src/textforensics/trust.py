@@ -36,7 +36,7 @@ from .evidence import (
     coverage_for_predictions,
 )
 
-TRUST_STATES = frozenset({"supported", "partial", "unknown", "out_of_scope"})
+TRUST_STATES = ("supported", "partial", "unknown", "out_of_scope")
 TRUST_SCHEMA = "textforensics.trust-map/v2"
 LEGACY_TRUST_SCHEMA = "textforensics.trust-map/v1"
 
@@ -97,7 +97,7 @@ class TrustMap:
         if self.overall not in {"strong", "mixed", "insufficient"}:
             raise ValueError("Invalid Trust Map overall state.")
         if self.coverage:
-            missing = TRUST_STATES - set(self.coverage)
+            missing = set(TRUST_STATES) - set(self.coverage)
             if missing:
                 raise ValueError(f"coverage is missing state(s): {', '.join(sorted(missing))}.")
 

@@ -168,8 +168,16 @@ def _declared_conditions(word_count: int = 200) -> InputConditions:
 class TrustMapContractTests(unittest.TestCase):
     def test_states_are_the_declared_qualitative_set(self):
         self.assertEqual(
-            TRUST_STATES,
+            set(TRUST_STATES),
             {"supported", "partial", "unknown", "out_of_scope"},
+        )
+        # TRUST_STATES is an ordered tuple (not a frozenset) on purpose:
+        # _coverage_counts() iterates it, so trust_map.coverage key order
+        # is deterministic across processes (hash randomisation must not
+        # change output ordering).
+        self.assertEqual(
+            list(TRUST_STATES),
+            ["supported", "partial", "unknown", "out_of_scope"],
         )
 
     def test_dimension_and_map_serialize(self):
