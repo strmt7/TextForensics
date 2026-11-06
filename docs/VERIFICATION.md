@@ -619,4 +619,3 @@ Final verification at HEAD `2e2d81a` (2026-11-06):
 - **PAN 2025**: untouched in wave 1 (wave 2, gated on Greg's TIRA
   registration). RealDet / CrisisFake: no loader (no verified
   route). MultiSocial: dropped by Greg's decision.
-
