@@ -346,6 +346,7 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
     async def index(request: Request):
         session_id = request.query_params.get("session")
         return templates.TemplateResponse(
+            request,
             "index.html",
             {"request": request, "version": get_version(), "session_id": session_id},
         )

@@ -64,13 +64,7 @@ def client(test_app):
 @pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
 class TestPageRendering:
     def test_index_page(self, client):
-        # Skip if jinja2 has known Python 3.15 compatibility issue
-        try:
-            resp = client.get("/")
-        except TypeError as e:
-            if "unhashable type: 'dict'" in str(e):
-                pytest.skip("jinja2 Python 3.15 compatibility issue")
-            raise
+        resp = client.get("/")
         assert resp.status_code == 200
         assert "TextForensics" in resp.text
         assert "Analyze" in resp.text
@@ -87,12 +81,7 @@ class TestPageRendering:
         assert "WebSocker" in resp.text or "WebSocket" in resp.text
 
     def test_security_headers(self, client):
-        try:
-            resp = client.get("/")
-        except TypeError as e:
-            if "unhashable type: 'dict'" in str(e):
-                pytest.skip("jinja2 Python 3.15 compatibility issue")
-            raise
+        resp = client.get("/")
         assert resp.headers.get("X-Content-Type-Options") == "nosniff"
         assert resp.headers.get("Cache-Control") == "no-store"
 
@@ -708,11 +697,6 @@ class TestWebSocketCollaboration:
 @pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
 class TestIndexPageWithSession:
     def test_index_page_with_session_param(self, client):
-        # Skip on Python 3.15 due to jinja2 compatibility issue
-        import sys
-
-        if sys.version_info >= (3, 15):
-            pytest.skip("jinja2 Python 3.15 compatibility issue")
         session_resp = client.post("/api/session")
         session_id = session_resp.json()["session_id"]
         resp = client.get(f"/?session={session_id}")
@@ -720,10 +704,6 @@ class TestIndexPageWithSession:
         assert "session_id" in resp.text
 
     def test_index_page_without_session(self, client):
-        import sys
-
-        if sys.version_info >= (3, 15):
-            pytest.skip("jinja2 Python 3.15 compatibility issue")
         resp = client.get("/")
         assert resp.status_code == 200
 
