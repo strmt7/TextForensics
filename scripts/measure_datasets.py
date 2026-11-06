@@ -331,7 +331,10 @@ def measure_dataset(key: str, force: bool) -> dict:
             }
         )
 
-    record_id = f"EV-{date.today().strftime('%Y%m%d')}-dataset-{key}"
+    # The run-artifact schema only allows [a-z0-9-] in the record id,
+    # so opai_bench becomes opai-bench here (results["dataset"] keeps
+    # the loader key).
+    record_id = f"EV-{date.today().strftime('%Y%m%d')}-dataset-{key.replace('_', '-')}"
     record = _base_record(
         record_id,
         "command",
