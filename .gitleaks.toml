@@ -1,0 +1,28 @@
+# Gitleaks configuration for TextForensics.
+#
+# Why this file exists: `.secrets.baseline` is the allowlist for the
+# detect-secrets pre-commit hook. It contains ONLY SHA-1 hashes
+# (`hashed_secret`) of values that were audited and found to be SHA-256
+# hashes of committed run artifacts — never raw secrets. Gitleaks'
+# `generic-api-key` rule flags those 40-hex-character hash strings as
+# if they were API keys, which broke the Supply-chain "Full-history
+# secret scan" on commit 46f2ade (36 findings, all in
+# `.secrets.baseline`, all in that one commit).
+#
+# Allowlisting this one path does NOT hide secrets: no raw secret can
+# ever appear in the baseline (detect-secrets stores hashes only), and
+# the detect-secrets hook still guards new additions to the file — a
+# new high-entropy string not already in the baseline fails
+# pre-commit. Do NOT extend this allowlist to other paths without the
+# same justification, and do NOT remove `[extend] useDefault = true`:
+# without it a custom config REPLACES the default rules instead of
+# extending them, and the scan would silently catch nothing.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "detect-secrets baseline: SHA-1 hashes of audited values only, never raw secrets"
+paths = [
+  '''^\.secrets\.baseline$''',
+]
