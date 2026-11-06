@@ -11,6 +11,11 @@
       "run_artifact_sha256": "9443e0080c272d4e216160595b5140716a6b13d085d0394f8558d1dce3422199"
     },
     {
+      "evidence_record_id": "EV-20261106-dataset-raid",
+      "run_artifact": "docs/evidence/runs/EV-20261106-dataset-raid.json",
+      "run_artifact_sha256": "80381a18645f53aa0b035559c925d54bd533f04d36df5a247fbc61c88f8ed113"
+    },
+    {
       "evidence_record_id": "EV-20261106-determinism",
       "run_artifact": "docs/evidence/runs/EV-20261106-determinism.json",
       "run_artifact_sha256": "e27c0393d5bc147403b0d9cc054d73d79cfc06cc21d6a87793dd2d6a159400d1"
