@@ -399,6 +399,37 @@ re-verifies CI on the fixed head.
   locally: `python scripts/check_claims.py` — **33 passed, 0 failed**;
   fresh gate run leaves `docs/evidence/report-card.md` unchanged
   (`git diff --exit-code` clean), which is the job's second step.
+- **Failure 3 — Supply-chain security: gitleaks found 36 leaks.**
+  After the two fixes above were pushed, CI on head `ec543ba` was
+  green where it matters (Core 3.11–3.15, claims-gate, Reproducibility
+  all SUCCESS; only the atheris pinned-install job and Mutation
+  failed, both release-gate items) — except Supply-chain security,
+  whose "Full-history secret scan" job failed. Gitleaks 8.24.3
+  scanned the pushed range `46f2ade^..ec543ba` and reported 36
+  `generic-api-key` findings, all in `.secrets.baseline`, all in
+  commit `46f2ade`: the baseline's `hashed_secret` values (SHA-1
+  hashes of the audited values) trip gitleaks' generic rule. The
+  detect-secrets fix broke gitleaks — the two scanners disagree
+  about hash-looking strings. Fix: `.gitleaks.toml` at the repo root
+  with `[extend] useDefault = true` (without it a custom config
+  REPLACES the default rules) and a global `[allowlist]` for the
+  `.secrets.baseline` path only. This hides no secrets: the file
+  holds hashes only, never raw secrets, and the detect-secrets hook
+  still guards new additions to it. The allowlist is path-based, so
+  future baseline updates need no per-entry maintenance (no
+  fingerprint allowlists, which are commit-bound). Verified locally
+  with gitleaks 8.24.3 (the CI version): the CI range scans clean
+  (**0 leaks**, exit 0), and a planted fake GitHub PAT in a scratch
+  commit is still caught (`github-pat`, exit 2), proving the default
+  rules survive the extension. A stronger full-history scan (261
+  commits) finds exactly one pre-existing `generic-api-key` finding
+  outside the CI range — `tests/test_watermarking.py:535`, commit
+  `882b405` (2026-11-03): an assertion comparing a reloaded keypair
+  against the one generated in the test, where both sides are
+  runtime-generated objects and no key material appears in the line
+  at all. It is a false positive, predates U7, and is left untouched here for the release
+  gate (a line-targeted allowlist or `gitleaks:allow` comment); it
+  does not affect CI, which scans only pushed commits.
 
 ### Measured numbers after the CI fixes (HEAD `0766524`, 2026-11-06, Python 3.12.3)
 
@@ -416,6 +447,20 @@ re-verifies CI on the fixed head.
 - Claims gate: **33 passed, 0 failed**; report-card diff clean.
 - The seeded U7 evidence records are unchanged by these fixes (no
   re-seeding; their measured numbers above still stand).
+
+### Measured numbers after the gitleaks fix (HEAD `547797b`, 2026-11-06, Python 3.12.3)
+
+- Full suite, extras venv: **2355 passed, 0 failed, 86% coverage**
+  (11,582 stmts, 1,310 missed, 3,904 branches, 558 partial) in
+  127.98 s. The `test_memory_check` host flake did not fire in this
+  run.
+- Gitleaks 8.24.3 (CI version), CI range `46f2ade^..ec543ba`:
+  **0 leaks**, exit 0. Planted fake GitHub PAT control: still caught
+  (`github-pat`, exit 2). Full-history scan (261 commits): 1
+  pre-existing false positive (`tests/test_watermarking.py:535`,
+  see Failure 3 above) — outside the CI scan range.
+- pre-commit `--all-files`: **13 hooks pass, 0 fail**.
+- Claims gate: **33 passed, 0 failed**; report-card diff clean.
 
 ### What is NOT verified here
 
