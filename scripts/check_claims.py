@@ -4,6 +4,10 @@ check_claims.py — Machine-verifiable claims validation for CI.
 
 Validates claims from docs/CLAIMS.yaml against the codebase, tests, and artifacts.
 Exits non-zero on any unverified/false/stale claim or missing evidence.
+
+Tool invocations always go through the current interpreter
+(sys.executable): there is no guarantee a bare ``python`` binary exists
+on the machine running CI, and console scripts may not be on PATH.
 """
 
 from __future__ import annotations
@@ -21,16 +25,90 @@ import yaml
 REPO_ROOT = Path(__file__).parent.parent
 CLAIMS_FILE = REPO_ROOT / "docs" / "CLAIMS.yaml"
 
+# Console-script entry points mapped to their importable module, so the
+# gate runs them via the current interpreter instead of relying on PATH.
+_TOOL_MODULES = {
+    "python": None,  # replaced by sys.executable itself
+    "pytest": "pytest",
+    "ruff": "ruff",
+    "bandit": "bandit",
+    "pip-audit": "pip_audit",
+}
+
+
+def _resolve_command(cmd: list[str]) -> list[str]:
+    """Rewrite a command to run through the current interpreter.
+
+    ``["ruff", "check", "src/"]`` becomes
+    ``[sys.executable, "-m", "ruff", "check", "src/"]``. Unknown tools
+    are passed through unchanged (and will fail loudly if missing).
+    """
+    if not cmd:
+        return cmd
+    head = cmd[0]
+    if head == "python":
+        return [sys.executable, *cmd[1:]]
+    module = _TOOL_MODULES.get(head)
+    if module is not None:
+        return [sys.executable, "-m", module, *cmd[1:]]
+    return cmd
+
+
+def _split_chain(command: str) -> list[list[str]]:
+    """Split a ``cmd1 && cmd2`` chain into its parts."""
+    return [part.split() for part in command.split("&&") if part.strip()]
+
 
 def load_claims() -> list[dict[str, Any]]:
     text = CLAIMS_FILE.read_text(encoding="utf-8")
+    _check_no_duplicate_keys(text)
     data = yaml.safe_load(text)
     return data.get("claims", [])
 
 
+def _check_no_duplicate_keys(text: str) -> None:
+    """Fail fast on duplicate YAML mapping keys (last-wins is silent)."""
+    node = yaml.compose(text)
+    duplicates: list[str] = []
+
+    def walk(mapping_node: Any, path: str = "") -> None:
+        if not hasattr(mapping_node, "value"):
+            return
+        if mapping_node.tag == "tag:yaml.org,2002:map":
+            seen: set[str] = set()
+            for key_node, value_node in mapping_node.value:
+                key = key_node.value
+                child_path = f"{path}.{key}" if path else str(key)
+                if key in seen:
+                    duplicates.append(child_path)
+                seen.add(key)
+                walk(value_node, child_path)
+        elif mapping_node.tag == "tag:yaml.org,2002:seq":
+            for item in mapping_node.value:
+                walk(item, path)
+
+    walk(node)
+    if duplicates:
+        raise ValueError(f"Duplicate YAML keys in {CLAIMS_FILE}: {duplicates}")
+
+
 def run_command(cmd: list[str], cwd: Path | None = None) -> tuple[int, str, str]:
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd or REPO_ROOT)
+    cmd = _resolve_command(cmd)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd or REPO_ROOT)
+    except FileNotFoundError:
+        return 127, "", f"Command not found: {cmd[0]}"
     return result.returncode, result.stdout, result.stderr
+
+
+def run_chain(command: str, cwd: Path | None = None) -> tuple[int, str, str]:
+    """Run a ``&&``-chained command; stop at the first failing part."""
+    out, err = "", ""
+    for part in _split_chain(command):
+        code, out, err = run_command(part, cwd=cwd)
+        if code != 0:
+            return code, out, err
+    return 0, out, err
 
 
 def check_test_evidence(evidence_path: str) -> tuple[bool, str]:
@@ -42,7 +120,7 @@ def check_test_evidence(evidence_path: str) -> tuple[bool, str]:
         if not test_file.exists():
             return False, f"Test file not found: {test_file}"
         # Run the specific test
-        cmd = ["python", "-m", "pytest", evidence_path, "-q", "-p", "no:cacheprovider"]
+        cmd = [sys.executable, "-m", "pytest", evidence_path, "-q", "-p", "no:cacheprovider"]
         code, stdout, stderr = run_command(cmd)
         if code != 0:
             return False, f"Test failed: {stdout}\n{stderr}"
@@ -51,12 +129,17 @@ def check_test_evidence(evidence_path: str) -> tuple[bool, str]:
 
 
 def check_benchmark_artifact(evidence_path: str) -> tuple[bool, str]:
-    """Check if a benchmark artifact exists."""
+    """Check if a benchmark artifact exists and is more than a placeholder."""
     path = REPO_ROOT / evidence_path
     if not path.exists():
         return False, f"Benchmark artifact not found: {path}"
-    if path.is_dir() and not any(path.iterdir()):
-        return False, f"Benchmark artifact directory empty: {path}"
+    if path.is_dir():
+        entries = [p for p in path.iterdir() if p.name != "README.md"]
+        if not entries:
+            return False, (
+                f"Benchmark artifact directory holds only a placeholder README: {path} "
+                "(no loader or run artifact)"
+            )
     return True, "Artifact exists"
 
 
@@ -78,38 +161,26 @@ def check_doc(evidence_path: str) -> tuple[bool, str]:
 
 def check_external_audit(evidence_path: str) -> tuple[bool, str]:
     """Run an external audit command."""
-    # The evidence_path here is the command string
-    cmd = evidence_path.split()
-    code, stdout, stderr = run_command(cmd)
+    code, stdout, stderr = run_chain(evidence_path)
     if code != 0:
-        return False, f"Command failed: {stderr}"
+        return False, f"Command failed (exit {code}): {stderr or stdout}"
     return True, "Audit passed"
 
 
 def check_command(evidence_path: str) -> tuple[bool, str]:
-    """Run a shell command and check it succeeds."""
-    cmd = evidence_path.split()
-    code, stdout, stderr = run_command(cmd)
+    """Run a shell command and check it succeeds.
 
-    # Special handling for commands that return non-zero on warnings but succeed
-    if "pytest --cov" in evidence_path:
-        # Coverage command succeeds if tests pass (connection errors are transient)
-        if "passed" in stdout and "failed" not in stdout:
-            return True, "Tests passed (coverage measured)"
-        if code == 0:
-            return True, "Command succeeded"
-        return False, f"Tests failed: {stdout}"
-
-    if "bandit" in evidence_path or "pip-audit" in evidence_path:
-        # These tools return non-zero on any findings, but that's not failure
-        # Success = they ran without crashing
-        if "WARNING" in stderr or "WARNING" in stdout or "Error" not in stderr:
-            return True, f"Audit completed (exit {code})"
-
+    A non-zero exit is a failure — including for bandit/pip-audit, whose
+    exit codes report findings. Claims that cite those tools must use a
+    command whose exit code already encodes the claim (e.g. bandit
+    ``-lll`` reports only high-severity findings).
+    """
+    code, stdout, stderr = run_chain(evidence_path)
     if code == 0:
         return True, "Command succeeded"
-
-    return False, f"Command failed (exit {code}): {stderr}"
+    detail = (stderr or stdout).strip().splitlines()
+    tail = "\n".join(detail[-20:])
+    return False, f"Command failed (exit {code}): {tail}"
 
 
 def verify_claim(claim: dict[str, Any]) -> tuple[bool, str]:
@@ -136,7 +207,7 @@ def verify_claim(claim: dict[str, Any]) -> tuple[bool, str]:
         elif evidence_type == "command":
             return check_command(evidence_path)
         else:
-            return False, f"Unknown evidence type: {evidence_type}"
+            return False, f"Unknown evidence type: {evidence_path}"
     except Exception as e:
         return False, f"Verification error: {e}"
 

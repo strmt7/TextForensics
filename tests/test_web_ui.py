@@ -701,7 +701,7 @@ class TestIndexPageWithSession:
         session_id = session_resp.json()["session_id"]
         resp = client.get(f"/?session={session_id}")
         assert resp.status_code == 200
-        assert "session_id" in resp.text
+        assert session_id in resp.text
 
     def test_index_page_without_session(self, client):
         resp = client.get("/")

@@ -12,6 +12,7 @@ from textforensics.casefile import (
     _hash_without_seal,
     _strip_runtime_ms_from_bundle,
     canonical_json_bytes,
+    replay_case_file,
     seal_case_file,
     verify_case_file,
     verify_case_file_path,
@@ -355,6 +356,40 @@ class HashWithoutSealTests(unittest.TestCase):
         case = {"schema": CASE_SCHEMA, "case_sha256": "a" * 64}
         without = {"schema": CASE_SCHEMA}
         self.assertEqual(_hash_without_seal(case), _hash_without_seal(without))
+
+
+class CaseFileReplayTests(unittest.TestCase):
+    def test_replay_valid_seal_with_matching_text(self):
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        case = seal_case_file(bundle)
+        result = replay_case_file(case, text=TEXT)
+        self.assertTrue(result["valid"])
+        self.assertEqual(result["errors"], [])
+        self.assertEqual(result["checks"]["seal"]["status"], "valid")
+        self.assertEqual(result["checks"]["text"]["status"], "matched")
+
+    def test_replay_without_text_reports_not_supplied(self):
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        case = seal_case_file(bundle)
+        result = replay_case_file(case)
+        self.assertTrue(result["valid"])
+        self.assertEqual(result["checks"]["text"]["status"], "not_supplied")
+
+    def test_replay_text_hash_mismatch(self):
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        case = seal_case_file(bundle)
+        result = replay_case_file(case, text="A completely different text.")
+        self.assertFalse(result["valid"])
+        self.assertIn("text_hash_mismatch", result["errors"])
+        self.assertEqual(result["checks"]["text"]["status"], "mismatch")
+
+    def test_replay_tampered_seal_is_invalid(self):
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        case = seal_case_file(bundle)
+        case["forensic_bundle"]["content_sha256"] = "0" * 64
+        result = replay_case_file(case, text=TEXT)
+        self.assertFalse(result["valid"])
+        self.assertEqual(result["checks"]["seal"]["status"], "invalid")
 
 
 if __name__ == "__main__":

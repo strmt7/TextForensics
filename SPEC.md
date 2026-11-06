@@ -1,6 +1,8 @@
-# TFDP/1 — TextForensics Detector Protocol
+# TFDP/2 — TextForensics Detector Protocol
 
-TFDP/1 is a small interoperability contract for AI-text detectors. It exists because detector APIs commonly expose incompatible labels, score semantics, thresholds and sentence-level outputs. The protocol does **not** pretend that raw scores from different detectors are probabilities or directly comparable.
+TFDP/2 is a small interoperability contract for AI-text detectors. It exists because detector APIs commonly expose incompatible labels, score semantics, thresholds and sentence-level outputs. The protocol does **not** pretend that raw scores from different detectors are probabilities or directly comparable.
+
+TFDP/2 adds, over TFDP/1: explicit score direction (`native_score_direction`), score range (`score_range`), supported-condition metadata (`supported_length`, `supported_domains`, `supported_editing_regimes`, `supported_generators`), calibration provenance (`calibration` object with `calibration_id` and `method`), and runtime provenance (`runtime`). TFDP/1 predictions remain accepted and are normalized to TFDP/2 by `normalize_prediction` (`src/textforensics/detectors.py`): missing TFDP/2 metadata is recorded as `unknown`/`None` and the prediction records `normalized_from: "TFDP/1"` — normalization never invents evidence.
 
 ## Minimum detector result
 
@@ -57,11 +59,11 @@ class Detector(Protocol):
 
 ## Why the protocol separates score from probability
 
-A value such as `0.82` can mean a classifier logit mapping, a heuristic score, a fraction of flagged sentences, or a calibrated probability depending on the system. TFDP/1 keeps those semantics explicit so an aggregator cannot silently average incompatible numbers.
+A value such as `0.82` can mean a classifier logit mapping, a heuristic score, a fraction of flagged sentences, or a calibrated probability depending on the system. TFDP/2 keeps those semantics explicit so an aggregator cannot silently average incompatible numbers.
 
 ## Forensic bundle
 
-`textforensics report` wraps TFDP/1 detector results with:
+`textforensics report` wraps TFDP/2 detector results with:
 
 - SHA-256 of the analyzed text
 - detector/model versions

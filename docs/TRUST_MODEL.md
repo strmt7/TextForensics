@@ -29,7 +29,7 @@ TextForensics treats every detector as a **fallible, versioned measurement instr
 │  Status: Implemented (consensus.py)                             │
 ├─────────────────────────────────────────────────────────────────┤
 │  Level 1: Raw detector observation                              │
-│  Requires: Valid TFDP/1 prediction with score semantics,        │
+│  Requires: Valid TFDP/2 prediction with score semantics,        │
 │            detector identity, and verdict                       │
 │  Status: Core functionality                                     │
 ├─────────────────────────────────────────────────────────────────┤
@@ -276,7 +276,7 @@ When reliability drops below 0.28, the engine returns `"insufficient_evidence"` 
 
 ### 5.2 Detector-Level Abstention
 
-The TFDP/1 protocol includes `verdict = "abstain"` as a valid verdict. A detector should abstain when:
+The TFDP/2 protocol includes `verdict = "abstain"` as a valid verdict. A detector should abstain when:
 
 | Condition | Detector Action |
 |---|---|

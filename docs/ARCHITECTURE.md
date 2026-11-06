@@ -13,7 +13,7 @@
 │                                                                         │
 │  ┌──────────┐  ┌───────────┐  ┌───────────┐  ┌──────────┐             │
 │  │ Detectors │  │ Analyzers │  │  Trust    │  │Consensus │             │
-│  │ (TFDP/1)  │  │ (Feature  │  │  Map      │  │(Family-  │             │
+│  │ (TFDP/2)  │  │ (Feature  │  │  Map      │  │(Family-  │             │
 │  │           │  │  extract) │  │           │  │ balanced)│             │
 │  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘             │
 │        │              │              │              │                   │
@@ -41,7 +41,7 @@
 
 ### 1.1 Detectors (`src/textforensics/detectors.py`)
 
-The **TFDP/1 (TextForensics Detector Protocol v1)** defines a strict contract between the core and any detector adapter.
+The **TFDP/2 (TextForensics Detector Protocol v2)** defines a strict contract between the core and any detector adapter. TFDP/1 predictions remain accepted and are normalized to TFDP/2 (see `SPEC.md`).
 
 **Key types:**
 - `DetectorPrediction` — the canonical output. Contains raw/native score, verdict (`ai_like`, `human_like`, `abstain`), optional `calibrated_ai_probability` (only with `calibration_id`), detector identity, supported languages, minimum words, evidence, and warnings.

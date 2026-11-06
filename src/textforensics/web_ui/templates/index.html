@@ -43,7 +43,7 @@
             <h1>TextForensics</h1>
             <div class="header-subtitle">AI-Text Detector Evidence & Reliability Audit Dashboard</div>
             <div class="session-top-bar">
-                <span id="sessionIdDisplay" class="session-id-display hidden"></span>
+                <span id="sessionIdDisplay" class="session-id-display{% if not session_id %} hidden{% endif %}">{{ session_id or "" }}</span>
             </div>
         </header>
 
