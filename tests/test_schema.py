@@ -17,6 +17,7 @@ from textforensics.schema import (
     validate,
     validate_case_file,
     validate_detector_result,
+    validate_evidence_record,
     validate_forensic_bundle,
     validate_trust_map,
 )
@@ -25,6 +26,115 @@ TEXT = (
     "I tested the device twice yesterday and wrote down what changed. "
     "The second run was warmer, so I plan to repeat it before drawing conclusions."
 )
+
+
+def minimal_evidence_record() -> dict:
+    """A minimal well-formed synthetic U1 evidence record (no real data)."""
+    metric = {
+        "value": 0.8,
+        "n": 240,
+        "ci_lower": 0.7,
+        "ci_upper": 0.9,
+        "method": "bootstrap, 1000 resamples, seed 20261106",
+    }
+    fpr_native = {
+        "value": 0.02,
+        "n": 120,
+        "ci_lower": 0.0,
+        "ci_upper": 0.05,
+        "method": "bootstrap, 1000 resamples, seed 20261106",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+    }
+    return {
+        "schema": "textforensics.evidence-record/v1",
+        "record_id": "evr-20261106-synthetic-test-builtin-heuristic",
+        "detector_id": "textforensics/builtin-heuristic",
+        "detector_version": "0.1.0",
+        "detector_family": "stylometric-heuristic",
+        "calibration_id": None,
+        "status": "partial",
+        "supersedes": None,
+        "regime": {
+            "language": "en",
+            "script": "Latn",
+            "language_variety": None,
+            "length_bucket": {
+                "min_words": 80,
+                "max_words": None,
+                "floor_words": 80,
+                "measured_min_words": 85,
+                "measured_median_words": 120,
+                "measured_max_words": 400,
+            },
+            "domain": ["synthetic"],
+            "genre": "synthetic-test",
+            "generator": {
+                "families": ["synthetic"],
+                "vintage": "synthetic",
+                "current_as_of": "2026-11-06",
+            },
+            "editing_regime": "raw",
+            "human_population": {
+                "populations": ["synthetic"],
+                "determined_how": "synthetic test fixture",
+            },
+            "attack_slice": None,
+        },
+        "data": {
+            "dataset_name": "synthetic-test",
+            "dataset_version": "1.0",
+            "file_sha256": "a" * 64,
+            "row_hash_method": "sha256 of normalised text (benchmark fingerprint)",
+            "split": "test",
+            "split_role": "test",
+            "n_human": 120,
+            "n_ai": 120,
+            "licence": "MIT",
+            "licence_reference": "https://example.invalid/synthetic-test-licence",
+            "contamination_flag": "no",
+            "near_duplicate_rate": None,
+            "near_duplicate_method": None,
+        },
+        "run": {
+            "run_id": "EV-20261106-synthetic-test",
+            "run_artifact": "docs/evidence/runs/EV-20261106-synthetic-test.json",
+            "run_artifact_sha256": "b" * 64,
+            "run_date": "2026-11-06",
+            "runner": "synthetic-test",
+            "code_version": "a" * 40,
+            "dependency_lock_sha": None,
+            "hardware": "synthetic-test",
+            "runtime": "CPython 3.12.3 on Linux",
+            "seeds": {"bootstrap_seed": 20261106},
+            "command": "python -m pytest tests/test_schema.py",
+            "drops_manifest": [],
+            "reporting_rules": "synthetic test fixture",
+        },
+        "metrics": [
+            {
+                "slice_id": "synthetic-test",
+                "n_human": 120,
+                "n_ai": 120,
+                "auroc": dict(metric),
+                "tpr_at_fpr_0_01": dict(metric, value=0.5, ci_lower=0.4, ci_upper=0.6),
+                "tpr_at_fpr_0_05": dict(metric, value=0.7, ci_lower=0.6, ci_upper=0.8),
+                "fpr_native": fpr_native,
+                "coverage": 1.0,
+                "abstention_rate": 0.0,
+                "worst_slice": True,
+            }
+        ],
+        "limits": {
+            "known_failure_modes": ["synthetic test fixture"],
+            "limitations": ["not validated for anything real"],
+            "next_revalidation_due": "2027-02-04",
+            "appeal_note": "synthetic test fixture",
+            "reviewer": None,
+            "review_date": None,
+            "demoted_by": None,
+        },
+        "signature": "c" * 64,
+    }
 
 
 class SchemaLoaderTests(unittest.TestCase):
@@ -44,6 +154,25 @@ class SchemaLoaderTests(unittest.TestCase):
         schemas = list_schemas()
         self.assertEqual(schemas, sorted(_SCHEMA_NAMES.keys()))
         self.assertIn("trust-map", schemas)
+        self.assertIn("evidence-record", schemas)
+        self.assertIn("validation-registry", schemas)
+
+    def test_evidence_record_schema_loads(self):
+        schema = load_schema("evidence-record")
+        self.assertEqual(schema["title"], "TextForensics validation evidence record (U1)")
+        self.assertEqual(
+            schema["properties"]["schema"]["const"], "textforensics.evidence-record/v1"
+        )
+        self.assertIn("supported", schema["properties"]["status"]["enum"])
+        self.assertIn("contested", schema["properties"]["status"]["enum"])
+
+    def test_validation_registry_schema_loads(self):
+        schema = load_schema("validation-registry")
+        self.assertEqual(schema["title"], "TextForensics validation registry (U1)")
+        self.assertEqual(
+            schema["properties"]["schema"]["const"], "textforensics.validation-registry/v1"
+        )
+        self.assertIn("records", schema["required"])
 
     def test_load_schema_caching(self):
         # Call twice - should use cache on second call
@@ -150,6 +279,63 @@ class SchemaValidationTests(unittest.TestCase):
         for det in self.bundle["detector_results"]:
             errors = validate(det, "detector-result")
             self.assertEqual(errors, [])
+
+    @unittest.skipUnless(
+        importlib.util.find_spec("jsonschema"),
+        "jsonschema is a development dependency",
+    )
+    def test_valid_evidence_record_passes(self):
+        errors = validate_evidence_record(minimal_evidence_record())
+        self.assertEqual(errors, [])
+
+    @unittest.skipUnless(
+        importlib.util.find_spec("jsonschema"),
+        "jsonschema is a development dependency",
+    )
+    def test_invalid_evidence_record_fails(self):
+        record = minimal_evidence_record()
+        record["status"] = "definitely-supported"
+        del record["signature"]
+        errors = validate_evidence_record(record)
+        self.assertGreater(len(errors), 0)
+        self.assertTrue(any("status" in e for e in errors))
+        self.assertTrue(any("signature" in e for e in errors))
+
+    @unittest.skipUnless(
+        importlib.util.find_spec("jsonschema"),
+        "jsonschema is a development dependency",
+    )
+    def test_invalid_contamination_flag_fails(self):
+        record = minimal_evidence_record()
+        record["data"]["contamination_flag"] = "maybe"
+        errors = validate_evidence_record(record)
+        self.assertGreater(len(errors), 0)
+        self.assertTrue(any("contamination_flag" in e for e in errors))
+
+    @unittest.skipUnless(
+        importlib.util.find_spec("jsonschema"),
+        "jsonschema is a development dependency",
+    )
+    def test_validate_dispatches_evidence_record(self):
+        errors = validate(minimal_evidence_record(), "evidence-record")
+        self.assertEqual(errors, [])
+
+    @unittest.skipUnless(
+        importlib.util.find_spec("jsonschema"),
+        "jsonschema is a development dependency",
+    )
+    def test_valid_validation_registry_passes(self):
+        import jsonschema
+
+        schema = load_schema("validation-registry")
+        registry = {
+            "schema": "textforensics.validation-registry/v1",
+            "registry_id": "d" * 64,
+            "created_at_utc": "2026-11-06T00:00:00+00:00",
+            "records": [minimal_evidence_record()],
+        }
+        validator = jsonschema.Draft202012Validator(schema)
+        self.assertEqual(list(validator.iter_errors(registry)), [])
 
     def test_validate_unknown_schema_raises(self):
         with self.assertRaises(ValueError) as ctx:

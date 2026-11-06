@@ -18,6 +18,8 @@ _SCHEMA_NAMES = {
     "enterprise-policy": "enterprise-policy.schema.json",
     "run-artifact": "run-artifact.schema.json",
     "evidence-registry": "evidence-registry.schema.json",
+    "evidence-record": "evidence-record.schema.json",
+    "validation-registry": "validation-registry.schema.json",
 }
 
 
@@ -114,6 +116,21 @@ def validate_trust_map(trust_map: dict[str, Any]) -> list[str]:
     return [f"{'.'.join(str(p) for p in err.path)}: {err.message}" for err in errors]
 
 
+def validate_evidence_record(record: dict[str, Any]) -> list[str]:
+    """Validate a U1 validation-evidence record against its schema.
+
+    Args:
+        record: The evidence record dictionary to validate.
+
+    Returns:
+        List of validation error messages (empty if valid).
+    """
+    schema = load_schema("evidence-record")
+    validator = _get_validator(schema)
+    errors = sorted(validator.iter_errors(record), key=lambda e: e.path)
+    return [f"{'.'.join(str(p) for p in err.path)}: {err.message}" for err in errors]
+
+
 def validate_enterprise_policy(policy: dict[str, Any]) -> list[str]:
     """Validate an enterprise policy against its schema.
 
@@ -170,6 +187,8 @@ def validate(bundle: dict[str, Any], schema_name: str) -> list[str]:
         return validate_trust_map(bundle)
     elif schema_name == "enterprise-policy":
         return validate_enterprise_policy(bundle)
+    elif schema_name == "evidence-record":
+        return validate_evidence_record(bundle)
     else:
         raise ValueError(
             f"Unknown schema {schema_name!r}. Available: {', '.join(sorted(_SCHEMA_NAMES))}"
