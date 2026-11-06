@@ -681,3 +681,85 @@ Integrity. No test ran in Core (pre-commit aborts first).
 - ruff: 0 errors. Schemas: 7 OK.
 - Seeded wave-1 evidence records: unchanged — no re-seeding was
   needed or done; the wave-1 measured numbers above still stand.
+
+## Verification record — Phase 3, U1 validation-evidence registry (2026-11-06)
+
+U1 builds the validation-evidence registry (`textforensics.evidence-record/v1`)
+and the regime-conditioned Trust Map derivation engine (Trust Map v3). Design:
+`hidden_files/phase3-u1-design.md`; full report:
+`hidden_files/phase3-u1.md`. Seven commits, `dc2e1f1`…`596d10a`.
+
+### What was built
+
+- Schema `textforensics.evidence-record/v1` + `textforensics.validation-registry/v1`
+  (packaged schemas; `scripts/validate_schemas.py` now reports 9 OK, was 7).
+  The registry schema types records as generic objects — a relative `$ref`
+  to the record schema fails offline under `Draft202012Validator`
+  (`Unresolvable`); the Python loader enforces record shape.
+- `src/textforensics/validation.py` (stdlib-only): `ValidationRecord`
+  dataclasses, `validate_record()` with the validator-enforced partial cap
+  (missing mandatory-for-supported field caps effective status at `partial`),
+  licence/contamination missing = hard rejection, `compute_signature()` /
+  `verify_signature()` (SHA-256 hash-seal over canonical JSON), computed
+  staleness (`effective_status`: stale on detector-version change,
+  `next_revalidation_due` expiry, or `demoted_by`), contamination labels,
+  `ValidationRegistry` (registry-id verification, regime lookup).
+- Trust Map v3 (`textforensics.trust-map/v3`, `TRUST_STATES_V3` adds
+  `stale`): `derive_trust_map` in `validation.py` derives the 8 evidence
+  dimensions from U1 records only, citing matching record ids; live
+  dimensions reuse the v2 helpers when observations are supplied, else
+  `unknown`. V2 behaviour and the v2 schema contract are unchanged
+  (verified: a v2 map with a `stale` dimension or a `stale` coverage key
+  is rejected; v3 accepts it; v1 rejects it).
+- Seeded registry `docs/validation/registry.json` (4 records, all
+  `partial`): RAID (92/2908), MAGE (117/283), Beemo (200/700),
+  OpAI-Bench (56/55 binary). Every record carries licence/consent,
+  contamination flag `no`, per-slice AUROC + TPR@1%/5% FPR + native
+  FPR/TPR with bootstrap 95% CIs (1000 resamples, seed 20261106), and a
+  drops manifest. Native FPR is 0.0000 on all four (the categorical
+  verdict fires only at score ≥ 0.68; highest human score in any seed
+  sample is 0.625) — a quiet verdict, not separation: AUROC is
+  below chance on Beemo (0.3976) and OpAI-Bench (0.3961). MixSet has
+  no record (no licence — the schema forbids a record without one).
+- Follow-up commit `596d10a`: `tpr_native` (paired with `fpr_native`)
+  is now an optional `evidence-record/v1` metric; the seed script
+  wires in the already-computed native TPR and the registry was
+  re-seeded (registry_id `85822eabb900…`).
+
+### Measured numbers (HEAD `596d10a`, 2026-11-06, Python 3.12.3)
+
+- Full suite, extras venv: **2531 passed, 0 failed, 86%** coverage
+  (12,977 stmts, 1,493 missed, 4,482 branches, 707 partial) in
+  144.35 s. The `test_memory_check` host flake did not fire.
+- pre-commit `--all-files`: **13 hooks pass, 0 fail** (verified
+  independently by the coordinator, twice — after Package B and after
+  the `tpr_native` follow-up).
+- Claims gate: **33 passed, 0 failed**; report-card diff clean.
+- Schemas: **9 OK**. Ruff: 0 errors, format clean.
+- Gitleaks 8.24.3 (CI version): **0 leaks** on `75e9c30..HEAD`
+  (follow-up) and on `dc2e1f1^..HEAD` (all of U1, 7 commits).
+- Engine smoke test on the real seeded registry (en, 229 words,
+  news, raw machine output): v3 map, overall `mixed`, coverage
+  0 supported / 6 partial / 4 unknown / 0 out_of_scope / 0 stale,
+  record ids cited on every matched dimension.
+
+### What is NOT verified / NOT done here
+
+- **No new claims.** The claims gate stays **33/33** and the report
+  card still leads with worst-slice human FPR = unknown. Promoting
+  it on the native-verdict zeros is a claims decision for the Phase 5
+  release gate, not U1.
+- **RAID at 92 humans** is 8 short of the 100-human minimum for a
+  `supported` slice; a future re-measurement (wave 2 / release gate)
+  can grow it. All four seeds are `partial` (unreviewed, preliminary
+  samples; OpAI-Bench's binary slice is 111 rows).
+- **`verify.py` still carries its own 4-state `_TRUST_STATES`** for
+  case-file verification, so a v3 Trust Map embedded in a case file
+  would be rejected there. Nothing embeds v3 maps in case files yet;
+  this is a U2/release-gate decision, not a U1 fix.
+- **A v3 map from U1 records alone is at most `mixed`**: temporal
+  stability caps at `partial` from a single snapshot, so `strong`
+  is unreachable until U3 supplies longitudinal evidence. By design.
+- **`tpr_native` is optional in v1**, not mandatory-for-supported;
+  a future schema revision may make it mandatory. Records predating
+  it load with `tpr_native=None`.
