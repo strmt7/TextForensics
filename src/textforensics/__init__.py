@@ -37,8 +37,10 @@ from .calibration import (
     CalibrationManager,
     CalibrationResult,
     DatasetReference,
+    evaluate_threshold,
     load_calibration_artifact,
     save_calibration_artifact,
+    select_threshold,
     validate_calibration_artifact,
 )
 from .casefile import (
@@ -129,7 +131,6 @@ from .semantic import (
     SemanticSegment,
     analyze_semantic_consistency,
 )
-from .threshold_selection import evaluate_threshold, select_threshold
 from .trust import (
     TRUST_DIMENSIONS,
     TRUST_SCHEMA,

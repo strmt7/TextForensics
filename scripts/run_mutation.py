@@ -235,7 +235,7 @@ def main():
         "textforensics.benchmark",
         "textforensics.trust",
         "textforensics.consensus",
-        "textforensics.threshold_selection",
+        "textforensics.calibration",
         "textforensics.detectors",
         "textforensics.analyzers",
         "textforensics.engine",
@@ -249,7 +249,7 @@ def main():
         "textforensics.benchmark",
         "textforensics.trust",
         "textforensics.consensus",
-        "textforensics.threshold_selection",
+        "textforensics.calibration",
     ]
 
     if args.mode == "diff":

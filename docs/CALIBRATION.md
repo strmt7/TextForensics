@@ -11,7 +11,7 @@
 
 TextForensics uses **threshold-based operating point selection** rather than full probability calibration. This is the minimal viable calibration: it ensures a detector operates at a declared false positive rate on the calibration set, without claiming the output is a calibrated probability.
 
-**Method** (`threshold_selection.py` → `select_threshold`):
+**Method** (`calibration.py` → `select_threshold`):
 
 1. Load labeled calibration data (JSONL format with `label` and `score` fields)
 2. Separate human and AI samples
@@ -215,7 +215,7 @@ result = run_calibration_evaluation(
 
 ### 4.1 Calibration Artifact
 
-Threshold selection produces a JSON artifact via `create_calibration_artifact()`:
+Threshold selection produces a JSON artifact via `create_threshold_selection_artifact()`:
 
 ```json
 {

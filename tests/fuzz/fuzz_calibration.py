@@ -7,7 +7,7 @@ Covers:
 - select_threshold, evaluate_threshold with crafted JSONL datasets
 - validate_no_contamination edge cases
 - load_threshold_artifact parsing (malformed JSON, missing fields, bad schemas)
-- create_calibration_artifact round-trip
+- create_threshold_selection_artifact round-trip
 - run_calibration_evaluation pipeline
 - Benchmark calibration artifact validation
 """
@@ -57,7 +57,7 @@ def _make_jsonl(text: str) -> str:
 def _fuzz_threshold_artifact_parsing(text: str) -> None:
     """Fuzz load_threshold_artifact with malformed JSON and edge cases."""
     try:
-        from textforensics.threshold_selection import load_threshold_artifact
+        from textforensics.calibration import load_threshold_artifact
     except Exception:
         return
 
@@ -117,7 +117,7 @@ def _fuzz_threshold_artifact_parsing(text: str) -> None:
 def _fuzz_threshold_selection(text: str) -> None:
     """Fuzz select_threshold and evaluate_threshold with crafted datasets."""
     try:
-        from textforensics.threshold_selection import (
+        from textforensics.calibration import (
             evaluate_threshold,
             select_threshold,
         )
@@ -187,11 +187,11 @@ def _fuzz_threshold_selection(text: str) -> None:
 
 
 def _fuzz_calibration_artifact_roundtrip(text: str) -> None:
-    """Fuzz create_calibration_artifact and load_threshold_artifact round-trip."""
+    """Fuzz create_threshold_selection_artifact and load_threshold_artifact round-trip."""
     try:
-        from textforensics.threshold_selection import (
+        from textforensics.calibration import (
             ThresholdSelectionResult,
-            create_calibration_artifact,
+            create_threshold_selection_artifact,
             load_threshold_artifact,
         )
     except Exception:
@@ -222,7 +222,7 @@ def _fuzz_calibration_artifact_roundtrip(text: str) -> None:
                     warning=text[:100] or None,
                 )
                 try:
-                    create_calibration_artifact(result, output)
+                    create_threshold_selection_artifact(result, output)
                     loaded = load_threshold_artifact(output)
                     assert "threshold" in loaded
                 except Exception:
@@ -232,7 +232,7 @@ def _fuzz_calibration_artifact_roundtrip(text: str) -> None:
 def _fuzz_no_contamination(text: str) -> None:
     """Fuzz validate_no_contamination with same/different files."""
     try:
-        from textforensics.threshold_selection import validate_no_contamination
+        from textforensics.calibration import validate_no_contamination
     except Exception:
         return
 
@@ -275,7 +275,7 @@ def _fuzz_no_contamination(text: str) -> None:
 def _fuzz_evaluation_result_edge(text: str) -> None:
     """Fuzz EvaluationResult with extreme counts and edge-case hashes."""
     try:
-        from textforensics.threshold_selection import EvaluationResult
+        from textforensics.calibration import EvaluationResult
     except Exception:
         return
 
@@ -310,7 +310,7 @@ def _fuzz_evaluation_result_edge(text: str) -> None:
 def _fuzz_run_calibration_evaluation(text: str) -> None:
     """Fuzz run_calibration_evaluation pipeline end-to-end."""
     try:
-        from textforensics.threshold_selection import run_calibration_evaluation
+        from textforensics.calibration import run_calibration_evaluation
     except Exception:
         return
 
@@ -340,10 +340,14 @@ def _fuzz_run_calibration_evaluation(text: str) -> None:
                     pass
 
 
-def _fuzz_get_test_samples(text: str) -> None:
-    """Fuzz _get_test_samples with malformed JSONL lines."""
+def _fuzz_compute_sample_hashes(text: str) -> None:
+    """Fuzz benchmark._compute_sample_hashes with malformed JSONL lines.
+
+    This is the canonical per-sample hashing the contamination gate
+    uses (it replaced the deleted threshold-side _get_test_samples).
+    """
     try:
-        from textforensics.threshold_selection import _get_test_samples
+        from textforensics.benchmark import _compute_sample_hashes
     except Exception:
         return
 
@@ -366,20 +370,27 @@ def _fuzz_get_test_samples(text: str) -> None:
                 '{"text": null}',
                 '{"text": ""}',
                 '{"other": "field"}',
+                '{"label": "human", "text": "sample"}',
             ]
         )
         p.write_text("\n".join(lines), encoding="utf-8")
-        try:
-            samples = _get_test_samples(p)
-            assert isinstance(samples, list)
-        except Exception:
-            pass
+        for strict in (True, False):
+            try:
+                hashes, count = _compute_sample_hashes(p, strict=strict)
+                assert isinstance(hashes, list)
+                assert count == len(hashes)
+                assert all(len(h) == 64 for h in hashes)
+            except ValueError:
+                # strict=True raises on malformed lines; that is expected.
+                assert strict
+            except Exception:
+                pass
 
 
 def _fuzz_threshold_selection_result_serialization(text: str) -> None:
     """Fuzz ThresholdSelectionResult.to_dict with extreme field values."""
     try:
-        from textforensics.threshold_selection import ThresholdSelectionResult
+        from textforensics.calibration import ThresholdSelectionResult
     except Exception:
         return
 
@@ -427,7 +438,7 @@ def TestOneInput(data: bytes) -> None:
     _fuzz_no_contamination(text)
     _fuzz_evaluation_result_edge(text)
     _fuzz_run_calibration_evaluation(text)
-    _fuzz_get_test_samples(text)
+    _fuzz_compute_sample_hashes(text)
     _fuzz_threshold_selection_result_serialization(text)
 
 

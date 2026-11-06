@@ -114,7 +114,7 @@ Family-balanced categorical consensus that does **not** fuse probabilities.
 - Fewer than 2 voting families → `abstain`
 - Equal AI/human families → `abstain`
 
-### 1.5 Calibration (`src/textforensics/threshold_selection.py`, `benchmark.py`)
+### 1.5 Calibration (`src/textforensics/calibration.py`, `benchmark.py`)
 
 **Separation of concerns:**
 - `select_threshold(calibration_path, target_fpr)` — selects threshold on calibration data only
@@ -406,7 +406,7 @@ User Input (text)
            │
   ┌────────▼───────────────────────┐
   │  write artifact                │
-  │  create_calibration_artifact() │
+  │  create_threshold_selection_artifact() │
   │  → JSON with schema, hash,     │
   │    dataset hash, method        │
   └────────┬───────────────────────┘

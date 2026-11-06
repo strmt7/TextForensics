@@ -7,8 +7,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from textforensics.threshold_selection import (
-    create_calibration_artifact,
+from textforensics.calibration import (
+    create_threshold_selection_artifact,
     evaluate_threshold,
     load_threshold_artifact,
     run_calibration_evaluation,
@@ -119,6 +119,27 @@ class SelectThresholdTests(unittest.TestCase):
                 select_threshold(cal_path)
 
             self.assertIn("human", str(ctx.exception).lower())
+
+    def test_select_threshold_default_version_matches_live_detector(self):
+        """Test the default detector version is the live detector's.
+
+        Regression test for the old default "1.0.0", which matched no
+        detector: artifacts produced with defaults carried a version
+        that benchmark.validate_calibration_artifact would reject.
+        The assertion pins the invariant (default == live version),
+        not the literal, so it survives a detector version bump.
+        """
+        from textforensics.detectors import BuiltinHeuristicDetector
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cal_path = Path(tmp) / "calibration.jsonl"
+            write_calibration_dataset(cal_path)
+
+            result = select_threshold(cal_path, target_fpr=0.05)
+            detector = BuiltinHeuristicDetector()
+
+            self.assertEqual(result.detector_version, detector.detector_version)
+            self.assertEqual(result.detector_id, detector.detector_id)
 
     def test_select_threshold_respects_target_fpr(self):
         """Test that selected threshold meets target FPR constraint."""
@@ -247,6 +268,41 @@ class ValidateNoContaminationTests(unittest.TestCase):
             self.assertFalse(result["valid"])
             self.assertTrue(result["contamination_detected"])
 
+    def test_validate_partial_overlap_is_detected(self):
+        """Test detection of partial (single-sample) overlap.
+
+        Regression test for the score-vs-text hashing bug: the old
+        implementation hashed float scores on the calibration side
+        and raw text on the test side, so partial overlap was never
+        detected — only identical files were caught. The two files
+        here differ as wholes but share exactly one sample.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            cal_path = Path(tmp) / "calibration.jsonl"
+            eval_path = Path(tmp) / "evaluation.jsonl"
+
+            shared = "This is a shared sample text that appears in both files"
+            cal_path.write_text(
+                json.dumps({"label": "human", "text": shared})
+                + "\n"
+                + json.dumps({"label": "ai", "text": AI_SAMPLE})
+                + "\n",
+                encoding="utf-8",
+            )
+            eval_path.write_text(
+                json.dumps({"label": "human", "text": shared})
+                + "\n"
+                + json.dumps({"label": "human", "text": HUMAN_SAMPLE})
+                + "\n",
+                encoding="utf-8",
+            )
+
+            result = validate_no_contamination(cal_path, eval_path)
+
+            self.assertFalse(result["valid"])
+            self.assertTrue(result["contamination_detected"])
+            self.assertEqual(result["shared_samples"], 1)
+
     def test_validate_identical_files(self):
         """Test that identical files are flagged as contaminated."""
         with tempfile.TemporaryDirectory() as tmp:
@@ -342,7 +398,7 @@ class ArtifactSerializationTests(unittest.TestCase):
             # Create artifact
             result = select_threshold(cal_path, target_fpr=0.05)
             artifact_path = Path(tmp) / "artifact.json"
-            create_calibration_artifact(result, artifact_path)
+            create_threshold_selection_artifact(result, artifact_path)
 
             # Load and verify
             loaded = load_threshold_artifact(artifact_path)
@@ -361,7 +417,7 @@ class ArtifactSerializationTests(unittest.TestCase):
             result = select_threshold(cal_path, target_fpr=0.05)
             artifact_path = Path(tmp) / "artifact.json"
 
-            created = create_calibration_artifact(result, artifact_path)
+            created = create_threshold_selection_artifact(result, artifact_path)
             self.assertEqual(created, artifact_path)
             self.assertTrue(artifact_path.exists())
 
@@ -403,7 +459,7 @@ class ThresholdSelectionResultTests(unittest.TestCase):
 
     def test_to_dict_with_warning(self):
         """Test to_dict includes warning when present."""
-        from textforensics.threshold_selection import ThresholdSelectionResult
+        from textforensics.calibration import ThresholdSelectionResult
 
         result = ThresholdSelectionResult(
             threshold=0.5,
@@ -437,12 +493,18 @@ class ValidateNoContaminationEdgeCasesTests(unittest.TestCase):
             self.assertEqual(result["shared_samples"], -1)
 
 
-class GetTestSamplesTests(unittest.TestCase):
-    """Tests for _get_test_samples function."""
+class ComputeSampleHashesTests(unittest.TestCase):
+    """Tests for benchmark._compute_sample_hashes (lenient reading).
 
-    def test_get_test_samples_with_empty_lines(self):
-        """Test _get_test_samples skips empty lines."""
-        from textforensics.threshold_selection import _get_test_samples
+    The contamination gate depends on this helper's lenient JSONL
+    reading (strict=False skips bad lines instead of raising). These
+    tests previously covered the deleted threshold-side helper
+    _get_test_samples; they now cover the canonical implementation.
+    """
+
+    def test_compute_sample_hashes_with_empty_lines(self):
+        """Test _compute_sample_hashes skips empty lines."""
+        from textforensics.benchmark import _compute_sample_hashes
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "test.jsonl"
@@ -451,12 +513,13 @@ class GetTestSamplesTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            samples = _get_test_samples(path)
-            self.assertEqual(len(samples), 2)
+            hashes, count = _compute_sample_hashes(path, strict=False)
+            self.assertEqual(count, 2)
+            self.assertEqual(len(hashes), 2)
 
-    def test_get_test_samples_skips_invalid_json(self):
-        """Test _get_test_samples skips invalid JSON lines."""
-        from textforensics.threshold_selection import _get_test_samples
+    def test_compute_sample_hashes_skips_invalid_json(self):
+        """Test _compute_sample_hashes skips invalid JSON lines."""
+        from textforensics.benchmark import _compute_sample_hashes
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "test.jsonl"
@@ -465,12 +528,13 @@ class GetTestSamplesTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            samples = _get_test_samples(path)
-            self.assertEqual(len(samples), 2)
+            hashes, count = _compute_sample_hashes(path, strict=False)
+            self.assertEqual(count, 2)
+            self.assertEqual(len(hashes), 2)
 
-    def test_get_test_samples_skips_non_dict(self):
-        """Test _get_test_samples skips non-dict JSON."""
-        from textforensics.threshold_selection import _get_test_samples
+    def test_compute_sample_hashes_skips_non_dict(self):
+        """Test _compute_sample_hashes skips non-dict JSON."""
+        from textforensics.benchmark import _compute_sample_hashes
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "test.jsonl"
@@ -479,12 +543,21 @@ class GetTestSamplesTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            samples = _get_test_samples(path)
-            self.assertEqual(len(samples), 1)
+            hashes, count = _compute_sample_hashes(path, strict=False)
+            self.assertEqual(count, 1)
+            self.assertEqual(len(hashes), 1)
 
-    def test_get_test_samples_skips_no_text_field(self):
-        """Test _get_test_samples skips rows without text field."""
-        from textforensics.threshold_selection import _get_test_samples
+    def test_compute_sample_hashes_counts_label_only_row_as_empty_text(self):
+        """Test a labelled row without text hashes as empty text.
+
+        Unlike the deleted _get_test_samples (which skipped rows
+        without a text field), _compute_sample_hashes hashes
+        {"text": ""} for a labelled row with no text. The count is
+        what the contamination gate uses, and both sides hash the
+        same way, so a text-less row can only match another text-less
+        row.
+        """
+        from textforensics.benchmark import _compute_sample_hashes
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "test.jsonl"
@@ -493,8 +566,9 @@ class GetTestSamplesTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            samples = _get_test_samples(path)
-            self.assertEqual(len(samples), 1)
+            hashes, count = _compute_sample_hashes(path, strict=False)
+            self.assertEqual(count, 2)
+            self.assertEqual(len(hashes), 2)
 
 
 class LoadThresholdArtifactTests(unittest.TestCase):

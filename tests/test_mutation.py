@@ -80,7 +80,7 @@ class CosmicRayIntegrationTests(unittest.TestCase):
             "textforensics.benchmark",
             "textforensics.trust",
             "textforensics.consensus",
-            "textforensics.threshold_selection",
+            "textforensics.calibration",
         ]
         for module in expected_modules:
             self.assertIn(module, modules, f"Expected module {module} not in config")
@@ -235,7 +235,7 @@ class CosmicRayIntegrationTests(unittest.TestCase):
             "textforensics.benchmark",
             "textforensics.trust",
             "textforensics.consensus",
-            "textforensics.threshold_selection",
+            "textforensics.calibration",
             "textforensics.detectors",
             "textforensics.analyzers",
             "textforensics.engine",

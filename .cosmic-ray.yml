@@ -8,7 +8,7 @@ mutation:
     - "textforensics.benchmark"      # calibration, threshold selection, metrics
     - "textforensics.trust"          # trust map building, dimensions, evidence
     - "textforensics.consensus"      # ensemble consensus, family voting
-    - "textforensics.threshold_selection"  # threshold selection, calibration
+    - "textforensics.calibration"  # threshold selection, calibration maps
     - "textforensics.detectors"      # detector prediction validation, schemas
     - "textforensics.analyzers"      # text analysis, scoring primitives
     - "textforensics.engine"         # core analysis pipeline

@@ -314,7 +314,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     select_cmd.add_argument(
         "--detector-version",
-        default="1.0.0",
+        # Default matches the live builtin detector's version
+        # (detectors.BuiltinHeuristicDetector.detector_version).
+        default="0.1.0",
         help="Detector version for provenance.",
     )
     select_cmd.add_argument(
@@ -960,8 +962,8 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         _write_json(args.output, result)
 
     elif args.command == "select-threshold":
-        from .threshold_selection import create_calibration_artifact as _create_artifact
-        from .threshold_selection import select_threshold as _select_threshold
+        from .calibration import create_threshold_selection_artifact as _create_artifact
+        from .calibration import select_threshold as _select_threshold
 
         result = _select_threshold(
             args.dataset,

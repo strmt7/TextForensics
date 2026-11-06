@@ -15,6 +15,7 @@ from hypothesis import strategies as st
 from textforensics import emergency_stop
 from textforensics.analyzers import run_builtin_analyzers
 from textforensics.bundle import pack_bundle, verify_bundle
+from textforensics.calibration import select_threshold, validate_no_contamination
 from textforensics.casefile import CASE_SCHEMA, seal_case_file, verify_case_file
 from textforensics.detectors import (
     _FORBIDDEN_EVIDENCE_KEYS,
@@ -30,7 +31,6 @@ from textforensics.detectors import (
 from textforensics.drift import DRIFT_CORPUS_SCHEMA, DriftObservatory
 from textforensics.engine import _verdict, analyze_text
 from textforensics.features import extract_features
-from textforensics.threshold_selection import select_threshold, validate_no_contamination
 from textforensics.trust import TRUST_STATES, build_trust_map
 
 PROPERTY_SETTINGS = settings(
@@ -380,7 +380,7 @@ def test_threshold_selection_preserves_fpr_target(
             encoding="utf-8",
         )
         with patch(
-            "textforensics.threshold_selection._load_scores",
+            "textforensics.calibration._load_scores",
             return_value=(rows, 0),
         ):
             result = select_threshold(path, target_fpr=target_fpr)
@@ -459,12 +459,11 @@ def test_calibration_disjoint_validation_passes(pair: tuple[list[str], list[str]
         _write_labeled_jsonl(calibration_path, calibration_texts, "calibration")
         _write_labeled_jsonl(test_path, test_texts, "evaluation")
 
-        calibration_rows = [("human", text) for text in calibration_texts]
-        with patch(
-            "textforensics.threshold_selection._load_scores",
-            return_value=(calibration_rows, 0),
-        ):
-            result = validate_no_contamination(calibration_path, test_path)
+        # No mock: the gate reads the real files. An earlier version of
+        # this test mocked _load_scores to return (label, text) pairs,
+        # which masked the score-vs-text hashing bug in
+        # validate_no_contamination (see calibration.py).
+        result = validate_no_contamination(calibration_path, test_path)
 
     assert result["valid"] is True
     assert result["contamination_detected"] is False
@@ -500,12 +499,10 @@ def test_calibration_overlap_is_detected(pair: tuple[list[str], list[str]]) -> N
         _write_labeled_jsonl(calibration_path, calibration_texts, "calibration")
         _write_labeled_jsonl(test_path, test_texts, "evaluation")
 
-        calibration_rows = [("human", text) for text in calibration_texts]
-        with patch(
-            "textforensics.threshold_selection._load_scores",
-            return_value=(calibration_rows, 0),
-        ):
-            result = validate_no_contamination(calibration_path, test_path)
+        # No mock: the gate reads the real files (see the note in
+        # test_calibration_disjoint_validation_passes — a _load_scores
+        # mock used to mask the score-vs-text hashing bug).
+        result = validate_no_contamination(calibration_path, test_path)
 
     assert result["contamination_detected"] is True
     assert result["valid"] is False
@@ -929,7 +926,7 @@ class TestPropertyInvariants:
                 path.write_text(json.dumps({"label": "human", "text": "sample"}) + "\n")
 
             with patch(
-                "textforensics.threshold_selection._load_scores",
+                "textforensics.calibration._load_scores",
                 return_value=(all_rows, 0),
             ):
                 # Select threshold with lower FPR target
@@ -1253,7 +1250,7 @@ class TestPropertyInvariants:
                 )
 
                 with patch(
-                    "textforensics.threshold_selection._load_scores",
+                    "textforensics.calibration._load_scores",
                     return_value=(single_class_rows, 0),
                 ):
                     # Single human sample - should work if we have at least one human
@@ -1276,7 +1273,7 @@ class TestPropertyInvariants:
             ai_only_rows = [("ai", s) for s in (scores[:1] if scores else [0.5])]
 
             with patch(
-                "textforensics.threshold_selection._load_scores",
+                "textforensics.calibration._load_scores",
                 return_value=(ai_only_rows, 0),
             ):
                 try:
