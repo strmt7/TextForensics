@@ -272,3 +272,98 @@ the Phase 2 consolidation report)
   the disclaimer/note text). No docs references to the old outputs
   needed updating (none existed outside the coverage figure, which
   is unchanged: `model_card.py` 79%).
+
+## Verification record — Phase 3, U7 claim-to-evidence gate (2026-11-06)
+
+U7 extends `scripts/check_claims.py` into a claim-to-evidence CI gate
+and migrates every claim in `docs/CLAIMS.yaml` to a measured run
+artifact in `docs/evidence/runs/` (registry `docs/evidence/registry.json`).
+Records are produced by `scripts/seed_evidence.py`, which runs the
+measurements; nothing is hand-written. Repo HEAD at measurement time:
+`d759bd8` (U7 gate + tests), canonical identity
+`Stratos <28989754+strmt7@users.noreply.github.com>`.
+
+### Commands
+
+```bash
+# Produce/refresh all records (extras venv, bin/ on PATH):
+python scripts/seed_evidence.py --force
+# Core-only suite record (bare core venv, its bin/ on PATH):
+/tmp/tfc-core-venv/bin/python scripts/seed_evidence.py --force --suffix core --only suite
+# Run the gate (writes docs/evidence/report-card.md):
+python scripts/check_claims.py
+# Full suite (extras venv, bin/ on PATH):
+python -m pytest tests/ -q -p no:cacheprovider --cov=src/textforensics --cov-report=term -o addopts=''
+```
+
+### Measured numbers (2026-11-06, Python 3.12.3)
+
+- Full suite, extras venv: **2354 passed, 1 failed, 0 skipped,
+  86% coverage** (11,582 stmts, 1,311 missed, 3,904 branches,
+  557 partial) in 128.28 s. The 1 failure is
+  `tests/test_diagnostics.py::TestDiagnosticsEngine::test_memory_check`,
+  the known host-memory flake (fails when this VM sits above 95%
+  memory use; passes in isolation and in CI). Record
+  `EV-20261106-suite`.
+- Full suite, bare core-only venv: **2243 passed, 0 failed,
+  112 skipped, 82% coverage** (11,582 stmts, 1,874 missed,
+  3,904 branches, 537 partial) in 114.52 s. The 112 skips are tests
+  for optional extras not installed (fastapi/typer-gated). The
+  memory flake did not fire in this run; an earlier core run the
+  same day gave 2242 passed / 1 failed (the flake) / 112 skipped.
+  Record `EV-20261106-suite-core`.
+- ruff: **0 errors**, 171 files formatted. Record `EV-20261106-ruff`.
+- bandit: **16 Low, 0 Medium, 0 High** (`-lll` exit 0). Record
+  `EV-20261106-bandit`.
+- pip-audit: **25 findings in 3 packages** (cryptography 11, pip 12,
+  pytest 2). Record `EV-20261106-pip-audit`.
+- Schemas: **7 OK** (5 original + run-artifact + evidence-registry).
+  Record `EV-20261106-schemas`.
+- Determinism: **1 unique hash per 5 scan + 5 report runs**
+  (reproducibility workflow's exact jq filter), Trust Map coverage
+  keys in declared order. Record `EV-20261106-determinism`.
+- Code audit (AST scan of `src/`): the only network-client import
+  is `src/textforensics/ollama.py`. Record `EV-20261106-code-audit`.
+- Doc records: license `AGPL-3.0-or-later`, CI matrix
+  Python 3.11–3.15, `SOURCE_DATE_EPOCH=1704067200` — each cited
+  line hashed. Records `EV-20261106-doc-license`,
+  `EV-20261106-doc-ci-matrix`, `EV-20261106-doc-repro`.
+
+### Claims gate
+
+```bash
+python scripts/check_claims.py   # exit 0
+```
+
+Result: **33 passed, 0 failed** (31 original claims + 2 new:
+`test_suite_measured_core`, `detector.deterministic_output`).
+The gate re-hashes all 11 registry artifacts, checks every claim's
+`values` map against its record, enforces the 90-day / detector-version
+staleness rule, requires a drops manifest, and writes the deterministic
+report card `docs/evidence/report-card.md` (CI diffs it). The CI
+`claims-gate` job runs the gate on every push (Python 3.12,
+`.[dev,api,mcp]`).
+
+### Gate failure demonstrations (scratch worktree, 2026-11-06)
+
+- **Tampered artifact:** `tests_passed` in
+  `EV-20261106-suite.json` changed to 9999. Gate exit 1; registry
+  failure "run artifact hash mismatch (U7 (b)): registry says
+  bfb3faa38a46..., file hashes to 8a292c60bd14..."; 10 passed,
+  23 failed (every claim citing the suite record).
+- **Stale claim:** suite artifact `run_date` set to 2026-07-29 with
+  registry/claim hashes and `last_verified` realigned. Gate exit 1;
+  10 passed, 23 failed, every failure "stale — evidence record is
+  100 days old (> 90 days) (U7 (d))".
+
+### What is NOT verified here
+
+- **Worst-slice human FPR: unknown.** No human-FPR evidence is
+  recorded in the registry yet; the report card says so honestly.
+  Human-FPR measurement arrives with U1/datasets (Phase 3) and is a
+  Phase 5 release gate. No FPR is claimed anywhere.
+- The seeded records are dated 2026-11-06 and go stale after 90 days
+  (2027-02-04) or if the detector version changes; re-run
+  `scripts/seed_evidence.py` and update the citing claims.
+- CI on the U7 head has not been observed yet (the parent verifies
+  the `claims-gate` job on the pushed head).
