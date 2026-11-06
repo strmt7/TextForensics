@@ -13,20 +13,31 @@ try:
     from fastapi import FastAPI, HTTPException, Request
     from fastapi.responses import JSONResponse
     from pydantic import BaseModel
-except ImportError as exc:  # pragma: no cover - optional dependency
-    raise RuntimeError("Install API support with: pip install 'textforensics[api]'") from exc
+except ImportError:  # pragma: no cover - optional dependency
+    # The [api] extra is absent. The module must stay importable so
+    # that serve_api()'s remote-bind guard can run before any API
+    # import fails; create_app() raises the install hint instead.
+    FastAPI = HTTPException = Request = JSONResponse = BaseModel = None  # type: ignore[assignment, misc]
 
 
-class TextRequest(BaseModel):
-    text: str
+def _require_api() -> None:
+    """Raise the install hint unless the [api] extra is present."""
+    if FastAPI is None or BaseModel is None:
+        raise RuntimeError("Install API support with: pip install 'textforensics[api]'")
 
 
-class CompareRequest(BaseModel):
-    before: str
-    after: str
+if BaseModel is not None:
+
+    class TextRequest(BaseModel):
+        text: str
+
+    class CompareRequest(BaseModel):
+        before: str
+        after: str
 
 
 def create_app(settings: Settings | None = None):
+    _require_api()
     from .engine import analyze_text, compare_texts
     from .features import audit_naturalness
     from .report import build_forensic_bundle

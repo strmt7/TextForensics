@@ -22,7 +22,7 @@ from .benchmark import (
 from .bundle import list_bundle, pack_bundle, read_bundle, verify_bundle
 from .bundle_consistency import check_bundle_consistency
 from .casefile import write_case_file
-from .config import Settings, read_text_file, validate_text_input
+from .config import Settings, ensure_bind_allowed, read_text_file, validate_text_input
 from .constants import (
     EXIT_DOWNGRADED,
     EXIT_ERROR,
@@ -1083,14 +1083,22 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             return EXIT_OK if result.get("valid") else EXIT_INCOMPLETE
 
     elif args.command == "web":
-        from .web_ui.main import serve_web
-
+        # The remote-bind guard runs before the optional web-UI import:
+        # in a core-only install the import fails, and the guard error
+        # (exit 3, "Refusing to bind") must surface first.
         active = _settings_with_overrides(
             settings,
             host=args.host,
             port=args.port,
             allow_remote=True if args.allow_remote else settings.allow_remote,
         )
+        ensure_bind_allowed(active.host, allow_remote=active.allow_remote)
+        try:
+            from .web_ui.main import serve_web
+        except ImportError as exc:
+            raise RuntimeError(
+                "Install web UI support with: pip install 'textforensics[api]'"
+            ) from exc
         serve_web(
             active.host,
             active.port,
@@ -1100,8 +1108,6 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         )
 
     elif args.command == "web-fastapi":
-        from .web_ui.main import serve_web
-
         active = _settings_with_overrides(
             settings,
             host=args.host,
@@ -1109,6 +1115,13 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             allow_remote=True if args.allow_remote else settings.allow_remote,
             access_log=True if args.access_log else settings.access_log,
         )
+        ensure_bind_allowed(active.host, allow_remote=active.allow_remote)
+        try:
+            from .web_ui.main import serve_web
+        except ImportError as exc:
+            raise RuntimeError(
+                "Install web UI support with: pip install 'textforensics[api]'"
+            ) from exc
         serve_web(
             active.host,
             active.port,
@@ -1118,8 +1131,6 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         )
 
     elif args.command == "serve":
-        from .api import serve_api
-
         active = _settings_with_overrides(
             settings,
             host=args.host,
@@ -1127,6 +1138,9 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             allow_remote=True if args.allow_remote else settings.allow_remote,
             access_log=True if args.access_log else settings.access_log,
         )
+        ensure_bind_allowed(active.host, allow_remote=active.allow_remote)
+        from .api import serve_api
+
         serve_api(active)
 
     elif args.command == "drift":
