@@ -476,3 +476,147 @@ re-verifies CI on the fixed head.
   Reproducibility) after pushing. The atheris pinned-install failure
   and the Mutation workflow (0 mutations) remain open for the Phase 5
   release gate.
+
+## Verification record — Phase 3, datasets wave 1 (2026-11-06)
+
+Loaders for RAID, MAGE, Beemo and OpAI-Bench (MixSet deferred — see
+below) plus first preliminary measurements of the built-in detector on
+documented samples. Full report:
+`~/workspace/goals/textforensics-complete-revamp/hidden_files/phase3-datasets-wave1.md`.
+
+### Where the data lives
+
+- Local cache only, never committed:
+  `~/.cache/textforensics/datasets/<dataset>/<config>/<split>.jsonl`
+  plus `<split>.manifest.json` (source URL, fetch date, row count,
+  file SHA-256). Override with `TEXTFORENSICS_DATASETS_DIR`.
+- No dataset text is in the repo, in tests, or in any run artifact.
+  Artifacts (`docs/evidence/runs/EV-20261106-dataset-*.json`) carry
+  counts, hashes and metrics only. Test fixtures are synthetic.
+- Transport: standard library only (`urllib` against
+  `https://datasets-server.huggingface.co`); the core still has zero
+  third-party dependencies. Full-corpus parquet evaluation is U1/U3
+  future work and would use `datasets` as an optional extra then.
+
+### Licences (resolved 2026-11-06 from live sources, before any download)
+
+- RAID (`liamdugan/raid`): **MIT** — HF API tag `license:mit`,
+  GitHub repo metadata MIT, LICENSE file MIT (Copyright (c) 2024-
+  Liam Dugan). Caveat: the MIT text covers the distribution; the
+  underlying human source texts carry their own upstream licences.
+- MAGE (`yaful/MAGE`): **Apache-2.0** (LICENSE file, repo metadata,
+  HF tag); the README licence badge asserts **CC BY 4.0**. Both
+  strings are recorded in the loader spec and the artifact; both are
+  permissive, attribute the authors either way.
+- Beemo (`toloka/beemo`): card says **MIT**, but prompts +
+  `human_output` (from No Robots) are **CC-BY-NC-4.0** — the human
+  half is non-commercial use only. `model_output` and LLM-edited
+  versions follow the underlying LLM licences. Never cite "MIT" alone.
+- OpAI-Bench (`OpAI-Bench1/OpAI-Bench`): **Apache-2.0** — HF card
+  "Licensing and Reuse" section, HF tag, README badge and LICENSE
+  file agree. (GitHub's "Other (NOASSERTION)" is a detection
+  artefact of the abbreviated 37-line LICENSE file, not a competing
+  licence. The LICENSE closes with "Copyright 2026 Anonymous".)
+- MixSet (`ONE-Lab/MixSet`): **NO LICENCE FOUND** on any source
+  (HF card, GitHub repo, READMEs; the paper's CC BY 4.0 covers the
+  paper, not the dataset). Loader is code-complete and tested with
+  mocks, but the licence gate refuses every live fetch and the
+  mapper refuses on unverified label polarity. No MixSet rows, no
+  MixSet artifact, until the authors clarify.
+
+### Verified row counts (datasets-server `/size`, 2026-11-06 — not paper figures)
+
+- RAID: **4,981,100 rows loaded** (config `raid` 4,309,100: train
+  2,270,000 + extra 2,039,100; config `raid_test` 672,000 test).
+  Endpoint reports `partial:true` (viewer exposes the first 5 GB).
+- MAGE: **436,606 rows** (train 319,071 / validation 56,792 / test
+  60,743). The GitHub README claims 447,674 — use the endpoint figure.
+- Beemo: **2,187 rows**, single train split. (The paper's ~19.6k is
+  text variants: 2,187 rows x multiple text fields per row.)
+- OpAI-Bench: **318,249 rows** (default 281,178: train 196,029 / dev
+  42,363 / test 42,786; ablations 37,071). (The README claims 279,794
+  versioned samples — use the endpoint figure.)
+- MixSet: **3,600 rows** (train 3,000 / test 600) — metadata only,
+  no rows fetched.
+
+### Sampling (all strided — every split is ordered by testbed/model)
+
+First-*n* sampling was measured and rejected: RAID first-200 rows are
+all human, MAGE train is blocked by `src`. Samples are *n* evenly
+spaced rows across the split (`scripts/measure_datasets.py`,
+`fetch_strided_sample` — deterministic, no randomness). The script
+refuses to run if the server's split total differs from the plan.
+
+```bash
+python scripts/measure_datasets.py --only raid        # n=600 strided
+python scripts/measure_datasets.py --only mage        # n=200 strided
+python scripts/measure_datasets.py --only beemo       # n=100 records strided
+python scripts/measure_datasets.py --only opai_bench  # n=100 strided
+python scripts/measure_datasets.py --list             # print the plan, no network
+```
+
+### Measured numbers (BuiltinHeuristicDetector 0.1.0, Python 3.12.3, all preliminary)
+
+Final verification at HEAD `2e2d81a` (2026-11-06):
+
+- Full suite, extras venv: **2396 passed, 0 failed, 86% coverage**
+  (11,840 stmts, 1,325 missed, 3,988 branches, 570 partial).
+- Full suite, bare core-only venv (`/tmp/tfc-core-venv`, fastapi
+  confirmed absent): **2283 passed, 1 failed, 112 skipped**. The one
+  failure is `test_memory_check`, the known host flake: it asserts on
+  the host's available memory, and the VM was at 7,451/7,934 MB used
+  (482 MB available) during the run — it fails in isolation too
+  under that pressure and passes in CI. Not a code regression.
+- Claims gate: **33/33**; ruff check + format clean.
+
+| Dataset | Sample | Labels (0 / 1 / None) | AUROC | TPR@1% FPR | TPR@5% FPR | Abstentions |
+| --- | --- | --- | --- | --- | --- | --- |
+| RAID | 600 strided train | 20 / 580 / 0 | 0.6414 | 0.0862 | 0.0862 | 303/600 |
+| MAGE | 200 strided train | 59 / 141 / 0 | 0.5417 | 0.0567 | 0.1631 | 107/200 |
+| Beemo | 100 records -> 900 rows | 200 / 700 / 0 | 0.3976 | 0.0129 | 0.0586 | 487/900 |
+| OpAI-Bench | 100 strided train | 12 / 11 / 77 | 0.4697 | 0.0 | 0.0 | 11/23 |
+
+- RAID: human mean score 0.2668 vs machine 0.3333. Train human
+  fraction is only ~3.3%, so 600 rows yield just 20 humans; TPR@1%
+  and TPR@5% coincide because one false positive is already 5% FPR
+  with 20 human rows. Disjointness vs `raid_test`/test (n=50):
+  **disjoint, verified, 0 shared**.
+- MAGE: human mean 0.2556 vs machine 0.2886. The native polarity
+  flip held on all 200 rows (every `src` cross-check passed:
+  `_human` <-> native 1, `_machine_` <-> native 0). The strided
+  sample covers 11 testbeds with ~1 row per (testbed, generator)
+  machine cell. Disjointness vs validation (n=50): **disjoint,
+  verified, 0 shared**.
+- Beemo: AUROC **below chance (0.3976)** — the heuristic scores
+  expert human text higher than machine text (human mean 0.2859 vs
+  machine 0.2505; per-kind, plain human 0.2987 is the highest mean,
+  llama-3.1-70b P2 0.202 the lowest). The expert-edited regime
+  inverts the baseline. Disjointness not checkable (single split);
+  recorded in the artifact drops.
+- OpAI-Bench: only 23 rows carry a binary label (v0 pure human,
+  v8 fully machine, mean AI ratio rising monotonically v0 0.0 ->
+  v8 1.0); the 77 partial rows take no binary label and are
+  reported by `ai_sentence_ratio`. AUROC 0.4697 on n=23 is recorded,
+  not claimed. Disjointness vs dev (n=50): **disjoint, verified,
+  0 shared**.
+- AUROC/TPR@FPR are threshold-free (no threshold was fitted on any
+  sample). Scores are the detector's uncalibrated heuristic scores,
+  never presented as probabilities.
+
+### What is NOT verified here
+
+- **No new claims.** The claims gate stays **33/33**; dataset
+  numbers are preliminary evidence records only (registry now 15
+  records). The report card still honestly leads with worst-slice
+  human FPR = unknown: these are small preliminary samples, not
+  release-gate human-FPR evidence. That arrives with U1 + larger
+  samples and is a Phase 5 release gate.
+- **MixSet**: no live rows, no measurement (licence unresolved).
+- **Full-corpus runs**: every measurement is a small documented
+  sample (see the table). Full-corpus evaluation is U1/U3 work.
+- **Other Python versions**: measured on 3.12.3 only; CI covers the
+  matrix.
+- **PAN 2025**: untouched in wave 1 (wave 2, gated on Greg's TIRA
+  registration). RealDet / CrisisFake: no loader (no verified
+  route). MultiSocial: dropped by Greg's decision.
+
