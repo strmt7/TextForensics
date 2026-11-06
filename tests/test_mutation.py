@@ -88,7 +88,6 @@ class CosmicRayIntegrationTests(unittest.TestCase):
         # Check excluded modules
         excluded = config["mutation"]["excluded_modules"]
         self.assertIn("textforensics.cli", excluded)
-        self.assertIn("textforensics.typer_cli", excluded)
 
         # Check operators include core operators
         operators = config["mutation"]["operators"]

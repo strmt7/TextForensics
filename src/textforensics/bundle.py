@@ -478,3 +478,115 @@ def list_bundle(bundle_path: str | Path) -> list[dict[str, Any]]:
         raise ValueError(f"Unsupported bundle format: {name}")
 
     return entries
+
+
+def _unwrap_bundle_dict(data: Any) -> dict[str, Any] | None:
+    """Return the forensic-bundle dict inside *data*, or None.
+
+    Accepts a bare forensic bundle (a dict carrying ``schema``,
+    ``consensus``, ``trust_map`` or ``detector_results``) or a sealed case
+    file (a dict whose ``forensic_bundle`` member is a dict). Anything else
+    returns None, so callers can distinguish "not a bundle" from a bundle
+    that merely fails validation.
+    """
+    if not isinstance(data, dict):
+        return None
+    inner = data.get("forensic_bundle")
+    if isinstance(inner, dict):
+        return inner
+    if any(key in data for key in ("schema", "consensus", "trust_map", "detector_results")):
+        return data
+    return None
+
+
+def _try_parse_json(data: bytes) -> Any | None:
+    """Parse *data* as JSON, returning None instead of raising on bad input."""
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
+        return None
+
+
+def _read_bundle_from_archive(bundle_file: Path) -> dict[str, Any]:
+    """Extract the first JSON member that parses to a bundle or case file.
+
+    Members are scanned in archive order; non-JSON members are skipped.
+    The same decompression-bomb caps as :func:`verify_bundle` apply.
+    """
+    name = bundle_file.name
+    total = 0
+    if name.endswith(".tar.gz") or name.endswith(".tgz"):
+        with tarfile.open(bundle_file, "r:gz") as tar:
+            for member in tar.getmembers():
+                if not member.isfile() or not member.name.endswith(".json"):
+                    continue
+                if member.size > MAX_BUNDLE_FILE_BYTES:
+                    raise ValueError(
+                        f"Member {member.name} exceeds the "
+                        f"{MAX_BUNDLE_FILE_BYTES}-byte per-file cap"
+                    )
+                stream = tar.extractfile(member)
+                if stream is None:
+                    continue
+                data = _read_capped(stream, limit=MAX_BUNDLE_FILE_BYTES, what=member.name)
+                total += len(data)
+                if total > MAX_BUNDLE_TOTAL_BYTES:
+                    raise ValueError(f"Bundle exceeds the {MAX_BUNDLE_TOTAL_BYTES}-byte total cap")
+                bundle = _unwrap_bundle_dict(_try_parse_json(data))
+                if bundle is not None:
+                    return bundle
+    elif name.endswith(".zip"):
+        with zipfile.ZipFile(bundle_file, "r") as zf:
+            for info in zf.infolist():
+                if info.is_dir() or not info.filename.endswith(".json"):
+                    continue
+                if info.file_size > MAX_BUNDLE_FILE_BYTES:
+                    raise ValueError(
+                        f"Member {info.filename} exceeds the "
+                        f"{MAX_BUNDLE_FILE_BYTES}-byte per-file cap"
+                    )
+                with zf.open(info) as stream:
+                    data = _read_capped(stream, limit=MAX_BUNDLE_FILE_BYTES, what=info.filename)
+                total += len(data)
+                if total > MAX_BUNDLE_TOTAL_BYTES:
+                    raise ValueError(f"Bundle exceeds the {MAX_BUNDLE_TOTAL_BYTES}-byte total cap")
+                bundle = _unwrap_bundle_dict(_try_parse_json(data))
+                if bundle is not None:
+                    return bundle
+    else:  # pragma: no cover - guarded by read_bundle's suffix check
+        raise ValueError(f"Unsupported bundle format: {name}")
+    raise ValueError(f"No forensic bundle found in archive: {bundle_file}")
+
+
+def read_bundle(bundle_path: str | Path) -> dict[str, Any]:
+    """Read a forensic bundle from a JSON file, a sealed case file, or a bundle archive.
+
+    Accepts:
+    - a forensic-bundle JSON file (as written by ``report --output``),
+    - a sealed case file (as written by ``case export``; the inner
+      ``forensic_bundle`` is returned),
+    - a bundle archive (``.tar.gz`` / ``.zip`` as written by ``bundle pack``);
+      the first JSON member that parses to a bundle or case file is returned.
+
+    Raises ``FileNotFoundError`` for a missing path, ``ValueError`` when the
+    file is too large, is not a bundle, or (for archives) contains no bundle,
+    and ``json.JSONDecodeError`` for a malformed plain JSON file.
+    """
+    bundle_file = Path(bundle_path)
+    if not bundle_file.exists():
+        raise FileNotFoundError(f"Bundle not found: {bundle_file}")
+
+    if bundle_file.stat().st_size > MAX_BUNDLE_COMPRESSED_BYTES:
+        raise ValueError(
+            f"Bundle exceeds the {MAX_BUNDLE_COMPRESSED_BYTES}-byte cap: {bundle_file}"
+        )
+
+    name = bundle_file.name
+    if name.endswith(".tar.gz") or name.endswith(".tgz") or name.endswith(".zip"):
+        return _read_bundle_from_archive(bundle_file)
+
+    data = json.loads(bundle_file.read_text(encoding="utf-8"))
+    bundle = _unwrap_bundle_dict(data)
+    if bundle is None:
+        raise ValueError(f"File does not contain a forensic bundle: {bundle_file}")
+    return bundle

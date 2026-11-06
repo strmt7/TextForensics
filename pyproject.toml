@@ -60,10 +60,6 @@ all = [
 cli-rich = [
   "rich>=13.9.4,<14",
 ]
-cli-typer = [
-  "rich>=13.9.4,<14",
-  "typer>=0.12,<1",
-]
 enterprise = [
   "cryptography>=42.0.8,<43",
 ]
@@ -112,7 +108,6 @@ security = [
 textforensics = "textforensics.cli:main"
 textforensics-api = "textforensics.server:main"
 textforensics-mcp = "textforensics.mcp_server:main"
-textforensics-typer = "textforensics.typer_cli:main"
 textforensics-web = "textforensics.web_ui.main:main"
 
 [project.entry-points."textforensics.detectors"]
@@ -168,4 +163,3 @@ select = ["E4", "E7", "E9", "F", "W", "B", "I", "UP", "SIM"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["B011", "B017", "B018", "SIM105", "S101"]
-"src/textforensics/typer_cli.py" = ["B008", "B904"]

@@ -20,7 +20,8 @@ from .benchmark_fingerprint import (
     check_disjointness,
     fingerprint_dataset,
 )
-from .bundle import list_bundle, pack_bundle, verify_bundle
+from .bundle import list_bundle, pack_bundle, read_bundle, verify_bundle
+from .bundle_consistency import check_bundle_consistency
 from .casefile import verify_case_file_path, write_case_file
 from .compare import compare_texts
 from .config import Settings, read_text_file, validate_text_input
@@ -59,6 +60,10 @@ from .policy import (
     EvidenceLabel,
     EvidenceRef,
     EvidenceTier,
+    create_calibration_policy,
+    create_minimum_viable_policy,
+    create_production_policy,
+    create_report_generation_policy,
 )
 from .report import build_forensic_bundle
 from .verify import verify_all
@@ -74,14 +79,25 @@ def _import_enterprise():
     return ep
 
 
-def _read_text(path: str | None, settings: Settings) -> str:
+def _read_text(path: str | None, settings: Settings, text: str | None = None) -> str:
+    """Read input text from --file, --text, or stdin (in that order).
+
+    ``--text`` is validated like file/stdin input (non-empty, within the
+    configured byte limit). Kept from the former Typer CLI, which offered
+    the same convenience flag on scan/report/case export/audit.
+    """
     if path:
         return read_text_file(
             path,
             max_input_bytes=settings.max_input_bytes,
         )
+    if text is not None:
+        return validate_text_input(
+            text,
+            max_input_bytes=settings.max_input_bytes,
+        )
     if sys.stdin.isatty():
-        raise ValueError("Provide --file or pipe text through stdin.")
+        raise ValueError("Provide --file, --text, or pipe text through stdin.")
     text = sys.stdin.read(settings.max_input_bytes + 1)
     return validate_text_input(
         text,
@@ -142,11 +158,6 @@ def build_parser() -> argparse.ArgumentParser:
         description="Audit AI-text detector evidence and reliability locally.",
     )
     parser.add_argument(
-        "--typer",
-        action="store_true",
-        help="Use the Typer-based CLI instead of argparse (requires textforensics[cli-typer]).",
-    )
-    parser.add_argument(
         "--metrics",
         action="store_true",
         help="Enable OpenTelemetry metrics with Prometheus exporter.",
@@ -160,6 +171,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     scan = sub.add_parser("scan", help="Run the local alpha pattern baseline.")
     scan.add_argument("--file", "-f")
+    scan.add_argument("--text", "-t", help="Provide text directly instead of --file or stdin.")
     scan.add_argument("--json", action="store_true")
     scan.add_argument("--rich", action="store_true", help="Use Rich-formatted terminal output")
     scan.add_argument(
@@ -173,6 +185,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Audit formulaic/naturalness patterns, or manage audit anchors via subcommands (export/verify).",
     )
     natural.add_argument("--file", "-f")
+    natural.add_argument("--text", "-t", help="Provide text directly instead of --file or stdin.")
     natural.add_argument("--json", action="store_true")
     # Optional subcommand for audit-anchor management (backward compatible:
     # no subcommand keeps the legacy naturalness-audit behavior)
@@ -351,6 +364,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Build a reproducible detector-evidence bundle.",
     )
     report.add_argument("--file", "-f")
+    report.add_argument("--text", "-t", help="Provide text directly instead of --file or stdin.")
     report.add_argument("--ledger")
     report.add_argument("--output", "-o")
     report.add_argument(
@@ -363,6 +377,9 @@ def build_parser() -> argparse.ArgumentParser:
     case_sub = case.add_subparsers(dest="case_command", required=True)
     case_export = case_sub.add_parser("export", help="Export a sealed case file.")
     case_export.add_argument("--file", "-f")
+    case_export.add_argument(
+        "--text", "-t", help="Provide text directly instead of --file or stdin."
+    )
     case_export.add_argument("--ledger")
     case_export.add_argument("--output", "-o", required=True)
     case_export.add_argument(
@@ -396,6 +413,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     bundle_list = bundle_sub.add_parser("list", help="List contents of a bundle.")
     bundle_list.add_argument("bundle", help="Path to the bundle archive.")
+
+    bundle_check = bundle_sub.add_parser(
+        "check", help="Check internal consistency of a forensic bundle."
+    )
+    bundle_check.add_argument(
+        "bundle", help="Path to the bundle JSON file, sealed case file, or bundle archive."
+    )
+    bundle_check.add_argument("--json", "-j", action="store_true", help="Output as JSON.")
 
     verify_cmd = sub.add_parser(
         "verify",
@@ -546,6 +571,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     cap_register.add_argument("--detail", help="Optional detail about the evidence.")
     cap_register.add_argument("--valid-until", help="Optional expiration date (ISO format).")
+
+    cap_policy = cap_sub.add_parser(
+        "policy",
+        help="Evaluate capability ledger policies for a detector.",
+    )
+    cap_policy.add_argument("detector", help="Detector ID to check policies for.")
+    cap_policy.add_argument("--ledger", help="Path to the capability ledger JSON file.")
+    cap_policy.add_argument(
+        "--policy",
+        "-p",
+        default="production",
+        choices=["production", "report", "calibration", "minimum"],
+        help="Policy bundle (default: production).",
+    )
+    cap_policy.add_argument("--json", "-j", action="store_true", help="Output as JSON.")
 
     build_info_cmd = sub.add_parser(
         "build-info",
@@ -768,7 +808,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         return EXIT_ERROR
 
     if args.command == "scan":
-        result = analyze_text(_read_text(args.file, settings))
+        result = analyze_text(_read_text(args.file, settings, text=args.text))
         if args.json:
             data = result.to_dict()
             if hasattr(args, "deterministic") and args.deterministic:
@@ -793,7 +833,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         anchor_command = getattr(args, "anchor_command", None)
         if anchor_command in ("export", "verify"):
             return _run_audit_anchor_command(args)
-        result = audit_naturalness(_read_text(args.file, settings))
+        result = audit_naturalness(_read_text(args.file, settings, text=args.text))
         _write_json(None, result)
 
     elif args.command == "localize":
@@ -998,7 +1038,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
 
     elif args.command == "report":
         bundle = build_forensic_bundle(
-            _read_text(args.file, settings),
+            _read_text(args.file, settings, text=args.text),
             ledger_path=args.ledger,
             deterministic=args.deterministic,
             fixed_timestamp=args.fixed_timestamp,
@@ -1021,7 +1061,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
     elif args.command == "case":
         if args.case_command == "export":
             bundle = build_forensic_bundle(
-                _read_text(args.file, settings),
+                _read_text(args.file, settings, text=args.text),
                 ledger_path=args.ledger,
                 deterministic=args.deterministic,
                 fixed_timestamp=args.fixed_timestamp,
@@ -1209,6 +1249,38 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             }
             _write_json(None, payload)
             print(f"Registered: {args.detector}/{args.capability} ({tier.value})")
+        elif args.capability_command == "policy":
+            # Ported from the former Typer CLI (capability policy). The Typer
+            # version computed all_passed only in the non-JSON branch, so
+            # --json always crashed with NameError and exited EXIT_ERROR;
+            # all_passed is computed up front here.
+            policy_map = {
+                "production": create_production_policy,
+                "report": create_report_generation_policy,
+                "calibration": create_calibration_policy,
+                "minimum": create_minimum_viable_policy,
+            }
+            if args.policy not in policy_map:  # pragma: no cover - argparse choices= guards this
+                print(
+                    f"error: unknown policy '{args.policy}'. Use one of: {', '.join(policy_map)}",
+                    file=sys.stderr,
+                )
+                return EXIT_ERROR
+            engine = policy_map[args.policy]()
+            results = engine.evaluate(ledger, args.detector)
+            all_passed = all(result.passed for result in results)
+            if args.json:
+                _write_json(None, [result.to_dict() for result in results])
+            else:
+                print(f"Policy evaluation: {args.policy} for {args.detector}")
+                for result in results:
+                    status = "PASS" if result.passed else result.rule_id.upper()
+                    print(f"  [{status}] {result.message}")
+                    for missing in result.missing_claims:
+                        print(f"    MISSING: {missing}")
+                    for gap in result.evidence_gaps:
+                        print(f"    GAP: {gap}")
+            return EXIT_OK if all_passed else EXIT_INCOMPLETE
 
     elif args.command == "bundle":
         if args.bundle_command == "pack":
@@ -1221,6 +1293,36 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         elif args.bundle_command == "list":
             entries = list_bundle(args.bundle)
             _write_json(None, entries)
+        elif args.bundle_command == "check":
+            # Ported from the former Typer CLI (bundle check). The Typer
+            # version imported a read_bundle that never existed, so the
+            # command crashed on every invocation; bundle.read_bundle is
+            # the implementation that was missing.
+            data = read_bundle(args.bundle)
+            report = check_bundle_consistency(data)
+            result = {
+                "is_consistent": report.is_consistent,
+                "issues": [
+                    {
+                        "field": issue.field,
+                        "type": issue.issue_type,
+                        "message": issue.message,
+                        "severity": issue.severity,
+                    }
+                    for issue in report.issues
+                ],
+                "checked_fields": report.checked_fields,
+            }
+            if args.json:
+                _write_json(None, result)
+            else:
+                print(f"Bundle consistency: {'PASS' if report.is_consistent else 'FAIL'}")
+                if report.issues:
+                    for issue in report.issues:
+                        print(f"  [{issue.severity.upper()}] {issue.field}: {issue.message}")
+                else:
+                    print("  No issues found.")
+            return EXIT_OK if report.is_consistent else EXIT_INCOMPLETE
 
     elif args.command == "verify":
         case_payload = None
@@ -1593,32 +1695,7 @@ def _run_emergency_command(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    """Main entry point for the argparse-based CLI.
-
-    Delegates to the Typer CLI if --typer flag is used or TEXTFORENSICS_CLI=typer env var is set.
-    """
-    import os
-
-    # Check if Typer CLI should be used
-    use_typer = os.environ.get("TEXTFORENSICS_CLI") == "typer"
-
-    # Check for --typer flag early (before full parsing)
-    if "--typer" in sys.argv:
-        use_typer = True
-        sys.argv = [a for a in sys.argv if a != "--typer"]
-
-    if use_typer:
-        try:
-            from .typer_cli import main as typer_main
-
-            return typer_main()
-        except ImportError:
-            print(
-                "error: Typer CLI not available. Install with: pip install textforensics[cli-typer]",
-                file=sys.stderr,
-            )
-            return EXIT_ERROR
-
+    """Main entry point for the CLI (single argparse implementation)."""
     parser = build_parser()
     args = parser.parse_args()
     try:

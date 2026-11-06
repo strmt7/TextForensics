@@ -8,7 +8,7 @@
 # no release exists yet and the file must install from a checkout.
 
 # Local package (editable, from this checkout)
--e .[dev,enterprise,api,mcp,cli-rich,cli-typer,telemetry,ollama,diagnostics]
+-e .[dev,enterprise,api,mcp,cli-rich,telemetry,ollama,diagnostics]
 
 # Build & packaging
 setuptools>=75,<80

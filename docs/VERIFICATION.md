@@ -125,3 +125,47 @@ command for `command` claims) and fails on any `unverified`/`false`/
 - Human false-positive rate: no human-FPR evidence exists yet. It is a
   Phase 5 release gate (AGENTS.md rule 10), not a claim made here.
 - Live-host Docker/API/web verification: not run in Phase 1. Phase 5.
+
+---
+
+## Verification record — Phase 2 (2026-11-06)
+
+Local verification only (same caveat as Phase 1: GitHub CI on the pushed
+head was red and never ran the tests; see the Phase 2 consolidation
+report). Environment: same extras-installed venv (`.venv`), Python
+3.12.3, `PATH="$PWD/.venv/bin:$PATH"`. Full-suite command as in Phase 1.
+
+### Wave (a) — ledger/policy merge (`6cc0ae1`)
+
+- Suite: **2357 passed / 0 failed / 84% coverage** (12,376 stmts).
+- Ruff 0 errors, 179 files formatted; claims gate 31/31; schemas 5 OK.
+
+### CI-greening fixes (`d8fd3f0` whitespace strip, `6b877d9` determinism fix)
+
+- `TRUST_STATES` frozenset → ordered tuple: `trust_map.coverage` key
+  order is now deterministic across processes. Verified with the
+  CI-style check: 5 `scan` runs under 5 `PYTHONHASHSEED` values
+  produced identical output.
+- Trailing whitespace stripped in `docs/REVAMP_RESEARCH_2026.md`
+  (lines 3, 51, 123) and `docs/REVAMP_SPEC.md` (lines 3, 4) — the only
+  trailing whitespace in the repo; these failed the pre-commit
+  trailing-whitespace hook in CI run 42219479007.
+- Still open (CI config, not code): atheris 1.0.11 wheel fails to build
+  on Python 3.12; the Mutation workflow ran 0 mutations. For the
+  release gate.
+
+### Wave (b) — one CLI (commit titled "refactor: one CLI — port
+Typer-only commands into cli.py, delete typer_cli.py"; exact SHA in
+the Phase 2 consolidation report)
+
+- Suite: **2335 passed / 0 failed / 0 skipped / 86% coverage**
+  (11,844 stmts, 1,320 missed, 3,962 branches, 565 partial) in
+  124.82 s. (2335 vs 2357: −48 deleted Typer tests + 26 new tests.)
+- Ruff 0 errors, 178 files formatted; claims gate 31/31; schemas 5 OK.
+- `typer_cli.py` (1,251 lines) deleted; `capability policy` and
+  `bundle check` ported into `cli.py` with their Typer bugs fixed
+  (`--json` NameError; missing `read_bundle` import); `--text` added
+  to `scan`/`audit`/`report`/`case export`.
+- `bundle_consistency.py`: `trust_map.overall` now validated against
+  {strong, mixed, insufficient} (was: dimension states) — every real
+  bundle was spuriously warned.

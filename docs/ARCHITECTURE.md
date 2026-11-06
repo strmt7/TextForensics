@@ -466,9 +466,16 @@ Primary command-line interface. Key capabilities:
 
 Output formats: JSON, JSONL, and rich terminal output (when `rich` is available).
 
-### 5.2 Typer CLI (`src/textforensics/typer_cli.py`)
+### 5.2 CLI (`src/textforensics/cli.py`)
 
-Alternative CLI implementation using Typer framework. Provides the same capabilities as `cli.py` with Typer's auto-completion and subcommand features.
+Single CLI implementation (argparse, zero extra dependencies). It owns the
+`scan`, `report`, `case`, `bundle` (including `check`), `capability`
+(including `policy`), `drift`, `verify`, `detectors`, `schema`, `serve`,
+`web`, `web-fastapi`, `emergency`, `build-info`, and audit-anchor commands.
+The former second CLI (`typer_cli.py`, Typer-based) was deleted in Phase 2;
+its only unique commands (`capability policy`, `bundle check`) and its
+`--text` input flag were ported into `cli.py`, and the `--typer` delegation
+flag and `TEXTFORENSICS_CLI` environment switch were removed.
 
 ### 5.3 API / HTTP Server (`src/textforensics/server.py`, `api.py`)
 

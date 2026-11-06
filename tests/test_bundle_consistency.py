@@ -31,7 +31,7 @@ class TestBundleConsistency:
                 }
             ],
             "trust_map": {
-                "overall": "supported",
+                "overall": "strong",
                 "dimensions": [
                     {"dimension": "language_coverage", "state": "supported", "reason": "Test text"}
                 ],
@@ -165,3 +165,33 @@ class TestBundleConsistency:
         assert issue.issue_type == "invalid"
         assert issue.message == "Test message"
         assert issue.severity == "warning"
+
+    def test_trust_map_overall_accepts_aggregate_states(self):
+        """trust_map.overall is the aggregate verdict, not a dimension state.
+
+        Regression test: the overall check used to allow only the dimension
+        states {"supported", "partial", "unknown", "out_of_scope"}, so every
+        real bundle (overall is "strong" / "mixed" / "insufficient" per
+        trust.TrustMap) was flagged with a spurious warning.
+        """
+        for overall in ("strong", "mixed", "insufficient"):
+            bundle = {
+                "schema": "textforensics.forensic-bundle/v1",
+                "trust_map": {"overall": overall, "dimensions": []},
+            }
+            report = check_bundle_consistency(bundle)
+            assert not any(i.field == "trust_map.overall" for i in report.issues), (
+                f"overall={overall!r} should not be flagged"
+            )
+
+    def test_trust_map_overall_rejects_dimension_states(self):
+        """A dimension state in trust_map.overall is invalid and warns."""
+        bundle = {
+            "schema": "textforensics.forensic-bundle/v1",
+            "trust_map": {"overall": "supported", "dimensions": []},
+        }
+        report = check_bundle_consistency(bundle)
+        assert report.is_consistent is True  # Warning doesn't fail
+        assert any(
+            i.field == "trust_map.overall" and i.severity == "warning" for i in report.issues
+        )

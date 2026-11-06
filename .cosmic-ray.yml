@@ -19,7 +19,6 @@ mutation:
   # Modules explicitly excluded from mutation (baseline - CLI, entry points)
   excluded_modules:
     - "textforensics.cli"
-    - "textforensics.typer_cli"
     - "textforensics.server"
     - "textforensics.mcp_server"
     - "textforensics.webapp"

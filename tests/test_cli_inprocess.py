@@ -252,7 +252,7 @@ class CliInProcessTests(unittest.TestCase):
             code, out, err = self._run_main(["scan"])
             # Configuration error
             self.assertEqual(code, EXIT_ERROR, out)
-            self.assertIn("Provide --file or pipe text through stdin", err)
+            self.assertIn("Provide --file, --text, or pipe text through stdin", err)
 
     def test_localize_sentences_zero(self):
         # Line 222: localize with --sentences 0 raises ValueError

@@ -64,7 +64,7 @@ class TestReadText(unittest.TestCase):
         try:
             with self.assertRaises(ValueError) as ctx:
                 _read_text(None, Settings())
-            self.assertIn("Provide --file or pipe text through stdin", str(ctx.exception))
+            self.assertIn("Provide --file, --text, or pipe text through stdin", str(ctx.exception))
         finally:
             sys.stdin.isatty = old_isatty
 

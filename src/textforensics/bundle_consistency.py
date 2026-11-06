@@ -218,11 +218,14 @@ def _check_bundle_consistency(bundle: dict[str, Any]) -> list[ConsistencyIssue]:
     trust_map = bundle.get("trust_map", {})
     if isinstance(trust_map, dict):
         overall = trust_map.get("overall")
+        # Overall is the aggregate verdict over the dimensions, NOT a
+        # dimension state: trust.TrustMap requires it to be one of
+        # {"strong", "mixed", "insufficient"} (trust.py). Validating it
+        # against the dimension states flagged every real bundle.
         if overall is not None and overall not in (
-            "supported",
-            "partial",
-            "unknown",
-            "out_of_scope",
+            "strong",
+            "mixed",
+            "insufficient",
         ):
             issues.append(
                 ConsistencyIssue(
