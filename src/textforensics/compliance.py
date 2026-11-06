@@ -1,13 +1,17 @@
-"""Compliance reporting for TextForensics forensic operations.
+"""Transparency notes for TextForensics forensic operations.
 
-Generates compliance reports for regulatory frameworks:
+Generates transparency notes for regulatory frameworks:
 - GDPR (data minimization, purpose limitation, audit trail)
 - EU AI Act (transparency, human oversight, risk classification)
 - SOC 2 (audit logging, access control evidence)
 - Internal forensic quality standards
 
-Each report documents how forensic operations satisfy (or fall short of)
-specific compliance requirements.
+Each note documents how forensic operations line up against a
+framework's requirements — as a SELF-ASSESSMENT from caller-supplied
+context only. A transparency note is not an independent audit, not a
+conformity assessment, and not a certification of compliance. Every
+check status records whether the supplied context satisfies the
+check's criterion; nothing here is independently verified.
 """
 
 from __future__ import annotations
@@ -31,7 +35,7 @@ __all__ = [
 
 
 class ComplianceFramework(StrEnum):
-    """Supported compliance frameworks."""
+    """Frameworks a transparency note can address."""
 
     GDPR = "gdpr"
     AI_ACT = "ai_act"
@@ -40,7 +44,11 @@ class ComplianceFramework(StrEnum):
 
 
 class ComplianceStatus(StrEnum):
-    """Compliance check status."""
+    """Self-assessed status of one check against caller-supplied context.
+
+    A status records whether the supplied context satisfies the check's
+    criterion; it is not an independently verified compliance finding.
+    """
 
     COMPLIANT = "compliant"
     PARTIAL = "partial"
@@ -50,7 +58,7 @@ class ComplianceStatus(StrEnum):
 
 @dataclass
 class ComplianceCheck:
-    """A single compliance requirement check."""
+    """A single self-assessment check against one requirement."""
 
     requirement_id: str
     title: str
@@ -72,7 +80,12 @@ class ComplianceCheck:
 
 @dataclass
 class ComplianceReport:
-    """A full compliance report for a framework."""
+    """A transparency note for a framework.
+
+    Self-assessment only: statuses are derived from caller-supplied
+    context and are not independently verified. See the ``report_type``
+    and ``disclaimer`` keys in :meth:`to_dict`.
+    """
 
     framework: ComplianceFramework
     generated_at: str
@@ -82,6 +95,12 @@ class ComplianceReport:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "report_type": "transparency_note",
+            "disclaimer": (
+                "Self-assessment from caller-supplied context only. "
+                "Not an independent audit, conformity assessment, "
+                "or certification of compliance."
+            ),
             "framework": self.framework.value,
             "generated_at": self.generated_at,
             "operation_context": self.operation_context,
@@ -90,7 +109,7 @@ class ComplianceReport:
         }
 
     def summary(self) -> dict[str, Any]:
-        """Get a summary of compliance status."""
+        """Get a summary of the transparency note's self-assessed statuses."""
         status_counts = {s.value: 0 for s in ComplianceStatus}
         for check in self.checks:
             status_counts[check.status.value] += 1
@@ -101,18 +120,21 @@ class ComplianceReport:
         non_compliant = status_counts["non_compliant"]
         not_applicable = status_counts["not_applicable"]
 
-        # Overall score: compliant=1, partial=0.5, non_compliant=0, n/a excluded
+        # Overall score: compliant=1, partial=0.5, non_compliant=0, n/a excluded.
+        # This is a transparency score over self-assessed statuses, not a
+        # compliance certification score.
         applicable = total - not_applicable
         score = (compliant + 0.5 * partial) / applicable if applicable > 0 else 1.0
 
         return {
+            "report_type": "transparency_note",
             "framework": self.framework.value,
             "total_checks": total,
             "compliant": compliant,
             "partial": partial,
             "non_compliant": non_compliant,
             "not_applicable": not_applicable,
-            "compliance_score": round(score, 3),
+            "transparency_score": round(score, 3),
         }
 
     def save(self, path: str | Path) -> None:
@@ -150,10 +172,12 @@ def _now_iso() -> str:
 
 
 class ComplianceReportBuilder:
-    """Builder for generating compliance reports.
+    """Builder for generating transparency notes.
 
-    Analyzes the configuration and behavior of forensic operations
-    against a specific compliance framework.
+    Records how the configuration and behavior of forensic operations
+    line up against a specific framework, from caller-supplied context.
+    The result is a self-assessment transparency note, not a compliance
+    certification.
     """
 
     def __init__(self, framework: ComplianceFramework):
@@ -162,12 +186,12 @@ class ComplianceReportBuilder:
         self.operation_context: dict[str, Any] = {}
 
     def set_context(self, **context: Any) -> ComplianceReportBuilder:
-        """Set operation context for the report."""
+        """Set operation context for the transparency note."""
         self.operation_context.update(context)
         return self
 
     def build(self) -> ComplianceReport:
-        """Build the compliance report."""
+        """Build the transparency note."""
         if self.framework == ComplianceFramework.GDPR:
             self._add_gdpr_checks()
         elif self.framework == ComplianceFramework.AI_ACT:
@@ -455,14 +479,14 @@ class ComplianceReportBuilder:
 
 
 def generate_gdpr_report(context: dict[str, Any]) -> ComplianceReport:
-    """Generate a GDPR compliance report for the given operation context."""
+    """Generate a GDPR transparency note for the given operation context."""
     builder = ComplianceReportBuilder(ComplianceFramework.GDPR)
     builder.set_context(**context)
     return builder.build()
 
 
 def generate_ai_act_report(context: dict[str, Any]) -> ComplianceReport:
-    """Generate an EU AI Act compliance report for the given operation context."""
+    """Generate an EU AI Act transparency note for the given operation context."""
     builder = ComplianceReportBuilder(ComplianceFramework.AI_ACT)
     builder.set_context(**context)
     return builder.build()

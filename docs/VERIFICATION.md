@@ -27,26 +27,25 @@ python -m pytest tests/ -q -p no:cacheprovider \
   --cov=src/textforensics --cov-report=term -o addopts=''
 ```
 
-Result: **2210 passed, 147 skipped, 0 failed in 116.59 s.**
-Coverage: **78%** (12420 statements, 2491 missed, 4016 branches,
-525 partial).
+Result: **2325 passed, 0 failed, 0 skipped in 128.78 s.**
+Coverage: **86%** (11,551 statements, 1,304 missed, 3,894 branches,
+557 partial).
 
-The 147 skips are tests for optional extras not installed by `.[dev]`
-(e.g. `typer`/`fastapi`-gated CLI and web-UI tests skip with
-"fastapi not installed"); 2357 tests were collected in total.
+This is the extras-installed venv (`.venv`, `pip install -e
+".[dev]"` + extras), so nothing skips: 2325 tests were collected in
+total. (The earlier 2210 passed / 147 skipped / 78% figure was the
+bare venv without the optional extras installed.)
 
 Lowest-coverage core modules at this commit (from the same run):
-`typer_cli.py` 0% (typer extra not installed — its tests skip),
-`web_ui/main.py` 2% (fastapi extra not installed — its tests skip),
-`ollama.py` 62%, `casefile.py` 70%, `_build_info.py` 70%,
-`cli.py` 72%, `workspace_integrity.py` 73%, `model_card.py` 79%,
-`bundle.py` 87%, `detection_cache.py` 89%.
+`ollama.py` 62%, `casefile.py` 70%, `_build_info.py` 71%,
+`workspace_integrity.py` 73%, `cli.py` 76%, `model_card.py` 79%,
+`web_ui/main.py` 82%, `bundle.py` 84%.
 
 ## Lint / format
 
 ```bash
 ruff check src/ tests/ scripts/   # All checks passed (0 errors)
-ruff format --check src/ tests/ scripts/  # 225 files already formatted
+ruff format --check src/ tests/ scripts/  # 168 files already formatted
 ```
 
 ## Static security scan
@@ -169,3 +168,107 @@ the Phase 2 consolidation report)
 - `bundle_consistency.py`: `trust_map.overall` now validated against
   {strong, mixed, insufficient} (was: dimension states) — every real
   bundle was spuriously warned.
+
+### Wave (c) — one web UI (`f1dcc62`)
+
+- Suite: **2313 passed / 0 failed / 0 skipped / 86% coverage**
+  (11,796 stmts, 1,325 missed) in 125.46 s. (2313 vs 2335: −34
+  deleted webapp tests + 12 new tests.)
+- Ruff 0 errors, 176 files formatted; claims gate 31/31; schemas 5 OK.
+- `webapp.py` (217 lines) deleted; its surface ported into `web_ui/`
+  (FastAPI): `textforensics web` serves the FastAPI UI, `POST
+  /api/report` kept as a raw-bundle alias (now emergency-stop gated,
+  411/413 for chunked/oversize), CSP added, Chart.js 4.4.1 vendored
+  locally (no CDN fetch). Live smoke on real uvicorn: GET / 200, GET
+  /index.html 200, POST /api/report 200.
+- The legacy grade panel is gone (it rendered nothing; its diagnostic
+  is deprecated upstream).
+
+### Wave (d) — one verifier entry point + one bundle format (`69091e0`)
+
+- Suite: **2332 passed / 0 failed / 0 skipped / 86% coverage**
+  (11,809 stmts, 1,320 missed) in 125.38 s. (2332 vs 2313: +19 new
+  tests.)
+- Ruff 0 errors, 177 files formatted; claims gate 31/31; schemas 5 OK.
+- New `verify.verify_case_file_combined` runs both the N-version
+  replay and the primary-path seal check and requires both; `case
+  verify`, `verify`, and the MCP `verify_case_file` tool all use it.
+  `case verify` on a seal-valid but trust-tampered file now exits
+  EXIT_INCOMPLETE (was EXIT_OK); malformed JSON exits
+  EXIT_INCOMPLETE instead of crashing.
+- Result codec now speaks the current v2 format; legacy v1 artifacts
+  decode keeping their v1 label (with a warning) instead of being
+  silently relabelled. `verify.py` coverage 98%, `result_codec.py`
+  96%.
+
+### Wave (e) — consensus / calibration / benchmark / observatory / tiny-module merges
+
+- (e1) `9c9aa87`: agreement → consensus. Suite 2332 passed.
+- (e2) `3784d86`: benchmark_fingerprint → benchmark. Suite 2332
+  passed.
+- (e3) `181729f`: threshold_selection → calibration. Suite **2334
+  passed** (+2 new tests). Includes a real bug fix:
+  `validate_no_contamination` never detected partial overlap (it
+  hashed `(label, score)` rows on one side vs raw text on the
+  other); both sides now use `benchmark._compute_sample_hashes`.
+  Also: `select_threshold` default detector version corrected to
+  the live `"0.1.0"` (was `"1.0.0"`); `create_calibration_artifact`
+  renamed `create_threshold_selection_artifact`.
+- (e4) `997f8f1`: drift + detector_health → new `observatory.py`.
+  Suite 2334 passed.
+- (e5) `c195356`: tiny modules folded (robustness/naturalness →
+  features; compare → engine; server → api; version →
+  `_build_info`). Suite 2334 passed. `models.py` and `constants.py`
+  deliberately kept (import-cycle / product-contract reasons — see
+  the Phase 2 consolidation report).
+- All five: ruff 0 errors, claims gate 31/31, schemas 5 OK.
+  Modules 56 → 47; src LOC 28,531 → 28,543 (moves + docstrings).
+
+### Wave (f) — telemetry deleted (`a1ce23c`)
+
+- Suite: **2318 passed** (2334 − 20 deleted telemetry tests + 4 new
+  guard tests), claims gate 31/31, schemas 5 OK.
+- `telemetry.py` (375 lines) deleted outright — it was load-bearing
+  (engine.py, cli.py, `__init__.py`), not an optional extra.
+  `--metrics` flag and the `[telemetry]` extra are gone; no
+  OpenTelemetry import remains in src/, guarded by
+  `tests/test_no_telemetry.py`. `docs/CLAIMS.yaml`
+  `core.no_telemetry` restated accordingly.
+- Modules 47 → 46; src LOC 28,543 → 28,101.
+
+### Wave (g) — adversarial bright-line test (`4f7f25b`)
+
+- Suite: **2323 passed / 0 failed / 0 skipped / 86% coverage** in
+  126.47 s; ruff 0 errors, claims gate 31/31, schemas 5 OK.
+- New `tests/test_adversarial_bright_line.py` (5 tests) proves
+  `adversarial.py` never emits rewrite suggestions: no public entry
+  point returns text, no rewrite/evasion vocabulary in outputs, no
+  long output string is a rewritten copy of the input
+  (SequenceMatcher < 0.9 unless a verbatim quote), no evasion verb
+  in any public API name. No source change in this wave.
+
+### Wave (h) — model_card + compliance → transparency notes
+
+- Suite: **2325 passed / 0 failed / 0 skipped / 86% coverage**
+  (11,551 stmts, 1,304 missed, 3,894 branches, 557 partial) in
+  128.78 s; ruff 0 errors, 168 files formatted; claims gate 31/31;
+  schemas 5 OK. (2325 vs 2323: +2 new tests.)
+- `ModelCard.eu_ai_act_compliance` → `eu_ai_act_transparency_notes`
+  (field, `to_dict` key, Markdown heading); the builder no longer
+  asserts a risk class (`"not_assessed"`), a conformity assessment
+  (`"not_assessed"`), or a CE marking (`"not_claimed"`); it no longer
+  claims "Performance metrics published" (the generator leaves
+  `metrics=[]`) and the data-governance flags now reflect whether
+  documentation was actually supplied. The license default is now
+  the project's actual `AGPL-3.0-or-later` (was the wrong
+  `Apache-2.0`).
+- `ComplianceReport.to_dict()` gains `"report_type":
+  "transparency_note"` + a self-assessment disclaimer; `summary()`'s
+  `"compliance_score"` → `"transparency_score"` (same values).
+  Class names and per-check status values are unchanged — they
+  describe self-assessed statuses inside a labelled transparency
+  note, not a certification.
+- Modules 46 (unchanged); src LOC 28,101 → 28,150 (docstrings +
+  the disclaimer/note text). No docs references to the old outputs
+  needed updating (none existed outside the coverage figure, which
+  is unchanged: `model_card.py` 79%).

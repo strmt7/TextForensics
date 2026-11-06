@@ -19,6 +19,7 @@ from textforensics.model_card import (
     ModelDetails,
     PerformanceMetric,
     RiskLevel,
+    TrainingData,
     create_model_card,
 )
 
@@ -224,7 +225,7 @@ class TestModelCardGenerator:
         assert card.model_details.detector_family == "transformer"
         assert len(card.ethical_considerations) >= 5  # Default ethical considerations
         assert len(card.caveats_and_recommendations) >= 6  # Default caveats
-        assert "risk_classification" in card.eu_ai_act_compliance
+        assert "risk_classification" in card.eu_ai_act_transparency_notes
 
     def test_generate_with_custom_intended_use(self):
         generator = ModelCardGenerator()
@@ -253,7 +254,7 @@ class TestModelCardGenerator:
         assert card.intended_use.deployment_environments == ["Cloud", "On-premise"]
         assert card.intended_use.constraints == ["Real-time processing required"]
 
-    def test_eu_ai_act_compliance_section(self):
+    def test_eu_ai_act_transparency_notes_section(self):
         generator = ModelCardGenerator()
 
         card = generator.generate(
@@ -272,15 +273,82 @@ class TestModelCardGenerator:
             ),
         )
 
-        eu = card.eu_ai_act_compliance
-        assert eu["risk_classification"] == "limited"
+        eu = card.eu_ai_act_transparency_notes
+        # Transparency notes, not compliance claims: nothing here asserts
+        # a risk class, a conformity assessment, or a CE marking.
+        assert eu["risk_classification"] == "not_assessed"
+        assert eu["conformity_assessment"] == "not_assessed"
+        assert eu["ce_marking"] == "not_claimed"
+        assert "not certify regulatory compliance" in eu["note"]
         assert "transparency_obligations" in eu
+        # Metrics are not populated by the generator, so the notes must
+        # not claim they are published.
+        assert "Performance metrics published" not in eu["transparency_obligations"]
+        # No training/evaluation data was supplied, so nothing is
+        # documented as such.
+        assert eu["data_governance"]["training_data_documented"] is False
+        assert eu["data_governance"]["evaluation_data_documented"] is False
         assert eu["human_oversight"] == "required"
         assert "accuracy_robustness" in eu
         assert "data_governance" in eu
         assert "transparency_register" in eu
         assert "post_market_monitoring" in eu
         assert "incident_reporting" in eu
+
+    def test_transparency_notes_reflect_supplied_data(self):
+        generator = ModelCardGenerator()
+        evaluation = EvaluationDataset(
+            name="eval",
+            version="1.0",
+            size=100,
+            languages=["en"],
+            domains=["academic"],
+            split_ratios={"test": 1.0},
+            source="test",
+            license="CC0-1.0",
+            collection_date="2024-01-01",
+        )
+
+        card = generator.generate(
+            detector_id="test/detector",
+            detector_version="1.0.0",
+            detector_family="transformer",
+            architecture="transformer",
+            framework="pytorch",
+            intended_use=IntendedUse(
+                primary_use_cases=["AI text detection"],
+                out_of_scope=["Creative writing"],
+                target_users=["Researchers"],
+            ),
+            evaluation_data=evaluation,
+            training_data=TrainingData(
+                datasets=[evaluation],
+                total_size=100,
+                preprocessing_pipeline=[],
+            ),
+        )
+
+        notes = card.eu_ai_act_transparency_notes
+        assert notes["data_governance"]["training_data_documented"] is True
+        assert notes["data_governance"]["evaluation_data_documented"] is True
+
+    def test_default_license_is_project_license(self):
+        # The project is AGPL-3.0-or-later (pyproject.toml); the card
+        # default must say so instead of the old Apache-2.0 placeholder.
+        card = create_model_card(
+            detector_id="test/detector",
+            detector_version="1.0.0",
+            detector_family="transformer",
+            architecture="transformer",
+            framework="pytorch",
+            intended_use=IntendedUse(
+                primary_use_cases=["AI text detection"],
+                out_of_scope=[],
+                target_users=["Researchers"],
+            ),
+        )
+
+        assert card.model_details.license == "AGPL-3.0-or-later"
 
     def test_default_ethical_considerations(self):
         generator = ModelCardGenerator()

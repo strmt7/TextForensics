@@ -1,11 +1,17 @@
 """Model Card Generator for TextForensics Detectors.
 
 Generates standardized model cards for AI-text detectors following
-the Google Model Card Toolkit standard and EU AI Act transparency requirements.
+the Google Model Card Toolkit standard, with EU AI Act transparency
+notes.
+
+Transparency notes are not compliance claims: this module performs no
+conformity assessment and the cards it generates do not certify
+regulatory compliance (see REVAMP_SPEC.md: the revamp does not certify
+regulatory compliance).
 
 Features:
 - Automatic model card generation from detector metadata and performance data
-- EU AI Act compliance annotations
+- EU AI Act transparency notes
 - Performance metrics visualization data
 - Intended use cases and limitations documentation
 - Risk assessment and mitigation strategies
@@ -14,7 +20,8 @@ Features:
 
 Design principles:
 - Local-first: No network dependencies
-- Standards-compliant: Follows Google Model Card Toolkit and EU AI Act
+- Standards-informed: Structured after the Google Model Card Toolkit;
+  notes EU AI Act transparency topics without certifying compliance
 - Extensible: Plugin architecture for custom sections
 - Audit-ready: Full provenance tracking
 """
@@ -208,7 +215,7 @@ class ModelCard:
     ethical_considerations: list[EthicalConsideration] = field(default_factory=list)
     caveats_and_recommendations: list[Caveat] = field(default_factory=list)
     additional_information: dict[str, Any] = field(default_factory=dict)
-    eu_ai_act_compliance: dict[str, Any] = field(default_factory=dict)
+    eu_ai_act_transparency_notes: dict[str, Any] = field(default_factory=dict)
 
     # Internal tracking
     _schema_version: str = "1.0.0"
@@ -232,7 +239,7 @@ class ModelCard:
             "ethical_considerations": [asdict(e) for e in self.ethical_considerations],
             "caveats_and_recommendations": [asdict(c) for c in self.caveats_and_recommendations],
             "additional_information": self.additional_information,
-            "eu_ai_act_compliance": self.eu_ai_act_compliance,
+            "eu_ai_act_transparency_notes": self.eu_ai_act_transparency_notes,
         }
 
     def to_json(self, indent: int = 2) -> str:
@@ -291,9 +298,9 @@ class ModelCard:
             for c in self.caveats_and_recommendations:
                 lines.append(f"- **[{c.priority.upper()}]** {c.description}")
 
-        if self.eu_ai_act_compliance:
-            lines.extend(["", "## EU AI Act Compliance"])
-            for k, v in self.eu_ai_act_compliance.items():
+        if self.eu_ai_act_transparency_notes:
+            lines.extend(["", "## EU AI Act Transparency Notes"])
+            for k, v in self.eu_ai_act_transparency_notes.items():
                 lines.append(f"- **{k}**: {v}")
 
         return "\n".join(lines)
@@ -348,7 +355,7 @@ class ModelCardGenerator:
         quantitative_analysis: QuantitativeAnalysis | None = None,
         ethical_considerations: list[EthicalConsideration] | None = None,
         caveats: list[Caveat] | None = None,
-        license: str = "Apache-2.0",
+        license: str = "AGPL-3.0-or-later",
         owner: str = "TextForensics",
         contact: str = "security@textforensics.example",
     ) -> ModelCard:
@@ -374,9 +381,11 @@ class ModelCardGenerator:
             generated_by="TextForensics ModelCardGenerator v1.0",
         )
 
-        # Build EU AI Act compliance section
-        eu_compliance = self._build_eu_ai_act_compliance(
-            detector_id, detector_version, detector_family
+        # Build EU AI Act transparency notes (not a compliance claim:
+        # no conformity assessment is performed here)
+        eu_notes = self._build_eu_ai_act_transparency_notes(
+            training_data=training_data,
+            evaluation_data=evaluation_data,
         )
 
         # Default ethical considerations if none provided
@@ -400,7 +409,7 @@ class ModelCardGenerator:
             quantitative_analysis=quantitative_analysis,
             ethical_considerations=ethical,
             caveats_and_recommendations=caveats,
-            eu_ai_act_compliance=eu_compliance,
+            eu_ai_act_transparency_notes=eu_notes,
         )
 
     def _default_factors(self) -> list[str]:
@@ -492,17 +501,33 @@ class ModelCardGenerator:
             ),
         ]
 
-    def _build_eu_ai_act_compliance(
+    def _build_eu_ai_act_transparency_notes(
         self,
-        detector_id: str,
-        detector_version: str,
-        detector_family: str,
+        *,
+        training_data: TrainingData | None = None,
+        evaluation_data: EvaluationDataset | None = None,
     ) -> dict[str, Any]:
+        """Build the EU AI Act transparency-notes section.
+
+        These are notes about the topics the EU AI Act asks deployers to
+        be transparent about — not a conformity assessment, not a claim
+        that the detector (or any deployment of it) complies, and not a
+        CE marking statement. Risk classification depends on the
+        deployment use case, not on the detector alone, so it is recorded
+        as not assessed. The data-governance flags reflect only whether
+        documentation was actually supplied to this generator, and the
+        obligations list contains only what this generator does
+        (metrics are NOT populated here, so "performance metrics
+        published" is not claimed).
+        """
         return {
-            "risk_classification": "limited",
+            "note": (
+                "Transparency notes only. No conformity assessment has been "
+                "performed; this card does not certify regulatory compliance."
+            ),
+            "risk_classification": "not_assessed",
             "transparency_obligations": [
                 "Model card published",
-                "Performance metrics published",
                 "Limitations documented",
             ],
             "human_oversight": "required",
@@ -512,15 +537,15 @@ class ModelCardGenerator:
                 "monitoring": "continuous",
             },
             "data_governance": {
-                "training_data_documented": True,
-                "evaluation_data_documented": True,
+                "training_data_documented": training_data is not None,
+                "evaluation_data_documented": evaluation_data is not None,
                 "bias_assessment": "required",
             },
             "transparency_register": "required_for_high_risk",
             "post_market_monitoring": "required",
             "incident_reporting": "required",
-            "conformity_assessment": "internal",
-            "ce_marking": "not_required",
+            "conformity_assessment": "not_assessed",
+            "ce_marking": "not_claimed",
             "technical_documentation": "required",
             "user_instructions": "required",
         }
@@ -533,7 +558,7 @@ def create_model_card(
     architecture: str,
     framework: str,
     intended_use: IntendedUse,
-    license: str = "Apache-2.0",
+    license: str = "AGPL-3.0-or-later",
     owner: str = "TextForensics",
     contact: str = "security@textforensics.example",
     evaluation_data: EvaluationDataset | None = None,

@@ -78,12 +78,14 @@ class TestComplianceReport:
             ],
         )
         summary = report.summary()
+        assert summary["report_type"] == "transparency_note"
         assert summary["total_checks"] == 4
         assert summary["compliant"] == 2
         assert summary["partial"] == 1
         assert summary["non_compliant"] == 1
-        # Score: (2 + 0.5) / 4 = 0.625
-        assert summary["compliance_score"] == 0.625
+        # Score: (2 + 0.5) / 4 = 0.625 — a transparency score over
+        # self-assessed statuses, not a compliance certification score.
+        assert summary["transparency_score"] == 0.625
 
     def test_report_summary_all_compliant(self):
         """All compliant should give score 1.0."""
@@ -96,7 +98,7 @@ class TestComplianceReport:
             ],
         )
         summary = report.summary()
-        assert summary["compliance_score"] == 1.0
+        assert summary["transparency_score"] == 1.0
 
     def test_report_roundtrip(self):
         """Report save/load roundtrip should preserve data."""
@@ -116,6 +118,11 @@ class TestComplianceReport:
 
             assert loaded.framework == report.framework
             assert loaded.checks[0].requirement_id == "r1"
+            # The saved note labels itself a transparency note, with the
+            # self-assessment disclaimer — and a load round-trips it.
+            assert report.to_dict()["report_type"] == "transparency_note"
+            assert "Not an independent audit" in report.to_dict()["disclaimer"]
+            assert loaded.to_dict()["report_type"] == "transparency_note"
 
 
 class TestComplianceReportBuilder:
@@ -147,7 +154,7 @@ class TestComplianceReportBuilder:
             }
         )
         summary = report.summary()
-        assert summary["compliance_score"] == 1.0
+        assert summary["transparency_score"] == 1.0
         assert summary["non_compliant"] == 0
 
     def test_gdpr_partial_context(self):
@@ -158,7 +165,7 @@ class TestComplianceReportBuilder:
             }
         )
         summary = report.summary()
-        assert summary["compliance_score"] < 1.0
+        assert summary["transparency_score"] < 1.0
         assert summary["partial"] > 0
 
     def test_ai_act_builder(self):
@@ -189,7 +196,7 @@ class TestComplianceReportBuilder:
             }
         )
         summary = report.summary()
-        assert summary["compliance_score"] == 1.0
+        assert summary["transparency_score"] == 1.0
 
     def test_soc2_builder(self):
         """SOC 2 builder should produce SOC 2 checks."""
