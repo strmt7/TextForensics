@@ -34,11 +34,13 @@ __all__ = [
 
 class CodecError(Exception):
     """Base exception for codec errors."""
+
     pass
 
 
 class VersionMigrationError(CodecError):
     """Raised when version migration fails."""
+
     pass
 
 
@@ -93,9 +95,9 @@ def _migrate_result(data: dict[str, Any], from_version: str, to_version: str) ->
 
     # For now, just warn and return as-is
     warnings.warn(
-        f"No migration path from {from_version} to {to_version}. "
-        "Returning data unchanged.",
-        UserWarning, stacklevel=2,
+        f"No migration path from {from_version} to {to_version}. Returning data unchanged.",
+        UserWarning,
+        stacklevel=2,
     )
     return data
 
@@ -191,8 +193,7 @@ class ResultCodec:
         if expected_version and found_version and found_version != expected_version:
             if self.config.strict_version:
                 raise VersionMigrationError(
-                    f"Schema version mismatch: expected {expected_version}, "
-                    f"got {found_version}"
+                    f"Schema version mismatch: expected {expected_version}, got {found_version}"
                 )
             # Attempt migration
             result = _migrate_result(result, found_version, expected_version)

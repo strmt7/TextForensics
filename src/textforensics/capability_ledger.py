@@ -12,7 +12,7 @@ must declare which tier it's in, with named evidence.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -92,7 +92,7 @@ class CapabilityLedger:
         """Serialize to dict."""
         return {
             "schema": "textforensics.capability-ledger/v1",
-            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+            "generated_at_utc": datetime.now(UTC).isoformat(),
             "claims": {
                 det_id: [
                     {

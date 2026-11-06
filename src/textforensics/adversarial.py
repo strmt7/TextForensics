@@ -34,7 +34,7 @@ import uuid
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 __all__ = [
@@ -174,23 +174,37 @@ _HUMANIZER_ARTIFACTS = {
     # Deliberate typos and misspellings
     "deliberate_typo": {
         "patterns": [
-            r"\bteh\b", r"\bthier\b", r"\brecieve\b", r"\boccured\b",
-            r"\bdefinately\b", r"\bseperate\b", r"\bneccessary\b",
+            r"\bteh\b",
+            r"\bthier\b",
+            r"\brecieve\b",
+            r"\boccured\b",
+            r"\bdefinately\b",
+            r"\bseperate\b",
+            r"\bneccessary\b",
         ],
         "weight": 1.5,
     },
     # Forced casual contractions
     "forced_contraction": {
         "patterns": [
-            r"\bgonna\b", r"\bwanna\b", r"\bgotta\b", r"\bkinda\b",
-            r"\bsorta\b", r"\boutta\b", r"\bshoulda\b", r"\bcoulda\b",
+            r"\bgonna\b",
+            r"\bwanna\b",
+            r"\bgotta\b",
+            r"\bkinda\b",
+            r"\bsorta\b",
+            r"\boutta\b",
+            r"\bshoulda\b",
+            r"\bcoulda\b",
         ],
         "weight": 1.2,
     },
     # Artificial sentence fragmentation
     "forced_fragmentation": {
         "patterns": [
-            r"\.\s+And\s", r"\.\s+But\s", r"\.\s+So\s", r"\.\s+Or\s",
+            r"\.\s+And\s",
+            r"\.\s+But\s",
+            r"\.\s+So\s",
+            r"\.\s+Or\s",
         ],
         "weight": 1.3,
     },
@@ -224,7 +238,7 @@ _HUMANIZER_ARTIFACTS = {
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _sha256(text: str) -> str:
@@ -250,7 +264,7 @@ def _perplexity_proxy(text: str, window: int = 100) -> list[float]:
         return [0.0]
     scores = []
     for i in range(len(words) - window + 1):
-        window_words = words[i:i + window]
+        window_words = words[i : i + window]
         freq = Counter(window_words)
         # High repetition = low perplexity proxy
         surprise = 1.0 - (max(freq.values()) / window)
@@ -261,6 +275,7 @@ def _perplexity_proxy(text: str, window: int = 100) -> list[float]:
 # ============================================================
 # Pattern Detector Functions
 # ============================================================
+
 
 def _detect_regex_patterns(text: str, patterns: list[str]) -> int:
     """Count regex pattern matches in text."""
@@ -277,15 +292,17 @@ def detect_regex_artifacts(text: str) -> list[AdversarialFinding]:
         count = _detect_regex_patterns(text, config["patterns"])
         if count > 0:
             severity = "high" if config["weight"] > 1.3 else "medium"
-            findings.append(AdversarialFinding(
-                pattern_id=f"regex_{artifact_id}",
-                segment=text[:200] + "..." if len(text) > 200 else text,
-                evidence=float(count),
-                severity=severity,
-                confidence=min(0.8, 0.3 + 0.1 * count),
-                location=(0, min(len(text), 200)),
-                description=f"Detected {count} instances of {artifact_id.replace('_', ' ')}",
-            ))
+            findings.append(
+                AdversarialFinding(
+                    pattern_id=f"regex_{artifact_id}",
+                    segment=text[:200] + "..." if len(text) > 200 else text,
+                    evidence=float(count),
+                    severity=severity,
+                    confidence=min(0.8, 0.3 + 0.1 * count),
+                    location=(0, min(len(text), 200)),
+                    description=f"Detected {count} instances of {artifact_id.replace('_', ' ')}",
+                )
+            )
     return findings
 
 
@@ -301,7 +318,7 @@ def detect_mechanical_variation(text: str) -> list[AdversarialFinding]:
         return []
 
     # Check for alternating short/long pattern
-    diffs = [abs(lengths[i] - lengths[i-1]) for i in range(1, len(lengths))]
+    diffs = [abs(lengths[i] - lengths[i - 1]) for i in range(1, len(lengths))]
     if not diffs:
         return []
 
@@ -311,131 +328,189 @@ def detect_mechanical_variation(text: str) -> list[AdversarialFinding]:
     # Mechanical variation: high mean diff, low stdev (regular alternation)
     findings = []
     if mean_diff > 5 and stdev < 5 and len(sentences) >= 6:
-        findings.append(AdversarialFinding(
-            pattern_id="mechanical_variation",
-            segment="full_text",
-            evidence=round(mean_diff, 2),
-            severity="high",
-            confidence=0.75,
-            location=(0, len(text)),
-            description=f"Mechanical sentence length variation detected: mean_diff={mean_diff:.1f}, stdev={stdev:.1f}",
-        ))
+        findings.append(
+            AdversarialFinding(
+                pattern_id="mechanical_variation",
+                segment="full_text",
+                evidence=round(mean_diff, 2),
+                severity="high",
+                confidence=0.75,
+                location=(0, len(text)),
+                description=f"Mechanical sentence length variation detected: mean_diff={mean_diff:.1f}, stdev={stdev:.1f}",
+            )
+        )
     return findings
 
 
 def detect_mechanical_transitions(text: str) -> list[AdversarialFinding]:
     """Detect mechanical overuse of formal transitions."""
     transitions = [
-        "additionally", "furthermore", "moreover", "consequently",
-        "therefore", "however", "nevertheless", "nevertheless",
-        "subsequently", "accordingly", "hence", "thus"
+        "additionally",
+        "furthermore",
+        "moreover",
+        "consequently",
+        "therefore",
+        "however",
+        "nevertheless",
+        "nevertheless",
+        "subsequently",
+        "accordingly",
+        "hence",
+        "thus",
     ]
     count = 0
     for t in transitions:
         count += len(re.findall(rf"\b{t}\b", text, re.IGNORECASE))
 
     if count >= 3:
-        return [AdversarialFinding(
-            pattern_id="mechanical_transitions",
-            segment="full_text",
-            evidence=float(count),
-            severity="medium",
-            confidence=0.65,
-            location=(0, len(text)),
-            description=f"Overuse of formal transitions ({count} instances)",
-        )]
+        return [
+            AdversarialFinding(
+                pattern_id="mechanical_transitions",
+                segment="full_text",
+                evidence=float(count),
+                severity="medium",
+                confidence=0.65,
+                location=(0, len(text)),
+                description=f"Overuse of formal transitions ({count} instances)",
+            )
+        ]
     return []
 
 
 def detect_deliberate_typos(text: str) -> list[AdversarialFinding]:
     """Detect common deliberate typos introduced by humanizers."""
     typo_patterns = [
-        r"\bteh\b", r"\bthier\b", r"\brecieve\b", r"\boccured\b",
-        r"\bdefinately\b", r"\bseperate\b", r"\bneccessary\b",
-        r"\baccomodate\b", r"\bmaintainance\b", r"\bpriviledge\b",
-        r"\bquestionaire\b", r"\bbuisness\b", r"\bpublically\b",
+        r"\bteh\b",
+        r"\bthier\b",
+        r"\brecieve\b",
+        r"\boccured\b",
+        r"\bdefinately\b",
+        r"\bseperate\b",
+        r"\bneccessary\b",
+        r"\baccomodate\b",
+        r"\bmaintainance\b",
+        r"\bpriviledge\b",
+        r"\bquestionaire\b",
+        r"\bbuisness\b",
+        r"\bpublically\b",
     ]
     count = _detect_regex_patterns(text, typo_patterns)
     if count > 0:
-        return [AdversarialFinding(
-            pattern_id="deliberate_typos",
-            segment="full_text",
-            evidence=float(count),
-            severity="high" if count >= 3 else "medium",
-            confidence=0.8,
-            location=(0, len(text)),
-            description=f"Detected {count} common deliberate typos",
-        )]
+        return [
+            AdversarialFinding(
+                pattern_id="deliberate_typos",
+                segment="full_text",
+                evidence=float(count),
+                severity="high" if count >= 3 else "medium",
+                confidence=0.8,
+                location=(0, len(text)),
+                description=f"Detected {count} common deliberate typos",
+            )
+        ]
     return []
 
 
 def detect_forced_contractions(text: str) -> list[AdversarialFinding]:
     """Detect forced casual contractions inserted by humanizers."""
     contractions = [
-        "gonna", "wanna", "gotta", "kinda", "sorta",
-        "outta", "shoulda", "coulda", "woulda", "lemme",
-        "gimme", "dunno", "cuz", "cos", "ya"
+        "gonna",
+        "wanna",
+        "gotta",
+        "kinda",
+        "sorta",
+        "outta",
+        "shoulda",
+        "coulda",
+        "woulda",
+        "lemme",
+        "gimme",
+        "dunno",
+        "cuz",
+        "cos",
+        "ya",
     ]
     count = 0
     for c in contractions:
         count += len(re.findall(rf"\b{c}\b", text, re.IGNORECASE))
 
     if count >= 2:
-        return [AdversarialFinding(
-            pattern_id="forced_contractions",
-            segment="full_text",
-            evidence=float(count),
-            severity="medium",
-            confidence=0.7,
-            location=(0, len(text)),
-            description=f"Forced casual contractions detected ({count} instances)",
-        )]
+        return [
+            AdversarialFinding(
+                pattern_id="forced_contractions",
+                segment="full_text",
+                evidence=float(count),
+                severity="medium",
+                confidence=0.7,
+                location=(0, len(text)),
+                description=f"Forced casual contractions detected ({count} instances)",
+            )
+        ]
     return []
 
 
 def detect_discourse_overload(text: str) -> list[AdversarialFinding]:
     """Detect overuse of discourse markers (frankly, honestly, etc.)."""
     markers = [
-        "frankly", "honestly", "actually", "basically", "essentially",
-        "literally", "obviously", "clearly", "simply", "basically"
+        "frankly",
+        "honestly",
+        "actually",
+        "basically",
+        "essentially",
+        "literally",
+        "obviously",
+        "clearly",
+        "simply",
+        "basically",
     ]
     count = 0
     for m in markers:
         count += len(re.findall(rf"\b{m}\b", text, re.IGNORECASE))
 
     if count >= 3:
-        return [AdversarialFinding(
-            pattern_id="discourse_overload",
-            segment="full_text",
-            evidence=float(count),
-            severity="medium",
-            confidence=0.65,
-            location=(0, len(text)),
-            description=f"Excessive discourse markers ({count} instances)",
-        )]
+        return [
+            AdversarialFinding(
+                pattern_id="discourse_overload",
+                segment="full_text",
+                evidence=float(count),
+                severity="medium",
+                confidence=0.65,
+                location=(0, len(text)),
+                description=f"Excessive discourse markers ({count} instances)",
+            )
+        ]
     return []
 
 
 def detect_hedge_overload(text: str) -> list[AdversarialFinding]:
     """Detect overuse of hedge words."""
     hedges = [
-        "sort of", "kind of", "maybe", "perhaps", "possibly",
-        "probably", "somewhat", "rather", "quite", "fairly"
+        "sort of",
+        "kind of",
+        "maybe",
+        "perhaps",
+        "possibly",
+        "probably",
+        "somewhat",
+        "rather",
+        "quite",
+        "fairly",
     ]
     count = 0
     for h in hedges:
         count += len(re.findall(rf"\b{h}\b", text, re.IGNORECASE))
 
     if count >= 4:
-        return [AdversarialFinding(
-            pattern_id="hedge_overload",
-            segment="full_text",
-            evidence=float(count),
-            severity="low",
-            confidence=0.55,
-            location=(0, len(text)),
-            description=f"Excessive hedging language ({count} instances)",
-        )]
+        return [
+            AdversarialFinding(
+                pattern_id="hedge_overload",
+                segment="full_text",
+                evidence=float(count),
+                severity="low",
+                confidence=0.55,
+                location=(0, len(text)),
+                description=f"Excessive hedging language ({count} instances)",
+            )
+        ]
     return []
 
 
@@ -452,31 +527,35 @@ def detect_perplexity_anomalies(text: str) -> list[AdversarialFinding]:
 
     # Suspiciously flat (humanizer smoothing)
     if stdev < 0.02 and mean_score > 0.1:
-        return [AdversarialFinding(
-            pattern_id="perplexity_flat",
-            segment="full_text",
-            evidence=round(stdev, 4),
-            severity="medium",
-            confidence=0.6,
-            location=(0, len(text)),
-            description=f"Suspiciously flat perplexity curve (stdev={stdev:.4f})",
-        )]
+        return [
+            AdversarialFinding(
+                pattern_id="perplexity_flat",
+                segment="full_text",
+                evidence=round(stdev, 4),
+                severity="medium",
+                confidence=0.6,
+                location=(0, len(text)),
+                description=f"Suspiciously flat perplexity curve (stdev={stdev:.4f})",
+            )
+        ]
 
     # Check for regular oscillations
-    diffs = [abs(scores[i] - scores[i-1]) for i in range(1, len(scores))]
+    diffs = [abs(scores[i] - scores[i - 1]) for i in range(1, len(scores))]
     if len(diffs) >= 4:
         mean_diff = statistics.mean(diffs)
         diff_stdev = statistics.stdev(diffs) if len(diffs) > 1 else 0.0
         if mean_diff > 0.1 and diff_stdev < 0.03:
-            return [AdversarialFinding(
-                pattern_id="perplexity_oscillation",
-                segment="full_text",
-                evidence=round(diff_stdev, 4),
-                severity="medium",
-                confidence=0.65,
-                location=(0, len(text)),
-                description=f"Regular perplexity oscillation (mean_diff={mean_diff:.3f}, stdev={diff_stdev:.4f})",
-            )]
+            return [
+                AdversarialFinding(
+                    pattern_id="perplexity_oscillation",
+                    segment="full_text",
+                    evidence=round(diff_stdev, 4),
+                    severity="medium",
+                    confidence=0.65,
+                    location=(0, len(text)),
+                    description=f"Regular perplexity oscillation (mean_diff={mean_diff:.3f}, stdev={diff_stdev:.4f})",
+                )
+            ]
 
     return []
 
@@ -500,7 +579,9 @@ _HUMANIZATION_PATTERNS: dict[str, Callable[[str], list[AdversarialFinding]]] = {
 class HumanizationPatternLibrary:
     """Registry of humanization detection patterns."""
 
-    def __init__(self, custom_patterns: dict[str, Callable[[str], list[AdversarialFinding]]] | None = None):
+    def __init__(
+        self, custom_patterns: dict[str, Callable[[str], list[AdversarialFinding]]] | None = None
+    ):
         self._patterns = dict(_HUMANIZATION_PATTERNS)
         if custom_patterns:
             self._patterns.update(custom_patterns)
@@ -537,6 +618,7 @@ class HumanizationPatternLibrary:
 # ============================================================
 # Main Adversarial Detector
 # ============================================================
+
 
 class AdversarialDetector:
     """Main detector for adversarial humanization artifacts.
@@ -678,6 +760,7 @@ def _sha256(text: str) -> str:
 # ============================================================
 # Convenience Functions
 # ============================================================
+
 
 def detect_humanization_simple(text: str) -> dict[str, Any]:
     """Simple one-shot detection returning a summary dict."""

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from .conditions import InputConditions, length_band
@@ -99,9 +99,7 @@ class TrustMap:
         if self.coverage:
             missing = TRUST_STATES - set(self.coverage)
             if missing:
-                raise ValueError(
-                    f"coverage is missing state(s): {', '.join(sorted(missing))}."
-                )
+                raise ValueError(f"coverage is missing state(s): {', '.join(sorted(missing))}.")
 
     def dimension(self, name: str) -> TrustDimension | None:
         return next((item for item in self.dimensions if item.dimension == name), None)
@@ -131,10 +129,7 @@ def _diversity_dimension(
         )
     else:
         state = "partial"
-        reason = (
-            "Detector-family diversity is limited, or one or more configured "
-            "detectors failed."
-        )
+        reason = "Detector-family diversity is limited, or one or more configured detectors failed."
     return TrustDimension(
         dimension="detector_diversity",
         state=state,
@@ -185,14 +180,10 @@ def _stability_dimension(
         known = isinstance(native_range, (int, float)) and not isinstance(native_range, bool)
         if not known:
             drift_known = False
-            drift_rows.append(
-                {"detector_id": row.get("detector_id"), "native_score_range": None}
-            )
+            drift_rows.append({"detector_id": row.get("detector_id"), "native_score_range": None})
             continue
         value = float(native_range)
-        drift_rows.append(
-            {"detector_id": row.get("detector_id"), "native_score_range": value}
-        )
+        drift_rows.append({"detector_id": row.get("detector_id"), "native_score_range": value})
         if max_native_drift is not None and value > max_native_drift:
             drift_ok = False
 
@@ -254,9 +245,7 @@ def _aggregate_evidence_dimension(
         limitations.extend(dimension.limitations)
         reasons.append(f"{row.detector_id}: {dimension.reason}")
         if dimension.observed:
-            observed.setdefault("detector_observed", {})[row.detector_id] = dict(
-                dimension.observed
-            )
+            observed.setdefault("detector_observed", {})[row.detector_id] = dict(dimension.observed)
     if len(set(detector_states.values())) == 1:
         reason = next(iter(detector_states.values())) and rows[0].dimensions[name].reason
     else:
@@ -341,13 +330,9 @@ def assess_trust_map(
         max_age_days=max_age_days,
         fpr_ceiling=fpr_ceiling,
     )
-    dimensions = [
-        _aggregate_evidence_dimension(name, rows) for name in EVIDENCE_DIMENSIONS
-    ]
+    dimensions = [_aggregate_evidence_dimension(name, rows) for name in EVIDENCE_DIMENSIONS]
     dimensions.append(_diversity_dimension(prediction_list, failure_count))
-    dimensions.append(
-        _stability_dimension(robustness_list, max_native_drift=max_native_drift)
-    )
+    dimensions.append(_stability_dimension(robustness_list, max_native_drift=max_native_drift))
 
     limitations = [
         "Trust Map states describe evidence coverage, not probability of authorship.",
@@ -392,7 +377,7 @@ def assess_trust_map(
         input_conditions=conditions.to_dict(),
         evidence_registry=registry_summary,
         coverage=_coverage_counts(dimensions),
-        generated_at_utc=generated_at_utc or datetime.now(timezone.utc).isoformat(),
+        generated_at_utc=generated_at_utc or datetime.now(UTC).isoformat(),
     )
 
 
@@ -488,18 +473,13 @@ def trust_map_from_capability_ledger(ledger: Any) -> TrustMap:
                 for reference in claim.evidence:
                     evidence_refs.append(reference.artifact)
                 if claim.valid_until:
-                    limitations.append(
-                        f"Claim for {claim.capability} expires {claim.valid_until}."
-                    )
+                    limitations.append(f"Claim for {claim.capability} expires {claim.valid_until}.")
             if not relevant:
                 state = "unknown"
                 reason = f"No capability claim registered for {detector_id}/{capability}."
             elif any(claim.tier == EvidenceTier.VALIDATED for claim in relevant):
                 state = "supported"
-                reason = (
-                    f"Capability '{capability}' for {detector_id} has "
-                    "VALIDATED-tier evidence."
-                )
+                reason = f"Capability '{capability}' for {detector_id} has VALIDATED-tier evidence."
             elif any(claim.tier == EvidenceTier.TOOL_BACKED for claim in relevant):
                 state = "partial"
                 reason = f"Capability '{capability}' for {detector_id} is TOOL_BACKED."

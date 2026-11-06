@@ -26,8 +26,8 @@ import time
 from collections import defaultdict, deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -43,8 +43,9 @@ __all__ = [
 ]
 
 
-class HealthState(str, Enum):
+class HealthState(StrEnum):
     """Overall health state of a detector."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     CRITICAL = "critical"
@@ -52,8 +53,9 @@ class HealthState(str, Enum):
     OFFLINE = "offline"
 
 
-class AlertSeverity(str, Enum):
+class AlertSeverity(StrEnum):
     """Severity level of health alerts."""
+
     INFO = "info"
     WARNING = "warning"
     CRITICAL = "critical"
@@ -62,6 +64,7 @@ class AlertSeverity(str, Enum):
 @dataclass(frozen=True, slots=True)
 class HealthMetric:
     """A single health metric measurement."""
+
     name: str
     value: float
     unit: str
@@ -83,6 +86,7 @@ class HealthMetric:
 @dataclass(frozen=True, slots=True)
 class HealthAlert:
     """A health alert triggered by anomaly detection."""
+
     alert_id: str
     detector_id: str
     severity: AlertSeverity
@@ -110,12 +114,13 @@ class HealthAlert:
 @dataclass
 class DetectorHealthReport:
     """Comprehensive health report for a detector."""
+
     detector_id: str
     overall_state: HealthState
     health_score: float  # 0.0 - 1.0
     metrics: dict[str, list[HealthMetric]] = field(default_factory=dict)
     alerts: list[HealthAlert] = field(default_factory=list)
-    last_updated: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    last_updated: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -149,11 +154,10 @@ class DetectorHealthReport:
                 overall_state=HealthState(data["overall_state"]),
                 health_score=data["health_score"],
                 metrics={
-                    k: [HealthMetric(**m) for m in v]
-                    for k, v in data.get("metrics", {}).items()
+                    k: [HealthMetric(**m) for m in v] for k, v in data.get("metrics", {}).items()
                 },
                 alerts=[HealthAlert(**a) for a in data.get("alerts", [])],
-                last_updated=data.get("last_updated", datetime.now(timezone.utc).isoformat()),
+                last_updated=data.get("last_updated", datetime.now(UTC).isoformat()),
                 metadata=data.get("metadata", {}),
             )
         except Exception:
@@ -189,9 +193,7 @@ class HealthCheck:
         # If False (default), HIGHER values are worse (e.g., error rate, latency).
         self.inverted = inverted
 
-    def evaluate(
-        self, values: list[float], detector_id: str = ""
-    ) -> HealthAlert | None:
+    def evaluate(self, values: list[float], detector_id: str = "") -> HealthAlert | None:
         """Evaluate the health check against a series of values."""
         if not values:
             return None
@@ -226,8 +228,10 @@ class HealthCheck:
             message=f"{self.name}: {value} {cmp_word} {self.critical_threshold if severity == AlertSeverity.CRITICAL else self.warning_threshold}",
             metric_name=self.metric_name,
             metric_value=value,
-            threshold=self.critical_threshold if severity == AlertSeverity.CRITICAL else self.warning_threshold,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            threshold=self.critical_threshold
+            if severity == AlertSeverity.CRITICAL
+            else self.warning_threshold,
+            timestamp=datetime.now(UTC).isoformat(),
         )
 
 
@@ -236,6 +240,7 @@ def _create_latency_check() -> HealthCheck:
     def check(values: list[float]) -> tuple[bool, float]:
         p95 = statistics.quantiles(values, n=20)[18] if len(values) >= 20 else max(values)
         return p95 < 5000.0, p95  # 5 second p95 threshold
+
     return HealthCheck(
         name="latency_p95",
         metric_name="latency_ms",
@@ -251,6 +256,7 @@ def _create_error_rate_check() -> HealthCheck:
     def check(values: list[float]) -> tuple[bool, float]:
         error_rate = sum(1 for v in values if v > 0) / len(values)
         return error_rate < 0.05, error_rate  # 5% error rate threshold
+
     return HealthCheck(
         name="error_rate",
         metric_name="error_rate",
@@ -282,12 +288,13 @@ def _create_score_distribution_check() -> HealthCheck:
         total = sum(hist)
         if total == 0:
             return True, 1.0
-        probs = [h/total for h in hist if h > 0]
+        probs = [h / total for h in hist if h > 0]
         entropy = -sum(p * math.log2(p) for p in probs)
         max_entropy = math.log2(len([h for h in hist if h > 0]))
         entropy_ratio = entropy / max_entropy if max_entropy > 0 else 0.0
         # Healthy if entropy_ratio > 0.3 (not too uniform)
         return entropy_ratio > 0.3, entropy_ratio
+
     return HealthCheck(
         name="score_distribution_entropy",
         metric_name="score_entropy_ratio",
@@ -311,6 +318,7 @@ def _create_throughput_check() -> HealthCheck:
         recent = [v for v in values if now - v < 60]  # Last minute
         throughput = len(recent) / 60.0  # req/s
         return throughput >= 0.1, throughput  # At least 0.1 req/s
+
     return HealthCheck(
         name="throughput",
         metric_name="throughput_rps",
@@ -376,7 +384,7 @@ class DetectorHealthMonitor:
             name=metric_name,
             value=value,
             unit=unit,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             detector_id=detector_id,
             metadata=metadata or {},
         )
@@ -427,11 +435,9 @@ class DetectorHealthMonitor:
             )
 
         report = self._reports[detector_id]
-        report.metrics = {
-            k: list(v) for k, v in self._metrics.get(detector_id, {}).items()
-        }
+        report.metrics = {k: list(v) for k, v in self._metrics.get(detector_id, {}).items()}
         report.alerts = [a for a in self._alerts if a.detector_id == detector_id]
-        report.last_updated = datetime.now(timezone.utc).isoformat()
+        report.last_updated = datetime.now(UTC).isoformat()
         report.overall_state, report.health_score = self._compute_overall_health(detector_id)
 
         return report

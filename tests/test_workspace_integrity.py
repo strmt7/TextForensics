@@ -291,7 +291,9 @@ class TestComputeWorkspaceFingerprint:
         with tempfile.TemporaryDirectory() as td:
             workspace = Path(td)
             # Initialize git repo
-            os.system(f"cd '{workspace}' && git init -q && git config user.email 'test@test.com' && git config user.name 'Test' && echo 'test' > README.md && git add . && git commit -q -m 'init'")
+            os.system(
+                f"cd '{workspace}' && git init -q && git config user.email 'test@test.com' && git config user.name 'Test' && echo 'test' > README.md && git add . && git commit -q -m 'init'"
+            )
             fp = compute_workspace_fingerprint(workspace)
             # Should include git commit in fingerprint
             assert fp.fingerprint != ""
@@ -365,14 +367,15 @@ class TestEmergencyStopFunctions:
             sentinel_path = Path(td) / "emergency_stop"
             # Need to reset the global singleton
             import textforensics.workspace_integrity as wi
+
             wi._emergency_sentinel = None
-            sentinel = get_emergency_sentinel(sentinel_path)
+            get_emergency_sentinel(sentinel_path)
             assert check_emergency_stop() is False
 
     def test_activate_deactivate_emergency_stop(self):
-        with tempfile.TemporaryDirectory() as td:
-            sentinel_path = Path(td) / "emergency_stop"
+        with tempfile.TemporaryDirectory():
             import textforensics.workspace_integrity as wi
+
             wi._emergency_sentinel = None
             assert activate_emergency_stop("test") is True
             assert check_emergency_stop() is True
@@ -381,6 +384,7 @@ class TestEmergencyStopFunctions:
 
     def test_get_emergency_singleton(self):
         import textforensics.workspace_integrity as wi
+
         wi._emergency_sentinel = None
         sentinel1 = get_emergency_sentinel()
         sentinel2 = get_emergency_sentinel()

@@ -41,19 +41,26 @@ SAMPLE_CORPUS = {
     ],
 }
 
+
 # Generate a proper case file for testing
 def _generate_valid_case_file():
-    from textforensics.report import build_forensic_bundle
     from textforensics.casefile import seal_case_file
-    bundle = build_forensic_bundle("Test text for MCP tools.", deterministic=True, fixed_timestamp="1970-01-01T00:00:00+00:00")
+    from textforensics.report import build_forensic_bundle
+
+    bundle = build_forensic_bundle(
+        "Test text for MCP tools.", deterministic=True, fixed_timestamp="1970-01-01T00:00:00+00:00"
+    )
     bundle_dict = bundle.to_dict()
-    case = seal_case_file(bundle_dict, deterministic=True, fixed_timestamp="1970-01-01T00:00:00+00:00")
+    case = seal_case_file(
+        bundle_dict, deterministic=True, fixed_timestamp="1970-01-01T00:00:00+00:00"
+    )
     # Override trust_map overall to "strong" for test
     case["forensic_bundle"]["trust_map"]["overall"] = "strong"
     for dim in case["forensic_bundle"]["trust_map"]["dimensions"]:
         if dim["dimension"] == "language":
             dim["state"] = "supported"
     return case
+
 
 VALID_CASE_FILE = _generate_valid_case_file()
 

@@ -856,8 +856,7 @@ class E2EBuiltinSnapshotTests(unittest.TestCase):
             report = obs2.compare_snapshots(snap1_loaded, snap2)
             self.assertIn("detectors", report)
 
-
-# ── Drift Alerting ───────────────────────────────────────────────
+    # ── Drift Alerting ───────────────────────────────────────────────
 
     def test_generate_alerts_for_drift_detected(self):
         """generate_drift_alerts should create alerts for drift_detected status."""
@@ -981,9 +980,27 @@ class E2EBuiltinSnapshotTests(unittest.TestCase):
     def test_filter_alerts_by_severity(self):
         """filter_alerts should filter by severity."""
         alerts = [
-            DriftAlert(detector_id="a", severity="critical", category="cat1", message="m", recommended_action="a"),
-            DriftAlert(detector_id="b", severity="warning", category="cat2", message="m", recommended_action="a"),
-            DriftAlert(detector_id="c", severity="info", category="cat3", message="m", recommended_action="a"),
+            DriftAlert(
+                detector_id="a",
+                severity="critical",
+                category="cat1",
+                message="m",
+                recommended_action="a",
+            ),
+            DriftAlert(
+                detector_id="b",
+                severity="warning",
+                category="cat2",
+                message="m",
+                recommended_action="a",
+            ),
+            DriftAlert(
+                detector_id="c",
+                severity="info",
+                category="cat3",
+                message="m",
+                recommended_action="a",
+            ),
         ]
         critical = filter_alerts(alerts, severity="critical")
         self.assertEqual(len(critical), 1)
@@ -992,9 +1009,27 @@ class E2EBuiltinSnapshotTests(unittest.TestCase):
     def test_filter_alerts_by_category(self):
         """filter_alerts should filter by category."""
         alerts = [
-            DriftAlert(detector_id="a", severity="critical", category="calibration", message="m", recommended_action="a"),
-            DriftAlert(detector_id="b", severity="warning", category="behavioral", message="m", recommended_action="a"),
-            DriftAlert(detector_id="c", severity="info", category="calibration", message="m", recommended_action="a"),
+            DriftAlert(
+                detector_id="a",
+                severity="critical",
+                category="calibration",
+                message="m",
+                recommended_action="a",
+            ),
+            DriftAlert(
+                detector_id="b",
+                severity="warning",
+                category="behavioral",
+                message="m",
+                recommended_action="a",
+            ),
+            DriftAlert(
+                detector_id="c",
+                severity="info",
+                category="calibration",
+                message="m",
+                recommended_action="a",
+            ),
         ]
         calibration = filter_alerts(alerts, category="calibration")
         self.assertEqual(len(calibration), 2)
@@ -1002,8 +1037,20 @@ class E2EBuiltinSnapshotTests(unittest.TestCase):
     def test_filter_alerts_by_detector_id(self):
         """filter_alerts should filter by detector_id."""
         alerts = [
-            DriftAlert(detector_id="detector/a", severity="critical", category="cat1", message="m", recommended_action="a"),
-            DriftAlert(detector_id="detector/b", severity="warning", category="cat2", message="m", recommended_action="a"),
+            DriftAlert(
+                detector_id="detector/a",
+                severity="critical",
+                category="cat1",
+                message="m",
+                recommended_action="a",
+            ),
+            DriftAlert(
+                detector_id="detector/b",
+                severity="warning",
+                category="cat2",
+                message="m",
+                recommended_action="a",
+            ),
         ]
         filtered = filter_alerts(alerts, detector_id="detector/a")
         self.assertEqual(len(filtered), 1)
@@ -1012,8 +1059,20 @@ class E2EBuiltinSnapshotTests(unittest.TestCase):
     def test_filter_alerts_combined(self):
         """filter_alerts should support combined filters."""
         alerts = [
-            DriftAlert(detector_id="a", severity="critical", category="calibration", message="m", recommended_action="a"),
-            DriftAlert(detector_id="b", severity="critical", category="behavioral", message="m", recommended_action="a"),
+            DriftAlert(
+                detector_id="a",
+                severity="critical",
+                category="calibration",
+                message="m",
+                recommended_action="a",
+            ),
+            DriftAlert(
+                detector_id="b",
+                severity="critical",
+                category="behavioral",
+                message="m",
+                recommended_action="a",
+            ),
         ]
         filtered = filter_alerts(alerts, severity="critical", category="calibration")
         self.assertEqual(len(filtered), 1)
@@ -1022,10 +1081,34 @@ class E2EBuiltinSnapshotTests(unittest.TestCase):
     def test_summarize_alerts(self):
         """summarize_alerts should count by severity and category."""
         alerts = [
-            DriftAlert(detector_id="a", severity="critical", category="calibration", message="m", recommended_action="a"),
-            DriftAlert(detector_id="b", severity="warning", category="behavioral", message="m", recommended_action="a"),
-            DriftAlert(detector_id="c", severity="warning", category="behavioral", message="m", recommended_action="a"),
-            DriftAlert(detector_id="d", severity="info", category="configuration", message="m", recommended_action="a"),
+            DriftAlert(
+                detector_id="a",
+                severity="critical",
+                category="calibration",
+                message="m",
+                recommended_action="a",
+            ),
+            DriftAlert(
+                detector_id="b",
+                severity="warning",
+                category="behavioral",
+                message="m",
+                recommended_action="a",
+            ),
+            DriftAlert(
+                detector_id="c",
+                severity="warning",
+                category="behavioral",
+                message="m",
+                recommended_action="a",
+            ),
+            DriftAlert(
+                detector_id="d",
+                severity="info",
+                category="configuration",
+                message="m",
+                recommended_action="a",
+            ),
         ]
         summary = summarize_alerts(alerts)
         self.assertEqual(summary["total"], 4)

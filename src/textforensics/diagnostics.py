@@ -30,8 +30,8 @@ import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -52,8 +52,9 @@ __all__ = [
 ]
 
 
-class ReadinessState(str, Enum):
+class ReadinessState(StrEnum):
     """Overall readiness state."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     CRITICAL = "critical"
@@ -152,15 +153,15 @@ class StorageHealth:
 
     @property
     def free_gb(self) -> float:
-        return self.free_bytes / (1024 ** 3)
+        return self.free_bytes / (1024**3)
 
     @property
     def used_gb(self) -> float:
-        return self.used_bytes / (1024 ** 3)
+        return self.used_bytes / (1024**3)
 
     @property
     def total_gb(self) -> float:
-        return self.total_bytes / (1024 ** 3)
+        return self.total_bytes / (1024**3)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -192,7 +193,7 @@ class MetricsSnapshot:
         application_version: str = "unknown",
     ):
         self.schema_version = schema_version
-        self.generated_at = generated_at or datetime.now(timezone.utc)
+        self.generated_at = generated_at or datetime.now(UTC)
         self.service_name = service_name
         self.application_version = "0.1.0"  # Would be from build info
         self.generated_at_iso = self.generated_at.isoformat()
@@ -253,20 +254,24 @@ class ReadinessAssessor:
         for name, check_fn in self._checks.items():
             try:
                 passed, message = check_fn()
-                results.append({
-                    "name": name,
-                    "passed": passed,
-                    "message": message,
-                })
+                results.append(
+                    {
+                        "name": name,
+                        "passed": passed,
+                        "message": message,
+                    }
+                )
                 if not passed:
                     any_failed = True
                     critical_failed = True
             except Exception as e:
-                results.append({
-                    "name": name,
-                    "passed": False,
-                    "message": f"Check failed with exception: {e}",
-                })
+                results.append(
+                    {
+                        "name": name,
+                        "passed": False,
+                        "message": f"Check failed with exception: {e}",
+                    }
+                )
                 any_failed = True
                 critical_failed = True
 
@@ -311,11 +316,11 @@ class MetricsCollector:
         self._requests = [t for t in self._requests if t > cutoff]
 
         if len(self._latencies) > self._max_samples:
-            self._latencies = self._latencies[-self._max_samples:]
+            self._latencies = self._latencies[-self._max_samples :]
         if len(self._errors) > self._max_samples:
-            self._errors = self._errors[-self._max_samples:]
+            self._errors = self._errors[-self._max_samples :]
         if len(self._requests) > self._max_samples:
-            self._requests = self._requests[-self._max_samples:]
+            self._requests = self._requests[-self._max_samples :]
 
     def get_percentile(self, percentile: float) -> float:
         """Get percentile of latencies."""
@@ -332,7 +337,9 @@ class MetricsCollector:
         recent_errors = sum(1 for t in self._errors if t > cutoff)
 
         return {
-            "avg_latency_ms": statistics.mean(v for _, v in self._latencies) if self._latencies else 0.0,
+            "avg_latency_ms": statistics.mean(v for _, v in self._latencies)
+            if self._latencies
+            else 0.0,
             "p50_latency_ms": self.get_percentile(50),
             "p95_latency_ms": self.get_percentile(95),
             "p99_latency_ms": self.get_percentile(99),
@@ -392,7 +399,7 @@ class DiagnosticsEngine:
         for path in self.storage_paths:
             try:
                 usage = psutil.disk_usage(path)
-                free_gb = usage.free / (1024 ** 3)
+                free_gb = usage.free / (1024**3)
                 if free_gb < 1.0:
                     return False, f"Low disk space: {free_gb:.2f} GB free on {path}"
                 elif free_gb < 5.0:
@@ -433,10 +440,10 @@ class DiagnosticsEngine:
 
         indicators = OperationalIndicators(
             database_connected=True,  # Placeholder
-            storage_writeable=True,   # Placeholder
-            detectors_available=0,    # Placeholder
-            detectors_healthy=0,      # Placeholder
-            pipeline_healthy=True,    # Placeholder
+            storage_writeable=True,  # Placeholder
+            detectors_available=0,  # Placeholder
+            detectors_healthy=0,  # Placeholder
+            pipeline_healthy=True,  # Placeholder
             active_pipelines=0,
             failed_pipelines=0,
             cpu_percent=cpu_percent,
@@ -463,23 +470,27 @@ class DiagnosticsEngine:
         for path in self.storage_paths:
             try:
                 usage = psutil.disk_usage(path)
-                health.append(StorageHealth(
-                    path=str(path),
-                    total_bytes=usage.total,
-                    free_bytes=usage.free,
-                    used_bytes=usage.used,
-                    percent_used=(usage.used / usage.total) * 100,
-                    writeable=os.access(path, os.W_OK),
-                ))
+                health.append(
+                    StorageHealth(
+                        path=str(path),
+                        total_bytes=usage.total,
+                        free_bytes=usage.free,
+                        used_bytes=usage.used,
+                        percent_used=(usage.used / usage.total) * 100,
+                        writeable=os.access(path, os.W_OK),
+                    )
+                )
             except Exception:
-                health.append(StorageHealth(
-                    path=str(path),
-                    total_bytes=0,
-                    free_bytes=0,
-                    used_bytes=0,
-                    percent_used=100.0,
-                    writeable=False,
-                ))
+                health.append(
+                    StorageHealth(
+                        path=str(path),
+                        total_bytes=0,
+                        free_bytes=0,
+                        used_bytes=0,
+                        percent_used=100.0,
+                        writeable=False,
+                    )
+                )
         return health
 
     def get_metrics_snapshot(self) -> MetricsSnapshot:
@@ -516,7 +527,7 @@ class DiagnosticsEngine:
         # Build report
         report = {
             "report_version": 5,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "privacy": {
                 "contains_input_text": False,
                 "contains_detection_results": False,

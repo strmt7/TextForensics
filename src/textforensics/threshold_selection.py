@@ -13,7 +13,7 @@ import hashlib
 import json
 import math
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -59,7 +59,7 @@ class ThresholdSelectionResult:
         """Serialize to dictionary for artifact storage."""
         record = {
             "schema": "textforensics.threshold-selection/v1",
-            "created_at_utc": datetime.now(timezone.utc).isoformat(),
+            "created_at_utc": datetime.now(UTC).isoformat(),
             "threshold": self.threshold,
             "observed_false_positive_rate": self.observed_fpr,
             "observed_true_positive_rate": self.observed_tpr,
@@ -136,7 +136,7 @@ class EvaluationResult:
         """Serialize to dictionary."""
         return {
             "schema": "textforensics.evaluation-result/v1",
-            "created_at_utc": datetime.now(timezone.utc).isoformat(),
+            "created_at_utc": datetime.now(UTC).isoformat(),
             "threshold": self.threshold,
             "evaluated": self.evaluated,
             "tp": self.tp,

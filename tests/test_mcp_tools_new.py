@@ -83,9 +83,7 @@ class TestResultCodecMCP:
     def test_result_decode_validate_false(self):
         """Decode without validation should work."""
         encoded = result_encode({"data": MINIMAL_BUNDLE, "schema": "forensic-bundle"})["encoded"]
-        result = result_decode(
-            {"encoded": encoded, "schema": "forensic-bundle", "validate": False}
-        )
+        result = result_decode({"encoded": encoded, "schema": "forensic-bundle", "validate": False})
         assert result["success"] is True
 
     def test_result_decode_strict_version(self):
@@ -312,7 +310,9 @@ class TestCapabilityPolicyMCP:
 
     def test_capability_policy_evaluate_invalid_ledger(self):
         """Invalid ledger format should fail."""
-        result = capability_policy_evaluate({"ledger": "not a dict", "detector_id": "test/detector"})
+        result = capability_policy_evaluate(
+            {"ledger": "not a dict", "detector_id": "test/detector"}
+        )
         assert result["success"] is False
 
 

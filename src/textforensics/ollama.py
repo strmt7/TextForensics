@@ -49,21 +49,25 @@ __all__ = [
 
 class OllamaError(Exception):
     """Base exception for Ollama-related errors."""
+
     pass
 
 
 class OllamaConnectionError(OllamaError):
     """Raised when connection to Ollama server fails."""
+
     pass
 
 
 class OllamaModelNotFoundError(OllamaError):
     """Raised when requested model is not available."""
+
     pass
 
 
 class OllamaTimeoutError(OllamaError):
     """Raised when request times out."""
+
     pass
 
 
@@ -79,15 +83,17 @@ class OllamaConfig:
     retry_backoff: float = 2.0
     verify_ssl: bool = True
     default_model: str | None = None
-    preferred_models: list[str] = field(default_factory=lambda: [
-        "llama3.1:8b",
-        "llama3.1:70b",
-        "mistral:7b",
-        "mixtral:8x7b",
-        "phi3:14b",
-        "qwen2.5:7b",
-        "gemma2:9b",
-    ])
+    preferred_models: list[str] = field(
+        default_factory=lambda: [
+            "llama3.1:8b",
+            "llama3.1:70b",
+            "mistral:7b",
+            "mixtral:8x7b",
+            "phi3:14b",
+            "qwen2.5:7b",
+            "gemma2:9b",
+        ]
+    )
 
     def __post_init__(self) -> None:
         if not self.base_url.endswith("/"):
@@ -392,13 +398,15 @@ class OllamaClient:
 
                 return response
 
-            except asyncio.TimeoutError:
-                last_exception = OllamaTimeoutError(f"Request timed out after {self.config.timeout_seconds}s")
+            except TimeoutError:
+                last_exception = OllamaTimeoutError(
+                    f"Request timed out after {self.config.timeout_seconds}s"
+                )
             except aiohttp.ClientError as e:
                 last_exception = OllamaConnectionError(f"Connection error: {e}")
 
             if attempt < self.config.max_retries:
-                delay = self.config.retry_delay * (self.config.retry_backoff ** attempt)
+                delay = self.config.retry_delay * (self.config.retry_backoff**attempt)
                 await asyncio.sleep(delay)
 
         raise last_exception or OllamaError("Max retries exceeded")
@@ -406,7 +414,11 @@ class OllamaClient:
     async def list_models(self, force_refresh: bool = False) -> list[OllamaModel]:
         """List available models."""
         now = time.time()
-        if not force_refresh and self._model_cache and (now - self._cache_timestamp) < self._cache_ttl:
+        if (
+            not force_refresh
+            and self._model_cache
+            and (now - self._cache_timestamp) < self._cache_ttl
+        ):
             return list(self._model_cache.values())
 
         response = await self._request("GET", "api/tags")
@@ -613,7 +625,10 @@ Respond in JSON format:
         prompt = prompt_template or default_prompt
         prompt = prompt.format(text=text)
 
-        system = system_prompt or "You are an expert forensic linguist specializing in AI-generated text detection."
+        system = (
+            system_prompt
+            or "You are an expert forensic linguist specializing in AI-generated text detection."
+        )
 
         request = GenerationRequest(
             model=model,

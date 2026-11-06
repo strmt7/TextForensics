@@ -16,9 +16,8 @@ This module was previously at 74% coverage. These tests exercise:
 
 from __future__ import annotations
 
-import asyncio
-import json
 import tempfile
+from datetime import UTC
 from pathlib import Path
 
 import pytest
@@ -30,14 +29,13 @@ from textforensics.detection_cache import (
     CacheStats,
     DetectionCache,
     InvalidationPolicy,
-    InvalidationReason,
     create_detection_cache,
 )
-
 
 # ============================================================
 # Fixtures
 # ============================================================
+
 
 @pytest.fixture
 def cache():
@@ -59,6 +57,7 @@ def cache_with_storage():
 # ============================================================
 # Synchronous tests (no await needed)
 # ============================================================
+
 
 class TestCachePolicy:
     """Tests for CachePolicy dataclass."""
@@ -116,6 +115,7 @@ class TestInvalidationPolicy:
     def test_custom_values(self):
         def custom(entry, _):
             return False
+
         policy = InvalidationPolicy(
             invalidate_on_model_version_change=False,
             invalidate_on_config_change=False,
@@ -155,8 +155,9 @@ class TestCacheEntry:
         assert restored.metadata == {"config_hash": "config1"}
 
     def test_is_expired_false(self):
-        from datetime import datetime, timezone, timedelta
-        future = datetime.now(timezone.utc) + timedelta(hours=1)
+        from datetime import datetime, timedelta
+
+        future = datetime.now(UTC) + timedelta(hours=1)
         entry = CacheEntry(
             content_hash="abc123",
             detector_id="det1",
@@ -168,8 +169,9 @@ class TestCacheEntry:
         assert entry.is_expired() is False
 
     def test_is_expired_true(self):
-        from datetime import datetime, timezone, timedelta
-        past = datetime.now(timezone.utc) - timedelta(hours=1)
+        from datetime import datetime, timedelta
+
+        past = datetime.now(UTC) - timedelta(hours=1)
         entry = CacheEntry(
             content_hash="abc123",
             detector_id="det1",
@@ -181,8 +183,9 @@ class TestCacheEntry:
         assert entry.is_expired() is True
 
     def test_touch_updates_access_metadata(self):
-        from datetime import datetime, timezone, timedelta
-        future = datetime.now(timezone.utc) + timedelta(hours=1)
+        from datetime import datetime, timedelta
+
+        future = datetime.now(UTC) + timedelta(hours=1)
         entry = CacheEntry(
             content_hash="abc123",
             detector_id="det1",
@@ -238,6 +241,7 @@ class TestCacheStats:
 # Async tests
 # ============================================================
 
+
 class TestDetectionCache:
     """Tests for DetectionCache class."""
 
@@ -273,6 +277,7 @@ class TestDetectionCache:
     @pytest.mark.asyncio
     async def test_get_expired_entry(self, cache):
         import time
+
         await cache.put("test text", "det1", "1.0", {"score": 0.5})
         time.sleep(0.2)  # Wait for TTL (0.1s)
         result, status = cache.get("test text", "det1", "1.0")
@@ -291,6 +296,7 @@ class TestDetectionCache:
     @pytest.mark.asyncio
     async def test_get_entry_status_expired(self, cache):
         import time
+
         await cache.put("test text", "det1", "1.0", {"score": 0.5})
         time.sleep(0.2)
         status = cache.get_entry_status("test text", "det1", "1.0")
@@ -301,7 +307,9 @@ class TestDetectionCache:
         await cache.put("text1", "det1", "1.0", {"score": 0.5})
         await cache.put("text2", "det1", "1.0", {"score": 0.6})
         content_hash = cache._compute_content_hash("text1")
-        count = cache.invalidate(content_hash=content_hash, detector_id="det1", detector_version="1.0")
+        count = cache.invalidate(
+            content_hash=content_hash, detector_id="det1", detector_version="1.0"
+        )
         assert count == 1
         result, status = cache.get("text1", "det1", "1.0")
         assert status == CacheEntryStatus.MISSING
@@ -351,7 +359,7 @@ class TestDetectionCache:
 
     @pytest.mark.asyncio
     async def test_lru_eviction_on_max_entries(self, cache):
-        policy = CachePolicy(ttl_seconds=3600, max_entries=3, max_size_bytes=1024*1024)
+        policy = CachePolicy(ttl_seconds=3600, max_entries=3, max_size_bytes=1024 * 1024)
         cache = DetectionCache(policy=policy)
         await cache.put("a", "det", "1.0", {"v": 1})
         await cache.put("b", "det", "1.0", {"v": 2})
@@ -377,6 +385,7 @@ class TestDetectionCache:
     async def test_custom_invalidator(self, cache):
         def invalidator(entry, _):
             return entry.get("score", 0) > 0.8
+
         policy = InvalidationPolicy(custom_invalidator=invalidator)
         cache = DetectionCache(policy=CachePolicy(), invalidation_policy=policy)
         await cache.put("low", "det", "1.0", {"score": 0.5})

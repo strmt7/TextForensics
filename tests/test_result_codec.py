@@ -52,7 +52,11 @@ class TestResultCodec:
     def test_encode_decode_roundtrip(self):
         """Round-trip encode/decode should preserve data."""
         data = dict(MINIMAL_BUNDLE)
-        data["consensus"] = {"verdict": "ai_like", "ai_probability": 0.75, "independent_families": 1}
+        data["consensus"] = {
+            "verdict": "ai_like",
+            "ai_probability": 0.75,
+            "independent_families": 1,
+        }
         codec = ResultCodec()
         encoded = codec.encode(data, "forensic-bundle")
         decoded = codec.decode(encoded, "forensic-bundle")

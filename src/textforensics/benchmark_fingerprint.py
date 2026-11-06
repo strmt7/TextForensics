@@ -13,7 +13,7 @@ import hashlib
 import json
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -48,7 +48,7 @@ class DatasetFingerprint:
     def __post_init__(self) -> None:
         """Set creation timestamp if not provided."""
         if not self.created_at:
-            object.__setattr__(self, "created_at", datetime.now(timezone.utc).isoformat())
+            object.__setattr__(self, "created_at", datetime.now(UTC).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize fingerprint to a dictionary."""

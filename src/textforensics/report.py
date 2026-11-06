@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from .conditions import InputConditions, extract_conditions
@@ -360,7 +360,7 @@ def build_forensic_bundle(
     if deterministic:
         generated_at_utc = fixed_timestamp or "1970-01-01T00:00:00+00:00"
     else:
-        generated_at_utc = datetime.now(timezone.utc).isoformat()
+        generated_at_utc = datetime.now(UTC).isoformat()
 
     trust_kwargs: dict[str, Any] = {}
     if trust_max_age_days is not None:

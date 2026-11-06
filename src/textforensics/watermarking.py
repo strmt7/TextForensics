@@ -29,7 +29,7 @@ import hashlib
 import json
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +49,7 @@ __all__ = [
 
 class WatermarkError(Exception):
     """Base exception for watermarking errors."""
+
     pass
 
 
@@ -88,8 +89,12 @@ class WatermarkKeyPair:
         private_key = ed25519.Ed25519PrivateKey.generate()
         public_key = private_key.public_key()
 
-        now = datetime.now(timezone.utc)
-        expires_at = (now.replace(year=now.year + expires_days // 365 + 1)).isoformat() if expires_days else None
+        now = datetime.now(UTC)
+        expires_at = (
+            (now.replace(year=now.year + expires_days // 365 + 1)).isoformat()
+            if expires_days
+            else None
+        )
         key_id = key_id or f"wmk-{uuid.uuid4().hex[:12]}"
 
         return cls(
@@ -339,7 +344,7 @@ class WatermarkManager:
 
         # Build payload
         nonce = uuid.uuid4().hex[:16]
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(UTC).isoformat()
 
         payload = {
             "detector_id": detector_id,
@@ -366,7 +371,7 @@ class WatermarkManager:
         return WatermarkSignature(
             key_id=keypair.key_id,
             signature=signature_b64,
-            signed_at=datetime.now(timezone.utc).isoformat(),
+            signed_at=datetime.now(UTC).isoformat(),
             expires_at=keypair.expires_at,
             payload_hash=payload_hash,
             payload=payload,

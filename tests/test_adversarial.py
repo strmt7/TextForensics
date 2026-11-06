@@ -155,8 +155,10 @@ class TestHumanizationPatternLibrary:
 
     def test_register_custom_pattern(self):
         library = HumanizationPatternLibrary()
+
         def custom_detector(text):
             return []
+
         library.register("custom_test", custom_detector)
         assert "custom_test" in library.list_patterns()
 
@@ -224,15 +226,17 @@ class TestConvenienceFunction:
 
     def test_detect_humanization_with_custom_patterns(self):
         def custom_detector(text):
-            return [AdversarialFinding(
-                pattern_id="custom_pattern",
-                segment="test",
-                evidence=1.0,
-                severity="medium",
-                confidence=0.5,
-                location=(0, 10),
-                description="Custom test pattern",
-            )]
+            return [
+                AdversarialFinding(
+                    pattern_id="custom_pattern",
+                    segment="test",
+                    evidence=1.0,
+                    severity="medium",
+                    confidence=0.5,
+                    location=(0, 10),
+                    description="Custom test pattern",
+                )
+            ]
 
         text = "Some text."
         report = detect_humanization(text, custom_patterns={"custom": lambda t: []})
@@ -267,13 +271,16 @@ class TestAdversarialDetectorRiskAssessment:
     def test_critical_risk_for_severe_findings(self):
         detector = AdversarialDetector()
         # Create text with many severe artifacts
-        text = " ".join([
-            "Teh recieve.",
-            "I'm gonna go.",
-            "Frankly honestly basically.",
-            "Maybe perhaps possibly.",
-            "Additionally furthermore moreover."
-        ] * 5)  # Amplify
+        text = " ".join(
+            [
+                "Teh recieve.",
+                "I'm gonna go.",
+                "Frankly honestly basically.",
+                "Maybe perhaps possibly.",
+                "Additionally furthermore moreover.",
+            ]
+            * 5
+        )  # Amplify
         report = detector.analyze(text)
         assert report.overall_risk in {"high", "critical"}
         assert report.confidence > 0.5
@@ -285,7 +292,24 @@ class TestCustomPatternRegistration:
 
         def my_detector(text):
             if "secret_pattern" in text:
-                return [AdversarialFinding(
+                return [
+                    AdversarialFinding(
+                        pattern_id="secret",
+                        segment="test",
+                        evidence=1.0,
+                        severity="critical",
+                        confidence=1.0,
+                        location=(0, 10),
+                        description="Secret pattern found",
+                    )
+                ]
+            return []
+
+        library.register("secret", lambda t: [])
+        # Actually test the registration
+        library._patterns["secret_test"] = lambda t: (
+            [
+                AdversarialFinding(
                     pattern_id="secret",
                     segment="test",
                     evidence=1.0,
@@ -293,20 +317,11 @@ class TestCustomPatternRegistration:
                     confidence=1.0,
                     location=(0, 10),
                     description="Secret pattern found",
-                )]
-            return []
-
-        library.register("secret", lambda t: [])
-        # Actually test the registration
-        library._patterns["secret_test"] = lambda t: [AdversarialFinding(
-            pattern_id="secret",
-            segment="test",
-            evidence=1.0,
-            severity="critical",
-            confidence=1.0,
-            location=(0, 10),
-            description="Secret pattern found",
-        )] if "secret_pattern" in t else []
+                )
+            ]
+            if "secret_pattern" in t
+            else []
+        )
 
         # Test that custom pattern is in registry
         assert "secret_test" in library.list_patterns()

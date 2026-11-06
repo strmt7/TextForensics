@@ -16,7 +16,7 @@ import json
 import tarfile
 import zipfile
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -58,7 +58,7 @@ class BundleManifest:
     """
 
     schema: str = BUNDLE_SCHEMA
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     bundle_filename: str = ""
     format: str = ""  # "tar.gz" | "zip"
     per_file_digests: dict[str, str] = field(default_factory=dict)
@@ -234,7 +234,7 @@ def pack_bundle(case_file_path: str | Path, output_path: str | Path) -> BundleMa
     bundle_filename = Path(output_path).name
     manifest = BundleManifest(
         schema=BUNDLE_SCHEMA,
-        created_at=datetime.now(timezone.utc).isoformat(),
+        created_at=datetime.now(UTC).isoformat(),
         bundle_filename=bundle_filename,
         format=fmt,
         per_file_digests=per_file,

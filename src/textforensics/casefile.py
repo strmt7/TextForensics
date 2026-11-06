@@ -26,7 +26,7 @@ import tempfile
 from collections.abc import Iterable, Mapping
 from contextlib import suppress
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -221,7 +221,7 @@ def seal_case_file(
             trust_map["generated_at_utc"] = timestamp
         bundle = _strip_runtime_ms_from_bundle(bundle)
     else:
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(UTC).isoformat()
 
     provenance = bundle.get("provenance")
     git_sha = provenance.get("git_sha") if isinstance(provenance, Mapping) else None
@@ -422,9 +422,7 @@ def _replay_detectors(
     errors: list[str] = []
     checks: dict[str, Any] = {}
     expected = {
-        str(item.get("detector_id")): item
-        for item in sealed_results
-        if isinstance(item, Mapping)
+        str(item.get("detector_id")): item for item in sealed_results if isinstance(item, Mapping)
     }
     observed: dict[str, Any] = {}
     for detector in detectors:
@@ -432,7 +430,10 @@ def _replay_detectors(
         prediction, failure = execute_detector(detector, text)
         if prediction is None:
             errors.append(f"detector_failed:{detector_id}")
-            observed[detector_id] = {"status": "failed", "failure": failure.to_dict() if failure else None}
+            observed[detector_id] = {
+                "status": "failed",
+                "failure": failure.to_dict() if failure else None,
+            }
             continue
         row: dict[str, Any] = {
             "status": "observed",
@@ -503,20 +504,14 @@ def _replay_trust_map(
 
     results = sealed_bundle.get("detector_results", [])
     try:
-        predictions = [
-            _prediction_from_dict(item)
-            for item in results
-            if isinstance(item, Mapping)
-        ]
+        predictions = [_prediction_from_dict(item) for item in results if isinstance(item, Mapping)]
     except (TypeError, ValueError) as exc:
         errors.append("invalid_detector_results_for_replay")
         checks["trust_map"] = {"status": "not_rederived", "reason": str(exc)}
         return errors, warnings, checks
 
     robustness = sealed_bundle.get("robustness", {})
-    robustness_rows = (
-        robustness.get("detectors", []) if isinstance(robustness, Mapping) else []
-    )
+    robustness_rows = robustness.get("detectors", []) if isinstance(robustness, Mapping) else []
     failures = sealed_bundle.get("detector_failures", [])
     rederived = assess_trust_map(
         conditions,
@@ -531,9 +526,7 @@ def _replay_trust_map(
         for item in sealed_trust.get("dimensions", [])
         if isinstance(item, Mapping)
     }
-    rederived_states = {
-        item["dimension"]: item["state"] for item in rederived["dimensions"]
-    }
+    rederived_states = {item["dimension"]: item["state"] for item in rederived["dimensions"]}
     if sealed_states != rederived_states:
         errors.append("trust_map_state_mismatch")
         checks["trust_map"] = {

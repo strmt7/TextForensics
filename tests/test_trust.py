@@ -62,7 +62,9 @@ def _slice(
     generator_scope="multi",
     human_populations=("pop_a", "pop_b"),
 ):
-    fpr_metric = MetricEstimate(value=fpr, n=n_human, ci_lower=fpr_ci[0], ci_upper=fpr_ci[1], method="wilson")
+    fpr_metric = MetricEstimate(
+        value=fpr, n=n_human, ci_lower=fpr_ci[0], ci_upper=fpr_ci[1], method="wilson"
+    )
     return ValidationSlice(
         slice_id="s1",
         conditions=SliceConditions(
@@ -77,7 +79,12 @@ def _slice(
         ),
         n_human=n_human,
         n_ai=n_ai,
-        metrics={"fpr": fpr_metric, "auroc": MetricEstimate(value=0.95, n=n_human + n_ai, ci_lower=0.94, ci_upper=0.96, method="wilson")},
+        metrics={
+            "fpr": fpr_metric,
+            "auroc": MetricEstimate(
+                value=0.95, n=n_human + n_ai, ci_lower=0.94, ci_upper=0.96, method="wilson"
+            ),
+        },
         threshold=0.5,
     )
 
@@ -95,7 +102,9 @@ def _record(
         detector_version=detector_version,
         detector_family=detector_family,
         evaluated_at_utc=evaluated_at,
-        benchmark=__import__("textforensics.evidence", fromlist=["BenchmarkProvenance"]).BenchmarkProvenance(
+        benchmark=__import__(
+            "textforensics.evidence", fromlist=["BenchmarkProvenance"]
+        ).BenchmarkProvenance(
             name="raid",
             version="1.0",
             fingerprint_sha256=hex64(1),
@@ -359,9 +368,7 @@ class TrustMapContractTests(unittest.TestCase):
         # partial because no longitudinal drift snapshots are registered, so
         # overall is mixed, not strong.  Strong remains unreachable today.
         self.assertEqual(tm.overall, "mixed")
-        self.assertEqual(
-            sum(d.state == "supported" for d in tm.dimensions), len(tm.dimensions) - 1
-        )
+        self.assertEqual(sum(d.state == "supported" for d in tm.dimensions), len(tm.dimensions) - 1)
 
     def test_overall_is_insufficient_without_registry(self):
         # Without a registry every evidence dimension is unknown and no

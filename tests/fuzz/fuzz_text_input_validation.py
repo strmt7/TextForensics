@@ -10,6 +10,7 @@ try:
 except ImportError:  # atheris optional; TestOneInput still importable
     atheris = None
 
+
 def TestOneInput(data: bytes) -> None:
     """Fuzz text input validation functions."""
     try:

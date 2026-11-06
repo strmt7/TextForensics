@@ -5,7 +5,7 @@ import json
 import os
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -138,7 +138,7 @@ def snapshot_file(
 
         record: dict[str, Any] = {
             "schema": "textforensics-ledger/v1",
-            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "timestamp_utc": datetime.now(UTC).isoformat(),
             "file_name": file_path.name,
             "file_size": len(data),
             "file_sha256": sha256_bytes(data),

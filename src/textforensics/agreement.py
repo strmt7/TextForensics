@@ -96,12 +96,8 @@ class AgreementMatrix:
         correlated and should NOT be treated as independent evidence families
         (AGENTS.md rule 13).
         """
-        valid_kappas = [
-            p.cohens_kappa for p in self.pairwise if p.cohens_kappa is not None
-        ]
-        mean_kappa = (
-            sum(valid_kappas) / len(valid_kappas) if valid_kappas else None
-        )
+        valid_kappas = [p.cohens_kappa for p in self.pairwise if p.cohens_kappa is not None]
+        mean_kappa = sum(valid_kappas) / len(valid_kappas) if valid_kappas else None
         if mean_kappa is None:
             independence = "undetermined"
         elif mean_kappa >= 0.8:
@@ -247,9 +243,7 @@ def fleiss_kappa(
     n_raters = len(verdict_matrix[0])
     for i, row in enumerate(verdict_matrix):
         if len(row) != n_raters:
-            raise ValueError(
-                f"Row {i} has {len(row)} raters, expected {n_raters}"
-            )
+            raise ValueError(f"Row {i} has {len(row)} raters, expected {n_raters}")
 
     # Build per-item category counts excluding abstentions
     item_counts: list[Counter[str]] = []
@@ -290,7 +284,7 @@ def fleiss_kappa(
     p_bar = p_bar_sum / n_items
 
     # Chance agreement
-    p_e = sum(p ** 2 for p in p_j.values())
+    p_e = sum(p**2 for p in p_j.values())
 
     if math.isclose(p_e, 1.0):
         warnings.append("degenerate marginals: all raters constant")
@@ -315,8 +309,11 @@ def build_agreement_matrix(
     """
     if not detector_verdicts:
         return AgreementMatrix(
-            detectors=[], pairwise=[], fleiss_kappa=None,
-            fleiss_n_texts=0, fleiss_n_raters=0,
+            detectors=[],
+            pairwise=[],
+            fleiss_kappa=None,
+            fleiss_n_texts=0,
+            fleiss_n_raters=0,
             warnings=["no detectors provided"],
         )
 
@@ -331,13 +328,11 @@ def build_agreement_matrix(
 
     pairwise: list[PairwiseAgreement] = []
     for i, det_a in enumerate(detector_ids):
-        for det_b in detector_ids[i + 1:]:
+        for det_b in detector_ids[i + 1 :]:
             kappa, p_o, paired, confusion = cohens_kappa(
                 detector_verdicts[det_a], detector_verdicts[det_b]
             )
-            interpretation = (
-                _interpret_kappa(kappa) if kappa is not None else "undefined"
-            )
+            interpretation = _interpret_kappa(kappa) if kappa is not None else "undefined"
             pairwise.append(
                 PairwiseAgreement(
                     detector_a=det_a,

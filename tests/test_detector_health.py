@@ -60,7 +60,7 @@ class TestHealthAlert:
     """Tests for HealthAlert dataclass."""
 
     def test_to_dict(self):
-        from textforensics.detector_health import HealthAlert, AlertSeverity
+        from textforensics.detector_health import AlertSeverity, HealthAlert
 
         a = HealthAlert(
             alert_id="alert-123",
@@ -246,7 +246,6 @@ class TestDetectorHealthMonitor:
         m = DetectorHealthMonitor()
         # Record 1 request -> throughput ~0.016 rps < 0.1 critical threshold
         m.record_request("d1")
-        r = m.get_report("d1")
         # Note: throughput check uses 60s window; a single request
         # will be critical if evaluated within 60s of the request
         # But since it's <2 values, check returns True (skipped)
@@ -256,6 +255,7 @@ class TestDetectorHealthMonitor:
         m2.record_request("d2")
         r2 = m2.get_report("d2")
         # With 2 requests in <60s, throughput > 0.1 -> passes
+        assert r2.overall_state == HealthState.HEALTHY
 
     def test_alert_callback_fires_once_per_anomaly(self):
         hits = []
@@ -287,10 +287,10 @@ class TestDetectorHealthMonitor:
         m = DetectorHealthMonitor()
         for _ in range(3):
             m.record_error("d1", True)
-        before = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=1)
+        before = datetime.datetime.now(datetime.UTC) - datetime.timedelta(seconds=1)
         alerts = m.get_all_alerts(since=before)
         assert len(alerts) == 3
-        after = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=1)
+        after = datetime.datetime.now(datetime.UTC) + datetime.timedelta(seconds=1)
         assert len(m.get_all_alerts(since=after)) == 0
 
     def test_report_save_load_roundtrip(self):
@@ -309,7 +309,9 @@ class TestDetectorHealthMonitor:
             assert len(loaded.alerts) == len(r.alerts)
 
     def test_report_load_nonexistent_returns_none(self):
-        result = DetectorHealthReport.load(Path("/nonexistent_path_that_does_not_exist/report.json"))
+        result = DetectorHealthReport.load(
+            Path("/nonexistent_path_that_does_not_exist/report.json")
+        )
         assert result is None
 
     def test_report_load_corrupted_returns_none(self):
@@ -375,6 +377,7 @@ class TestHighLevelDetectorHealthMonitor:
     def test_record_detector_result_low_error_rate_healthy(self):
         h = create_detector_health_monitor()
         import random
+
         random.seed(42)
         for _ in range(20):
             h.record_detector_result("dy", 100.0, score=random.random(), is_error=False)

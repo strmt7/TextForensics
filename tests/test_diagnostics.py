@@ -124,7 +124,7 @@ class TestStorageHealth:
             writeable=True,
         )
         assert health.total_bytes == 1000
-        assert health.free_gb == 500 / (1024 ** 3)
+        assert health.free_gb == 500 / (1024**3)
 
     def test_to_dict(self):
         health = StorageHealth(
@@ -137,7 +137,7 @@ class TestStorageHealth:
         )
         d = health.to_dict()
         assert d["path"] == "/data"
-        assert d["free_gb"] == 500 / (1024 ** 3)
+        assert d["free_gb"] == 500 / (1024**3)
 
 
 class TestMetricsCollector:
@@ -178,7 +178,9 @@ class TestMetricsCollector:
 
         stats = collector.get_stats()
         assert stats["avg_latency_ms"] == 150.0
-        assert stats["p50_latency_ms"] == 200.0  # p50 with 2 values [100, 200] using nearest-rank = 200
+        assert (
+            stats["p50_latency_ms"] == 200.0
+        )  # p50 with 2 values [100, 200] using nearest-rank = 200
         assert stats["total_requests"] == 2
         assert stats["total_errors"] == 1
         assert stats["error_rate"] == 0.5
@@ -187,6 +189,7 @@ class TestMetricsCollector:
         collector = MetricsCollector(window_seconds=1)
         collector.record_latency(100.0)
         import time
+
         time.sleep(1.1)  # Wait for window to expire
         collector.record_latency(200.0)
         collector._trim_old()
@@ -286,7 +289,13 @@ class TestDiagnosticsEngine:
         readiness = report["readiness"]
         assert "state" in readiness
         assert "checks" in readiness
-        assert readiness["state"] in ["healthy", "degraded", "critical", "emergency_stop", "maintenance"]
+        assert readiness["state"] in [
+            "healthy",
+            "degraded",
+            "critical",
+            "emergency_stop",
+            "maintenance",
+        ]
 
     def test_storage_paths(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -307,6 +316,7 @@ class TestQuickHealthCheck:
     @pytest.mark.asyncio
     async def test_quick_health_check(self):
         from textforensics.diagnostics import quick_health_check
+
         report = await quick_health_check()
         assert "readiness" in report
         assert "operational" in report

@@ -17,7 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +31,7 @@ __all__ = [
 
 class AuditLogError(Exception):
     """Base exception for audit log errors."""
+
     pass
 
 
@@ -101,7 +102,7 @@ def _compute_entry_hash(entry_data: dict[str, Any]) -> str:
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class AuditLog:
@@ -181,7 +182,9 @@ class AuditLog:
         input_hash = None
         if input_data is not None:
             if isinstance(input_data, (dict, list)):
-                input_canonical = json.dumps(input_data, separators=(",", ":"), ensure_ascii=False, sort_keys=True)
+                input_canonical = json.dumps(
+                    input_data, separators=(",", ":"), ensure_ascii=False, sort_keys=True
+                )
             else:
                 input_canonical = str(input_data)
             input_hash = hashlib.sha256(input_canonical.encode("utf-8")).hexdigest()
@@ -189,7 +192,9 @@ class AuditLog:
         output_hash = None
         if output_data is not None:
             if isinstance(output_data, (dict, list)):
-                output_canonical = json.dumps(output_data, separators=(",", ":"), ensure_ascii=False, sort_keys=True)
+                output_canonical = json.dumps(
+                    output_data, separators=(",", ":"), ensure_ascii=False, sort_keys=True
+                )
             else:
                 output_canonical = str(output_data)
             output_hash = hashlib.sha256(output_canonical.encode("utf-8")).hexdigest()

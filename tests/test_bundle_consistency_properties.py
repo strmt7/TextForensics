@@ -20,10 +20,17 @@ class TestBundleConsistencyProperties:
 
     @given(
         st.dictionaries(
-            st.sampled_from([
-                "schema", "consensus", "trust_map", "detector_results",
-                "input", "content_sha256", "generated_at_utc"
-            ]),
+            st.sampled_from(
+                [
+                    "schema",
+                    "consensus",
+                    "trust_map",
+                    "detector_results",
+                    "input",
+                    "content_sha256",
+                    "generated_at_utc",
+                ]
+            ),
             st.one_of(
                 st.text(max_size=20),
                 st.integers(),
@@ -41,7 +48,9 @@ class TestBundleConsistencyProperties:
         report = check_bundle_consistency(bundle)
         assert isinstance(report, ConsistencyReport)
 
-    @given(st.text(min_size=1, max_size=100, alphabet=st.characters(whitelist_categories=("L", "N"))))
+    @given(
+        st.text(min_size=1, max_size=100, alphabet=st.characters(whitelist_categories=("L", "N")))
+    )
     @hypothesis_settings(deadline=None)
     def test_bundle_hash_deterministic_for_same_content(self, text: str):
         """Bundle hash should be deterministic for same content."""
@@ -54,7 +63,9 @@ class TestBundleConsistencyProperties:
         hash2 = bundle_hash(bundle)
         assert hash1 == hash2
 
-    @given(st.text(min_size=1, max_size=100, alphabet=st.characters(whitelist_categories=("L", "N"))))
+    @given(
+        st.text(min_size=1, max_size=100, alphabet=st.characters(whitelist_categories=("L", "N")))
+    )
     @hypothesis_settings(deadline=None)
     def test_bundle_hash_excludes_timestamp(self, timestamp: str):
         """Bundle hash should not depend on generated_at_utc."""
@@ -73,7 +84,9 @@ class TestBundleConsistencyProperties:
     @given(
         st.lists(
             st.tuples(
-                st.text(min_size=1, max_size=30, alphabet=st.characters(whitelist_categories=("L", "N"))),
+                st.text(
+                    min_size=1, max_size=30, alphabet=st.characters(whitelist_categories=("L", "N"))
+                ),
                 st.floats(min_value=0.0, max_value=1.0, allow_nan=False, allow_infinity=False),
             ),
             min_size=0,
@@ -86,15 +99,13 @@ class TestBundleConsistencyProperties:
         bundle1 = {
             "schema": "textforensics.forensic-bundle/v1",
             "detector_results": [
-                {"detector_id": det_id, "score": score}
-                for det_id, score in detectors
+                {"detector_id": det_id, "score": score} for det_id, score in detectors
             ],
         }
         bundle2 = {
             "schema": "textforensics.forensic-bundle/v1",
             "detector_results": [
-                {"detector_id": det_id, "score": score}
-                for det_id, score in reversed(detectors)
+                {"detector_id": det_id, "score": score} for det_id, score in reversed(detectors)
             ],
         }
         # Hash should be same regardless of order (hash uses sorted keys)
@@ -126,9 +137,7 @@ class TestBundleConsistencyProperties:
         assert report.is_consistent is False
         assert any("word_count" in i.field for i in report.issues)
 
-    @given(
-        st.floats(min_value=-10.0, max_value=10.0, allow_nan=False, allow_infinity=False)
-    )
+    @given(st.floats(min_value=-10.0, max_value=10.0, allow_nan=False, allow_infinity=False))
     @hypothesis_settings(deadline=None)
     def test_ai_probability_range(self, prob: float):
         """AI probability outside [0,1] should warn but not fail."""
@@ -142,7 +151,9 @@ class TestBundleConsistencyProperties:
             assert any("ai_probability" in i.field for i in report.issues)
 
     @given(
-        st.sampled_from(["ai_like", "human_like", "abstain", "insufficient_evidence", "mixed", "invalid"])
+        st.sampled_from(
+            ["ai_like", "human_like", "abstain", "insufficient_evidence", "mixed", "invalid"]
+        )
     )
     @hypothesis_settings(deadline=None)
     def test_verdict_validation(self, verdict: str):

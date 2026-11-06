@@ -517,9 +517,16 @@ def forensic_bundle_st(draw):
     overall = draw(st.sampled_from(["strong", "mixed", "insufficient"]))
     # v2 trust_map requires all 10 dimensions
     dim_names = [
-        "language", "text_length", "domain_genre", "editing_revision",
-        "generator_scope", "human_population", "human_false_positive_evidence",
-        "temporal_version_stability", "detector_diversity", "benign_stability"
+        "language",
+        "text_length",
+        "domain_genre",
+        "editing_revision",
+        "generator_scope",
+        "human_population",
+        "human_false_positive_evidence",
+        "temporal_version_stability",
+        "detector_diversity",
+        "benign_stability",
     ]
     dimensions = [
         {
@@ -753,9 +760,9 @@ class TestPropertyInvariants:
 
         # Adding non-informative filler should not increase AI-likeness score
         # Note: Some small increase is acceptable due to score noise, but not > 0.1
-        assert (
-            extended_score <= base_score + 0.1
-        ), f"Adding filler words increased score from {base_score:.4f} to {extended_score:.4f}"
+        assert extended_score <= base_score + 0.1, (
+            f"Adding filler words increased score from {base_score:.4f} to {extended_score:.4f}"
+        )
 
     @PROPERTY_SETTINGS
     @given(
@@ -1216,9 +1223,9 @@ class TestPropertyInvariants:
             # unless the text is already in an ambiguous state
             if baseline_verdict in {"machine_like_patterns", "human_like_patterns"}:
                 # For decisive verdicts, stability is expected
-                assert (
-                    variant_result.verdict in {baseline_verdict, "indeterminate"}
-                ), f"Verdict flip under {variant_name}: {baseline_verdict} -> {variant_result.verdict}"
+                assert variant_result.verdict in {baseline_verdict, "indeterminate"}, (
+                    f"Verdict flip under {variant_name}: {baseline_verdict} -> {variant_result.verdict}"
+                )
 
     @FILE_SETTINGS
     @given(
@@ -1378,34 +1385,34 @@ class TestPropertyInvariants:
         for detector_id, detector in registry.detectors.items():
             prediction, failure = execute_detector(detector, text)
 
-            assert (
-                failure is None
-            ), f"Detector {detector_id} failed: {failure.message if failure else ''}"
+            assert failure is None, (
+                f"Detector {detector_id} failed: {failure.message if failure else ''}"
+            )
             assert prediction is not None, f"Detector {detector_id} returned no prediction"
 
             # Native score must be in [0, 1] if not None
             if prediction.score is not None:
-                assert (
-                    0.0 <= prediction.score <= 1.0
-                ), f"Detector {detector_id} score {prediction.score} out of bounds [0, 1]"
+                assert 0.0 <= prediction.score <= 1.0, (
+                    f"Detector {detector_id} score {prediction.score} out of bounds [0, 1]"
+                )
 
             # Calibrated probability must be in [0, 1] if not None
             if prediction.calibrated_ai_probability is not None:
-                assert (
-                    0.0 <= prediction.calibrated_ai_probability <= 1.0
-                ), f"Detector {detector_id} calibrated_prob {prediction.calibrated_ai_probability} out of bounds"
+                assert 0.0 <= prediction.calibrated_ai_probability <= 1.0, (
+                    f"Detector {detector_id} calibrated_prob {prediction.calibrated_ai_probability} out of bounds"
+                )
 
             # Reliability must be in [0, 1] if not None
             if prediction.reliability is not None:
-                assert (
-                    0.0 <= prediction.reliability <= 1.0
-                ), f"Detector {detector_id} reliability {prediction.reliability} out of bounds"
+                assert 0.0 <= prediction.reliability <= 1.0, (
+                    f"Detector {detector_id} reliability {prediction.reliability} out of bounds"
+                )
 
             # Threshold must be in [0, 1] if not None
             if prediction.threshold is not None:
-                assert (
-                    0.0 <= prediction.threshold <= 1.0
-                ), f"Detector {detector_id} threshold {prediction.threshold} out of bounds"
+                assert 0.0 <= prediction.threshold <= 1.0, (
+                    f"Detector {detector_id} threshold {prediction.threshold} out of bounds"
+                )
 
     @PROPERTY_SETTINGS
     @given(bundle=forensic_bundle_st())
@@ -1428,9 +1435,9 @@ class TestPropertyInvariants:
         )
 
         # Hashes should be identical
-        assert (
-            case_1["case_sha256"] == case_2["case_sha256"]
-        ), "Case hash not deterministic: same bundle produces different hashes"
+        assert case_1["case_sha256"] == case_2["case_sha256"], (
+            "Case hash not deterministic: same bundle produces different hashes"
+        )
 
         # Full case content should be identical (except for any non-deterministic fields)
         # Note: generated_at_utc and tool.version are time/version dependent
@@ -1443,9 +1450,9 @@ class TestPropertyInvariants:
             fixed_timestamp="2026-01-01T00:00:00+00:00",
         )
 
-        assert (
-            case_3["case_sha256"] == case_1["case_sha256"]
-        ), "Case hash not deterministic across multiple sealing operations"
+        assert case_3["case_sha256"] == case_1["case_sha256"], (
+            "Case hash not deterministic across multiple sealing operations"
+        )
 
         # Verify all cases pass validation
         assert verify_case_file(case_1)["valid"]

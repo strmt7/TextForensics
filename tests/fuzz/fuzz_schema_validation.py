@@ -11,6 +11,7 @@ try:
 except ImportError:  # atheris optional; TestOneInput still importable
     atheris = None
 
+
 def TestOneInput(data: bytes) -> None:
     """Fuzz schema loading and validation."""
     try:

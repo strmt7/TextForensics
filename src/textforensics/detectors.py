@@ -31,9 +31,7 @@ _SUPPORTED_EDITING_REGIMES = frozenset(
         "*",
     }
 )
-_CALIBRATION_METHODS = frozenset(
-    {"platt", "temperature", "isotonic", "beta", "identity"}
-)
+_CALIBRATION_METHODS = frozenset({"platt", "temperature", "isotonic", "beta", "identity"})
 
 
 @dataclass(slots=True)
@@ -266,10 +264,7 @@ def _validate_supported_length(value: Any) -> None:
 def _validate_score_range(prediction: DetectorPrediction) -> None:
     if prediction.score_range is None:
         return
-    if (
-        not isinstance(prediction.score_range, (list, tuple))
-        or len(prediction.score_range) != 2
-    ):
+    if not isinstance(prediction.score_range, (list, tuple)) or len(prediction.score_range) != 2:
         raise DetectorContractError("score_range must be a two-element sequence or null.")
     minimum = prediction.score_range[0]
     maximum = prediction.score_range[1]
@@ -293,8 +288,7 @@ def _validate_calibration_metadata(prediction: DetectorPrediction) -> None:
     method = prediction.calibration.get("method")
     if method not in _CALIBRATION_METHODS:
         raise DetectorContractError(
-            "calibration.method must be one of "
-            f"{', '.join(sorted(_CALIBRATION_METHODS))}."
+            f"calibration.method must be one of {', '.join(sorted(_CALIBRATION_METHODS))}."
         )
     fingerprint = prediction.calibration.get("evaluation_fingerprint")
     if fingerprint is not None and (
@@ -306,9 +300,7 @@ def _validate_calibration_metadata(prediction: DetectorPrediction) -> None:
             "calibration.evaluation_fingerprint must be a 64-character lowercase hex digest."
         )
     if prediction.calibration_id is not None and prediction.calibration_id != calibration_id:
-        raise DetectorContractError(
-            "calibration.calibration_id does not match calibration_id."
-        )
+        raise DetectorContractError("calibration.calibration_id does not match calibration_id.")
 
 
 def _validate_runtime_metadata(prediction: DetectorPrediction) -> None:
@@ -405,16 +397,12 @@ def validate_prediction(
         and prediction.min_words is not None
         and prediction.supported_length.get("min_words") != prediction.min_words
     ):
-        raise DetectorContractError(
-            "supported_length.min_words does not match min_words."
-        )
+        raise DetectorContractError("supported_length.min_words does not match min_words.")
     _validate_score_range(prediction)
     _validate_calibration_metadata(prediction)
     _validate_runtime_metadata(prediction)
     _validate_string_list(prediction.supported_domains, "supported_domains")
-    _validate_string_list(
-        prediction.supported_editing_regimes, "supported_editing_regimes"
-    )
+    _validate_string_list(prediction.supported_editing_regimes, "supported_editing_regimes")
     _validate_string_list(prediction.supported_generators, "supported_generators")
     invalid_editing = set(prediction.supported_editing_regimes) - _SUPPORTED_EDITING_REGIMES
     if invalid_editing:

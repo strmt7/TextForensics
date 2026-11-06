@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -171,7 +171,7 @@ def calibrate_threshold_jsonl(
     detector = BuiltinHeuristicDetector()
     return {
         "schema": CALIBRATION_SCHEMA,
-        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "created_at_utc": datetime.now(UTC).isoformat(),
         "detector_id": detector.detector_id,
         "detector_version": detector.detector_version,
         "score_semantics": "higher_means_more_machine_like; uncalibrated pattern score",

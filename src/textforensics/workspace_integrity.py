@@ -28,7 +28,7 @@ import re
 import uuid
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -75,7 +75,6 @@ EMERGENCY_STOP_REQUIRED_VALUE = "required"
 # ============================================================
 
 
-
 @dataclass(frozen=True, slots=True)
 class WorkspaceFingerprint:
     """Immutable workspace fingerprint derived from workspace identity."""
@@ -83,7 +82,7 @@ class WorkspaceFingerprint:
     version: int = 1
     workspace_id: str = ""  # UUID or hash-based identifier
     fingerprint: str = ""  # SHA-256 hash
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     source_path: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -101,7 +100,7 @@ class WorkspaceFingerprint:
             version=data.get("version", 1),
             workspace_id=data.get("workspace_id", ""),
             fingerprint=data.get("fingerprint", ""),
-            created_at=data.get("created_at", datetime.now(timezone.utc).isoformat()),
+            created_at=data.get("created_at", datetime.now(UTC).isoformat()),
             source_path=data.get("source_path", ""),
         )
 
@@ -152,7 +151,7 @@ class AuditChain:
     version: int = AUDIT_CHAIN_VERSION
     entries: list[AuditChainEntry] = field(default_factory=list)
     chain_hash: str = ""
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     _last_entry_hash: str = ""
 
     def add_entry(
@@ -170,7 +169,7 @@ class AuditChain:
 
         entry = AuditChainEntry(
             index=len(self.entries),
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             operation=operation,
             operation_id=operation_id,
             payload_hash=payload_hash,
@@ -244,7 +243,9 @@ class AuditChain:
                 "previous_hash": entry.previous_hash,
                 "metadata": entry.metadata,
             }
-            entry_bytes = json.dumps(entry_data, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            entry_bytes = json.dumps(entry_data, sort_keys=True, separators=(",", ":")).encode(
+                "utf-8"
+            )
             computed_hash = hashlib.sha256(entry_bytes).hexdigest()
 
             if entry.entry_hash != computed_hash:
@@ -268,7 +269,7 @@ class AuditChain:
         chain = cls(
             version=data.get("version", AUDIT_CHAIN_VERSION),
             entries=[AuditChainEntry.from_dict(e) for e in data.get("entries", [])],
-            created_at=data.get("created_at", datetime.now(timezone.utc).isoformat()),
+            created_at=data.get("created_at", datetime.now(UTC).isoformat()),
         )
         chain.chain_hash = data.get("chain_hash", "")
         chain._last_entry_hash = data.get("last_entry_hash", chain._last_entry_hash)
@@ -350,11 +351,14 @@ class EmergencyStopSentinel:
         """
         try:
             self.sentinel_path.parent.mkdir(parents=True, exist_ok=True)
-            content = json.dumps({
-                "reason": reason,
-                "activated_at": datetime.now(timezone.utc).isoformat(),
-                "activated_by": _current_user(),
-            }, indent=2)
+            content = json.dumps(
+                {
+                    "reason": reason,
+                    "activated_at": datetime.now(UTC).isoformat(),
+                    "activated_by": _current_user(),
+                },
+                indent=2,
+            )
             self.sentinel_path.write_text(content)
             return True
         except Exception:
@@ -381,16 +385,17 @@ def _sha256_str(text: str) -> str:
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _now_timestamp() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 # ============================================================
 # Workspace Fingerprinting
 # ============================================================
+
 
 def _split_into_segments(text: str, target_segment_words: int = 100) -> list[str]:
     """Split text into roughly equal semantic segments."""
@@ -502,6 +507,7 @@ def _split_into_segments(text: str, target_segment_words: int = 100) -> list[str
 # Workspace Fingerprinting
 # ============================================================
 
+
 def _compute_workspace_fingerprint(workspace_path: Path) -> WorkspaceFingerprint:
     """Compute a deterministic fingerprint of the workspace."""
     workspace_path = Path(workspace_path).resolve()
@@ -517,6 +523,7 @@ def _compute_workspace_fingerprint(workspace_path: Path) -> WorkspaceFingerprint
     if git_dir.exists():
         try:
             import subprocess
+
             result = subprocess.run(
                 ["git", "rev-parse", "HEAD"],
                 cwd=workspace_path,
@@ -610,7 +617,7 @@ def verify_workspace_fingerprint(
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _sha256(data: bytes) -> str:
@@ -628,16 +635,17 @@ def _uuid() -> str:
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _now_timestamp() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 # ============================================================
 # Audit Chain Functions
 # ============================================================
+
 
 def create_audit_chain() -> AuditChain:
     """Create a new audit chain."""
@@ -700,9 +708,7 @@ def get_emergency_sentinel(sentinel_path: Path | None = None) -> EmergencyStopSe
     """Get or create the global emergency stop singleton."""
     global _emergency_sentinel
     if _emergency_sentinel is None:
-        _emergency_sentinel = EmergencyStopSentinel(
-            Path(sentinel_path) if sentinel_path else None
-        )
+        _emergency_sentinel = EmergencyStopSentinel(Path(sentinel_path) if sentinel_path else None)
     return _emergency_sentinel
 
 
@@ -731,6 +737,7 @@ def deactivate_emergency_stop() -> bool:
 # Workspace Integrity Report
 # ============================================================
 
+
 @dataclass
 class WorkspaceIntegrityReport:
     """Complete workspace integrity verification report."""
@@ -743,7 +750,7 @@ class WorkspaceIntegrityReport:
     emergency_stop_configured: bool
     emergency_stop_reason: str | None
     overall_status: str  # "healthy", "degraded", "compromised", "emergency_stop"
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     details: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -878,7 +885,7 @@ def _sha256_str(text: str) -> str:
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 # ============================================================

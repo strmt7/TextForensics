@@ -226,19 +226,26 @@ class TestLackOfDigression:
         ]
         _detect_lack_of_digression([])
         # Wait, need to pass the actual segments
-        _detect_lack_of_digression([
-            type("Segment", (), {
-                "avg_word_length": 5.0,
-                "word_count": 100,
-                "sentence_count": 5,
-                "type_token_ratio": 0.7,
-                "hapax_ratio": 0.3,
-                "pos_distribution": {},
-                "semantic_density": 10.0,
-                "entropy": 4.0,
-                "index": i,
-            })() for i in range(6)
-        ])
+        _detect_lack_of_digression(
+            [
+                type(
+                    "Segment",
+                    (),
+                    {
+                        "avg_word_length": 5.0,
+                        "word_count": 100,
+                        "sentence_count": 5,
+                        "type_token_ratio": 0.7,
+                        "hapax_ratio": 0.3,
+                        "pos_distribution": {},
+                        "semantic_density": 10.0,
+                        "entropy": 4.0,
+                        "index": i,
+                    },
+                )()
+                for i in range(6)
+            ]
+        )
         # This is getting complex - let's just test the actual function
 
 
@@ -246,17 +253,21 @@ class TestRepetitiveStructures:
     def test_identical_word_counts_flagged(self):
         # Create segments with identical word counts
         [
-            type("Seg", (), {
-                "word_count": 50,
-                "sentence_count": 3,
-                "type_token_ratio": 0.7,
-                "hapax_ratio": 0.3,
-                "pos_distribution": {},
-                "semantic_density": 10.0,
-                "entropy": 4.0,
-                "index": i,
-                "avg_word_length": 5.0,
-            })()
+            type(
+                "Seg",
+                (),
+                {
+                    "word_count": 50,
+                    "sentence_count": 3,
+                    "type_token_ratio": 0.7,
+                    "hapax_ratio": 0.3,
+                    "pos_distribution": {},
+                    "semantic_density": 10.0,
+                    "entropy": 4.0,
+                    "index": i,
+                    "avg_word_length": 5.0,
+                },
+            )()
             for i in range(5)
         ]
         # Need to make proper objects... this is getting complex
@@ -291,7 +302,9 @@ class TestFullChecker:
     def test_risk_levels(self):
         checker = SemanticConsistencyChecker()
         # Clean text should be low risk
-        report = checker.analyze("This is a normal piece of text with natural variation in sentence structure and vocabulary.")
+        report = checker.analyze(
+            "This is a normal piece of text with natural variation in sentence structure and vocabulary."
+        )
         assert report.risk_level in {"none", "low", "medium", "high", "critical"}
 
 

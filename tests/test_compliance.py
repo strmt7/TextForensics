@@ -137,22 +137,26 @@ class TestComplianceReportBuilder:
 
     def test_gdpr_compliant_context(self):
         """Fully compliant GDPR context should score high."""
-        report = generate_gdpr_report({
-            "raw_text_included": False,
-            "stated_purpose": "Forensic audit",
-            "retention_days": 90,
-            "encrypted_storage": True,
-            "audit_log_enabled": True,
-        })
+        report = generate_gdpr_report(
+            {
+                "raw_text_included": False,
+                "stated_purpose": "Forensic audit",
+                "retention_days": 90,
+                "encrypted_storage": True,
+                "audit_log_enabled": True,
+            }
+        )
         summary = report.summary()
         assert summary["compliance_score"] == 1.0
         assert summary["non_compliant"] == 0
 
     def test_gdpr_partial_context(self):
         """Partial GDPR context should score lower."""
-        report = generate_gdpr_report({
-            "raw_text_included": True,  # Violates data minimization
-        })
+        report = generate_gdpr_report(
+            {
+                "raw_text_included": True,  # Violates data minimization
+            }
+        )
         summary = report.summary()
         assert summary["compliance_score"] < 1.0
         assert summary["partial"] > 0
@@ -175,13 +179,15 @@ class TestComplianceReportBuilder:
 
     def test_ai_act_compliant_context(self):
         """Fully compliant AI Act context should score 1.0."""
-        report = generate_ai_act_report({
-            "detector_versions": {"builtin": "0.1.0"},
-            "human_oversight": True,
-            "risk_classification": "limited",
-            "calibration_validated": True,
-            "abstention_enabled": True,
-        })
+        report = generate_ai_act_report(
+            {
+                "detector_versions": {"builtin": "0.1.0"},
+                "human_oversight": True,
+                "risk_classification": "limited",
+                "calibration_validated": True,
+                "abstention_enabled": True,
+            }
+        )
         summary = report.summary()
         assert summary["compliance_score"] == 1.0
 

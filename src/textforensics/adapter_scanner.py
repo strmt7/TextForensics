@@ -18,7 +18,7 @@ import importlib.metadata
 import inspect
 import pathlib
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 __all__ = [
@@ -424,18 +424,19 @@ def _scan(
                 _add("DYN-003", "high", "dynamic_execution", "Call to compile()", node)
             elif call_base == "__import__" or call_name == "__import__":
                 _add("DYN-004", "medium", "dynamic_execution", "Call to __import__", node)
-            elif call_base == "importlib.import_module":
+            elif (
+                call_base == "importlib.import_module"
+                and node.args
+                and not isinstance(node.args[0], ast.Constant)
+            ):
                 # Check if argument is non-literal
-                if node.args:
-                    first_arg = node.args[0]
-                    if not isinstance(first_arg, ast.Constant):
-                        _add(
-                            "DYN-005",
-                            "medium",
-                            "dynamic_execution",
-                            "importlib.import_module with non-literal argument",
-                            node,
-                        )
+                _add(
+                    "DYN-005",
+                    "medium",
+                    "dynamic_execution",
+                    "importlib.import_module with non-literal argument",
+                    node,
+                )
 
             # Obfuscation: codecs.decode
             if call_base == "codecs.decode":
@@ -504,7 +505,7 @@ def scan_adapter_source(
     return AdapterScanReport(
         module_name=module_name,
         findings=findings,
-        scanned_at=datetime.now(timezone.utc).isoformat(),
+        scanned_at=datetime.now(UTC).isoformat(),
         source_sha256=source_sha,
         lines_scanned=lines_count,
         local_only_verified=not has_unsafe,
@@ -568,7 +569,7 @@ def scan_adapter_entry_points() -> list[AdapterScanReport]:
                             snippet=None,
                         )
                     ],
-                    scanned_at=datetime.now(timezone.utc).isoformat(),
+                    scanned_at=datetime.now(UTC).isoformat(),
                     source_sha256="",
                     lines_scanned=0,
                     local_only_verified=False,

@@ -14,7 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -183,7 +183,7 @@ def export_audit_anchor(
         benchmark_results_sha256=bench_hash,
         detector_versions=detector_versions,
         calibration_chain=calibration_chain,
-        exported_at=datetime.now(timezone.utc).isoformat(),
+        exported_at=datetime.now(UTC).isoformat(),
         schema_version=SCHEMA_VERSION,
     )
 

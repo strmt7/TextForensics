@@ -23,7 +23,9 @@ from textforensics.capability_policy import (
 class TestPolicyProperties:
     """Property-based tests for policy evaluation invariants."""
 
-    @given(st.text(min_size=1, max_size=50, alphabet=st.characters(whitelist_categories=("L", "N"))))
+    @given(
+        st.text(min_size=1, max_size=50, alphabet=st.characters(whitelist_categories=("L", "N")))
+    )
     @hypothesis_settings(deadline=None)
     def test_policy_result_roundtrip(self, rule_id: str):
         """PolicyResult to_dict should preserve all fields."""
@@ -44,7 +46,9 @@ class TestPolicyProperties:
     @given(
         st.lists(
             st.tuples(
-                st.text(min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))),
+                st.text(
+                    min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))
+                ),
                 st.sampled_from(["readable", "tool_backed", "validated"]),
             ),
             min_size=1,
@@ -115,7 +119,9 @@ class TestPolicyProperties:
     @given(
         st.lists(
             st.tuples(
-                st.text(min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))),
+                st.text(
+                    min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))
+                ),
                 st.sampled_from(["readable", "tool_backed", "validated"]),
             ),
             min_size=0,
@@ -177,9 +183,21 @@ class TestPolicyEngineInvariants:
     def test_evaluation_results_order_matches_policy_order(self):
         """Results should be in the same order as policies were added."""
         engine = CapabilityPolicyEngine()
-        engine.add_policy(CapabilityPolicy(rule_id="rule-a", description="A", required_capabilities=[("cap1", "readable")]))
-        engine.add_policy(CapabilityPolicy(rule_id="rule-b", description="B", required_capabilities=[("cap2", "readable")]))
-        engine.add_policy(CapabilityPolicy(rule_id="rule-c", description="C", required_capabilities=[("cap3", "readable")]))
+        engine.add_policy(
+            CapabilityPolicy(
+                rule_id="rule-a", description="A", required_capabilities=[("cap1", "readable")]
+            )
+        )
+        engine.add_policy(
+            CapabilityPolicy(
+                rule_id="rule-b", description="B", required_capabilities=[("cap2", "readable")]
+            )
+        )
+        engine.add_policy(
+            CapabilityPolicy(
+                rule_id="rule-c", description="C", required_capabilities=[("cap3", "readable")]
+            )
+        )
 
         ledger = CapabilityLedger()
         for cap in ["cap1", "cap2", "cap3"]:

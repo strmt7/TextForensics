@@ -307,7 +307,12 @@ def bundle_check(
         result = {
             "is_consistent": report.is_consistent,
             "issues": [
-                {"field": i.field, "type": i.issue_type, "message": i.message, "severity": i.severity}
+                {
+                    "field": i.field,
+                    "type": i.issue_type,
+                    "message": i.message,
+                    "severity": i.severity,
+                }
                 for i in report.issues
             ],
             "checked_fields": report.checked_fields,
@@ -659,7 +664,10 @@ def capability_policy(
             "minimum": create_minimum_viable_policy,
         }
         if policy not in policy_map:
-            typer.echo(f"error: unknown policy '{policy}'. Use one of: {', '.join(policy_map.keys())}", err=True)
+            typer.echo(
+                f"error: unknown policy '{policy}'. Use one of: {', '.join(policy_map.keys())}",
+                err=True,
+            )
             raise typer.Exit(EXIT_ERROR)
 
         engine = policy_map[policy]()

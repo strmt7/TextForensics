@@ -23,6 +23,7 @@ __all__ = [
 
 class CorpusError(Exception):
     """Base exception for corpus analysis errors."""
+
     pass
 
 
@@ -151,7 +152,8 @@ class CorpusAnalyzer:
         """Split text into sentences using simple heuristics."""
         # Simple sentence splitting on periods, exclamation marks, question marks
         import re
-        sentences = re.split(r'[.!?]+[\s\n]+', text)
+
+        sentences = re.split(r"[.!?]+[\s\n]+", text)
         return [s.strip() for s in sentences if s.strip()]
 
     def compute_stats(self) -> CorpusStats:
@@ -236,12 +238,14 @@ class CorpusAnalyzer:
 
             for i, d in enumerate(self._documents):
                 if doc_lengths[i] < lower_bound or doc_lengths[i] > upper_bound:
-                    outliers.append({
-                        "document_id": d["document_id"],
-                        "word_count": doc_lengths[i],
-                        "outlier_type": "low" if doc_lengths[i] < lower_bound else "high",
-                        "bounds": (lower_bound, upper_bound),
-                    })
+                    outliers.append(
+                        {
+                            "document_id": d["document_id"],
+                            "word_count": doc_lengths[i],
+                            "outlier_type": "low" if doc_lengths[i] < lower_bound else "high",
+                            "bounds": (lower_bound, upper_bound),
+                        }
+                    )
 
         elif method == "zscore":
             if len(doc_lengths) < 2:
@@ -254,12 +258,14 @@ class CorpusAnalyzer:
             for i, d in enumerate(self._documents):
                 z = (doc_lengths[i] - mean) / stdev
                 if abs(z) > threshold:
-                    outliers.append({
-                        "document_id": d["document_id"],
-                        "word_count": doc_lengths[i],
-                        "zscore": z,
-                        "outlier_type": "low" if z < 0 else "high",
-                    })
+                    outliers.append(
+                        {
+                            "document_id": d["document_id"],
+                            "word_count": doc_lengths[i],
+                            "zscore": z,
+                            "outlier_type": "low" if z < 0 else "high",
+                        }
+                    )
 
         else:
             raise CorpusError(f"Unknown outlier method: {method}")

@@ -22,19 +22,19 @@ from pathlib import Path
 import pytest
 
 from textforensics.calibration import (
+    MIN_CALIBRATION_SAMPLES,
     CalibrationArtifact,
     CalibrationCurve,
     CalibrationError,
     CalibrationManager,
     CalibrationResult,
     DatasetReference,
-    MIN_CALIBRATION_SAMPLES,
+    _coerce_label,
+    _probability_metrics,
     create_calibration_manager,
     load_calibration_artifact,
     save_calibration_artifact,
     validate_calibration_artifact,
-    _coerce_label,
-    _probability_metrics,
 )
 
 
@@ -80,7 +80,9 @@ def eligible_artifact() -> CalibrationArtifact:
     )
 
 
-def store_eligible(mgr: CalibrationManager, detector_id: str, calibration_id: str) -> CalibrationArtifact:
+def store_eligible(
+    mgr: CalibrationManager, detector_id: str, calibration_id: str
+) -> CalibrationArtifact:
     return mgr.store(
         detector_id=detector_id,
         detector_version="1.0",
@@ -125,9 +127,7 @@ class TestCalibrationCurveConstruction:
 
     def test_calibration_error_out_of_range_raises(self):
         with pytest.raises(CalibrationError, match="calibration_error"):
-            CalibrationCurve(
-                method="platt", parameters={"A": 1.0, "B": 0.0}, calibration_error=1.5
-            )
+            CalibrationCurve(method="platt", parameters={"A": 1.0, "B": 0.0}, calibration_error=1.5)
 
     def test_non_mapping_parameters_raise(self):
         with pytest.raises(CalibrationError, match="parameters"):
@@ -255,9 +255,7 @@ class TestCalibrationCurveIsotonic:
 
     def test_out_of_range_knot_raises(self):
         with pytest.raises(CalibrationError, match=r"\[0, 1\]"):
-            CalibrationCurve(
-                method="isotonic", parameters={"x": [0.0, 1.5], "y": [0.0, 1.0]}
-            )
+            CalibrationCurve(method="isotonic", parameters={"x": [0.0, 1.5], "y": [0.0, 1.0]})
 
 
 class TestCalibrationCurveBeta:
@@ -284,7 +282,7 @@ class TestCalibrationCurveBeta:
     def test_monotone_in_score(self):
         curve = CalibrationCurve(method="beta", parameters={"a": 3.0, "b": 1.0})
         values = [curve.calibrate(x / 10) for x in range(11)]
-        assert all(b >= a for a, b in zip(values, values[1:]))
+        assert all(b >= a for a, b in zip(values, values[1:], strict=False))
 
     def test_both_zero_rejected(self):
         with pytest.raises(CalibrationError, match="degenerate"):
@@ -380,15 +378,11 @@ class TestDatasetReference:
 
     def test_non_positive_sample_count_raises(self):
         with pytest.raises(CalibrationError, match="sample_count"):
-            DatasetReference(
-                name="x", fingerprint_sha256=hex64(5), split="test", sample_count=0
-            )
+            DatasetReference(name="x", fingerprint_sha256=hex64(5), split="test", sample_count=0)
 
     def test_bool_sample_count_raises(self):
         with pytest.raises(CalibrationError, match="sample_count"):
-            DatasetReference(
-                name="x", fingerprint_sha256=hex64(5), split="test", sample_count=True
-            )
+            DatasetReference(name="x", fingerprint_sha256=hex64(5), split="test", sample_count=True)
 
     def test_empty_name_raises(self):
         with pytest.raises(CalibrationError, match="name"):
@@ -1041,7 +1035,9 @@ class TestCalibrationManagerValidation:
         mgr = CalibrationManager(storage)
         store_eligible(mgr, "det1", "cal1")
         bad = storage / "bad.jsonl"
-        bad.write_text("not json\n" + json.dumps({"score": 0.5, "label": "ai"}) + "\n", encoding="utf-8")
+        bad.write_text(
+            "not json\n" + json.dumps({"score": 0.5, "label": "ai"}) + "\n", encoding="utf-8"
+        )
         results = mgr.validate_artifact("det1:cal1", bad, strict=False)
         assert results["sample_count"] == 1
 
@@ -1077,8 +1073,10 @@ class TestCalibrationManagerValidation:
         store_eligible(mgr, "det1", "cal1")
         bad = storage / "label.jsonl"
         bad.write_text(
-            json.dumps({"score": 0.5, "label": "maybe"}) + "\n"
-            + json.dumps({"score": 0.5, "label": "ai"}) + "\n",
+            json.dumps({"score": 0.5, "label": "maybe"})
+            + "\n"
+            + json.dumps({"score": 0.5, "label": "ai"})
+            + "\n",
             encoding="utf-8",
         )
         results = mgr.validate_artifact("det1:cal1", bad, strict=False)

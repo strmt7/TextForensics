@@ -90,7 +90,7 @@ def check_command(evidence_path: str) -> tuple[bool, str]:
     """Run a shell command and check it succeeds."""
     cmd = evidence_path.split()
     code, stdout, stderr = run_command(cmd)
-    
+
     # Special handling for commands that return non-zero on warnings but succeed
     if "pytest --cov" in evidence_path:
         # Coverage command succeeds if tests pass (connection errors are transient)
@@ -99,16 +99,16 @@ def check_command(evidence_path: str) -> tuple[bool, str]:
         if code == 0:
             return True, "Command succeeded"
         return False, f"Tests failed: {stdout}"
-    
+
     if "bandit" in evidence_path or "pip-audit" in evidence_path:
         # These tools return non-zero on any findings, but that's not failure
         # Success = they ran without crashing
         if "WARNING" in stderr or "WARNING" in stdout or "Error" not in stderr:
             return True, f"Audit completed (exit {code})"
-    
+
     if code == 0:
         return True, "Command succeeded"
-    
+
     return False, f"Command failed (exit {code}): {stderr}"
 
 
@@ -161,7 +161,7 @@ def main() -> int:
             print(f"FAIL - {msg}")
             failed.append((claim_id, msg))
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Results: {passed} passed, {len(failed)} failed")
 
     if failed:

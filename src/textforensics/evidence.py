@@ -28,7 +28,7 @@ import os
 import tempfile
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -122,12 +122,12 @@ def _parse_iso8601(value: Any, field_name: str) -> datetime:
     except ValueError as exc:
         raise EvidenceError(f"{field_name} must be an ISO-8601 timestamp.") from exc
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _coerce_now(now: datetime | str | None) -> datetime:
@@ -136,8 +136,8 @@ def _coerce_now(now: datetime | str | None) -> datetime:
     if isinstance(now, str):
         return _parse_iso8601(now, "now")
     if now.tzinfo is None:
-        return now.replace(tzinfo=timezone.utc)
-    return now.astimezone(timezone.utc)
+        return now.replace(tzinfo=UTC)
+    return now.astimezone(UTC)
 
 
 def _safe_relative_path(value: Any, field_name: str) -> str:
@@ -205,7 +205,9 @@ class MetricEstimate:
                 raise EvidenceError("metric.ci_lower must not exceed metric.ci_upper.")
             if not self.ci_lower <= value <= self.ci_upper:
                 raise EvidenceError("metric value must lie inside its confidence interval.")
-        if self.method is not None and (not isinstance(self.method, str) or not self.method.strip()):
+        if self.method is not None and (
+            not isinstance(self.method, str) or not self.method.strip()
+        ):
             raise EvidenceError("metric.method must be a non-empty string or null.")
 
     @property
@@ -740,8 +742,7 @@ class DetectorCoverage:
             "detector_version": self.detector_version,
             "detector_family": self.detector_family,
             "dimensions": {
-                name: dimension.to_dict()
-                for name, dimension in sorted(self.dimensions.items())
+                name: dimension.to_dict() for name, dimension in sorted(self.dimensions.items())
             },
             "record_ids": list(self.record_ids),
             "matched_slice_ids": list(self.matched_slice_ids),
@@ -850,7 +851,9 @@ def _metadata_language(
             "input_language": effective,
             "supported_languages": list(languages),
         },
-        limitations=("Language detection itself is heuristic; declare the language when it matters.",),
+        limitations=(
+            "Language detection itself is heuristic; declare the language when it matters.",
+        ),
     )
 
 
@@ -876,7 +879,9 @@ def _metadata_length(
                 "min_words": min_words,
                 "max_words": max_words,
             },
-            limitations=("Declared minimum length is capability metadata, not held-out performance.",),
+            limitations=(
+                "Declared minimum length is capability metadata, not held-out performance.",
+            ),
         )
     if max_words is not None and conditions.word_count > max_words:
         return DimensionCoverage(
@@ -988,7 +993,11 @@ def _record_candidate(
         if match.language == "mismatch":
             return None
         states = [match.language == "match", fresh, sample]
-        state = "supported" if all(item == "supported" or item is True for item in states) else "partial"
+        state = (
+            "supported"
+            if all(item == "supported" or item is True for item in states)
+            else "partial"
+        )
         if fresh == "unknown":
             state = "unknown"
         return _Candidate(
@@ -1160,7 +1169,12 @@ def _record_candidate(
                 limitations=base_limitations,
             )
         enough_humans = slice_.n_human >= MIN_HUMAN_SAMPLES
-        acceptable = enough_humans and fpr.has_ci and fpr.ci_upper is not None and fpr.ci_upper <= fpr_ceiling
+        acceptable = (
+            enough_humans
+            and fpr.has_ci
+            and fpr.ci_upper is not None
+            and fpr.ci_upper <= fpr_ceiling
+        )
         if fresh == "unknown":
             state = "unknown"
         elif acceptable and fresh == "supported":
@@ -1240,7 +1254,10 @@ def assess_detector_coverage(
             ("editing_revision", "No validation evidence covers this editing regime."),
             ("generator_scope", "No validation evidence declares generator scope."),
             ("human_population", "No validation evidence declares human-population coverage."),
-            ("human_false_positive_evidence", "No held-out human false-positive evidence is registered."),
+            (
+                "human_false_positive_evidence",
+                "No held-out human false-positive evidence is registered.",
+            ),
             ("temporal_version_stability", "No longitudinal drift evidence is registered."),
         ):
             dimensions[name] = _base_dimension(name, reason)
@@ -1295,7 +1312,9 @@ def assess_detector_coverage(
         limitations.append("No registered validation evidence for this detector version.")
     if any(item.state in {"unknown", "partial", "out_of_scope"} for item in dimensions.values()):
         limitations.append("At least one Trust Map dimension is not fully supported.")
-    limitations.append("Coverage states describe evidence applicability, not authorship probability.")
+    limitations.append(
+        "Coverage states describe evidence applicability, not authorship probability."
+    )
 
     return DetectorCoverage(
         detector_id=detector_id,
@@ -1462,9 +1481,7 @@ class EvidenceRegistry:
                 issues.append(f"duplicate evidence_id: {record.evidence_id}")
             seen.add(record.evidence_id)
             if record.supersedes is not None and self.record(record.supersedes) is None:
-                issues.append(
-                    f"{record.evidence_id} supersedes missing record {record.supersedes}"
-                )
+                issues.append(f"{record.evidence_id} supersedes missing record {record.supersedes}")
             for calibration_id in record.calibration_ids:
                 if not calibration_id.strip():
                     issues.append(f"{record.evidence_id} has an empty calibration_id")
@@ -1599,7 +1616,9 @@ def aggregate_coverage_states(rows: Iterable[DetectorCoverage]) -> dict[str, str
             aggregated[name] = "out_of_scope"
         elif all(state == "unknown" for state in states):
             aggregated[name] = "unknown"
-        elif any(state == "supported" for state in states) or any(state in {"supported", "partial"} for state in states):
+        elif any(state == "supported" for state in states) or any(
+            state in {"supported", "partial"} for state in states
+        ):
             aggregated[name] = "partial"
         else:
             aggregated[name] = "unknown"

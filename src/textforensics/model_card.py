@@ -23,8 +23,8 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -45,16 +45,18 @@ __all__ = [
 ]
 
 
-class RiskLevel(str, Enum):
+class RiskLevel(StrEnum):
     """Risk level classification per EU AI Act."""
+
     UNACCEPTABLE = "unacceptable"
     HIGH = "high"
     LIMITED = "limited"
     MINIMAL = "minimal"
 
 
-class ModelCardSection(str, Enum):
+class ModelCardSection(StrEnum):
     """Standard model card sections per Google Model Card Toolkit."""
+
     MODEL_DETAILS = "model_details"
     INTENDED_USE = "intended_use"
     FACTORS = "factors"
@@ -70,6 +72,7 @@ class ModelCardSection(str, Enum):
 @dataclass(frozen=True, slots=True)
 class ModelCardMetadata:
     """Metadata about the model card itself."""
+
     version: str
     generated_at: str
     generated_by: str
@@ -80,6 +83,7 @@ class ModelCardMetadata:
 @dataclass(frozen=True, slots=True)
 class ModelDetails:
     """Model details section."""
+
     name: str
     version: str
     detector_id: str
@@ -96,6 +100,7 @@ class ModelDetails:
 @dataclass(frozen=True, slots=True)
 class IntendedUse:
     """Intended use section."""
+
     primary_use_cases: list[str]
     out_of_scope: list[str]
     target_users: list[str]
@@ -106,6 +111,7 @@ class IntendedUse:
 @dataclass(frozen=True, slots=True)
 class Limitation:
     """A single limitation entry."""
+
     description: str
     severity: str  # "high", "medium", "low"
     mitigation: str | None = None
@@ -115,6 +121,7 @@ class Limitation:
 @dataclass(frozen=True, slots=True)
 class EthicalConsideration:
     """An ethical consideration entry."""
+
     category: str  # "bias", "privacy", "security", "fairness", "transparency"
     description: str
     risk_level: RiskLevel
@@ -125,6 +132,7 @@ class EthicalConsideration:
 @dataclass(frozen=True, slots=True)
 class PerformanceMetric:
     """A single performance metric."""
+
     name: str
     value: float
     unit: str
@@ -137,6 +145,7 @@ class PerformanceMetric:
 @dataclass(frozen=True, slots=True)
 class EvaluationDataset:
     """Evaluation dataset description."""
+
     name: str
     version: str
     size: int
@@ -153,6 +162,7 @@ class EvaluationDataset:
 @dataclass(frozen=True, slots=True)
 class TrainingData:
     """Training data description."""
+
     datasets: list[EvaluationDataset]
     total_size: int
     preprocessing_pipeline: list[str]
@@ -163,6 +173,7 @@ class TrainingData:
 @dataclass(frozen=True, slots=True)
 class QuantitativeAnalysis:
     """Quantitative analysis results."""
+
     metrics: list[PerformanceMetric]
     confusion_matrix: dict[str, int] | None = None
     roc_auc: float | None = None
@@ -175,6 +186,7 @@ class QuantitativeAnalysis:
 @dataclass(frozen=True, slots=True)
 class Caveat:
     """A caveat or recommendation."""
+
     description: str
     priority: str  # "high", "medium", "low"
     category: str  # "limitation", "recommendation", "caveat"
@@ -184,6 +196,7 @@ class Caveat:
 @dataclass
 class ModelCard:
     """Complete model card for a detector."""
+
     metadata: ModelCardMetadata
     model_details: ModelDetails
     intended_use: IntendedUse
@@ -203,6 +216,7 @@ class ModelCard:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         from dataclasses import asdict
+
         return {
             "schema_version": self._schema_version,
             "metadata": asdict(self.metadata),
@@ -212,7 +226,9 @@ class ModelCard:
             "metrics": [asdict(m) for m in self.metrics],
             "evaluation_data": asdict(self.evaluation_data) if self.evaluation_data else None,
             "training_data": asdict(self.training_data) if self.training_data else None,
-            "quantitative_analysis": asdict(self.quantitative_analysis) if self.quantitative_analysis else None,
+            "quantitative_analysis": asdict(self.quantitative_analysis)
+            if self.quantitative_analysis
+            else None,
             "ethical_considerations": [asdict(e) for e in self.ethical_considerations],
             "caveats_and_recommendations": [asdict(c) for c in self.caveats_and_recommendations],
             "additional_information": self.additional_information,
@@ -249,16 +265,20 @@ class ModelCard:
 
         for metric in self.metrics:
             ci = f" (CI: {metric.confidence_interval})" if metric.confidence_interval else ""
-            lines.append(f"- **{metric.name}**: {metric.value} {metric.unit}{ci} - {metric.benchmark_dataset}/{metric.split}")
+            lines.append(
+                f"- **{metric.name}**: {metric.value} {metric.unit}{ci} - {metric.benchmark_dataset}/{metric.split}"
+            )
 
         if self.quantitative_analysis:
-            lines.extend([
-                "",
-                "## Quantitative Analysis",
-                f"- ROC AUC: {self.quantitative_analysis.roc_auc or 'N/A'}",
-                f"- PR AUC: {self.quantitative_analysis.pr_auc or 'N/A'}",
-                f"- Calibration Error: {self.quantitative_analysis.calibration_error or 'N/A'}",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "## Quantitative Analysis",
+                    f"- ROC AUC: {self.quantitative_analysis.roc_auc or 'N/A'}",
+                    f"- PR AUC: {self.quantitative_analysis.pr_auc or 'N/A'}",
+                    f"- Calibration Error: {self.quantitative_analysis.calibration_error or 'N/A'}",
+                ]
+            )
 
         if self.ethical_considerations:
             lines.extend(["", "## Ethical Considerations"])
@@ -350,7 +370,7 @@ class ModelCardGenerator:
         # Build metadata
         ModelCardMetadata(
             version="1.0.0",
-            generated_at=datetime.now(timezone.utc).isoformat(),
+            generated_at=datetime.now(UTC).isoformat(),
             generated_by="TextForensics ModelCardGenerator v1.0",
         )
 
@@ -368,7 +388,7 @@ class ModelCardGenerator:
         return ModelCard(
             metadata=ModelCardMetadata(
                 version="1.0.0",
-                generated_at=datetime.now(timezone.utc).isoformat(),
+                generated_at=datetime.now(UTC).isoformat(),
                 generated_by="TextForensics ModelCardGenerator v1.0",
             ),
             model_details=model_details,

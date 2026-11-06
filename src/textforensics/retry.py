@@ -27,8 +27,8 @@ import asyncio
 import random
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -43,18 +43,20 @@ __all__ = [
 ]
 
 
-class CircuitState(str, Enum):
+class CircuitState(StrEnum):
     """Circuit breaker state."""
-    CLOSED = "closed"      # Normal operation, requests pass through
-    OPEN = "open"          # Failing, requests blocked
+
+    CLOSED = "closed"  # Normal operation, requests pass through
+    OPEN = "open"  # Failing, requests blocked
     HALF_OPEN = "half_open"  # Testing recovery, limited requests allowed
 
 
-class CircuitTransition(str, Enum):
+class CircuitTransition(StrEnum):
     """Circuit breaker state transition."""
-    NONE = "none"          # No state change
-    OPENED = "opened"      # Circuit opened after failures
-    CLOSED = "closed"      # Circuit closed after successful probe
+
+    NONE = "none"  # No state change
+    OPENED = "opened"  # Circuit opened after failures
+    CLOSED = "closed"  # Circuit closed after successful probe
     HALF_OPENED = "half_opened"  # Transitioned to half-open
 
 
@@ -62,11 +64,11 @@ class CircuitTransition(str, Enum):
 class RetryPolicy:
     """Configuration for retry behavior."""
 
-    base_delay: float = 1.0          # Initial delay in seconds
-    max_delay: float = 300.0         # Cap on delay (5 minutes)
-    max_retries: int = 3             # Max retry attempts
-    jitter_factor: float = 0.1       # Jitter as fraction of delay
-    circuit_open_after: int = 5      # Failures before opening circuit
+    base_delay: float = 1.0  # Initial delay in seconds
+    max_delay: float = 300.0  # Cap on delay (5 minutes)
+    max_retries: int = 3  # Max retry attempts
+    jitter_factor: float = 0.1  # Jitter as fraction of delay
+    circuit_open_after: int = 5  # Failures before opening circuit
     circuit_reset_timeout: float = 60.0  # Seconds before half-open
     max_provider_retry_after: float = 3600.0  # Cap on Retry-After header (1 hour)
 
@@ -181,7 +183,9 @@ class RetryGate:
         if now is None:
             now = time.monotonic()
 
-        self._failures = min(self._failures + 1, self.policy.max_retries + self.policy.circuit_open_after)
+        self._failures = min(
+            self._failures + 1, self.policy.max_retries + self.policy.circuit_open_after
+        )
         self._last_failure_time = now
 
         # Determine delay
@@ -221,7 +225,9 @@ class RetryGate:
         return {
             "state": self.state.value,
             "failures": self._failures,
-            "next_allowed_at": datetime.fromtimestamp(self._next_allowed, timezone.utc).isoformat() if self._next_allowed > time.monotonic() else None,
+            "next_allowed_at": datetime.fromtimestamp(self._next_allowed, UTC).isoformat()
+            if self._next_allowed > time.monotonic()
+            else None,
             "last_transition": self._last_transition.value,
             "policy": {
                 "base_delay": self.policy.base_delay,

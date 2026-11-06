@@ -124,7 +124,9 @@ class TestAuditLog:
             )
 
             # Verify input hash
-            expected_input = json.dumps({"text": "hello world"}, separators=(",", ":"), sort_keys=True)
+            expected_input = json.dumps(
+                {"text": "hello world"}, separators=(",", ":"), sort_keys=True
+            )
             expected_input_hash = hashlib.sha256(expected_input.encode("utf-8")).hexdigest()
 
             assert entry.input_hash is not None

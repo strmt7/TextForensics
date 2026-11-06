@@ -109,9 +109,7 @@ class TestCounterfactualExplainer:
         report = explainer.explain(text)
 
         assert report.original_score == 0.1
-        honest_attr = next(
-            a for a in report.segment_attribution if "Honestly" in a.segment_text
-        )
+        honest_attr = next(a for a in report.segment_attribution if "Honestly" in a.segment_text)
         # Removing "honestly" -> score rises to 0.8 -> delta = +0.7
         assert honest_attr.delta > 0
         assert honest_attr.direction == "pushes_human"
@@ -126,7 +124,9 @@ class TestCounterfactualExplainer:
             return 0.5
 
         explainer = CounterfactualExplainer(score_fn, detector_id="test", detector_version="1.0")
-        text = "This is a reasonably long sentence here. Short one. Another longer sentence follows."
+        text = (
+            "This is a reasonably long sentence here. Short one. Another longer sentence follows."
+        )
         report = explainer.explain(text)
 
         # "Short one." removal leaves 8 words -> scored. But segments where the
@@ -340,7 +340,9 @@ class TestExplanationReport:
 class TestExplainabilityInvariants:
     def test_no_raw_text_in_report_dict(self):
         """The full raw text must never appear at the top level of the report."""
-        secret_text = "SENSITIVE-CONTENT-XYZ should not leak into the report top level. Second sentence."
+        secret_text = (
+            "SENSITIVE-CONTENT-XYZ should not leak into the report top level. Second sentence."
+        )
 
         def score_fn(text: str) -> float | None:
             return 0.5

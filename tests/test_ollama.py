@@ -70,8 +70,12 @@ class TestOllamaConfig:
 class TestModelCapabilities:
     def test_defaults(self):
         caps = ModelCapabilities(
-            name="test", size_bytes=1, digest="d", family="f",
-            parameter_size="1B", quantization_level="Q4",
+            name="test",
+            size_bytes=1,
+            digest="d",
+            family="f",
+            parameter_size="1B",
+            quantization_level="Q4",
         )
         assert caps.supports_chat is True
         assert caps.supports_embeddings is False
@@ -79,8 +83,12 @@ class TestModelCapabilities:
 
     def test_frozen(self):
         caps = ModelCapabilities(
-            name="test", size_bytes=1, digest="d", family="f",
-            parameter_size="1B", quantization_level="Q4",
+            name="test",
+            size_bytes=1,
+            digest="d",
+            family="f",
+            parameter_size="1B",
+            quantization_level="Q4",
         )
         with pytest.raises(AttributeError):
             caps.supports_chat = False
@@ -114,7 +122,9 @@ class TestOllamaModel:
         assert m2.size == model.size
 
     def test_from_dict_missing_details(self):
-        model = OllamaModel.from_dict({"name": "x", "model": "x", "size": 1, "digest": "d", "modified_at": "t"})
+        model = OllamaModel.from_dict(
+            {"name": "x", "model": "x", "size": 1, "digest": "d", "modified_at": "t"}
+        )
         assert model.details is None
 
     def test_capabilities_from_details(self):
@@ -166,8 +176,12 @@ class TestGenerationRequest:
 
     def test_full(self):
         req = GenerationRequest(
-            model="m", prompt="p", system="s", format="json",
-            options={"temperature": 0.5}, stream=True,
+            model="m",
+            prompt="p",
+            system="s",
+            format="json",
+            options={"temperature": 0.5},
+            stream=True,
         )
         d = req.to_dict()
         assert d["model"] == "m"
@@ -184,7 +198,10 @@ class TestGenerationRequest:
 
     def test_temperature_does_not_override_options(self):
         req = GenerationRequest(
-            model="m", prompt="p", options={"top_p": 0.9}, temperature=0.2,
+            model="m",
+            prompt="p",
+            options={"top_p": 0.9},
+            temperature=0.2,
         )
         d = req.to_dict()
         assert d["options"]["top_p"] == 0.9
@@ -206,20 +223,26 @@ class TestGenerationResponse:
         assert resp.done is True
 
     def test_from_dict(self):
-        resp = GenerationResponse.from_dict({
-            "model": "test",
-            "created_at": "2024-01-01T00:00:00Z",
-            "response": "Hello",
-            "done": True,
-        })
+        resp = GenerationResponse.from_dict(
+            {
+                "model": "test",
+                "created_at": "2024-01-01T00:00:00Z",
+                "response": "Hello",
+                "done": True,
+            }
+        )
         assert resp.response == "Hello"
         assert resp.done is True
         assert resp.eval_count is None
 
     def test_tokens_per_second(self):
         resp = GenerationResponse(
-            model="test", created_at="", response="", done=True,
-            eval_count=100, eval_duration=1_000_000_000,
+            model="test",
+            created_at="",
+            response="",
+            done=True,
+            eval_count=100,
+            eval_duration=1_000_000_000,
         )
         assert resp.tokens_per_second == 100.0
 
@@ -252,10 +275,12 @@ class TestEmbeddingResponse:
         assert len(resp.embeddings[0]) == 3
 
     def test_from_dict(self):
-        resp = EmbeddingResponse.from_dict({
-            "model": "test",
-            "embeddings": [[0.1, 0.2]],
-        })
+        resp = EmbeddingResponse.from_dict(
+            {
+                "model": "test",
+                "embeddings": [[0.1, 0.2]],
+            }
+        )
         assert len(resp.embeddings) == 1
         assert resp.embeddings[0] == [0.1, 0.2]
 

@@ -57,7 +57,9 @@ class TestDriftProperties:
 
     @given(
         st.floats(min_value=-100.0, max_value=100.0, allow_nan=False, allow_infinity=False),
-        st.integers(min_value=0, max_value=6),  # Limit digits to avoid extreme floating-point issues
+        st.integers(
+            min_value=0, max_value=6
+        ),  # Limit digits to avoid extreme floating-point issues
     )
     @settings(deadline=None)
     def test_round_precision(self, value: float, digits: int):
@@ -71,7 +73,9 @@ class TestDriftProperties:
     @given(
         st.lists(
             st.tuples(
-                st.text(min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))),
+                st.text(
+                    min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))
+                ),
                 st.sampled_from(["critical", "warning", "info"]),
                 st.sampled_from(["behavioral", "configuration", "calibration", "human_fpr"]),
                 st.text(min_size=1, max_size=50),
@@ -101,7 +105,9 @@ class TestDriftProperties:
     @given(
         st.lists(
             st.tuples(
-                st.text(min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))),
+                st.text(
+                    min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))
+                ),
                 st.sampled_from(["critical", "warning", "info"]),
                 st.sampled_from(["behavioral", "configuration", "calibration", "human_fpr"]),
                 st.text(min_size=1, max_size=50),
@@ -132,7 +138,9 @@ class TestDriftProperties:
     @given(
         st.lists(
             st.tuples(
-                st.text(min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))),
+                st.text(
+                    min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))
+                ),
                 st.sampled_from(["critical", "warning", "info"]),
                 st.sampled_from(["behavioral", "configuration", "calibration", "human_fpr"]),
                 st.text(min_size=1, max_size=50),
@@ -163,7 +171,9 @@ class TestDriftProperties:
     @given(
         st.lists(
             st.tuples(
-                st.text(min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))),
+                st.text(
+                    min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))
+                ),
                 st.sampled_from(["critical", "warning", "info"]),
                 st.sampled_from(["behavioral", "configuration", "calibration", "human_fpr"]),
                 st.text(min_size=1, max_size=50),
@@ -194,7 +204,9 @@ class TestDriftProperties:
     @given(
         st.lists(
             st.tuples(
-                st.text(min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))),
+                st.text(
+                    min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))
+                ),
                 st.sampled_from(["critical", "warning", "info"]),
                 st.sampled_from(["behavioral", "configuration", "calibration", "human_fpr"]),
                 st.text(min_size=1, max_size=50),
@@ -234,7 +246,9 @@ class TestDriftProperties:
     @given(
         st.lists(
             st.tuples(
-                st.text(min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))),
+                st.text(
+                    min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))
+                ),
                 st.sampled_from(["critical", "warning", "info"]),
                 st.sampled_from(["behavioral", "configuration", "calibration", "human_fpr"]),
                 st.text(min_size=1, max_size=50),
@@ -266,7 +280,9 @@ class TestDriftProperties:
     @given(
         st.lists(
             st.tuples(
-                st.text(min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))),
+                st.text(
+                    min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))
+                ),
                 st.sampled_from(["critical", "warning", "info"]),
                 st.sampled_from(["behavioral", "configuration", "calibration", "human_fpr"]),
                 st.text(min_size=1, max_size=50),
@@ -282,17 +298,19 @@ class TestDriftProperties:
         # Create mock reports from the data
         reports = []
         for i, (det_id, _sev, cat, _msg, _action) in enumerate(reports_data):
-            reports.append({
-                "detector_id": det_id,
-                "status": "drift_detected",
-                "snapshot_id": f"snap-{i}",
-                "score_distribution": {"significant": cat == "behavioral"},
-                "verdict_flips": {"significant": False},
-                "calibration_drift": {"probability_shift_significant": cat == "calibration"},
-                "human_slice_fpr": {"significant_increase": cat == "human_fpr"},
-                "threshold_changes": {"threshold_changed": cat == "configuration"},
-                "provider_metadata": {"provider_metadata_changed": False},
-            })
+            reports.append(
+                {
+                    "detector_id": det_id,
+                    "status": "drift_detected",
+                    "snapshot_id": f"snap-{i}",
+                    "score_distribution": {"significant": cat == "behavioral"},
+                    "verdict_flips": {"significant": False},
+                    "calibration_drift": {"probability_shift_significant": cat == "calibration"},
+                    "human_slice_fpr": {"significant_increase": cat == "human_fpr"},
+                    "threshold_changes": {"threshold_changed": cat == "configuration"},
+                    "provider_metadata": {"provider_metadata_changed": False},
+                }
+            )
 
         alerts1 = generate_drift_alerts(reports)
         alerts2 = generate_drift_alerts(reports)
@@ -307,7 +325,9 @@ class TestDriftProperties:
     @given(
         st.lists(
             st.tuples(
-                st.text(min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))),
+                st.text(
+                    min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))
+                ),
                 st.sampled_from(["critical", "warning", "info"]),
                 st.sampled_from(["behavioral", "configuration", "calibration", "human_fpr"]),
                 st.text(min_size=1, max_size=50),

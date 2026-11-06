@@ -9,7 +9,7 @@ import os
 import uuid
 from collections import OrderedDict
 from contextlib import suppress
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
@@ -29,6 +29,7 @@ def _escape(value: object) -> str:
     if value is None:
         return ""
     return html.escape(str(value))
+
 
 # ── Session Manager for real-time collaboration ──────────────────────
 
@@ -61,7 +62,7 @@ class SessionManager:
             if len(self._sessions) >= self.max_sessions:
                 raise ValueError("Maximum sessions reached")
         self._sessions[session_id] = {
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "users": {},
             "connections": {},
         }
@@ -88,7 +89,7 @@ class SessionManager:
         user_info = {
             "ws_key": ws_key,
             "display_name": display_name,
-            "joined_at": datetime.now(timezone.utc).isoformat(),
+            "joined_at": datetime.now(UTC).isoformat(),
         }
         session["users"][ws_key] = user_info
         session["connections"][ws_key] = websocket
@@ -221,7 +222,7 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
         analysis_id = str(uuid.uuid4())
         entry = {
             "id": analysis_id,
-            "stored_at": datetime.now(timezone.utc).isoformat(),
+            "stored_at": datetime.now(UTC).isoformat(),
             "data": data,
         }
         history_buffer[analysis_id] = entry
@@ -712,7 +713,7 @@ def serve_web(
 
 
 def _report_timestamp() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
 
 
 def _write_csv_report(writer: csv.writer, data: dict[str, Any]) -> None:
@@ -779,21 +780,21 @@ def _build_html_report(data: dict[str, Any]) -> str:
 
     detectors_html = "".join(
         f"""<tr>
-            <td>{_escape(d.get('detector_id', ''))}</td>
-            <td>{_escape(d.get('detector_version', ''))}</td>
-            <td>{_escape(d.get('detector_family', ''))}</td>
-            <td>{_escape(d.get('score', ''))}</td>
-            <td>{_escape(d.get('verdict', ''))}</td>
-            <td>{_escape(d.get('calibrated_ai_probability', 'N/A'))}</td>
+            <td>{_escape(d.get("detector_id", ""))}</td>
+            <td>{_escape(d.get("detector_version", ""))}</td>
+            <td>{_escape(d.get("detector_family", ""))}</td>
+            <td>{_escape(d.get("score", ""))}</td>
+            <td>{_escape(d.get("verdict", ""))}</td>
+            <td>{_escape(d.get("calibrated_ai_probability", "N/A"))}</td>
         </tr>"""
         for d in detectors
     )
 
     trust_dims_html = "".join(
         f"""<tr>
-            <td>{_escape(dim.get('dimension', ''))}</td>
-            <td>{_escape(dim.get('state', ''))}</td>
-            <td>{_escape(dim.get('reason', ''))}</td>
+            <td>{_escape(dim.get("dimension", ""))}</td>
+            <td>{_escape(dim.get("state", ""))}</td>
+            <td>{_escape(dim.get("reason", ""))}</td>
         </tr>"""
         for dim in dims
     )
@@ -815,14 +816,14 @@ th {{ background: #f5f5f5; }}
 .meta {{ margin: 1rem 0; color: #666; }}
 </style></head><body>
 <h1>TextForensics — Forensic Bundle Report</h1>
-<p class="meta">Generated: {_escape(data.get('generated_at_utc', 'N/A'))} &middot; SHA256: {_escape(data.get('content_sha256', '')[:16])}&hellip;</p>
+<p class="meta">Generated: {_escape(data.get("generated_at_utc", "N/A"))} &middot; SHA256: {_escape(data.get("content_sha256", "")[:16])}&hellip;</p>
 
 <h2>Consensus Verdict</h2>
 <div class="verdict verdict-{_escape(verdict)}">{_escape(verdict_text)}</div>
-<p>AI Probability: {_escape(ai_prob_str)} &middot; Independent Families: {_escape(consensus.get('independent_families', 'N/A'))}</p>
+<p>AI Probability: {_escape(ai_prob_str)} &middot; Independent Families: {_escape(consensus.get("independent_families", "N/A"))}</p>
 
 <h2>Input Statistics</h2>
-<p>Words: {_escape(inp.get('word_count', 'N/A'))} &middot; Sentences: {_escape(inp.get('sentence_count', 'N/A'))} &middot; Paragraphs: {_escape(inp.get('paragraph_count', 'N/A'))}</p>
+<p>Words: {_escape(inp.get("word_count", "N/A"))} &middot; Sentences: {_escape(inp.get("sentence_count", "N/A"))} &middot; Paragraphs: {_escape(inp.get("paragraph_count", "N/A"))}</p>
 
 <h2>Detector Results</h2>
 <table><tr><th>Detector</th><th>Version</th><th>Family</th><th>Score</th><th>Verdict</th><th>Cal. AI Prob.</th></tr>{detectors_html}</table>
@@ -832,7 +833,7 @@ th {{ background: #f5f5f5; }}
 <table><tr><th>Dimension</th><th>State</th><th>Reason</th></tr>{trust_dims_html}</table>
 
 <h2>Warnings &amp; Limitations</h2>
-<ul>{"".join(f"<li>{_escape(w)}</li>" for w in (data.get('limitations') or []))}</ul>
+<ul>{"".join(f"<li>{_escape(w)}</li>" for w in (data.get("limitations") or []))}</ul>
 
 </body></html>"""
 

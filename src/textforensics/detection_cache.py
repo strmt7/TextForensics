@@ -25,8 +25,8 @@ import json
 from collections import OrderedDict, defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -43,8 +43,9 @@ __all__ = [
 ]
 
 
-class CacheEntryStatus(str, Enum):
+class CacheEntryStatus(StrEnum):
     """Status of a cache entry."""
+
     FRESH = "fresh"
     STALE = "stale"
     EXPIRED = "expired"
@@ -52,8 +53,9 @@ class CacheEntryStatus(str, Enum):
     MISSING = "missing"
 
 
-class InvalidationReason(str, Enum):
+class InvalidationReason(StrEnum):
     """Reason for cache invalidation."""
+
     TTL_EXPIRED = "ttl_expired"
     MODEL_VERSION_CHANGED = "model_version_changed"
     CONFIG_CHANGED = "config_changed"
@@ -65,6 +67,7 @@ class InvalidationReason(str, Enum):
 @dataclass(frozen=True, slots=True)
 class CachePolicy:
     """Configuration for cache behavior."""
+
     ttl_seconds: float = 3600.0  # 1 hour default TTL
     max_entries: int = 10000
     max_size_bytes: int = 100 * 1024 * 1024  # 100 MB
@@ -84,6 +87,7 @@ class CachePolicy:
 @dataclass(frozen=True, slots=True)
 class InvalidationPolicy:
     """Policy for cache invalidation."""
+
     invalidate_on_model_version_change: bool = True
     invalidate_on_config_change: bool = True
     max_age_seconds: float | None = None  # Override TTL for specific entries
@@ -93,6 +97,7 @@ class InvalidationPolicy:
 @dataclass
 class CacheEntry:
     """A single cached detection result."""
+
     content_hash: str
     detector_id: str
     detector_version: str
@@ -136,11 +141,11 @@ class CacheEntry:
     def is_expired(self) -> bool:
         """Check if entry is expired."""
         expires_at = datetime.fromisoformat(self.expires_at.replace("Z", "+00:00"))
-        return datetime.now(timezone.utc) >= expires_at
+        return datetime.now(UTC) >= expires_at
 
     def touch(self) -> CacheEntry:
         """Update access metadata."""
-        datetime.now(timezone.utc).isoformat()
+        datetime.now(UTC).isoformat()
         return CacheEntry(
             content_hash=self.content_hash,
             detector_id=self.detector_id,
@@ -149,7 +154,7 @@ class CacheEntry:
             created_at=self.created_at,
             expires_at=self.expires_at,
             access_count=self.access_count + 1,
-            last_accessed=datetime.now(timezone.utc).isoformat(),
+            last_accessed=datetime.now(UTC).isoformat(),
             size_bytes=self.size_bytes,
             metadata=self.metadata,
         )
@@ -158,6 +163,7 @@ class CacheEntry:
 @dataclass
 class CacheStats:
     """Cache statistics."""
+
     total_entries: int = 0
     total_size_bytes: int = 0
     hits: int = 0
@@ -230,9 +236,12 @@ class DetectionCache:
 
     def _serialize_result(self, result: dict[str, Any]) -> bytes:
         """Serialize result to bytes."""
-        data = json.dumps(result, separators=(",", ":"), ensure_ascii=False, sort_keys=True).encode("utf-8")
+        data = json.dumps(result, separators=(",", ":"), ensure_ascii=False, sort_keys=True).encode(
+            "utf-8"
+        )
         if len(data) > self.policy.compress_threshold_bytes and self.policy.enable_compression:
             import zlib
+
             return zlib.compress(data)
         return data
 
@@ -241,6 +250,7 @@ class DetectionCache:
         # Try to decompress first
         try:
             import zlib
+
             data = zlib.decompress(data)
         except zlib.error:
             pass  # Not compressed
@@ -278,7 +288,7 @@ class DetectionCache:
 
     def _cleanup_expired(self) -> int:
         """Remove expired entries. Returns count of removed entries."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expired_keys = []
 
         for key, entry in self._cache.items():
@@ -375,7 +385,10 @@ class DetectionCache:
             return None, CacheEntryStatus.EXPIRED
 
         # Custom invalidator
-        if self.invalidation_policy.custom_invalidator and self.invalidation_policy.custom_invalidator(entry.result, None):
+        if (
+            self.invalidation_policy.custom_invalidator
+            and self.invalidation_policy.custom_invalidator(entry.result, None)
+        ):
             self._remove_entry(key, InvalidationReason.MANUAL)
             self.stats.misses += 1
             return None, CacheEntryStatus.INVALIDATED
@@ -402,10 +415,10 @@ class DetectionCache:
         content_hash = self._compute_content_hash(text)
         key = self._generate_key(content_hash, detector_id, detector_version)
 
-        datetime.now(timezone.utc)
+        datetime.now(UTC)
         ttl = ttl_seconds or self.policy.ttl_seconds
-        expires_at = datetime.now(timezone.utc).timestamp() + ttl
-        expires_at_str = datetime.fromtimestamp(expires_at, timezone.utc).isoformat()
+        expires_at = datetime.now(UTC).timestamp() + ttl
+        expires_at_str = datetime.fromtimestamp(expires_at, UTC).isoformat()
 
         # Serialize to calculate size
         serialized = self._serialize_result(result)
@@ -416,7 +429,7 @@ class DetectionCache:
             detector_id=detector_id,
             detector_version=detector_version,
             result=result,
-            created_at=datetime.now(timezone.utc).isoformat(),
+            created_at=datetime.now(UTC).isoformat(),
             expires_at=expires_at_str,
             size_bytes=size_bytes,
             metadata=metadata or {},
@@ -455,12 +468,16 @@ class DetectionCache:
         if detector_id:
             for key in self._detector_index.get(detector_id, set()):
                 entry = self._cache[key]
-                if (detector_version is None or entry.detector_version == detector_version) and (content_hash is None or entry.content_hash == content_hash):
+                if (detector_version is None or entry.detector_version == detector_version) and (
+                    content_hash is None or entry.content_hash == content_hash
+                ):
                     keys_to_remove.append(key)
         elif content_hash:
             # Search all entries for matching content hash
             for key, entry in self._cache.items():
-                if entry.content_hash == content_hash and (detector_version is None or entry.detector_version == detector_version):
+                if entry.content_hash == content_hash and (
+                    detector_version is None or entry.detector_version == detector_version
+                ):
                     keys_to_remove.append(key)
 
         count = 0
@@ -478,7 +495,9 @@ class DetectionCache:
         if not old_version or old_version == new_version:
             return 0
 
-        return self.invalidate(detector_id=detector_id, reason=InvalidationReason.MODEL_VERSION_CHANGED)
+        return self.invalidate(
+            detector_id=detector_id, reason=InvalidationReason.MODEL_VERSION_CHANGED
+        )
 
     def invalidate_config(self, detector_id: str, new_config_hash: str) -> int:
         """Invalidate all entries for a detector when config changes."""
@@ -497,7 +516,9 @@ class DetectionCache:
         """Get cache statistics."""
         return self.stats
 
-    def get_entry_status(self, text: str, detector_id: str, detector_version: str) -> CacheEntryStatus:
+    def get_entry_status(
+        self, text: str, detector_id: str, detector_version: str
+    ) -> CacheEntryStatus:
         """Get status of a cache entry without modifying it."""
         self._compute_content_hash(text)
         key = self._generate_key(self._compute_content_hash(text), detector_id, detector_version)
@@ -564,7 +585,9 @@ class DetectionCache:
             data = json.loads(self.storage_path.read_text(encoding="utf-8"))
             for entry_data in data.get("entries", []):
                 entry = CacheEntry.from_dict(entry_data)
-                key = self._generate_key(entry.content_hash, entry.detector_id, entry.detector_version)
+                key = self._generate_key(
+                    entry.content_hash, entry.detector_id, entry.detector_version
+                )
                 self._cache[key] = entry
                 self._detector_index[entry.detector_id].add(key)
                 self.stats.total_entries += 1

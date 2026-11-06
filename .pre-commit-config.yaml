@@ -4,16 +4,17 @@
 
 repos:
   # Ruff - Python linter and formatter
+  # Keep the rev in sync with the ruff version used locally and in CI
+  # (pyproject.toml dev extra requires ruff>=0.15.22,<1; this pins the
+  # exact version verified here).
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.5
+    rev: v0.17.4
     hooks:
       - id: ruff
         name: ruff (lint)
         args: [--fix, --exit-non-zero-on-fix]
-        stages: [manual]
       - id: ruff-format
         name: ruff (format)
-        stages: [manual]
 
   # Pre-commit-hooks - general file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks

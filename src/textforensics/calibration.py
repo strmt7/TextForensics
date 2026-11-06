@@ -25,7 +25,7 @@ import os
 import tempfile
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -111,7 +111,7 @@ def _sha256_hex(value: Any, field_name: str) -> str:
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _canonical_json(payload: Any) -> str:
@@ -136,7 +136,7 @@ def _parse_iso8601(value: Any, field_name: str) -> datetime:
     except ValueError as exc:
         raise CalibrationError(f"{field_name} must be ISO-8601.") from exc
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
     return parsed
 
 
@@ -201,10 +201,7 @@ class CalibrationCurve:
         self._validate_parameters()
 
     def _validate_score_range(self) -> None:
-        if (
-            not isinstance(self.score_range, (tuple, list))
-            or len(self.score_range) != 2
-        ):
+        if not isinstance(self.score_range, (tuple, list)) or len(self.score_range) != 2:
             raise CalibrationError("score_range must be a (min, max) pair.")
         minimum = _finite_number(self.score_range[0], "score_range[0]")
         maximum = _finite_number(self.score_range[1], "score_range[1]")
@@ -244,15 +241,9 @@ class CalibrationCurve:
                 raise CalibrationError("Isotonic maps require at least two points.")
             parsed_x = [_unit_interval(item, "isotonic x") for item in x_values]
             parsed_y = [_unit_interval(item, "isotonic y") for item in y_values]
-            if any(
-                parsed_x[index] >= parsed_x[index + 1]
-                for index in range(len(parsed_x) - 1)
-            ):
+            if any(parsed_x[index] >= parsed_x[index + 1] for index in range(len(parsed_x) - 1)):
                 raise CalibrationError("Isotonic x values must be strictly increasing.")
-            if any(
-                parsed_y[index] > parsed_y[index + 1]
-                for index in range(len(parsed_y) - 1)
-            ):
+            if any(parsed_y[index] > parsed_y[index + 1] for index in range(len(parsed_y) - 1)):
                 raise CalibrationError("Isotonic y values must be non-decreasing.")
             object.__setattr__(
                 self,
@@ -270,9 +261,7 @@ class CalibrationCurve:
         """Apply the map to a native score in ``[0, 1]``."""
         value = _unit_interval(score, "score")
         if self.method == "platt":
-            return _sigmoid(
-                float(self.parameters["A"]) * value + float(self.parameters["B"])
-            )
+            return _sigmoid(float(self.parameters["A"]) * value + float(self.parameters["B"]))
         if self.method == "temperature":
             return _sigmoid(value / float(self.parameters["T"]))
         if self.method == "isotonic":
@@ -304,11 +293,7 @@ class CalibrationCurve:
         b = float(self.parameters["b"])
         c = float(self.parameters.get("c", 0.0))
         left = (-math.inf if a > 0.0 else 0.0) if value <= 0.0 else a * math.log(value)
-        right = (
-            (math.inf if b > 0.0 else 0.0)
-            if value >= 1.0
-            else -b * math.log1p(-value)
-        )
+        right = (math.inf if b > 0.0 else 0.0) if value >= 1.0 else -b * math.log1p(-value)
         return _sigmoid(left + right + c)
 
     def to_dict(self) -> dict[str, Any]:
@@ -342,9 +327,7 @@ class CalibrationCurve:
             sample_count=int(data.get("sample_count", 0)),
             calibration_error=data.get("calibration_error"),
             schema=str(data.get("schema", CURVE_SCHEMA)),
-            native_score_direction=str(
-                data.get("native_score_direction", "higher_means_ai")
-            ),
+            native_score_direction=str(data.get("native_score_direction", "higher_means_ai")),
             score_range=(float(score_range[0]), float(score_range[1])),
         )
 
@@ -475,9 +458,7 @@ class CalibrationArtifact:
         else:
             computed = self.compute_content_hash()
             if self.content_hash != computed:
-                raise CalibrationError(
-                    "content_hash does not match the artifact content."
-                )
+                raise CalibrationError("content_hash does not match the artifact content.")
 
     # -- serialization ---------------------------------------------------
 
@@ -606,9 +587,7 @@ class CalibrationArtifact:
         assert self.fit_dataset is not None and self.evaluation_dataset is not None
         issues: list[str] = []
         if self.fit_dataset.sample_count < MIN_CALIBRATION_SAMPLES:
-            issues.append(
-                f"fit_dataset.sample_count must be at least {MIN_CALIBRATION_SAMPLES}"
-            )
+            issues.append(f"fit_dataset.sample_count must be at least {MIN_CALIBRATION_SAMPLES}")
         if self.evaluation_dataset.sample_count < MIN_CALIBRATION_SAMPLES:
             issues.append(
                 f"evaluation_dataset.sample_count must be at least {MIN_CALIBRATION_SAMPLES}"
@@ -624,8 +603,7 @@ class CalibrationArtifact:
         manifest = self.disjointness.get("sample_id_manifest_sha256")
         if not evidence and not manifest:
             issues.append(
-                "disjointness must record evidence "
-                "(evidence text or sample_id_manifest_sha256)"
+                "disjointness must record evidence (evidence text or sample_id_manifest_sha256)"
             )
         if manifest is not None:
             try:
@@ -875,23 +853,17 @@ class CalibrationManager:
                     row = json.loads(line)
                 except json.JSONDecodeError as exc:
                     if strict:
-                        raise CalibrationError(
-                            f"Line {line_number}: invalid JSON"
-                        ) from exc
+                        raise CalibrationError(f"Line {line_number}: invalid JSON") from exc
                     continue
                 if not isinstance(row, dict) or "score" not in row or "label" not in row:
                     if strict:
-                        raise CalibrationError(
-                            f"Line {line_number}: missing score or label"
-                        )
+                        raise CalibrationError(f"Line {line_number}: missing score or label")
                     continue
                 try:
                     score = artifact.curve.calibrate(float(row["score"]))
                 except (TypeError, ValueError) as exc:
                     if strict:
-                        raise CalibrationError(
-                            f"Line {line_number}: invalid score"
-                        ) from exc
+                        raise CalibrationError(f"Line {line_number}: invalid score") from exc
                     continue
                 label = _coerce_label(row["label"])
                 if label is None:
@@ -955,9 +927,9 @@ def _probability_metrics(probabilities: Iterable[float], labels: Iterable[int]) 
     if len(values) != len(targets) or not values:
         raise CalibrationError("Metrics require equally sized, non-empty samples.")
     count = len(values)
-    brier = sum(
-        (value - target) ** 2 for value, target in zip(values, targets, strict=True)
-    ) / count
+    brier = (
+        sum((value - target) ** 2 for value, target in zip(values, targets, strict=True)) / count
+    )
 
     n_bins = 10
     bin_counts = [0] * n_bins
@@ -973,16 +945,17 @@ def _probability_metrics(probabilities: Iterable[float], labels: Iterable[int]) 
         if bin_counts[index]:
             average_confidence = bin_confidence[index] / bin_counts[index]
             average_positive = bin_positive[index] / bin_counts[index]
-            ece += (bin_counts[index] / count) * abs(
-                average_confidence - average_positive
-            )
+            ece += (bin_counts[index] / count) * abs(average_confidence - average_positive)
 
     epsilon = 1e-15
-    log_loss = -sum(
-        target * math.log(max(value, epsilon))
-        + (1 - target) * math.log(max(1.0 - value, epsilon))
-        for value, target in zip(values, targets, strict=True)
-    ) / count
+    log_loss = (
+        -sum(
+            target * math.log(max(value, epsilon))
+            + (1 - target) * math.log(max(1.0 - value, epsilon))
+            for value, target in zip(values, targets, strict=True)
+        )
+        / count
+    )
     return {
         "brier": brier,
         "ece": ece,

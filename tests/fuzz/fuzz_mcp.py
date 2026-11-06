@@ -23,8 +23,10 @@ try:
     import atheris
 except ImportError:  # atheris optional; TestOneInput still importable
     atheris = None
+
     def instrument_func(func):
         return func
+
     if atheris is not None:
         instrument_func = atheris.instrument_func
 

@@ -22,7 +22,7 @@ import statistics
 import uuid
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 __all__ = [
@@ -37,6 +37,7 @@ __all__ = [
 @dataclass(frozen=True, slots=True)
 class SemanticSegment:
     """A text segment with its semantic features."""
+
     index: int
     text: str
     word_count: int
@@ -52,6 +53,7 @@ class SemanticSegment:
 @dataclass(frozen=True, slots=True)
 class ConsistencyFinding:
     """A detected consistency anomaly."""
+
     finding_id: str
     category: str  # "style", "topic", "structure", "lexical", "semantic", "coherence"
     description: str
@@ -126,7 +128,7 @@ _SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _sha256(text: str) -> str:
@@ -213,6 +215,7 @@ def _analyze_segment(text: str, index: int) -> SemanticSegment:
 # Consistency Detectors
 # ============================================================
 
+
 def _detect_excessive_coherence(segments: list[SemanticSegment]) -> list[dict]:
     """Detect unnaturally high semantic coherence across segments."""
     if len(segments) < 3:
@@ -227,20 +230,22 @@ def _detect_excessive_coherence(segments: list[SemanticSegment]) -> list[dict]:
 
     # Too low variance in TTR = suspiciously consistent
     if ttr_stdev < 0.02 and ttr_mean > 0.3:
-        findings.append({
-            "finding_id": f"excessive_ttr_consistency_{_sha256('ttr')[:8]}",
-            "category": "lexical",
-            "description": "Unnaturally consistent type-token ratio across segments",
-            "evidence": round(ttr_stdev, 4),
-            "severity": "medium",
-            "confidence": 0.7,
-            "segment_indices": (0, len(segments) - 1),
-            "details": {
-                "ttr_mean": round(ttr_mean, 4),
-                "ttr_stdev": round(ttr_stdev, 4),
-                "threshold": 0.02,
-            },
-        })
+        findings.append(
+            {
+                "finding_id": f"excessive_ttr_consistency_{_sha256('ttr')[:8]}",
+                "category": "lexical",
+                "description": "Unnaturally consistent type-token ratio across segments",
+                "evidence": round(ttr_stdev, 4),
+                "severity": "medium",
+                "confidence": 0.7,
+                "segment_indices": (0, len(segments) - 1),
+                "details": {
+                    "ttr_mean": round(ttr_mean, 4),
+                    "ttr_stdev": round(ttr_stdev, 4),
+                    "threshold": 0.02,
+                },
+            }
+        )
 
     # Check entropy consistency
     entropy_values = [s.entropy for s in segments]
@@ -248,19 +253,21 @@ def _detect_excessive_coherence(segments: list[SemanticSegment]) -> list[dict]:
     entropy_stdev = statistics.stdev(entropy_values) if len(entropy_values) > 1 else 0.0
 
     if entropy_stdev < 0.15 and entropy_mean > 2.0:
-        findings.append({
-            "finding_id": f"excessive_entropy_consistency_{_sha256('entropy')[:8]}",
-            "category": "lexical",
-            "description": "Unnaturally consistent lexical entropy across segments",
-            "evidence": round(entropy_stdev, 4),
-            "severity": "medium",
-            "confidence": 0.65,
-            "segment_indices": (0, len(segments) - 1),
-            "details": {
-                "entropy_mean": round(entropy_mean, 4),
-                "entropy_stdev": round(entropy_stdev, 4),
-            },
-        })
+        findings.append(
+            {
+                "finding_id": f"excessive_entropy_consistency_{_sha256('entropy')[:8]}",
+                "category": "lexical",
+                "description": "Unnaturally consistent lexical entropy across segments",
+                "evidence": round(entropy_stdev, 4),
+                "severity": "medium",
+                "confidence": 0.65,
+                "segment_indices": (0, len(segments) - 1),
+                "details": {
+                    "entropy_mean": round(entropy_mean, 4),
+                    "entropy_stdev": round(entropy_stdev, 4),
+                },
+            }
+        )
 
     return findings
 
@@ -278,16 +285,18 @@ def _detect_structural_rigidity(segments: list[SemanticSegment]) -> list[dict]:
     wc_stdev = statistics.stdev(word_counts) if len(word_counts) > 1 else 0.0
 
     if wc_stdev < 5.0 and wc_mean > 20:
-        findings.append({
-            "finding_id": f"structural_word_count_rigidity_{_sha256('wc')[:8]}",
-            "category": "structure",
-            "description": "Unnaturally consistent segment word counts",
-            "evidence": round(wc_stdev, 2),
-            "severity": "medium",
-            "confidence": 0.65,
-            "segment_indices": (0, len(segments) - 1),
-            "details": {"mean": round(wc_mean, 1), "stdev": round(wc_stdev, 2)},
-        })
+        findings.append(
+            {
+                "finding_id": f"structural_word_count_rigidity_{_sha256('wc')[:8]}",
+                "category": "structure",
+                "description": "Unnaturally consistent segment word counts",
+                "evidence": round(wc_stdev, 2),
+                "severity": "medium",
+                "confidence": 0.65,
+                "segment_indices": (0, len(segments) - 1),
+                "details": {"mean": round(wc_mean, 1), "stdev": round(wc_stdev, 2)},
+            }
+        )
 
     # Check sentence count consistency
     sentence_counts = [s.sentence_count for s in segments]
@@ -295,16 +304,18 @@ def _detect_structural_rigidity(segments: list[SemanticSegment]) -> list[dict]:
     sc_stdev = statistics.stdev(sentence_counts) if len(sentence_counts) > 1 else 0.0
 
     if sc_stdev < 1.0 and sc_mean > 2:
-        findings.append({
-            "finding_id": f"structural_sentence_rigidity_{_sha256('sc')[:8]}",
-            "category": "structure",
-            "description": "Unnaturally consistent sentence counts per segment",
-            "evidence": round(sc_stdev, 2),
-            "severity": "medium",
-            "confidence": 0.6,
-            "segment_indices": (0, len(segments) - 1),
-            "details": {"mean": round(sc_mean, 1), "stdev": round(sc_stdev, 2)},
-        })
+        findings.append(
+            {
+                "finding_id": f"structural_sentence_rigidity_{_sha256('sc')[:8]}",
+                "category": "structure",
+                "description": "Unnaturally consistent sentence counts per segment",
+                "evidence": round(sc_stdev, 2),
+                "severity": "medium",
+                "confidence": 0.6,
+                "segment_indices": (0, len(segments) - 1),
+                "details": {"mean": round(sc_mean, 1), "stdev": round(sc_stdev, 2)},
+            }
+        )
 
     return findings
 
@@ -322,16 +333,18 @@ def _detect_semantic_overcoherence(segments: list[SemanticSegment]) -> list[dict
     hapax_stdev = statistics.stdev(hapax_values) if len(hapax_values) > 1 else 0.0
 
     if hapax_stdev < 0.03 and hapax_mean > 0.2:
-        findings.append({
-            "finding_id": f"semantic_hapax_overcoherence_{_sha256('hapax')[:8]}",
-            "category": "semantic",
-            "description": "Suspiciously consistent hapax legomena ratio (overcoherent vocabulary)",
-            "evidence": round(hapax_stdev, 4),
-            "severity": "medium",
-            "confidence": 0.65,
-            "segment_indices": (0, len(segments) - 1),
-            "details": {"mean": round(hapax_mean, 4), "stdev": round(hapax_stdev, 4)},
-        })
+        findings.append(
+            {
+                "finding_id": f"semantic_hapax_overcoherence_{_sha256('hapax')[:8]}",
+                "category": "semantic",
+                "description": "Suspiciously consistent hapax legomena ratio (overcoherent vocabulary)",
+                "evidence": round(hapax_stdev, 4),
+                "severity": "medium",
+                "confidence": 0.65,
+                "segment_indices": (0, len(segments) - 1),
+                "details": {"mean": round(hapax_mean, 4), "stdev": round(hapax_stdev, 4)},
+            }
+        )
 
     # Check semantic density consistency
     density_values = [s.semantic_density for s in segments]
@@ -339,16 +352,18 @@ def _detect_semantic_overcoherence(segments: list[SemanticSegment]) -> list[dict
     density_stdev = statistics.stdev(density_values) if len(density_values) > 1 else 0.0
 
     if density_stdev < 0.1 and density_mean > 1.0:
-        findings.append({
-            "finding_id": f"semantic_density_overcoherence_{_sha256('density')[:8]}",
-            "category": "semantic",
-            "description": "Suspiciously consistent semantic density (concepts per sentence)",
-            "evidence": round(density_stdev, 4),
-            "severity": "medium",
-            "confidence": 0.6,
-            "segment_indices": (0, len(segments) - 1),
-            "details": {"mean": round(density_mean, 4), "stdev": round(density_stdev, 4)},
-        })
+        findings.append(
+            {
+                "finding_id": f"semantic_density_overcoherence_{_sha256('density')[:8]}",
+                "category": "semantic",
+                "description": "Suspiciously consistent semantic density (concepts per sentence)",
+                "evidence": round(density_stdev, 4),
+                "severity": "medium",
+                "confidence": 0.6,
+                "segment_indices": (0, len(segments) - 1),
+                "details": {"mean": round(density_mean, 4), "stdev": round(density_stdev, 4)},
+            }
+        )
 
     return findings
 
@@ -365,16 +380,18 @@ def _detect_lack_of_digression(segments: list[SemanticSegment]) -> list[dict]:
     awl_stdev = statistics.stdev(awl_values) if len(awl_values) > 1 else 0.0
 
     if awl_stdev < 0.15:
-        findings.append({
-            "finding_id": f"no_digression_awl_{_sha256('awl')[:8]}",
-            "category": "style",
-            "description": "Lack of natural digression: suspiciously consistent word lengths",
-            "evidence": round(awl_stdev, 4),
-            "severity": "low",
-            "confidence": 0.55,
-            "segment_indices": (0, len(segments) - 1),
-            "details": {"awl_stdev": round(awl_stdev, 4)},
-        })
+        findings.append(
+            {
+                "finding_id": f"no_digression_awl_{_sha256('awl')[:8]}",
+                "category": "style",
+                "description": "Lack of natural digression: suspiciously consistent word lengths",
+                "evidence": round(awl_stdev, 4),
+                "severity": "low",
+                "confidence": 0.55,
+                "segment_indices": (0, len(segments) - 1),
+                "details": {"awl_stdev": round(awl_stdev, 4)},
+            }
+        )
 
     return findings
 
@@ -391,16 +408,18 @@ def _detect_repetitive_structures(segments: list[SemanticSegment]) -> list[dict]
     # For now, check word count patterns that might indicate template use
     word_counts = [s.word_count for s in segments]
     if len(set(word_counts)) == 1 and len(segments) > 2:
-        findings.append({
-            "finding_id": f"repetitive_word_counts_{_sha256('wc')[:8]}",
-            "category": "structure",
-            "description": "Identical word counts across multiple segments (template-like)",
-            "evidence": 1.0,
-            "severity": "high",
-            "confidence": 0.85,
-            "segment_indices": (0, len(segments) - 1),
-            "details": {"word_count": segments[0].word_count, "count": len(segments)},
-        })
+        findings.append(
+            {
+                "finding_id": f"repetitive_word_counts_{_sha256('wc')[:8]}",
+                "category": "structure",
+                "description": "Identical word counts across multiple segments (template-like)",
+                "evidence": 1.0,
+                "severity": "high",
+                "confidence": 0.85,
+                "segment_indices": (0, len(segments) - 1),
+                "details": {"word_count": segments[0].word_count, "count": len(segments)},
+            }
+        )
 
     return findings
 
@@ -409,13 +428,16 @@ def _detect_repetitive_structures(segments: list[SemanticSegment]) -> list[dict]
 # Main Checker Class
 # ============================================================
 
+
 class SemanticConsistencyChecker:
     """Analyzes semantic consistency to detect AI-generated text."""
 
     def __init__(self, segment_word_target: int = 100):
         self.segment_word_target = segment_word_target
 
-    def analyze(self, text: str, *, metadata: dict[str, Any] | None = None) -> SemanticConsistencyReport:
+    def analyze(
+        self, text: str, *, metadata: dict[str, Any] | None = None
+    ) -> SemanticConsistencyReport:
         """Analyze text for semantic consistency anomalies."""
         if not text or not text.strip():
             return SemanticConsistencyReport(
@@ -529,8 +551,10 @@ class SemanticConsistencyChecker:
             return "none", 1.0
 
         total_weight = sum(
-            {"critical": 1.5, "high": 1.0, "medium": 0.6, "low": 0.3}.get(f.get("severity", "low"), 0.3) *
-            f.get("confidence", 0.5)
+            {"critical": 1.5, "high": 1.0, "medium": 0.6, "low": 0.3}.get(
+                f.get("severity", "low"), 0.3
+            )
+            * f.get("confidence", 0.5)
             for f in findings
         )
         max_possible = len(findings) * 1.5

@@ -24,6 +24,7 @@ import json
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC
 from typing import Any
 
 __all__ = [
@@ -289,15 +290,13 @@ class CounterfactualExplainer:
     def explain_ranked(self, text: str) -> list[SegmentAttribution]:
         """Convenience: return all segments ranked by |delta| descending."""
         report = self.explain(text)
-        return sorted(
-            report.segment_attribution, key=lambda a: a.abs_delta, reverse=True
-        )
+        return sorted(report.segment_attribution, key=lambda a: a.abs_delta, reverse=True)
 
 
 def _now_iso() -> str:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _explanation_id(report: ExplanationReport) -> str:
@@ -370,13 +369,9 @@ def load_explanation_report(path: str) -> ExplanationReport:
         verdict=data.get("verdict", ""),
         n_segments=data["n_segments"],
         n_scored=data["n_scored"],
-        segment_attribution=[
-            SegmentAttribution(**s) for s in data.get("segment_attribution", [])
-        ],
+        segment_attribution=[SegmentAttribution(**s) for s in data.get("segment_attribution", [])],
         top_ai_driving=[SegmentAttribution(**s) for s in data.get("top_ai_driving", [])],
-        top_human_driving=[
-            SegmentAttribution(**s) for s in data.get("top_human_driving", [])
-        ],
+        top_human_driving=[SegmentAttribution(**s) for s in data.get("top_human_driving", [])],
         limitations=list(data.get("limitations", [])),
         explanation_id=data.get("explanation_id", ""),
         created_at=data.get("created_at", ""),

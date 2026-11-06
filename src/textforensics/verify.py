@@ -30,9 +30,7 @@ _TRUST_MAP_V1_SCHEMA = "textforensics.trust-map/v1"
 
 # Schemas accepted by the N-version replay.  v2 is primary; v1 is accepted
 # for legacy artifacts so that older case files can still be replayed.
-_CASE_FILE_SCHEMAS = frozenset(
-    {"textforensics.case-file/v2", "textforensics.case-file/v1"}
-)
+_CASE_FILE_SCHEMAS = frozenset({"textforensics.case-file/v2", "textforensics.case-file/v1"})
 _BUNDLE_SCHEMAS = frozenset(
     {"textforensics.forensic-bundle/v2", "textforensics.forensic-bundle/v1"}
 )
@@ -83,8 +81,7 @@ def _recompute_overall(dimensions: list[dict[str, Any]]) -> str | None:
     out_of_scope = sum(state == "out_of_scope" for state in states)
 
     if out_of_scope > 0 and (
-        by_name.get("language") == "out_of_scope"
-        or by_name.get("text_length") == "out_of_scope"
+        by_name.get("language") == "out_of_scope" or by_name.get("text_length") == "out_of_scope"
     ):
         return "insufficient"
     if supported == len(dimensions):

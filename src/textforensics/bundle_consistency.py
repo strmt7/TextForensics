@@ -136,7 +136,13 @@ def _check_bundle_consistency(bundle: dict[str, Any]) -> list[ConsistencyIssue]:
         )
     else:
         verdict = consensus.get("verdict")
-        if verdict is not None and verdict not in ("ai_like", "human_like", "abstain", "insufficient_evidence", "mixed"):
+        if verdict is not None and verdict not in (
+            "ai_like",
+            "human_like",
+            "abstain",
+            "insufficient_evidence",
+            "mixed",
+        ):
             issues.append(
                 ConsistencyIssue(
                     field="consensus.verdict",
@@ -149,7 +155,9 @@ def _check_bundle_consistency(bundle: dict[str, Any]) -> list[ConsistencyIssue]:
         # Check AI probability range if present
         ai_prob = consensus.get("ai_probability")
         if ai_prob is not None:
-            issue = _check_field_value(bundle, "consensus.ai_probability", min_value=0.0, max_value=1.0)
+            issue = _check_field_value(
+                bundle, "consensus.ai_probability", min_value=0.0, max_value=1.0
+            )
             if issue:
                 issues.append(issue)
 
@@ -196,21 +204,26 @@ def _check_bundle_consistency(bundle: dict[str, Any]) -> list[ConsistencyIssue]:
             score = result.get("score")
             reliability = result.get("reliability")
             if score is not None and reliability is not None and reliability < 0.1:
-                    # Uncalibrated scores with low reliability
-                    issues.append(
-                        ConsistencyIssue(
-                            field=f"detector_results[{i}].reliability",
-                            issue_type="warning",
-                            message=f"Detector {det_id} has low reliability ({reliability:.3f}) with score {score:.3f}. Treat with caution.",
-                            severity="warning",
-                        )
+                # Uncalibrated scores with low reliability
+                issues.append(
+                    ConsistencyIssue(
+                        field=f"detector_results[{i}].reliability",
+                        issue_type="warning",
+                        message=f"Detector {det_id} has low reliability ({reliability:.3f}) with score {score:.3f}. Treat with caution.",
+                        severity="warning",
                     )
+                )
 
     # Check trust map structure
     trust_map = bundle.get("trust_map", {})
     if isinstance(trust_map, dict):
         overall = trust_map.get("overall")
-        if overall is not None and overall not in ("supported", "partial", "unknown", "out_of_scope"):
+        if overall is not None and overall not in (
+            "supported",
+            "partial",
+            "unknown",
+            "out_of_scope",
+        ):
             issues.append(
                 ConsistencyIssue(
                     field="trust_map.overall",
@@ -234,7 +247,12 @@ def _check_bundle_consistency(bundle: dict[str, Any]) -> list[ConsistencyIssue]:
                     )
                     continue
                 state = dim.get("state")
-                if state is not None and state not in ("supported", "partial", "unknown", "out_of_scope"):
+                if state is not None and state not in (
+                    "supported",
+                    "partial",
+                    "unknown",
+                    "out_of_scope",
+                ):
                     issues.append(
                         ConsistencyIssue(
                             field=f"trust_map.dimensions[{i}].state",
@@ -260,7 +278,12 @@ def _check_bundle_consistency(bundle: dict[str, Any]) -> list[ConsistencyIssue]:
 
         sentence_count = inp.get("sentence_count")
         inp.get("paragraph_count")
-        if word_count is not None and sentence_count is not None and word_count > 0 and sentence_count == 0:
+        if (
+            word_count is not None
+            and sentence_count is not None
+            and word_count > 0
+            and sentence_count == 0
+        ):
             issues.append(
                 ConsistencyIssue(
                     field="input.sentence_count",
@@ -348,5 +371,7 @@ def bundle_hash(bundle: dict[str, Any]) -> str:
         "input": bundle.get("input", {}),
     }
     return hashlib.sha256(
-        json.dumps(canonical, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        json.dumps(canonical, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+            "utf-8"
+        )
     ).hexdigest()

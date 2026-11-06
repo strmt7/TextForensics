@@ -114,9 +114,7 @@ class CapabilityPolicyEngine:
                 min_tier = min_tier_str.lower()
 
                 if tier_order.get(claim_tier, -1) < tier_order.get(min_tier, -1):
-                    gaps.append(
-                        f"{capability}: claim tier={claim_tier}, required={min_tier}+"
-                    )
+                    gaps.append(f"{capability}: claim tier={claim_tier}, required={min_tier}+")
 
             passed = len(missing) == 0 and len(gaps) == 0
             action = "PASS" if passed else policy.action_on_failure.upper()

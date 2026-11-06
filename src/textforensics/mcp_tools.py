@@ -577,7 +577,9 @@ def capability_policy_evaluate(params: dict[str, Any]) -> dict[str, Any]:
         ledger_data = params["ledger"]
         detector_id = params["detector_id"]
     except (KeyError, TypeError):
-        return _error_response("Missing required keys: ledger and detector_id", constants.EXIT_ERROR)
+        return _error_response(
+            "Missing required keys: ledger and detector_id", constants.EXIT_ERROR
+        )
 
     if not isinstance(ledger_data, dict):
         return _error_response("ledger must be a dict", constants.EXIT_ERROR)
@@ -607,13 +609,15 @@ def capability_policy_evaluate(params: dict[str, Any]) -> dict[str, Any]:
         if custom_rules:
             engine = CapabilityPolicyEngine()
             for rule in custom_rules:
-                engine.add_policy(CapabilityPolicy(
-                    rule_id=rule.get("rule_id", f"custom-{len(engine.policies)}"),
-                    description=rule.get("description", ""),
-                    required_capabilities=rule.get("required_capabilities", []),
-                    detector_pattern=rule.get("detector_pattern", "*"),
-                    action_on_failure=rule.get("action_on_failure", "reject"),
-                ))
+                engine.add_policy(
+                    CapabilityPolicy(
+                        rule_id=rule.get("rule_id", f"custom-{len(engine.policies)}"),
+                        description=rule.get("description", ""),
+                        required_capabilities=rule.get("required_capabilities", []),
+                        detector_pattern=rule.get("detector_pattern", "*"),
+                        action_on_failure=rule.get("action_on_failure", "reject"),
+                    )
+                )
         else:
             policy_name = params.get("policy", "production")
             if policy_name not in policy_bundles:
