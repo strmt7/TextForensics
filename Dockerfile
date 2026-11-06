@@ -29,10 +29,19 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
     TEXTFORENSICS_HOST=0.0.0.0 \
-    TEXTFORENSICS_PORT=8000 \
+    TEXTFORENSICS_PORT=8765 \
     TEXTFORENSICS_ALLOW_REMOTE=1 \
     TEXTFORENSICS_ACCESS_LOG=0 \
     HOME=/tmp
+
+# NOTE on the bind above: 0.0.0.0 + ALLOW_REMOTE=1 is the
+# container-internal bind only. Docker port publishing forwards to the
+# container's own IP, so a loopback bind inside the container would
+# make the documented `docker run -p 127.0.0.1:8765:8765` command
+# refuse connections. Remote exposure is controlled on the HOST side:
+# always publish loopback-only (127.0.0.1:8765:8765, as in compose.yaml
+# and docs/INSTALLATION.md) and never `-p 8765:8765`. The API has no
+# authentication and must never be published on a network interface.
 
 # Install runtime deps from pre-built wheels
 COPY --from=builder /wheels /wheels
@@ -46,10 +55,10 @@ RUN groupadd -r textforensics && useradd -r -g textforensics -d /app -s /sbin/no
 
 USER textforensics:textforensics
 
-EXPOSE 8000
+EXPOSE 8765
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:'+os.getenv('TEXTFORENSICS_PORT','8000')+'/healthz',timeout=2).read()" || exit 1
+  CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:'+os.getenv('TEXTFORENSICS_PORT','8765')+'/healthz',timeout=2).read()" || exit 1
 
 ENTRYPOINT ["textforensics"]
 CMD ["serve"]

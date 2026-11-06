@@ -71,6 +71,14 @@ The image:
 - disables access logging by default;
 - uses environment variables rather than cloud-specific configuration.
 
+> **Warning — do not publish the container port on a network interface.**
+> The API has no authentication. The image binds `0.0.0.0` *inside* its
+> own network namespace (required: Docker forwards published ports to
+> the container IP, so a loopback bind inside the container would refuse
+> connections). Exposure is controlled on the host side: always publish
+> loopback-only (`-p 127.0.0.1:8765:8765` as above) and never `-p
+> 8765:8765`. The bare-server defaults (loopback, port 8765) are unchanged.
+
 ## Podman
 
 The same OCI image is intentionally compatible with rootless Podman:
