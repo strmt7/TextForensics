@@ -10,6 +10,7 @@ from ._build_info import (
     BUILD_INFO,
     get_build_info,
     get_build_info_json,
+    get_version,
     initialize_build_info,
     verify_build_identity,
 )
@@ -51,7 +52,6 @@ from .casefile import (
     verify_case_file_path,
     write_case_file,
 )
-from .compare import compare_texts
 from .conditions import (
     CONDITIONS_SCHEMA,
     InputConditions,
@@ -85,7 +85,7 @@ from .detectors import (
     normalize_prediction,
     validate_prediction,
 )
-from .engine import analyze_text
+from .engine import analyze_text, compare_texts
 from .evidence import (
     EVIDENCE_SCHEMA,
     REGISTRY_SCHEMA,
@@ -155,7 +155,6 @@ from .verify import verify_case_file as verify_case_file_legacy
 # name predates the combined entry point; the replay is not deprecated
 # — it is one half of the combined verification.
 from .verify import verify_case_file as verify_case_file_nversion
-from .version import get_version
 
 __all__ = [
     "BUILD_INFO",

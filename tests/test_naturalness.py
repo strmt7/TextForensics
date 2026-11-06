@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from textforensics.naturalness import audit_naturalness
+from textforensics.features import audit_naturalness
 
 FORMULAIC = (
     "Furthermore, it is important to note that the modern technology landscape "

@@ -494,7 +494,7 @@ its only unique commands (`capability policy`, `bundle check`) and its
 `--text` input flag were ported into `cli.py`, and the `--typer` delegation
 flag and `TEXTFORENSICS_CLI` environment switch were removed.
 
-### 5.3 API / HTTP Server (`src/textforensics/server.py`, `api.py`)
+### 5.3 API / HTTP Server (`src/textforensics/api.py`)
 
 FastAPI-based HTTP server:
 - `POST /analyze` — analyze text, returns forensic bundle

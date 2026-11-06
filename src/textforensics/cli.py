@@ -8,6 +8,7 @@ from typing import Any
 
 from ._build_info import (
     get_build_info,
+    get_version,
     verify_build_identity,
 )
 from .benchmark import (
@@ -21,7 +22,6 @@ from .benchmark import (
 from .bundle import list_bundle, pack_bundle, read_bundle, verify_bundle
 from .bundle_consistency import check_bundle_consistency
 from .casefile import write_case_file
-from .compare import compare_texts
 from .config import Settings, read_text_file, validate_text_input
 from .constants import (
     EXIT_DOWNGRADED,
@@ -34,7 +34,8 @@ from .emergency_stop import (
     EmergencyStopSentinel,
     check_emergency_stop,
 )
-from .engine import analyze_text
+from .engine import analyze_text, compare_texts
+from .features import audit_naturalness
 from .ledger import (
     AuditAnchor,
     CalibrationChain,
@@ -50,7 +51,6 @@ from .localize import (
     segment_to_dict,
     visual_diff,
 )
-from .naturalness import audit_naturalness
 from .observatory import DriftObservatory
 from .policy import (
     CapabilityClaim,
@@ -65,7 +65,6 @@ from .policy import (
 )
 from .report import build_forensic_bundle
 from .verify import verify_all, verify_case_file_path_combined
-from .version import get_version
 
 
 # Lazy imports for enterprise features (dependency optional)
@@ -1130,7 +1129,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         )
 
     elif args.command == "serve":
-        from .server import serve_api
+        from .api import serve_api
 
         active = _settings_with_overrides(
             settings,

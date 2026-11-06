@@ -241,7 +241,6 @@ def main():
         "textforensics.engine",
         "textforensics.policy",
         "textforensics.casefile",
-        "textforensics.robustness",
     ]
 
     # Safety-critical modules (subset for deep mutation)

@@ -241,7 +241,6 @@ class CosmicRayIntegrationTests(unittest.TestCase):
             "textforensics.engine",
             "textforensics.policy",
             "textforensics.casefile",
-            "textforensics.robustness",
         ]
 
         for module in target_modules:

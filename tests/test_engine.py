@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import unittest
 
-from textforensics.compare import ComparisonResult, compare_texts
-from textforensics.engine import AnalysisResult, _disagreement, _verdict, _weighted_score
+from textforensics.engine import (
+    AnalysisResult,
+    ComparisonResult,
+    _disagreement,
+    _verdict,
+    _weighted_score,
+    compare_texts,
+)
+from textforensics.features import benign_variants
 from textforensics.models import AnalyzerResult
-from textforensics.robustness import benign_variants
 
 
 def _sample(score: float) -> AnalyzerResult:

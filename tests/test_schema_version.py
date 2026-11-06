@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
+from textforensics._build_info import get_version
 from textforensics.schema import load_schema
-from textforensics.version import get_version
 
 
 class SchemaLoaderTests(unittest.TestCase):

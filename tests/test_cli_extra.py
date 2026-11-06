@@ -556,8 +556,8 @@ class TestServeCommand(unittest.TestCase):
         # First, make sure the server module is imported
 
         # Patch serve_api at the function level in the cli module's namespace
-        # The local import `from .server import serve_api` will pick this up
-        with mock.patch("textforensics.server.serve_api") as mock_serve_api:
+        # The local import `from .api import serve_api` will pick this up
+        with mock.patch("textforensics.api.serve_api") as mock_serve_api:
             mock_serve_api.return_value = None  # Simulate quick return
 
             code, out, err = self._run_main(["serve", "--port", "9999", "--allow-remote"])

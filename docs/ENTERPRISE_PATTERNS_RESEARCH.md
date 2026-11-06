@@ -266,7 +266,7 @@ This eliminates the drift risk between model definitions and JSON schema files â
 
 ### What TextForensics Gets
 
-TextForensics already uses FastAPI in `api.py` and `server.py`. The current implementation is functional but has several enterprise patterns it can adopt.
+TextForensics already uses FastAPI in `api.py`. The current implementation is functional but has several enterprise patterns it can adopt.
 
 ### Key Patterns
 
@@ -705,7 +705,7 @@ This is critical for TextForensics, which is both a library and a CLI tool. AGEN
 1. Add `loguru` to the `[dev]` optional dependency group (or `[all]`).
 2. Create `src/textforensics/logging_config.py` with the disable-by-default pattern.
 3. Replace `print()` calls in `engine.py`, `detectors.py`, `benchmark.py`, and `observatory.py` with `logger.debug/info/warning`.
-4. In `server.py`, re-enable logging and add the rotating file handler.
+4. In `api.py` (serve_api), re-enable logging and add the rotating file handler.
 5. Add `@logger.catch` to CLI `main()` as the outermost exception handler.
 
 ### Why This Matters

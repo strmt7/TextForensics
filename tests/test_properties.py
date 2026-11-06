@@ -1198,7 +1198,7 @@ class TestPropertyInvariants:
         normalization, markdown stripping) should preserve the analysis
         result and maintain verdict stability.
         """
-        from textforensics.robustness import benign_variants
+        from textforensics.features import benign_variants
 
         # Get baseline result
         baseline = analyze_text(text, include_robustness=False)

@@ -3,11 +3,11 @@ from __future__ import annotations
 from contextlib import suppress
 from typing import Any
 
+from ._build_info import get_version
 from .casefile import seal_case_file
-from .config import Settings, validate_text_input
+from .config import Settings, ensure_bind_allowed, validate_text_input
 from .detectors import list_detector_health, list_detector_metadata
 from .emergency_stop import assert_not_stopped, check_emergency_stop
-from .version import get_version
 
 try:
     from fastapi import FastAPI, HTTPException, Request
@@ -27,9 +27,8 @@ class CompareRequest(BaseModel):
 
 
 def create_app(settings: Settings | None = None):
-    from .compare import compare_texts
-    from .engine import analyze_text
-    from .naturalness import audit_naturalness
+    from .engine import analyze_text, compare_texts
+    from .features import audit_naturalness
     from .report import build_forensic_bundle
 
     active_settings = settings or Settings.from_env()
@@ -167,3 +166,34 @@ app = None
 # Lets `uvicorn textforensics.api:app` work when extras are installed.
 with suppress(RuntimeError, ValueError):
     app = create_app()
+
+
+# ---------------------------------------------------------------------------
+# API server entry point (merged from server.py, Phase 2 wave e)
+# ---------------------------------------------------------------------------
+
+
+def serve_api(settings: Settings | None = None) -> None:
+    settings = settings or Settings.from_env()
+    ensure_bind_allowed(settings.host, allow_remote=settings.allow_remote)
+
+    try:
+        import uvicorn
+    except ImportError as exc:  # pragma: no cover - optional dependency
+        raise RuntimeError("Install API support with: pip install 'textforensics[api]'") from exc
+
+    uvicorn.run(
+        create_app(settings),
+        host=settings.host,
+        port=settings.port,
+        access_log=settings.access_log,
+        log_level=settings.log_level.lower(),
+    )
+
+
+def main() -> None:  # pragma: no cover - integration entry point
+    serve_api()
+
+
+if __name__ == "__main__":
+    main()

@@ -30,6 +30,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from ._build_info import get_version
 from .conditions import conditions_from_dict
 from .detectors import (
     Detector,
@@ -39,7 +40,6 @@ from .detectors import (
 )
 from .evidence import EvidenceRegistry
 from .trust import assess_trust_map
-from .version import get_version
 
 CASE_SCHEMA = "textforensics.case-file/v2"
 LEGACY_CASE_SCHEMA = "textforensics.case-file/v1"

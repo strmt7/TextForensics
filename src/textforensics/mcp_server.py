@@ -16,14 +16,13 @@ def _server():
     except ImportError as exc:  # pragma: no cover - optional dependency
         raise SystemExit("Install MCP support with: pip install 'textforensics[mcp]'") from exc
 
-    from .compare import compare_texts
-    from .engine import analyze_text
+    from .engine import analyze_text, compare_texts
+    from .features import audit_naturalness
     from .localize import localize_text
-    from .naturalness import audit_naturalness
     from .report import build_forensic_bundle
 
     settings = Settings.from_env()
-    from .version import get_version
+    from ._build_info import get_version
 
     mcp = MCPServer("TextForensics", version=get_version())
 

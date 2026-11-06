@@ -33,9 +33,8 @@ from .detectors import (
     text_sha256,
 )
 from .evidence import EvidenceRegistry, load_registry
-from .features import extract_features
+from .features import benign_variants, extract_features
 from .ledger import verify_ledger
-from .robustness import benign_variants
 from .trust import TrustMap, assess_trust_map
 
 BUNDLE_SCHEMA = "textforensics.forensic-bundle/v2"

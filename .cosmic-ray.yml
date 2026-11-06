@@ -14,15 +14,12 @@ mutation:
     - "textforensics.engine"         # core analysis pipeline
     - "textforensics.policy"  # capability claims, evidence tiers
     - "textforensics.casefile"       # case file construction, provenance
-    - "textforensics.robustness"     # benign transformation stability
 
   # Modules explicitly excluded from mutation (baseline - CLI, entry points)
   excluded_modules:
     - "textforensics.cli"
-    - "textforensics.server"
     - "textforensics.mcp_server"
     - "textforensics.web_ui.main"
-    - "textforensics.version"
     - "textforensics._build_info"
     - "textforensics.config"
     - "textforensics.constants"
@@ -34,7 +31,6 @@ mutation:
     - "textforensics.bundle"
     - "textforensics.observatory"
     - "textforensics.localize"
-    - "textforensics.naturalness"
     - "textforensics.features"
     - "textforensics.mcp_tools"
     - "textforensics.models"

@@ -16,6 +16,7 @@ import hashlib
 import json
 import subprocess
 import sys
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
@@ -397,6 +398,20 @@ def verify_build_identity(expected_commit: str | None = None) -> dict[str, Any]:
         )
 
     return result
+
+
+def get_version() -> str:
+    """Return the installed package version without duplicating it in source code.
+
+    Single source of version truth for the package (merged from
+    version.py, Phase 2 wave e). Distinct from _get_api_version()
+    above: no pyproject.toml fallback, and "0+unknown" (not "unknown")
+    when the package metadata is missing.
+    """
+    try:
+        return version("textforensics")
+    except PackageNotFoundError:
+        return "0+unknown"
 
 
 # Initialize build info at module load time

@@ -131,3 +131,88 @@ def extract_features(text: str) -> dict[str, Any]:
         "semicolon_rate": (clean.count(";") / max(1, len(sentences))),
         "parenthetical_rate": ((clean.count("(") + clean.count(")")) / 2 / max(1, len(sentences))),
     }
+
+
+# ---------------------------------------------------------------------------
+# Benign formatting variants (merged from robustness.py, Phase 2 wave e)
+# ---------------------------------------------------------------------------
+
+
+def benign_variants(text: str) -> dict[str, str]:
+    """Create meaning-preserving formatting variants for verdict stability checks."""
+    whitespace = re.sub(r"[ \t]+", " ", text)
+    whitespace = re.sub(r"\n{3,}", "\n\n", whitespace)
+    ascii_punct = (
+        text.replace("“", '"')
+        .replace("”", '"')
+        .replace("‘", "'")
+        .replace("’", "'")
+        .replace("—", "-")
+        .replace("–", "-")
+    )
+    no_markdown = re.sub(r"(?m)^\s*[-*+]\s+", "", text)
+    return {
+        "original": text,
+        "normalized_whitespace": whitespace,
+        "normalized_punctuation": ascii_punct,
+        "plain_list_formatting": no_markdown,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Naturalness audit (merged from naturalness.py, Phase 2 wave e)
+# ---------------------------------------------------------------------------
+# Transparent editing observations built on extract_features() above.
+# This is a writing-review aid, not a detector: it never rewrites text
+# and must not promise "undetectability" or optimize for detector evasion
+# (AGENTS.md rule 23).
+
+
+def audit_naturalness(text: str) -> list[dict[str, str]]:
+    """Return transparent editing observations; does not rewrite or optimize for detector evasion."""
+    f = extract_features(text)
+    issues: list[dict[str, str]] = []
+
+    if f["sentence_count"] >= 5 and f["sentence_length_cv"] < 0.28:
+        issues.append(
+            {
+                "issue": "uniform_sentence_rhythm",
+                "suggestion": "Vary sentence length where it improves readability; combine or split sentences based on meaning.",
+            }
+        )
+    if f["transition_density"] > 1.2:
+        issues.append(
+            {
+                "issue": "heavy_explicit_transitions",
+                "suggestion": "Remove transitions that merely announce the relationship between adjacent sentences when the relationship is already obvious.",
+            }
+        )
+    if f["cliche_density"] > 0.3:
+        issues.append(
+            {
+                "issue": "stock_phrasing",
+                "suggestion": "Replace generic stock phrases with concrete claims, examples, names, measurements, or direct wording.",
+            }
+        )
+    if f["repeated_sentence_start_ratio"] > 0.12:
+        issues.append(
+            {
+                "issue": "repeated_sentence_openings",
+                "suggestion": "Check repeated sentence openings and keep them only when repetition is intentional.",
+            }
+        )
+    if f["paragraph_count"] <= 1 and f["word_count"] > 250:
+        issues.append(
+            {
+                "issue": "dense_paragraphing",
+                "suggestion": "Consider paragraph breaks at genuine topic or argument shifts.",
+            }
+        )
+    if not issues:
+        issues.append(
+            {
+                "issue": "no_obvious_formulaic_pattern",
+                "suggestion": "No strong rule-based naturalness issue was found. Preserve the author's voice rather than changing text just to change it.",
+            }
+        )
+    return issues

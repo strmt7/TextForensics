@@ -345,7 +345,7 @@ def main(argv: list[str] | None = None) -> int:
     results["benchmark_script_version"] = "1.0.0"
 
     try:
-        from textforensics.version import get_version
+        from textforensics._build_info import get_version
 
         results["textforensics_version"] = get_version()
     except Exception:  # pragma: no cover - informational only

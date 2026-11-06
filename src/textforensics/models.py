@@ -1,3 +1,14 @@
+"""Shared result types for the built-in engine (not ML models).
+
+``Evidence`` / ``AnalyzerResult`` / ``AnalysisResult`` are the dataclasses
+the builtin analyzers and ``engine.analyze_text`` return. The module name
+is historical and deliberately kept: folding these types into
+``engine.py`` would create an import cycle (``engine`` imports
+``analyzers``, which needs these types), and ``features.py`` /
+``analyzers.py`` would be the wrong semantic home for the engine's
+aggregate result.
+"""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field

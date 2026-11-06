@@ -47,7 +47,7 @@ class ServerModuleTests(unittest.TestCase):
 
     def test_serve_api_with_uvicorn(self):
         """Test that serve_api imports and uses uvicorn."""
-        from textforensics.server import serve_api
+        from textforensics.api import serve_api
 
         # Since uvicorn imports raise ImportError when not installed,
         # we need to mock it or test the path that raises the error
@@ -82,7 +82,7 @@ class ServerModuleTests(unittest.TestCase):
     @unittest.skipUnless(UVICORN_AVAILABLE, "uvicorn not installed")
     def test_serve_api_uses_settings(self):
         """Test that serve_api accepts settings parameter."""
-        from textforensics.server import serve_api
+        from textforensics.api import serve_api
 
         settings = Settings(
             host="127.0.0.1",
@@ -110,7 +110,7 @@ class EnsureBindAllowedTests(unittest.TestCase):
     @unittest.skipUnless(UVICORN_AVAILABLE, "uvicorn not installed")
     def test_serve_api_refuses_remote_without_opt_in(self):
         """Test that serve_api raises when binding to non-loopback without allow_remote."""
-        from textforensics.server import serve_api
+        from textforensics.api import serve_api
 
         settings = Settings(
             host="0.0.0.0",  # Not loopback

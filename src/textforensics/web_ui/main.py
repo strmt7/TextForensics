@@ -20,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+from .._build_info import get_version
 from ..config import (
     Settings,
     ensure_bind_allowed,
@@ -29,7 +30,6 @@ from ..config import (
 )
 from ..detectors import list_detector_health, list_detector_metadata
 from ..report import build_forensic_bundle
-from ..version import get_version
 
 
 def _escape(value: object) -> str:

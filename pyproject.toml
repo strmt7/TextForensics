@@ -106,7 +106,7 @@ security = [
 
 [project.scripts]
 textforensics = "textforensics.cli:main"
-textforensics-api = "textforensics.server:main"
+textforensics-api = "textforensics.api:main"
 textforensics-mcp = "textforensics.mcp_server:main"
 textforensics-web = "textforensics.web_ui.main:main"
 
