@@ -78,7 +78,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - name: Install development dependencies
-        run: python -m pip install -e ".[dev,api,mcp]"
+        run: python -m pip install -e ".[dev,api,mcp,security]"
       - name: Run claims gate
         run: python scripts/check_claims.py
       - name: Report card is up to date
