@@ -127,6 +127,7 @@ def make_record_dict(*, status: str = "supported", record_id: str | None = None)
                         "builtin-heuristic native verdict (analyze_text); no score threshold"
                     ),
                 ),
+                "tpr_native": dict(metric, value=0.1, n=120, ci_lower=0.05, ci_upper=0.2),
                 "coverage": 1.0,
                 "abstention_rate": 0.0,
                 "worst_slice": True,
@@ -162,6 +163,35 @@ class ValidRecordTests(unittest.TestCase):
         record = ValidationRecord.from_dict(original)
         self.assertEqual(record.to_dict(), original)
         self.assertEqual(record.validation_notes, ())
+
+    def test_tpr_native_round_trip(self):
+        record = ValidationRecord.from_dict(make_record_dict())
+        tpr_native = record.metrics[0].tpr_native
+        self.assertIsNotNone(tpr_native)
+        assert tpr_native is not None
+        self.assertEqual(tpr_native.value, 0.1)
+        self.assertEqual(tpr_native.n, 120)
+        self.assertEqual((tpr_native.ci_lower, tpr_native.ci_upper), (0.05, 0.2))
+        self.assertEqual(record.to_dict()["metrics"][0]["tpr_native"]["value"], 0.1)
+
+    def test_record_without_tpr_native_still_valid(self):
+        payload = make_record_dict()
+        del payload["metrics"][0]["tpr_native"]
+        resign(payload)
+        self.assertEqual(validate_record(payload), [])
+        record = ValidationRecord.from_dict(payload)
+        self.assertIsNone(record.metrics[0].tpr_native)
+        self.assertNotIn("tpr_native", record.to_dict()["metrics"][0])
+
+    def test_tpr_native_n_cannot_exceed_n_ai(self):
+        payload = make_record_dict()
+        payload["metrics"][0]["tpr_native"]["n"] = 121
+        resign(payload)
+        issues = validate_record(payload)
+        self.assertTrue(
+            any("tpr_native n cannot exceed n_ai" in issue for issue in issues),
+            issues,
+        )
 
     def test_effective_status_supported_when_fresh(self):
         record = make_record_dict()

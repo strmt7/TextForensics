@@ -135,6 +135,28 @@ class TestRecordBuilder:
         assert measurements["n_human"] == 40
         assert measurements["n_ai"] == 40
 
+    def test_built_record_carries_paired_native_tpr(self, seed):
+        record, measurements = seed.record_from_triples(
+            "raid",
+            _synthetic_triples(),
+            word_counts=[100] * 80,
+            domains=["synthetic-domain"],
+            generators=["synthetic-generator"],
+            artifact=_synthetic_artifact(),
+            cache_file_sha256="c" * 64,
+        )
+        tpr_native = record.metrics[0].tpr_native
+        assert tpr_native is not None
+        assert tpr_native.value == pytest.approx(measurements["tpr_native"].value)
+        assert tpr_native.ci_lower <= tpr_native.value <= tpr_native.ci_upper
+        assert tpr_native.n <= record.metrics[0].n_ai
+        payload = record.to_dict()
+        assert payload["metrics"][0]["tpr_native"]["value"] == pytest.approx(
+            measurements["tpr_native"].value
+        )
+        assert validate_evidence_record(payload) == []
+        assert validate_record(payload) == []
+
     def test_measure_triples_ci_contains_point_estimates(self, seed):
         measurements = seed.measure_triples(_synthetic_triples())
         for name in ("auroc", "tpr_at_fpr_0_01", "tpr_at_fpr_0_05", "fpr_native", "tpr_native"):

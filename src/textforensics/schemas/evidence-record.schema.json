@@ -269,6 +269,10 @@
           "tpr_at_fpr_0_05": {
             "$ref": "#/$defs/metric_estimate"
           },
+          "tpr_native": {
+            "$ref": "#/$defs/metric_estimate",
+            "description": "Empirical true-positive rate at the detector's native categorical operating point — the pair of fpr_native; both are needed to read the operating point. Optional in v1 (records predating it omit the key)."
+          },
           "worst_slice": {
             "type": "boolean"
           }

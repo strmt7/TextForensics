@@ -597,7 +597,9 @@ class SliceMetrics:
     inside the CI). ``fpr_native`` is the empirical human false-positive rate
     at the detector's native categorical operating point; its operating
     point is recorded in ``fpr_operating_point`` because MetricEstimate
-    carries no operating-point field.
+    carries no operating-point field. ``tpr_native`` is the paired
+    true-positive rate at the same operating point (optional in v1;
+    records predating it omit the key).
     """
 
     slice_id: str
@@ -611,6 +613,7 @@ class SliceMetrics:
     abstention_rate: float
     worst_slice: bool
     fpr_operating_point: str | None = None
+    tpr_native: MetricEstimate | None = None
 
     def __post_init__(self) -> None:
         _require_nonempty_string(self.slice_id, "slice_id")
@@ -632,6 +635,11 @@ class SliceMetrics:
             raise ValidationError("metrics tpr sample count cannot exceed n_ai.")
         if self.fpr_native.n > self.n_human:
             raise ValidationError("metrics fpr_native sample count cannot exceed n_human.")
+        if self.tpr_native is not None:
+            if not isinstance(self.tpr_native, MetricEstimate):
+                raise ValidationError("metrics.tpr_native must be a MetricEstimate.")
+            if self.tpr_native.n > self.n_ai:
+                raise ValidationError("metrics tpr_native sample count cannot exceed n_ai.")
         _require_number(self.coverage, "metrics.coverage")
         if not 0.0 <= self.coverage <= 1.0:
             raise ValidationError("metrics.coverage must be between 0 and 1.")
@@ -646,7 +654,7 @@ class SliceMetrics:
     def to_dict(self) -> dict[str, Any]:
         fpr_native = self.fpr_native.to_dict()
         fpr_native["operating_point"] = self.fpr_operating_point
-        return {
+        payload: dict[str, Any] = {
             "slice_id": self.slice_id,
             "n_human": self.n_human,
             "n_ai": self.n_ai,
@@ -658,6 +666,9 @@ class SliceMetrics:
             "abstention_rate": self.abstention_rate,
             "worst_slice": self.worst_slice,
         }
+        if self.tpr_native is not None:
+            payload["tpr_native"] = self.tpr_native.to_dict()
+        return payload
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> SliceMetrics:
@@ -679,6 +690,11 @@ class SliceMetrics:
                 payload["tpr_at_fpr_0_05"], "metrics.tpr_at_fpr_0_05"
             ),
             fpr_native=_metric_from_dict(fpr_native, "metrics.fpr_native"),
+            tpr_native=(
+                _metric_from_dict(payload["tpr_native"], "metrics.tpr_native")
+                if payload.get("tpr_native") is not None
+                else None
+            ),
             coverage=payload["coverage"],
             abstention_rate=payload["abstention_rate"],
             worst_slice=payload["worst_slice"],
@@ -926,6 +942,7 @@ _SLICE_KEYS = frozenset(
         "tpr_at_fpr_0_01",
         "tpr_at_fpr_0_05",
         "fpr_native",
+        "tpr_native",
         "coverage",
         "abstention_rate",
         "worst_slice",
@@ -1416,6 +1433,11 @@ def _structure_issues(payload: Any) -> list[str]:
             tpr_1 = _check_metric(item, "tpr_at_fpr_0_01", f"{path}.tpr_at_fpr_0_01", issues)
             tpr_5 = _check_metric(item, "tpr_at_fpr_0_05", f"{path}.tpr_at_fpr_0_05", issues)
             fpr = _check_metric(item, "fpr_native", f"{path}.fpr_native", issues)
+            tpr_native = (
+                _check_metric(item, "tpr_native", f"{path}.tpr_native", issues)
+                if item.get("tpr_native") is not None
+                else None
+            )
             if (
                 isinstance(n_human, int)
                 and not isinstance(n_human, bool)
@@ -1430,6 +1452,8 @@ def _structure_issues(payload: Any) -> list[str]:
                     issues.append(f"{path}.tpr_at_fpr_0_05 n cannot exceed n_ai.")
                 if fpr is not None and fpr.n > n_human:
                     issues.append(f"{path}.fpr_native n cannot exceed n_human.")
+                if tpr_native is not None and tpr_native.n > n_ai:
+                    issues.append(f"{path}.tpr_native n cannot exceed n_ai.")
             _check_number_in_range(item, "coverage", f"{path}.coverage", issues)
             _check_number_in_range(item, "abstention_rate", f"{path}.abstention_rate", issues)
             if "worst_slice" not in item:

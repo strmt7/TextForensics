@@ -22,9 +22,10 @@ a sample's ``meta`` does not carry per-row domain/generator info,
 the record states the dataset-documented scope with its source and
 flags the limitation — per-row attribution is never invented.
 
-Native TPR has no slot in the ``evidence-record/v1`` schema, so it
-is reported in this script's output and in ``docs/validation/
-README.md``, not in the records themselves.
+Native TPR is the pair of native FPR at the same operating point and
+is carried in the records as the optional ``tpr_native`` metric
+(evidence-record/v1); it is also reported in this script's output
+and in ``docs/validation/README.md``.
 
 MixSet has NO record: its licence is unresolved, and the record
 schema forbids a record without a licence (see the README).
@@ -616,6 +617,7 @@ def record_from_triples(
                 tpr_at_fpr_0_01=measurements["tpr_at_fpr_0_01"],
                 tpr_at_fpr_0_05=measurements["tpr_at_fpr_0_05"],
                 fpr_native=measurements["fpr_native"],
+                tpr_native=measurements["tpr_native"],
                 coverage=measurements["coverage"],
                 abstention_rate=measurements["abstention_rate"],
                 worst_slice=True,
@@ -742,8 +744,8 @@ def _print_summary(records, measurements: dict[str, dict]) -> None:
             f"next revalidation {record.limits.next_revalidation_due}"
         )
     print(
-        "Native TPR is not a field of evidence-record/v1; it is reported "
-        "here and in docs/validation/README.md, not in the records."
+        "Native TPR is carried in the records as the optional tpr_native "
+        "metric (evidence-record/v1), paired with fpr_native."
     )
 
 

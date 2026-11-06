@@ -1,7 +1,7 @@
 {
   "schema": "textforensics.validation-registry/v1",
-  "registry_id": "83822e9fcdc6c33f493777299f47a0706dddb5bfbc9f3a619fd37279a0febe19",
-  "created_at_utc": "2026-11-06T23:06:06.617715+00:00",
+  "registry_id": "85822eabb90096ba692fbc17cf9bc6287f4e97f4a0816d42444898ef3e898c73",
+  "created_at_utc": "2026-11-06T23:24:11.755599+00:00",
   "records": [
     {
       "schema": "textforensics.evidence-record/v1",
@@ -149,7 +149,14 @@
           },
           "coverage": 0.4589,
           "abstention_rate": 0.5411,
-          "worst_slice": true
+          "worst_slice": true,
+          "tpr_native": {
+            "value": 0.0,
+            "n": 700,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "bootstrap, 1000 resamples, seed 20261106"
+          }
         }
       ],
       "limits": {
@@ -177,7 +184,7 @@
         "review_date": null,
         "demoted_by": null
       },
-      "signature": "7d33a9ab8b163d3525102b9729cfb5af0731703ca3c5785938d4a55f7dee3edc"
+      "signature": "40320b642d3c9e80c9c0574c5ad46043b2ec86cd86f1efc80a84bc2f7b0c9cf3"
     },
     {
       "schema": "textforensics.evidence-record/v1",
@@ -340,7 +347,14 @@
           },
           "coverage": 0.4575,
           "abstention_rate": 0.5425,
-          "worst_slice": true
+          "worst_slice": true,
+          "tpr_native": {
+            "value": 0.0071,
+            "n": 283,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0177,
+            "method": "bootstrap, 1000 resamples, seed 20261106"
+          }
         }
       ],
       "limits": {
@@ -366,7 +380,7 @@
         "review_date": null,
         "demoted_by": null
       },
-      "signature": "c4d12b2c1d9510ad06859495dff69aefeb08f0f734f7098faf01f2d1a81312b7"
+      "signature": "1fed859c8fad58c4021414ae7fff47572d4f979bf7a383de968a4f9f2687340d"
     },
     {
       "schema": "textforensics.evidence-record/v1",
@@ -503,7 +517,14 @@
           },
           "coverage": 0.5045,
           "abstention_rate": 0.4955,
-          "worst_slice": true
+          "worst_slice": true,
+          "tpr_native": {
+            "value": 0.0,
+            "n": 55,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "bootstrap, 1000 resamples, seed 20261106"
+          }
         }
       ],
       "limits": {
@@ -530,7 +551,7 @@
         "review_date": null,
         "demoted_by": null
       },
-      "signature": "76d530edb8643ee38200ae0d889702bb9add3da99a02604a51ef63e793fc71fb"
+      "signature": "95548ed29f6c0fedb669427459e411dfbd8300a93ea64d93a0c0cc428b8719ea"
     },
     {
       "schema": "textforensics.evidence-record/v1",
@@ -671,7 +692,14 @@
           },
           "coverage": 0.5033,
           "abstention_rate": 0.4967,
-          "worst_slice": true
+          "worst_slice": true,
+          "tpr_native": {
+            "value": 0.0189,
+            "n": 2908,
+            "ci_lower": 0.0141,
+            "ci_upper": 0.0241,
+            "method": "bootstrap, 1000 resamples, seed 20261106"
+          }
         }
       ],
       "limits": {
@@ -698,7 +726,7 @@
         "review_date": null,
         "demoted_by": null
       },
-      "signature": "eb6fd0f0690955986405c2afd8edc52af1df6665b4180f3b289e1d339f8361ee"
+      "signature": "a880969ef87900fc3996ec396cc1c3c5ca389378bb65337726b6910dadfe53ea"
     }
   ]
 }

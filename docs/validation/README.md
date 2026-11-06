@@ -62,9 +62,9 @@ reported as measured, not widened into a claim. (Highest human score
 in any seed sample: 0.625 on OpAI-Bench; highest machine scores:
 RAID 0.784, MAGE 0.724 — only those two slices ever cross 0.68.)
 
-Native TPR has no slot in the `evidence-record/v1` schema, so it is
-reported in the table above and in the seed script's output, not in
-the records themselves.
+Native TPR is carried in the records as the optional `tpr_native`
+metric (evidence-record/v1), paired with `fpr_native` at the same
+operating point; the table above also reports it.
 
 ### Why every seed is `partial`
 
