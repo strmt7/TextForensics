@@ -1596,8 +1596,44 @@ class CalibrationChain:
         return len(self._hashes)
 
     def append(self, artifact_hash: str) -> None:
-        """Append a new calibration artifact hash to the chain."""
+        """Append a new calibration artifact hash to the chain.
+
+        The entry must be a SHA-256 digest: a 64-character hexadecimal
+        string, the exact format ``verify_integrity()`` checks. A
+        malformed or tampered entry is rejected loudly (``ValueError``)
+        instead of silently entering the chain, where it could later
+        make a rollback check pass or fail on garbage. The chain is
+        left unchanged by a rejected append.
+
+        Note: format validation cannot detect a well-formed but wrong
+        digest (a hash that does not belong to any real artifact).
+        That lineage check is ``verify_audit_anchor``'s job, which
+        re-hashes the artifact directories.
+        """
+        self._validate_hash(artifact_hash)
         self._hashes.append(artifact_hash)
+
+    @staticmethod
+    def _is_valid_hash(value: Any) -> bool:
+        """True if *value* is a 64-character hexadecimal SHA-256 digest."""
+        return (
+            isinstance(value, str)
+            and len(value) == 64
+            and all(c in "0123456789abcdefABCDEF" for c in value)
+        )
+
+    @classmethod
+    def _validate_hash(cls, artifact_hash: str) -> None:
+        """Validate one chain entry as a SHA-256 hex digest.
+
+        Raises:
+            ValueError: If the entry is not a 64-character hex string.
+        """
+        if not cls._is_valid_hash(artifact_hash):
+            raise ValueError(
+                "Calibration chain entry must be a 64-character hexadecimal "
+                f"SHA-256 digest, got {artifact_hash!r}"
+            )
 
     def to_dict(self) -> dict[str, Any]:
         return {"chain": list(self._hashes), "length": self.length}
@@ -1611,15 +1647,18 @@ class CalibrationChain:
     def verify_integrity(self) -> list[str]:
         """Verify that all chain hashes are valid SHA-256 hex strings.
 
-        Returns a list of errors (empty if valid).
+        Returns a list of errors (empty if valid). Uses the same
+        validity rule as :meth:`append` so the two can never disagree
+        about what counts as a well-formed entry.
         """
         errors: list[str] = []
         for i, h in enumerate(self._hashes):
-            if not h or len(h) != 64:
-                errors.append(f"Entry {i}: hash length {len(h)} != 64")
-            try:
-                int(h, 16)
-            except ValueError:
+            if not isinstance(h, str) or len(h) != 64:
+                errors.append(
+                    f"Entry {i}: hash length "
+                    f"{len(h) if isinstance(h, str) else 'not a string'} != 64"
+                )
+            if not self._is_valid_hash(h):
                 errors.append(f"Entry {i}: not valid hex")
         return errors
 

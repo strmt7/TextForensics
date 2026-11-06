@@ -253,17 +253,59 @@ class TestCalibrationChain:
         assert chain.verify_integrity() == []
 
     def test_verify_integrity_bad_length(self):
-        chain = CalibrationChain()
-        chain.append("short")
+        # Malformed entries can no longer be added via append() (it
+        # validates), so build the chain through the lenient load path
+        # that verify_integrity() exists to guard.
+        chain = CalibrationChain.from_dict({"chain": ["short"], "length": 1})
         errors = chain.verify_integrity()
         assert any("length" in e for e in errors)
 
     def test_verify_integrity_bad_hex(self):
-        chain = CalibrationChain()
-        chain.append("z" * 64)
+        chain = CalibrationChain.from_dict({"chain": ["z" * 64], "length": 1})
         errors = chain.verify_integrity()
         assert len(errors) == 1
         assert "hex" in errors[0]
+
+    def test_append_rejects_short_entry(self):
+        """Test that append fails loudly on a too-short hash."""
+        chain = CalibrationChain()
+        with pytest.raises(ValueError, match="64-character"):
+            chain.append("short")
+        assert chain.hashes == []
+
+    def test_append_rejects_non_hex_entry(self):
+        """Test that append fails loudly on a tampered non-hex hash."""
+        chain = CalibrationChain()
+        with pytest.raises(ValueError, match="hexadecimal"):
+            chain.append("z" * 64)
+        assert chain.hashes == []
+
+    def test_append_rejects_empty_and_non_string_entries(self):
+        """Test that append fails loudly on empty/non-string entries."""
+        chain = CalibrationChain()
+        with pytest.raises(ValueError, match="64-character"):
+            chain.append("")
+        with pytest.raises(ValueError, match="64-character"):
+            chain.append(123)  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="64-character"):
+            chain.append(None)  # type: ignore[arg-type]
+        assert chain.hashes == []
+
+    def test_append_rejected_entry_leaves_chain_unchanged(self):
+        """Test that a rejected append does not disturb valid entries."""
+        chain = CalibrationChain()
+        chain.append("a" * 64)
+        with pytest.raises(ValueError, match="64-character"):
+            chain.append("tampered")
+        assert chain.hashes == ["a" * 64]
+        assert chain.verify_integrity() == []
+
+    def test_append_accepts_uppercase_hex(self):
+        """Test that uppercase hex digests are valid entries."""
+        chain = CalibrationChain()
+        chain.append("A" * 64)
+        assert chain.hashes == ["A" * 64]
+        assert chain.verify_integrity() == []
 
     def test_extends_anchor_same_chain(self):
         chain = CalibrationChain()
