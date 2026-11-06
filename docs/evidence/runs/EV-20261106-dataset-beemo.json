@@ -1,0 +1,98 @@
+{
+  "badge": "available",
+  "code_version": "333a03f9347b3e42313269790f056d3bb843afa8",
+  "command": "python scripts/measure_datasets.py --only beemo",
+  "drops": [
+    {
+      "item": "full-corpus evaluation",
+      "reason": "preliminary sample only (n=900 normalised rows from 2187 split rows)"
+    },
+    {
+      "item": "Python 3.11, 3.13, 3.14, 3.15",
+      "reason": "measured on the local interpreter only; CI covers the matrix"
+    },
+    {
+      "item": "train/test threshold selection",
+      "reason": "no threshold was fitted on this sample; AUROC/TPR@FPR are threshold-free"
+    },
+    {
+      "item": "split disjointness check",
+      "reason": "Beemo ships a single train split; there is no second split to check against"
+    }
+  ],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261106-dataset-beemo",
+  "kind": "command",
+  "results": {
+    "auroc": 0.3976,
+    "cache_file_sha256": "3a59e55516e9be22dce16270d1edace92b9b20bfda7b8600ee89d8f380dec8d2",
+    "config": "default",
+    "dataset": "beemo",
+    "detector": "textforensics/builtin-heuristic",
+    "detector_abstentions": 487,
+    "detector_evaluated_rows": 900,
+    "detector_version": "0.1.0",
+    "disjointness": {
+      "checked": false,
+      "reason": "single-split dataset"
+    },
+    "hf_id": "toloka/beemo",
+    "label_counts": {
+      "0": 200,
+      "1": 700
+    },
+    "licence": "MIT (card) with field-level carve-outs: prompts + human_output from No Robots are CC-BY-NC-4.0; model_output and LLM-edited versions follow the underlying LLM licences",
+    "mean_score_by_kind": {
+      "gpt-4o_P1": 0.2664,
+      "gpt-4o_P2": 0.2472,
+      "gpt-4o_P3": 0.2494,
+      "human": 0.2987,
+      "human_edits": 0.2732,
+      "llama-3.1-70b_P1": 0.2558,
+      "llama-3.1-70b_P2": 0.202,
+      "llama-3.1-70b_P3": 0.2528,
+      "model_output": 0.2797
+    },
+    "preliminary": true,
+    "rows_by_kind": {
+      "gpt-4o_P1": 100,
+      "gpt-4o_P2": 100,
+      "gpt-4o_P3": 100,
+      "human": 100,
+      "human_edits": 100,
+      "llama-3.1-70b_P1": 100,
+      "llama-3.1-70b_P2": 100,
+      "llama-3.1-70b_P3": 100,
+      "model_output": 100
+    },
+    "rows_fetched": 100,
+    "rows_normalised": 900,
+    "sampling": "strided",
+    "score_by_label": {
+      "human": {
+        "max": 0.5899,
+        "mean": 0.2859,
+        "median": 0.2925,
+        "min": 0.0711,
+        "n": 200
+      },
+      "machine": {
+        "max": 0.6279,
+        "mean": 0.2505,
+        "median": 0.2523,
+        "min": 0.0035,
+        "n": 700
+      }
+    },
+    "split": "train",
+    "split_rows_total": 2187,
+    "tpr_at_1pct_fpr": 0.0129,
+    "tpr_at_5pct_fpr": 0.0586
+  },
+  "run_date": "2026-11-06",
+  "schema": "textforensics.run-artifact/v1"
+}
