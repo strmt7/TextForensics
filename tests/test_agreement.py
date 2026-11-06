@@ -6,7 +6,7 @@ import math
 
 import pytest
 
-from textforensics.agreement import (
+from textforensics.consensus import (
     _interpret_kappa,
     build_agreement_matrix,
     cohens_kappa,
