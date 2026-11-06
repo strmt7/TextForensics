@@ -1,0 +1,22 @@
+{
+  "badge": "available",
+  "cited_content": "SOURCE_DATE_EPOCH=1704067200",
+  "code_version": "d759bd897b67fc1a83cb5a6c16ebd99540ed2543",
+  "command": "read .github/workflows/reproducibility.yml; record SOURCE_DATE_EPOCH",
+  "document": ".github/workflows/reproducibility.yml",
+  "document_sha256": "2cf4cc0f46ad34846817ad682a62f3eab76a61f2d55136dc36db7f4388a6e420",
+  "drops": [],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261106-doc-repro",
+  "kind": "doc",
+  "results": {
+    "cited_content_present": true,
+    "source_date_epoch": 1704067200
+  },
+  "run_date": "2026-11-06",
+  "schema": "textforensics.run-artifact/v1"
+}

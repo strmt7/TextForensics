@@ -1,0 +1,25 @@
+{
+  "badge": "available",
+  "code_version": "d759bd897b67fc1a83cb5a6c16ebd99540ed2543",
+  "command": "AST scan of src/textforensics/**/*.py for network-client imports",
+  "drops": [
+    {
+      "item": "String mentions of network libraries (e.g. in adapter_scanner.py rules)",
+      "reason": "The AST check counts real imports only; names inside string literals or comments are not imports"
+    }
+  ],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261106-code-audit",
+  "kind": "code-audit",
+  "results": {
+    "network_import_files": [
+      "src/textforensics/ollama.py"
+    ]
+  },
+  "run_date": "2026-11-06",
+  "schema": "textforensics.run-artifact/v1"
+}

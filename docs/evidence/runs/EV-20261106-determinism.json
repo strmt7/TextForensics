@@ -1,0 +1,21 @@
+{
+  "badge": "available",
+  "code_version": "d759bd897b67fc1a83cb5a6c16ebd99540ed2543",
+  "command": "5x scan --json + 5x report --deterministic, jq-filtered (workflow's exact filter)",
+  "detector_version": "0.1.0",
+  "drops": [],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261106-determinism",
+  "kind": "determinism",
+  "results": {
+    "coverage_key_order": "supported,partial,unknown,out_of_scope",
+    "report_unique_hashes": 1,
+    "scan_unique_hashes": 1
+  },
+  "run_date": "2026-11-06",
+  "schema": "textforensics.run-artifact/v1"
+}

@@ -1,0 +1,21 @@
+{
+  "badge": "available",
+  "code_version": "d759bd897b67fc1a83cb5a6c16ebd99540ed2543",
+  "command": "ruff check src/ tests/ scripts/ && ruff format --check src/ tests/ scripts/",
+  "drops": [],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261106-ruff",
+  "kind": "command",
+  "results": {
+    "files_formatted": 171,
+    "ruff_check_exit": 0,
+    "ruff_errors": 0,
+    "ruff_format_exit": 0
+  },
+  "run_date": "2026-11-06",
+  "schema": "textforensics.run-artifact/v1"
+}

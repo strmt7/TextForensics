@@ -1,0 +1,39 @@
+{
+  "badge": "available",
+  "code_version": "d759bd897b67fc1a83cb5a6c16ebd99540ed2543",
+  "command": "/home/hatch/workspace/TextForensics-rewrite/.venv/bin/python -m pytest tests/ -q -p no:cacheprovider --cov=src/textforensics --cov-report=term -o addopts=",
+  "detector_version": "0.1.0",
+  "drops": [
+    {
+      "item": "Python 3.11, 3.13, 3.14, 3.15 not run locally",
+      "reason": "Local verification covers 3.12.3 only; those versions are in the CI matrix"
+    },
+    {
+      "item": "Failed test recorded, not hidden: tests/test_diagnostics.py::TestDiagnosticsEngine::test_memory_check",
+      "reason": "test_memory_check is a known host-memory flake: it fails when this VM sits above 95% memory use and passes in isolation and in CI"
+    }
+  ],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261106-suite",
+  "kind": "test-suite",
+  "results": {
+    "coverage_branches": 3904,
+    "coverage_missed": 1311,
+    "coverage_partial": 557,
+    "coverage_pct": 86,
+    "coverage_stmts": 11582,
+    "duration_s": 128.28,
+    "failed_tests": [
+      "tests/test_diagnostics.py::TestDiagnosticsEngine::test_memory_check"
+    ],
+    "tests_failed": 1,
+    "tests_passed": 2354,
+    "tests_skipped": 0
+  },
+  "run_date": "2026-11-06",
+  "schema": "textforensics.run-artifact/v1"
+}

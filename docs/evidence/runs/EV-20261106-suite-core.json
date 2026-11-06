@@ -1,0 +1,37 @@
+{
+  "badge": "available",
+  "code_version": "d759bd897b67fc1a83cb5a6c16ebd99540ed2543",
+  "command": "/tmp/tfc-core-venv/bin/python -m pytest tests/ -q -p no:cacheprovider --cov=src/textforensics --cov-report=term -o addopts=",
+  "detector_version": "0.1.0",
+  "drops": [
+    {
+      "item": "Python 3.11, 3.13, 3.14, 3.15 not run locally",
+      "reason": "Local verification covers 3.12.3 only; those versions are in the CI matrix"
+    },
+    {
+      "item": "112 skipped tests",
+      "reason": "Tests for optional extras not installed in this environment"
+    }
+  ],
+  "environment": {
+    "extras": "none",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261106-suite-core",
+  "kind": "test-suite",
+  "results": {
+    "coverage_branches": 3904,
+    "coverage_missed": 1874,
+    "coverage_partial": 537,
+    "coverage_pct": 82,
+    "coverage_stmts": 11582,
+    "duration_s": 114.52,
+    "failed_tests": [],
+    "tests_failed": 0,
+    "tests_passed": 2243,
+    "tests_skipped": 112
+  },
+  "run_date": "2026-11-06",
+  "schema": "textforensics.run-artifact/v1"
+}

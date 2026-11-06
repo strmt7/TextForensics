@@ -1,0 +1,60 @@
+{
+  "records": [
+    {
+      "evidence_record_id": "EV-20261106-bandit",
+      "run_artifact": "docs/evidence/runs/EV-20261106-bandit.json",
+      "run_artifact_sha256": "036b7a7d770cd71b3c5ca75cc41fd5cbd6a61d85f8bd41c389b83dcd3216bf29"
+    },
+    {
+      "evidence_record_id": "EV-20261106-code-audit",
+      "run_artifact": "docs/evidence/runs/EV-20261106-code-audit.json",
+      "run_artifact_sha256": "9443e0080c272d4e216160595b5140716a6b13d085d0394f8558d1dce3422199"
+    },
+    {
+      "evidence_record_id": "EV-20261106-determinism",
+      "run_artifact": "docs/evidence/runs/EV-20261106-determinism.json",
+      "run_artifact_sha256": "e27c0393d5bc147403b0d9cc054d73d79cfc06cc21d6a87793dd2d6a159400d1"
+    },
+    {
+      "evidence_record_id": "EV-20261106-doc-ci-matrix",
+      "run_artifact": "docs/evidence/runs/EV-20261106-doc-ci-matrix.json",
+      "run_artifact_sha256": "e3a81f210134650d2588ab6fea19db9cd0844875fe4c81771142cb45fc1a2445"
+    },
+    {
+      "evidence_record_id": "EV-20261106-doc-license",
+      "run_artifact": "docs/evidence/runs/EV-20261106-doc-license.json",
+      "run_artifact_sha256": "bb20f84e7054fdd52c0a1821c27b03f7713558c0aecdf53d16595bbfea1e2858"
+    },
+    {
+      "evidence_record_id": "EV-20261106-doc-repro",
+      "run_artifact": "docs/evidence/runs/EV-20261106-doc-repro.json",
+      "run_artifact_sha256": "f442ba484a8647881c0bb68495600965b466f2da5f80cf0aff79cde5988d5b21"
+    },
+    {
+      "evidence_record_id": "EV-20261106-pip-audit",
+      "run_artifact": "docs/evidence/runs/EV-20261106-pip-audit.json",
+      "run_artifact_sha256": "ffaa16dc4c6b1020f1ce7debd318995998a48a4c76dc27ac8d011804ccc624ba"
+    },
+    {
+      "evidence_record_id": "EV-20261106-ruff",
+      "run_artifact": "docs/evidence/runs/EV-20261106-ruff.json",
+      "run_artifact_sha256": "f0cde73a67a3ec764351555da67a3a8035ed68676f8ae4faf11781a80ac4db2a"
+    },
+    {
+      "evidence_record_id": "EV-20261106-schemas",
+      "run_artifact": "docs/evidence/runs/EV-20261106-schemas.json",
+      "run_artifact_sha256": "26555d2f9f7645a8fa413eec541a67bb9c4fead7a47d77f8d0dca99da46968cf"
+    },
+    {
+      "evidence_record_id": "EV-20261106-suite-core",
+      "run_artifact": "docs/evidence/runs/EV-20261106-suite-core.json",
+      "run_artifact_sha256": "eebc9ccedd2673e4d4d9339b29d32fce7e6450d1366ce90b15fed9fb4f419800"
+    },
+    {
+      "evidence_record_id": "EV-20261106-suite",
+      "run_artifact": "docs/evidence/runs/EV-20261106-suite.json",
+      "run_artifact_sha256": "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
+    }
+  ],
+  "schema": "textforensics.evidence-registry/v1"
+}
