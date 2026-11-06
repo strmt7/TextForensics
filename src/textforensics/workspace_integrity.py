@@ -19,6 +19,7 @@ Design principles:
 
 from __future__ import annotations
 
+import getpass
 import hashlib
 import json
 import math
@@ -274,6 +275,22 @@ class AuditChain:
         return chain
 
 
+def _current_user() -> str:
+    """Best-effort current username; never raises.
+
+    ``os.getlogin()`` raises ``OSError`` with no controlling terminal
+    (headless/CI/container), which previously made emergency-stop
+    activation fail exactly where the kill-switch matters most.
+    ``getpass.getuser()`` falls back through the environment and the
+    password database instead, and we fall back to ``"unknown"`` rather
+    than failing the caller.
+    """
+    try:
+        return getpass.getuser()
+    except Exception:
+        return os.environ.get("USER") or os.environ.get("USERNAME") or "unknown"
+
+
 class EmergencyStopSentinel:
     """Emergency stop sentinel with fail-closed behavior.
 
@@ -336,7 +353,7 @@ class EmergencyStopSentinel:
             content = json.dumps({
                 "reason": reason,
                 "activated_at": datetime.now(timezone.utc).isoformat(),
-                "activated_by": os.getlogin() if hasattr(os, "getlogin") else "unknown",
+                "activated_by": _current_user(),
             }, indent=2)
             self.sentinel_path.write_text(content)
             return True

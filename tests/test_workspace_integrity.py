@@ -253,6 +253,25 @@ class TestEmergencyStopSentinel:
             assert sentinel.activate("test") is True
             assert sentinel_path.exists()
 
+    def test_activate_when_user_lookup_fails(self, monkeypatch):
+        """Activation must never fail on identity lookup (headless/CI).
+
+        Regression test: os.getlogin() raises OSError with no controlling
+        terminal. getpass.getuser() failing too must still activate, with
+        activated_by falling back to "unknown".
+        """
+        import textforensics.workspace_integrity as wi
+
+        monkeypatch.setattr(wi.getpass, "getuser", lambda: (_ for _ in ()).throw(OSError("no tty")))
+        monkeypatch.delenv("USER", raising=False)
+        monkeypatch.delenv("USERNAME", raising=False)
+        with tempfile.TemporaryDirectory() as td:
+            sentinel_path = Path(td) / "emergency_stop"
+            sentinel = EmergencyStopSentinel(sentinel_path)
+            assert sentinel.activate("test") is True
+            content = json.loads(sentinel_path.read_text())
+            assert content["activated_by"] == "unknown"
+
 
 class TestComputeWorkspaceFingerprint:
     """Tests for compute_workspace_fingerprint and verify_workspace_fingerprint."""
