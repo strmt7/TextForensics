@@ -43,6 +43,31 @@ def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+# Decompression-bomb guards. Bundles are sealed case files; a legitimate
+# bundle is small. Anything exceeding these bounds is rejected rather
+# than decompressed — a crafted archive must never exhaust memory.
+MAX_BUNDLE_COMPRESSED_BYTES = 100 * 1024 * 1024  # archive file on disk
+MAX_BUNDLE_FILE_BYTES = 10 * 1024 * 1024  # one member, decompressed
+MAX_BUNDLE_TOTAL_BYTES = 100 * 1024 * 1024  # all members, decompressed
+MAX_MANIFEST_BYTES = 1 * 1024 * 1024  # companion manifest JSON
+
+
+def _read_capped(stream: Any, *, limit: int, what: str) -> bytes:
+    """Read *stream* fully, raising if it exceeds *limit* bytes.
+
+    Reads in 1 MiB chunks so a lying size header cannot make us allocate
+    the claimed size up front.
+    """
+    data = bytearray()
+    while True:
+        chunk = stream.read(1024 * 1024)
+        if not chunk:
+            return bytes(data)
+        data += chunk
+        if len(data) > limit:
+            raise ValueError(f"{what} exceeds the {limit}-byte cap")
+
+
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
@@ -272,12 +297,24 @@ def verify_bundle(
             errors=[f"Bundle not found: {bundle_file}"],
         )
 
+    if bundle_file.stat().st_size > MAX_BUNDLE_COMPRESSED_BYTES:
+        return BundleVerificationResult(
+            valid=False,
+            errors=[f"Bundle exceeds the {MAX_BUNDLE_COMPRESSED_BYTES}-byte cap: {bundle_file}"],
+        )
+
     # Locate manifest
     candidate = bundle_file.with_name(bundle_file.name + ".manifest.json")
     if not candidate.exists():
         return BundleVerificationResult(
             valid=False,
             errors=[f"Manifest not found: {candidate}"],
+        )
+
+    if candidate.stat().st_size > MAX_MANIFEST_BYTES:
+        return BundleVerificationResult(
+            valid=False,
+            errors=[f"Manifest exceeds the {MAX_MANIFEST_BYTES}-byte cap: {candidate}"],
         )
 
     try:
@@ -309,24 +346,45 @@ def verify_bundle(
 
     # 3. Verify per-file digests
     fmt = manifest.format
+    total_decompressed = 0
     for rel, expected in sorted(manifest.per_file_digests.items()):
         try:
             if fmt == "tar.gz":
                 with tarfile.open(bundle_file, "r:gz") as tar:
                     member = tar.getmember(rel)
+                    if member.size > MAX_BUNDLE_FILE_BYTES:
+                        per_file_status[rel] = "error"
+                        errors.append(
+                            f"{rel} exceeds the {MAX_BUNDLE_FILE_BYTES}-byte per-file cap"
+                        )
+                        continue
                     f = tar.extractfile(member)
                     if f is None:
                         per_file_status[rel] = "missing"
                         errors.append(f"Cannot extract {rel} (not a regular file)")
                         continue
-                    data = f.read()
+                    data = _read_capped(f, limit=MAX_BUNDLE_FILE_BYTES, what=rel)
             elif fmt == "zip":
                 with zipfile.ZipFile(bundle_file, "r") as zf:
-                    data = zf.read(rel)
+                    info = zf.getinfo(rel)
+                    if info.file_size > MAX_BUNDLE_FILE_BYTES:
+                        per_file_status[rel] = "error"
+                        errors.append(
+                            f"{rel} exceeds the {MAX_BUNDLE_FILE_BYTES}-byte per-file cap"
+                        )
+                        continue
+                    with zf.open(rel) as f:
+                        data = _read_capped(f, limit=MAX_BUNDLE_FILE_BYTES, what=rel)
             else:
                 per_file_status[rel] = "unsupported_format"
                 errors.append(f"Unsupported format: {fmt}")
                 continue
+
+            total_decompressed += len(data)
+            if total_decompressed > MAX_BUNDLE_TOTAL_BYTES:
+                per_file_status[rel] = "error"
+                errors.append(f"Bundle exceeds the {MAX_BUNDLE_TOTAL_BYTES}-byte total cap")
+                break
 
             # Compute digest
             if rel.endswith(".json"):
@@ -371,11 +429,25 @@ def list_bundle(bundle_path: str | Path) -> list[dict[str, Any]]:
     if not bundle_file.exists():
         raise FileNotFoundError(f"Bundle not found: {bundle_file}")
 
+    if bundle_file.stat().st_size > MAX_BUNDLE_COMPRESSED_BYTES:
+        raise ValueError(
+            f"Bundle exceeds the {MAX_BUNDLE_COMPRESSED_BYTES}-byte cap: {bundle_file}"
+        )
+
     entries: list[dict[str, Any]] = []
     name = bundle_file.name
     if name.endswith(".tar.gz") or name.endswith(".tgz"):
         with tarfile.open(bundle_file, "r:gz") as tar:
+            total = 0
             for member in tar.getmembers():
+                if member.size > MAX_BUNDLE_FILE_BYTES:
+                    raise ValueError(
+                        f"Member {member.name} exceeds the "
+                        f"{MAX_BUNDLE_FILE_BYTES}-byte per-file cap"
+                    )
+                total += member.size
+                if total > MAX_BUNDLE_TOTAL_BYTES:
+                    raise ValueError(f"Bundle exceeds the {MAX_BUNDLE_TOTAL_BYTES}-byte total cap")
                 entries.append(
                     {
                         "name": member.name,
@@ -385,7 +457,16 @@ def list_bundle(bundle_path: str | Path) -> list[dict[str, Any]]:
                 )
     elif name.endswith(".zip"):
         with zipfile.ZipFile(bundle_file, "r") as zf:
+            total = 0
             for info in zf.infolist():
+                if info.file_size > MAX_BUNDLE_FILE_BYTES:
+                    raise ValueError(
+                        f"Member {info.filename} exceeds the "
+                        f"{MAX_BUNDLE_FILE_BYTES}-byte per-file cap"
+                    )
+                total += info.file_size
+                if total > MAX_BUNDLE_TOTAL_BYTES:
+                    raise ValueError(f"Bundle exceeds the {MAX_BUNDLE_TOTAL_BYTES}-byte total cap")
                 entries.append(
                     {
                         "name": info.filename,

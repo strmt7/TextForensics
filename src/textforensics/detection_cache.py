@@ -42,6 +42,11 @@ __all__ = [
     "create_detection_cache",
 ]
 
+# Hard cap on the decompressed size of a single cached result. Results are
+# JSON dicts derived from at most 2 MB of input text; anything larger is a
+# decompression bomb, not a legitimate cache entry.
+MAX_DECOMPRESSED_RESULT_BYTES = 10 * 1024 * 1024
+
 
 class CacheEntryStatus(StrEnum):
     """Status of a cache entry."""
@@ -247,11 +252,27 @@ class DetectionCache:
 
     def _deserialize_result(self, data: bytes) -> dict[str, Any]:
         """Deserialize result from bytes."""
-        # Try to decompress first
+        # Try to decompress first, with a hard cap on the decompressed size
+        # so a small compressed blob cannot expand without bound (zip bomb).
         try:
             import zlib
 
-            data = zlib.decompress(data)
+            decompressor = zlib.decompressobj()
+            data = decompressor.decompress(data, MAX_DECOMPRESSED_RESULT_BYTES + 1)
+            if len(data) > MAX_DECOMPRESSED_RESULT_BYTES:
+                raise ValueError(
+                    "Cached result exceeds the "
+                    f"{MAX_DECOMPRESSED_RESULT_BYTES}-byte decompression cap"
+                )
+            if decompressor.unconsumed_tail:
+                raise ValueError(
+                    "Cached result exceeds the "
+                    f"{MAX_DECOMPRESSED_RESULT_BYTES}-byte decompression cap"
+                )
+            if not decompressor.eof:
+                # Not a complete zlib stream; fall through to the plain-JSON
+                # path exactly as a zlib error would.
+                raise zlib.error("incomplete zlib stream")
         except zlib.error:
             pass  # Not compressed
         return json.loads(data.decode("utf-8"))

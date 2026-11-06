@@ -311,6 +311,75 @@ class ListBundleTests(unittest.TestCase):
             list_bundle("/nonexistent/bundle.tar.gz")
 
 
+class DecompressionCapTests(unittest.TestCase):
+    """A crafted archive must never exhaust memory (zip/tar bomb)."""
+
+    BOMB_BYTES = 11 * 1024 * 1024  # just over the 10 MiB per-file cap
+
+    def _write_manifest(self, tmp: Path, archive: Path, fmt: str, digest: str) -> None:
+        from datetime import datetime
+
+        from textforensics.bundle import BundleManifest
+
+        manifest = BundleManifest(
+            schema=BUNDLE_SCHEMA,
+            created_at=datetime.now().isoformat(),
+            bundle_filename=archive.name,
+            format=fmt,
+            per_file_digests={"bomb.bin": digest},
+            bundle_digest=_sha256(archive.read_bytes()),
+        )
+        manifest_path = archive.with_name(archive.name + ".manifest.json")
+        manifest_path.write_text(
+            json.dumps(manifest.to_dict(), indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+
+    def test_zip_bomb_rejected_by_verify(self):
+        import zipfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            content = b"\x00" * self.BOMB_BYTES  # compresses to ~10 KB
+            archive = tmp_path / "bundle.zip"
+            with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("bomb.bin", content)
+            self._write_manifest(tmp_path, archive, "zip", _sha256(content))
+
+            result = verify_bundle(archive)
+            self.assertFalse(result.valid)
+            self.assertTrue(any("exceeds" in e for e in result.errors))
+
+    def test_zip_bomb_rejected_by_list(self):
+        import zipfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            archive = tmp_path / "bundle.zip"
+            with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("bomb.bin", b"\x00" * self.BOMB_BYTES)
+            with self.assertRaises(ValueError):
+                list_bundle(archive)
+
+    def test_tar_gz_bomb_rejected_by_verify(self):
+        import io
+        import tarfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            content = b"\x00" * self.BOMB_BYTES
+            archive = tmp_path / "bundle.tar.gz"
+            with tarfile.open(archive, "w:gz") as tar:
+                info = tarfile.TarInfo(name="bomb.bin")
+                info.size = len(content)
+                tar.addfile(info, io.BytesIO(content))
+            self._write_manifest(tmp_path, archive, "tar.gz", _sha256(content))
+
+            result = verify_bundle(archive)
+            self.assertFalse(result.valid)
+            self.assertTrue(any("exceeds" in e for e in result.errors))
+
+
 class ResultDataclassTests(unittest.TestCase):
     def test_result_to_dict(self):
         result = BundleVerificationResult(

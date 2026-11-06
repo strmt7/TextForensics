@@ -16,6 +16,7 @@ This module was previously at 74% coverage. These tests exercise:
 
 from __future__ import annotations
 
+import json
 import tempfile
 from datetime import UTC
 from pathlib import Path
@@ -240,6 +241,30 @@ class TestCacheStats:
 # ============================================================
 # Async tests
 # ============================================================
+
+
+class TestDeserializeCaps:
+    """_deserialize_result must cap decompression (zip bomb in cache data)."""
+
+    def test_plain_json_roundtrip(self, cache):
+        data = json.dumps({"score": 0.5}).encode()
+        assert cache._deserialize_result(data) == {"score": 0.5}
+
+    def test_compressed_json_roundtrip(self, cache):
+        import zlib
+
+        data = zlib.compress(json.dumps({"score": 0.5}).encode())
+        assert cache._deserialize_result(data) == {"score": 0.5}
+
+    def test_decompression_bomb_rejected(self, cache):
+        import zlib
+
+        from textforensics.detection_cache import MAX_DECOMPRESSED_RESULT_BYTES
+
+        bomb = zlib.compress(b"x" * (MAX_DECOMPRESSED_RESULT_BYTES + 1))
+        assert len(bomb) < 100 * 1024  # the bomb itself is small
+        with pytest.raises(ValueError, match="exceeds"):
+            cache._deserialize_result(bomb)
 
 
 class TestDetectionCache:
