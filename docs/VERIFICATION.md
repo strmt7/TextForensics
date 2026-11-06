@@ -342,7 +342,8 @@ The gate re-hashes all 11 registry artifacts, checks every claim's
 staleness rule, requires a drops manifest, and writes the deterministic
 report card `docs/evidence/report-card.md` (CI diffs it). The CI
 `claims-gate` job runs the gate on every push (Python 3.12,
-`.[dev,api,mcp]`).
+`.[dev,api,mcp,security]` — the `security` extra was added after the
+first CI run failed on a missing `bandit`; see below).
 
 ### Gate failure demonstrations (scratch worktree, 2026-11-06)
 
@@ -356,6 +357,66 @@ report card `docs/evidence/report-card.md` (CI diffs it). The CI
   10 passed, 23 failed, every failure "stale — evidence record is
   100 days old (> 90 days) (U7 (d))".
 
+### CI fixes after the U7 push (2026-11-06)
+
+CI run 42254886415 on head `2bc6e03` was RED, with two root causes
+(neither a U7 design failure) plus the known atheris pinned-install
+failure (release gate, untouched). Both were fixed in commits
+`46f2ade` (baseline) and `0766524` (claims-gate job); the parent
+re-verifies CI on the fixed head.
+
+- **Failure 1 — all five Core jobs (Python 3.11–3.15): pre-commit
+  `detect-secrets` failed.** It flagged 36 "Hex High Entropy String"
+  values U7 added: 11 `run_artifact_sha256` lines in
+  `docs/CLAIMS.yaml`, 11 in `docs/evidence/registry.json`, and 14 in
+  `docs/evidence/runs/EV-20261106-*.json` (`code_version` +
+  `document_sha256`). Because pre-commit aborts (`bash -e`), pytest
+  never ran in Core — the run finished in ~2 minutes with no test
+  results. Every flagged value was audited by recomputation: each
+  `run_artifact_sha256` equals the SHA-256 of its artifact file, each
+  `code_version` is commit `d759bd8` (an ancestor of HEAD), each
+  `document_sha256` equals the SHA-256 of the cited document at that
+  commit. No credentials, tokens, or keys. The 36 entries were added
+  to `.secrets.baseline` (44 pre-existing entries preserved, 80 total);
+  the hook is unchanged and no evidence file is excluded, so future
+  real secrets in these files are still caught. Trap found while
+  doing this: a naive `detect-secrets scan --baseline` silently
+  drops baseline entries whose keys use Windows backslashes (40
+  testdata/tests/golden entries) and adds unaudited findings — the
+  baseline was instead updated by a script that grafted only the 36
+  audited entries, verifying `sha1(raw value) == hashed_secret` for
+  each. Verified locally: `pre-commit run --all-files` — all 13 hooks
+  pass (detect-secrets included; the hook fails while the baseline is
+  unstaged, by design, and passes once staged).
+- **Failure 2 — claims-gate job: 32 passed, 1 failed.** Only
+  `security.bandit_no_medium_high` failed: `No module named bandit`.
+  The job installed `.[dev,api,mcp]`; bandit lives in the separate
+  `[security]` extra (`bandit>=1.7.0,<2`, `pip-audit>=2.10.1,<3`).
+  The pip-audit claim passed because its evidence is a doc, not a
+  command. Fix: the job now installs `.[dev,api,mcp,security]`
+  (one-line change in `.github/workflows/ci.yml`; no pyproject.toml
+  change, and the gate still fails hard on a missing tool). Verified
+  locally: `python scripts/check_claims.py` — **33 passed, 0 failed**;
+  fresh gate run leaves `docs/evidence/report-card.md` unchanged
+  (`git diff --exit-code` clean), which is the job's second step.
+
+### Measured numbers after the CI fixes (HEAD `0766524`, 2026-11-06, Python 3.12.3)
+
+- Full suite, extras venv: **2355 passed, 0 failed, 86% coverage**
+  (11,582 stmts, 1,310 missed, 3,904 branches, 558 partial) in
+  128.16 s. The `test_memory_check` host flake did not fire in this
+  run.
+- The 5 serve/web tests that failed CI on `e99c474` all pass in the
+  bare core-only venv (fastapi absent):
+  `test_remote_bind_guard_surfaces_clean_error`,
+  `test_serve_command_with_mocked_api`,
+  `test_remote_bind_guard_serve`, `test_web_remote_bind_guard`,
+  `test_serve_api_with_uvicorn` — **5 passed**.
+- pre-commit `--all-files`: **13 hooks pass, 0 fail**.
+- Claims gate: **33 passed, 0 failed**; report-card diff clean.
+- The seeded U7 evidence records are unchanged by these fixes (no
+  re-seeding; their measured numbers above still stand).
+
 ### What is NOT verified here
 
 - **Worst-slice human FPR: unknown.** No human-FPR evidence is
@@ -365,5 +426,8 @@ report card `docs/evidence/report-card.md` (CI diffs it). The CI
 - The seeded records are dated 2026-11-06 and go stale after 90 days
   (2027-02-04) or if the detector version changes; re-run
   `scripts/seed_evidence.py` and update the citing claims.
-- CI on the U7 head has not been observed yet (the parent verifies
-  the `claims-gate` job on the pushed head).
+- CI on the fixed head (`0766524`) has not been observed yet — the
+  parent verifies the run (Core on all five Pythons, claims-gate,
+  Reproducibility) after pushing. The atheris pinned-install failure
+  and the Mutation workflow (0 mutations) remain open for the Phase 5
+  release gate.
