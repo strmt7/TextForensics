@@ -25,7 +25,7 @@ reason = "Deterministic core-module tests without heavy I/O or network adapters"
 id = "test-full"
 command = "pytest -x -q"
 environment = "python-3.11+"
-reason = "Complete test suite including CLI, webapp, drift, MCP and integration tests"
+reason = "Complete test suite including CLI, web UI, drift, MCP and integration tests"
 
 [[commands]]
 id = "test-coverage"

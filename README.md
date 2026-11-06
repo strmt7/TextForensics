@@ -181,7 +181,7 @@ See [Installation](docs/INSTALLATION.md) for pip, uv, pipx, offline wheelhouses,
 textforensics web
 ```
 
-The browser UI binds to `127.0.0.1` by default and leads with Trust Map evidence coverage rather than a giant certainty percentage.
+The browser UI binds to `127.0.0.1` by default and leads with Trust Map evidence coverage rather than a giant certainty percentage. It requires the `[api]` extra (`pip install "textforensics[api]"`) and opens the browser automatically (disable with `--no-browser`).
 
 ### CLI report
 

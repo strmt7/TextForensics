@@ -496,12 +496,27 @@ Model Context Protocol integration for AI tooling:
 - Structured tool responses match detector protocol
 - Same privacy guarantees as other interfaces
 
-### 5.5 Browser UI (`src/textforensics/webapp.py`)
+### 5.5 Browser UI (`src/textforensics/web_ui/`)
 
-Local browser-based interface:
-- Runs on same loopback server as API
-- Renders forensic bundles as structured reports
-- No telemetry, no external dependencies
+Local browser-based interface (FastAPI + WebSocket), started with
+`textforensics web` (or `textforensics web-fastapi`, or the
+`textforensics-web` console script):
+- Runs on same loopback server as API (binds to `127.0.0.1` by
+  default; `--allow-remote` for a network-visible bind)
+- Renders forensic bundles as structured reports, with Trust Map
+  evidence coverage leading instead of a giant certainty percentage
+- Sessions/collaboration, analysis history, JSON/CSV/HTML export,
+  side-by-side bundle comparison, and streamed per-detector results
+  over WebSocket
+- `POST /api/report` returns the raw forensic bundle (compatibility
+  alias for the former stdlib UI); `POST /api/analyze` returns the
+  `{success, data}` wrapper and stores the result in history
+- Emergency-stop gate on every request; Content-Security-Policy and
+  Permissions-Policy headers on every response
+- Requires the `[api]` extra (`pip install "textforensics[api]"`);
+  without it the command fails with an install hint
+- No telemetry, no external fetches: Chart.js is vendored at
+  `web_ui/static/chart.umd.min.js` (v4.4.1)
 
 ### 5.6 Python Library API
 

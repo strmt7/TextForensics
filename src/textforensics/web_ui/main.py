@@ -6,7 +6,9 @@ import html
 import io
 import json
 import os
+import threading
 import uuid
+import webbrowser
 from collections import OrderedDict
 from contextlib import suppress
 from datetime import UTC, datetime
@@ -18,7 +20,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-from ..config import Settings, ensure_bind_allowed, validate_text_input
+from ..config import (
+    Settings,
+    ensure_bind_allowed,
+    is_loopback_host,
+    is_unspecified_host,
+    validate_text_input,
+)
 from ..detectors import list_detector_health, list_detector_metadata
 from ..report import build_forensic_bundle
 from ..version import get_version
@@ -286,6 +294,21 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["X-TextForensics-Version"] = get_version()
+        # Content-Security-Policy carried over from the former stdlib UI
+        # (webapp.py), tightened for scripts: the page has no inline
+        # <script> blocks or inline event handlers (all handlers are
+        # addEventListener in /static/app.js), so script-src 'self' is
+        # safe. style-src keeps 'unsafe-inline' because the template and
+        # app.js-generated HTML use inline style attributes throughout.
+        # Chart.js is vendored at /static/chart.umd.min.js, so no
+        # third-party origin needs allowing (local-first).
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; style-src 'unsafe-inline'; "
+            "script-src 'self'; connect-src 'self'; "
+            "img-src 'self' data:; object-src 'none'; base-uri 'none'; "
+            "frame-ancestors 'none'"
+        )
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         return response
 
     @app.middleware("http")
@@ -352,6 +375,11 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
             {"request": request, "version": get_version(), "session_id": session_id},
         )
 
+    @app.get("/index.html", response_class=HTMLResponse)
+    async def index_html(request: Request):
+        """Alias for `/` (kept from the former stdlib UI)."""
+        return await index(request)
+
     # ── Collaboration REST endpoints ─────────────────────────────────
 
     @app.get("/healthz", include_in_schema=False)
@@ -413,6 +441,40 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
             return AnalyzeResponse(success=True, data=result)
         except Exception as e:
             return AnalyzeResponse(success=False, error=str(e))
+
+    @app.post("/api/report")
+    async def report_compat(request: Request):
+        """Compatibility alias for the former stdlib UI's POST /api/report.
+
+        Returns the raw forensic bundle (no ``{success, data}`` wrapper),
+        with the former endpoint's error shape (``400 {"error":
+        "invalid request"}`` for malformed or invalid input). Unlike
+        ``/api/analyze`` the result is not stored in the history ring
+        buffer — the former endpoint had no history. The emergency-stop
+        gate applies via the request middleware, closing the hole the
+        stdlib UI had (it analysed text even while the stop was active).
+        """
+        from ..emergency_stop import assert_not_stopped
+
+        assert_not_stopped()
+        try:
+            payload = await request.json()
+        except Exception:
+            return JSONResponse(status_code=400, content={"error": "invalid request"})
+        if not isinstance(payload, dict):
+            return JSONResponse(status_code=400, content={"error": "invalid request"})
+        try:
+            text = validate_text_input(
+                payload.get("text"),
+                max_input_bytes=active_settings.max_input_bytes,
+            )
+        except ValueError:
+            return JSONResponse(status_code=400, content={"error": "invalid request"})
+        try:
+            bundle = build_forensic_bundle(text)
+        except ValueError:
+            return JSONResponse(status_code=400, content={"error": "invalid request"})
+        return JSONResponse(status_code=200, content=bundle.to_dict())
 
     # ── Export endpoint ─────────────────────────────────────────────
 
@@ -685,13 +747,17 @@ def serve_web(
     allow_remote: bool = False,
     access_log: bool = True,
     log_level: str = "info",
+    max_input_bytes: int | None = None,
+    open_browser: bool = False,
 ) -> None:
     """Serve the web UI application."""
     settings = Settings.from_env()
     settings = Settings(
         host=host,
         port=port,
-        max_input_bytes=settings.max_input_bytes,
+        max_input_bytes=max_input_bytes
+        if max_input_bytes is not None
+        else settings.max_input_bytes,
         allow_remote=allow_remote,
         access_log=access_log,
         log_level=log_level,
@@ -702,6 +768,21 @@ def serve_web(
         import uvicorn
     except ImportError as exc:
         raise RuntimeError("Install web UI support with: pip install 'textforensics[api]'") from exc
+
+    # URL print + browser auto-open carried over from the former stdlib
+    # UI (webapp.py), which printed the URL and opened the browser for
+    # the `textforensics web` command.
+    display_host = "127.0.0.1" if is_unspecified_host(settings.host) else settings.host
+    url = f"http://{display_host}:{settings.port}/"
+    print(f"TextForensics UI: {url}")
+    if not is_loopback_host(settings.host):
+        print(
+            "Warning: network-visible browser UI enabled explicitly. "
+            "Place it behind appropriate access controls in shared environments."
+        )
+    print("Press Ctrl+C to stop.")
+    if open_browser:
+        threading.Timer(0.25, lambda: webbrowser.open(url)).start()
 
     uvicorn.run(
         create_web_app(settings),

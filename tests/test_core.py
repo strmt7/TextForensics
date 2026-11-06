@@ -8,7 +8,16 @@ from textforensics.ledger import snapshot_file, verify_ledger
 from textforensics.localize import localize_text
 from textforensics.naturalness import audit_naturalness
 from textforensics.report import build_forensic_bundle
-from textforensics.webapp import HTML, analyze_payload
+
+try:
+    from fastapi.testclient import TestClient
+
+    from textforensics.config import Settings
+    from textforensics.web_ui.main import create_web_app
+
+    HAS_WEB_UI = True
+except ImportError:
+    HAS_WEB_UI = False
 
 HUMANISH = """
 I tried the new setup on Tuesday and hit two problems. The first was mundane: the cable was too short.
@@ -115,21 +124,25 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(data["trust_map"]["overall"], "insufficient")
         self.assertTrue(data["trust_map"]["dimensions"])
 
+    @unittest.skipUnless(HAS_WEB_UI, "FastAPI web UI extra not installed")
     def test_local_web_ui_uses_evidence_coverage(self):
-        self.assertIn("TextForensics", HTML)
-        self.assertIn("Evidence coverage", HTML)
-        result = analyze_payload({"text": HUMANISH})
+        client = TestClient(create_web_app(Settings.from_env()))
+        page = client.get("/")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("TextForensics", page.text)
+        self.assertIn("Evidence Coverage", page.text)
+        result = client.post("/api/report", json={"text": HUMANISH}).json()
         self.assertEqual(
             result["schema"],
             "textforensics.forensic-bundle/v2",
         )
-        with self.assertRaises(ValueError):
-            analyze_payload({"text": ""})
-        with self.assertRaises(ValueError):
-            analyze_payload(
-                {"text": "é" * 20},
-                max_input_bytes=10,
+        self.assertEqual(client.post("/api/report", json={"text": ""}).status_code, 400)
+        small = TestClient(
+            create_web_app(
+                Settings(host="127.0.0.1", port=8765, max_input_bytes=10),
             )
+        )
+        self.assertEqual(small.post("/api/report", json={"text": "é" * 20}).status_code, 400)
 
 
 if __name__ == "__main__":

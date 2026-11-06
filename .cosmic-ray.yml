@@ -21,7 +21,7 @@ mutation:
     - "textforensics.cli"
     - "textforensics.server"
     - "textforensics.mcp_server"
-    - "textforensics.webapp"
+    - "textforensics.web_ui.main"
     - "textforensics.version"
     - "textforensics._build_info"
     - "textforensics.config"

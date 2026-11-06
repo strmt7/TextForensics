@@ -106,7 +106,7 @@ These are derived from `AGENTS.md` and are enforced in code and tests.
 | `api.py` | Canonical HTTP API. |
 | `mcp_tools.py` | MCP tools. |
 
-Legacy modules (`webapp.py`, `web_ui/`, `bundle.py`, `trust_map_from_capability_ledger`) are either thin compatibility shims or explicitly marked experimental. They cannot define new semantics. (The former second CLI, `typer_cli.py`, was deleted in Phase 2; its only unique commands, `capability policy` and `bundle check`, plus the `--text` input flag, were ported into the canonical `cli.py`.)
+Legacy modules (`web_ui/`, `bundle.py`, `trust_map_from_capability_ledger`) are either thin compatibility shims or explicitly marked experimental. They cannot define new semantics. (The former second CLI, `typer_cli.py`, was deleted in Phase 2; its only unique commands, `capability policy` and `bundle check`, plus the `--text` input flag, were ported into the canonical `cli.py`. The former stdlib browser UI, `webapp.py`, was deleted in Phase 2; `textforensics web` now serves the FastAPI `web_ui/`, which kept the `POST /api/report` raw-bundle endpoint, the `GET /index.html` alias, the browser auto-open and URL print, and the CSP/Permissions-Policy headers, and vendors Chart.js locally instead of loading it from a CDN.)
 
 ---
 
@@ -572,7 +572,7 @@ Tools return `{ok, data, error, exit_code}` and never echo raw text.
 - `textforensics.forensic-bundle/v1` → v2: `verdict_integrity` is removed from the default bundle; a `legacy.verdict_integrity` field is available only with `include_legacy=True` and is marked deprecated.
 - `textforensics.detector-result/v1` remains accepted; new fields are optional.
 - CLI flags from alpha are retained where they do not conflict; deprecated flags emit a warning.
-- Duplicate surfaces (`webapp`, `web_ui`, `bundle`) become shims or are documented as deprecated; they must not introduce new semantics. (The former duplicate CLI `typer_cli` was deleted in Phase 2; its unique commands were ported into `cli.py`.)
+- Duplicate surfaces (`webapp`, `web_ui`, `bundle`) become shims or are documented as deprecated; they must not introduce new semantics. (The former duplicate CLI `typer_cli` was deleted in Phase 2; its unique commands were ported into `cli.py`. The former stdlib browser UI `webapp` was deleted in Phase 2; `textforensics web` now serves the FastAPI `web_ui/`, which kept the `POST /api/report` raw-bundle endpoint, the `GET /index.html` alias, the browser auto-open and URL print, and the CSP/Permissions-Policy headers, and vendors Chart.js locally instead of loading it from a CDN.)
 
 ---
 

@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TextForensics - AI Text Detection Dashboard</title>
     <link rel="stylesheet" href="/static/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Chart.js is vendored locally (static/chart.umd.min.js, v4.4.1);
+         the page must not fetch third-party JavaScript (local-first). -->
+    <script src="/static/chart.umd.min.js"></script>
 </head>
 <body>
     <!-- Session Join/Create Modal -->

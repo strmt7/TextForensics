@@ -68,7 +68,6 @@ from .policy import (
 from .report import build_forensic_bundle
 from .verify import verify_all
 from .version import get_version
-from .webapp import serve as serve_webapp
 
 
 # Lazy imports for enterprise features (dependency optional)
@@ -445,7 +444,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run all available verifications and report.",
     )
 
-    web = sub.add_parser("web", help="Run the zero-dependency browser UI.")
+    web = sub.add_parser("web", help="Run the browser UI.")
     web.add_argument("--host")
     web.add_argument("--port", type=int)
     web.add_argument("--no-browser", action="store_true")
@@ -1094,18 +1093,20 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             return EXIT_OK if result.get("valid") else EXIT_INCOMPLETE
 
     elif args.command == "web":
+        from .web_ui.main import serve_web
+
         active = _settings_with_overrides(
             settings,
             host=args.host,
             port=args.port,
             allow_remote=True if args.allow_remote else settings.allow_remote,
         )
-        serve_webapp(
+        serve_web(
             active.host,
             active.port,
-            open_browser=not args.no_browser,
             allow_remote=active.allow_remote,
             max_input_bytes=active.max_input_bytes,
+            open_browser=not args.no_browser,
         )
 
     elif args.command == "web-fastapi":
