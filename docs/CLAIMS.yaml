@@ -9,24 +9,40 @@
 # - evidence_path: path to verification evidence (file, test, benchmark output)
 # - verification_command: optional command to re-verify
 # - owner: team/component responsible
-# - last_verified: ISO date
+# - last_verified: ISO date (must equal the evidence record's run_date)
 # - notes: caveats, limitations, scope
+# - evidence_record_id: U7 — ID in docs/evidence/registry.json (required)
+# - run_artifact_sha256: U7 — SHA-256 of the cited run artifact (required)
+# - values: U7 — optional map of metric -> expected value, compared
+#   against the cited record's results (dotted paths for nested
+#   metrics, e.g. packages.cryptography). Every scalar value must
+#   appear in the statement.
+# - tolerance: U7 — optional numeric tolerance for values comparison
 #
-# CI (check_claims.py) will:
-# 1. Parse this file
-# 2. For each claim with evidence_type=test, run the test or check the test file exists
-# 3. For benchmark_artifact, verify the artifact file exists and has required fields
-# 4. For code_audit, verify the code path exists
-# 5. Fail CI on any claim with status=unverified, false, or stale
+# CI (check_claims.py, the U7 claim-to-evidence gate) will:
+# 1. Parse this file (duplicate YAML keys are rejected)
+# 2. Load docs/evidence/registry.json and re-hash every run artifact
+# 3. For each claim, verify the evidence linkage: record exists, hashes
+#    match, the record is not >90 days old, the detector version has not
+#    changed since the run, the artifact has a drops manifest, and the
+#    values map matches the record's results
+# 4. For each claim, run the evidence-type check (test / command / doc /
+#    code_audit / benchmark_artifact / external_audit)
+# 5. Fail CI on any claim with status=unverified, false, or stale, or
+#    whose linkage fails (stale / incomplete / hash mismatch)
+# 6. Write docs/evidence/report-card.md (deterministic; CI diffs it)
 #
 # Rules for this file (AGENTS.md rule 1: never invent benchmark results):
 # - A claim's statement must match what its evidence actually shows.
-# - Numbers come from docs/VERIFICATION.md (measured 2026-11-06) or from
-#   the cited test; nothing is copied from an earlier run.
+# - Numbers come from the cited run artifact in docs/evidence/runs/
+#   (measured 2026-11-06), never from an earlier run or from memory.
 # - Capabilities with no implementation (RAID/DetectRL/M4 integration)
 #   have NO claim here at all. A missing claim is honest; a
 #   partially_verified placeholder is not.
 # - Duplicate YAML keys are rejected by check_claims.py (see F12, audit §4).
+# - Never edit a run artifact to match a claim: re-run
+#   scripts/seed_evidence.py, then update the claim's
+#   evidence_record_id, run_artifact_sha256, and values to the new record.
 
 claims:
   - id: "core.local_first"
@@ -38,6 +54,11 @@ claims:
     owner: "core"
     last_verified: "2026-11-06"
     notes: "The only network client import in src/ is ollama.py (opt-in Ollama adapter). adapter_scanner.py only names network libraries inside static-analysis rules; it imports none of them."
+    evidence_record_id: "EV-20261106-code-audit"
+    run_artifact_sha256: "9443e0080c272d4e216160595b5140716a6b13d085d0394f8558d1dce3422199"
+    values:
+      network_import_files:
+        - "src/textforensics/ollama.py"
 
   - id: "core.no_telemetry"
     statement: "No telemetry of any kind: the package contains no metrics/telemetry collection code, no --metrics flag, and no OpenTelemetry import; nothing is recorded or transmitted"
@@ -48,6 +69,8 @@ claims:
     owner: "core"
     last_verified: "2026-11-06"
     notes: "telemetry.py was deleted in Phase 2 wave (f): it was load-bearing (imported on every analyze_text() call and every CLI run) rather than a clean optional extra. The --metrics flag, the [telemetry] extra, and the OpenTelemetry pins were removed with it. adapter_scanner.py still names 'telemetry' as a finding category for third-party adapters (it flags adapters that import telemetry); it collects nothing itself."
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "core.agpl_license"
     statement: "Licensed under AGPL-3.0-or-later"
@@ -57,6 +80,10 @@ claims:
     evidence_path: "pyproject.toml"
     owner: "core"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-doc-license"
+    run_artifact_sha256: "bb20f84e7054fdd52c0a1821c27b03f7713558c0aecdf53d16595bbfea1e2858"
+    values:
+      license: "AGPL-3.0-or-later"
 
   - id: "detector.score_not_probability"
     statement: "Detector scores are never presented as probabilities without explicit calibration provenance"
@@ -67,6 +94,8 @@ claims:
     owner: "calibration"
     last_verified: "2026-11-06"
     notes: "Calibration artifacts require fit/eval datasets, disjointness, metrics (brier/ece/log_loss), code_version, run_artifact_sha256, MIN_CALIBRATION_SAMPLES=100"
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "detector.calibration_fail_closed"
     statement: "Calibration is fail-closed: unvalidated artifacts raise unless allow_unvalidated=True for diagnostics"
@@ -76,6 +105,8 @@ claims:
     evidence_path: "tests/test_calibration.py::TestCalibrationArtifactApplication"
     owner: "calibration"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "detector.content_hash_integrity"
     statement: "Calibration artifacts are content-hashed; tampering is detected on load"
@@ -85,6 +116,8 @@ claims:
     evidence_path: "tests/test_calibration.py::TestCalibrationArtifactContentHash"
     owner: "calibration"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "detector.storage_collision_free"
     statement: "Calibration storage is keyed by content hash; colliding artifact IDs cannot overwrite each other"
@@ -94,6 +127,8 @@ claims:
     evidence_path: "tests/test_calibration.py::TestCalibrationManager"
     owner: "calibration"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "trustmap.qualitative_only"
     statement: "Trust Map states are qualitative (supported/partial/unknown/out_of_scope); no numeric trust score or authorship probability"
@@ -103,6 +138,8 @@ claims:
     evidence_path: "tests/test_trust.py::TrustMapContractTests"
     owner: "trust"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "trustmap.evidence_conditioned"
     statement: "Trust Map v2 is evidence-conditioned: 'supported' requires registered, held-out validation slices; metadata alone yields at most 'partial'"
@@ -112,6 +149,8 @@ claims:
     evidence_path: "tests/test_trust.py::TrustMapContractTests::test_overall_is_strong_only_when_no_unknown_and_no_partial"
     owner: "trust"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "trustmap.no_authorship_probability"
     statement: "Trust Map explicitly states it is not an authorship probability"
@@ -121,6 +160,8 @@ claims:
     evidence_path: "tests/test_trust.py::TrustMapContractTests::test_trust_map_is_not_an_authorship_probability"
     owner: "trust"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "casefile.raw_text_excluded"
     statement: "Case files exclude raw source text by default; forbidden raw-text keys are rejected recursively"
@@ -130,6 +171,8 @@ claims:
     evidence_path: "tests/test_casefile.py::CaseFileSealTests"
     owner: "casefile"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "casefile.seal_deterministic"
     statement: "Case file seal is deterministic: sealing the same bundle twice produces identical SHA-256 (timestamp excluded from hash)"
@@ -139,6 +182,8 @@ claims:
     evidence_path: "tests/test_casefile.py::CaseFileSealTests::test_seal_is_deterministic"
     owner: "casefile"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "casefile.tamper_detection"
     statement: "Case file seal detects any tampering with the forensic bundle content"
@@ -148,6 +193,8 @@ claims:
     evidence_path: "tests/test_casefile.py::CaseFileVerifyTests::test_verify_detects_tampering"
     owner: "casefile"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "casefile.replay_verifies"
     statement: "Replay verifies seal, text hash (if supplied), detector re-execution (if detectors supplied), and Trust Map re-derivation (if registry supplied)"
@@ -158,6 +205,8 @@ claims:
     owner: "casefile"
     last_verified: "2026-11-06"
     notes: "Four replay tests (valid seal, missing text, hash mismatch, tampered seal) added in Phase 1; the earlier 'verified manually, no tests' note was removed."
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "detector.tfdp2_protocol"
     statement: "Detector protocol TFDP/2 with explicit schema versioning; TFDP/1 accepted and normalized with provenance"
@@ -168,6 +217,23 @@ claims:
     owner: "detectors"
     last_verified: "2026-11-06"
     notes: "SPEC.md documents TFDP/2 since Phase 1; the earlier SPEC/code version disagreement is resolved."
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
+
+  - id: "detector.deterministic_output"
+    statement: "Detector outputs are deterministic: 5 repeated scan runs and 5 repeated report runs each produce 1 unique jq-filtered hash, with Trust Map coverage keys in declared order"
+    category: "capability"
+    status: "verified"
+    evidence_type: "doc"
+    evidence_path: "docs/evidence/runs/EV-20261106-determinism.json"
+    owner: "detectors"
+    last_verified: "2026-11-06"
+    notes: "Measured with the reproducibility workflow's exact jq filter (walk deleting runtime fields). The Trust Map coverage key order fix (TRUST_STATES as an ordered tuple) is what made this hold."
+    evidence_record_id: "EV-20261106-determinism"
+    run_artifact_sha256: "e27c0393d5bc147403b0d9cc054d73d79cfc06cc21d6a87793dd2d6a159400d1"
+    values:
+      scan_unique_hashes: 1
+      report_unique_hashes: 1
 
   - id: "evidence.registry_validation"
     statement: "Evidence registry validates all field invariants, fingerprint SHA-256, artifact SHA-256, contamination controls on load"
@@ -177,6 +243,8 @@ claims:
     evidence_path: "tests/test_capability_ledger.py::TestEvidenceLabelValidation"
     owner: "evidence"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "evidence.no_silent_upgrade"
     statement: "Missing or stale evidence artifacts are never silently upgraded to 'supported'"
@@ -186,6 +254,8 @@ claims:
     evidence_path: "tests/test_capability_ledger.py::TestEvidenceLabelValidation"
     owner: "evidence"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "api.rest_endpoints"
     statement: "REST API provides /v1/analyze, /v1/case endpoints returning forensic bundles and case files"
@@ -195,6 +265,8 @@ claims:
     evidence_path: "tests/test_api.py"
     owner: "api"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "mcp.tools_exposed"
     statement: "MCP server exposes verify_case_file, analyze_text, and capability_list tools"
@@ -204,16 +276,42 @@ claims:
     evidence_path: "tests/test_mcp_tools.py"
     owner: "mcp"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "test_suite_measured"
-    statement: "Full test suite passes in a bare venv: 2210 passed, 147 skipped, 0 failed; 78% line coverage (measured 2026-11-06, Python 3.12.3)"
+    statement: "Full test suite measured in the extras venv: 2354 passed, 1 failed (known host-memory flake), 0 skipped; 86% line coverage (measured 2026-11-06, Python 3.12.3)"
     category: "maturity"
     status: "verified"
     evidence_type: "doc"
     evidence_path: "docs/VERIFICATION.md"
     owner: "dev"
     last_verified: "2026-11-06"
-    notes: "Skips are tests for optional extras not installed by .[dev] (typer/fastapi-gated). Replaces the old '2363 tests pass, 83%' note, which contradicted the measured run and the continuation plan."
+    notes: "The 1 failure is tests/test_diagnostics.py::TestDiagnosticsEngine::test_memory_check, a known host-memory flake: it fails when this VM sits above 95% memory use and passes in isolation and in CI. The old '2210 passed, 147 skipped, 0 failed; 78%' note (Phase 1 bare-venv numbers) is superseded; the bare core-only numbers are now in test_suite_measured_core."
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
+    values:
+      tests_passed: 2354
+      tests_failed: 1
+      tests_skipped: 0
+      coverage_pct: 86
+
+  - id: "test_suite_measured_core"
+    statement: "Full test suite measured in a bare core-only venv (no optional extras): 2243 passed, 0 failed, 112 skipped; 82% line coverage (measured 2026-11-06, Python 3.12.3)"
+    category: "maturity"
+    status: "verified"
+    evidence_type: "doc"
+    evidence_path: "docs/VERIFICATION.md"
+    owner: "dev"
+    last_verified: "2026-11-06"
+    notes: "The 112 skips are tests for optional extras not installed in the core venv (fastapi/typer-gated). The test_memory_check host-memory flake did not fire in this run; on runs where it does, the record's drops manifest names it."
+    evidence_record_id: "EV-20261106-suite-core"
+    run_artifact_sha256: "eebc9ccedd2673e4d4d9339b29d32fce7e6450d1366ce90b15fed9fb4f419800"
+    values:
+      tests_passed: 2243
+      tests_failed: 0
+      tests_skipped: 112
+      coverage_pct: 82
 
   - id: "python_version_support"
     statement: "Python 3.11-3.15 are in the CI test matrix; the local measured run used Python 3.12.3"
@@ -224,6 +322,15 @@ claims:
     owner: "dev"
     last_verified: "2026-11-06"
     notes: "pyproject.toml declares requires-python >=3.11 and classifiers for 3.11-3.15. Local verification on 3.11/3.13/3.14/3.15 is NOT claimed; that is what CI is for."
+    evidence_record_id: "EV-20261106-doc-ci-matrix"
+    run_artifact_sha256: "e3a81f210134650d2588ab6fea19db9cd0844875fe4c81771142cb45fc1a2445"
+    values:
+      python_versions:
+        - "3.11"
+        - "3.12"
+        - "3.13"
+        - "3.14"
+        - "3.15"
 
   - id: "ruff_lint_clean"
     statement: "Codebase passes ruff check with zero errors and ruff format is clean across src/, tests/, scripts/"
@@ -233,6 +340,12 @@ claims:
     evidence_path: "ruff check src/ tests/ scripts/ && ruff format --check src/ tests/ scripts/"
     owner: "dev"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-ruff"
+    run_artifact_sha256: "f0cde73a67a3ec764351555da67a3a8035ed68676f8ae4faf11781a80ac4db2a"
+    values:
+      ruff_errors: 0
+      ruff_check_exit: 0
+      ruff_format_exit: 0
 
   - id: "security.bandit_no_medium_high"
     statement: "Bandit reports 0 medium- and 0 high-severity findings in src/ (16 Low)"
@@ -243,6 +356,12 @@ claims:
     owner: "security"
     last_verified: "2026-11-06"
     notes: "Measured 2026-11-06 in the bare venv (bandit 1.9.4). The -lll flag makes the exit code encode 'no medium/high'."
+    evidence_record_id: "EV-20261106-bandit"
+    run_artifact_sha256: "036b7a7d770cd71b3c5ca75cc41fd5cbd6a61d85f8bd41c389b83dcd3216bf29"
+    values:
+      bandit_medium: 0
+      bandit_high: 0
+      bandit_low: 16
 
   - id: "security.pip_audit_tracked"
     statement: "pip-audit reports 25 known findings in 3 packages (cryptography 42.0.8: 11, pip 24.0: 12, pytest 8.4.2: 2); every finding has a fixed version and the cryptography cap is widened by Dependabot #27 in Phase 4"
@@ -253,6 +372,13 @@ claims:
     owner: "security"
     last_verified: "2026-11-06"
     notes: "Replaces the old 'no critical vulnerabilities' claim, whose own note admitted 108 vulns. pip 24.0 is the venv installer, not a shipped dependency; pytest is dev-only."
+    evidence_record_id: "EV-20261106-pip-audit"
+    run_artifact_sha256: "ffaa16dc4c6b1020f1ce7debd318995998a48a4c76dc27ac8d011804ccc624ba"
+    values:
+      findings_total: 25
+      packages.cryptography: 11
+      packages.pip: 12
+      packages.pytest: 2
 
   - id: "deterministic_builds"
     statement: "Wheel builds are reproducible: the reproducibility workflow builds twice with SOURCE_DATE_EPOCH=1704067200 and compares the artifacts"
@@ -263,6 +389,10 @@ claims:
     owner: "dev"
     last_verified: "2026-11-06"
     notes: "Build backend pinned to setuptools>=75,<80 and wheel>=0.45 in pyproject.toml."
+    evidence_record_id: "EV-20261106-doc-repro"
+    run_artifact_sha256: "f442ba484a8647881c0bb68495600965b466f2da5f80cf0aff79cde5988d5b21"
+    values:
+      source_date_epoch: 1704067200
 
   - id: "web_ui.index_renders"
     statement: "Web UI GET / renders 200 with the session id (Starlette 1.10 TemplateResponse signature)"
@@ -273,6 +403,8 @@ claims:
     owner: "web"
     last_verified: "2026-11-06"
     notes: "Fixed in Phase 1; the mislabelled pytest.skip hacks that hid the 500 were deleted."
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "core.emergency_stop_headless"
     statement: "Emergency-stop activation never fails on identity lookup; headless runs fall back without os.getlogin()"
@@ -282,6 +414,8 @@ claims:
     evidence_path: "tests/test_workspace_integrity.py"
     owner: "core"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "security.ollama_ssrf_guard"
     statement: "Ollama base_url is loopback-only by default (explicit allow_remote_host=True opt-in for remote hosts) and every response is capped at 10 MB"
@@ -291,6 +425,8 @@ claims:
     evidence_path: "tests/test_ollama.py"
     owner: "security"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "security.bundle_decompression_caps"
     statement: "Bundle verification and listing reject oversized archives: 100 MB compressed, 10 MB per member, 100 MB total decompressed, 1 MB manifest"
@@ -300,6 +436,8 @@ claims:
     evidence_path: "tests/test_bundle.py"
     owner: "security"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "security.cache_decompression_cap"
     statement: "Cached-result decompression is capped at 10 MB; an oversized zlib expansion is rejected, not expanded"
@@ -309,6 +447,8 @@ claims:
     evidence_path: "tests/test_detection_cache.py"
     owner: "security"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-suite"
+    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "schemas.single_source"
     statement: "The packaged src/textforensics/schemas/ is the single schema source; no stale top-level schemas/ duplicate exists"
@@ -318,3 +458,5 @@ claims:
     evidence_path: "tests/test_precommit.py"
     owner: "core"
     last_verified: "2026-11-06"
+    evidence_record_id: "EV-20261106-schemas"
+    run_artifact_sha256: "26555d2f9f7645a8fa413eec541a67bb9c4fead7a47d77f8d0dca99da46968cf"
