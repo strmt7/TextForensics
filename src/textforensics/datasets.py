@@ -481,10 +481,10 @@ def fetch_strided_sample(
 
     Same licence gate and determinism guarantees as
     :func:`fetch_sample`; each offset is one ``/rows`` request of
-    length 1, so this costs ``n`` requests. Prefer it over
-    :func:`fetch_sample` when the split is ordered (MAGE, OpAI-Bench
-    version blocks); use :func:`fetch_sample` when rows are already
-    interleaved (RAID train).
+    length 1, so this costs ``n`` requests. This is the sampling
+    method for every wave-1 measurement: all five splits are ordered
+    by testbed/model (RAID first-200 rows are all human), so first-*n*
+    sampling would return one side only.
     """
     require_licence(spec)
     client = client or DatasetsServerClient()
