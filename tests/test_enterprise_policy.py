@@ -999,6 +999,7 @@ class TestSchemaRegistration:
         errors = validate(policy_data, "enterprise-policy")
         assert errors == []
 
+
 # ---------------------------------------------------------------------------
 # Mutation-kill tests (Phase 5 wave 4E)
 # ---------------------------------------------------------------------------
@@ -1185,9 +1186,7 @@ class TestPolicyMutationKills:
     def test_no_claims_maps_to_unknown(self):
         # Kills AddNot occ 6 (mutant takes the supported/partial path
         # when there are no relevant claims).
-        dimension = ledger_to_trust_dimension(
-            CapabilityLedger(), "det-a", "language_coverage"
-        )
+        dimension = ledger_to_trust_dimension(CapabilityLedger(), "det-a", "language_coverage")
         assert dimension.state == "unknown"
 
     def test_validated_claim_maps_to_supported(self):
@@ -1200,9 +1199,7 @@ class TestPolicyMutationKills:
     def test_tool_backed_and_readable_map_to_partial(self):
         for tier in (EvidenceTier.TOOL_BACKED, EvidenceTier.READABLE):
             ledger = _ledger_with_claim(_make_claim(tier=tier))
-            dimension = ledger_to_trust_dimension(
-                ledger, "det-a", "language_coverage"
-            )
+            dimension = ledger_to_trust_dimension(ledger, "det-a", "language_coverage")
             assert dimension.state == "partial"
 
     def test_valid_until_becomes_limitation(self):
@@ -1216,9 +1213,7 @@ class TestPolicyMutationKills:
         )
         ledger = _ledger_with_claim(claim)
         dimension = ledger_to_trust_dimension(ledger, "det-a", "language_coverage")
-        assert dimension.limitations == [
-            "Claim for language_coverage expires 2030-01-01."
-        ]
+        assert dimension.limitations == ["Claim for language_coverage expires 2030-01-01."]
         assert dimension.evidence_refs == []
 
     def test_dimension_collects_evidence_artifacts(self):
@@ -1417,9 +1412,7 @@ class TestPolicyMutationKills:
         ledger = _ledger_with_claim(_make_claim(tier=EvidenceTier.VALIDATED))
         assert passing.evaluate(ledger, "det-a")[0].message.startswith("[PASS]")
         failing = _engine_requiring("language_coverage", "validated", action="warn")
-        assert failing.evaluate(CapabilityLedger(), "det-a")[0].message.startswith(
-            "[WARN]"
-        )
+        assert failing.evaluate(CapabilityLedger(), "det-a")[0].message.startswith("[WARN]")
 
     def test_create_policy_factories(self):
         production = create_production_policy()
@@ -1428,15 +1421,13 @@ class TestPolicyMutationKills:
             "prod-length-robustness",
             "prod-domain-accuracy",
         ]
-        assert [
-            p.rule_id for p in create_report_generation_policy().policies
-        ] == ["report-trust-map"]
+        assert [p.rule_id for p in create_report_generation_policy().policies] == [
+            "report-trust-map"
+        ]
         assert [p.rule_id for p in create_calibration_policy().policies] == [
             "cal-probability-output"
         ]
-        assert [p.rule_id for p in create_minimum_viable_policy().policies] == [
-            "min-documentation"
-        ]
+        assert [p.rule_id for p in create_minimum_viable_policy().policies] == ["min-documentation"]
 
     # -- PolicyRevisionFloor: messages / floor arithmetic ------------------
 
@@ -1461,9 +1452,7 @@ class TestPolicyMutationKills:
         assert f"Expected digest {valid_policy.digest[:16]}..." in rejection
         assert f"got {'b' * 16}..." in rejection
 
-    def test_advance_floor_rev0_on_fresh_floor_initializes(
-        self, temp_state_dir, valid_policy
-    ):
+    def test_advance_floor_rev0_on_fresh_floor_initializes(self, temp_state_dir, valid_policy):
         # Kills NumberReplacer occ 38/39 (floor_revision == 0 becomes
         # == 1 / == -1: the mutant never takes the initialize branch
         # for a revision-0 policy on a fresh floor).
@@ -1483,9 +1472,7 @@ class TestPolicyMutationKills:
         assert len(floor.state.history) == 1
         assert floor.state.history[0]["action"] == "initialize"
 
-    def test_advance_floor_second_rev0_does_not_reinitialize(
-        self, temp_state_dir, valid_policy
-    ):
+    def test_advance_floor_second_rev0_does_not_reinitialize(self, temp_state_dir, valid_policy):
         # Kills ReplaceAndWithOr occ 5 (mutant re-initializes on the
         # second revision-0 advance because `== 0 or not digest` is
         # True once the revision is 0).
@@ -1503,9 +1490,7 @@ class TestPolicyMutationKills:
         floor.advance_floor(rev0)
         assert len(floor.state.history) == 1
 
-    def test_digest_mismatch_message_shows_16_hex_chars(
-        self, temp_state_dir, policy_data
-    ):
+    def test_digest_mismatch_message_shows_16_hex_chars(self, temp_state_dir, policy_data):
         # Kills NumberReplacer occ 40-43 (the [:16] slices in the
         # digest-mismatch message become [:17] / [:15]).
         floor = PolicyRevisionFloor(
@@ -1591,16 +1576,12 @@ class TestPolicyMutationKills:
         def _raise_schema_error(*args, **kwargs):
             raise jsonschema.exceptions.SchemaError("boom")
 
-        monkeypatch.setattr(
-            jsonschema, "Draft202012Validator", _raise_schema_error
-        )
+        monkeypatch.setattr(jsonschema, "Draft202012Validator", _raise_schema_error)
         assert validate_enterprise_policy(policy_data) == [
             "The enterprise policy schema itself is invalid"
         ]
 
-    def test_floor_without_cryptography_raises_runtime_error(
-        self, temp_state_dir, monkeypatch
-    ):
+    def test_floor_without_cryptography_raises_runtime_error(self, temp_state_dir, monkeypatch):
         # Kills ExceptionReplacer occ 2 (the `except ImportError`
         # handler in PolicyRevisionFloor.__init__ is replaced: a
         # missing cryptography then propagates ImportError instead of
@@ -1641,7 +1622,14 @@ class TestPolicyMutationKills:
         # / == 31: a 33- / 31-byte key file is then treated as a legacy
         # raw key and raises a bare ValueError from Fernet instead of
         # the documented PolicyKeyError).
-        (temp_state_dir / "key.key").write_bytes(os.urandom(size))
+        # Fixed bytes, not os.urandom(size): _load_or_generate_key
+        # strips the key file, and a random 33-byte key whose first or
+        # last byte is ASCII whitespace strips down to 32 bytes and is
+        # then ACCEPTED as a legacy key (~4.5% of runs) — the same flake
+        # class as the legacy-key test fixed above, and it falsely
+        # killed 3 mutants in the first proof run. bytes(range(1, ...))
+        # has no edge-whitespace byte, so .strip() is a no-op.
+        (temp_state_dir / "key.key").write_bytes(bytes(range(1, size + 1)))
         with pytest.raises(PolicyKeyError):
             PolicyRevisionFloor(
                 state_path=temp_state_dir / "state.enc",
@@ -1658,9 +1646,7 @@ class TestPolicyMutationKills:
         from pathlib import Path
 
         real_schema = (
-            Path(policy_module.__file__).parent
-            / "schemas"
-            / "enterprise-policy.schema.json"
+            Path(policy_module.__file__).parent / "schemas" / "enterprise-policy.schema.json"
         ).read_text(encoding="utf-8")
         calls = {"n": 0}
 

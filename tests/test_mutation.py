@@ -556,9 +556,7 @@ class EquivalentBaselineTests(unittest.TestCase):
     def test_runtime_entries(self):
         """The 8 runtime entries carry their equivalence proofs."""
         runtime = [
-            e
-            for e in self.baseline["entries"]
-            if e["kind"] in self.runner.BASELINE_RUNTIME_KINDS
+            e for e in self.baseline["entries"] if e["kind"] in self.runner.BASELINE_RUNTIME_KINDS
         ]
         self.assertEqual(len(runtime), 8)
         unreachable = [e for e in runtime if e["kind"] == "unreachable-condition"]
@@ -923,10 +921,7 @@ class EquivalentBaselineTests(unittest.TestCase):
                 base + 'kind = "unreachable-condition"\nsource_text = "0"\n'
             ),
             "unobservable-value entry missing source_text": (
-                base
-                + 'kind = "unobservable-value"\nsource_fingerprint = "'
-                + "0" * 64
-                + '"\n'
+                base + 'kind = "unobservable-value"\nsource_fingerprint = "' + "0" * 64 + '"\n'
             ),
             "unobservable-value entry missing source_fingerprint": (
                 base + 'kind = "unobservable-value"\nsource_text = "0"\n'
@@ -1010,9 +1005,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertTrue(ok, f"decorator-position entry must validate: {reason}")
         # The fingerprint pins the decorator: changing maxsize must
         # change the fingerprint.
-        changed = source.replace(
-            "@lru_cache(maxsize=4)", "@lru_cache(maxsize=9)", 1
-        )
+        changed = source.replace("@lru_cache(maxsize=4)", "@lru_cache(maxsize=9)", 1)
         changed_tree = ast.parse(changed)
         _, changed_node = self.runner._enclosing_function(changed_tree, 540, 19)
         self.assertNotEqual(
