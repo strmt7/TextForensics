@@ -455,9 +455,14 @@ def _fuzz_policy_state_save_load(text: str) -> None:
         except ImportError:
             pass
 
-        # Write corrupted state file
+        # Write corrupted state file. Constructing the floor must now fail
+        # closed (PolicyStateCorruptError) instead of silently resetting
+        # the floor to revision 0; that raise is the expected outcome.
         state_path.write_text(text, encoding="utf-8")
-        floor = PolicyRevisionFloor(state_path=state_path, key_path=key_path)
+        try:
+            floor = PolicyRevisionFloor(state_path=state_path, key_path=key_path)
+        except Exception:
+            return
         try:
             s = floor.state
             assert isinstance(s, PolicyState)
@@ -467,19 +472,23 @@ def _fuzz_policy_state_save_load(text: str) -> None:
         # Write corrupted key (skip if it happens to be 44 bytes - could be valid base64)
         if len(text) != 44:
             key_path.write_text(text, encoding="utf-8")
-            floor2 = PolicyRevisionFloor(state_path=state_path, key_path=key_path)
+            try:
+                floor2 = PolicyRevisionFloor(state_path=state_path, key_path=key_path)
+            except Exception:
+                # Corrupt key file: fail-closed raise is the expected outcome.
+                return
             try:
                 key = floor2.get_key()
                 assert isinstance(key, bytes)
             except Exception:
                 pass
 
-        # get_key_path
-        try:
-            kp = floor2.get_key_path()
-            assert isinstance(kp, Path)
-        except Exception:
-            pass
+            # get_key_path
+            try:
+                kp = floor2.get_key_path()
+                assert isinstance(kp, Path)
+            except Exception:
+                pass
 
 
 def _fuzz_enterprise_policy_from_dict_edge(text: str) -> None:
