@@ -64,7 +64,10 @@ class HumanizationPattern:
     severity: str  # "critical", "high", "medium", "low"
     confidence: float  # 0-1, how reliable this pattern is
     tool_attribution: str | None = None  # Known tool if identified
-    false_positive_rate: float = 0.0  # Estimated FPR at threshold
+    # Per-pattern human false-positive rate at threshold. None means
+    # UNMEASURED — no per-pattern FPR has ever been measured for this
+    # library, so reporting 0.0 would fabricate a perfect score.
+    false_positive_rate: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
