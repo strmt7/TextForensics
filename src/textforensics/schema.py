@@ -20,6 +20,7 @@ _SCHEMA_NAMES = {
     "evidence-registry": "evidence-registry.schema.json",
     "evidence-record": "evidence-record.schema.json",
     "validation-registry": "validation-registry.schema.json",
+    "sealed-bundle-manifest": "sealed-bundle-manifest.schema.json",
 }
 
 

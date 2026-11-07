@@ -1,0 +1,180 @@
+{
+  "$id": "textforensics.sealed-bundle-manifest/v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "MPL manifest for a sealed case-file bundle: per-file SHA-256 digests and sizes plus the sealing context (case id, input digest, registry digest, DSSE signature, timestamp references, checklist digest).",
+  "properties": {
+    "context": {
+      "additionalProperties": false,
+      "properties": {
+        "appeal_checklist_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "case_id": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "input_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "registry_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "signature": {
+          "additionalProperties": false,
+          "properties": {
+            "payload": {
+              "type": "string"
+            },
+            "payloadType": {
+              "const": "textforensics.sealed-bundle-manifest/v1"
+            },
+            "signatures": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "keyid": {
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  },
+                  "sig": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "keyid",
+                  "sig"
+                ],
+                "type": "object"
+              },
+              "maxItems": 1,
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "payloadType",
+            "payload",
+            "signatures"
+          ],
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "signer": {
+          "additionalProperties": false,
+          "properties": {
+            "identity": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "key_fingerprint": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "role": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "identity",
+            "role",
+            "key_fingerprint"
+          ],
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "timestamp_imprint": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timestamp_token_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tool_version": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool_version",
+        "case_id",
+        "input_sha256",
+        "registry_sha256",
+        "signature",
+        "signer",
+        "timestamp_token_sha256",
+        "timestamp_imprint",
+        "appeal_checklist_digest"
+      ],
+      "type": "object"
+    },
+    "files": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "role": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "size": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path",
+          "role",
+          "sha256",
+          "size"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema": {
+      "const": "textforensics.sealed-bundle-manifest/v1"
+    }
+  },
+  "required": [
+    "schema",
+    "context",
+    "files"
+  ],
+  "title": "TextForensics Sealed Bundle Manifest",
+  "type": "object"
+}

@@ -230,34 +230,40 @@ def _b64decode_padded(data):
 
 
 def _dsse_verify(envelope, public_key, expected_payload_type):
-    """Verify a DSSE envelope. Returns (ok, detail)."""
+    """Verify a DSSE envelope. Returns (ok, detail, payload_or_None).
+
+    The caller must ALSO check that the payload equals the bytes the
+    signature is supposed to cover (here: the canonical manifest with
+    the signature field itself set to null); a valid signature over
+    some other payload proves nothing about this manifest.
+    """
     if not isinstance(envelope, dict):
-        return False, "envelope is not an object"
+        return False, "envelope is not an object", None
     if set(envelope.keys()) != {"payloadType", "payload", "signatures"}:
-        return False, "envelope has unexpected fields"
+        return False, "envelope has unexpected fields", None
     if envelope.get("payloadType") != expected_payload_type:
-        return False, "payloadType mismatch"
+        return False, "payloadType mismatch", None
     try:
         payload = _b64decode_padded(envelope["payload"])
     except Exception:
-        return False, "payload is not canonical base64"
+        return False, "payload is not canonical base64", None
     signatures = envelope.get("signatures")
     if not isinstance(signatures, list) or len(signatures) != 1:
-        return False, "expected exactly one signature"
+        return False, "expected exactly one signature", None
     signature = signatures[0]
     if not isinstance(signature, dict) or set(signature.keys()) != {"keyid", "sig"}:
-        return False, "signature entry is malformed"
+        return False, "signature entry is malformed", None
     keyid = signature["keyid"]
     if keyid != _sha256(bytes(public_key)):
-        return False, "keyid does not match the supplied public key"
+        return False, "keyid does not match the supplied public key", None
     try:
         raw_sig = _b64decode_padded(signature["sig"])
     except Exception:
-        return False, "signature is not canonical base64"
+        return False, "signature is not canonical base64", None
     pae = _dsse_pae(expected_payload_type, payload)
     if not _ed25519_verify(public_key, pae, raw_sig):
-        return False, "Ed25519 verification failed"
-    return True, "signature verifies"
+        return False, "Ed25519 verification failed", None
+    return True, "signature verifies", payload
 
 
 # ---------------------------------------------------------------------------
@@ -1425,15 +1431,27 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
                 "origin was not authenticated",
             )
         else:
-            ok_sig, detail = _dsse_verify(
+            ok_sig, detail, payload = _dsse_verify(
                 signature, public_key, "textforensics.sealed-bundle-manifest/v1"
             )
-            if ok_sig:
-                report["signature"] = "verified"
-                ok("seal_signature", f"DSSE signature verifies ({detail})")
-            else:
+            if not ok_sig:
                 report["signature"] = "failed"
                 fail("seal_signature", detail)
+            else:
+                # The envelope must sign THIS manifest (with the
+                # signature field itself null), not some other payload.
+                unsigned = dict(manifest)
+                unsigned["context"] = dict(context)
+                unsigned["context"]["signature"] = None
+                if payload != _canonical_json_bytes(unsigned):
+                    report["signature"] = "failed"
+                    fail(
+                        "seal_signature",
+                        "signature payload does not match this manifest",
+                    )
+                else:
+                    report["signature"] = "verified"
+                    ok("seal_signature", f"DSSE signature verifies ({detail})")
 
     # -- (4) timestamp check, if a token entry is present. --
     token_bytes = contents.get("timestamp-token.der")

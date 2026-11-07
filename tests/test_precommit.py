@@ -93,6 +93,7 @@ class TestValidateSchemas:
             "evidence-registry.schema.json",
             "forensic-bundle.schema.json",
             "run-artifact.schema.json",
+            "sealed-bundle-manifest.schema.json",
             "trust-map.schema.json",
             "validation-registry.schema.json",
         ]

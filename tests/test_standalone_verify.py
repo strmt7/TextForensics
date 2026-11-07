@@ -21,6 +21,8 @@ import unittest
 import zipfile
 from pathlib import Path
 
+from _token_fixture import build_token_for_digest
+
 from textforensics.casefile import seal_case_file, verify_case_file
 from textforensics.report import build_forensic_bundle
 
@@ -143,99 +145,6 @@ def build_bundle(*, signature=None, token_der=None, case_bytes=None, case=None):
     return pack_bundle(entries), manifest, case
 
 
-def build_token_for_digest(digest, *, nonce=424242):
-    """Build a real CMS time-stamp token over *digest* (test helper).
-
-    Uses the production DER encoder from timestamp.py plus
-    ``cryptography`` RSA signing — the same construction as
-    tests/test_timestamp.py, kept local so this file stands alone.
-    """
-    from datetime import UTC, datetime, timedelta
-
-    from cryptography import x509
-    from cryptography.hazmat.primitives import hashes
-    from cryptography.hazmat.primitives.asymmetric import padding, rsa
-    from cryptography.hazmat.primitives.serialization import Encoding
-    from cryptography.x509.oid import NameOID
-
-    from textforensics.timestamp import (
-        OID_MESSAGE_DIGEST,
-        OID_SHA256,
-        OID_SHA256_WITH_RSA,
-        OID_SIGNED_DATA,
-        OID_TST_INFO,
-        _der_context,
-        _der_generalized_time,
-        _der_integer,
-        _der_octet_string,
-        _der_oid,
-        _der_sequence,
-        _der_set,
-    )
-
-    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Test TSA")])
-    now = datetime.now(UTC)
-    cert = (
-        x509.CertificateBuilder()
-        .subject_name(name)
-        .issuer_name(name)
-        .public_key(key.public_key())
-        .serial_number(1)
-        .not_valid_before(now - timedelta(days=1))
-        .not_valid_after(now + timedelta(days=365))
-        .sign(key, hashes.SHA256())
-    )
-    cert_der = cert.public_bytes(Encoding.DER)
-    tst_info = _der_sequence(
-        _der_integer(1),
-        _der_oid("1.2.3.4.5"),
-        _der_sequence(
-            _der_sequence(_der_oid(OID_SHA256)),
-            _der_octet_string(digest),
-        ),
-        _der_integer(1),
-        _der_generalized_time("20261107120000Z"),
-        _der_integer(nonce),
-    )
-    econtent_digest = hashlib.sha256(tst_info).digest()
-    signed_attrs = _der_set(
-        _der_sequence(
-            _der_oid(OID_MESSAGE_DIGEST),
-            _der_set(_der_octet_string(econtent_digest)),
-        ),
-        _der_sequence(
-            _der_oid("1.2.840.113549.1.9.5"),
-            _der_set(_der_generalized_time("20261107120000Z")),
-        ),
-    )
-    to_sign = b"\x31" + signed_attrs[1:]
-    signature = key.sign(to_sign, padding.PKCS1v15(), hashes.SHA256())
-    sid = _der_sequence(cert.issuer.public_bytes(), _der_integer(1))
-    signer_info = _der_sequence(
-        _der_integer(1),
-        sid,
-        _der_sequence(_der_oid(OID_SHA256)),
-        _der_context(0, signed_attrs[2:], constructed=True),
-        _der_sequence(_der_oid(OID_SHA256_WITH_RSA)),
-        _der_octet_string(signature),
-    )
-    signed_data = _der_sequence(
-        _der_integer(1),
-        _der_set(_der_sequence(_der_oid(OID_SHA256))),
-        _der_sequence(
-            _der_oid(OID_TST_INFO),
-            _der_context(0, _der_octet_string(tst_info), constructed=True),
-        ),
-        _der_context(0, cert_der, constructed=True),
-        _der_set(signer_info),
-    )
-    return _der_sequence(
-        _der_oid(OID_SIGNED_DATA),
-        _der_context(0, signed_data, constructed=True),
-    )
-
-
 class StandaloneSelfContainedTests(unittest.TestCase):
     def test_no_package_imports(self):
         source = STANDALONE_PATH.read_text(encoding="utf-8")
@@ -296,7 +205,11 @@ class StandaloneEd25519Tests(unittest.TestCase):
             signature = sign(seed, message)
             self.assertTrue(mod._ed25519_verify(public_key, message, signature))
             self.assertTrue(verify(public_key, message, signature))
-            self.assertFalse(mod._ed25519_verify(public_key, message, signature[:-1] + b"\x00"))
+            # Flip a bit inside S (byte 40): replacing the last byte
+            # with zero is a no-op whenever S's top byte is already
+            # zero, which made this assertion flaky.
+            tampered = signature[:40] + bytes([signature[40] ^ 0x01]) + signature[41:]
+            self.assertFalse(mod._ed25519_verify(public_key, message, tampered))
 
 
 class StandaloneBundleTests(unittest.TestCase):
@@ -470,6 +383,29 @@ class StandaloneSignatureTests(unittest.TestCase):
         report = self.mod.verify_bundle_bytes(bundle)
         self.assertEqual(report["exit_code"], 2)
         self.assertEqual(report["signature"], "unavailable")
+
+    def test_signature_over_other_payload_fails(self):
+        # A valid DSSE signature over bytes that are NOT this manifest
+        # must not authenticate the bundle (payload binding).
+        from textforensics.dsse import sign_envelope
+        from textforensics.sealing import public_key_from_seed
+
+        seed = bytes(range(32))
+        case_bytes, case = build_case_bytes()
+        verifier_bytes = STANDALONE_PATH.read_bytes()
+        entries = {"case.json": case_bytes, "verify.py": verifier_bytes}
+        manifest = make_manifest(entries, case_id=case["case_sha256"])
+        envelope = sign_envelope(
+            "textforensics.sealed-bundle-manifest/v1",
+            b"some other manifest bytes",
+            seed,
+        )
+        manifest["context"]["signature"] = envelope
+        entries["manifest.json"] = canonical_json(manifest)
+        bundle = pack_bundle(entries)
+        report = self.mod.verify_bundle_bytes(bundle, public_key=public_key_from_seed(seed))
+        self.assertEqual(report["exit_code"], 1)
+        self.assertEqual(report["signature"], "failed")
 
     def test_signature_with_wrong_key_fails(self):
         seed = bytes(range(32))
