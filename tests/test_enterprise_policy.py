@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
+import os
 
 import pytest
+from cryptography.fernet import Fernet
 
 from textforensics.policy import (
     EnterprisePolicy,
     EnterprisePolicyEngine,
+    PolicyKeyError,
     PolicyRevisionFloor,
     PolicyState,
+    PolicyStateCorruptError,
     compute_policy_digest,
     validate_enterprise_policy,
 )
@@ -416,7 +421,7 @@ class TestPolicyRevisionFloor:
         assert floor.floor_revision == 0
         assert floor.floor_digest == ""
 
-    def test_encrypted_state_corruption_recovery(self, temp_state_dir, valid_policy):
+    def test_encrypted_state_corruption_raises(self, temp_state_dir, valid_policy):
         floor = PolicyRevisionFloor(
             state_path=temp_state_dir / "state.enc",
             key_path=temp_state_dir / "key.key",
@@ -427,29 +432,130 @@ class TestPolicyRevisionFloor:
         state_file = temp_state_dir / "state.enc"
         state_file.write_bytes(b"corrupted-data")
 
-        # Should recover gracefully
-        floor2 = PolicyRevisionFloor(
-            state_path=temp_state_dir / "state.enc",
-            key_path=temp_state_dir / "key.key",
-        )
-        assert floor2.floor_revision == 0
+        # Fail closed: a present-but-unreadable state must never silently
+        # reset the floor to revision 0 (that would permit rollback).
+        with pytest.raises(PolicyStateCorruptError) as excinfo:
+            PolicyRevisionFloor(
+                state_path=temp_state_dir / "state.enc",
+                key_path=temp_state_dir / "key.key",
+            )
+        assert "state.enc" in str(excinfo.value)
 
-    def test_wrong_key_recovery(self, temp_state_dir, valid_policy):
+    def test_wrong_key_file_raises(self, temp_state_dir, valid_policy):
         floor = PolicyRevisionFloor(
             state_path=temp_state_dir / "state.enc",
             key_path=temp_state_dir / "key.key",
         )
         floor.advance_floor(valid_policy)
 
-        # Change the key
+        # Change the key to a 13-byte file: not a valid Fernet key, and a
+        # fresh key must never be generated over an existing key file.
         (temp_state_dir / "new-key.key").write_text("different-key", encoding="utf-8")
 
-        # Load with wrong key - should recover to empty state
+        with pytest.raises(PolicyKeyError) as excinfo:
+            PolicyRevisionFloor(
+                state_path=temp_state_dir / "state.enc",
+                key_path=temp_state_dir / "new-key.key",
+            )
+        assert "new-key.key" in str(excinfo.value)
+        # The invalid key file was not overwritten with a fresh key.
+        assert (temp_state_dir / "new-key.key").read_text(encoding="utf-8") == ("different-key")
+
+    def test_valid_but_wrong_key_raises_corrupt_state(self, temp_state_dir, valid_policy):
+        floor = PolicyRevisionFloor(
+            state_path=temp_state_dir / "state.enc",
+            key_path=temp_state_dir / "key.key",
+        )
+        floor.advance_floor(valid_policy)
+
+        # A different VALID Fernet key cannot decrypt the state: fail
+        # closed with PolicyStateCorruptError, not a silent floor reset.
+        (temp_state_dir / "other-key.key").write_bytes(Fernet.generate_key())
+
+        with pytest.raises(PolicyStateCorruptError):
+            PolicyRevisionFloor(
+                state_path=temp_state_dir / "state.enc",
+                key_path=temp_state_dir / "other-key.key",
+            )
+
+    def test_legacy_32_byte_raw_key_converted(self, temp_state_dir, valid_policy):
+        raw_key = os.urandom(32)
+        (temp_state_dir / "key.key").write_bytes(raw_key)
+
+        floor = PolicyRevisionFloor(
+            state_path=temp_state_dir / "state.enc",
+            key_path=temp_state_dir / "key.key",
+        )
+        floor.advance_floor(valid_policy)
+        assert floor.floor_revision == valid_policy.revision
+
+        # Same key material, only the encoding changed; the file was
+        # re-persisted in base64 form as an explicit one-time migration.
+        converted = base64.urlsafe_b64encode(raw_key)
+        assert floor.get_key() == converted
+        assert (temp_state_dir / "key.key").read_bytes() == converted
+
+        # A second instance loads the converted key and the saved state.
         floor2 = PolicyRevisionFloor(
             state_path=temp_state_dir / "state.enc",
-            key_path=temp_state_dir / "new-key.key",
+            key_path=temp_state_dir / "key.key",
         )
-        assert floor2.floor_revision == 0
+        assert floor2.floor_revision == valid_policy.revision
+        assert floor2.floor_digest == valid_policy.digest
+
+    @pytest.mark.parametrize(
+        "bad_key",
+        [
+            pytest.param(b"!" * 44, id="non-base64-44-bytes"),
+            pytest.param(b"A" * 44, id="base64-decoding-to-33-bytes"),
+            pytest.param(b"x" * 20, id="truncated-20-bytes"),
+            pytest.param(b"", id="empty-file"),
+        ],
+    )
+    def test_invalid_key_file_raises(self, temp_state_dir, bad_key):
+        (temp_state_dir / "key.key").write_bytes(bad_key)
+
+        with pytest.raises(PolicyKeyError) as excinfo:
+            PolicyRevisionFloor(
+                state_path=temp_state_dir / "state.enc",
+                key_path=temp_state_dir / "key.key",
+            )
+        assert "key.key" in str(excinfo.value)
+        # The invalid key file was not overwritten with a fresh key.
+        assert (temp_state_dir / "key.key").read_bytes() == bad_key
+
+    def test_missing_key_file_generates(self, temp_state_dir):
+        key_path = temp_state_dir / "key.key"
+        assert not key_path.exists()
+
+        floor = PolicyRevisionFloor(
+            state_path=temp_state_dir / "state.enc",
+            key_path=key_path,
+        )
+        assert key_path.exists()
+        generated = key_path.read_bytes()
+        assert len(generated) == 44
+        Fernet(generated)  # valid Fernet key by construction
+        assert floor.get_key() == generated
+
+    def test_save_load_round_trip(self, temp_state_dir, valid_policy):
+        floor = PolicyRevisionFloor(
+            state_path=temp_state_dir / "state.enc",
+            key_path=temp_state_dir / "key.key",
+        )
+        floor.advance_floor(valid_policy)
+        floor.save_state()
+
+        floor2 = PolicyRevisionFloor(
+            state_path=temp_state_dir / "state.enc",
+            key_path=temp_state_dir / "key.key",
+        )
+        assert floor2.floor_revision == floor.floor_revision
+        assert floor2.floor_digest == floor.floor_digest
+        assert floor2.state.history == floor.state.history
+        # Atomic writes leave no temp files behind.
+        assert list(temp_state_dir.glob("state.enc.*")) == []
+        assert list(temp_state_dir.glob("key.key.*")) == []
 
     def test_env_config(self, temp_state_dir, valid_policy, monkeypatch):
         monkeypatch.setenv("TEXTFORENSICS_POLICY_STATE", str(temp_state_dir / "env-state.enc"))
