@@ -53,7 +53,7 @@ Design rules
   split and collects strided samples in a single streaming pass.
 
 Wave-1 scope only, plus GhostWriter and DetectRL-X in wave 2, and
-the licence-blocked DetectRL and M4 loaders (MixSet precedent: spec + a
+the licence-blocked DetectRL, M4 and M4GT-Bench loaders (MixSet precedent: spec + a
 mapper that refuses until the licence resolves and a live row has
 been inspected — no live rows, no artifacts, no records). RealDet /
 CrisisFake have no verified route (no loader), PAN 2025 is wave 2
@@ -710,6 +710,68 @@ SPECS: dict[str, DatasetSpec] = {
         "davinci-003, ChatGPT, GPT-4, Cohere, Dolly-v2, BLOOMz 176B.",
         citation="Wang et al., M4, arXiv:2305.14902.",
     ),
+    "m4gt_bench": DatasetSpec(
+        key="m4gt_bench",
+        name="M4GT-Bench",
+        hf_id="mbzuai-nlp/M4GT-Bench",
+        paper="Wang et al., arXiv:2402.11175 v2",
+        source_url="https://github.com/mbzuai-nlp/M4GT-Bench",
+        licence=None,
+        licence_note="NO SINGLE DATASET LICENCE exists anywhere checked "
+        "2026-11-07. GitHub API record for mbzuai-nlp/M4GT-Bench: "
+        '"license":null; no LICENSE file; no licence statement in the '
+        "README. Per-source licences exist in paper Table 2 (arXiv "
+        "HTML 2402.11175v2, verified): Arabic-Wikipedia CC BY-SA-3.0; "
+        "True & Fake News (Bulgarian) MIT; Baike/Web QA (Chinese) "
+        "MIT; id_newspapers_2018 CC BY-NC-SA-4.0; RuATD Apache 2.0; "
+        "Urdu-news CC BY 4.0; News (Arabic) Apache 2.0; CHANGE-it "
+        "News (Italian) CC BY-NC-SA 4.0; News (German) CC BY-NC-SA-"
+        "4.0; Wikipedia (German) CC BY-SA-3.0. Three sources are NC "
+        "(id_newspapers_2018, CHANGE-it News, News (German)). "
+        "Per-source licences do not add up to a dataset licence — the "
+        "gate stays closed. DO NOT FETCH until unblocked: what would "
+        "unblock it is a dataset licence statement from the authors. "
+        "The loader is code-complete and tested with mocks; live rows "
+        "and run artifacts are deferred.",
+        licence_status=LICENCE_UNRESOLVED,
+        configs=(),
+        splits=(),
+        notes="Licence-blocked (MixSet precedent). Verified route, for "
+        "the record — DO NOT download: Google Drive folder "
+        "https://drive.google.com/drive/folders/"
+        "1xC-n5hHiXmaCLmA0q3p8Cbyd7Dk0dpDE?usp=sharing (verbatim from "
+        "the README, public link): SubtaskA_multilingual.jsonl 693.4 "
+        "MB; SubtaskA.jsonl 480.5 MB; SubtaskB.jsonl 332.3 MB; "
+        "subtaskC_test.jsonl 73.8 MB; subtaskC_train_dev.jsonl 138.4 "
+        "MB (approx. 1.72 GB total). Drive offers no row counts — "
+        "Drive row counts NOT verifiable without downloading. Counts "
+        "are SCOPE-QUALIFIED figures from the paper's own tables, "
+        "quote only with scope: Task 1 English 138,465 (65,177 human "
+        "+ 73,288 machine); + multilingual 65,100 + GPT-4 14,344 = "
+        "217,909 (approx. 217k); Task 3 adds 31,893; all-in with "
+        "OUTFOX approx. 281k. Tasks: (1) binary mono/multilingual "
+        "detection; (2) multi-way generator identification; (3) mixed "
+        "human-machine change-point detection (human share 0-50% of "
+        "words) — the U4 spine. Authors' metrics: Tasks 1/2 "
+        "F1/precision/recall per generator + F1-macro and accuracy; "
+        "Task 3 MAE on the boundary index. Report per-task, never "
+        "pooled. Field names inside the JSONL files NOT verified — no "
+        "live row has been inspected. Loader splits are NOT mapped "
+        "until a live row is inspected, so configs/splits are empty "
+        "here. Known limitation for any future fetcher: the shared "
+        "urllib downloader (`download_large_file`, the candidate for "
+        "a future Drive fetch) could not sustain an ~879 MB "
+        "DetectRL-X download (timed out after 6 attempts, never past "
+        "headers) while curl fetched the full file in ~5 min with the "
+        "SHA-256 verified; the shipped loader still uses "
+        "`download_large_file`, so a future ~1.72 GB Drive fetch will "
+        "likely need curl or a downloader fix — the downloader is NOT "
+        "fixed in this task, fetchers are deferred. No Hugging Face "
+        "dataset exists, so hf_id holds the GitHub repo slug — never "
+        "pass it to the datasets-server client. Scope: 9 languages, 6 "
+        "domains, 9 generators (incl. GPT-4, LLaMA-2).",
+        citation="Wang et al., M4GT-Bench, arXiv:2402.11175.",
+    ),
 }
 
 
@@ -1328,6 +1390,28 @@ def _map_m4(row: dict[str, Any], config: str, split: str) -> list[NormalizedRow]
     )
 
 
+def _map_m4gt_bench(row: dict[str, Any], config: str, split: str) -> list[NormalizedRow]:
+    """M4GT-Bench: refused until the licence resolves and a live row is inspected.
+
+    The licence is unresolved (see the spec's ``licence_note``), so no
+    live row has ever been inspected; the field names inside the Drive
+    JSONL files are UNVERIFIED and the three tasks (binary detection,
+    multi-way generator identification, mixed human-machine
+    change-point detection) each need their own mapping, so the mapper
+    fails closed instead of guessing a schema. Revisit only after the
+    licence is clarified AND a live row has been read. No fetcher is
+    written in this task — the verified route is the public Google
+    Drive folder (see the spec notes); a future fetcher must download
+    the five Subtask files from Drive, and will likely need curl or a
+    downloader fix for the ~1.72 GB total (see the spec notes).
+    """
+    raise DatasetFetchError(
+        "m4gt_bench: licence unresolved AND no live row inspected "
+        "(field names inside the Drive JSONL files unverified); "
+        "refusing to map"
+    )
+
+
 def _map_mixset(row: dict[str, Any], config: str, split: str) -> list[NormalizedRow]:
     """MixSet: refused until the label polarity is verified from data.
 
@@ -1353,6 +1437,7 @@ _MAPPERS: dict[str, Any] = {
     "detectrl_x": _map_detectrl_x,
     "detectrl": _map_detectrl,
     "m4": _map_m4,
+    "m4gt_bench": _map_m4gt_bench,
 }
 
 

@@ -28,6 +28,7 @@ from textforensics.datasets import (
     NormalizedRow,
     _map_detectrl,
     _map_m4,
+    _map_m4gt_bench,
     cache_path,
     default_cache_dir,
     detectrl_x_raw_path,
@@ -82,6 +83,7 @@ class SpecTests(unittest.TestCase):
             "detectrl_x",
             "detectrl",
             "m4",
+            "m4gt_bench",
         ):
             self.assertEqual(get_spec(key).key, key)
 
@@ -223,6 +225,43 @@ class SpecTests(unittest.TestCase):
         self.assertIn("curl", spec.notes)
         # No train/test split is defined; no loader splits are mapped
         # until a live row is inspected.
+        self.assertEqual(spec.configs, ())
+        self.assertEqual(spec.splits, ())
+
+    def test_m4gt_bench_licence_unresolved(self) -> None:
+        # No single dataset licence exists anywhere checked
+        # 2026-11-07: GitHub API record "license":null, no LICENSE
+        # file, no README statement. Per-source licences in paper
+        # Table 2 do not add up to a dataset licence, and three
+        # sources are NC. The gate stays closed.
+        spec = get_spec("m4gt_bench")
+        self.assertIsNone(spec.licence)
+        self.assertEqual(spec.licence_status, "unresolved")
+        with self.assertRaises(DatasetLicenceError):
+            require_licence(spec)
+        note = spec.licence_note
+        self.assertIn('"license":null', note)
+        self.assertIn("no LICENSE file", note)
+        self.assertIn("CC BY-SA-3.0", note)
+        self.assertIn("CC BY-NC-SA-4.0", note)
+        self.assertIn("Three sources are NC", note)
+        self.assertIn("licence statement from the authors", note)
+        # The verified Drive route and the scope-qualified counts are
+        # recorded in the notes; Drive row counts are NOT verifiable
+        # without downloading.
+        self.assertIn("1xC-n5hHiXmaCLmA0q3p8Cbyd7Dk0dpDE", spec.notes)
+        self.assertIn("SubtaskA_multilingual.jsonl", spec.notes)
+        self.assertIn("subtaskC_train_dev.jsonl", spec.notes)
+        self.assertIn("138,465", spec.notes)
+        self.assertIn("217,909", spec.notes)
+        self.assertIn("281k", spec.notes)
+        self.assertIn("NOT verifiable without downloading", spec.notes)
+        self.assertIn("U4 spine", spec.notes)
+        self.assertIn("per-task, never pooled", spec.notes)
+        self.assertIn("download_large_file", spec.notes)
+        self.assertIn("curl", spec.notes)
+        # Task structure is recorded in the notes; no loader splits
+        # are mapped until a live row is inspected.
         self.assertEqual(spec.configs, ())
         self.assertEqual(spec.splits, ())
 
@@ -472,6 +511,14 @@ class FetchSampleTests(unittest.TestCase):
             fetch_sample(get_spec("m4"), "default", "train", 5, client=client)
         client.rows.assert_not_called()
 
+    def test_licence_gate_blocks_m4gt_bench_before_http(self) -> None:
+        # M4GT-Bench is licence-blocked like MixSet: the gate fires
+        # before any fetch attempt is made.
+        client = mock.MagicMock()
+        with self.assertRaises(DatasetLicenceError):
+            fetch_sample(get_spec("m4gt_bench"), "default", "train", 5, client=client)
+        client.rows.assert_not_called()
+
     def test_pagination(self) -> None:
         spec = get_spec("beemo")
         client = mock.MagicMock()
@@ -679,6 +726,20 @@ class MapperTests(unittest.TestCase):
             map_row("detectrl", {"text": "x"}, "default", "train")
         with self.assertRaises(DatasetFetchError) as caught:
             _map_detectrl({"text": "x"}, "default", "train")
+        message = str(caught.exception)
+        self.assertIn("licence unresolved", message)
+        self.assertIn("no live row inspected", message)
+        self.assertIn("refusing to map", message)
+
+    def test_m4gt_bench_mapper_refuses(self) -> None:
+        # Licence gate fires first (DatasetLicenceError); even if it
+        # did not, the mapper itself refuses — the licence is
+        # unresolved AND no live row has been inspected, so the field
+        # names inside the Drive JSONL files are unverified.
+        with self.assertRaises(DatasetLicenceError):
+            map_row("m4gt_bench", {"text": "x"}, "default", "train")
+        with self.assertRaises(DatasetFetchError) as caught:
+            _map_m4gt_bench({"text": "x"}, "default", "train")
         message = str(caught.exception)
         self.assertIn("licence unresolved", message)
         self.assertIn("no live row inspected", message)
