@@ -220,13 +220,31 @@ def _dsse_pae(payload_type, payload):
     )
 
 
-def _b64decode_padded(data):
+def _b64decode_strict(data):
+    """Decode canonical standard base64; raise ValueError otherwise.
+
+    The signer (``dsse.py``) writes standard base64 (alphabet ``+/``,
+    with ``=`` padding), so this verifier must decode that same
+    alphabet. Decoding with ``urlsafe_b64decode`` worked only by
+    accident: up to Python 3.14 it also accepted ``+``/``/``, but
+    CPython 3.15 (CVE-2025-12781 / gh-125346) no longer recognises
+    them in the URL-safe alphabet, so any signature whose standard
+    encoding contains ``+`` or ``/`` failed verification on 3.15 only
+    (CI: Core Python 3.15, 3 signature tests). The bytes must
+    re-encode identically, rejecting malleable encodings.
+    """
     import base64
+    import binascii
 
     if isinstance(data, str):
         data = data.encode("ascii")
-    padding = b"=" * (-len(data) % 4)
-    return base64.urlsafe_b64decode(data + padding)
+    try:
+        decoded = base64.b64decode(data, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ValueError("not canonical base64") from exc
+    if base64.b64encode(decoded) != data:
+        raise ValueError("not canonical base64")
+    return decoded
 
 
 def _dsse_verify(envelope, public_key, expected_payload_type):
@@ -244,7 +262,7 @@ def _dsse_verify(envelope, public_key, expected_payload_type):
     if envelope.get("payloadType") != expected_payload_type:
         return False, "payloadType mismatch", None
     try:
-        payload = _b64decode_padded(envelope["payload"])
+        payload = _b64decode_strict(envelope["payload"])
     except Exception:
         return False, "payload is not canonical base64", None
     signatures = envelope.get("signatures")
@@ -257,7 +275,7 @@ def _dsse_verify(envelope, public_key, expected_payload_type):
     if keyid != _sha256(bytes(public_key)):
         return False, "keyid does not match the supplied public key", None
     try:
-        raw_sig = _b64decode_padded(signature["sig"])
+        raw_sig = _b64decode_strict(signature["sig"])
     except Exception:
         return False, "signature is not canonical base64", None
     pae = _dsse_pae(expected_payload_type, payload)

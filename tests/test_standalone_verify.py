@@ -377,6 +377,37 @@ class StandaloneSignatureTests(unittest.TestCase):
         self.assertEqual(report["signature"], "verified")
         self.assertIn("key fingerprint", report["scope_statement"])
 
+    def test_signature_with_standard_alphabet_chars_verifies(self):
+        # Regression (CI: Core Python 3.15 only): the standalone
+        # verifier decoded the DSSE signature with urlsafe_b64decode,
+        # which CPython 3.15 (CVE-2025-12781 / gh-125346) no longer
+        # accepts '+'/'/' in. The signer writes standard base64, so a
+        # signature containing those characters must verify.
+        # bytes(range(32)) is such a seed — assert it, so this test is
+        # never vacuous.
+        from textforensics.dsse import sign_envelope
+
+        seed = bytes(range(32))
+        envelope = sign_envelope("textforensics.sealed-bundle-manifest/v1", b"probe", seed)
+        sig = envelope["signatures"][0]["sig"]
+        self.assertTrue("+" in sig or "/" in sig, sig)
+        bundle, public_key = self._signed_bundle(seed)
+        report = self.mod.verify_bundle_bytes(bundle, public_key=public_key)
+        self.assertEqual(report["exit_code"], 0, json.dumps(report, indent=2))
+        self.assertEqual(report["signature"], "verified")
+
+    def test_urlsafe_only_base64_is_rejected(self):
+        # The format is standard base64, not base64url: a value using
+        # the URL-safe alphabet ('-'/'_') is not canonical here.
+        with self.assertRaises(ValueError):
+            self.mod._b64decode_strict("ab-_" * 11)
+        # ...and a standard-base64 value containing '+'/'/' decodes.
+        decoded = self.mod._b64decode_strict(
+            "v27Gkws5pcEprzaQDArGwS8CxkifBC3t+U2g455evxX0l/"
+            "Zed3KmDB69es9GI7JGRQ+clhHN78GaZe+TW6zSDg=="
+        )
+        self.assertEqual(len(decoded), 64)
+
     def test_signature_without_key_is_incomplete(self):
         seed = bytes(range(32))
         bundle, _ = self._signed_bundle(seed)
