@@ -835,6 +835,15 @@ class EquivalentBaselineTests(unittest.TestCase):
             "runtime entry missing source_fingerprint": (
                 base + 'kind = "unreachable-condition"\nsource_text = "0"\n'
             ),
+            "unobservable-value entry missing source_text": (
+                base
+                + 'kind = "unobservable-value"\nsource_fingerprint = "'
+                + "0" * 64
+                + '"\n'
+            ),
+            "unobservable-value entry missing source_fingerprint": (
+                base + 'kind = "unobservable-value"\nsource_text = "0"\n'
+            ),
             "unknown kind": base + 'kind = "magic"\nannotation = "x"\n',
             "annotation entry missing annotation": (base + 'kind = "arg"\n'),
         }
@@ -850,6 +859,38 @@ class EquivalentBaselineTests(unittest.TestCase):
                     self.runner.load_baseline(Path(temp_path))
             finally:
                 Path(temp_path).unlink(missing_ok=True)
+
+    def test_unobservable_value_entry_validates(self):
+        """A well-formed "unobservable-value" entry re-validates.
+
+        The entry is built with the runner's own helpers (enclosing
+        function + fingerprint from the current policy.py source) at
+        the real position of the `2` in `"validated": 2`
+        (CapabilityPolicyEngine.evaluate, L376:33) — the dispatch for
+        the new runtime kind must accept it exactly like an
+        unreachable-condition entry.
+        """
+        import ast
+
+        source = (self.project_root / "src" / "textforensics" / "policy.py").read_text()
+        tree = ast.parse(source)
+        name, node = self.runner._enclosing_function(tree, 376, 33)
+        self.assertEqual(name, "CapabilityPolicyEngine.evaluate")
+        entry = {
+            "id": "test:unobservable-value",
+            "module": "textforensics.policy",
+            "operator": "core/NumberReplacer",
+            "occurrence": 4,
+            "start_pos": [376, 33],
+            "end_pos": [376, 34],
+            "function": name,
+            "kind": "unobservable-value",
+            "reason": "synthetic test entry",
+            "source_text": "2",
+            "source_fingerprint": self.runner._function_fingerprint(source, node),
+        }
+        ok, reason = self.runner.validate_baseline_entry(entry, self.project_root)
+        self.assertTrue(ok, f"unobservable-value entry must validate: {reason}")
 
     def test_malformed_baseline_rejected(self):
         """Wrong version / missing field / duplicate id fail loudly at load."""
