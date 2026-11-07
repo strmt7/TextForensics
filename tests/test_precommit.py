@@ -92,6 +92,7 @@ class TestValidateSchemas:
             "evidence-record.schema.json",
             "evidence-registry.schema.json",
             "forensic-bundle.schema.json",
+            "mixed-origin-report.schema.json",
             "probe-run.schema.json",
             "run-artifact.schema.json",
             "sealed-bundle-manifest.schema.json",
