@@ -1,0 +1,160 @@
+{
+  "badge": "available",
+  "code_version": "b80097a8fa8b4a6d4937a9831cce84d3196e781c",
+  "command": "python scripts/measure_datasets.py --only detectrl_x",
+  "drops": [
+    {
+      "item": "full-corpus evaluation",
+      "reason": "preliminary sample only (n=800 normalised rows from 76800 split rows)"
+    },
+    {
+      "item": "Python 3.11, 3.13, 3.14, 3.15",
+      "reason": "measured on the local interpreter only; CI covers the matrix"
+    },
+    {
+      "item": "train/test threshold selection",
+      "reason": "no threshold was fitted on this sample; AUROC/TPR@FPR are threshold-free"
+    },
+    {
+      "item": "15 of 16 Binary files + all Ternary files",
+      "reason": "single-file preliminary slice only: Binary/binary_general_open.json of 16 Binary files (~14.67 GB total); the README states the train split is identical across all strategy files, so the general file is the representative slice; Ternary files are out of scope for this measurement"
+    },
+    {
+      "item": "HF viewer / default dataset load",
+      "reason": "broken (DatasetGenerationCastError: perturbation files add a perturbation_info column; datasets-server /size confirms num_rows 0); per-file load only"
+    },
+    {
+      "item": "commercial use and redistribution",
+      "reason": "three-way licence conflict (GitHub README Apache-2.0 + NC restriction, HF MIT, ACL 2026 paper NC restriction); the strictest reading (non-commercial academic research only) governs; local cache only"
+    },
+    {
+      "item": "per-language detector metrics",
+      "reason": "the builtin detector is English-focused and abstains on much non-English text; per-language label counts and abstentions are recorded in the results, but AUROC/TPR are pooled only in this preliminary slice"
+    }
+  ],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261107-dataset-detectrl-x",
+  "kind": "command",
+  "results": {
+    "abstentions_by_lang": {
+      "arabic": 2,
+      "chinese": 28,
+      "english": 22,
+      "french": 8,
+      "german": 3,
+      "portuguese": 15,
+      "russian": 0,
+      "spanish": 22
+    },
+    "auroc": 0.5972,
+    "cache_file_sha256": "08f23dc371211fba9beae6d4e3c26b250d18ad817de7f3f86ea6425b7cac8349",
+    "config": "binary",
+    "dataset": "detectrl_x",
+    "detector": "textforensics/builtin-heuristic",
+    "detector_abstentions": 100,
+    "detector_evaluated_rows": 800,
+    "detector_version": "0.1.0",
+    "disjointness": {
+      "against": "binary/test (n=100)",
+      "checked": true,
+      "disjoint": true,
+      "errors": [],
+      "shared_samples": 0,
+      "verified": true
+    },
+    "hf_id": "WUJUNCHAO/DetectRL-X",
+    "label_counts": {
+      "0": 400,
+      "1": 400
+    },
+    "label_counts_by_lang": {
+      "arabic": {
+        "0": 50,
+        "1": 50
+      },
+      "chinese": {
+        "0": 50,
+        "1": 50
+      },
+      "english": {
+        "0": 50,
+        "1": 50
+      },
+      "french": {
+        "0": 50,
+        "1": 50
+      },
+      "german": {
+        "0": 50,
+        "1": 50
+      },
+      "portuguese": {
+        "0": 50,
+        "1": 50
+      },
+      "russian": {
+        "0": 50,
+        "1": 50
+      },
+      "spanish": {
+        "0": 50,
+        "1": 50
+      }
+    },
+    "licence": "Three-way conflict \u2014 GitHub README: Apache License 2.0 with use strictly restricted to non-commercial academic research purposes; Hugging Face card/API: MIT; ACL 2026 paper: use strictly restricted to noncommercial academic research purposes. The strictest reading (non-commercial academic research only) governs.",
+    "mean_score_by_kind": {
+      "raw": 0.1942
+    },
+    "preliminary": true,
+    "rows_by_kind": {
+      "raw": 800
+    },
+    "rows_by_lang": {
+      "arabic": 100,
+      "chinese": 100,
+      "english": 100,
+      "french": 100,
+      "german": 100,
+      "portuguese": 100,
+      "russian": 100,
+      "spanish": 100
+    },
+    "rows_fetched": 400,
+    "rows_normalised": 800,
+    "sampling": "strided",
+    "score_by_label": {
+      "human": {
+        "max": 0.4964,
+        "mean": 0.1805,
+        "median": 0.1627,
+        "min": 0.0342,
+        "n": 400
+      },
+      "machine": {
+        "max": 0.456,
+        "mean": 0.2078,
+        "median": 0.2021,
+        "min": 0.0217,
+        "n": 400
+      }
+    },
+    "source_file": "Binary/binary_general_open.json",
+    "source_file_bytes": 878631989,
+    "source_file_sha256": "815be1667a5e7404d9e513ab339c214c713bd7ac4eb46f375fa0a26bf2dfc15f",
+    "split": "train",
+    "split_rows_total": 76800,
+    "split_rows_verified": {
+      "test": 48000,
+      "total": 124800,
+      "train": 76800
+    },
+    "tpr_at_1pct_fpr": 0.005,
+    "tpr_at_5pct_fpr": 0.0825
+  },
+  "run_date": "2026-11-07",
+  "schema": "textforensics.run-artifact/v1"
+}
