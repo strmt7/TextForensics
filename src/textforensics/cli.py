@@ -447,6 +447,40 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use fixed timestamp and remove runtime_ms for reproducible output",
     )
 
+    mixed_origin = sub.add_parser(
+        "mixed-origin",
+        help="Build a mixed-origin / co-authorship report for a text (U4).",
+    )
+    mixed_origin.add_argument("--file", "-f")
+    mixed_origin.add_argument(
+        "--text", "-t", help="Provide text directly instead of --file or stdin."
+    )
+    mixed_origin.add_argument("--json", action="store_true", help="Print the full report as JSON.")
+    mixed_origin.add_argument("--out", "-o", help="Write the report JSON to this file.")
+    mixed_origin.add_argument(
+        "--language",
+        help="Input language code (e.g. en). Without it no validation slice can cover the regime and the verdict is withheld.",
+    )
+    mixed_origin.add_argument(
+        "--domain",
+        help="Input domain/genre (e.g. news, essays, reports, abstracts).",
+    )
+    mixed_origin.add_argument(
+        "--registry",
+        help="U1 validation registry path (default: docs/validation/registry.json).",
+    )
+    mixed_origin.add_argument(
+        "--segment-slice",
+        action="append",
+        default=None,
+        help="Segment slice ID to treat as mixed-origin coverage (repeatable; default: opai-bench-segments-builtin-heuristic).",
+    )
+    mixed_origin.add_argument(
+        "--no-adversarial",
+        action="store_true",
+        help="Skip the adversarial humanisation-artifact evidence family.",
+    )
+
     natural = sub.add_parser(
         "audit",
         help="Audit formulaic/naturalness patterns, or manage audit anchors via subcommands (export/verify).",
@@ -1185,6 +1219,109 @@ def _trust_map_exit_code(bundle: dict[str, Any]) -> int:
     return EXIT_OK
 
 
+def _pretty_mixed_origin(report: dict[str, Any]) -> None:
+    """Human-readable summary of a mixed-origin report (no raw text)."""
+    print("TextForensics mixed-origin report")
+    print("=" * 60)
+    print(f"Verdict                {report['verdict']}")
+    for reason in report["withheld_reasons"]:
+        print(f"  withheld: {reason}")
+    print(
+        f"Collaboration type     {report['collaboration_type']} "
+        f"(confidence {report['collaboration_confidence']})"
+    )
+    degree = report["degree_of_change"]
+    print(f"Degree of change       {degree['tiers']} (estimate: none — uncalibrated)")
+    operation = report["operation_hypothesis"]
+    print(
+        f"Operation hypothesis   {operation['operation']} "
+        f"({operation['direction']}, confidence {operation['confidence']})"
+    )
+    for item in operation["evidence"]:
+        print(f"  evidence: {item}")
+    counts = {"ai-consistent": 0, "human-consistent": 0, "insufficient": 0}
+    for segment in report["segments"]:
+        counts[segment["evidence"]] += 1
+    print(
+        f"Segments               {len(report['segments'])} total: "
+        f"{counts['ai-consistent']} AI-consistent, "
+        f"{counts['human-consistent']} human-consistent, "
+        f"{counts['insufficient']} insufficient"
+    )
+    print(f"Input hash             {report['input']['content_hash']}")
+    print("Limitations")
+    for item in report["limitations"]:
+        print(f"  - {item}")
+
+
+def _mixed_origin(args: argparse.Namespace, settings: Settings) -> int:
+    """Build a U4 mixed-origin report (``tf mixed-origin``).
+
+    Exit codes: 0 when a verdict (human/ai) is given; 1 when the
+    verdict is withheld (analysis complete, evidence insufficient);
+    3 on input or configuration errors (raised ValueError/OSError
+    are converted by ``main``).
+    """
+    from .mixed_origin import build_mixed_origin_report, segment_covered_regimes
+
+    text = _read_text(args.file, settings, text=args.text)
+
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    registry_path = args.registry or str(repo_root / "docs" / "validation" / "registry.json")
+    slice_ids = tuple(args.segment_slice) if args.segment_slice else None
+    covered: set[tuple[str, str]] = set()
+    from .validation import load_validation_registry
+
+    if args.registry:
+        # An explicitly given registry must load; a missing or
+        # invalid file is a configuration error, not silent
+        # no-coverage.
+        registry = load_validation_registry(registry_path)
+        covered = segment_covered_regimes(registry, slice_ids=slice_ids)
+    elif Path(registry_path).exists():
+        try:
+            registry = load_validation_registry(registry_path)
+        except (ValueError, OSError) as exc:
+            print(
+                f"warning: could not load validation registry ({exc}); "
+                "treating the regime as uncovered, verdict withheld.",
+                file=sys.stderr,
+            )
+        else:
+            covered = segment_covered_regimes(registry, slice_ids=slice_ids)
+    else:
+        print(
+            "warning: no validation registry found at "
+            f"{registry_path}; treating the regime as uncovered, "
+            "verdict withheld.",
+            file=sys.stderr,
+        )
+
+    findings = None
+    document_analysis = None
+    if not args.no_adversarial:
+        from .adversarial import AdversarialDetector
+
+        findings = AdversarialDetector().analyze(text).findings
+        document_analysis = analyze_text(text)
+
+    report = build_mixed_origin_report(
+        text,
+        language=args.language,
+        domain=args.domain,
+        covered_regimes=covered,
+        adversarial_findings=findings,
+        document_analysis=document_analysis,
+    )
+    if args.out:
+        _write_json(args.out, report)
+    elif args.json:
+        _write_json(None, report)
+    else:
+        _pretty_mixed_origin(report)
+    return EXIT_OK if report["verdict"] in ("human", "ai") else EXIT_DOWNGRADED
+
+
 def _drift_run(args: argparse.Namespace) -> int:
     """Run one U3 probe run (``tf drift run``).
 
@@ -1415,6 +1552,9 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
                 _pretty_analysis(result)
         else:
             _pretty_analysis(result)
+
+    elif args.command == "mixed-origin":
+        return _mixed_origin(args, settings)
 
     elif args.command == "audit":
         anchor_command = getattr(args, "anchor_command", None)
