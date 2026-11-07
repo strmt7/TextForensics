@@ -475,7 +475,10 @@ def _enclosing_function(tree: ast.AST, line: int, col: int) -> tuple[str | None,
     (``TrustMap.dimension``, ``assess_trust_map``). Returns ``(None, None)``
     when the position is not inside any function. The walk visits parents
     before children, so the last containing function found is the
-    innermost one.
+    innermost one. A decorated function's span starts at its first
+    decorator line, not at the ``def`` line: a mutant in a decorator
+    argument (e.g. ``@lru_cache(maxsize=4)``) is inside the function
+    it decorates.
     """
     found: tuple[str, ast.AST] | None = None
 
@@ -484,7 +487,11 @@ def _enclosing_function(tree: ast.AST, line: int, col: int) -> tuple[str | None,
         for child in ast.iter_child_nodes(node):
             if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 child_owner = f"{owner}.{child.name}" if owner else child.name
-                start = (child.lineno, child.col_offset)
+                if child.decorator_list:
+                    first = child.decorator_list[0]
+                    start = (first.lineno, 0)
+                else:
+                    start = (child.lineno, child.col_offset)
                 end = (child.end_lineno or child.lineno, child.end_col_offset or 0)
                 if start <= (line, col) < end:
                     found = (child_owner, child)
@@ -508,8 +515,20 @@ def _function_fingerprint(source: str, node: ast.AST) -> str:
     parses the tree (unlike ``ast.dump``, whose output gained
     ``type_params`` in 3.12). Any token change in the function changes
     the fingerprint, so the entry goes stale and must be re-verified.
+    The hashed source starts at the first decorator line when the
+    function is decorated (``ast.get_source_segment`` starts at the
+    ``def`` line, so decorator lines are prepended explicitly): the
+    fingerprint pins the WHOLE decorated function, including the
+    decorator arguments a runtime entry may record. Undecorated
+    functions hash exactly as before.
     """
     segment = ast.get_source_segment(source, node) or ""
+    decorators = getattr(node, "decorator_list", None) or []
+    if decorators:
+        lines = source.splitlines()
+        first = decorators[0]
+        deco_lines = lines[first.lineno - 1 : node.lineno - 1]
+        segment = "\n".join([*deco_lines, segment])
     return hashlib.sha256(" ".join(segment.split()).encode()).hexdigest()
 
 
