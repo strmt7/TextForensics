@@ -189,6 +189,40 @@ def _label_entry(item: pc.ProbeCorpusItem, label, regime: str) -> dict:
     }
 
 
+def _fetch_strided_cached(
+    key: str, config: str, split: str, n: int, total: int, client: DatasetsServerClient
+) -> list[dict]:
+    """Strided fetch with a local resume cache.
+
+    A ~2,000-request strided build against a flaky server must not be
+    all-or-nothing: raw fetched rows are cached per (dataset, config,
+    split, n) under the probe-corpus cache dir, and a re-run reuses a
+    cache file with exactly ``n`` rows instead of re-fetching. The
+    cache file holds raw server rows (text lives in the local cache
+    only, never in the repo); a plan change (different ``n``) uses a
+    different filename, so a stale plan can never be reused silently.
+    """
+    out_dir = CACHE_VERSION_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
+    cache_path = out_dir / f"fetch-{key}-{config}-{split}-n{n}.jsonl"
+    if cache_path.exists():
+        rows = [
+            json.loads(line)
+            for line in cache_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        if len(rows) != n:
+            raise RuntimeError(
+                f"fetch cache {cache_path} has {len(rows)} rows, expected {n} — "
+                "delete it and re-run"
+            )
+        print(f"  reusing cached fetch: {cache_path.name} ({n} rows)")
+        return rows
+    rows = fetch_strided_sample(get_spec(key), config, split, n, total, client=client)
+    cache_path.write_text("".join(pc.canonical_json(row) + "\n" for row in rows), encoding="utf-8")
+    return rows
+
+
 def build() -> pc.ProbeCorpusManifest:
     """Fetch, filter, exclude, and write the cache files. Returns the manifest."""
     client = DatasetsServerClient()
@@ -208,11 +242,11 @@ def build() -> pc.ProbeCorpusManifest:
             corpus_texts[item.item_id] = row.text
 
     # --- MAGE validation (one fetch serves three slices) ---
-    print("Fetching MAGE validation (n=401 strided)...")
     _, config, split, n, total = FETCH_PLAN["mage"]
+    print(f"Fetching MAGE validation (n={n} strided)...")
     mage_rows = [
         mapped
-        for raw in fetch_strided_sample(get_spec("mage"), config, split, n, total, client=client)
+        for raw in _fetch_strided_cached("mage", config, split, n, total, client)
         for mapped in map_row("mage", raw, config, split)
     ]
     humans = _pick(mage_rows, SLICE_N, lambda r: r.label == 0, excluded, used, "human-native")
@@ -223,11 +257,11 @@ def build() -> pc.ProbeCorpusManifest:
     _add(legacy, "ai-legacy-generator", 1, "raw")
 
     # --- RAID train (one fetch serves two slices) ---
-    print("Fetching RAID train (n=601 strided)...")
     _, config, split, n, total = FETCH_PLAN["raid"]
+    print(f"Fetching RAID train (n={n} strided)...")
     raid_rows = [
         mapped
-        for raw in fetch_strided_sample(get_spec("raid"), config, split, n, total, client=client)
+        for raw in _fetch_strided_cached("raid", config, split, n, total, client)
         for mapped in map_row("raid", raw, config, split)
     ]
     paraphrased = _pick(
@@ -250,11 +284,11 @@ def build() -> pc.ProbeCorpusManifest:
     _add(humanized, "ai-humanized", 1, "raw")
 
     # --- Beemo train ---
-    print("Fetching Beemo train (n=301 records strided)...")
     _, config, split, n, total = FETCH_PLAN["beemo"]
+    print(f"Fetching Beemo train (n={n} records strided)...")
     beemo_rows = [
         mapped
-        for raw in fetch_strided_sample(get_spec("beemo"), config, split, n, total, client=client)
+        for raw in _fetch_strided_cached("beemo", config, split, n, total, client)
         for mapped in map_row("beemo", raw, config, split)
     ]
     short = _pick(
@@ -268,13 +302,11 @@ def build() -> pc.ProbeCorpusManifest:
     _add(short, "human-short", 0, "raw")
 
     # --- OpAI-Bench dev ---
-    print("Fetching OpAI-Bench dev (n=503 strided)...")
     _, config, split, n, total = FETCH_PLAN["opai_bench"]
+    print(f"Fetching OpAI-Bench dev (n={n} strided)...")
     opai_rows = [
         mapped
-        for raw in fetch_strided_sample(
-            get_spec("opai_bench"), config, split, n, total, client=client
-        )
+        for raw in _fetch_strided_cached("opai_bench", config, split, n, total, client)
         for mapped in map_row("opai_bench", raw, config, split)
     ]
     mixed = _pick(
@@ -288,8 +320,8 @@ def build() -> pc.ProbeCorpusManifest:
     _add(mixed, "mixed-origin", None, "mixed-origin")
 
     # --- DetectRL-X test (streaming pass over the cached file) ---
-    print("Sampling DetectRL-X test (n=401 source rows, streaming)...")
     _, config, split, n, total = FETCH_PLAN["detectrl_x"]
+    print(f"Sampling DetectRL-X test (n={n} source rows, streaming)...")
     dx_path = verify_detectrl_x_file(detectrl_x_raw_path())
     _, test_rows, counts = sample_detectrl_x_rows(dx_path, [], sample_offsets(total, n))
     if counts["test"] != total:
