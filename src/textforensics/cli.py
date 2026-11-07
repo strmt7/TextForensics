@@ -2220,10 +2220,16 @@ def _run_policy_command(args: argparse.Namespace) -> int:
     state_path = Path(args.state_path) if getattr(args, "state_path", None) else None
     key_path = Path(args.key_path) if getattr(args, "key_path", None) else None
 
-    floor = ep.PolicyRevisionFloor(
-        state_path=state_path,
-        key_path=key_path,
-    )
+    try:
+        floor = ep.PolicyRevisionFloor(
+            state_path=state_path,
+            key_path=key_path,
+        )
+    except (ep.PolicyStateCorruptError, ep.PolicyKeyError) as exc:
+        # Fail closed: a corrupt state or invalid key must never silently
+        # reset the revision floor. Report it and stop (exit 1).
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_ERROR
 
     if args.policy_command == "load":
         # Read and validate the policy file
