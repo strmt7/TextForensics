@@ -7,7 +7,7 @@ Usage:
     python scripts/run_fuzz.py --target text_parsing    # run single target
     python scripts/run_fuzz.py --duration 10            # 10 min per target
     python scripts/run_fuzz.py --method direct          # use atheris directly (not pytest)
-    python scripts/run_fuzz.py --regression             # CI regression: existing corpus only
+    python scripts/run_fuzz.py --regression             # seed from existing corpus (still explores)
 """
 
 from __future__ import annotations
@@ -112,6 +112,10 @@ def ensure_dirs(target: FuzzTarget) -> tuple[Path, Path, Path]:
 def run_atheris_target(target: FuzzTarget, duration_seconds: int, regression: bool) -> dict:
     """Run a single fuzz target via atheris in a subprocess.
 
+    ``regression`` is accepted for CLI compatibility; it currently only
+    seeds the corpus (see below) — replay-only mode is not implemented,
+    so a regression run still explores new inputs for the duration.
+
     Returns a dict with summary info.
     """
     crashes_dir, corpus_out, _ = ensure_dirs(target)
@@ -140,22 +144,22 @@ atheris.Setup(
 )
 atheris.Fuzz()
 """,
-        "-runs=0",
         f"-max_total_time={duration_seconds}",
         f"-artifact_prefix={crashes_dir}/",
     ]
 
-    # Seed with existing corpus if available
+    # Seed with existing corpus if available and pass it positionally so
+    # libFuzzer loads it.  It is NOT a dictionary: -dict= expects a
+    # libFuzzer dict file, not a corpus directory (the old regression
+    # branch passed the corpus dir via -dict=, which never seeded it).
     corpus_source = CORPUS_DIR / target.corpus_subdir
     if corpus_source.exists() and any(corpus_source.iterdir()):
         for f in corpus_source.iterdir():
             if f.is_file():
                 shutil.copy2(f, corpus_out)
 
-    if regression and corpus_out.exists():
-        files = list(corpus_out.iterdir())
-        if files:
-            cmd.append(f"-dict={corpus_out}")
+    if corpus_out.exists() and any(corpus_out.iterdir()):
+        cmd.append(str(corpus_out))
 
     env = os.environ.copy()
     env["PYTHONPATH"] = str(SRC_DIR)
@@ -289,7 +293,7 @@ def main() -> int:
     parser.add_argument(
         "--regression",
         action="store_true",
-        help="CI regression mode: only run existing corpus, no new exploration",
+        help="Seed from the existing corpus (replay-only mode is not implemented; direct fuzzing still explores new inputs)",
     )
     parser.add_argument(
         "--artifacts-dir",

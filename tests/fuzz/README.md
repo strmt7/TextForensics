@@ -50,7 +50,7 @@ pytest tests/fuzz/test_fuzz_pytest.py::TestJsonParsingApi -v
 
 ```bash
 # Run individual fuzz targets
-python tests/fuzz/fuzz_json_parsing.py -runs=0 -max_total_time=300
+python tests/fuzz/fuzz_json_parsing.py -max_total_time=300
 ```
 
 ## Fuzzing Targets

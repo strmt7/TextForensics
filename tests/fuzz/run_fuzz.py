@@ -160,8 +160,7 @@ atheris.Setup(
 )
 atheris.Fuzz()
 """,
-        "-runs=0",
-        f"-max_total_time={duration_minutes * 60}",
+        "-max_total_time={duration_minutes * 60}",
         f"-artifact_prefix={crashes_dir}/",
     ]
 
