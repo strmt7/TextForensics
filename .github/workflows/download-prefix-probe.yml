@@ -1,0 +1,120 @@
+name: Download Prefix Probe
+
+# Live check of the DetectRL-X download path without re-downloading
+# the full ~879 MB file on every run.
+#
+# - Weekly schedule + workflow_dispatch, mode=prefix (default): fetch
+#   the first 100 MiB through the shipped loader (urllib path, then
+#   forced-curl path) and compare its SHA-256 against the constant in
+#   scripts/download_prefix_probe.py. This exercises resolve -> 302 ->
+#   CDN -> Range -> 206 on the live path in ~13 s / 100 MB.
+# - workflow_dispatch with mode=full: end-to-end download_detectrl_x()
+#   with size + SHA-256 verification, cached by the file hash so a
+#   re-run only re-downloads on a cache miss.
+#
+# Per-push CI deliberately does NOT run this workflow (no egress):
+# the stall-server fixture tests in tests/test_download_stall.py cover
+# the failure modes locally.
+
+on:
+  schedule:
+    - cron: '30 4 * * 6' # Weekly Saturday 04:30 UTC
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Probe mode'
+        required: true
+        default: 'prefix'
+        type: choice
+        options:
+          - prefix
+          - full
+
+permissions:
+  contents: read
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: 1
+  PIP_NO_WARN_SCRIPT_LOCATION: 1
+
+jobs:
+  prefix-probe:
+    name: Prefix probe (urllib + curl)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'schedule' || inputs.mode == 'prefix'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install package (core only)
+        run: python -m pip install -e .
+      - name: Prefix probe (urllib path)
+        run: python scripts/download_prefix_probe.py
+      - name: Prefix probe (forced-curl path)
+        run: python scripts/download_prefix_probe.py --force-curl
+
+  full-download:
+    name: Full DetectRL-X download
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'full'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install package (core only)
+        run: python -m pip install -e .
+      - name: Resolve expected size and hash
+        id: expected
+        run: |
+          python - <<'PY'
+          import os
+          from textforensics.datasets import DETECTRL_X_BYTES, DETECTRL_X_SHA256
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(f"bytes={DETECTRL_X_BYTES}\n")
+              handle.write(f"sha256={DETECTRL_X_SHA256}\n")
+          PY
+      - name: Restore cached DetectRL-X file
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/tf-datasets/detectrl_x
+          key: detectrl-x-${{ steps.expected.outputs.sha256 }}
+      - name: Full download (or cache hit) and verification
+        run: |
+          # Point the loader's default cache at the runner temp dir
+          # (the same directory actions/cache restores above).
+          export TEXTFORENSICS_DATASETS_DIR="$RUNNER_TEMP/tf-datasets"
+          python - <<'PY'
+          import hashlib
+          import time
+          from textforensics.datasets import (
+              DETECTRL_X_BYTES,
+              DETECTRL_X_SHA256,
+              download_detectrl_x,
+          )
+          started = time.monotonic()
+          path = download_detectrl_x()
+          elapsed = time.monotonic() - started
+          size = path.stat().st_size
+          digest = hashlib.sha256()
+          with path.open("rb") as handle:
+              for chunk in iter(lambda: handle.read(1 << 20), b""):
+                  digest.update(chunk)
+          print(f"path={path}")
+          print(f"size={size} expected={DETECTRL_X_BYTES}")
+          print(f"sha256={digest.hexdigest()}")
+          print(f"expected_sha256={DETECTRL_X_SHA256}")
+          print(f"elapsed_s={elapsed:.1f}")
+          assert size == DETECTRL_X_BYTES, "size mismatch"
+          assert digest.hexdigest() == DETECTRL_X_SHA256, "SHA-256 mismatch"
+          print("FULL DOWNLOAD VERIFIED")
+          PY
