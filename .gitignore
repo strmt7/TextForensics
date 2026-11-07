@@ -16,6 +16,8 @@ Cov.xml
 bandit_report.json
 .tmp/
 mutation-results/
+cosmic-ray-*.sqlite
+cosmic-ray-*.json
 cov*.txt
 full*.txt
 perf.txt
