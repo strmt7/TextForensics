@@ -38,6 +38,15 @@ The ``n`` values are deliberately off by one from the U1 sample sizes
 a U1 offset; the content-hash exclusion is the real guarantee, the
 ``n`` choice only minimises wasted fetches.
 
+Quality floor. Every slice except human-short requires >= 80 words
+and >= 20 letter-tokens: the builtin detector warns below its
+80-word minimum, so shorter items are weak probes, and the
+letter-token floor rejects degenerate rows (a RAID row whose whole
+text is one Markdown image link). Human-short requires 5 <= words
+< 100 and >= 5 letter-tokens. Benign-transformed bases pass the same
+floor as the other non-short slices, and transforms are tried in
+round-robin order so the slice does not collapse onto one transform.
+
 Disjointness (research open question 4, decided: disjoint by content
 hash). The exclusion set is every normalised row text in the cached
 U1 samples (``~/.cache/textforensics/datasets/*/*.jsonl``). Any
@@ -130,6 +139,24 @@ def _u1_exclusion_hashes() -> set[str]:
             excluded.add(pc.content_sha256(text))
     print(f"  exclusion set: {len(excluded)} U1 row hashes from {len(files)} cache files")
     return excluded
+
+
+def _letter_tokens(text: str) -> int:
+    """Tokens containing at least one letter (prose check)."""
+    return sum(1 for tok in text.split() if any(ch.isalpha() for ch in tok))
+
+
+def _quality_ok(text: str, *, min_words: int, min_letter_tokens: int) -> bool:
+    """Probe-quality floor: long enough to be decidable, and prose.
+
+    The builtin detector warns below its 80-word minimum
+    (``engine.py``: "detector-style signals are especially unreliable
+    below the built-in baseline's 80-word minimum"), so every slice
+    except human-short requires >= 80 words. The letter-token floor
+    rejects degenerate rows (a RAID row whose whole text is one
+    Markdown image link has 1 word and 1 letter-token).
+    """
+    return pc.word_count(text) >= min_words and _letter_tokens(text) >= min_letter_tokens
 
 
 def _pick(
@@ -249,10 +276,22 @@ def build() -> pc.ProbeCorpusManifest:
         for raw in _fetch_strided_cached("mage", config, split, n, total, client)
         for mapped in map_row("mage", raw, config, split)
     ]
-    humans = _pick(mage_rows, SLICE_N, lambda r: r.label == 0, excluded, used, "human-native")
+    humans = _pick(
+        mage_rows,
+        SLICE_N,
+        lambda r: r.label == 0 and _quality_ok(r.text, min_words=80, min_letter_tokens=20),
+        excluded,
+        used,
+        "human-native",
+    )
     _add(humans, "human-native", 0, "raw")
     legacy = _pick(
-        mage_rows, SLICE_N, lambda r: r.label == 1, excluded, used, "ai-legacy-generator"
+        mage_rows,
+        SLICE_N,
+        lambda r: r.label == 1 and _quality_ok(r.text, min_words=80, min_letter_tokens=20),
+        excluded,
+        used,
+        "ai-legacy-generator",
     )
     _add(legacy, "ai-legacy-generator", 1, "raw")
 
@@ -267,7 +306,11 @@ def build() -> pc.ProbeCorpusManifest:
     paraphrased = _pick(
         raid_rows,
         SLICE_N,
-        lambda r: r.label == 1 and r.meta.get("attack") == "paraphrase",
+        lambda r: (
+            r.label == 1
+            and r.meta.get("attack") == "paraphrase"
+            and _quality_ok(r.text, min_words=80, min_letter_tokens=20)
+        ),
         excluded,
         used,
         "ai-paraphrased",
@@ -276,7 +319,11 @@ def build() -> pc.ProbeCorpusManifest:
     humanized = _pick(
         raid_rows,
         SLICE_N,
-        lambda r: r.label == 1 and r.meta.get("attack") == "synonym",
+        lambda r: (
+            r.label == 1
+            and r.meta.get("attack") == "synonym"
+            and _quality_ok(r.text, min_words=80, min_letter_tokens=20)
+        ),
         excluded,
         used,
         "ai-humanized",
@@ -294,7 +341,12 @@ def build() -> pc.ProbeCorpusManifest:
     short = _pick(
         beemo_rows,
         SLICE_N,
-        lambda r: r.label == 0 and r.meta.get("kind") == "human" and pc.word_count(r.text) < 100,
+        lambda r: (
+            r.label == 0
+            and r.meta.get("kind") == "human"
+            and 5 <= pc.word_count(r.text) < 100
+            and _letter_tokens(r.text) >= 5
+        ),
         excluded,
         used,
         "human-short",
@@ -312,7 +364,11 @@ def build() -> pc.ProbeCorpusManifest:
     mixed = _pick(
         opai_rows,
         SLICE_N,
-        lambda r: r.label is None and r.meta.get("version") == "v4",
+        lambda r: (
+            r.label is None
+            and r.meta.get("version") == "v4"
+            and _quality_ok(r.text, min_words=80, min_letter_tokens=20)
+        ),
         excluded,
         used,
         "mixed-origin",
@@ -334,7 +390,11 @@ def build() -> pc.ProbeCorpusManifest:
     current = _pick(
         dx_rows,
         SLICE_N,
-        lambda r: r.label == 1 and r.meta.get("lang") == "english",
+        lambda r: (
+            r.label == 1
+            and r.meta.get("lang") == "english"
+            and _quality_ok(r.text, min_words=80, min_letter_tokens=20)
+        ),
         excluded,
         used,
         "ai-current-generator",
@@ -346,7 +406,9 @@ def build() -> pc.ProbeCorpusManifest:
     base_pool = [
         r
         for r in mage_rows
-        if pc.content_sha256(r.text) not in used and pc.content_sha256(r.text) not in excluded
+        if pc.content_sha256(r.text) not in used
+        and pc.content_sha256(r.text) not in excluded
+        and _quality_ok(r.text, min_words=80, min_letter_tokens=20)
     ]
     base_humans = [r for r in base_pool if r.label == 0][:25]
     base_machines = [r for r in base_pool if r.label == 1][:25]
@@ -355,7 +417,13 @@ def build() -> pc.ProbeCorpusManifest:
     transformed = 0
     for base in base_humans + base_machines:
         base_hash = pc.content_sha256(base.text)
-        for name in pc.BENIGN_TRANSFORMS:
+        # Round-robin start offset so the slice does not collapse
+        # onto one transform (the first build put all 50 items on
+        # double_space_after_period — it fires on nearly every
+        # multi-sentence text). Deterministic per build.
+        start = transformed % len(pc.BENIGN_TRANSFORMS)
+        rotation = pc.BENIGN_TRANSFORMS[start:] + pc.BENIGN_TRANSFORMS[:start]
+        for name in rotation:
             out = pc.apply_benign_transform(base.text, name)
             if out == base.text or pc.word_count(out) != pc.word_count(base.text):
                 continue
@@ -471,31 +539,54 @@ def _sources_record() -> dict:
     specs = {key: get_spec(key) for key in ("mage", "raid", "beemo", "opai_bench", "detectrl_x")}
     record: dict = {}
     for slice_name, key, filter_rule in (
-        ("human-native", "mage", "label == 0 (human)"),
+        (
+            "human-native",
+            "mage",
+            "label == 0 (human); quality floor >= 80 words and >= 20 letter-tokens",
+        ),
         (
             "ai-legacy-generator",
             "mage",
-            "label == 1 (machine); every MAGE generator is 2022-or-earlier, newest gpt-3.5-turbo",
+            "label == 1 (machine); every MAGE generator is 2022-or-earlier, newest "
+            "gpt-3.5-turbo; quality floor >= 80 words and >= 20 letter-tokens",
         ),
-        ("ai-paraphrased", "raid", "label == 1 and meta.attack == 'paraphrase'"),
+        (
+            "ai-paraphrased",
+            "raid",
+            "label == 1 and meta.attack == 'paraphrase'; quality floor >= 80 words "
+            "and >= 20 letter-tokens",
+        ),
         (
             "ai-humanized",
             "raid",
             "label == 1 and meta.attack == 'synonym' "
-            "(lexical-evasion attack: machine text processed to look human)",
+            "(lexical-evasion attack: machine text processed to look human); "
+            "quality floor >= 80 words and >= 20 letter-tokens",
         ),
-        ("human-short", "beemo", "label == 0, kind == 'human', word count < 100"),
+        (
+            "human-short",
+            "beemo",
+            "label == 0, kind == 'human', 5 <= word count < 100, >= 5 letter-tokens",
+        ),
         (
             "mixed-origin",
             "opai_bench",
-            "label is None and meta.version == 'v4' (ai_sentence_ratio 0.5-0.55)",
+            "label is None and meta.version == 'v4' (ai_sentence_ratio 0.5-0.55); "
+            "quality floor >= 80 words and >= 20 letter-tokens",
         ),
-        ("ai-current-generator", "detectrl_x", "label == 1 and meta.lang == 'english'"),
+        (
+            "ai-current-generator",
+            "detectrl_x",
+            "label == 1 and meta.lang == 'english'; quality floor >= 80 words "
+            "and >= 20 letter-tokens",
+        ),
         (
             "benign-transformed",
             "mage",
             "fresh MAGE validation rows (25 human + 25 "
-            "machine) with a deterministic benign transform applied; transform and "
+            "machine, quality floor >= 80 words and >= 20 letter-tokens) with a "
+            "deterministic benign transform applied (round-robin start offset, "
+            "so the slice does not collapse onto one transform); transform and "
             "base hash recorded per item",
         ),
     ):
