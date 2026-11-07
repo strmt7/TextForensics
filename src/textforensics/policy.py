@@ -21,9 +21,12 @@ are preserved exactly.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
+import logging
 import os
+import tempfile
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
@@ -33,6 +36,8 @@ from pathlib import Path
 from typing import Any
 
 from textforensics.trust import TrustDimension, _legacy_dimension_name
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "CapabilityClaim",
@@ -44,9 +49,11 @@ __all__ = [
     "EvidenceLabel",
     "EvidenceRef",
     "EvidenceTier",
+    "PolicyKeyError",
     "PolicyResult",
     "PolicyRevisionFloor",
     "PolicyState",
+    "PolicyStateCorruptError",
     "compute_policy_digest",
     "create_calibration_policy",
     "create_minimum_viable_policy",
@@ -621,6 +628,30 @@ class PolicyState:
         )
 
 
+class PolicyStateCorruptError(ValueError):
+    """Raised when a persisted revision-floor state file exists but cannot
+    be decrypted or parsed (tampered ciphertext, wrong key, truncated file,
+    or malformed JSON).
+
+    Fail closed: the floor must never silently reset to revision 0, which
+    would let any policy re-base the floor and defeat anti-rollback. Only a
+    MISSING state file yields defaults; a present-but-unreadable one is an
+    error the operator must resolve explicitly. Subclasses :class:`ValueError`
+    so CLI entry points report it as a clean ``error: ...`` instead of a
+    traceback.
+    """
+
+
+class PolicyKeyError(ValueError):
+    """Raised when an existing policy key file is not a valid Fernet key.
+
+    A fresh key is never generated over an existing key file: the operator
+    must delete or replace the file explicitly, otherwise the old encrypted
+    state would become undecryptable. Subclasses :class:`ValueError` so CLI
+    entry points report it as a clean ``error: ...`` instead of a traceback.
+    """
+
+
 class PolicyRevisionFloor:
     """Tracks and enforces a monotonic revision floor with encrypted persistence.
 
@@ -680,23 +711,59 @@ class PolicyRevisionFloor:
 
     # -- key management ----------------------------------------------------
 
+    @staticmethod
+    def _atomic_write_bytes(path: Path, data: bytes) -> None:
+        """Write bytes atomically: temp file in the same directory + replace.
+
+        A torn write must never leave a half-written key or state file
+        behind; ``os.replace`` makes the switch atomic on one filesystem.
+        """
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp_name = tempfile.mkstemp(prefix=f"{path.name}.", dir=path.parent)
+        tmp_path = Path(tmp_name)
+        try:
+            with os.fdopen(fd, "wb") as tmp:
+                tmp.write(data)
+                tmp.flush()
+                os.fsync(tmp.fileno())
+            os.replace(tmp_path, path)
+        except BaseException:
+            tmp_path.unlink(missing_ok=True)
+            raise
+
     def _load_or_generate_key(self) -> bytes:
-        """Load the Fernet key or generate and persist a new one."""
+        """Load the Fernet key or generate and persist a new one.
+
+        An existing key file is NEVER overwritten. A legacy 32-byte raw key
+        is converted to its base64 form (same key material, only the
+        encoding changes) and re-persisted in that form as an explicit
+        one-time migration. Any other content raises :class:`PolicyKeyError`
+        naming the key path. A new key is generated only when no key file
+        exists. A candidate key is accepted only if ``Fernet()`` accepts
+        it — validated by construction, not by length-sniffing alone.
+        """
         if self._key_path.exists():
-            raw = self._key_path.read_bytes()
-            # Fernet keys are base64-encoded 32-byte keys
-            if len(raw) in (32, 44):
-                # 44 = base64 of 32 bytes; 32 = raw bytes (legacy)
-                if len(raw) == 32:
-                    return raw
-                try:
-                    return raw  # base64 encoded
-                except Exception:
-                    pass
-        # Generate new key
+            raw = self._key_path.read_bytes().strip()
+            if len(raw) == 32:
+                # Legacy raw 32-byte key: convert to base64 form (same key
+                # material, encoding only) and re-persist the converted form.
+                converted = base64.urlsafe_b64encode(raw)
+                self._Fernet(converted)  # validate by construction
+                self._atomic_write_bytes(self._key_path, converted)
+                return converted
+            try:
+                self._Fernet(raw)
+            except Exception as exc:
+                raise PolicyKeyError(
+                    f"invalid policy key file: {self._key_path}. The file is "
+                    "not a valid Fernet key. Delete it (or replace it with "
+                    "a valid key) to generate a fresh key explicitly; a new "
+                    "key is never generated over an existing key file."
+                ) from exc
+            return raw
+        # Generate a new key (only when no key file exists).
         new_key = self._Fernet.generate_key()
-        self._key_path.parent.mkdir(parents=True, exist_ok=True)
-        self._key_path.write_bytes(new_key)
+        self._atomic_write_bytes(self._key_path, new_key)
         return new_key
 
     def get_key(self) -> bytes:
@@ -708,7 +775,13 @@ class PolicyRevisionFloor:
     # -- state persistence -------------------------------------------------
 
     def _load_state(self) -> PolicyState:
-        """Load encrypted state from disk or return defaults."""
+        """Load encrypted state from disk or return defaults.
+
+        Only a MISSING state file yields defaults. A state file that exists
+        but cannot be decrypted or parsed raises
+        :class:`PolicyStateCorruptError` — the floor must never silently
+        reset to revision 0, which would let any policy re-base it.
+        """
         state_file = Path(self._state_path)
         if not state_file.exists():
             return PolicyState()
@@ -717,18 +790,29 @@ class PolicyRevisionFloor:
             decrypted = self._fernet.decrypt(token)
             data = json.loads(decrypted)
             return PolicyState.from_dict(data)
-        except Exception:
-            # Includes InvalidToken from cryptography, JSON errors, etc.
-            return PolicyState()
+        except Exception as exc:
+            # Log the path only — never the key or ciphertext.
+            logger.error(
+                "policy state file %s exists but cannot be decrypted or "
+                "parsed; refusing to reset the revision floor",
+                state_file,
+            )
+            raise PolicyStateCorruptError(
+                f"policy state file {state_file} exists but cannot be "
+                "decrypted or parsed (tampered, wrong key, truncated, or "
+                "malformed). The revision floor is not reset; restore the "
+                "state file or delete it explicitly to start from a fresh "
+                "floor."
+            ) from exc
 
     def save_state(self) -> None:
-        """Encrypt and persist current state to disk."""
+        """Encrypt and persist current state to disk (atomically)."""
         state_file = Path(self._state_path)
         state_file.parent.mkdir(parents=True, exist_ok=True)
         encrypted = self._fernet.encrypt(
             json.dumps(self._state.to_dict(), separators=(",", ":")).encode("utf-8")
         )
-        state_file.write_bytes(encrypted)
+        self._atomic_write_bytes(state_file, encrypted)
 
     @property
     def state(self) -> PolicyState:
