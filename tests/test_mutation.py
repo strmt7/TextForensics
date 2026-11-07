@@ -387,24 +387,24 @@ class EquivalentBaselineTests(unittest.TestCase):
     #: empirical probe), plus the 3 runtime positions of the 4
     #: unreachable-condition entries.
     EXPECTED_POSITIONS = {
-        (130, 53),
-        (178, 28),
-        (326, 31),
-        (329, 28),
-        (330, 18),
-        (330, 24),
-        (333, 28),
-        (334, 26),
-        (419, 32),
-        (420, 31),
-        (421, 28),
-        (422, 18),
-        (422, 24),
-        (425, 28),
-        (426, 26),
-        (437, 24),
-        (542, 54),
-        (542, 76),
+        (141, 53),
+        (189, 28),
+        (337, 31),
+        (340, 28),
+        (341, 18),
+        (341, 24),
+        (344, 28),
+        (345, 26),
+        (430, 32),
+        (431, 31),
+        (432, 28),
+        (433, 18),
+        (433, 24),
+        (436, 28),
+        (437, 26),
+        (448, 24),
+        (553, 54),
+        (553, 76),
     }
 
     @classmethod
@@ -473,7 +473,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         69 annotation BitOr mutants + 4 unreachable-condition
         NumberReplacer mutants (see the baseline file's header for both
         proofs). Match keys include occurrence: two entries share the
-        (module, operator, start_pos, end_pos) of L542:76 and differ
+        (module, operator, start_pos, end_pos) of L553:76 and differ
         only by occurrence (44 vs 45).
         """
         self.assertEqual(self.baseline["version"], 1)
@@ -529,7 +529,7 @@ class EquivalentBaselineTests(unittest.TestCase):
             "occurrences must match the CI dump (survivor indices 41/44/46/47)",
         )
         # Two entries share one position and differ only by occurrence.
-        at_542_76 = [e for e in runtime if tuple(e["start_pos"]) == (542, 76)]
+        at_542_76 = [e for e in runtime if tuple(e["start_pos"]) == (553, 76)]
         self.assertEqual(len(at_542_76), 2)
         self.assertEqual({e["occurrence"] for e in at_542_76}, {44, 45})
         self.assertEqual({e["source_text"] for e in at_542_76}, {"2"})
@@ -687,9 +687,9 @@ class EquivalentBaselineTests(unittest.TestCase):
         import copy
 
         entry = copy.deepcopy(self.baseline["entries"][0])
-        # Move the entry onto runtime code (L300 is `if supported == 0 ...`).
-        entry["start_pos"] = [300, 20]
-        entry["end_pos"] = [300, 21]
+        # Move the entry onto runtime code (L311 is `if supported == 0 ...`).
+        entry["start_pos"] = [311, 20]
+        entry["end_pos"] = [311, 21]
         ok, reason = self.runner.validate_baseline_entry(entry, self.project_root)
         self.assertFalse(ok, "moved entry must not validate")
         self.assertIn("no longer holds `|`", reason)
@@ -736,7 +736,7 @@ class EquivalentBaselineTests(unittest.TestCase):
     def test_occurrence_disambiguates_same_position_mutants(self):
         """Two entries at one position differ only by occurrence — and match only their own mutant.
 
-        L542:76 carries occurrences 44 (`2` -> `3`, equivalent) and 45
+        L553:76 carries occurrences 44 (`2` -> `3`, equivalent) and 45
         (`2` -> `1`, equivalent). A survivor with an occurrence that
         matches neither entry (e.g. a hypothetical `2` -> `0`) must stay
         unexplained even though its position matches both entries.
@@ -757,8 +757,8 @@ class EquivalentBaselineTests(unittest.TestCase):
             self._record(
                 operator="core/NumberReplacer",
                 occurrence=99,
-                start_pos=(542, 76),
-                end_pos=(542, 77),
+                start_pos=(553, 76),
+                end_pos=(553, 77),
                 outcome="survived",
             ),
         ]
