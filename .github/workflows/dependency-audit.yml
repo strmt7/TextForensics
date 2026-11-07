@@ -47,13 +47,12 @@ jobs:
           name: pip-audit-results
           path: pip-audit.json
           retention-days: 30
-      - name: Convert to SARIF
-        run: |
-          pip install sarif-tool
-          sarif-tool convert --format=json --output=pip-audit.sarif pip-audit.json
-      - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
-        with:
-          sarif_file: pip-audit.sarif
-          category: pip-audit
-          wait-for-processing: true
+      # NOTE: no SARIF upload. The former "Convert to SARIF" step ran
+      # `pip install sarif-tool`, a package that does not exist on PyPI,
+      # and the correctly-named `sarif-tools` provides only a `sarif`
+      # CLI with no pip-audit-JSON-to-SARIF conversion (verified
+      # 2026-11-07); pip-audit itself has no SARIF output format. The
+      # step could never succeed — the job failed on its last scheduled
+      # run too. The JSON artifact above preserves the audit output.
+      # Restoring code-scanning visibility needs a real converter or
+      # the pypa/gh-action-pip-audit action, as a deliberate follow-up.
