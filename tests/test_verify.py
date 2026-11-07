@@ -15,6 +15,7 @@ from textforensics.report import build_forensic_bundle
 from textforensics.verify import (
     VerificationReport,
     _recompute_overall,
+    _recompute_overall_v3,
     _verify_trust_dimension,
     verify_all,
     verify_benchmark,
@@ -477,6 +478,15 @@ class RecomputeOverallTests(unittest.TestCase):
             {"dimension": "d3", "state": "supported", "reason": "r3"},
         ]
         self.assertEqual(_recompute_overall(dims), "mixed")
+
+    def test_empty_dimension_list_v3_is_insufficient(self):
+        """Under v3, an empty dimension list yields insufficient, never
+        strong — the replay agrees with validation._overall_state_v3."""
+        from textforensics.validation import _overall_state_v3
+
+        self.assertEqual(_recompute_overall_v3([]), "insufficient")
+        self.assertEqual(_overall_state_v3([]), "insufficient")
+        self.assertEqual(_recompute_overall_v3([]), _overall_state_v3([]))
 
 
 class VerifyCaseFileEdgeCases(unittest.TestCase):

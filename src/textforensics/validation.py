@@ -2258,12 +2258,17 @@ def _overall_state_v3(dimensions: list[TrustDimension]) -> str:
 
     Strong iff every dimension is supported; insufficient iff language or
     text_length is out_of_scope, or no dimension is supported or partial;
-    else mixed. Stale counts as neither supported nor partial.
+    else mixed. Stale counts as neither supported nor partial. An empty
+    dimension list yields insufficient, never strong (0 == 0 must not
+    report "strong" for no evidence), mirroring
+    ``verify._recompute_overall_v3`` and the v2 behaviour.
     """
     by_name = {item.dimension: item.state for item in dimensions}
     supported = sum(state == "supported" for state in by_name.values())
     partial = sum(state == "partial" for state in by_name.values())
     if by_name.get("language") == "out_of_scope" or by_name.get("text_length") == "out_of_scope":
+        return "insufficient"
+    if not dimensions:
         return "insufficient"
     if supported == len(dimensions):
         return "strong"

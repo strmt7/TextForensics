@@ -808,6 +808,12 @@ class OverallStateTests(unittest.TestCase):
         self.assertEqual(_overall_state_v3(self._dims(*("supported",) * 9, "partial")), "mixed")
         self.assertEqual(_overall_state_v3(self._dims(*("supported",) * 9, "stale")), "mixed")
 
+    def test_empty_dimension_list_is_insufficient_not_strong(self):
+        # 0 == 0 must not report "strong" for no evidence: the primary
+        # must agree with verify._recompute_overall_v3 (and the v2
+        # replay) that an empty dimension list yields "insufficient".
+        self.assertEqual(_overall_state_v3([]), "insufficient")
+
     def test_insufficient_when_nothing_supported_or_partial(self):
         self.assertEqual(_overall_state_v3(self._dims(*("unknown",) * 10)), "insufficient")
         self.assertEqual(_overall_state_v3(self._dims(*("stale",) * 10)), "insufficient")
