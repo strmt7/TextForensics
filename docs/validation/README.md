@@ -13,7 +13,7 @@ detector's output is inside validated operating conditions.
 
 No raw text anywhere in the registry: records carry counts, hashes
 and metrics only. Per-sample scores live in the U7 run artifacts
-(`docs/evidence/runs/EV-20261106-dataset-*.json`) by hash, not here.
+(`docs/evidence/runs/EV-*-dataset-*.json`) by hash, not here.
 
 ## Seeded records (2026-11-06, U1 Package C)
 
@@ -43,23 +43,49 @@ Length (whitespace word count, labelled rows): RAID min 1 / median 229
 rows only (56 human, 55 machine); its 389 partial rows are excluded
 — they are the U4 spine, not U1 evidence.
 
+## GhostWriter seed (2026-11-07, datasets wave 2)
+
+Appended by `python scripts/seed_validation.py --only ghostwriter
+--append` (registry 4 → 5 records; the four U1 seeds are untouched,
+byte-identical). Stored as `partial`, effective `partial`;
+`next_revalidation_due` is 2027-02-05 (run date + 90 days). Same
+detector (`textforensics/builtin-heuristic` 0.1.0) and CI method
+(bootstrap, 1000 resamples, seed 20261106) as the U1 seeds.
+
+| record | n_human / n_ai | AUROC [95% CI] | TPR@1% FPR [95% CI] | TPR@5% FPR [95% CI] | native FPR [95% CI] | native TPR [95% CI] | abstention [95% CI] |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `evr-20261107-ghostwriter-builtin-heuristic` | 137 / 210 | 0.4360 [0.3647, 0.5036] | 0.0000 [0.0000, 0.0044] | 0.0048 [0.0000, 0.0332] | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | 0.4669 [0.4121, 0.5187] |
+
+Length (whitespace word count, labelled rows): min 8 / median 447 /
+max 20084. The binary slice is the human/ai fulltext endpoints only;
+its 153 fusion rows are excluded — they are the U4 spine, not U1
+evidence. The record's regime language is `mul` (BCP 47): the sample
+mixes English (288 labelled rows) and German (59 labelled rows);
+per-language metrics are not reported separately. All 8 domains are
+in scope; generators are the `agent` values (gemma2:9b, gpt-4o-mini,
+phi3:3.8b, nemotron, deepseek-r1:32b, deepseek-r1:1.5b). Fusion rows
+are all chunks and labelled rows are all fulltext, so chunk behaviour
+is unmeasured. Licence is the full per-domain table (two domains
+CC-BY-NC-SA 4.0, blog corpus non-commercial-research-only); use is
+non-commercial research evaluation only.
+
 ### Reading the native-verdict zeros honestly
 
-Native FPR is 0.0000 on all four slices, and native TPR is 0.0000–
+Native FPR is 0.0000 on all five slices, and native TPR is 0.0000–
 0.0189. That is NOT evidence that the detector never false-positives
 in general. The detector emits `ai_like` only when its score reaches
 0.68 (`engine._verdict`); the highest human score in any seed sample
-is 0.63, so no human row crosses the bar, and only a handful of
+is 0.674 (GhostWriter), so no human row crosses the bar, and only a handful of
 machine rows do. The score-based metrics tell the other half of the
-story: AUROC is below chance on Beemo (0.3976) and OpAI-Bench
-(0.3961) — the heuristic scores expert human text and pure human
-text HIGHER than machine text there — and near chance on MAGE
-(0.5567). A zero native FPR with a below-chance AUROC means the
+story: AUROC is below chance on Beemo (0.3976), OpAI-Bench (0.3961)
+and GhostWriter (0.4360) — the heuristic scores expert human text
+and pure human text HIGHER than machine text there — and near chance
+on MAGE (0.5567). A zero native FPR with a below-chance AUROC means the
 categorical verdict is quiet, not that the detector separates the
 classes. The degenerate [0.0000, 0.0000] CIs are the percentile
 bootstrap of a zero count (every resample is also zero); they are
 reported as measured, not widened into a claim. (Highest human score
-in any seed sample: 0.625 on OpAI-Bench; highest machine scores:
+in any seed sample: 0.674 on GhostWriter; highest machine scores:
 RAID 0.784, MAGE 0.724 — only those two slices ever cross 0.68.)
 
 Native TPR is carried in the records as the optional `tpr_native`
@@ -78,13 +104,27 @@ operating point; the table above also reports it.
   metrics not reported separately; no reviewer.
 - OpAI-Bench: AUROC below chance on the endpoint slice; only 111
   binary-labelled rows; partial rows excluded; no reviewer.
+- GhostWriter: AUROC below chance (0.4360); bilingual sample
+  (English/German) with no per-language reporting; fusion rows are
+  all chunks and labelled rows all fulltext, so chunk behaviour is
+  unmeasured; per-domain metrics not reported separately; no reviewer.
 
 ## How to re-seed
 
 ```bash
 python scripts/seed_validation.py --check    # build + dual-validate, write nothing
 python scripts/seed_validation.py            # rebuild docs/validation/registry.json
+python scripts/seed_validation.py --only ghostwriter --append   # append one record, keep the rest
 ```
+
+New datasets are seeded with `--append`: the script loads the
+existing registry, appends the newly built records (duplicate record
+ids are refused) and saves the merged registry — the existing records
+are carried over untouched and the registry id is recomputed from
+the merged record set. The U7 artifact a record seeds from is found
+by run date: `--run-date YYYYMMDD` selects the artifact, defaulting
+to the latest `EV-*-dataset-<key>.json` in `docs/evidence/runs` (no
+date is hardcoded in the script).
 
 The script loads the cached JSONL only (no network, no re-fetch),
 re-runs the deterministic detector, and verifies every record's
@@ -112,7 +152,7 @@ trained on the evaluation dataset), `no`, or `unknown`. Licence and
 contamination flag are registration-blocking — a record missing
 either is rejected, it cannot be registered at any tier. A `yes`
 record is labelled `contaminated — do not report as generalisation`
-and can never support an out-of-distribution claim. All four seeds
+and can never support an out-of-distribution claim. All five seeds
 are `no`: the builtin detector is a hand-written stylometric
 heuristic with no training, so it was not trained on any of these
 datasets (or any other text corpus).

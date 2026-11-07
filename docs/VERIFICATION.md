@@ -763,3 +763,181 @@ and the regime-conditioned Trust Map derivation engine (Trust Map v3). Design:
 - **`tpr_native` is optional in v1**, not mandatory-for-supported;
   a future schema revision may make it mandatory. Records predating
   it load with `tpr_native=None`.
+
+## Verification record — Phase 3, datasets wave 2, worker A: GhostWriter (2026-11-07)
+
+GhostWriter loader + first preliminary measurement, plus the shared
+resumable large-file downloader (stdlib-only) that worker B needs
+for DetectRL-X. Work is in `main` only, canonical identity
+`Stratos <28989754+strmt7@users.noreply.github.com>`; no push, no
+release, no tag. Commits `ddab1f2`…`563c212` (4 commits) on top of
+`530c56b` (U1 head). DetectRL-X and the three licence-blocked loaders
+belong to later workers and are deliberately NOT done here.
+
+### What was built
+
+- `download_large_file` in `src/textforensics/datasets.py`
+  (wave-2 shared infrastructure): HTTP Range resume (`.part` file +
+  atomic rename, so a partial file is never left as valid), retries
+  with exponential back-off on `RemoteDisconnected` /
+  `HTTPException` / `ConnectionError` / `URLError` / timeouts and
+  5xx (4xx fail immediately — the wave-1 client retry discipline),
+  SHA-256 and byte-count verification against a manifest, and no
+  re-download of an already-verified destination. 8 mocked unit
+  tests (fresh, hash mismatch, resume, range-ignored restart, retry,
+  404, already-downloaded, byte-count). Live smoke test against a
+  small real file over the datasets-server endpoint: fresh download
+  and resume both hash-verified (SHA-256
+  `51dbcc80…`, 1,081 bytes).
+- GhostWriter spec + mapper: per-domain licence table (8 domains,
+  see below); `DatasetSpec` gains an optional `domain_licences`
+  field (default `None`; wave-1 specs untouched); the mapper refuses
+  any row whose domain has no recorded licence (fail closed), any
+  unexpected label value, and missing text or id. Fusion (label 2)
+  → `label=None`, regime `mixed-origin` (U4 spine, like the
+  OpAI-Bench partials); human/ai rows are regime `raw`;
+  `source_id` is the row `id`; meta carries domain, lang, agent,
+  type, date (raw string, never parsed) and source.
+- Measurement: `scripts/measure_datasets.py` SAMPLE_PLAN gains
+  ghostwriter (train n=500 strided, total 332,224; disjointness vs
+  validation n=50 strided, total 47,548). Artifact
+  `docs/evidence/runs/EV-20261107-dataset-ghostwriter.json`
+  (badge `available`, `preliminary: true`, drops manifest); U7
+  registry rebuilt (16 records); report card regenerated.
+- U1 seed: `evr-20261107-ghostwriter-builtin-heuristic` appended to
+  `docs/validation/registry.json` (4 → 5 records; the existing 4
+  records are byte-identical, `created_at_utc` preserved,
+  registry_id `85822eabb90096ba` → `2d2a1651498da998`).
+  `scripts/seed_validation.py` now takes `--run-date` (the U7
+  artifact lookup is no longer hardcoded to `EV-20261106`; it
+  defaults to the latest matching artifact) and `--append` (merge
+  into the existing registry, duplicate record ids refused).
+- Baseline grafts: 3 measurement hashes + 4 seed-record hashes,
+  each audited by recomputation (cache/artifact SHA-256s, record
+  signature via `compute_signature`, code_version checked as a real
+  commit); 106 → 109 → 113 entries, 0 unexpected drops (multiset
+  check). No full rescan was ever run.
+
+### Licence (verified 2026-11-07 from the live HF card, lines 340–468)
+
+GhostWriter has **no single licence** — the licence is the
+per-domain table, recorded verbatim in the spec and the artifact.
+There is no `license:` tag in the HF API record; the card text is
+the only licence source. Two domains are NC and the blog corpus is
+non-commercial-research-only; use is non-commercial research
+evaluation, local cache only, no redistribution, no commercial use.
+
+- cnn_news **Apache-2.0**; arxiv_papers **arXiv.org non-exclusive
+  licence to distribute**; blog_authorship_corpus **CC0 / free for
+  non-commercial research**; bundestag **DL-DE-BY-2.0**;
+  house_of_commons **Open Parliament Licence**; euro_court_cases
+  **CC-BY-NC-SA 4.0**; student_essays **CC-BY-NC-SA 4.0**; gutenberg
+  **CC0**. (The card says "seven domains" in one place, but the
+  licence table and the viewer show 8 — trust 8.)
+
+### Verified row counts (datasets-server `/size`, 2026-11-07 — not paper figures)
+
+- GhostWriter (`TheItCrOw/GhostWriter`): **474,904 rows total**
+  (single config `default`, 9 columns, `partial:false`): train
+  332,224 / test 95,132 / validation 47,548.
+- Live `/rows` probe confirms the 9 columns (`id`, `text`,
+  `domain`, `date`, `source`, `lang`, `label`, `agent`, `type`),
+  labels 0/1/2, and agents `human` / `gpt-4o-mini` / `gemma2:9b` /
+  … . `date` formats are inconsistent across rows (`2025`, `-`,
+  `01,July,2004`, `2022-09-23T00:00:00`, `2007-2015`) — never
+  parsed. `lang` has 2 values in this sample (en-EN, de-DE); the
+  card's third value did not appear — do not assume it.
+
+### Sampling (strided, as in wave 1)
+
+Train n=500 strided across 332,224 rows; disjointness vs validation
+n=50 strided across 47,548 rows. Cache + manifest under
+`~/.cache/textforensics/datasets/ghostwriter/default/` (local only,
+never committed): `train.jsonl` (500 rows, SHA-256
+`12d2ab69…`) and `validation.jsonl` (50 rows, SHA-256
+`1af9f67e…`).
+
+### Measured numbers (BuiltinHeuristicDetector 0.1.0, Python 3.12.3, preliminary)
+
+| Dataset | Sample | Labels (0 / 1 / None) | AUROC | TPR@1% FPR | TPR@5% FPR | Abstentions |
+| --- | --- | --- | --- | --- | --- | --- |
+| GhostWriter | 500 strided train | 137 / 210 / 153 | 0.436 | 0.0 | 0.0048 | 162/347 |
+
+- GhostWriter: AUROC **below chance (0.436)** — the heuristic
+  scores human text higher than machine text (human mean 0.3199 vs
+  machine 0.2880; human max 0.674, machine max 0.5744), so TPR@1%
+  is 0.0 and TPR@5% is 0.0048. The highest human score (0.674) sits
+  just under the detector's 0.68 `ai_like` bar, so the native
+  verdict never fires on this slice. All 8 domains are present in
+  the sample (student_essays 135, bundestag 85,
+  blog_authorship_corpus 71, cnn_news 61, house_of_commons 56,
+  euro_court_cases 47, arxiv_papers 25, gutenberg 20). The 153
+  fusion rows take no binary label (mixed-origin, U4 spine).
+  Disjointness vs validation (n=50): **disjoint, verified,
+  0 shared**.
+- The sample is bilingual: 288 English + 59 German labelled rows.
+  The U1 record's regime language is `mul` (BCP 47) with the split
+  in `language_variety`; per-language metrics are not reported
+  separately. Fusion rows are all `chunk` and labelled rows are all
+  `fulltext`, so chunk behaviour is unmeasured — recorded as a
+  limitation.
+- U1 seed record `evr-20261107-ghostwriter-builtin-heuristic`
+  (partial / partial, next revalidation 2027-02-05): AUROC 0.4360
+  [0.3647, 0.5036], TPR@1% FPR 0.0000 [0.0000, 0.0044], TPR@5% FPR
+  0.0048 [0.0000, 0.0332], native FPR 0.0000 [0.0000, 0.0000],
+  native TPR 0.0000 [0.0000, 0.0000], abstention 0.4669 [0.4121,
+  0.5187] (bootstrap 95% CIs, 1000 resamples, seed 20261106).
+  Length (labelled rows): min 8 / median 447 / max 20084 words.
+  Generators are the `agent` values (gemma2:9b, gpt-4o-mini,
+  phi3:3.8b, nemotron, deepseek-r1:32b, deepseek-r1:1.5b).
+
+### Measured verification numbers (HEAD `563c212`, 2026-11-07, Python 3.12.3)
+
+- Full suite, extras venv: **2553 passed, 0 failed, 86%** coverage
+  (13,059 stmts, 1,495 missed, 4,522 branches, 709 partial).
+- `ruff check` + `ruff format --check` clean (180 files).
+- Claims gate: **33/33**; report-card diff clean (regenerated).
+- Schemas: **9 OK**.
+- `pre-commit run --all-files`: **13 hooks pass, 0 fail**.
+- Gitleaks 8.24.3 (official release, re-downloaded after the
+  sandbox wiped `/tmp`): **0 leaks** on `530c56b..HEAD` (4 commits).
+
+### Incidents found during this wave
+
+- **Sandbox service restarts mid-run** (several, as in wave 1).
+  `/tmp` is wiped on restart — the smoke-test script and the
+  gitleaks binary were both lost and re-created in the persistent
+  workspace scratch dir. Caches survived (they live in `~/.cache`,
+  not `/tmp`).
+- **urllib reads time out on `raw.githubusercontent.com` while
+  curl works** (4 attempts, `The read operation timed out`), but
+  urllib to `datasets-server.huggingface.co` works fine (live
+  `/size` + `/rows` probes succeed). The downloader is sound — the
+  raw host is the outlier, not the code — so the live smoke test
+  was switched to a datasets-server file (fresh + resume,
+  hash-verified). Same transient-egress shape as the wave-1
+  incident; the downloader's retry discipline covers it.
+- **detect-secrets flags the new artifact/record hashes**, as
+  designed: the hook failed on the new U7 registry entry and on
+  the 4 new seed-record values. Grafted entry-by-entry after
+  recomputation (see above); the hook is green on the committed
+  tree. The baseline entries are per (filename, value), so the
+  cache/artifact/code-version hashes needed one entry under each
+  filename that carries them.
+
+### What is NOT verified / NOT done here
+
+- **No new claims.** The claims gate stays **33/33** and the report
+  card still leads with worst-slice human FPR = unknown. The
+  GhostWriter native-verdict zeros are the same quiet-verdict
+  pattern as the U1 seeds, not release-gate FPR evidence.
+- **DetectRL-X, M4, M4GT-Bench, DetectRL, PAN 2025**: not this
+  worker (later wave-2 workers; PAN is gated on Greg's TIRA
+  access). No loader code for them was touched.
+- **Full-corpus evaluation**: the measurement is a 500-row strided
+  sample, not the 332,224-row split.
+- **Per-domain / per-language metrics**: the cache carries domain,
+  lang and agent on every row; sliced metrics are U1/wave-2 work.
+- **Other Python versions**: measured on 3.12.3 only; CI covers the
+  matrix.
+- **No push, no release, no tag.** Pushing is the parent's step.
