@@ -686,18 +686,18 @@ class AdversarialDetector:
                 seen.add(key)
                 unique_findings.append(f)
 
-        # Assess overall risk
-        overall_risk, confidence = self._assess_risk(all_findings)
+        # Assess overall risk from the de-duplicated findings.
+        overall_risk, confidence = self._assess_risk(unique_findings)
 
         report = HumanizationReport(
             text_sha256=_sha256(text),
             text_length=len(text),
             detector_outputs=detector_outputs or {},
-            findings=all_findings,
+            findings=unique_findings,
             overall_risk=overall_risk,
             confidence=confidence,
             patterns_checked=len(self.pattern_library._patterns),
-            patterns_triggered=len(set(f.pattern_id for f in all_findings)),
+            patterns_triggered=len(set(f.pattern_id for f in unique_findings)),
             limitations=[
                 "Pattern-based detection cannot prove humanization; only indicates artifacts.",
                 "False positives possible on naturally informal or non-native writing.",
