@@ -129,8 +129,15 @@ class CosmicRayIntegrationTests(unittest.TestCase):
         """Verify the per-mutant test command is scoped to the module's tests."""
         scoped = self.runner.test_command_for(["textforensics.trust"], self.project_root)
         self.assertEqual(scoped, "python -m pytest tests/test_trust.py -x -q")
-        # A module without a dedicated test file falls back to the full suite.
-        full = self.runner.test_command_for(["textforensics.policy"], self.project_root)
+        # Policy tests live in test_enterprise_policy.py, not test_policy.py;
+        # the override map scopes them instead of falling back to the full
+        # suite (whose ~3-minute runtime exceeds the per-test-run timeout
+        # and fails the cosmic-ray baseline before any mutant runs).
+        policy = self.runner.test_command_for(["textforensics.policy"], self.project_root)
+        self.assertEqual(policy, "python -m pytest tests/test_enterprise_policy.py -x -q")
+        # A module without a dedicated test file still falls back to the
+        # full suite.
+        full = self.runner.test_command_for(["textforensics.nonexistent"], self.project_root)
         self.assertEqual(full, "python -m pytest tests/ -x -q --tb=short")
 
     def test_runner_script_exists(self):
