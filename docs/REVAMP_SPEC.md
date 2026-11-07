@@ -406,13 +406,13 @@ Validation rules remain: finite scores, probability only with calibration ID, no
 
 ---
 
-## 9. Case file v2 and replay
+## 9. Case file v3 and replay
 
 ### 9.1 Case file
 
 ```json
 {
-  "schema": "textforensics.case-file/v2",
+  "schema": "textforensics.case-file/v3",
   "tool": {"name": "TextForensics", "version": "1.0.0", "git_sha": "..."},
   "created_at_utc": "...",
   "raw_text_included": false,
@@ -422,9 +422,17 @@ Validation rules remain: finite scores, probability only with calibration ID, no
     "registry_id": "...",
     "registry_sha256": "...",
     "calibration_ids": ["..."],
-    "schema_versions": {"forensic_bundle": "v2", "trust_map": "v2", "detector_result": "v2"},
+    "schema_versions": {"forensic_bundle": "v2", "trust_map": "v3", "detector_result": "v2"},
     "git_sha": "..."
   },
+  "input": {"content_sha256": "...", "word_count": 0, "language": "en"},
+  "detector_observations": [...],
+  "validation_refs": [...],
+  "limitations": {"plain_language": {...}, "counterfactuals": [...]},
+  "process": {"checklist": {"template_notice": "Template, not legal advice", "items": {"D1": {...}}}},
+  "custody": [{"actor": "sealer", "action": "sealed", "entry_hash": "..."}],
+  "seal": {"algorithm": "sha256", "signature": null, "timestamp": null, "digest_publication": null},
+  "gaps": [{"field": "input.sentence_count", "reason": "not recorded at seal time"}],
   "case_sha256": "..."
 }
 ```
@@ -432,22 +440,49 @@ Validation rules remain: finite scores, probability only with calibration ID, no
 - `case_sha256` is SHA-256 over canonical JSON excluding `case_sha256`.
 - Raw text keys are rejected recursively.
 - Deterministic mode removes `runtime_ms`, `generated_at_utc` volatility, and other non-reproducible fields.
+- v1 and v2 case files still verify; v3 is what the system seals.
+  The seal cannot contain its own bundle digest (circularity), so the
+  per-file manifest + bundle digest live in the sealed bundle's
+  `manifest.json` (MPL pattern) plus a companion seal record.
+- `seal.signature` is `null` for a T1 hash-only seal, or an Ed25519 /
+  DSSE object (T2) when a signing key was supplied; `seal.timestamp`
+  holds an RFC 3161 token record (T3, free TSAs labelled
+  non-qualified) when one was requested.
+- The D1–D10 checklist is re-derived at verification time
+  (`_checklist_consistency`): an item marked `satisfied` without its
+  supporting evidence is reported, never silently accepted. Sealing
+  does not enforce it — only verification does.
 
 ### 9.2 Replay
 
 `replay_case_file(case, *, text=None, detectors=None, registry=None)`:
 
 1. verify the case seal and schema;
-2. if `text` is supplied, verify `sha256(text) == bundle.content_sha256` (normalization is explicit; default exact UTF-8);
+2. if `text` is supplied, verify `sha256(text) == bundle.content_sha256` (normalization is explicit; default exact UTF-8) — **hash-then-reveal: a mismatch aborts with `text_hash_mismatch` before any detector runs**;
 3. if detectors are supplied, run them and compare:
    - detector IDs/versions present,
    - native scores within an explicit tolerance (default exact for deterministic local detectors; `atol=1e-9`),
    - categorical verdicts,
    - calibration IDs;
-4. re-derive Trust Map dimensions from the sealed conditions and registry;
+4. re-derive Trust Map dimensions from the sealed conditions and registry (v3 maps via the U1 validation registry when supplied; `stale` is a distinct state);
 5. return `{"valid": bool, "errors": [...], "checks": {...}}`.
 
 Replay without text verifies only structural integrity and re-derivation. It cannot re-run detection.
+
+### 9.3 Sealed bundle
+
+`case export --seal` packs a v3 case into a deterministic MPL bundle
+(`sealed_bundle.py`): canonical JSON, sorted stored ZIP entries,
+normalised ZipInfo, archive comment `mpl-bundle-sha256:<manifest
+SHA-256>`, carrying `case.json`, the standalone stdlib-only verifier
+(`_standalone_verify.py`), an optional RFC 3161 token, and an MPL
+manifest with a companion seal record. `case verify` accepts a bundle
+or a bare case file and exits 0 (verified), 1 (seal failed), or 2
+(checks could not run). The standalone verifier replays nothing (no
+detectors standalone) and reports replay as `unavailable`. Every
+verification output carries a one-line scope statement: the seal
+proves integrity since sealing only — never authorship, never that
+the analysis was run.
 
 ---
 

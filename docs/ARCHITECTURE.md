@@ -132,29 +132,55 @@ Tamper-evident local draft ledger:
 
 ### 1.7 Case File (`src/textforensics/casefile.py`)
 
-Portable, reproducible audit artifact:
+Portable, reproducible audit artifact (schema
+`textforensics.case-file/v3`; v1 and v2 still verify):
 - Wraps a forensic bundle with tool version and integrity seal
-- `seal_case_file(bundle)` → adds schema, version, `case_sha256`
-- `verify_case_file(payload)` → validates structure, hash, raw-text policy
-- `verify_case_file_combined(payload)` (in `verify.py`) → the single
-  entry point for case-file verification: runs BOTH the N-version
-  replay (Trust Map re-derivation, detector-result checks,
-  independent seal recomputation) AND the primary-path seal check
-  (seal, manifest, raw-text portability, tool identity) and requires
-  both to pass. Used by `case verify`, `verify`, and the MCP
-  `verify_case_file` tool, so all three give one answer. The two
-  verifiers stay separate code paths — that independence is the point
-  of N-version replay.
+- `seal_case_file(bundle)` → adds schema, version, `case_sha256`,
+  plus the v3 sections: `input` (content hash only, no raw text),
+  `detector_observations`, `validation_refs` (into the U1 validation
+  registry), `limitations` (plain language, counterfactuals), `process`
+  (the D1–D10 appeal checklist, "template, not legal advice"),
+  `custody` (hash-chained entries), `seal`, and `gaps` (every absent
+  item declared with a reason)
+- `verify_case_file(payload, public_key=None)` → validates structure,
+  hash, raw-text policy, v3 sections, custody chain and checklist
+  re-derivation; a present T2 signature is verified only when a public
+  key is supplied, otherwise reported as unverified, never as a pass
+- `verify_case_file_combined(payload, public_key=None)` (in `verify.py`)
+  → the single entry point for case-file verification: runs BOTH the
+  N-version replay (Trust Map re-derivation, detector-result checks,
+  independent seal recomputation — v3 Trust Maps accepted, `stale` a
+  distinct state) AND the primary-path seal check (seal, manifest,
+  raw-text portability, tool identity) and requires both to pass. Used
+  by `case verify`, `verify`, and the MCP `verify_case_file` tool, so
+  all three give one answer. The two verifiers stay separate code
+  paths — that independence is the point of N-version replay.
 - Deterministic mode strips `runtime_ms` and uses fixed timestamps
 - Atomic write via temp file + `os.replace`
+
+Sealed bundle (`src/textforensics/sealed_bundle.py`, Phase 3 U2):
+packs a v3 case into a deterministic MPL bundle (canonical JSON,
+sorted stored ZIP entries, normalised ZipInfo, archive comment
+`mpl-bundle-sha256:<manifest SHA-256>`) carrying `case.json`, the
+standalone stdlib-only verifier (`_standalone_verify.py`, runs
+without the package installed), an optional RFC 3161 token, and an
+MPL manifest (`textforensics.sealed-bundle-manifest/v1`) with a
+companion seal record (manifest/bundle/archive digests, signature,
+timestamp record). Three seal tiers: T1 hash (always), T2 Ed25519/DSSE
+(`sealing.py`, `dsse.py` — pure stdlib, RFC 8032), T3 RFC 3161
+(`timestamp.py`; free TSAs labelled non-qualified). `case verify`
+exits 0/1/2 (verified / seal failed / checks could not run); replay
+runs only when the seal passes and aborts on a text-hash mismatch
+before any detector runs.
 
 One bundle format, three layers (not three formats): the forensic
 bundle JSON is the data; the sealed case file is its integrity
 wrapper; the bundle archive (`bundle.py`: `.tar.gz`/`.zip` +
-manifest) is transport for case files. The result codec speaks the
-current v2 for the four formats that have one (forensic-bundle,
-detector-result, case-file, trust-map); legacy v1 artifacts still
-decode, keeping their v1 label.
+manifest) is transport for case files, and the sealed bundle
+(`sealed_bundle.py`) is the MPL-conformant transport. The result codec
+speaks the current version for each format (case-file v3,
+forensic-bundle and detector-result v2, trust-map v2 with v3
+accepted); legacy v1 artifacts still decode, keeping their v1 label.
 
 ### 1.8 Drift Observatory (`src/textforensics/observatory.py`)
 

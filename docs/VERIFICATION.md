@@ -1346,3 +1346,184 @@ in this task; fetchers are deferred by the brief.
 - **Other Python versions**: verified on 3.12.3 only; CI covers the
   matrix.
 - **No push, no release, no tag.** Pushing is the parent's step.
+
+## Verification record — Phase 3, U2 sealed replayable text-free case file (2026-11-07)
+
+Work is in `main` only, canonical identity
+`Stratos <28989754+strmt7@users.noreply.github.com>`; no push, no
+release, no tag. Commits on top of `5ab3c45` (datasets wave 2 head):
+`08d8e84` (Ed25519 + DSSE), `6af6f5b` (sealing-key files + case-body
+signing), `8546bd9` (case-file v3 model), `acad2b4` (golden case file
+regenerated as v3; property tests assert v3), `8eb4163` (RFC 3161
+timestamping), `58f7978` (standalone verifier), `be47d7b` (MPL sealed
+bundle packer), `cb9f0aa` (CLI: case verify/export/keygen), plus the
+docs commit (this section, `docs/SEALING_KEYS.md`, README,
+ARCHITECTURE, REVAMP_SPEC).
+
+### Deliberate deviation
+
+The brief said schema `textforensics.case-file/v2`, but the repo's
+case-file schema was already v2, so the U2 format is **v3** (schemas
+are public contracts; field meaning is never silently changed).
+v1 and v2 case files still verify; v3 is what the system seals.
+
+### What was built
+
+- **Crypto (pure stdlib, no new core dependency).**
+  `src/textforensics/ed25519.py` (RFC 8032 §5.1, extended
+  coordinates; `verify` never raises, returns `False` on malformed
+  input) and `src/textforensics/dsse.py` (DSSEv1 PAE, exactly one
+  signature, canonical base64 round-trip, keyid = public-key
+  fingerprint). Verified against the RFC 8032 §7.1 test vectors
+  (fetched from rfc-editor.org 2026-11-07) and cross-checked both
+  directions against `cryptography` 42.0.8 on 5 random messages.
+  `src/textforensics/sealing.py`: `textforensics.sealing-key/v1`
+  key files (atomic write, mode 0600, refuses overwrite, refuses to
+  load a world-readable file on POSIX), `case_signing_payload`,
+  `sign_case_body` / `verify_case_signature`.
+- **Case-file v3** (`src/textforensics/casefile.py`,
+  `src/textforensics/schemas/case-file.schema.json`): `input`
+  (content hash only), `detector_observations`, `validation_refs`
+  (into the U1 registry via `registry.matching`; `registry_sha256`
+  == `registry_id` by construction), `limitations` (plain language +
+  counterfactuals, names the nearest FPR record or honestly states
+  none), `process` (D1–D10 checklist, "template, not legal advice";
+  consistency re-derived at verification only — sealing an
+  unsupported `satisfied` item succeeds, verification reports it),
+  `custody` (hash chain, genesis prev-hash `"0"*64`), `seal`
+  (T1 hash always; T2 Ed25519/DSSE object when signed; T3 timestamp
+  record when requested), `gaps` (every absent item declared).
+  `verify.py` accepts v3 Trust Maps (`stale` a distinct state; the
+  U1 follow-up is fixed here, not deferred). The seal-manifest
+  circularity is resolved the MPL way: the per-file manifest +
+  bundle digest live in the bundle's `manifest.json` plus a companion
+  seal record, never inside the case JSON.
+- **T3 timestamping** (`src/textforensics/timestamp.py`, stdlib-only):
+  DER encoder/parser, TimeStampReq builder, TSA client (1 MiB
+  response cap), CMS token verification (imprint, nonce echo,
+  signedAttrs messageDigest, RSA PKCS#1 v1.5 + ECDSA P-256/P-384
+  against the embedded signer certificate). `qualified` is always
+  `"unknown"` offline; tokens are labelled "RFC 3161 timestamp
+  (non-qualified)". OIDs verified against the RFC 3161 text fetched
+  2026-11-07.
+- **Standalone verifier** (`src/textforensics/_standalone_verify.py`,
+  stdlib-only, no package imports): MPL container checks (EOCD
+  pre-parse, caps enforced in order before reads, sorted STORED
+  normalised entries), seal checks (comment digest, manifest
+  digests, case hash, v3 sections, custody chain, checklist
+  re-derivation), DSSE signature, RFC 3161 token (imprint ==
+  SHA-256 of `case.json` bytes). JSON report
+  (`textforensics.verification-report/v1`) + one-line scope
+  statement + both honest limits in the copy. Exit codes 0/1/2.
+  Replay reported `unavailable` (no detectors standalone).
+- **Sealed bundle** (`src/textforensics/sealed_bundle.py`):
+  deterministic ZIP (canonical JSON, sorted ZIP_STORED, normalised
+  ZipInfo, comment `mpl-bundle-sha256:<manifest SHA-256>`) carrying
+  `case.json`, `verify.py`, an optional token and an MPL manifest
+  (`textforensics.sealed-bundle-manifest/v1`, 10th schema). The
+  signer record is part of the signed bytes; only the envelope is
+  added afterwards. Packing refuses non-v3 cases, cases that do not
+  verify, a seed without a signer, and a token whose imprint does
+  not match the case-file bytes. `verify_sealed_bundle` replays only
+  when the seal passes (any non-zero standalone exit gates replay
+  as `unavailable` / `seal_failed`); the seal-record cross-check
+  fails closed on malformed records or manifests instead of raising.
+  The older `bundle.py` packer (DEFLATED, 2020 timestamp, its own
+  format) was deliberately left alone.
+- **CLI**: `case verify` accepts a sealed `.zip` or a bare case file
+  (ZIP magic), with `--expect-digest`, `--text`/`--text-file`,
+  `--public-key` (sealing-key file, public-key file, hex file or
+  bare hex), `--timestamp-token` (bare files only); `case export`
+  gains `--seal`, `--signing-key` (T2-signs the case AND the
+  manifest with one key) and `--timestamp-url` (a token that cannot
+  be obtained fails the seal, never silently downgrades); new `case
+  keygen` (mode 0600, refuses overwrite, optional `--public-out`).
+  Exit codes follow MPL: 0 verified, 1 seal failed, 2 checks could
+  not run. The `verify` command keeps its own contract (failed ->
+  2); three tests that asserted the old `case verify` code 2 now
+  assert 1.
+- **Docs**: new `docs/SEALING_KEYS.md` (generation, storage 0600,
+  rotation, publication, loss, compromise + revocation procedure —
+  no central revocation list in v1.0, by design decision);
+  README "Sealed case files" section; ARCHITECTURE §1.7;
+  REVAMP_SPEC §9 (v3 + sealed bundle).
+
+### Real defects found and fixed during the work
+
+- `_dsse_verify` checked the signature over the envelope's payload
+  but never confirmed the payload IS the manifest — a valid
+  signature over other bytes would have "verified". Now returns the
+  payload and the caller compares it against the canonical manifest
+  with the signature field null (regression test
+  `test_signature_over_other_payload_fails`).
+- `pack_sealed_bundle` passed the hex case digest to
+  `verify_timestamp_token`, which expects raw digest bytes — every
+  token was refused with `message_imprint_mismatch`. Fixed to pass
+  the raw bytes.
+- `test_agrees_with_package_implementation` tampered a signature by
+  replacing its last byte with zero — a no-op whenever S's top byte
+  is already zero, which made the test flaky (~1 in 6 runs). The
+  tamper now flips a bit inside S (byte 40).
+- A bundle whose digest/manifest/case/checklist check failed still
+  printed the positive "integrity since sealing only" scope line.
+  The scope statement now reads `seal: not verified (<failed check
+  ids> failed)` when any check failed.
+- The signer record was first placed inside the DSSE envelope, which
+  the verifier's exact-field-set check rejects. It now lives in the
+  manifest context and is part of the signed bytes.
+- The initial Ed25519 implementation used the a=+1 curve addition
+  formula; `[l]B` was not the identity, which exposed it. The a=−1
+  form (RFC 8032 §5.1.4) is used, with a comment.
+
+### Verification (measured, this tree)
+
+- Extras suite: **2713 passed / 0 failed** on the final tree. The
+  run at `cb9f0aa` showed 2712 passed / 1 failed
+  (`test_memory_check` only; host at 96% memory when it ran —
+  7614/7934 MB used, 320 MB available); after the VM restart the
+  same test passes with the host unconstrained, and the final run
+  is clean.
+- Core-only suite (bare venv, fastapi absent, recreated after a
+  /tmp clear): **2601 passed / 112 skipped / 0 failed**.
+- Claims gate **33/33** (no new claims, no registry touched).
+  Schemas **10 OK**. `pre-commit run --all-files` **13/13**.
+- Gitleaks 8.24.3 over `5ab3c45..HEAD`: **0 leaks** (8 commits).
+- Bundle determinism: two packs of one sealed case are
+  byte-identical (SHA-256
+  `c2b6c2f58128ad04be4d5189172bf66ab738315745678c29f52e812e5aba2682`,
+  80,944 bytes).
+- Live CLI end-to-end (temp dir, extras venv): keygen (mode 0600)
+  -> export `--seal --signing-key` -> verify without key exits 2,
+  with `--public-key` exits 0, `--expect-digest` match exits 0,
+  mismatch exits 1, `--text-file` replay exits 0, tampered bundle
+  exits 1, bare case without key exits 2, with key exits 0,
+  `--timestamp-token` on a bundle is rejected (exit 3).
+- `test_pack_is_deterministic`, `test_seal_is_deterministic`
+  (deterministic mode), and the 5-run determinism re-check from
+  earlier waves all hold; the v3 seal carries the seal time in its
+  custody genesis entry, so ordinary (non-deterministic) seals of
+  one bundle differ by design.
+
+### What is NOT verified / NOT done here
+
+- **Live-TSA interop: NOT achieved from this VM.** `request_timestamp`
+  against `https://freetsa.org/tsr` and `https://timestamp.digicert.com`
+  both hang via urllib (30 s each); curl POST to freetsa `/tsr` also
+  hangs (HTTP 000, 30 s and 60 s attempts) while the freetsa homepage
+  GET returns 302 in 0.6 s — the sandbox egress reaches those hosts
+  but the `/tsr` POST path hangs. Request encoding is structurally
+  verified (parse-back test) and token verification is verified
+  against real CMS tokens built with the production encoder; the
+  live round-trip must be re-attempted from an unrestricted host
+  before it is claimed. No network test in the suite (CI stays
+  offline).
+- **No new claims.** The claims gate stays **33/33**; the report
+  card still leads with worst-slice human FPR = unknown.
+- **No push, no release, no tag.** Pushing is the parent's step.
+- **Other Python versions**: verified on 3.12.3 only; CI covers the
+  matrix.
+- **No downloader fix.** The urllib large-file limitation from wave
+  2 is untouched (release gate).
+- **No hardware keys / managed PKI / revocation infrastructure.**
+  Deferred by design decision (Phase 3 research §13, decision 5);
+  `docs/SEALING_KEYS.md` documents the v1.0 procedure instead.

@@ -95,14 +95,42 @@ Raw submitted text is not included in the report.
 
 ### Sealed case files
 
-Case files add deterministic integrity sealing around a forensic bundle:
+Case files (schema `textforensics.case-file/v3`; v1 and v2 still
+verify) add deterministic integrity sealing around a forensic bundle,
+plus a D1–D10 appeal checklist, a custody hash chain, and validation
+references into the evidence registry:
 
 ```bash
 textforensics case export --file essay.txt --output case.json
 textforensics case verify case.json
 ```
 
-Case files omit raw text by default. Verification checks artifact structure and integrity; it does **not** prove the underlying authorship conclusion.
+`case export --seal` packs the case into a deterministic sealed
+bundle (`case.sealed.zip` + `case.sealed.zip.seal.json`) following the
+model-protocol-lab pattern: canonical JSON, sorted stored ZIP entries,
+and an `mpl-bundle-sha256:` archive comment. The bundle ships a
+standalone stdlib-only verifier (`verify.py`) that runs without the
+package installed. Three seal tiers: T1 hash (always), T2 Ed25519/DSSE
+signature (`--signing-key`, keys made by `case keygen` — see
+[Sealing keys](docs/SEALING_KEYS.md)), T3 RFC 3161 timestamp
+(`--timestamp-url`, free TSAs labelled non-qualified).
+
+```bash
+textforensics case keygen --output sealing-key.json --public-out sealing-key.pub.json
+textforensics case export --file essay.txt --output case.json --seal --signing-key sealing-key.json
+textforensics case verify case.sealed.zip --public-key sealing-key.pub.json --expect-digest <sha256>
+textforensics case verify case.json --text-file essay.txt   # holder-supplied replay text
+```
+
+`case verify` exits 0 (verified), 1 (seal failed), or 2 (checks
+could not run — for example a signature present but no public key
+supplied). Replay aborts before any detector runs when the supplied
+text does not hash to the sealed input. Case files omit raw text by
+default. Verification checks artifact structure and integrity; it does
+**not** prove the underlying authorship conclusion, and a seal proves
+integrity since sealing only — never that the analysis was run. Every
+verification output carries a one-line scope statement saying exactly
+that.
 
 ### Local provenance
 
