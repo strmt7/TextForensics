@@ -25,6 +25,17 @@ Mutation baseline (cosmic-ray 8.7.0, 2026-11-07, commit ``5ab3c45``):
 618 work items, 267 executed, 107 killed / 160 survived.  The baseline is
 recorded so later mutation runs can be compared against it; see the
 release-gate investigation report for the full smoke-test record.
+
+Wave 2 baseline (cosmic-ray 8.7.0, CI budget-200 configuration, 2026-11-07):
+total 200, killed 127, surviving 73, equivalent 73, unexplained 0, exit 0
+("All mutations caught!").  50 killable survivors were killed by 26 new
+behaviour tests (``tests/test_trust.py``, ``TrustMutationKillTests``); the
+73 equivalents are the 69 annotation BitOr mutants (annotation strings,
+never evaluated) plus 4 runtime equivalents, all recorded with
+per-mutant justification in ``mutation-baseline.toml`` and re-validated
+against current source on every run.  Equivalents are never counted as
+killed.  Proven by a budget-200 run through the merged wave-2 tree;
+CI proof on main pending from this push.
 """
 
 from __future__ import annotations
