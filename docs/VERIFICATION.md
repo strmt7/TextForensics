@@ -1,24 +1,28 @@
 # Verification record — Phase 1 (2026-11-06)
 
-## Current state (HEAD `264344e`, 2026-11-07)
+## Current state (HEAD `3d88f94`, 2026-11-08)
 
 Read this first. The dated sections below are historical records;
 their numbers are the numbers as measured at the time, and some of
 their "NOT verified" items have since been superseded (marked
 inline). The current picture, measured in the docs worktree at
-`264344e` (Python 3.12.3, extras venv, `test_memory_check` host
-flake deselected — see the HEAD section at the end of this file):
+`264344e` and re-seeded by the docs wave on `3d88f94` (Python 3.12.3,
+extras venv, `test_memory_check` host flake deselected — see the
+HEAD section at the end of this file):
 
 - **Full suite (extras): 3016 passed, 0 failed, 1 deselected,
   232 subtests passed, 83% line coverage** (17,831 statements,
-  2,375 missed, 6,716 branches, 1,214 partial). Core-only suite
-  not re-measured in this pass (last recorded in the U4 section
-  below: 2739 passed / 0 failed / 112 skipped).
+  2,372 missed, 6,716 branches, 1,211 partial — per committed
+  `EV-20261107-suite.json`). Core-only suite:
+  **2904 passed, 1 failed (the same known `test_memory_check`
+  flake), 112 skipped, 81%** (re-seeded 2026-11-07,
+  `EV-20261107-suite-core.json`).
 - **Claims gate: 33 passed, 0 failed.** **Schemas: 12 OK.**
   **Ruff: 0 errors, 210 files formatted.** **Pre-commit: 13/13**
   (see the HEAD section below).
-- **U7 evidence registry: 18 records**
-  (`docs/evidence/registry.json`). **Validation registry:
+- **U7 evidence registry: 29 records**
+  (`docs/evidence/registry.json` — 18 records at `264344e` plus 11
+  re-seeded 2026-11-07 run artifacts). **Validation registry:
   7 records, all `partial`** (`docs/validation/registry.json` —
   6 dataset seeds + 1 U4 segment record).
 - **Worst-slice human FPR: unknown** (`docs/evidence/report-card.md`).
@@ -2422,3 +2426,74 @@ to this worktree's `src/` so the worktree code is what ran.
   the docs edits above; ruff lint + format, json-schema-validator,
   detect-secrets, trailing-whitespace, end-of-file-fixer and the
   rest all green).
+
+## Verification record — Phase 5, docs wave: all 59 audit findings (2026-11-08)
+
+Input: `hidden_files/docs-audit.md` (59 findings: 4 P0, 11 P1, 8 P2,
+4 P3), written against main `5ab3c45` — stale in places (pre-U2/U3/
+U4, pre-Phase 4, pre-waves 1–4); every fact re-verified from the
+tree. Detail: `hidden_files/phase5-docs.md`.
+
+- **Spec (SP-1–SP-13):** §§11.1–11.3 rewritten from the actual
+  CLI/API/MCP surfaces (real commands incl. `mixed-origin`,
+  `case keygen`, `drift run/status`; exit codes 0/1/2/3 — exit 3
+  exists, `EXIT_ERROR = 3`; 16 registered MCP tools, response
+  shape `{success, exit_code, ...}`); new §6.4 (Trust Map v3 /
+  `stale` / `mixed` cap), §5.5 (U1 registry), §9 (T1/T2/T3 seal
+  tiers), §10 (real gate checks (a)–(f)), §14 (release definition:
+  claims gate, CI green, human-FPR evidence, live-host
+  verification, no PR self-review); §5.1 labelled
+  illustrative/fictional; §12.2 line coverage corrected 86% → 83%
+  by the parent (two independent measurements + committed
+  `EV-20261107-suite.json`, 17,831 stmts, 83%).
+- **CHANGELOG + CLAIMS (C-1–C-3, CL-1–CL-6):** [Unreleased] now
+  covers Phases 2, 3, 4 and 5 waves 1–4, every number traced to
+  this file or a phase report. `security.pip_audit_tracked`
+  reconciled the new way — the cryptography cap WAS widened by
+  Dependabot #27 in Phase 4 (`ac030c7`), now `<51`; fresh pip-audit
+  re-seed: 12 findings in 1 package (pip 24.0: 12), cryptography 0,
+  pytest 0. Suite claims re-seeded via `seed_evidence.py` (no
+  artifacts hand-edited): extras 3016 passed / 1 flake / 83%,
+  core-only 2904 passed / 1 flake / 112 skipped / 81%. U7 registry
+  rebuilt 18 → **29 records** (11 new 2026-11-07 artifacts; the
+  wave report's "28" is wrong — parent re-counted: 18 old retained
+  + 11 new = 29, and re-verified all 29 sha256s against the files
+  on disk, 0 mismatches; the two suite-record sha256s match the
+  cited prefixes exactly). `.secrets.baseline` 581 → 607 entries,
+  grafted per the U7 precedent (each value recomputed, never a
+  naive rescan).
+- **README + SECURITY + RELEASE (R-1–R-7, S-1–S-2, RL-1–RL-3):**
+  Trust Map v2/v3 + `stale`, all 10 dimensions, new "Validation
+  evidence and the claims gate" section with no performance
+  numbers, `[all]` retitled "API + MCP surfaces", no tagged
+  release exists, T1/T2/T3 seal tiers, RELEASE evidence gate,
+  human-FPR checkbox blocked.
+- **ROADMAP + VERIFICATION (RM-1–RM-6, V-1–V-4, HR-1–HR-6):**
+  checklists reconciled against U2/U3/U4 and Phase 4/5 delivery;
+  "Current state" summary atop this file (updated to HEAD
+  `3d88f94` by the parent: registry 29, core-only 2904/1/112/81%);
+  #27 note corrected; hidden roadmap brought to `264344e`.
+
+Audit errors caught by the workers (verified from the tree): exit 3
+exists; `trust_map_from_capability_ledger` exists (legacy v1 view);
+only 16 MCP tools registered; RAID AUROC is 0.5937 in the committed
+artifact, not 0.6414.
+
+Deliberately NOT fixed — follow-up wave needed (code/claim
+decision, not a docs edit): bandit now reports **3 MEDIUM** (B310
+`urlopen` in `datasets.py:517,1204`, `timestamp.py:379`) + 26 Low, so
+`security.bandit_no_medium_high` ("0 medium, 16 Low") no longer
+describes current `src/`; and network imports now exist in
+`datasets.py`, `ollama.py`, `timestamp.py`, so
+`core.local_first`'s "only network import is ollama.py" note is
+stale. The claims stay on their valid 2026-11-06 records; the gate
+still passes 33/33.
+
+Parent verification on merged main `3d88f94`: pre-commit 13/13,
+claims 33/33, schemas 12 OK, full extras suite 3016 passed / 0
+failed (1 deselected flake) — re-run by the parent on the merged
+tree; the four branches were merged by rebase + fast-forward of the
+exact verified commits, in the order spec → changelog-claims →
+readme-security → roadmap-verification. Two workers left their
+changes uncommitted (C, D); the parent reviewed the diffs, ran the
+gates, and committed them.
