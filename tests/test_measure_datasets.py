@@ -84,7 +84,7 @@ def test_score_summary(measure):
 
 def test_sample_plan_covers_verified_datasets_only(measure):
     plan = measure.SAMPLE_PLAN
-    assert sorted(plan) == ["beemo", "mage", "opai_bench", "raid"]
+    assert sorted(plan) == ["beemo", "ghostwriter", "mage", "opai_bench", "raid"]
     # MixSet is absent by design (licence unresolved).
     assert "mixset" not in plan
     # Split totals are the verified datasets-server /size figures.
@@ -92,6 +92,11 @@ def test_sample_plan_covers_verified_datasets_only(measure):
     assert plan["mage"]["total"] == 319_071
     assert plan["beemo"]["total"] == 2_187
     assert plan["opai_bench"]["total"] == 196_029
+    # GhostWriter counts verified 2026-11-07 (total 474,904).
+    assert plan["ghostwriter"]["total"] == 332_224
+    assert plan["ghostwriter"]["disjoint"]["total"] == 47_548
+    assert plan["ghostwriter"]["n"] == 500
+    assert plan["ghostwriter"]["disjoint"]["n"] == 50
     # U1 grown sample sizes (plan change, 2026-11-06): RAID 3000 strided
     # for ~100 humans, MAGE 400, OpAI-Bench 500; Beemo unchanged.
     assert plan["raid"]["n"] == 3000

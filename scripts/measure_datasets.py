@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""measure_datasets.py — Fetch wave-1 dataset samples and measure the built-in detector.
+"""measure_datasets.py — Fetch wave-1 + wave-2 dataset samples and measure the built-in detector.
 
-For each dataset in the wave-1 plan: fetch a documented strided sample
+For each dataset in the wave-1 plan (plus GhostWriter in wave 2): fetch a documented strided sample
 (``n`` evenly spaced rows across the split — every wave-1 split is
 ordered by testbed/model, so first-*n* sampling would be one-sided;
 RAID first-200 was all-human), map it to normalised rows, write the
@@ -64,6 +64,8 @@ from textforensics.detectors import BuiltinHeuristicDetector  # noqa: E402
 # Verified row counts (datasets-server /size, 2026-11-06). These are the
 # denominators for strided sampling; if the server reports a different
 # total the script refuses rather than sampling a stale plan.
+# GhostWriter counts verified 2026-11-07 (train 332,224; validation
+# 47,548; total 474,904).
 SAMPLE_PLAN = {
     "raid": {
         "config": "raid",
@@ -113,6 +115,23 @@ SAMPLE_PLAN = {
             "n": 50,
             "method": "strided",
             "total": 42_363,
+        },
+    },
+    # Wave 2 (2026-11-07): GhostWriter n=500 strided across train
+    # (332,224 rows); disjointness vs validation (47,548 rows, n=50
+    # strided). Verified row counts (datasets-server /size, 2026-11-07).
+    "ghostwriter": {
+        "config": "default",
+        "split": "train",
+        "n": 500,
+        "method": "strided",
+        "total": 332_224,
+        "disjoint": {
+            "config": "default",
+            "split": "validation",
+            "n": 50,
+            "method": "strided",
+            "total": 47_548,
         },
     },
 }
@@ -317,6 +336,21 @@ def measure_dataset(key: str, force: bool) -> dict:
         results["ai_sentence_ratio_values"] = sorted(
             {str(r.meta.get("ai_sentence_ratio")) for r in normalized}
         )
+    if key == "ghostwriter":
+        results["rows_by_domain"] = {
+            domain: sum(1 for r in normalized if r.meta.get("domain") == domain)
+            for domain in sorted({str(r.meta.get("domain")) for r in normalized})
+        }
+        results["label_counts_by_domain"] = {
+            domain: {
+                str(k): sum(
+                    1 for r in normalized if r.meta.get("domain") == domain and r.label == k
+                )
+                for k in (0, 1, None)
+                if any(r.meta.get("domain") == domain and r.label == k for r in normalized)
+            }
+            for domain in sorted({str(r.meta.get("domain")) for r in normalized})
+        }
 
     drops = [
         {
@@ -337,6 +371,13 @@ def measure_dataset(key: str, force: bool) -> dict:
             {
                 "item": "split disjointness check",
                 "reason": "Beemo ships a single train split; there is no second split to check against",
+            }
+        )
+    if key == "ghostwriter":
+        drops.append(
+            {
+                "item": f"{counts.get(None, 0)} fusion (mixed-origin) rows",
+                "reason": "label 2 rows carry no binary label; they are the U4 spine, not U1 evidence",
             }
         )
 

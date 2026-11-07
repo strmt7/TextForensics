@@ -1,0 +1,139 @@
+{
+  "badge": "available",
+  "code_version": "ef0a93a994f67fba839ae275d51085e8acb5b656",
+  "command": "python scripts/measure_datasets.py --only ghostwriter",
+  "drops": [
+    {
+      "item": "full-corpus evaluation",
+      "reason": "preliminary sample only (n=500 normalised rows from 332224 split rows)"
+    },
+    {
+      "item": "Python 3.11, 3.13, 3.14, 3.15",
+      "reason": "measured on the local interpreter only; CI covers the matrix"
+    },
+    {
+      "item": "train/test threshold selection",
+      "reason": "no threshold was fitted on this sample; AUROC/TPR@FPR are threshold-free"
+    },
+    {
+      "item": "153 fusion (mixed-origin) rows",
+      "reason": "label 2 rows carry no binary label; they are the U4 spine, not U1 evidence"
+    }
+  ],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261107-dataset-ghostwriter",
+  "kind": "command",
+  "results": {
+    "auroc": 0.436,
+    "cache_file_sha256": "12d2ab690b8952d34cb8814231b332f96dbc565de6f2daf4af50d3a60df184c8",
+    "config": "default",
+    "dataset": "ghostwriter",
+    "detector": "textforensics/builtin-heuristic",
+    "detector_abstentions": 162,
+    "detector_evaluated_rows": 347,
+    "detector_version": "0.1.0",
+    "disjointness": {
+      "against": "default/validation (n=50)",
+      "checked": true,
+      "disjoint": true,
+      "errors": [],
+      "shared_samples": 0,
+      "verified": true
+    },
+    "hf_id": "TheItCrOw/GhostWriter",
+    "label_counts": {
+      "0": 137,
+      "1": 210,
+      "None": 153
+    },
+    "label_counts_by_domain": {
+      "arxiv_papers": {
+        "0": 6,
+        "1": 7,
+        "None": 12
+      },
+      "blog_authorship_corpus": {
+        "0": 18,
+        "1": 31,
+        "None": 22
+      },
+      "bundestag": {
+        "0": 29,
+        "1": 30,
+        "None": 26
+      },
+      "cnn_news": {
+        "0": 15,
+        "1": 31,
+        "None": 15
+      },
+      "euro_court_cases": {
+        "0": 12,
+        "1": 19,
+        "None": 16
+      },
+      "gutenberg": {
+        "0": 2,
+        "1": 12,
+        "None": 6
+      },
+      "house_of_commons": {
+        "0": 16,
+        "1": 27,
+        "None": 13
+      },
+      "student_essays": {
+        "0": 39,
+        "1": 53,
+        "None": 43
+      }
+    },
+    "licence": "Per-domain licences (no single dataset licence): cnn_news Apache-2.0; arxiv_papers arXiv.org non-exclusive licence to distribute; blog_authorship_corpus CC0 / free for non-commercial research; bundestag DL-DE-BY-2.0; house_of_commons Open Parliament Licence; euro_court_cases CC-BY-NC-SA 4.0; student_essays CC-BY-NC-SA 4.0; gutenberg CC0",
+    "mean_score_by_kind": {
+      "raw": 0.3006
+    },
+    "preliminary": true,
+    "rows_by_domain": {
+      "arxiv_papers": 25,
+      "blog_authorship_corpus": 71,
+      "bundestag": 85,
+      "cnn_news": 61,
+      "euro_court_cases": 47,
+      "gutenberg": 20,
+      "house_of_commons": 56,
+      "student_essays": 135
+    },
+    "rows_by_kind": {
+      "raw": 347
+    },
+    "rows_fetched": 500,
+    "rows_normalised": 500,
+    "sampling": "strided",
+    "score_by_label": {
+      "human": {
+        "max": 0.674,
+        "mean": 0.3199,
+        "median": 0.3079,
+        "min": 0.0834,
+        "n": 137
+      },
+      "machine": {
+        "max": 0.5744,
+        "mean": 0.288,
+        "median": 0.2847,
+        "min": 0.0806,
+        "n": 210
+      }
+    },
+    "split": "train",
+    "split_rows_total": 332224,
+    "tpr_at_1pct_fpr": 0.0,
+    "tpr_at_5pct_fpr": 0.0048
+  },
+  "run_date": "2026-11-07",
+  "schema": "textforensics.run-artifact/v1"
+}
