@@ -8,6 +8,7 @@ from pathlib import Path
 
 from textforensics.casefile import (
     CASE_SCHEMA,
+    CASE_SCHEMA_V3,
     _forbidden_paths,
     _hash_without_seal,
     _strip_runtime_ms_from_bundle,
@@ -42,17 +43,28 @@ class CaseFileSealTests(unittest.TestCase):
     def test_seal_omits_raw_text_by_default(self):
         bundle = build_forensic_bundle(TEXT).to_dict()
         case = seal_case_file(bundle)
-        self.assertEqual(case["schema"], CASE_SCHEMA)
+        # The default seal is case-file/v3 (U2); v2 is still available
+        # explicitly via version="v2".
+        self.assertEqual(case["schema"], CASE_SCHEMA_V3)
         self.assertFalse(case["raw_text_included"])
         self.assertEqual(case["tool"]["name"], "TextForensics")
         self.assertEqual(len(case["case_sha256"]), 64)
         self.assertNotIn(TEXT, json.dumps(case))
 
+    def test_seal_v2_explicitly(self):
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        case = seal_case_file(bundle, version="v2")
+        self.assertEqual(case["schema"], CASE_SCHEMA)
+        self.assertTrue(verify_case_file(case)["valid"])
+
     def test_seal_is_deterministic(self):
+        # A v3 seal carries the seal time in its custody genesis entry, so
+        # two ordinary seals of one bundle differ; deterministic mode
+        # pins the timestamp and the seal is reproducible.
         bundle = build_forensic_bundle(TEXT).to_dict()
         self.assertEqual(
-            seal_case_file(bundle)["case_sha256"],
-            seal_case_file(bundle)["case_sha256"],
+            seal_case_file(bundle, deterministic=True)["case_sha256"],
+            seal_case_file(bundle, deterministic=True)["case_sha256"],
         )
 
     def test_seal_rejects_obvious_raw_text_fields(self):

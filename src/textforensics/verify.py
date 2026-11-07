@@ -25,12 +25,24 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 _TRUST_STATES = frozenset({"supported", "partial", "unknown", "out_of_scope"})
+# v3 adds the "stale" state: a matching record exists but its effective
+# status is stale (detector-version change, revalidation due, demotion).
+_TRUST_STATES_V3 = frozenset({"supported", "partial", "unknown", "out_of_scope", "stale"})
+_TRUST_MAP_V3_SCHEMA = "textforensics.trust-map/v3"
 _TRUST_MAP_V2_SCHEMA = "textforensics.trust-map/v2"
 _TRUST_MAP_V1_SCHEMA = "textforensics.trust-map/v1"
 
 # Schemas accepted by the N-version replay.  v2 is primary; v1 is accepted
 # for legacy artifacts so that older case files can still be replayed.
-_CASE_FILE_SCHEMAS = frozenset({"textforensics.case-file/v2", "textforensics.case-file/v1"})
+# v3 case files (U2) and v3 Trust Maps (U1) are accepted as well: a v3 map
+# embedded in a case file must verify, with "stale" as a distinct state.
+_CASE_FILE_SCHEMAS = frozenset(
+    {
+        "textforensics.case-file/v3",
+        "textforensics.case-file/v2",
+        "textforensics.case-file/v1",
+    }
+)
 _BUNDLE_SCHEMAS = frozenset(
     {"textforensics.forensic-bundle/v2", "textforensics.forensic-bundle/v1"}
 )
@@ -42,15 +54,18 @@ _CALIBRATION_SCHEMAS = frozenset(
 )
 
 
-def _verify_trust_dimension(dim: dict[str, Any]) -> str:
+def _verify_trust_dimension(dim: dict[str, Any], *, allow_stale: bool = False) -> str:
     """Validate a single Trust Map dimension entry.
 
-    Returns the verification status for this dimension.
+    Returns the verification status for this dimension.  ``allow_stale``
+    is true only for Trust Map v3, whose state vocabulary adds "stale";
+    a v2/v1 map carrying "stale" is rejected here.
     """
     if not isinstance(dim, dict):
         return "error: dimension is not a dict"
     state = dim.get("state")
-    if state not in _TRUST_STATES:
+    allowed = _TRUST_STATES_V3 if allow_stale else _TRUST_STATES
+    if state not in allowed:
         return f"error: invalid state {state!r}"
     if not isinstance(dim.get("dimension"), str) or not dim["dimension"]:
         return "error: missing or empty dimension name"
@@ -100,6 +115,36 @@ def _recompute_overall(dimensions: list[dict[str, Any]]) -> str | None:
     if supported == 0 and partial == 0:
         return "insufficient"
     if supported == 0 and unknown >= 4:
+        return "insufficient"
+    return "mixed"
+
+
+def _recompute_overall_v3(dimensions: list[dict[str, Any]]) -> str | None:
+    """Re-derive the Trust Map ``overall`` state for a v3 map.
+
+    This is an *independent* implementation of the logic in
+    ``validation._overall_state_v3``: strong iff every dimension is
+    supported; insufficient iff language or text_length is
+    out_of_scope, or no dimension is supported or partial; else mixed.
+    ``stale`` counts as neither supported nor partial.  Dimensions are
+    deduplicated by name, as in :func:`_recompute_overall`.
+    """
+    by_name = {
+        dim.get("dimension"): dim.get("state", "") for dim in dimensions if isinstance(dim, dict)
+    }
+    states = by_name.values()
+    supported = sum(state == "supported" for state in states)
+    partial = sum(state == "partial" for state in states)
+
+    if by_name.get("language") == "out_of_scope" or by_name.get("text_length") == "out_of_scope":
+        return "insufficient"
+    if not by_name:
+        # Mirrors the v2 independent implementation: an empty dimension
+        # list yields insufficient, never strong.
+        return "insufficient"
+    if supported == len(by_name):
+        return "strong"
+    if supported == 0 and partial == 0:
         return "insufficient"
     return "mixed"
 
@@ -189,21 +234,22 @@ def verify_case_file(payload: dict[str, Any]) -> dict[str, Any]:
     dimensions_status = {}
     if isinstance(trust_map, dict):
         tm_schema = trust_map.get("schema")
-        if tm_schema not in (_TRUST_MAP_V2_SCHEMA, _TRUST_MAP_V1_SCHEMA):
+        if tm_schema not in (_TRUST_MAP_V3_SCHEMA, _TRUST_MAP_V2_SCHEMA, _TRUST_MAP_V1_SCHEMA):
             errors.append(f"trust_map has unexpected schema: {tm_schema!r}")
+        is_v3 = tm_schema == _TRUST_MAP_V3_SCHEMA
         dims = trust_map.get("dimensions")
         if not isinstance(dims, list):
             errors.append("trust_map.dimensions is not a list")
         else:
             for dim in dims:
-                status = _verify_trust_dimension(dim)
+                status = _verify_trust_dimension(dim, allow_stale=is_v3)
                 dname = dim.get("dimension", "<unnamed>")
                 dimensions_status[dname] = status
                 if status != "ok":
                     errors.append(f"trust dimension {dname}: {status}")
 
             overall_stored = trust_map.get("overall", "")
-            overall_derived = _recompute_overall(dims)
+            overall_derived = _recompute_overall_v3(dims) if is_v3 else _recompute_overall(dims)
             info["trust_map_verified"] = overall_stored == overall_derived
             if overall_stored != overall_derived:
                 errors.append(
@@ -309,6 +355,7 @@ def verify_case_file_combined(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "valid": bool(nversion.get("valid", False) and primary.get("valid", False)),
         "errors": errors,
+        "warnings": primary.get("warnings", []),
         "seal_verified": nversion.get("seal_verified"),
         "trust_map_verified": nversion.get("trust_map_verified"),
         "dimensions": nversion.get("dimensions", {}),

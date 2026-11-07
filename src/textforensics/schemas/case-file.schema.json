@@ -1,40 +1,507 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/strmt7/TextForensics/schemas/case-file.schema.json",
-  "title": "TextForensics Case File",
-  "type": "object",
-  "required": [
-    "schema",
-    "tool",
-    "forensic_bundle",
-    "raw_text_included",
-    "case_sha256"
-  ],
-  "properties": {
-    "schema": {
-      "enum": [
-        "textforensics.case-file/v1",
-        "textforensics.case-file/v2"
-      ]
-    },
-    "tool": {
-      "type": "object",
-      "required": ["name", "version"],
+  "$defs": {
+    "checklist_item": {
+      "additionalProperties": false,
       "properties": {
-        "name": {"const": "TextForensics"},
-        "version": {"type": "string", "minLength": 1},
-        "git_sha": {
-          "type": ["string", "null"],
-          "pattern": "^[0-9a-f]{7,40}$"
+        "actor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "at_utc": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "enum": [
+            "satisfied",
+            "not_satisfied",
+            "not_applicable",
+            "unknown"
+          ]
         }
       },
-      "additionalProperties": false
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/strmt7/TextForensics/schemas/case-file.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema": {
+            "const": "textforensics.case-file/v2"
+          }
+        },
+        "required": [
+          "schema"
+        ]
+      },
+      "then": {
+        "properties": {
+          "tool": {
+            "required": [
+              "git_sha"
+            ]
+          }
+        },
+        "required": [
+          "created_at_utc",
+          "manifest"
+        ]
+      }
     },
-    "created_at_utc": {"type": "string", "minLength": 1},
-    "forensic_bundle": {"type": "object"},
-    "raw_text_included": {"const": false},
+    {
+      "if": {
+        "properties": {
+          "schema": {
+            "const": "textforensics.case-file/v3"
+          }
+        },
+        "required": [
+          "schema"
+        ]
+      },
+      "then": {
+        "properties": {
+          "tool": {
+            "required": [
+              "git_sha"
+            ]
+          }
+        },
+        "required": [
+          "created_at_utc",
+          "manifest",
+          "input",
+          "detector_observations",
+          "validation_refs",
+          "limitations",
+          "process",
+          "custody",
+          "seal",
+          "gaps"
+        ]
+      }
+    }
+  ],
+  "properties": {
+    "case_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "created_at_utc": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "custody": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "actor": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "at_utc": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "entry_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prev_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor",
+          "action",
+          "at_utc",
+          "prev_hash",
+          "entry_hash"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "detector_observations": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "calibration_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "checkpoint_or_provider_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "config_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "detail": {
+            "type": "object"
+          },
+          "detector_id": {
+            "minLength": 1,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "detector_version": {
+            "minLength": 1,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "disposition": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "disposition_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "enum": [
+              "observed",
+              "failed",
+              "plugin_health"
+            ]
+          },
+          "min_words": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "native_score_direction": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "runtime": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "enum": [
+                  "local",
+                  "remote"
+                ]
+              },
+              "provider": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "provider_version": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "model_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "device": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": true
+          },
+          "score": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "score_range": {
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "score_semantics": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "supported_languages": {
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "verdict": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "detector_id"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "forensic_bundle": {
+      "type": "object"
+    },
+    "gaps": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "input": {
+      "additionalProperties": false,
+      "properties": {
+        "acquired_at_utc": {
+          "minLength": 1,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "acquired_by": {
+          "minLength": 1,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "acquisition_method": {
+          "minLength": 1,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "authorisation_ref": {
+          "minLength": 1,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "char_count": {
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "content_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "normalisation": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "source": {
+          "additionalProperties": false,
+          "properties": {
+            "filename_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "receipt_id": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "system": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "word_count": {
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "content_sha256",
+        "normalisation",
+        "word_count",
+        "char_count"
+      ],
+      "type": "object"
+    },
+    "limitations": {
+      "additionalProperties": false,
+      "properties": {
+        "bundle_limitations": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "counterfactuals": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "plain_language": {
+          "additionalProperties": false,
+          "properties": {
+            "authorship_warning": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "human_fpr": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "score_not_probability": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "score_not_probability",
+            "authorship_warning",
+            "human_fpr"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "plain_language",
+        "counterfactuals"
+      ],
+      "type": "object"
+    },
     "manifest": {
-      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "calibration_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "content_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "git_sha": {
+          "pattern": "^[0-9a-f]{7,40}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "registry_id": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "registry_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schema_versions": {
+          "type": "object"
+        }
+      },
       "required": [
         "content_sha256",
         "registry_id",
@@ -43,51 +510,335 @@
         "schema_versions",
         "git_sha"
       ],
+      "type": "object"
+    },
+    "process": {
+      "additionalProperties": false,
       "properties": {
-        "content_sha256": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{64}$"
+        "alternative_explanations": {
+          "type": "object"
         },
-        "registry_id": {
-          "type": ["string", "null"],
-          "pattern": "^[0-9a-f]{64}$"
+        "appeal": {
+          "type": [
+            "object",
+            "null"
+          ]
         },
-        "registry_sha256": {
-          "type": ["string", "null"],
-          "pattern": "^[0-9a-f]{64}$"
+        "contrary_evidence": {
+          "type": "array"
         },
-        "calibration_ids": {
-          "type": "array",
-          "items": {"type": "string", "minLength": 1}
+        "evidence_dispositions": {
+          "type": "object"
         },
-        "schema_versions": {"type": "object"},
-        "git_sha": {
-          "type": ["string", "null"],
-          "pattern": "^[0-9a-f]{7,40}$"
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "D1": {
+              "$ref": "#/$defs/checklist_item"
+            },
+            "D10": {
+              "$ref": "#/$defs/checklist_item"
+            },
+            "D2": {
+              "$ref": "#/$defs/checklist_item"
+            },
+            "D3": {
+              "$ref": "#/$defs/checklist_item"
+            },
+            "D4": {
+              "$ref": "#/$defs/checklist_item"
+            },
+            "D5": {
+              "$ref": "#/$defs/checklist_item"
+            },
+            "D6": {
+              "$ref": "#/$defs/checklist_item"
+            },
+            "D7": {
+              "$ref": "#/$defs/checklist_item"
+            },
+            "D8": {
+              "$ref": "#/$defs/checklist_item"
+            },
+            "D9": {
+              "$ref": "#/$defs/checklist_item"
+            }
+          },
+          "type": "object"
+        },
+        "policy_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "procedure_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "retention": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "reviewer": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "subject_response": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "template_notice": {
+          "minLength": 1,
+          "type": "string"
         }
       },
-      "additionalProperties": false
+      "required": [
+        "template_notice",
+        "items"
+      ],
+      "type": "object"
     },
-    "case_sha256": {
-      "type": "string",
-      "pattern": "^[0-9a-f]{64}$"
+    "raw_text_included": {
+      "const": false
+    },
+    "schema": {
+      "enum": [
+        "textforensics.case-file/v1",
+        "textforensics.case-file/v2",
+        "textforensics.case-file/v3"
+      ]
+    },
+    "seal": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "sha256"
+        },
+        "custody_head": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "digest_publication": {
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "published_at_utc": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "reference": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "channel",
+            "reference",
+            "published_at_utc"
+          ],
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "signature": {
+          "additionalProperties": false,
+          "properties": {
+            "algorithm": {
+              "const": "ed25519"
+            },
+            "dsse": {
+              "type": "object"
+            },
+            "key_fingerprint": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "signer": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "algorithm",
+            "key_fingerprint",
+            "signer",
+            "dsse"
+          ],
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "timestamp": {
+          "additionalProperties": false,
+          "properties": {
+            "gen_time": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "qualification_method": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "qualified": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "token_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "tsa_url": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "tsa_url",
+            "token_sha256",
+            "gen_time",
+            "qualified",
+            "qualification_method"
+          ],
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "algorithm",
+        "custody_head"
+      ],
+      "type": "object"
+    },
+    "tool": {
+      "additionalProperties": false,
+      "properties": {
+        "git_sha": {
+          "pattern": "^[0-9a-f]{7,40}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "const": "TextForensics"
+        },
+        "version": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "type": "object"
+    },
+    "validation_refs": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "covers_input_regime": {
+            "type": "boolean"
+          },
+          "detector_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "detector_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "records": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "effective_status": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "fpr_native": {
+                  "type": [
+                    "object",
+                    "null"
+                  ]
+                },
+                "record_id": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "regime": {
+                  "type": "object"
+                },
+                "stored_status": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "record_id",
+                "stored_status",
+                "effective_status",
+                "regime",
+                "fpr_native"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "registry_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "registry_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detector_id",
+          "detector_version",
+          "registry_id",
+          "registry_sha256",
+          "covers_input_regime",
+          "records"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "verification": {
+      "type": [
+        "object",
+        "null"
+      ]
     }
   },
-  "additionalProperties": false,
-  "allOf": [
-    {
-      "if": {
-        "properties": {"schema": {"const": "textforensics.case-file/v2"}},
-        "required": ["schema"]
-      },
-      "then": {
-        "required": ["created_at_utc", "manifest"],
-        "properties": {
-          "tool": {
-            "required": ["git_sha"]
-          }
-        }
-      }
-    }
-  ]
+  "required": [
+    "schema",
+    "tool",
+    "forensic_bundle",
+    "raw_text_included",
+    "case_sha256"
+  ],
+  "title": "TextForensics Case File",
+  "type": "object"
 }

@@ -138,7 +138,7 @@ class ApiTests(unittest.TestCase):
         payload = response.json()
         self.assertFalse(payload["raw_text_included"])
         self.assertNotIn("This is a short", str(payload))
-        self.assertEqual(payload["schema"], "textforensics.case-file/v2")
+        self.assertEqual(payload["schema"], "textforensics.case-file/v3")
 
     def test_audit_endpoint(self):
         response = self._post(
