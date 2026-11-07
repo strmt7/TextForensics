@@ -836,6 +836,20 @@ class TrustMutationKillTests(unittest.TestCase):
 
     # -- Capability-ledger view ([10], [11], [12], [13], [45]) -----------
 
+    def test_ledger_length_capability_maps_to_text_length_dimension(self):
+        # Mutant [14] negates the equality in _legacy_dimension_name:
+        # `not normalized == prefix or startswith(...)` is true for the
+        # first alias whose prefix differs, so every capability maps to
+        # "language" (the first alias) instead of its own dimension.
+        # A "length" claim must land on text_length, not language.
+        ledger = _ledger_with(_ledger_claim(capability="length"))
+        tm = trust_map_from_capability_ledger(ledger)
+        dim = tm.dimension("text_length")
+        self.assertIsNotNone(dim)
+        self.assertEqual(dim.state, "supported")
+        self.assertIsNone(tm.dimension("language"))
+        self.assertEqual(tm.overall, "strong")
+
     def test_ledger_expiry_limitation_names_claim_and_date(self):
         # Mutant [10] negates `if claim.valid_until:`: the expiry
         # limitation is omitted for dated claims (and added, with
