@@ -5,6 +5,8 @@ import unittest
 from textforensics.conditions import InputConditions
 from textforensics.detectors import DetectorPrediction
 from textforensics.evidence import (
+    DetectorCoverage,
+    DimensionCoverage,
     EvidenceRecord,
     EvidenceRegistry,
     MetricEstimate,
@@ -12,11 +14,25 @@ from textforensics.evidence import (
     SliceConditions,
     ValidationSlice,
 )
+from textforensics.policy import (
+    CapabilityClaim,
+    CapabilityLedger,
+    EvidenceLabel,
+    EvidenceRef,
+    EvidenceTier,
+)
 from textforensics.trust import (
+    EVIDENCE_DIMENSIONS,
+    TRUST_DIMENSIONS,
     TRUST_STATES,
     TrustDimension,
     TrustMap,
+    _aggregate_evidence_dimension,
+    _coverage_counts,
+    _overall_state,
+    assess_trust_map,
     build_trust_map,
+    trust_map_from_capability_ledger,
 )
 
 
@@ -396,6 +412,455 @@ class TrustMapContractTests(unittest.TestCase):
                 for limitation in tm.limitations
             )
         )
+
+
+def _dim(state: str, dimension: str) -> TrustDimension:
+    return TrustDimension(dimension=dimension, state=state, reason="test")
+
+
+def _overall_from_states(states) -> str:
+    """Drive the private overall-state rule with one state per dimension."""
+    assert len(states) == len(TRUST_DIMENSIONS)
+    return _overall_state(
+        [_dim(state, name) for state, name in zip(states, TRUST_DIMENSIONS, strict=True)]
+    )
+
+
+def _coverage_row(
+    detector_id: str,
+    *,
+    state: str = "supported",
+    reason: str,
+    observed: dict | None = None,
+) -> DetectorCoverage:
+    """One DetectorCoverage row whose ``language`` dimension carries the
+    given state/reason/observed payload; every other evidence dimension is
+    unknown, so aggregation behaviour is attributable to ``language``."""
+    dimensions = {
+        name: DimensionCoverage(
+            dimension=name,
+            state=state if name == "language" else "unknown",
+            reason=reason if name == "language" else "no coverage",
+            observed=dict(observed) if name == "language" and observed else {},
+        )
+        for name in EVIDENCE_DIMENSIONS
+    }
+    return DetectorCoverage(
+        detector_id=detector_id,
+        detector_version="1",
+        detector_family="fam",
+        dimensions=dimensions,
+    )
+
+
+def _ledger_claim(
+    detector_id: str = "a",
+    capability: str = "language",
+    tier: EvidenceTier = EvidenceTier.VALIDATED,
+    valid_until: str | None = None,
+) -> CapabilityClaim:
+    return CapabilityClaim(
+        detector_id=detector_id,
+        capability=capability,
+        tier=tier,
+        evidence=[
+            EvidenceRef(
+                label=EvidenceLabel.EXECUTED,
+                tier=tier,
+                artifact="runs/1.json",
+            )
+        ],
+        valid_until=valid_until,
+    )
+
+
+def _ledger_with(*claims: CapabilityClaim) -> CapabilityLedger:
+    ledger = CapabilityLedger()
+    for claim in claims:
+        ledger.register(claim)
+    return ledger
+
+
+class TrustMutationKillTests(unittest.TestCase):
+    """Behaviour tests that distinguish the original trust.py from each
+    surviving cosmic-ray mutant in the Phase 5 wave-2 batch (indices
+    [0]-[53] of the classification table).  Each test asserts real,
+    observable behaviour — an error message, a dimension state, a count,
+    or a summary value — never merely that a call succeeds."""
+
+    # -- TrustMap coverage validation ([0], [1]) -------------------------
+
+    def test_coverage_missing_state_message_names_the_missing_state(self):
+        # Mutant [0] negates `if missing:`: the ValueError is still raised
+        # but its message no longer names the missing state.
+        dim = TrustDimension(dimension="text_length", state="supported", reason="ok")
+        with self.assertRaisesRegex(ValueError, r"missing state\(s\): out_of_scope"):
+            TrustMap(
+                schema="textforensics.trust-map/v2",
+                overall="mixed",
+                dimensions=[dim],
+                coverage={"supported": 1, "partial": 0, "unknown": 0},
+            )
+
+    def test_coverage_extra_state_message_names_the_extra_state(self):
+        # Mutant [1] negates `if extra:`: the ValueError is still raised
+        # but its message no longer names the unexpected state.
+        dim = TrustDimension(dimension="text_length", state="supported", reason="ok")
+        with self.assertRaisesRegex(ValueError, r"unexpected state\(s\): stale"):
+            TrustMap(
+                schema="textforensics.trust-map/v2",
+                overall="mixed",
+                dimensions=[dim],
+                coverage={
+                    "supported": 1,
+                    "partial": 0,
+                    "unknown": 0,
+                    "out_of_scope": 0,
+                    "stale": 0,
+                },
+            )
+
+    # -- Benign-stability dimension ([2], [15], [16], [17], [33], [39],
+    #    [48], [49], [50]) ------------------------------------------------
+
+    def test_stability_partial_when_drift_exceeds_declared_bound_assess(self):
+        # Mutant [2] negates the drift-bound check so drift is never
+        # flagged; mutant [33] raises the assess_trust_map default bound
+        # from 0.10 to 1.1 so a 0.20 drift passes.  Both must stay partial.
+        robustness = [
+            {
+                "detector_id": "a",
+                "verdict_stability": 1.0,
+                "native_score_range": 0.20,
+            }
+        ]
+        tm = assess_trust_map(_declared_conditions(), [prediction("a")], robustness=robustness)
+        dim = next(d for d in tm.dimensions if d.dimension == "benign_stability")
+        self.assertEqual(dim.state, "partial")
+
+    def test_stability_partial_when_drift_exceeds_declared_bound_build(self):
+        # Same drift case through the build_trust_map default bound;
+        # mutant [39] raises that default from 0.10 to 1.1.
+        robustness = [
+            {
+                "detector_id": "a",
+                "verdict_stability": 1.0,
+                "native_score_range": 0.20,
+            }
+        ]
+        tm = build_trust_map([prediction("a")], word_count=200, robustness=robustness)
+        dim = next(d for d in tm.dimensions if d.dimension == "benign_stability")
+        self.assertEqual(dim.state, "partial")
+
+    def test_stability_floor_below_one_is_partial_even_when_drift_is_within_bound(
+        self,
+    ):
+        # Verdict floor 0.75 with drift 0.05 inside the 0.10 bound: the
+        # original is partial because the floor is below 1.0.  Mutant
+        # [15] lowers the floor threshold to 0.0, mutant [49] turns the
+        # first `and` into `or`, and mutant [50] turns the second `and`
+        # into `or`; all three would report supported.
+        robustness = [
+            {
+                "detector_id": "a",
+                "verdict_stability": 0.75,
+                "native_score_range": 0.05,
+            }
+        ]
+        tm = build_trust_map([prediction("a")], word_count=200, robustness=robustness)
+        dim = next(d for d in tm.dimensions if d.dimension == "benign_stability")
+        self.assertEqual(dim.state, "partial")
+
+    def test_stability_floor_is_rounded_to_six_places(self):
+        # Mutant [16] rounds to 7 places and mutant [17] to 5 places;
+        # the observed floor must be round(0.1234567, 6) == 0.123457.
+        robustness = [
+            {
+                "detector_id": "a",
+                "verdict_stability": 0.1234567,
+                "native_score_range": 0.05,
+            }
+        ]
+        tm = build_trust_map([prediction("a")], word_count=200, robustness=robustness)
+        dim = next(d for d in tm.dimensions if d.dimension == "benign_stability")
+        self.assertEqual(dim.observed["verdict_stability_floor"], 0.123457)
+
+    def test_stability_bool_range_is_unknown_drift(self):
+        # A boolean native_score_range is not a numeric range: drift is
+        # unknown, so the dimension is partial even with a perfect
+        # verdict floor and no drift bound.  Mutant [48] turns the
+        # `and` in the numeric check into `or`, so True counts as a
+        # known range of 1.0 and the dimension reports supported.
+        robustness = [
+            {
+                "detector_id": "a",
+                "verdict_stability": 1.0,
+                "native_score_range": True,
+            }
+        ]
+        tm = build_trust_map(
+            [prediction("a")],
+            word_count=200,
+            robustness=robustness,
+            max_native_drift=None,
+        )
+        dim = next(d for d in tm.dimensions if d.dimension == "benign_stability")
+        self.assertEqual(dim.state, "partial")
+
+    # -- Evidence aggregation ([3], [4], [18], [19], [20], [51]) ---------
+
+    def test_aggregate_copies_per_detector_observed(self):
+        # Mutant [3] negates `if dimension.observed:`: observed payloads
+        # from detectors are dropped and empty ones are copied instead.
+        rows = (
+            _coverage_row("a", reason="language reason from detector a", observed={"fpr": 0.02}),
+            _coverage_row("b", reason="language reason from detector b"),
+        )
+        dim = _aggregate_evidence_dimension("language", rows)
+        self.assertEqual(dim.observed["detector_observed"], {"a": {"fpr": 0.02}})
+
+    def test_aggregate_single_state_uses_first_detector_reason(self):
+        # When every detector agrees on the state, the reason is the
+        # first detector's reason.  Mutant [4] negates the single-state
+        # check, mutants [18]/[19] change `== 1` to `== 2`/`== 0`, mutant
+        # [20] takes rows[-1] instead of rows[0], and mutant [51] turns
+        # the `and` into `or` (yielding the state string "supported"
+        # instead of the reason); all five change the reason.
+        rows = (
+            _coverage_row("a", reason="language reason from detector a"),
+            _coverage_row("b", reason="language reason from detector b"),
+        )
+        dim = _aggregate_evidence_dimension("language", rows)
+        self.assertEqual(dim.state, "supported")
+        self.assertEqual(dim.reason, "language reason from detector a")
+
+    # -- Overall state ([5], [21], [22], [23], [24], [25], [26], [52], [53])
+
+    def test_overall_insufficient_when_no_supported_or_partial(self):
+        # 0 supported, 0 partial, 3 unknown: insufficient.  Mutant [5]
+        # negates the first comparison, mutant [21] changes supported
+        # 0 to 1, mutant [22] to -1, mutant [23] changes partial 0 to
+        # 1, mutant [24] to -1; all five fall through to "mixed".
+        states = [
+            "unknown",
+            "unknown",
+            "unknown",
+            "out_of_scope",
+            "out_of_scope",
+            "out_of_scope",
+            "out_of_scope",
+            "out_of_scope",
+            "out_of_scope",
+            "out_of_scope",
+        ]
+        self.assertEqual(_overall_from_states(states), "insufficient")
+
+    def test_overall_mixed_when_some_supported_and_no_partial(self):
+        # 5 supported, 0 partial: mixed, not insufficient.  Mutant [5]
+        # (negated first comparison) and mutant [52] (`and` -> `or`)
+        # both return "insufficient" here.
+        states = [
+            "supported",
+            "supported",
+            "supported",
+            "supported",
+            "supported",
+            "out_of_scope",
+            "out_of_scope",
+            "out_of_scope",
+            "out_of_scope",
+            "out_of_scope",
+        ]
+        self.assertEqual(_overall_from_states(states), "mixed")
+
+    def test_overall_insufficient_when_no_supported_and_many_unknown(self):
+        # 0 supported, 1 partial, 4 unknown: insufficient via the
+        # unknown>=4 rule.  Mutant [25] raises the threshold to 5 and
+        # falls through to "mixed".
+        states = [
+            "partial",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "out_of_scope",
+            "out_of_scope",
+            "out_of_scope",
+            "out_of_scope",
+            "out_of_scope",
+        ]
+        self.assertEqual(_overall_from_states(states), "insufficient")
+
+    def test_overall_mixed_when_no_supported_but_few_unknown(self):
+        # 0 supported, 1 partial, 3 unknown: mixed.  Mutant [26]
+        # lowers the unknown threshold to 3 and returns "insufficient".
+        states = [
+            "partial",
+            "unknown",
+            "unknown",
+            "unknown",
+            "out_of_scope",
+            "out_of_scope",
+            "out_of_scope",
+            "out_of_scope",
+            "out_of_scope",
+            "out_of_scope",
+        ]
+        self.assertEqual(_overall_from_states(states), "mixed")
+
+    def test_overall_mixed_when_supported_but_many_unknown(self):
+        # 1 supported, 0 partial, 4 unknown: mixed.  Mutant [53]
+        # (`and` -> `or` on the unknown rule) returns "insufficient"
+        # because unknown >= 4 alone triggers it, and mutant [52]
+        # returns "insufficient" because partial == 0 alone triggers it.
+        states = [
+            "supported",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "out_of_scope",
+            "out_of_scope",
+            "out_of_scope",
+            "out_of_scope",
+            "out_of_scope",
+        ]
+        self.assertEqual(_overall_from_states(states), "mixed")
+
+    # -- Coverage counts ([27], [28], [29], [30]) ------------------------
+
+    def test_coverage_counts_are_exact(self):
+        # Mutant [27] starts each count at 1, mutant [28] at -1,
+        # mutant [29] increments by 2, mutant [30] increments by 0.
+        dims = [
+            _dim("supported", "language"),
+            _dim("supported", "text_length"),
+            _dim("partial", "domain_genre"),
+        ]
+        self.assertEqual(
+            _coverage_counts(dims),
+            {"supported": 2, "partial": 1, "unknown": 0, "out_of_scope": 0},
+        )
+
+    # -- assess_trust_map validation and defaults ([6], [7], [8], [9],
+    #    [31], [32], [34], [35], [36], [37], [38]) -----------------------
+
+    def test_assess_rejects_negative_max_native_drift(self):
+        # Mutant [6] negates the `is not None` check so the guard never
+        # fires; mutant [36] changes `< 0` to `< -1` so -0.5 passes.
+        with self.assertRaisesRegex(ValueError, "non-negative"):
+            assess_trust_map(
+                _declared_conditions(),
+                [prediction("a")],
+                max_native_drift=-0.5,
+            )
+
+    def test_assess_rejects_negative_failure_count(self):
+        # Mutant [35] changes `< 0` to `< -1` so -1 passes validation.
+        with self.assertRaisesRegex(ValueError, "non-negative"):
+            assess_trust_map(_declared_conditions(), [prediction("a")], failure_count=-1)
+
+    def test_diversity_supported_with_two_families_under_defaults(self):
+        # Two families and the default failure_count of 0 give a
+        # supported diversity dimension.  Mutant [31] changes the
+        # default failure_count to 1 (diversity becomes partial),
+        # mutant [32] changes it to -1 and mutant [34] changes the
+        # default max_native_drift to -0.9 (both raise ValueError).
+        tm = assess_trust_map(
+            _declared_conditions(),
+            [prediction("a", "fam1"), prediction("b", "fam2")],
+        )
+        dim = next(d for d in tm.dimensions if d.dimension == "detector_diversity")
+        self.assertEqual(dim.state, "supported")
+
+    def test_registry_verification_failure_is_recorded_as_limitation(self):
+        # Mutant [7] negates `registry_verified is False`: the failure
+        # limitation is omitted for False and added for True/None.
+        tm = assess_trust_map(_declared_conditions(), [prediction("a")], registry_verified=False)
+        self.assertIn("Evidence artifact verification failed.", tm.limitations)
+
+    def test_registry_verification_status_verified(self):
+        # Mutant [8] negates the `is True` branch: a verified registry
+        # is reported as "not_checked" instead of "verified".
+        registry = _registry(_record(detector_id="a"))
+        tm = assess_trust_map(
+            _declared_conditions(),
+            [prediction("a", "fam1")],
+            registry=registry,
+            registry_verified=True,
+        )
+        summary = tm.evidence_registry
+        self.assertIsNotNone(summary)
+        self.assertTrue(summary["verified"])
+        self.assertEqual(summary["verification_status"], "verified")
+
+    def test_registry_verification_status_failed(self):
+        # Mutant [9] negates the `is False` branch: a failed registry
+        # is reported as "not_checked" instead of "failed".
+        registry = _registry(_record(detector_id="a"))
+        tm = assess_trust_map(
+            _declared_conditions(),
+            [prediction("a", "fam1")],
+            registry=registry,
+            registry_verified=False,
+        )
+        summary = tm.evidence_registry
+        self.assertIsNotNone(summary)
+        self.assertFalse(summary["verified"])
+        self.assertEqual(summary["verification_status"], "failed")
+
+    def test_registry_summary_reports_zero_records_without_registry(self):
+        # Mutants [37]/[38] change the no-registry record_count from 0
+        # to 1 / -1.
+        tm = assess_trust_map(_declared_conditions(), [prediction("a")])
+        summary = tm.evidence_registry
+        self.assertIsNotNone(summary)
+        self.assertEqual(summary["record_count"], 0)
+        self.assertEqual(summary["verification_status"], "not_checked")
+
+    # -- build_trust_map defaults ([40], [42], [43]) --------------------
+
+    def test_build_accepts_zero_word_count(self):
+        # 0 is a non-negative word count.  Mutant [40] changes the
+        # guard to `< 1`, so word_count=0 is rejected.
+        tm = build_trust_map([], word_count=0)
+        self.assertIsNotNone(tm.input_conditions)
+        self.assertEqual(tm.input_conditions["word_count"], 0)
+
+    def test_build_synthesised_conditions_have_zero_char_count(self):
+        # Synthesised conditions carry char_count=0.  Mutant [42]
+        # changes it to 1 and mutant [43] to -1.
+        tm = build_trust_map([prediction("a")], word_count=200)
+        self.assertIsNotNone(tm.input_conditions)
+        self.assertEqual(tm.input_conditions["char_count"], 0)
+
+    # -- Capability-ledger view ([10], [11], [12], [13], [45]) -----------
+
+    def test_ledger_expiry_limitation_names_claim_and_date(self):
+        # Mutant [10] negates `if claim.valid_until:`: the expiry
+        # limitation is omitted for dated claims (and added, with
+        # "None", for undated ones).
+        ledger = _ledger_with(_ledger_claim(valid_until="2027-01-01"))
+        tm = trust_map_from_capability_ledger(ledger)
+        dim = tm.dimension("language")
+        self.assertIsNotNone(dim)
+        self.assertIn("Claim for language expires 2027-01-01.", dim.limitations)
+
+    def test_ledger_validated_claim_is_supported_and_overall_strong(self):
+        # A single VALIDATED claim maps to a supported dimension and a
+        # strong overall.  Mutant [11] negates the `not relevant`
+        # check so every dimension becomes unknown; mutant [12]
+        # negates the empty-dimensions check so a non-empty ledger
+        # reports insufficient; mutant [13] negates the
+        # out_of_scope_count term so any ledger reports insufficient;
+        # mutant [45] changes max(1, ...) to max(0, ...) so the
+        # single-dimension case (unknown 0 >= 0) reports insufficient.
+        ledger = _ledger_with(_ledger_claim())
+        tm = trust_map_from_capability_ledger(ledger)
+        dim = tm.dimension("language")
+        self.assertIsNotNone(dim)
+        self.assertEqual(dim.state, "supported")
+        self.assertEqual(tm.overall, "strong")
 
 
 if __name__ == "__main__":
