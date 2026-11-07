@@ -419,11 +419,13 @@ class EquivalentBaselineTests(unittest.TestCase):
         (670, 25),
         (671, 19),
         (672, 23),
-        (907, 33),
-        (908, 35),
-        (914, 41),
-        (922, 43),
-        (929, 35),
+        # +5: the strip fix (284b118) added five lines inside
+        # _load_or_generate_key above these positions.
+        (912, 33),
+        (913, 35),
+        (919, 41),
+        (927, 43),
+        (934, 35),
         # Policy runtime positions.
         (376, 33),
         (381, 78),
