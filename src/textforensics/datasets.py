@@ -52,7 +52,10 @@ Design rules
   rolling buffer, and :func:`sample_detectrl_x_rows` counts rows per
   split and collects strided samples in a single streaming pass.
 
-Wave-1 scope only, plus GhostWriter and DetectRL-X in wave 2. RealDet /
+Wave-1 scope only, plus GhostWriter and DetectRL-X in wave 2, and
+the licence-blocked DetectRL loader (MixSet precedent: spec + a
+mapper that refuses until the licence resolves and a live row has
+been inspected — no live rows, no artifacts, no records). RealDet /
 CrisisFake have no verified route (no loader), PAN 2025 is wave 2
 (gated on TIRA registration), MultiSocial was dropped by Greg's decision.
 """
@@ -585,6 +588,64 @@ SPECS: dict[str, DatasetSpec] = {
         "never only endpoints. Qwen3-8B is the held-out generator.",
         citation="Bsharat et al., OpAI-Bench: A Benchmark for Detecting "
         "Progressively AI-Edited Text, arXiv:2606.06481.",
+    ),
+    "detectrl": DatasetSpec(
+        key="detectrl",
+        name="DetectRL",
+        hf_id="NLP2CT/DetectRL",
+        paper="Wu et al., NeurIPS 2024 D&B, arXiv:2410.23746 v3",
+        source_url="https://github.com/NLP2CT/DetectRL",
+        licence=None,
+        licence_note="NO LICENCE FOUND anywhere checked 2026-11-07. "
+        'GitHub API record for NLP2CT/DetectRL: "license":null; the '
+        'parent fork junchaoIU/DetectRL is also "license":null. No '
+        "LICENSE file (404) and no licence statement in the README. "
+        "The FAU Erlangen reprocessed version "
+        "(github.com/philipp-ding/"
+        "Contamination-in-Generated-Text-Detection-Benchmarks, "
+        'cleaned_DetectRL_files/) is ALSO "license":null with no '
+        "LICENSE file — the same gate applies to it. No Hugging Face "
+        "dataset exists for DetectRL. DO NOT FETCH until unblocked: "
+        "what would unblock it is a dataset licence statement from "
+        "the authors. The loader is code-complete and tested with "
+        "mocks; live rows and run artifacts are deferred.",
+        licence_status=LICENCE_UNRESOLVED,
+        configs=(),
+        splits=(),
+        notes="Licence-blocked (MixSet precedent). Verified route, for "
+        "the record — DO NOT clone for data: `git clone "
+        "https://github.com/NLP2CT/DetectRL.git` (271,708 KB). Human "
+        "data in Benchmark/Original_Dataset/ (4 x 2,800 JSONs: arxiv, "
+        "writing_prompt, xsum, yelp_review; 11,200 human texts). "
+        "Generated data in Benchmark/Benchmark_Data/ (11 subdirs: "
+        "Direct_Prompt, Multi_Domain, Multi_LLM, Paraphrase_Attacks "
+        "(+_Human), Perturbation_Attacks (+_Human), Prompt_Attacks, "
+        "Data_Mixing (+_Human), Varying_Length). Task splits in "
+        "Benchmark/Tasks/ (Task1-4; Task1 == Task2 content) — loader "
+        "splits are NOT mapped until a live row is inspected, so "
+        "configs/splits are empty here. Paper count 235,200 (100,800 "
+        "human + 134,400 LLM-generated) is a PAPER figure only; "
+        "in-repo file row counts NOT verified. Labels are implicit in "
+        "file/directory (task x domain x LLM x attack); field names "
+        "inside the benchmark JSONs NOT verified. Traps: "
+        "load_dataset.sh only runs the four get_*_data.py samplers "
+        "against LOCAL *_all.json files not in the repo — it downloads "
+        "nothing; data_generation.sh regenerates via paid LLM APIs "
+        "(cannot re-run without keys); benchmark_construction.sh does "
+        "NOT exist at the repo root (the README is stale) — the "
+        "construction script is Data_Generation/benchmark "
+        "construction.py (space in the filename). FAU Erlangen "
+        "reprocessing found simple patterns in 98.5% of Claude-LLM "
+        "data (e.g. 'Sure! Here is the academic article abstract:', "
+        "refusals) — detectors trained on the original learn "
+        "shortcuts; do not use it as a clean training set without the "
+        "cleansing, and record the shortcut warning in any future "
+        "record's limits. No Hugging Face dataset exists, so hf_id "
+        "holds the GitHub repo slug — never pass it to the "
+        "datasets-server client. Generators: GPT-3.5-turbo, "
+        "PaLM-2-bison, Claude-instant, Llama-2-70b. Attacks: prompt, "
+        "paraphrase, perturbation, data-mixing.",
+        citation="Wu et al., DetectRL, NeurIPS 2024 D&B, arXiv:2410.23746.",
     ),
 }
 
@@ -1161,6 +1222,26 @@ def _map_detectrl_x(
     return out
 
 
+def _map_detectrl(row: dict[str, Any], config: str, split: str) -> list[NormalizedRow]:
+    """DetectRL: refused until the licence resolves and a live row is inspected.
+
+    The licence is unresolved (see the spec's ``licence_note``), so no
+    live row has ever been inspected; the field names inside the
+    benchmark JSONs are UNVERIFIED and the labels are implicit in
+    file/directory (task x domain x LLM x attack), so the mapper fails
+    closed instead of guessing a schema. Revisit only after the
+    licence is clarified AND a live row has been read. No fetcher is
+    written in this task — the verified route is a git clone (see the
+    spec notes); a future fetcher must clone NLP2CT/DetectRL and map
+    the Benchmark/Original_Dataset + Benchmark/Benchmark_Data trees.
+    """
+    raise DatasetFetchError(
+        "detectrl: licence unresolved AND no live row inspected "
+        "(field names inside the benchmark JSONs unverified); "
+        "refusing to map"
+    )
+
+
 def _map_mixset(row: dict[str, Any], config: str, split: str) -> list[NormalizedRow]:
     """MixSet: refused until the label polarity is verified from data.
 
@@ -1184,6 +1265,7 @@ _MAPPERS: dict[str, Any] = {
     "opai_bench": _map_opai_bench,
     "ghostwriter": _map_ghostwriter,
     "detectrl_x": _map_detectrl_x,
+    "detectrl": _map_detectrl,
 }
 
 

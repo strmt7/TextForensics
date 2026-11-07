@@ -26,6 +26,7 @@ from textforensics.datasets import (
     DatasetsServerClient,
     DownloadError,
     NormalizedRow,
+    _map_detectrl,
     cache_path,
     default_cache_dir,
     detectrl_x_raw_path,
@@ -70,7 +71,16 @@ def _row(text: str, label: int | None, dataset: str = "mage") -> NormalizedRow:
 
 class SpecTests(unittest.TestCase):
     def test_known_keys(self) -> None:
-        for key in ("raid", "mage", "beemo", "mixset", "opai_bench", "ghostwriter", "detectrl_x"):
+        for key in (
+            "raid",
+            "mage",
+            "beemo",
+            "mixset",
+            "opai_bench",
+            "ghostwriter",
+            "detectrl_x",
+            "detectrl",
+        ):
             self.assertEqual(get_spec(key).key, key)
 
     def test_unknown_key_raises(self) -> None:
@@ -150,6 +160,34 @@ class SpecTests(unittest.TestCase):
         # gate stays closed until the authors clarify.
         with self.assertRaises(DatasetLicenceError):
             require_licence(get_spec("mixset"))
+
+    def test_detectrl_licence_unresolved(self) -> None:
+        # No dataset licence exists anywhere checked 2026-11-07:
+        # GitHub API record "license":null for NLP2CT/DetectRL and
+        # for the parent fork junchaoIU/DetectRL, no LICENSE file,
+        # no README statement; the FAU reprocessed version is also
+        # "license":null with no LICENSE file. The gate stays closed.
+        spec = get_spec("detectrl")
+        self.assertIsNone(spec.licence)
+        self.assertEqual(spec.licence_status, "unresolved")
+        with self.assertRaises(DatasetLicenceError):
+            require_licence(spec)
+        note = spec.licence_note
+        self.assertIn('"license":null', note)
+        self.assertIn("junchaoIU/DetectRL", note)
+        self.assertIn("No LICENSE file", note)
+        self.assertIn("philipp-ding", note)
+        self.assertIn("licence statement from the authors", note)
+        # The verified route and the paper-only count are recorded in
+        # the notes, with the row counts explicitly NOT verified.
+        self.assertIn("git clone https://github.com/NLP2CT/DetectRL.git", spec.notes)
+        self.assertIn("235,200", spec.notes)
+        self.assertIn("NOT verified", spec.notes)
+        self.assertIn("98.5%", spec.notes)
+        self.assertIn("benchmark construction.py", spec.notes)
+        # No loader splits are mapped until a live row is inspected.
+        self.assertEqual(spec.configs, ())
+        self.assertEqual(spec.splits, ())
 
 
 class CacheDirTests(unittest.TestCase):
@@ -381,6 +419,14 @@ class FetchSampleTests(unittest.TestCase):
             fetch_sample(get_spec("mixset"), "default", "train", 5, client=client)
         client.rows.assert_not_called()
 
+    def test_licence_gate_blocks_detectrl_before_http(self) -> None:
+        # DetectRL is licence-blocked like MixSet: the gate fires
+        # before any fetch attempt is made.
+        client = mock.MagicMock()
+        with self.assertRaises(DatasetLicenceError):
+            fetch_sample(get_spec("detectrl"), "default", "train", 5, client=client)
+        client.rows.assert_not_called()
+
     def test_pagination(self) -> None:
         spec = get_spec("beemo")
         client = mock.MagicMock()
@@ -578,6 +624,20 @@ class MapperTests(unittest.TestCase):
         # did not, the mapper itself refuses on unverified polarity.
         with self.assertRaises(DatasetLicenceError):
             map_row("mixset", {"text": "x", "binary": 1}, "default", "train")
+
+    def test_detectrl_mapper_refuses(self) -> None:
+        # Licence gate fires first (DatasetLicenceError); even if it
+        # did not, the mapper itself refuses — the licence is
+        # unresolved AND no live row has been inspected, so the field
+        # names inside the benchmark JSONs are unverified.
+        with self.assertRaises(DatasetLicenceError):
+            map_row("detectrl", {"text": "x"}, "default", "train")
+        with self.assertRaises(DatasetFetchError) as caught:
+            _map_detectrl({"text": "x"}, "default", "train")
+        message = str(caught.exception)
+        self.assertIn("licence unresolved", message)
+        self.assertIn("no live row inspected", message)
+        self.assertIn("refusing to map", message)
 
     def test_ghostwriter_labels_and_regimes(self) -> None:
         base = {
