@@ -90,6 +90,7 @@ from typing import Any
 
 from .datasets import default_cache_dir
 from .validation import (
+    MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT,
     ValidationRecord,
     ValidationRegistry,
     compute_signature,
@@ -151,9 +152,9 @@ ECE_INCREASE_TIER2 = 0.05  # ECE increase > 0.05 -> investigate.
 COVERAGE_SHORTFALL_TIER2_PP = 5.0  # Conformal coverage shortfall > 5pp -> investigate.
 COVERAGE_SHORTFALL_TIER1_PP = 10.0  # Conformal coverage shortfall > 10pp -> demote.
 VERSION_CHANGE_STALE_DAYS = 7  # Version change with no probe run within 7 days -> demote.
-MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT = 2  # Consecutive clean full-corpus
-# runs at one detector version before temporal_version_stability may exceed
-# partial. Mirrors the 2-consecutive-runs persistence rule used elsewhere.
+# Consecutive clean full-corpus runs at one detector version before
+# temporal_version_stability may exceed partial. Owned by validation.py
+# (the Trust Map owns the rule); imported here for the run manifest.
 MIN_SLICE_N = 50  # Per-slice minimum for drift-signal purposes (§7.6).
 MIN_SLICE_N_FOR_FPR_CLAIM = 100  # Per-slice minimum before any human-FPR claim.
 FPR_CAP_DEFAULT = 0.05  # Declared human-FPR cap; same value as the Trust Map ceiling.

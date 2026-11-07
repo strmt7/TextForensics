@@ -1820,7 +1820,10 @@ class ValidationRegistry:
 # * human_false_positive_evidence additionally requires an fpr_native
 #   metric with CI and ci_upper <= fpr_ceiling for supported.
 # * temporal_version_stability caps at partial from a single snapshot;
-#   longitudinal data is U3's job.
+#   longitudinal data is U3's job. U3 lifts the cap only when
+#   MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT consecutive clean
+#   full-corpus probe runs exist at the detector version, supplied via
+#   derive_trust_map(longitudinal=...).
 # * Every dimension cites its matching record ids in evidence_refs.
 # * Overall: strong iff all 10 dimensions are supported; insufficient iff
 #   language or text_length is out_of_scope, or supported == 0 and
@@ -1847,6 +1850,12 @@ INPUT_EDITING_REGIME_MAP: dict[str, str] = {
 _TEMPORAL_SINGLE_SNAPSHOT_LIMITATION = (
     "A single snapshot cannot establish version stability; longitudinal data is U3's job."
 )
+# Consecutive clean U3 full-corpus runs at one detector version before
+# temporal_version_stability may exceed partial (research §7.6; the
+# number mirrors U3's 2-consecutive-runs persistence rule). The
+# threshold lives here, not in probe_runs.py, because the Trust Map
+# owns the rule; probe_runs.py imports it.
+MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT = 2
 _FPR_OPERATING_POINT_LIMITATION = (
     "FPR is measured at the detector's native categorical operating point; "
     "no score threshold is fitted."
@@ -1967,6 +1976,7 @@ def _support_blockers(
     detector_version: str,
     now: datetime | str | None,
     fpr_ceiling: float,
+    longitudinal_clean_runs: int = 0,
 ) -> list[str]:
     """Reasons a fresh matching record cannot yield ``supported``.
 
@@ -1987,13 +1997,80 @@ def _support_blockers(
         blockers.append(label)
     if dimension == "human_false_positive_evidence":
         blockers.extend(_fpr_blockers(record, fpr_ceiling))
-    if dimension == "temporal_version_stability":
+    if (
+        dimension == "temporal_version_stability"
+        and longitudinal_clean_runs < MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT
+    ):
         # A single snapshot can never support version stability, however
-        # fresh the record is; longitudinal data is U3's job.
+        # fresh the record is; longitudinal data is U3's job. U3 lifts
+        # the cap only when MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT
+        # consecutive clean full-corpus runs exist at this detector
+        # version (see derive_trust_map's ``longitudinal`` argument).
         blockers.append(
             "a single snapshot cannot establish version stability; longitudinal data is U3's job"
         )
     return blockers
+
+
+def _validate_longitudinal(
+    longitudinal: Mapping[str, Any] | None,
+    *,
+    detector_id: str,
+    detector_version: str,
+) -> dict[str, Any] | None:
+    """Validate U3 longitudinal evidence for ``derive_trust_map``.
+
+    Returns a normalised dict (or None when no evidence is supplied).
+    Fail-closed: a mapping for another detector/version, a malformed
+    fingerprint, or a negative run count raises instead of silently
+    applying somebody else's longitudinal evidence to this map.
+    """
+    if longitudinal is None:
+        return None
+    if not isinstance(longitudinal, Mapping):
+        raise ValidationError("longitudinal must be a mapping or None.")
+    ev_detector = longitudinal.get("detector_id")
+    ev_version = longitudinal.get("detector_version")
+    if ev_detector != detector_id or ev_version != detector_version:
+        raise ValidationError(
+            "longitudinal evidence is for detector "
+            f"{ev_detector!r} version {ev_version!r}, not {detector_id!r} "
+            f"version {detector_version!r}; refusing to apply it."
+        )
+    fingerprint = longitudinal.get("corpus_fingerprint")
+    if (
+        not isinstance(fingerprint, str)
+        or len(fingerprint) != 64
+        or any(char not in "0123456789abcdef" for char in fingerprint.lower())
+    ):
+        raise ValidationError("longitudinal corpus_fingerprint must be a 64-character hex digest.")
+    clean_runs = longitudinal.get("consecutive_clean_full_runs")
+    if isinstance(clean_runs, bool) or not isinstance(clean_runs, int) or clean_runs < 0:
+        raise ValidationError(
+            "longitudinal consecutive_clean_full_runs must be a non-negative integer."
+        )
+    run_ids = longitudinal.get("clean_full_run_ids")
+    if run_ids is None:
+        run_ids = []
+    if not isinstance(run_ids, (list, tuple)) or not all(
+        isinstance(item, str) and item for item in run_ids
+    ):
+        raise ValidationError("longitudinal clean_full_run_ids must be a list of strings.")
+    if len(run_ids) != clean_runs:
+        raise ValidationError(
+            "longitudinal clean_full_run_ids must list exactly consecutive_clean_full_runs run ids."
+        )
+    watch = longitudinal.get("watch")
+    if watch is not None and not isinstance(watch, Mapping):
+        raise ValidationError("longitudinal watch must be a mapping or None.")
+    return {
+        "detector_id": ev_detector,
+        "detector_version": ev_version,
+        "corpus_fingerprint": fingerprint,
+        "consecutive_clean_full_runs": clean_runs,
+        "clean_full_run_ids": list(run_ids),
+        "watch": dict(watch) if watch is not None else None,
+    }
 
 
 def _derive_evidence_dimension(
@@ -2009,6 +2086,7 @@ def _derive_evidence_dimension(
     unobservable_reason: str,
     out_of_scope_reason: str,
     out_of_scope_observed: dict[str, Any],
+    longitudinal: dict[str, Any] | None = None,
 ) -> TrustDimension:
     """Derive one evidence dimension from its regime-matching records.
 
@@ -2056,8 +2134,15 @@ def _derive_evidence_dimension(
         for record in matching
     ):
         limitations.append("A matching record is contested; it can never yield supported.")
+    clean_runs = int(longitudinal["consecutive_clean_full_runs"]) if longitudinal else 0
     if name == "temporal_version_stability":
-        limitations.append(_TEMPORAL_SINGLE_SNAPSHOT_LIMITATION)
+        if clean_runs < MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT:
+            limitations.append(_TEMPORAL_SINGLE_SNAPSHOT_LIMITATION)
+        elif longitudinal is not None and longitudinal.get("watch") is not None:
+            limitations.append(
+                "A U3 observatory watch is active for this detector; "
+                "human review is required (see u3_watch in observed)."
+            )
     if name == "human_false_positive_evidence":
         limitations.append(_FPR_OPERATING_POINT_LIMITATION)
 
@@ -2094,6 +2179,7 @@ def _derive_evidence_dimension(
             detector_version=detector_version,
             now=now,
             fpr_ceiling=fpr_ceiling,
+            longitudinal_clean_runs=clean_runs,
         )
     )
     if supporting:
@@ -2104,6 +2190,17 @@ def _derive_evidence_dimension(
             f"n_ai >= {MIN_AI_SAMPLES}, and no contamination."
         )
         observed: dict[str, Any] = {"record_ids": record_ids}
+        if name == "temporal_version_stability" and longitudinal is not None:
+            observed["u3_clean_full_runs"] = clean_runs
+            observed["u3_clean_full_run_ids"] = list(longitudinal["clean_full_run_ids"])
+            observed["u3_corpus_fingerprint"] = longitudinal["corpus_fingerprint"]
+            reason += (
+                f" Longitudinal U3 evidence: {clean_runs} consecutive clean "
+                "full-corpus probe runs at this detector version "
+                f"({', '.join(longitudinal['clean_full_run_ids'])})."
+            )
+            if longitudinal.get("watch") is not None:
+                observed["u3_watch"] = dict(longitudinal["watch"])
         if name == "human_false_positive_evidence":
             best_upper = min(
                 item.fpr_native.ci_upper
@@ -2132,8 +2229,16 @@ def _derive_evidence_dimension(
             detector_version=detector_version,
             now=now,
             fpr_ceiling=fpr_ceiling,
+            longitudinal_clean_runs=clean_runs,
         )
         details.append(f"{record.record_id}: {'; '.join(blockers)}")
+    observed_partial: dict[str, Any] = {"record_ids": record_ids}
+    if name == "temporal_version_stability" and longitudinal is not None:
+        observed_partial["u3_clean_full_runs"] = clean_runs
+        observed_partial["u3_clean_full_run_ids"] = list(longitudinal["clean_full_run_ids"])
+        observed_partial["u3_corpus_fingerprint"] = longitudinal["corpus_fingerprint"]
+        if longitudinal.get("watch") is not None:
+            observed_partial["u3_watch"] = dict(longitudinal["watch"])
     return TrustDimension(
         dimension=name,
         state="partial",
@@ -2142,7 +2247,7 @@ def _derive_evidence_dimension(
             f"cannot support {name}: " + " | ".join(details) + "."
         ),
         evidence_refs=record_ids,
-        observed={"record_ids": record_ids},
+        observed=observed_partial,
         limitations=limitations,
         detectors={detector_id: "partial"},
     )
@@ -2217,6 +2322,7 @@ def derive_trust_map(
     predictions: Iterable[DetectorPrediction] = (),
     robustness: Iterable[Mapping[str, Any]] = (),
     failure_count: int = 0,
+    longitudinal: Mapping[str, Any] | None = None,
 ) -> TrustMap:
     """Derive a Trust Map v3 for one input condition set from U1 records.
 
@@ -2230,7 +2336,14 @@ def derive_trust_map(
     cap at ``partial``. ``human_false_positive_evidence`` additionally
     requires an ``fpr_native`` metric with CI and ci_upper <=
     ``fpr_ceiling``. ``temporal_version_stability`` caps at ``partial``
-    from a single snapshot. The 2 live dimensions reuse trust.py's
+    from a single snapshot, unless ``longitudinal`` (U3 probe-run
+    evidence, see ``probe_runs.summarize_longitudinal``) shows at least
+    ``MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT`` consecutive clean
+    full-corpus runs at this detector version — then, and only then,
+    may it be ``supported``. An active U3 watch (``longitudinal``'s
+    ``watch``) is surfaced on the temporal dimension's ``observed``
+    (``u3_watch``) and in the map limitations; it never changes a state
+    by itself. The 2 live dimensions reuse trust.py's private helpers
     private helpers when ``predictions``/``robustness`` observations are
     supplied, else they are ``unknown`` with a reason.
 
@@ -2254,6 +2367,9 @@ def derive_trust_map(
         raise TypeError("registry must be a ValidationRegistry instance.")
     detector_id = _require_nonempty_string(detector_id, "detector_id")
     detector_version = _require_nonempty_string(detector_version, "detector_version")
+    longitudinal = _validate_longitudinal(
+        longitudinal, detector_id=detector_id, detector_version=detector_version
+    )
     if isinstance(fpr_ceiling, bool) or not isinstance(fpr_ceiling, (int, float)):
         raise TypeError("fpr_ceiling must be a number.")
     if not 0.0 <= float(fpr_ceiling) <= 1.0:
@@ -2275,6 +2391,7 @@ def derive_trust_map(
         "detector_version": detector_version,
         "now": now,
         "fpr_ceiling": fpr_ceiling,
+        "longitudinal": longitudinal,
     }
 
     dimensions: list[TrustDimension] = []
@@ -2502,6 +2619,22 @@ def derive_trust_map(
         "snapshot; longitudinal data is U3's job.",
         "Text-only detection cannot prove authorship.",
     ]
+    if longitudinal is not None:
+        clean_runs = int(longitudinal["consecutive_clean_full_runs"])
+        limitations.append(
+            f"Longitudinal U3 evidence supplied: {clean_runs} consecutive "
+            "clean full-corpus probe runs at this detector version "
+            f"({', '.join(longitudinal['clean_full_run_ids'])}); "
+            f"{MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT} are needed before "
+            "temporal_version_stability may exceed partial."
+        )
+        if longitudinal.get("watch") is not None:
+            watch = longitudinal["watch"]
+            limitations.append(
+                "U3 observatory watch active: Tier-2 alert(s) on probe run "
+                f"{watch.get('run_id')} ({watch.get('run_at_utc')}); human "
+                "review required."
+            )
     if not records:
         limitations.append(f"No validation records exist for detector {detector_id!r}.")
 
@@ -2545,6 +2678,7 @@ __all__ = [
     "CONTAMINATION_FLAGS",
     "CONTAMINATION_UNKNOWN_LABEL",
     "DEFAULT_REVALIDATION_DAYS",
+    "MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT",
     "EDITING_REGIMES",
     "EVIDENCE_RECORD_SCHEMA",
     "INPUT_EDITING_REGIME_MAP",
