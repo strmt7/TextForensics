@@ -35,8 +35,7 @@ never evaluated) plus 4 runtime equivalents, all recorded with
 per-mutant justification in ``mutation-baseline.toml`` and re-validated
 against current source on every run.  Equivalents are never counted as
 killed.  Proven by a budget-200 run through the merged wave-2 tree;
-the proof push failed exit 1 because this note shifted all 73
-baselined positions by 11 lines (refreshed in 2d3c9a7, local re-run exit 0).
+the proof push failed exit 1 because this note shifted all 73 baselined positions by 11 lines (refreshed in 2d3c9a7, local re-run exit 0).
 """
 
 from __future__ import annotations
