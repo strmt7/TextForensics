@@ -38,50 +38,12 @@ from datetime import UTC, datetime
 from typing import Any
 
 __all__ = [
-    "HumanizationPattern",
     "AdversarialFinding",
     "HumanizationReport",
     "AdversarialDetector",
     "detect_humanization",
     "HumanizationPatternLibrary",
 ]
-
-
-@dataclass(frozen=True, slots=True)
-class HumanizationPattern:
-    """A known humanization pattern signature.
-
-    Represents a detectable artifact left by a specific humanization tool
-    or technique. Patterns are detector-agnostic and operate on text statistics.
-    """
-
-    pattern_id: str
-    name: str
-    description: str
-    category: str  # "perplexity", "stylometric", "structural", "lexical", "syntactic"
-    detector_fn: str  # Name of detector function to use (for registry)
-    threshold: float
-    severity: str  # "critical", "high", "medium", "low"
-    confidence: float  # 0-1, how reliable this pattern is
-    tool_attribution: str | None = None  # Known tool if identified
-    # Per-pattern human false-positive rate at threshold. None means
-    # UNMEASURED — no per-pattern FPR has ever been measured for this
-    # library, so reporting 0.0 would fabricate a perfect score.
-    false_positive_rate: float | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "pattern_id": self.pattern_id,
-            "name": self.name,
-            "description": self.description,
-            "category": self.category,
-            "detector_fn": self.detector_fn,
-            "threshold": self.threshold,
-            "severity": self.severity,
-            "confidence": self.confidence,
-            "tool_attribution": self.tool_attribution,
-            "false_positive_rate": self.false_positive_rate,
-        }
 
 
 @dataclass(frozen=True, slots=True)
