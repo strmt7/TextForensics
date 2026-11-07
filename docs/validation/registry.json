@@ -1,6 +1,6 @@
 {
   "schema": "textforensics.validation-registry/v1",
-  "registry_id": "2d2a1651498da9986f76b168b071625306d3ddd968e2d245c93182f7a0eecbee",
+  "registry_id": "60aa564e5ecd65b78e48c37085af234bc6b07f45280effeb1ae4e6d8ac606472",
   "created_at_utc": "2026-11-06T23:24:11.755599+00:00",
   "records": [
     {
@@ -727,6 +727,195 @@
         "demoted_by": null
       },
       "signature": "a880969ef87900fc3996ec396cc1c3c5ca389378bb65337726b6910dadfe53ea"
+    },
+    {
+      "schema": "textforensics.evidence-record/v1",
+      "record_id": "evr-20261107-detectrl-x-builtin-heuristic",
+      "detector_id": "textforensics/builtin-heuristic",
+      "detector_version": "0.1.0",
+      "detector_family": "stylometric-heuristic",
+      "calibration_id": null,
+      "status": "partial",
+      "supersedes": null,
+      "regime": {
+        "language": "mul",
+        "script": "mul",
+        "language_variety": "ar + zh + en + fr + de + pt + ru + es (100 labelled rows each: 50 human + 50 machine per language)",
+        "length_bucket": {
+          "min_words": 80,
+          "max_words": null,
+          "floor_words": 80,
+          "measured_min_words": 1,
+          "measured_median_words": 385,
+          "measured_max_words": 3242
+        },
+        "domain": [
+          "Academic",
+          "News",
+          "Novel",
+          "SEO",
+          "Webtext",
+          "Wiki"
+        ],
+        "genre": "multilingual benchmark sample, binary slice (human/llm text pairs)",
+        "generator": {
+          "families": [
+            "deepseek-v3",
+            "gemini-2.5-flash",
+            "gpt-4o",
+            "qwen-max"
+          ],
+          "vintage": "current commercial LLMs at the DetectRL-X release (deepseek-v3, gemini-2.5-flash, gpt-4o, qwen-max; Wu et al., ACL 2026)",
+          "current_as_of": "2026-11-07"
+        },
+        "editing_regime": "raw",
+        "human_population": {
+          "populations": [
+            "general human authors"
+          ],
+          "determined_how": "Dataset documentation (DetectRL-X paper and README, Wu et al. 2026): human texts from 6 domains (Academic, News, Novel, Wiki, SEO, Webtext) in 8 languages; no per-author demographics recorded"
+        },
+        "attack_slice": null
+      },
+      "data": {
+        "dataset_name": "DetectRL-X",
+        "dataset_version": "WUJUNCHAO/DetectRL-X snapshot 2026-11-07 (no versioned release)",
+        "file_sha256": "08f23dc371211fba9beae6d4e3c26b250d18ad817de7f3f86ea6425b7cac8349",
+        "row_hash_method": "sha256 of normalised text (benchmark fingerprint)",
+        "split": "train",
+        "split_role": "test",
+        "n_human": 400,
+        "n_ai": 400,
+        "licence": "Three-way conflict — GitHub README: Apache License 2.0 with use strictly restricted to non-commercial academic research purposes; Hugging Face card/API: MIT; ACL 2026 paper: use strictly restricted to noncommercial academic research purposes. The strictest reading (non-commercial academic research only) governs.",
+        "licence_reference": "https://huggingface.co/datasets/WUJUNCHAO/DetectRL-X",
+        "contamination_flag": "no",
+        "near_duplicate_rate": null,
+        "near_duplicate_method": null
+      },
+      "run": {
+        "run_id": "EV-20261107-dataset-detectrl-x",
+        "run_artifact": "docs/evidence/runs/EV-20261107-dataset-detectrl-x.json",
+        "run_artifact_sha256": "efc7ec05ac495c7b3460f557cea4d2e81b6cfafbf5861bb2d1be722cb0bf7e8d",
+        "run_date": "2026-11-07",
+        "runner": "U1 seed (scripts/seed_validation.py)",
+        "code_version": "b80097a8fa8b4a6d4937a9831cce84d3196e781c",
+        "dependency_lock_sha": null,
+        "hardware": "x86_64 (Linux 7.0.0-43-generic)",
+        "runtime": "CPython 3.12.3 on linux",
+        "seeds": {
+          "bootstrap_seed": 20261106
+        },
+        "command": "python scripts/seed_validation.py --only detectrl_x",
+        "drops_manifest": [
+          {
+            "item": "full-corpus evaluation",
+            "reason": "preliminary sample only (n=800 normalised rows from 76800 split rows)"
+          },
+          {
+            "item": "Python 3.11, 3.13, 3.14, 3.15",
+            "reason": "measured on the local interpreter only; CI covers the matrix"
+          },
+          {
+            "item": "train/test threshold selection",
+            "reason": "no threshold was fitted on this sample; AUROC/TPR@FPR are threshold-free"
+          },
+          {
+            "item": "15 of 16 Binary files + all Ternary files",
+            "reason": "single-file preliminary slice only: Binary/binary_general_open.json of 16 Binary files (~14.67 GB total); the README states the train split is identical across all strategy files, so the general file is the representative slice; Ternary files are out of scope for this measurement"
+          },
+          {
+            "item": "HF viewer / default dataset load",
+            "reason": "broken (DatasetGenerationCastError: perturbation files add a perturbation_info column; datasets-server /size confirms num_rows 0); per-file load only"
+          },
+          {
+            "item": "commercial use and redistribution",
+            "reason": "three-way licence conflict (GitHub README Apache-2.0 + NC restriction, HF MIT, ACL 2026 paper NC restriction); the strictest reading (non-commercial academic research only) governs; local cache only"
+          },
+          {
+            "item": "per-language detector metrics",
+            "reason": "the builtin detector is English-focused and abstains on much non-English text; per-language label counts and abstentions are recorded in the results, but AUROC/TPR are pooled only in this preliminary slice"
+          },
+          {
+            "item": "per-slice breakdowns (per-domain / per-generator / per-attack)",
+            "reason": "this seed record reports one pooled slice per dataset; finer slices are wave-2 work"
+          }
+        ],
+        "reporting_rules": "Labelled rows only; abstentions counted separately from AUROC/TPR (abstained rows still contribute their score); no score threshold fitted — AUROC and TPR@FPR are threshold-free; native FPR/TPR at the detector's native categorical verdict; bootstrap 95% CIs, 1000 resamples, seed 20261106"
+      },
+      "metrics": [
+        {
+          "slice_id": "detectrl_x-builtin-heuristic",
+          "n_human": 400,
+          "n_ai": 400,
+          "auroc": {
+            "value": 0.5972,
+            "n": 800,
+            "ci_lower": 0.5567,
+            "ci_upper": 0.6384,
+            "method": "bootstrap, 1000 resamples, seed 20261106"
+          },
+          "tpr_at_fpr_0_01": {
+            "value": 0.005,
+            "n": 400,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0158,
+            "method": "bootstrap, 1000 resamples, seed 20261106"
+          },
+          "tpr_at_fpr_0_05": {
+            "value": 0.0825,
+            "n": 400,
+            "ci_lower": 0.0215,
+            "ci_upper": 0.1469,
+            "method": "bootstrap, 1000 resamples, seed 20261106"
+          },
+          "fpr_native": {
+            "value": 0.0,
+            "n": 400,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "bootstrap, 1000 resamples, seed 20261106",
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold"
+          },
+          "coverage": 0.875,
+          "abstention_rate": 0.125,
+          "worst_slice": true,
+          "tpr_native": {
+            "value": 0.0,
+            "n": 400,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "bootstrap, 1000 resamples, seed 20261106"
+          }
+        }
+      ],
+      "limits": {
+        "known_failure_modes": [
+          "heuristic separates weakly on this multilingual slice (AUROC 0.5972)",
+          "abstentions are uneven across languages (chinese 28/100, english 22/100, spanish 22/100; russian 0/100)",
+          "TPR@1% FPR is 0.005 and TPR@5% FPR is 0.0825 on this slice",
+          "only one Binary file (general) of 16 was measured; the other strategy files and Ternary files are unmeasured"
+        ],
+        "limitations": [
+          "not validated for non-English text",
+          "not validated for texts below 80 words (the detector's minimum)",
+          "not validated for generators newer than the record's declared vintage",
+          "not validated for human populations outside the record's declared population",
+          "no reviewer has assessed this record; it is a preliminary seed, not a reviewed validation",
+          "the sample is a strided subset of the split, not a full-corpus evaluation",
+          "near-duplicate rate was not measured for this sample",
+          "contamination_flag is 'no' because the builtin detector is a hand-written stylometric heuristic with no training: it was not trained on this dataset or on any other text corpus, so it cannot have memorised evaluation rows",
+          "per-language AUROC/TPR metrics are not reported in this record (pooled slice only); per-language label counts and abstentions are in the U7 run artifact",
+          "the sample mixes 8 languages under one `mul` regime; the record's script is `mul` (multiple scripts: Arab, Hans, Cyrl, Latn)",
+          "three-way licence conflict (GitHub README Apache-2.0 + non-commercial academic research restriction, HF MIT, ACL 2026 paper noncommercial restriction); the strictest reading (non-commercial academic research only) governs; no redistribution",
+          "single-file preliminary slice: only Binary/binary_general_open.json was measured"
+        ],
+        "next_revalidation_due": "2027-02-05",
+        "appeal_note": "A reviewed assessment and per-language reporting would change this record",
+        "reviewer": null,
+        "review_date": null,
+        "demoted_by": null
+      },
+      "signature": "a29bfeeb06492902468ce966874f3e84068cf61f2d23961f3c750a581d71c3a1"
     },
     {
       "schema": "textforensics.evidence-record/v1",

@@ -242,6 +242,80 @@ class TestRecordBuilder:
         # "human" is an agent value on human rows, not a generator.
         assert scope["generators"] == ["gemma2:9b", "gpt-4o-mini"]
 
+    def test_aggregate_scope_detectrl_x_models_are_generators(self, seed):
+        rows = [
+            NormalizedRow(
+                text="x",
+                label=0,
+                dataset="detectrl_x",
+                config="binary",
+                split="train",
+                source_id="d1",
+                regime="raw",
+                meta={
+                    "domain": "Wiki",
+                    "model": "gpt-4o",
+                    "lang": "english",
+                    "split": "train",
+                    "file": "Binary/binary_general_open.json",
+                },
+            ),
+            NormalizedRow(
+                text="y",
+                label=1,
+                dataset="detectrl_x",
+                config="binary",
+                split="train",
+                source_id="d2",
+                regime="raw",
+                meta={
+                    "domain": "News",
+                    "model": "deepseek-v3",
+                    "lang": "arabic",
+                    "split": "train",
+                    "file": "Binary/binary_general_open.json",
+                },
+            ),
+            NormalizedRow(
+                text="z",
+                label=1,
+                dataset="detectrl_x",
+                config="binary",
+                split="train",
+                source_id="d3",
+                regime="raw",
+                meta={
+                    "domain": "Wiki",
+                    "model": "qwen-max",
+                    "lang": "chinese",
+                    "split": "train",
+                    "file": "Binary/binary_general_open.json",
+                },
+            ),
+        ]
+        scope = seed.aggregate_scope("detectrl_x", rows)
+        assert scope["domains"] == ["News", "Wiki"]
+        assert scope["generators"] == ["deepseek-v3", "gpt-4o", "qwen-max"]
+
+    def test_record_from_synthetic_triples_detectrl_x_is_multilingual(self, seed):
+        record, _measurements = seed.record_from_triples(
+            "detectrl_x",
+            _synthetic_triples(),
+            word_counts=[100] * 80,
+            domains=["Wiki"],
+            generators=["gpt-4o"],
+            artifact=_synthetic_artifact(),
+            cache_file_sha256="c" * 64,
+        )
+        payload = record.to_dict()
+        assert validate_evidence_record(payload) == []
+        assert validate_record(payload) == []
+        assert verify_signature(payload)
+        assert record.regime.language == "mul"
+        # The 8 languages span Arab, Hans, Cyrl and Latn: script is "mul".
+        assert record.regime.script == "mul"
+        assert "ar + zh + en + fr + de + pt + ru + es" in (record.regime.language_variety or "")
+
     def test_record_from_synthetic_triples_ghostwriter_is_multilingual(self, seed):
         record, _measurements = seed.record_from_triples(
             "ghostwriter",
@@ -261,6 +335,58 @@ class TestRecordBuilder:
         assert record.data.dataset_name == "GhostWriter"
         assert "CC-BY-NC-SA 4.0" in record.data.licence
         assert record.limits.next_revalidation_due == "2027-02-04"
+
+
+def _write_synthetic_detectrl_x_cache(tmp: Path) -> Path:
+    """Write a small synthetic DetectRL-X cache (12 human + 12 machine rows)."""
+    cache_dir = tmp / "cache"
+    spec = get_spec("detectrl_x")
+    human_text = " ".join(["The committee reviewed the annual report and noted the findings."] * 12)
+    machine_text = " ".join(
+        ["Moreover the systematic analysis demonstrates significant outcomes."] * 12
+    )
+    langs = ["english", "arabic", "chinese"]
+    models = ["gpt-4o", "deepseek-v3"]
+    domains = ["Wiki", "News"]
+    rows = [
+        NormalizedRow(
+            text=human_text,
+            label=0,
+            dataset="detectrl_x",
+            config="binary",
+            split="train",
+            source_id=f"detectrl-x:Binary/binary_general_open.json:{i}:human",
+            regime="raw",
+            meta={
+                "lang": langs[i % 3],
+                "model": models[i % 2],
+                "split": "train",
+                "domain": domains[i % 2],
+                "file": "Binary/binary_general_open.json",
+            },
+        )
+        for i in range(12)
+    ] + [
+        NormalizedRow(
+            text=machine_text,
+            label=1,
+            dataset="detectrl_x",
+            config="binary",
+            split="train",
+            source_id=f"detectrl-x:Binary/binary_general_open.json:{i}:llm",
+            regime="raw",
+            meta={
+                "lang": langs[i % 3],
+                "model": models[i % 2],
+                "split": "train",
+                "domain": domains[i % 2],
+                "file": "Binary/binary_general_open.json",
+            },
+        )
+        for i in range(12)
+    ]
+    write_sample_cache(spec, "binary", "train", rows, cache_dir=cache_dir)
+    return cache_dir
 
 
 def _write_fake_u7_repo(
@@ -508,6 +634,45 @@ class TestCheckMode:
             assert record.limits.next_revalidation_due == "2027-02-05"
             assert any("fusion" in drop.item for drop in record.run.drops_manifest)
 
+    def test_build_detectrl_x_record_dual_validates(self, seed):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            repo = _write_fake_u7_repo(tmp / "repo", key="detectrl_x", run_date="20261107")
+            cache_dir = _write_synthetic_detectrl_x_cache(tmp)
+            record, _measurements = seed.build_record(
+                "detectrl_x", cache_dir=cache_dir, repo_root=repo
+            )
+            assert validate_evidence_record(record.to_dict()) == []
+            assert validate_record(record.to_dict()) == []
+            assert record.data.dataset_name == "DetectRL-X"
+            assert record.metrics[0].n_human == 12
+            assert record.metrics[0].n_ai == 12
+            assert record.regime.language == "mul"
+            assert record.regime.script == "mul"
+            assert record.regime.domain == ("News", "Wiki")
+            assert record.regime.generator.families == ("deepseek-v3", "gpt-4o")
+            assert record.limits.next_revalidation_due == "2027-02-05"
+            assert "non-commercial academic research only" in record.data.licence
+
+    def test_check_mode_builds_detectrl_x_without_writing(self, seed):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            repo = _write_fake_u7_repo(tmp / "repo", key="detectrl_x", run_date="20261107")
+            cache_dir = _write_synthetic_detectrl_x_cache(tmp)
+            exit_code = seed.main(
+                [
+                    "--only",
+                    "detectrl_x",
+                    "--check",
+                    "--cache-dir",
+                    str(cache_dir),
+                    "--repo-root",
+                    str(repo),
+                ]
+            )
+            assert exit_code == 0
+            assert not (repo / "docs" / "validation" / "registry.json").exists()
+
     def test_check_mode_builds_ghostwriter_without_writing(self, seed):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
@@ -569,14 +734,15 @@ class TestAppendMode:
 
 
 class TestSeededRegistry:
-    def test_committed_registry_loads_with_five_records_and_no_mixset(self):
+    def test_committed_registry_loads_with_six_records_and_no_mixset(self):
         registry = ValidationRegistry.load(REPO_ROOT / "docs" / "validation" / "registry.json")
-        assert len(registry.records) == 5
+        assert len(registry.records) == 6
         assert [record.record_id for record in registry.records] == [
             "evr-20261106-beemo-builtin-heuristic",
             "evr-20261106-mage-builtin-heuristic",
             "evr-20261106-opai-bench-builtin-heuristic",
             "evr-20261106-raid-builtin-heuristic",
+            "evr-20261107-detectrl-x-builtin-heuristic",
             "evr-20261107-ghostwriter-builtin-heuristic",
         ]
         for record in registry.records:

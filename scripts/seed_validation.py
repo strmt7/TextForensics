@@ -5,7 +5,7 @@ Loads the cached JSONL samples (NO network, NO re-fetch — caches live
 in the XDG cache dir / ``TEXTFORENSICS_DATASETS_DIR``), re-runs
 ``BuiltinHeuristicDetector`` (deterministic) over the labelled rows of
 each dataset, and builds one ``ValidationRecord`` per dataset
-(RAID, MAGE, Beemo, OpAI-Bench, GhostWriter in wave 2) via the Package A API
+(RAID, MAGE, Beemo, OpAI-Bench, GhostWriter and DetectRL-X in wave 2) via the Package A API
 (``textforensics.validation``). Every record is checked against BOTH
 validators — the JSON schema (``validate_evidence_record``) and the
 Python validator (``validate_record``) — before it is registered, and
@@ -232,6 +232,58 @@ SEED_CONFIGS = {
             "in this record (wave-2 concern)",
         ],
         "appeal_note": ("A reviewed assessment and per-version reporting would change this record"),
+    },
+    "detectrl_x": {
+        "record_id": "evr-20261107-detectrl-x-builtin-heuristic",
+        "dataset_name": "DetectRL-X",
+        # Multilingual sample: 100 labelled rows per language (50 human
+        # + 50 machine each). "mul" is the BCP 47 tag for multiple
+        # languages; the split is recorded in language_variety and the
+        # limitations, and per-language metrics are not reported
+        # separately. Script is "mul" too: the 8 languages span Arab,
+        # Hans, Cyrl and Latn.
+        "language": "mul",
+        "language_variety": (
+            "ar + zh + en + fr + de + pt + ru + es "
+            "(100 labelled rows each: 50 human + 50 machine per language)"
+        ),
+        "script": "mul",
+        "genre": "multilingual benchmark sample, binary slice (human/llm text pairs)",
+        "editing_regime": "raw",
+        "vintage": (
+            "current commercial LLMs at the DetectRL-X release "
+            "(deepseek-v3, gemini-2.5-flash, gpt-4o, qwen-max; Wu et al., ACL 2026)"
+        ),
+        "populations": ["general human authors"],
+        "determined_how": (
+            "Dataset documentation (DetectRL-X paper and README, Wu et al. "
+            "2026): human texts from 6 domains (Academic, News, Novel, "
+            "Wiki, SEO, Webtext) in 8 languages; no per-author "
+            "demographics recorded"
+        ),
+        "known_failure_modes": [
+            "heuristic separates weakly on this multilingual slice (AUROC 0.5972)",
+            "abstentions are uneven across languages (chinese 28/100, english "
+            "22/100, spanish 22/100; russian 0/100)",
+            "TPR@1% FPR is 0.005 and TPR@5% FPR is 0.0825 on this slice",
+            "only one Binary file (general) of 16 was measured; the other "
+            "strategy files and Ternary files are unmeasured",
+        ],
+        "limitations_extra": [
+            "per-language AUROC/TPR metrics are not reported in this record "
+            "(pooled slice only); per-language label counts and abstentions "
+            "are in the U7 run artifact",
+            "the sample mixes 8 languages under one `mul` regime; the "
+            "record's script is `mul` (multiple scripts: Arab, Hans, Cyrl, Latn)",
+            "three-way licence conflict (GitHub README Apache-2.0 + "
+            "non-commercial academic research restriction, HF MIT, ACL 2026 "
+            "paper noncommercial restriction); the strictest reading "
+            "(non-commercial academic research only) governs; no redistribution",
+            "single-file preliminary slice: only Binary/binary_general_open.json was measured",
+        ],
+        "appeal_note": (
+            "A reviewed assessment and per-language reporting would change this record"
+        ),
     },
     "ghostwriter": {
         "record_id": "evr-20261107-ghostwriter-builtin-heuristic",
@@ -495,6 +547,11 @@ def aggregate_scope(key: str, labelled_rows) -> dict[str, list[str]]:
                 if r.meta.get("agent") and r.meta.get("agent") != "human"
             }
         )
+    elif key == "detectrl_x":
+        domains = sorted({str(r.meta.get("domain")) for r in labelled_rows if r.meta.get("domain")})
+        generators = sorted(
+            {str(r.meta.get("model")) for r in labelled_rows if r.meta.get("model")}
+        )
     else:
         raise ValueError(f"no seed config for dataset {key!r}")
     if not domains or not generators:
@@ -648,7 +705,7 @@ def record_from_triples(
         supersedes=None,
         regime=Regime(
             language=config.get("language", "en"),
-            script="Latn",
+            script=config.get("script", "Latn"),
             language_variety=config.get("language_variety"),
             length_bucket=LengthBucket(
                 min_words=80,
