@@ -29,6 +29,7 @@ Design principles:
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -200,6 +201,359 @@ class Caveat:
     applies_to: list[str] = field(default_factory=list)
 
 
+def _mc_required(payload: Mapping[str, Any], field: str, where: str) -> Any:
+    """Return a required field or raise ``ValueError`` if it is absent."""
+    if field not in payload:
+        raise ValueError(f"{where} is missing required field {field!r}")
+    return payload[field]
+
+
+def _mc_no_unknown(payload: Mapping[str, Any], allowed: set[str], where: str) -> None:
+    """Reject unknown keys so a mistyped or foreign field cannot pass silently."""
+    unknown = sorted(set(payload) - allowed)
+    if unknown:
+        raise ValueError(f"{where} has unknown field(s): {', '.join(unknown)}")
+
+
+def _mc_mapping(value: Any, field: str, where: str) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{where} field {field!r} must be a mapping")
+    return value
+
+
+def _mc_str(payload: Mapping[str, Any], field: str, where: str) -> str:
+    value = _mc_required(payload, field, where)
+    if not isinstance(value, str):
+        raise ValueError(f"{where} field {field!r} must be a string")
+    return value
+
+
+def _mc_opt_str(
+    payload: Mapping[str, Any], field: str, where: str, default: str | None = None
+) -> str | None:
+    if field not in payload or payload[field] is None:
+        return default
+    value = payload[field]
+    if not isinstance(value, str):
+        raise ValueError(f"{where} field {field!r} must be a string")
+    return value
+
+
+def _mc_str_list(
+    payload: Mapping[str, Any], field: str, where: str, *, required: bool = True
+) -> list[str]:
+    if field not in payload:
+        if required:
+            raise ValueError(f"{where} is missing required field {field!r}")
+        return []
+    value = payload[field]
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError(f"{where} field {field!r} must be a list of strings")
+    return list(value)
+
+
+def _mc_number(payload: Mapping[str, Any], field: str, where: str) -> float:
+    value = _mc_required(payload, field, where)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{where} field {field!r} must be a number")
+    return float(value)
+
+
+def _mc_opt_number(payload: Mapping[str, Any], field: str, where: str) -> float | None:
+    if field not in payload or payload[field] is None:
+        return None
+    value = payload[field]
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{where} field {field!r} must be a number or null")
+    return float(value)
+
+
+def _mc_int(payload: Mapping[str, Any], field: str, where: str) -> int:
+    value = _mc_required(payload, field, where)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{where} field {field!r} must be an integer")
+    return value
+
+
+def _mc_dict(payload: Mapping[str, Any], field: str, where: str) -> dict[str, Any]:
+    value = _mc_mapping(_mc_required(payload, field, where), field, where)
+    return dict(value)
+
+
+def _metadata_from_dict(data: Any) -> ModelCardMetadata:
+    where = "metadata"
+    payload = _mc_mapping(data, where, "model card")
+    _mc_no_unknown(
+        payload, {"version", "generated_at", "generated_by", "schema_version", "language"}, where
+    )
+    return ModelCardMetadata(
+        version=_mc_str(payload, "version", where),
+        generated_at=_mc_str(payload, "generated_at", where),
+        generated_by=_mc_str(payload, "generated_by", where),
+        schema_version=_mc_opt_str(payload, "schema_version", where, "1.0.0") or "1.0.0",
+        language=_mc_opt_str(payload, "language", where, "en") or "en",
+    )
+
+
+def _model_details_from_dict(data: Any) -> ModelDetails:
+    where = "model_details"
+    payload = _mc_mapping(data, where, "model card")
+    _mc_no_unknown(
+        payload,
+        {
+            "name",
+            "version",
+            "detector_id",
+            "detector_family",
+            "architecture",
+            "framework",
+            "license",
+            "owner",
+            "contact",
+            "references",
+            "tags",
+        },
+        where,
+    )
+    return ModelDetails(
+        name=_mc_str(payload, "name", where),
+        version=_mc_str(payload, "version", where),
+        detector_id=_mc_str(payload, "detector_id", where),
+        detector_family=_mc_str(payload, "detector_family", where),
+        architecture=_mc_str(payload, "architecture", where),
+        framework=_mc_str(payload, "framework", where),
+        license=_mc_str(payload, "license", where),
+        owner=_mc_str(payload, "owner", where),
+        contact=_mc_str(payload, "contact", where),
+        references=_mc_str_list(payload, "references", where, required=False),
+        tags=_mc_str_list(payload, "tags", where, required=False),
+    )
+
+
+def _intended_use_from_dict(data: Any) -> IntendedUse:
+    where = "intended_use"
+    payload = _mc_mapping(data, where, "model card")
+    _mc_no_unknown(
+        payload,
+        {
+            "primary_use_cases",
+            "out_of_scope",
+            "target_users",
+            "deployment_environments",
+            "constraints",
+        },
+        where,
+    )
+    return IntendedUse(
+        primary_use_cases=_mc_str_list(payload, "primary_use_cases", where),
+        out_of_scope=_mc_str_list(payload, "out_of_scope", where),
+        target_users=_mc_str_list(payload, "target_users", where),
+        deployment_environments=_mc_str_list(
+            payload, "deployment_environments", where, required=False
+        ),
+        constraints=_mc_str_list(payload, "constraints", where, required=False),
+    )
+
+
+def _metric_from_dict(data: Any) -> PerformanceMetric:
+    where = "metric"
+    payload = _mc_mapping(data, where, "model card")
+    _mc_no_unknown(
+        payload,
+        {
+            "name",
+            "value",
+            "unit",
+            "confidence_interval",
+            "benchmark_dataset",
+            "split",
+            "metadata",
+        },
+        where,
+    )
+    confidence_interval: tuple[float, float] | None = None
+    if payload.get("confidence_interval") is not None:
+        raw_ci = payload["confidence_interval"]
+        if (
+            not isinstance(raw_ci, (list, tuple))
+            or len(raw_ci) != 2
+            or any(isinstance(v, bool) or not isinstance(v, (int, float)) for v in raw_ci)
+        ):
+            raise ValueError("metric field 'confidence_interval' must be a two-number sequence")
+        confidence_interval = (float(raw_ci[0]), float(raw_ci[1]))
+    metadata: dict[str, Any] = {}
+    if payload.get("metadata") is not None:
+        metadata = dict(_mc_mapping(payload["metadata"], "metadata", where))
+    return PerformanceMetric(
+        name=_mc_str(payload, "name", where),
+        value=_mc_number(payload, "value", where),
+        unit=_mc_str(payload, "unit", where),
+        confidence_interval=confidence_interval,
+        benchmark_dataset=_mc_opt_str(payload, "benchmark_dataset", where, "") or "",
+        split=_mc_opt_str(payload, "split", where, "test") or "test",
+        metadata=metadata,
+    )
+
+
+def _evaluation_dataset_from_dict(data: Any) -> EvaluationDataset:
+    where = "evaluation_data"
+    payload = _mc_mapping(data, where, "model card")
+    _mc_no_unknown(
+        payload,
+        {
+            "name",
+            "version",
+            "size",
+            "languages",
+            "domains",
+            "split_ratios",
+            "source",
+            "license",
+            "collection_date",
+            "preprocessing",
+            "known_biases",
+        },
+        where,
+    )
+    raw_ratios = _mc_mapping(_mc_required(payload, "split_ratios", where), "split_ratios", where)
+    split_ratios: dict[str, float] = {}
+    for key, value in raw_ratios.items():
+        if (
+            not isinstance(key, str)
+            or isinstance(value, bool)
+            or not isinstance(value, (int, float))
+        ):
+            raise ValueError("evaluation_data field 'split_ratios' must map strings to numbers")
+        split_ratios[key] = float(value)
+    return EvaluationDataset(
+        name=_mc_str(payload, "name", where),
+        version=_mc_str(payload, "version", where),
+        size=_mc_int(payload, "size", where),
+        languages=_mc_str_list(payload, "languages", where),
+        domains=_mc_str_list(payload, "domains", where),
+        split_ratios=split_ratios,
+        source=_mc_str(payload, "source", where),
+        license=_mc_str(payload, "license", where),
+        collection_date=_mc_str(payload, "collection_date", where),
+        preprocessing=_mc_str_list(payload, "preprocessing", where, required=False),
+        known_biases=_mc_str_list(payload, "known_biases", where, required=False),
+    )
+
+
+def _training_data_from_dict(data: Any) -> TrainingData:
+    where = "training_data"
+    payload = _mc_mapping(data, where, "model card")
+    _mc_no_unknown(
+        payload,
+        {
+            "datasets",
+            "total_size",
+            "preprocessing_pipeline",
+            "augmentation_techniques",
+            "known_biases",
+        },
+        where,
+    )
+    raw_datasets = _mc_required(payload, "datasets", where)
+    if not isinstance(raw_datasets, list):
+        raise ValueError("training_data field 'datasets' must be a list")
+    return TrainingData(
+        datasets=[_evaluation_dataset_from_dict(item) for item in raw_datasets],
+        total_size=_mc_int(payload, "total_size", where),
+        preprocessing_pipeline=_mc_str_list(payload, "preprocessing_pipeline", where),
+        augmentation_techniques=_mc_str_list(
+            payload, "augmentation_techniques", where, required=False
+        ),
+        known_biases=_mc_str_list(payload, "known_biases", where, required=False),
+    )
+
+
+def _quantitative_analysis_from_dict(data: Any) -> QuantitativeAnalysis:
+    where = "quantitative_analysis"
+    payload = _mc_mapping(data, where, "model card")
+    _mc_no_unknown(
+        payload,
+        {
+            "metrics",
+            "confusion_matrix",
+            "roc_auc",
+            "pr_auc",
+            "calibration_error",
+            "subgroup_analysis",
+            "error_analysis",
+        },
+        where,
+    )
+    raw_metrics = _mc_required(payload, "metrics", where)
+    if not isinstance(raw_metrics, list):
+        raise ValueError("quantitative_analysis field 'metrics' must be a list")
+    confusion_matrix: dict[str, int] | None = None
+    if payload.get("confusion_matrix") is not None:
+        raw_cm = _mc_mapping(payload["confusion_matrix"], "confusion_matrix", where)
+        confusion_matrix = {}
+        for key, value in raw_cm.items():
+            if not isinstance(key, str) or isinstance(value, bool) or not isinstance(value, int):
+                raise ValueError(
+                    "quantitative_analysis field 'confusion_matrix' must map strings to integers"
+                )
+            confusion_matrix[key] = value
+    subgroup_analysis: dict[str, list[PerformanceMetric]] = {}
+    if payload.get("subgroup_analysis") is not None:
+        raw_sub = _mc_mapping(payload["subgroup_analysis"], "subgroup_analysis", where)
+        for key, value in raw_sub.items():
+            if not isinstance(value, list):
+                raise ValueError(
+                    "quantitative_analysis field 'subgroup_analysis' must map strings to metric lists"
+                )
+            subgroup_analysis[key] = [_metric_from_dict(item) for item in value]
+    error_analysis: dict[str, Any] = {}
+    if payload.get("error_analysis") is not None:
+        error_analysis = dict(_mc_mapping(payload["error_analysis"], "error_analysis", where))
+    return QuantitativeAnalysis(
+        metrics=[_metric_from_dict(item) for item in raw_metrics],
+        confusion_matrix=confusion_matrix,
+        roc_auc=_mc_opt_number(payload, "roc_auc", where),
+        pr_auc=_mc_opt_number(payload, "pr_auc", where),
+        calibration_error=_mc_opt_number(payload, "calibration_error", where),
+        subgroup_analysis=subgroup_analysis,
+        error_analysis=error_analysis,
+    )
+
+
+def _ethical_consideration_from_dict(data: Any) -> EthicalConsideration:
+    where = "ethical_consideration"
+    payload = _mc_mapping(data, where, "model card")
+    _mc_no_unknown(
+        payload, {"category", "description", "risk_level", "mitigation", "references"}, where
+    )
+    raw_level = _mc_str(payload, "risk_level", where)
+    try:
+        risk_level = RiskLevel(raw_level)
+    except ValueError:
+        raise ValueError(
+            f"ethical_consideration field 'risk_level' has unknown value {raw_level!r}"
+        ) from None
+    return EthicalConsideration(
+        category=_mc_str(payload, "category", where),
+        description=_mc_str(payload, "description", where),
+        risk_level=risk_level,
+        mitigation=_mc_str(payload, "mitigation", where),
+        references=_mc_str_list(payload, "references", where, required=False),
+    )
+
+
+def _caveat_from_dict(data: Any) -> Caveat:
+    where = "caveat"
+    payload = _mc_mapping(data, where, "model card")
+    _mc_no_unknown(payload, {"description", "priority", "category", "applies_to"}, where)
+    return Caveat(
+        description=_mc_str(payload, "description", where),
+        priority=_mc_str(payload, "priority", where),
+        category=_mc_str(payload, "category", where),
+        applies_to=_mc_str_list(payload, "applies_to", where, required=False),
+    )
+
+
 @dataclass
 class ModelCard:
     """Complete model card for a detector."""
@@ -322,13 +676,116 @@ class ModelCard:
             return False
 
     @classmethod
-    def load(cls, path: Path) -> ModelCard | None:
+    def from_dict(cls, data: Mapping[str, Any]) -> ModelCard:
+        """Reconstruct a model card from :meth:`to_dict` output.
+
+        Every section is rebuilt field by field with validation, so a
+        document that is valid JSON but not a valid model card is
+        rejected instead of silently loading as an empty card.
+
+        Raises
+        ------
+        ValueError
+            If ``data`` is not a mapping, if a required field is
+            missing, if a field has the wrong type, if an unknown field
+            is present, or if ``schema_version`` is not ``"1.0.0"``.
+        """
+        if not isinstance(data, Mapping):
+            raise ValueError("model card must be a mapping")
+        _mc_no_unknown(
+            data,
+            {
+                "schema_version",
+                "metadata",
+                "model_details",
+                "intended_use",
+                "factors",
+                "metrics",
+                "evaluation_data",
+                "training_data",
+                "quantitative_analysis",
+                "ethical_considerations",
+                "caveats_and_recommendations",
+                "additional_information",
+                "eu_ai_act_transparency_notes",
+            },
+            "model card",
+        )
+        schema_version = _mc_str(data, "schema_version", "model card")
+        if schema_version != "1.0.0":
+            raise ValueError(f"unsupported model card schema_version: {schema_version!r}")
+        raw_metrics = data.get("metrics", [])
+        if not isinstance(raw_metrics, list):
+            raise ValueError("model card field 'metrics' must be a list")
+        raw_ethical = data.get("ethical_considerations", [])
+        if not isinstance(raw_ethical, list):
+            raise ValueError("model card field 'ethical_considerations' must be a list")
+        raw_caveats = data.get("caveats_and_recommendations", [])
+        if not isinstance(raw_caveats, list):
+            raise ValueError("model card field 'caveats_and_recommendations' must be a list")
+        evaluation_data = data.get("evaluation_data")
+        training_data = data.get("training_data")
+        quantitative_analysis = data.get("quantitative_analysis")
+        additional_information: dict[str, Any] = {}
+        if data.get("additional_information") is not None:
+            additional_information = _mc_dict(data, "additional_information", "model card")
+        eu_notes: dict[str, Any] = {}
+        if data.get("eu_ai_act_transparency_notes") is not None:
+            eu_notes = _mc_dict(data, "eu_ai_act_transparency_notes", "model card")
+        return cls(
+            metadata=_metadata_from_dict(_mc_required(data, "metadata", "model card")),
+            model_details=_model_details_from_dict(
+                _mc_required(data, "model_details", "model card")
+            ),
+            intended_use=_intended_use_from_dict(_mc_required(data, "intended_use", "model card")),
+            factors=_mc_str_list(data, "factors", "model card", required=False),
+            metrics=[_metric_from_dict(item) for item in raw_metrics],
+            evaluation_data=(
+                _evaluation_dataset_from_dict(evaluation_data)
+                if evaluation_data is not None
+                else None
+            ),
+            training_data=(
+                _training_data_from_dict(training_data) if training_data is not None else None
+            ),
+            quantitative_analysis=(
+                _quantitative_analysis_from_dict(quantitative_analysis)
+                if quantitative_analysis is not None
+                else None
+            ),
+            ethical_considerations=[_ethical_consideration_from_dict(item) for item in raw_ethical],
+            caveats_and_recommendations=[_caveat_from_dict(item) for item in raw_caveats],
+            additional_information=additional_information,
+            eu_ai_act_transparency_notes=eu_notes,
+            _schema_version=schema_version,
+        )
+
+    @classmethod
+    def load(cls, path: Path) -> ModelCard:
+        """Load a model card from a JSON file.
+
+        Returns the reconstructed :class:`ModelCard` (never ``None``:
+        the previous stub returned ``None`` for every valid file).
+
+        Raises
+        ------
+        FileNotFoundError
+            If ``path`` does not exist.
+        ValueError
+            If the file is not valid JSON, cannot be read, or its
+            content is not a valid model card document.
+        """
         try:
-            json.loads(path.read_text(encoding="utf-8"))
-            # Reconstruction would be complex - simplified for now
-            return None
-        except Exception:
-            return None
+            text = Path(path).read_text(encoding="utf-8")
+        except FileNotFoundError:
+            raise
+        except OSError as exc:
+            raise ValueError(f"cannot read model card {path}: {exc}") from exc
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"invalid JSON in model card {path}: {exc}") from exc
+        return cls.from_dict(data)
 
 
 class ModelCardGenerator:
@@ -597,11 +1054,18 @@ def save_model_card(card: ModelCard, path: Path, format: str = "json") -> bool:
         raise ValueError(f"Unsupported format: {format}")
 
 
-def load_model_card(path: Path) -> ModelCard | None:
-    """Load model card from file."""
-    try:
-        json.loads(Path(path).read_text(encoding="utf-8"))
-        # Full reconstruction would require more complex logic
-        return None
-    except Exception:
-        return None
+def load_model_card(path: Path) -> ModelCard:
+    """Load model card from file.
+
+    Returns the reconstructed :class:`ModelCard` (never ``None``: the
+    previous stub returned ``None`` for every valid file).
+
+    Raises
+    ------
+    FileNotFoundError
+        If ``path`` does not exist.
+    ValueError
+        If the file is not valid JSON or its content is not a valid
+        model card document.
+    """
+    return ModelCard.load(path)
