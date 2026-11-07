@@ -1,8 +1,12 @@
 """Benchmark dataset loaders — Phase 3, datasets wave 1 + wave 2.
 
 Loaders for the five wave-1 evaluation datasets (RAID, MAGE, Beemo, MixSet,
-OpAI-Bench) and the wave-2 GhostWriter loader, all fetched from Hugging Face
-through the public datasets-server HTTP API.
+OpAI-Bench), the wave-2 GhostWriter loader, and the wave-2 DetectRL-X
+loader, all fetched from Hugging Face through the public
+datasets-server HTTP API — except DetectRL-X, whose viewer/default
+load is broken (``DatasetGenerationCastError`` on heterogeneous
+columns), so it is fetched as one whole file from the HF resolve URL
+and streamed from the local cache instead.
 
 Design rules
 ------------
@@ -41,10 +45,16 @@ Design rules
   ~1 GB DetectRL-X file): HTTP Range resume, retries with back-off,
   ``.part`` + atomic rename so a partial file is never mistaken for a
   valid one, and SHA-256 verification against a manifest hash.
+* Whole-file datasets. DetectRL-X is served as one JSON array per
+  file (~879 MB for the general file); loading it whole would need
+  several GB of RAM, so :func:`iter_detectrl_x_rows` decodes one
+  object at a time with ``json.JSONDecoder.raw_decode`` over a small
+  rolling buffer, and :func:`sample_detectrl_x_rows` counts rows per
+  split and collects strided samples in a single streaming pass.
 
-Wave-1 scope only, plus GhostWriter in wave 2. RealDet / CrisisFake have no
-verified route (no loader), PAN 2025 is wave 2 (gated on TIRA
-registration), MultiSocial was dropped by Greg's decision.
+Wave-1 scope only, plus GhostWriter and DetectRL-X in wave 2. RealDet /
+CrisisFake have no verified route (no loader), PAN 2025 is wave 2
+(gated on TIRA registration), MultiSocial was dropped by Greg's decision.
 """
 
 from __future__ import annotations
@@ -81,6 +91,40 @@ REGIME_MIXED_ORIGIN = "mixed-origin"
 
 LICENCE_VERIFIED = "verified"
 LICENCE_UNRESOLVED = "unresolved"
+
+# DetectRL-X whole-file fetch (wave 2, worker B). Verified 2026-11-07
+# from the HF tree API: Binary/binary_general_open.json is 878,631,989
+# bytes; the LFS oid is its SHA-256. The HF viewer / default load is
+# broken (DatasetGenerationCastError: perturbation files add a
+# `perturbation_info` column), so this file is the only route for the
+# preliminary slice. README "Open vs. Heldout" table: 124,800 rows per
+# file (76,800 train + 48,000 test); the headline 3,456,000 counts
+# overlapping categories and is NEVER a downloadable row count.
+DETECTRL_X_URL = (
+    "https://huggingface.co/datasets/WUJUNCHAO/DetectRL-X/resolve/main/"
+    "Binary/binary_general_open.json"
+)
+DETECTRL_X_FILE = "Binary/binary_general_open.json"
+DETECTRL_X_SHA256 = (
+    "815be1667a5e7404d9e513ab339c214c713bd7ac4eb46f375fa0a26bf2dfc15f"  # pragma: allowlist secret
+)
+# ^ Public content hash of a public dataset file (the HF LFS oid, served
+# by the HF tree API) — a file-integrity check value, not a credential.
+DETECTRL_X_BYTES = 878_631_989
+DETECTRL_X_TRAIN_ROWS = 76_800
+DETECTRL_X_TEST_ROWS = 48_000
+DETECTRL_X_LANGS = (
+    "arabic",
+    "chinese",
+    "english",
+    "french",
+    "german",
+    "portuguese",
+    "russian",
+    "spanish",
+)
+DETECTRL_X_MODELS = ("deepseek-v3", "gemini-2.5-flash", "gpt-4o", "qwen-max")
+DETECTRL_X_DOMAINS = ("Academic", "News", "Novel", "Wiki", "SEO", "Webtext")
 
 
 class DatasetError(Exception):
@@ -287,6 +331,63 @@ class NormalizedRow:
 
 
 SPECS: dict[str, DatasetSpec] = {
+    "detectrl_x": DatasetSpec(
+        key="detectrl_x",
+        name="DetectRL-X",
+        hf_id="WUJUNCHAO/DetectRL-X",
+        paper="Wu et al., ACL 2026, arXiv:2605.15518",
+        source_url="https://huggingface.co/datasets/WUJUNCHAO/DetectRL-X",
+        licence="Three-way conflict — GitHub README: Apache License 2.0 "
+        "with use strictly restricted to non-commercial academic research "
+        "purposes; Hugging Face card/API: MIT; ACL 2026 paper: use strictly "
+        "restricted to noncommercial academic research purposes. The "
+        "strictest reading (non-commercial academic research only) governs.",
+        licence_note="Three-way licence conflict, all verified live "
+        "2026-11-07. (1) GitHub README §License (ATH-MaaS/Marco-LLM, "
+        "formerly AIDC-AI/Marco-LLM): 'licensed under the Apache License "
+        "2.0. Usage is strictly restricted to non-commercial academic "
+        "research purposes.' (README badge also says Apache 2.0; repo "
+        "record license:null, no LICENSE file.) (2) HF card + HF API "
+        "record: MIT (license:mit tag; record last modified 2026-07-27). "
+        "(3) ACL 2026 paper, Ethical Considerations: use 'strictly "
+        "restricted to noncommercial academic research purposes.' "
+        "Reasoning (Beemo precedent — MIT + a CC-BY-NC-4.0 carve-out was "
+        "verified with the carve-out recorded and honoured): the strictest "
+        "reading (NC academic research only) is satisfiable, and under ALL "
+        "THREE readings TextForensics' intended use — non-commercial "
+        "academic research evaluation, local cache only, no redistribution, "
+        "no commercial use — is permitted. The conflict blocks commercial "
+        "use and redistribution, neither of which we do. Record all three "
+        "strings verbatim; the NC-academic-only restriction governs. No "
+        "redistribution of raw text, ever.",
+        licence_status=LICENCE_VERIFIED,
+        configs=("binary",),
+        splits=(("binary", "train"), ("binary", "test")),
+        notes="Multilingual raw slice (8 languages, 6 domains, 4 commercial "
+        "LLMs). Scope for this wave: ONE Binary file only, "
+        "Binary/binary_general_open.json (878,631,989 bytes, SHA-256 "
+        "815be1667a5e7404d9e513ab339c214c713bd7ac4eb46f375fa0a26bf2dfc15f, "
+        "verified from the HF tree API 2026-11-07); the README states the "
+        "train split is identical across all strategy files, so the "
+        "general file is the representative preliminary slice. Downloading "
+        "all 16 Binary files (~14.67 GB) for a preliminary slice is not "
+        "proportionate. Ternary files are out of scope for the measurement "
+        "(the mapper supports llm_refined_text if present). HF viewer / "
+        "default load is BROKEN (DatasetGenerationCastError: perturbation "
+        "files add a perturbation_info column; datasets-server /size "
+        "confirms num_rows 0) — load per-file only, never the dataset "
+        "default. README table: 124,800 rows per file (76,800 train + "
+        "48,000 test), 2:1 train-test split, 192 (language x model x "
+        "domain) cells; the headline 3,456,000 counts overlapping "
+        "categories. No numeric label field — the label is which text "
+        "field the row comes from. No row id field — source_id is file + "
+        "row index. The general file has no perturbation_info column; "
+        "perturbation files carry it (list of structs) — the loader "
+        "tolerates heterogeneous columns across files and never assumes a "
+        "single schema. Authors' metrics (F1B/F1F) are context only, never "
+        "ours.",
+        citation="Wu et al., DetectRL-X, ACL 2026, arXiv:2605.15518.",
+    ),
     "ghostwriter": DatasetSpec(
         key="ghostwriter",
         name="GhostWriter",
@@ -974,6 +1075,92 @@ def _map_ghostwriter(row: dict[str, Any], config: str, split: str) -> list[Norma
     ]
 
 
+def _map_detectrl_x(
+    row: dict[str, Any],
+    config: str,
+    split: str,
+    *,
+    row_index: int | None = None,
+    file: str = DETECTRL_X_FILE,
+) -> list[NormalizedRow]:
+    """DetectRL-X: one normalised row per text field; no numeric label.
+
+    Verified from the downloaded general file 2026-11-07: rows carry
+    exactly ``human_written_text``, ``llm_generated_text``, ``lang``,
+    ``model``, ``split``, ``domain`` — no id field, no
+    ``perturbation_info`` column in this file. ``human_written_text``
+    -> label 0, ``llm_generated_text`` -> label 1 (Binary file); a
+    present ``llm_refined_text`` (Ternary files) -> label None, regime
+    ``mixed-origin`` — human+LLM refined text never takes a binary
+    label. Both Binary rows are regime ``raw``. ``source_id`` is file
+    + row index, because no id field exists; the caller must supply
+    ``row_index`` — a missing index fails closed rather than inventing
+    an id. The row's own ``split`` field is cross-checked against the
+    split being mapped. Unknown lang/model/domain values, missing text
+    fields, or a row with neither text field all fail closed.
+    """
+    if row_index is None:
+        raise DatasetFetchError("detectrl_x: row_index is required — the file has no id field")
+    lang = row.get("lang")
+    if lang not in DETECTRL_X_LANGS:
+        raise DatasetFetchError(f"detectrl_x: unexpected lang {lang!r}")
+    model = row.get("model")
+    if model not in DETECTRL_X_MODELS:
+        raise DatasetFetchError(f"detectrl_x: unexpected model {model!r}")
+    domain = row.get("domain")
+    if domain not in DETECTRL_X_DOMAINS:
+        raise DatasetFetchError(f"detectrl_x: unexpected domain {domain!r}")
+    row_split = row.get("split")
+    if row_split != split:
+        raise DatasetFetchError(f"detectrl_x: row split {row_split!r} != mapped split {split!r}")
+    human_text = _require_text(row, "human_written_text", "detectrl_x")
+    llm_text = _require_text(row, "llm_generated_text", "detectrl_x")
+    meta: dict[str, Any] = {
+        "lang": lang,
+        "model": model,
+        "split": split,
+        "domain": domain,
+        "file": file,
+    }
+    out = [
+        NormalizedRow(
+            text=human_text,
+            label=0,
+            dataset="detectrl_x",
+            config=config,
+            split=split,
+            source_id=f"detectrl-x:{file}:{row_index}:human",
+            regime=REGIME_RAW,
+            meta=dict(meta),
+        ),
+        NormalizedRow(
+            text=llm_text,
+            label=1,
+            dataset="detectrl_x",
+            config=config,
+            split=split,
+            source_id=f"detectrl-x:{file}:{row_index}:llm",
+            regime=REGIME_RAW,
+            meta=dict(meta),
+        ),
+    ]
+    if "llm_refined_text" in row:
+        refined_text = _require_text(row, "llm_refined_text", "detectrl_x")
+        out.append(
+            NormalizedRow(
+                text=refined_text,
+                label=None,
+                dataset="detectrl_x",
+                config=config,
+                split=split,
+                source_id=f"detectrl-x:{file}:{row_index}:refined",
+                regime=REGIME_MIXED_ORIGIN,
+                meta=dict(meta),
+            )
+        )
+    return out
+
+
 def _map_mixset(row: dict[str, Any], config: str, split: str) -> list[NormalizedRow]:
     """MixSet: refused until the label polarity is verified from data.
 
@@ -996,18 +1183,31 @@ _MAPPERS: dict[str, Any] = {
     "mixset": _map_mixset,
     "opai_bench": _map_opai_bench,
     "ghostwriter": _map_ghostwriter,
+    "detectrl_x": _map_detectrl_x,
 }
 
 
-def map_row(key: str, row: dict[str, Any], config: str, split: str) -> list[NormalizedRow]:
+def map_row(
+    key: str,
+    row: dict[str, Any],
+    config: str,
+    split: str,
+    *,
+    row_index: int | None = None,
+) -> list[NormalizedRow]:
     """Normalise one raw server row to TextForensics rows.
 
-    Returns a list because one Beemo record expands to ~10 rows. The
-    licence gate is enforced here too: mapping is part of fetching, so
-    an unresolved licence refuses before any row is normalised.
+    Returns a list because one Beemo record expands to ~10 rows and one
+    DetectRL-X row expands to 2 (3 for Ternary). The licence gate is
+    enforced here too: mapping is part of fetching, so an unresolved
+    licence refuses before any row is normalised. ``row_index`` is the
+    row's index in its source file; only DetectRL-X needs it (the file
+    has no id field), and its mapper fails closed without it.
     """
     spec = get_spec(key)
     require_licence(spec)
+    if key == "detectrl_x":
+        return _map_detectrl_x(row, config, split, row_index=row_index)
     return _MAPPERS[key](row, config, split)
 
 
@@ -1082,3 +1282,169 @@ def read_sample_cache(
             )
         )
     return rows
+
+
+# ---------------------------------------------------------------------------
+# DetectRL-X whole-file fetch (wave 2, worker B)
+# ---------------------------------------------------------------------------
+
+
+def detectrl_x_raw_path(*, cache_dir: Path | None = None) -> Path:
+    """Local path of the downloaded DetectRL-X general file (cache, never the repo)."""
+    root = cache_dir or default_cache_dir()
+    return root / "detectrl_x" / DETECTRL_X_FILE
+
+
+def download_detectrl_x(*, cache_dir: Path | None = None) -> Path:
+    """Download the DetectRL-X general file via the shared resumable downloader.
+
+    The HF resolve URL + expected SHA-256/size come from the HF tree
+    API (2026-11-07); a destination that already exists and verifies
+    is returned without re-downloading. Timeout and retries are raised
+    above the defaults: the egress proxy is intermittent and a ~879 MB
+    transfer stalls under the 30 s default.
+    """
+    return download_large_file(
+        DETECTRL_X_URL,
+        detectrl_x_raw_path(cache_dir=cache_dir),
+        expected_sha256=DETECTRL_X_SHA256,
+        expected_bytes=DETECTRL_X_BYTES,
+        timeout_s=120,
+        retries=5,
+    )
+
+
+def verify_detectrl_x_file(path: str | Path) -> Path:
+    """Fail closed unless ``path`` is the expected DetectRL-X file.
+
+    Size and SHA-256 are checked against the HF tree API values before
+    any row is read, so a truncated or substituted download is refused
+    instead of sampled.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise DatasetFetchError(f"detectrl_x: raw file missing: {path}")
+    size = path.stat().st_size
+    if size != DETECTRL_X_BYTES:
+        raise DatasetFetchError(
+            f"detectrl_x: raw file is {size} bytes, expected {DETECTRL_X_BYTES}"
+        )
+    actual = _sha256_file(path)
+    if actual != DETECTRL_X_SHA256:
+        raise DatasetFetchError(
+            f"detectrl_x: raw file SHA-256 mismatch (got {actual}, expected {DETECTRL_X_SHA256})"
+        )
+    return path
+
+
+def iter_detectrl_x_rows(path: str | Path):
+    """Yield ``(row_index, row_dict)`` from a DetectRL-X JSON-array file, streaming.
+
+    The general file is ~879 MB; loading it whole would need several
+    GB of RAM, so objects are decoded one at a time with
+    ``json.JSONDecoder.raw_decode`` over a 1 MiB rolling buffer. The
+    file must be a JSON array of objects (verified on arrival
+    2026-11-07: the file starts ``[{``); anything else — JSONL, a
+    bare object, truncated input — raises :class:`DatasetFetchError`
+    instead of being guessed at.
+    """
+    decoder = json.JSONDecoder()
+    path = Path(path)
+    buf = ""
+    eof = False
+    with path.open("r", encoding="utf-8") as handle:
+
+        def _fill() -> bool:
+            nonlocal buf, eof
+            if eof:
+                return False
+            chunk = handle.read(1 << 20)
+            if not chunk:
+                eof = True
+                return False
+            buf += chunk
+            return True
+
+        def _skip_ws_commas() -> None:
+            nonlocal buf
+            while True:
+                buf = buf.lstrip(" \t\r\n,")
+                if buf or eof:
+                    return
+                _fill()
+
+        _skip_ws_commas()
+        if not buf.startswith("["):
+            raise DatasetFetchError(
+                "detectrl_x: expected a JSON array file (first non-whitespace "
+                f"character is {buf[:1]!r}, not '[')"
+            )
+        buf = buf[1:]
+        index = 0
+        while True:
+            _skip_ws_commas()
+            if eof and not buf:
+                raise DatasetFetchError(
+                    "detectrl_x: file ended before the JSON array closed (truncated?)"
+                )
+            if buf.startswith("]"):
+                return
+            try:
+                obj, end = decoder.raw_decode(buf)
+            except json.JSONDecodeError:
+                if eof:
+                    raise DatasetFetchError(
+                        f"detectrl_x: row {index} is not parseable JSON"
+                    ) from None
+                _fill()
+                continue
+            if not isinstance(obj, dict):
+                raise DatasetFetchError(
+                    f"detectrl_x: row {index} is {type(obj).__name__}, expected object"
+                )
+            yield index, obj
+            index += 1
+            buf = buf[end:]
+
+
+def sample_detectrl_x_rows(
+    path: str | Path,
+    train_offsets: list[int],
+    test_offsets: list[int],
+) -> tuple[list[tuple[int, dict[str, Any]]], list[tuple[int, dict[str, Any]]], dict[str, int]]:
+    """One streaming pass: count rows per split, collect strided samples.
+
+    ``train_offsets`` / ``test_offsets`` are per-split row indices
+    (from :func:`sample_offsets` over the plan totals). Returns
+    ``(train_rows, test_rows, counts)`` where each row is an
+    ``(index, row_dict)`` pair and ``counts`` is
+    ``{"train": n, "test": n, "total": n}``. A row whose ``split`` is
+    neither ``train`` nor ``test`` fails closed, and a short sample
+    (fewer collected rows than requested offsets) is a hard error —
+    the caller refuses on a count mismatch with the plan instead of
+    sampling a stale denominator.
+    """
+    train_want = set(train_offsets)
+    test_want = set(test_offsets)
+    train_rows: list[tuple[int, dict[str, Any]]] = []
+    test_rows: list[tuple[int, dict[str, Any]]] = []
+    counts = {"train": 0, "test": 0, "total": 0}
+    for index, row in iter_detectrl_x_rows(path):
+        split = row.get("split")
+        if split not in ("train", "test"):
+            raise DatasetFetchError(f"detectrl_x: row {index} has unexpected split {split!r}")
+        per_split_index = counts[split]
+        counts[split] += 1
+        counts["total"] += 1
+        if split == "train" and per_split_index in train_want:
+            train_rows.append((index, row))
+        elif split == "test" and per_split_index in test_want:
+            test_rows.append((index, row))
+    if len(train_rows) != len(train_offsets) or len(test_rows) != len(test_offsets):
+        raise DatasetFetchError(
+            "detectrl_x: short sample — collected "
+            f"{len(train_rows)}/{len(train_offsets)} train and "
+            f"{len(test_rows)}/{len(test_offsets)} test rows; "
+            "the file is shorter than the plan totals"
+        )
+    return train_rows, test_rows, counts

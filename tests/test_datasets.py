@@ -15,6 +15,10 @@ from pathlib import Path
 from unittest import mock
 
 from textforensics.datasets import (
+    DETECTRL_X_BYTES,
+    DETECTRL_X_FILE,
+    DETECTRL_X_SHA256,
+    DETECTRL_X_URL,
     LABEL_HUMAN,
     LABEL_MACHINE,
     DatasetFetchError,
@@ -24,15 +28,20 @@ from textforensics.datasets import (
     NormalizedRow,
     cache_path,
     default_cache_dir,
+    detectrl_x_raw_path,
+    download_detectrl_x,
     download_large_file,
     fetch_sample,
     fetch_strided_sample,
     get_spec,
+    iter_detectrl_x_rows,
     manifest_path,
     map_row,
     read_sample_cache,
     require_licence,
+    sample_detectrl_x_rows,
     sample_offsets,
+    verify_detectrl_x_file,
     write_sample_cache,
 )
 
@@ -61,7 +70,7 @@ def _row(text: str, label: int | None, dataset: str = "mage") -> NormalizedRow:
 
 class SpecTests(unittest.TestCase):
     def test_known_keys(self) -> None:
-        for key in ("raid", "mage", "beemo", "mixset", "opai_bench", "ghostwriter"):
+        for key in ("raid", "mage", "beemo", "mixset", "opai_bench", "ghostwriter", "detectrl_x"):
             self.assertEqual(get_spec(key).key, key)
 
     def test_unknown_key_raises(self) -> None:
@@ -108,6 +117,28 @@ class SpecTests(unittest.TestCase):
             self.assertIn(domain, spec.licence or "")
         self.assertIn("non-commercial research evaluation", spec.licence_note)
         self.assertIn("no redistribution", spec.licence_note)
+
+    def test_detectrl_x_licence_conflict_recorded_verbatim(self) -> None:
+        # Three-way conflict verified live 2026-11-07 (see the spec's
+        # licence_note): GitHub README Apache-2.0 + NC restriction, HF
+        # MIT, ACL 2026 paper NC restriction. All three strings are
+        # recorded verbatim; the strictest reading governs.
+        spec = get_spec("detectrl_x")
+        self.assertEqual(spec.licence_status, "verified")
+        require_licence(spec)  # must not raise
+        licence = spec.licence or ""
+        self.assertIn("Apache License 2.0", licence)
+        self.assertIn("MIT", licence)
+        self.assertIn("noncommercial academic research purposes", licence)
+        self.assertIn("non-commercial academic research only", licence)
+        note = spec.licence_note
+        self.assertIn("licensed under the Apache License 2.0", note)
+        self.assertIn("strictly restricted to non-commercial academic research purposes", note)
+        self.assertIn("strictly restricted to noncommercial academic research purposes", note)
+        self.assertIn("No redistribution of raw text, ever", note)
+        self.assertIn("local cache only, no redistribution", note)
+        self.assertEqual(spec.hf_id, "WUJUNCHAO/DetectRL-X")
+        self.assertEqual(spec.splits, (("binary", "train"), ("binary", "test")))
 
     def test_wave1_specs_have_no_domain_licences(self) -> None:
         # The optional field defaults to None so wave-1 specs are untouched.
@@ -644,6 +675,311 @@ class MapperTests(unittest.TestCase):
                 "default",
                 "train",
             )
+
+
+class DetectRLXMapperTests(unittest.TestCase):
+    """DetectRL-X mapper: one row per text field, no numeric label."""
+
+    def setUp(self) -> None:
+        self.base = {
+            "human_written_text": "a human paragraph about history",
+            "llm_generated_text": "a machine paragraph about history",
+            "lang": "english",
+            "model": "gpt-4o",
+            "split": "train",
+            "domain": "Wiki",
+        }
+
+    def test_both_text_fields_map_to_labelled_raw_rows(self) -> None:
+        rows = map_row("detectrl_x", dict(self.base), "binary", "train", row_index=7)
+        self.assertEqual(len(rows), 2)
+        human, machine = rows
+        self.assertEqual((human.label, human.regime), (0, "raw"))
+        self.assertEqual((machine.label, machine.regime), (1, "raw"))
+        self.assertEqual(human.text, "a human paragraph about history")
+        self.assertEqual(machine.text, "a machine paragraph about history")
+        # No id field exists in the file: source_id is file + row index.
+        self.assertEqual(human.source_id, f"detectrl-x:{DETECTRL_X_FILE}:7:human")
+        self.assertEqual(machine.source_id, f"detectrl-x:{DETECTRL_X_FILE}:7:llm")
+        for row in rows:
+            self.assertEqual(row.dataset, "detectrl_x")
+            self.assertEqual(row.config, "binary")
+            self.assertEqual(row.split, "train")
+            self.assertEqual(
+                row.meta,
+                {
+                    "lang": "english",
+                    "model": "gpt-4o",
+                    "split": "train",
+                    "domain": "Wiki",
+                    "file": DETECTRL_X_FILE,
+                },
+            )
+
+    def test_ternary_refined_text_is_mixed_origin_without_label(self) -> None:
+        # Ternary files add llm_refined_text; the refined row never
+        # takes a binary label (same rule as the OpAI-Bench partials).
+        row = dict(self.base, llm_refined_text="a refined paragraph")
+        rows = map_row("detectrl_x", row, "binary", "train", row_index=3)
+        self.assertEqual(len(rows), 3)
+        refined = rows[2]
+        self.assertIsNone(refined.label)
+        self.assertEqual(refined.regime, "mixed-origin")
+        self.assertEqual(refined.source_id, f"detectrl-x:{DETECTRL_X_FILE}:3:refined")
+
+    def test_missing_row_index_fails_closed(self) -> None:
+        # No id field exists, so an index-less mapping would invent an
+        # identity; refuse instead.
+        with self.assertRaises(DatasetFetchError):
+            map_row("detectrl_x", dict(self.base), "binary", "train")
+
+    def test_missing_or_empty_text_field_fails_closed(self) -> None:
+        for missing in ("human_written_text", "llm_generated_text"):
+            with self.subTest(missing=missing):
+                row = dict(self.base)
+                del row[missing]
+                with self.assertRaises(DatasetFetchError):
+                    map_row("detectrl_x", row, "binary", "train", row_index=0)
+        with self.assertRaises(DatasetFetchError):
+            map_row(
+                "detectrl_x",
+                dict(self.base, human_written_text="   "),
+                "binary",
+                "train",
+                row_index=0,
+            )
+        # A row with neither text field.
+        with self.assertRaises(DatasetFetchError):
+            map_row(
+                "detectrl_x",
+                {"lang": "english", "model": "gpt-4o", "split": "train", "domain": "Wiki"},
+                "binary",
+                "train",
+                row_index=0,
+            )
+
+    def test_unknown_enum_values_fail_closed(self) -> None:
+        cases = [
+            {"lang": "klingon"},
+            {"lang": "en"},
+            {"model": "gpt-5"},
+            {"domain": "Blog"},
+            {"domain": "news"},
+        ]
+        for patch in cases:
+            with self.subTest(patch=patch), self.assertRaises(DatasetFetchError):
+                map_row(
+                    "detectrl_x",
+                    dict(self.base, **patch),
+                    "binary",
+                    "train",
+                    row_index=0,
+                )
+
+    def test_split_mismatch_fails_closed(self) -> None:
+        # The row's own split field is cross-checked against the split
+        # being mapped; a train row must not land in a test cache.
+        with self.assertRaises(DatasetFetchError):
+            map_row("detectrl_x", dict(self.base), "binary", "test", row_index=0)
+        with self.assertRaises(DatasetFetchError):
+            map_row(
+                "detectrl_x",
+                dict(self.base, split="test"),
+                "binary",
+                "train",
+                row_index=0,
+            )
+
+    def test_empty_refined_text_fails_closed(self) -> None:
+        with self.assertRaises(DatasetFetchError):
+            map_row(
+                "detectrl_x",
+                dict(self.base, llm_refined_text="  "),
+                "binary",
+                "train",
+                row_index=0,
+            )
+
+    def test_all_declared_langs_models_domains_map(self) -> None:
+        # Every enum value in the spec maps; the mapper is not
+        # English-only by accident.
+        for lang in (
+            "arabic",
+            "chinese",
+            "english",
+            "french",
+            "german",
+            "portuguese",
+            "russian",
+            "spanish",
+        ):
+            rows = map_row(
+                "detectrl_x",
+                dict(self.base, lang=lang),
+                "binary",
+                "train",
+                row_index=0,
+            )
+            self.assertEqual(len(rows), 2)
+        for model in ("deepseek-v3", "gemini-2.5-flash", "gpt-4o", "qwen-max"):
+            rows = map_row(
+                "detectrl_x",
+                dict(self.base, model=model),
+                "binary",
+                "train",
+                row_index=0,
+            )
+            self.assertEqual(len(rows), 2)
+        for domain in ("Academic", "News", "Novel", "Wiki", "SEO", "Webtext"):
+            rows = map_row(
+                "detectrl_x",
+                dict(self.base, domain=domain),
+                "binary",
+                "train",
+                row_index=0,
+            )
+            self.assertEqual(len(rows), 2)
+
+
+class DetectRLXFileTests(unittest.TestCase):
+    """Streaming JSON-array reader + sampler for the ~879 MB file.
+
+    No network and no real dataset text: the fixtures are tiny
+    synthetic arrays written to a temp dir.
+    """
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.dir = Path(self._tmp.name)
+
+    def _write_array(self, rows: list[dict], name: str = "f.json") -> Path:
+        path = self.dir / name
+        path.write_text(json.dumps(rows, ensure_ascii=False), encoding="utf-8")
+        return path
+
+    def _row(self, split: str, lang: str = "english") -> dict:
+        return {
+            "human_written_text": f"human {split} {lang}",
+            "llm_generated_text": f"machine {split} {lang}",
+            "lang": lang,
+            "model": "gpt-4o",
+            "split": split,
+            "domain": "Wiki",
+        }
+
+    def test_iter_yields_index_and_row_in_order(self) -> None:
+        path = self._write_array([self._row("train"), self._row("test"), self._row("train")])
+        got = list(iter_detectrl_x_rows(path))
+        self.assertEqual([i for i, _ in got], [0, 1, 2])
+        self.assertEqual([r["split"] for _, r in got], ["train", "test", "train"])
+
+    def test_iter_tolerates_whitespace_and_newlines(self) -> None:
+        path = self.dir / "pretty.json"
+        path.write_text(
+            "[\n  "
+            + json.dumps(self._row("train"))
+            + ",\n  "
+            + json.dumps(self._row("test"))
+            + "\n]\n",
+            encoding="utf-8",
+        )
+        self.assertEqual(len(list(iter_detectrl_x_rows(path))), 2)
+
+    def test_iter_rejects_jsonl_and_bare_object(self) -> None:
+        jsonl = self.dir / "rows.jsonl"
+        jsonl.write_text(json.dumps(self._row("train")) + "\n", encoding="utf-8")
+        with self.assertRaises(DatasetFetchError):
+            list(iter_detectrl_x_rows(jsonl))
+        bare = self.dir / "bare.json"
+        bare.write_text(json.dumps(self._row("train")), encoding="utf-8")
+        with self.assertRaises(DatasetFetchError):
+            list(iter_detectrl_x_rows(bare))
+
+    def test_iter_rejects_truncated_array(self) -> None:
+        path = self.dir / "trunc.json"
+        path.write_text("[" + json.dumps(self._row("train")) + ",", encoding="utf-8")
+        with self.assertRaises(DatasetFetchError):
+            list(iter_detectrl_x_rows(path))
+
+    def test_iter_rejects_non_object_element(self) -> None:
+        path = self.dir / "bad.json"
+        path.write_text('["not an object"]', encoding="utf-8")
+        with self.assertRaises(DatasetFetchError):
+            list(iter_detectrl_x_rows(path))
+
+    def test_sample_counts_per_split_and_collects_offsets(self) -> None:
+        rows = [self._row("train") for _ in range(10)] + [self._row("test") for _ in range(6)]
+        path = self._write_array(rows)
+        train, test, counts = sample_detectrl_x_rows(path, [0, 5, 9], [0, 5])
+        self.assertEqual(counts, {"train": 10, "test": 6, "total": 16})
+        self.assertEqual([i for i, _ in train], [0, 5, 9])
+        self.assertEqual([i for i, _ in test], [10, 15])
+        self.assertTrue(all(r["split"] == "train" for _, r in train))
+        self.assertTrue(all(r["split"] == "test" for _, r in test))
+
+    def test_sample_short_sample_fails_closed(self) -> None:
+        path = self._write_array([self._row("train") for _ in range(4)])
+        with self.assertRaises(DatasetFetchError):
+            sample_detectrl_x_rows(path, [0, 1, 2, 3, 4], [])
+
+    def test_sample_unexpected_split_fails_closed(self) -> None:
+        row = self._row("train")
+        row["split"] = "validation"
+        path = self._write_array([row])
+        with self.assertRaises(DatasetFetchError):
+            sample_detectrl_x_rows(path, [0], [])
+
+    def test_verify_file_size_and_hash(self) -> None:
+        import hashlib
+
+        import textforensics.datasets as datasets_module
+
+        data = b"small fake file"
+        path = self.dir / "fake.json"
+        path.write_bytes(data)
+        expected = hashlib.sha256(data).hexdigest()
+        with (
+            mock.patch.object(datasets_module, "DETECTRL_X_BYTES", len(data)),
+            mock.patch.object(datasets_module, "DETECTRL_X_SHA256", expected),
+        ):
+            self.assertEqual(verify_detectrl_x_file(path), path)
+        with (
+            mock.patch.object(datasets_module, "DETECTRL_X_BYTES", len(data)),
+            mock.patch.object(datasets_module, "DETECTRL_X_SHA256", "0" * 64),
+            self.assertRaises(DatasetFetchError),
+        ):
+            verify_detectrl_x_file(path)
+        with (
+            mock.patch.object(datasets_module, "DETECTRL_X_BYTES", len(data) + 1),
+            self.assertRaises(DatasetFetchError),
+        ):
+            verify_detectrl_x_file(path)
+        with self.assertRaises(DatasetFetchError):
+            verify_detectrl_x_file(self.dir / "missing.json")
+
+    def test_download_uses_shared_downloader_with_expected_hash(self) -> None:
+        import textforensics.datasets as datasets_module
+
+        seen: dict[str, object] = {}
+
+        def _fake_download(url, dest, **kwargs):
+            seen["url"] = url
+            seen["dest"] = dest
+            seen.update(kwargs)
+            return Path(dest)
+
+        with mock.patch.object(datasets_module, "download_large_file", side_effect=_fake_download):
+            result = download_detectrl_x(cache_dir=self.dir)
+        self.assertEqual(seen["url"], DETECTRL_X_URL)
+        self.assertEqual(seen["dest"], self.dir / "detectrl_x" / DETECTRL_X_FILE)
+        self.assertEqual(seen["expected_sha256"], DETECTRL_X_SHA256)
+        self.assertEqual(seen["expected_bytes"], DETECTRL_X_BYTES)
+        self.assertEqual(result, self.dir / "detectrl_x" / DETECTRL_X_FILE)
+        self.assertEqual(
+            detectrl_x_raw_path(cache_dir=self.dir),
+            self.dir / "detectrl_x" / DETECTRL_X_FILE,
+        )
 
 
 if __name__ == "__main__":

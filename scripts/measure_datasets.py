@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """measure_datasets.py — Fetch wave-1 + wave-2 dataset samples and measure the built-in detector.
 
-For each dataset in the wave-1 plan (plus GhostWriter in wave 2): fetch a documented strided sample
+For each dataset in the wave-1 plan (plus GhostWriter and DetectRL-X
+in wave 2): fetch a documented strided sample
 (``n`` evenly spaced rows across the split — every wave-1 split is
 ordered by testbed/model, so first-*n* sampling would be one-sided;
 RAID first-200 was all-human), map it to normalised rows, write the
@@ -11,6 +12,14 @@ fail-closed ``check_disjointness``, run ``BuiltinHeuristicDetector``
 over the labelled rows, and write one U7 run artifact (kind
 ``command``) per dataset to ``docs/evidence/runs/``, then rebuild the
 registry.
+
+DetectRL-X is the exception to the fetch path: the HF viewer / default
+load is broken, so it is measured from one whole file
+(``Binary/binary_general_open.json``) already in the local cache —
+downloaded once via the shared resumable downloader, verified by size
+and SHA-256, then counted and strided-sampled in a single streaming
+pass (see ``_fetch_detectrl_x``). Its plan ``n`` counts source rows
+(400 train source rows -> 800 normalised rows, one per text field).
 
 No dataset text is written to the repo: caches live outside it (XDG
 cache dir, ``TEXTFORENSICS_DATASETS_DIR`` override) and artifacts carry
@@ -47,11 +56,18 @@ from seed_evidence import _base_record, _write_record, rebuild_registry  # noqa:
 
 from textforensics.benchmark import check_disjointness, fingerprint_dataset  # noqa: E402
 from textforensics.datasets import (  # noqa: E402
+    DETECTRL_X_BYTES,
+    DETECTRL_X_FILE,
+    DETECTRL_X_SHA256,
     DatasetsServerClient,
+    download_detectrl_x,
     fetch_sample,
     fetch_strided_sample,
     get_spec,
     map_row,
+    sample_detectrl_x_rows,
+    sample_offsets,
+    verify_detectrl_x_file,
     write_sample_cache,
 )
 from textforensics.detectors import BuiltinHeuristicDetector  # noqa: E402
@@ -132,6 +148,26 @@ SAMPLE_PLAN = {
             "n": 50,
             "method": "strided",
             "total": 47_548,
+        },
+    },
+    # Wave 2 (2026-11-07): DetectRL-X n=400 strided SOURCE rows across
+    # train (76,800 rows in the single general file -> 800 normalised
+    # rows, one per text field); disjointness vs test (48,000 rows,
+    # n=50 strided). Counts are the README "Open vs. Heldout" table,
+    # verified from the downloaded file before sampling — the fetch
+    # refuses on a mismatch, so a stale plan can never be sampled.
+    "detectrl_x": {
+        "config": "binary",
+        "split": "train",
+        "n": 400,
+        "method": "strided",
+        "total": 76_800,
+        "disjoint": {
+            "config": "binary",
+            "split": "test",
+            "n": 50,
+            "method": "strided",
+            "total": 48_000,
         },
     },
 }
@@ -228,18 +264,64 @@ def _check_server_total(
         )
 
 
+def _fetch_detectrl_x(plan: dict) -> tuple[list, list, dict]:
+    """Fetch DetectRL-X samples from the whole file in the local cache.
+
+    The file is downloaded once via the shared resumable downloader
+    (a verified copy is returned without re-downloading), checked by
+    size and SHA-256, then counted and strided-sampled in a single
+    streaming pass. The per-split counts from the file are verified
+    against the plan totals BEFORE any row is mapped or cached — a
+    mismatch raises instead of sampling a stale denominator. Returns
+    ``(train_rows, test_rows, counts)`` where each row is an
+    ``(index, row_dict)`` pair (the index is the row's stable identity:
+    the file has no id field).
+    """
+    raw_path = download_detectrl_x()
+    verify_detectrl_x_file(raw_path)
+    disjoint = plan["disjoint"]
+    train_rows, test_rows, counts = sample_detectrl_x_rows(
+        raw_path,
+        sample_offsets(plan["total"], plan["n"]),
+        sample_offsets(disjoint["total"], disjoint["n"]),
+    )
+    if counts["train"] != plan["total"] or counts["test"] != disjoint["total"]:
+        raise ValueError(
+            "detectrl_x: file holds "
+            f"{counts['train']} train + {counts['test']} test rows, plan expects "
+            f"{plan['total']} + {disjoint['total']} — re-verify the plan before sampling"
+        )
+    return train_rows, test_rows, counts
+
+
 def measure_dataset(key: str, force: bool) -> dict:
     spec = get_spec(key)
     plan = SAMPLE_PLAN[key]
     client = DatasetsServerClient()
-    _check_server_total(spec, plan["config"], plan["split"], plan["total"], client)
-    print(
-        f"[{key}] fetching {plan['n']} rows ({plan['method']}) from {plan['config']}/{plan['split']} ..."
-    )
-    raw = _fetch(plan, spec, client)
+    if key == "detectrl_x":
+        # Whole-file path: no datasets-server involved (its viewer /
+        # default load is broken). The fetch verifies the file and
+        # the plan counts, and returns both samples in one pass.
+        indexed, disjoint_indexed, file_counts = _fetch_detectrl_x(plan)
+        rows_fetched = len(indexed)
+        print(
+            f"[{key}] sampled {plan['n']} train + {plan['disjoint']['n']} test source rows "
+            f"from {DETECTRL_X_FILE} ({file_counts['train']} train + "
+            f"{file_counts['test']} test rows in file) ..."
+        )
+    else:
+        _check_server_total(spec, plan["config"], plan["split"], plan["total"], client)
+        print(
+            f"[{key}] fetching {plan['n']} rows ({plan['method']}) from {plan['config']}/{plan['split']} ..."
+        )
+        raw = _fetch(plan, spec, client)
+        indexed = [(None, row) for row in raw]
+        disjoint_indexed = None
+        file_counts = None
+        rows_fetched = len(raw)
     normalized = []
-    for row in raw:
-        normalized.extend(map_row(key, row, plan["config"], plan["split"]))
+    for row_index, row in indexed:
+        normalized.extend(map_row(key, row, plan["config"], plan["split"], row_index=row_index))
     cache_path, manifest_path = write_sample_cache(spec, plan["config"], plan["split"], normalized)
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     print(f"[{key}] mapped to {len(normalized)} normalised rows -> {cache_path}")
@@ -254,7 +336,7 @@ def measure_dataset(key: str, force: bool) -> dict:
         "split": plan["split"],
         "sampling": plan["method"],
         "split_rows_total": plan["total"],
-        "rows_fetched": len(raw),
+        "rows_fetched": rows_fetched,
         "rows_normalised": len(normalized),
         "label_counts": {str(k): counts[k] for k in (0, 1, None) if k in counts},
         "cache_file_sha256": manifest["file_sha256"],
@@ -268,17 +350,35 @@ def measure_dataset(key: str, force: bool) -> dict:
     if disjoint_plan is None:
         results["disjointness"] = {"checked": False, "reason": "single-split dataset"}
     else:
-        _check_server_total(
-            spec,
-            disjoint_plan["config"],
-            disjoint_plan["split"],
-            disjoint_plan["total"],
-            client,
-        )
-        raw2 = _fetch(disjoint_plan, spec, client)
-        normalized2 = []
-        for row in raw2:
-            normalized2.extend(map_row(key, row, disjoint_plan["config"], disjoint_plan["split"]))
+        if key == "detectrl_x":
+            # Both samples came from the single streaming pass above;
+            # no second fetch, no datasets-server check.
+            assert disjoint_indexed is not None
+            normalized2 = []
+            for row_index, row in disjoint_indexed:
+                normalized2.extend(
+                    map_row(
+                        key,
+                        row,
+                        disjoint_plan["config"],
+                        disjoint_plan["split"],
+                        row_index=row_index,
+                    )
+                )
+        else:
+            _check_server_total(
+                spec,
+                disjoint_plan["config"],
+                disjoint_plan["split"],
+                disjoint_plan["total"],
+                client,
+            )
+            raw2 = _fetch(disjoint_plan, spec, client)
+            normalized2 = []
+            for row in raw2:
+                normalized2.extend(
+                    map_row(key, row, disjoint_plan["config"], disjoint_plan["split"])
+                )
         cache2, _ = write_sample_cache(
             spec, disjoint_plan["config"], disjoint_plan["split"], normalized2
         )
@@ -303,11 +403,18 @@ def measure_dataset(key: str, force: bool) -> dict:
     labelled = [r for r in normalized if r.label is not None]
     pairs: list[tuple[int, float]] = []
     abstentions = 0
+    # The builtin detector is English-focused and abstains on much
+    # non-English text — a real finding, recorded per language, never
+    # filtered to English-only silently.
+    abstentions_by_lang: dict[str, int] = {}
     per_kind: dict[str, list[float]] = {}
     for row in labelled:
         prediction = detector.detect(row.text)
         if prediction.verdict == "abstain":
             abstentions += 1
+            if key == "detectrl_x":
+                lang = str(row.meta.get("lang", "unknown"))
+                abstentions_by_lang[lang] = abstentions_by_lang.get(lang, 0) + 1
         pairs.append((int(row.label), float(prediction.score)))
         kind = str(row.meta.get("kind", row.regime))
         per_kind.setdefault(kind, []).append(float(prediction.score))
@@ -351,6 +458,29 @@ def measure_dataset(key: str, force: bool) -> dict:
             }
             for domain in sorted({str(r.meta.get("domain")) for r in normalized})
         }
+    if key == "detectrl_x":
+        assert file_counts is not None
+        langs = sorted({str(r.meta.get("lang")) for r in normalized})
+        results["source_file"] = DETECTRL_X_FILE
+        results["source_file_sha256"] = DETECTRL_X_SHA256
+        results["source_file_bytes"] = DETECTRL_X_BYTES
+        results["split_rows_verified"] = {
+            "train": file_counts["train"],
+            "test": file_counts["test"],
+            "total": file_counts["total"],
+        }
+        results["rows_by_lang"] = {
+            lang: sum(1 for r in normalized if r.meta.get("lang") == lang) for lang in langs
+        }
+        results["label_counts_by_lang"] = {
+            lang: {
+                str(k): sum(1 for r in normalized if r.meta.get("lang") == lang and r.label == k)
+                for k in (0, 1, None)
+                if any(r.meta.get("lang") == lang and r.label == k for r in normalized)
+            }
+            for lang in langs
+        }
+        results["abstentions_by_lang"] = {lang: abstentions_by_lang.get(lang, 0) for lang in langs}
 
     drops = [
         {
@@ -378,6 +508,50 @@ def measure_dataset(key: str, force: bool) -> dict:
             {
                 "item": f"{counts.get(None, 0)} fusion (mixed-origin) rows",
                 "reason": "label 2 rows carry no binary label; they are the U4 spine, not U1 evidence",
+            }
+        )
+    if key == "detectrl_x":
+        drops.append(
+            {
+                "item": "15 of 16 Binary files + all Ternary files",
+                "reason": (
+                    "single-file preliminary slice only: Binary/binary_general_open.json "
+                    "of 16 Binary files (~14.67 GB total); the README states the train "
+                    "split is identical across all strategy files, so the general file "
+                    "is the representative slice; Ternary files are out of scope for "
+                    "this measurement"
+                ),
+            }
+        )
+        drops.append(
+            {
+                "item": "HF viewer / default dataset load",
+                "reason": (
+                    "broken (DatasetGenerationCastError: perturbation files add a "
+                    "perturbation_info column; datasets-server /size confirms num_rows 0); "
+                    "per-file load only"
+                ),
+            }
+        )
+        drops.append(
+            {
+                "item": "commercial use and redistribution",
+                "reason": (
+                    "three-way licence conflict (GitHub README Apache-2.0 + NC restriction, "
+                    "HF MIT, ACL 2026 paper NC restriction); the strictest reading "
+                    "(non-commercial academic research only) governs; local cache only"
+                ),
+            }
+        )
+        drops.append(
+            {
+                "item": "per-language detector metrics",
+                "reason": (
+                    "the builtin detector is English-focused and abstains on much "
+                    "non-English text; per-language label counts and abstentions are "
+                    "recorded in the results, but AUROC/TPR are pooled only in this "
+                    "preliminary slice"
+                ),
             }
         )
 
