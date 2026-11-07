@@ -74,6 +74,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
@@ -122,13 +123,27 @@ CURRENT_GENERATORS: tuple[str, ...] = (
 # formatting-only change: it must never alter word count or meaning.
 # A transform that leaves a given text byte-identical is skipped for
 # that item (the builder tries the next one); the transform actually
-# applied is recorded per item with its base-text hash.
+# applied is recorded per item with its base-text hash. The first
+# five fire only when the text already contains the targeted
+# artifact (double spaces, newlines, curly quotes, compatibility
+# characters, trailing whitespace) — clean single-paragraph ASCII
+# text passes through all of them unchanged, which is why the list
+# also carries high-coverage transforms (double space after a
+# sentence-ending mark, curly apostrophes, unicode ellipsis/dash)
+# and a universal last resort (trailing newline). Order matters: the
+# builder tries them in this order and records the first one that
+# changes the text.
 BENIGN_TRANSFORMS: tuple[str, ...] = (
     "whitespace_collapse",
     "linebreak_normalise",
     "quote_straighten",
     "nfkc_normalise",
     "trailing_strip",
+    "double_space_after_period",
+    "apostrophe_curly",
+    "ellipsis_unicode",
+    "em_dash",
+    "trailing_newline",
 )
 
 _HEX_64 = frozenset("0123456789abcdef")
@@ -190,6 +205,16 @@ def apply_benign_transform(text: str, name: str) -> str:
         return unicodedata.normalize("NFKC", text)
     if name == "trailing_strip":
         return "\n".join(line.rstrip() for line in text.split("\n"))
+    if name == "double_space_after_period":
+        return re.sub(r"([.!?]) ", r"\1  ", text)
+    if name == "apostrophe_curly":
+        return text.replace("'", "\u2019")
+    if name == "ellipsis_unicode":
+        return text.replace("...", "\u2026")
+    if name == "em_dash":
+        return text.replace(" -- ", " \u2014 ")
+    if name == "trailing_newline":
+        return text if text.endswith("\n") else text + "\n"
     raise ValueError(f"unknown benign transform: {name!r}")
 
 

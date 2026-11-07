@@ -87,6 +87,27 @@ def test_benign_transforms_preserve_words_and_change_bytes():
     assert pc.apply_benign_transform("\u201chi\u201d", "quote_straighten") == '"hi"'
     assert pc.apply_benign_transform("a  \nb", "trailing_strip") == "a\nb"
     assert pc.apply_benign_transform("ﬁsh", "nfkc_normalise") == "fish"
+    assert pc.apply_benign_transform("Hi there. You ok.", "double_space_after_period") == (
+        "Hi there.  You ok."
+    )
+    assert pc.apply_benign_transform("don't", "apostrophe_curly") == "don\u2019t"
+    assert pc.apply_benign_transform("wait...", "ellipsis_unicode") == "wait\u2026"
+    assert pc.apply_benign_transform("a -- b", "em_dash") == "a \u2014 b"
+    assert pc.apply_benign_transform("abc", "trailing_newline") == "abc\n"
+    assert pc.apply_benign_transform("abc\n", "trailing_newline") == "abc\n"
+    # Every transform preserves word count on a realistic text, and at
+    # least one of them changes any ordinary English text (the builder
+    # relies on this: it records the first transform that changes the
+    # text, and skips the item only if none does).
+    realistic = "Don't wait... the first sentence ends here. A second one follows -- truly."
+    changed = [
+        name
+        for name in pc.BENIGN_TRANSFORMS
+        if pc.apply_benign_transform(realistic, name) != realistic
+    ]
+    assert changed, "no benign transform fires on ordinary text"
+    for name in changed:
+        assert pc.word_count(pc.apply_benign_transform(realistic, name)) == pc.word_count(realistic)
     with pytest.raises(ValueError):
         pc.apply_benign_transform(text, "not-a-transform")
 
