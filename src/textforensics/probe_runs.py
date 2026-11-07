@@ -294,10 +294,11 @@ _PRIMITIVE_NAMES = (
 def load_probe_metrics(primitives: Any = None) -> Any:
     """Return the ``probe_metrics`` primitives module (or an injected stub).
 
-    The real module ships on the ``u3-corpus`` branch. Until it merges,
-    callers that need metric computation must inject a ``primitives``
-    object exposing the same function names (tests do this); otherwise
-    :class:`ProbeMetricsUnavailable` is raised with a clear message.
+    The real module is ``textforensics.probe_metrics`` (merged with the
+    frozen probe corpus). Callers that need metric computation must
+    inject a ``primitives`` object exposing the same function names
+    (tests do this); otherwise :class:`ProbeMetricsUnavailable` is
+    raised with a clear message.
     """
     if primitives is not None:
         missing = [name for name in _PRIMITIVE_NAMES if not hasattr(primitives, name)]
@@ -308,11 +309,11 @@ def load_probe_metrics(primitives: Any = None) -> Any:
         return primitives
     try:
         from . import probe_metrics
-    except ImportError as exc:  # pragma: no cover - branch not merged yet
+    except ImportError as exc:
         raise ProbeMetricsUnavailable(
-            "textforensics.probe_metrics is not available: the u3-corpus "
-            "branch has not merged. Metric computation needs the probe "
-            "corpus module; alert/demotion logic does not."
+            "textforensics.probe_metrics is not available: metric "
+            "computation needs the probe-metrics module; alert/demotion "
+            "logic does not."
         ) from exc
     missing = [name for name in _PRIMITIVE_NAMES if not hasattr(probe_metrics, name)]
     if missing:  # pragma: no cover - defensive; the module defines all of them

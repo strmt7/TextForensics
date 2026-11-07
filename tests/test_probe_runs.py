@@ -1,27 +1,29 @@
 """Tests for the U3 probe-run engine (probe_runs.py).
 
-The statistical primitives live in ``textforensics.probe_metrics`` on
-the ``u3-corpus`` branch, which has not merged. These tests therefore
-use a small test-double object (``stub_primitives``) implementing the
-same function names with the standard closed forms (Wilson, two-sample
-KS + Kolmogorov asymptotic p-value, PSI over quantile bins, ECE/Brier,
+The statistical primitives live in ``textforensics.probe_metrics``
+(merged with the frozen probe corpus v1.0.0). These tests use a small
+test-double object (``stub_primitives``) implementing the same function
+names with the standard closed forms (Wilson, two-sample KS +
+Kolmogorov asymptotic p-value, PSI over quantile bins, ECE/Brier,
 Holm-Bonferroni). The double tests *this module's* aggregation, tier
 and demotion logic — not the primitives themselves, which are the
-corpus half's job and are covered by its own tests. When the corpus
-branch merges, a contract test should run the real module against the
-same fixtures; until then the double is the seam.
+corpus half's job and are covered by its own tests.
+``test_load_probe_metrics_resolves_real_module`` is the contract test:
+it runs the real module against the seam's names and value spot-checks.
 """
 
 from __future__ import annotations
 
 import math
 import random
+import sys
 import types
 from pathlib import Path
 
 import pytest
 
 from textforensics.probe_runs import (
+    _PRIMITIVE_NAMES,
     ProbeMetricsUnavailable,
     ProbeRunError,
     apply_demotions,
@@ -334,12 +336,33 @@ def test_load_probe_metrics_rejects_incomplete_stub():
 
 
 def test_load_probe_metrics_missing_module_raises_unavailable(monkeypatch):
-    import textforensics.probe_runs as mod
+    # Block the import rather than assuming the module is absent: a None
+    # entry in sys.modules makes `import` raise ImportError, and the
+    # package attribute must go too or `from . import probe_metrics`
+    # returns the already-imported module without importing.
+    import textforensics
 
-    real_import = mod.__dict__.get("probe_metrics", None)
-    assert real_import is None  # The u3-corpus branch has not merged.
-    with pytest.raises(ProbeMetricsUnavailable, match="u3-corpus"):
+    monkeypatch.setitem(sys.modules, "textforensics.probe_metrics", None)
+    monkeypatch.delattr(textforensics, "probe_metrics", raising=False)
+    with pytest.raises(ProbeMetricsUnavailable, match="not available"):
         load_probe_metrics()
+
+
+def test_load_probe_metrics_resolves_real_module():
+    """Post-merge contract: the real probe_metrics satisfies the seam."""
+    from textforensics import probe_metrics
+
+    resolved = load_probe_metrics()
+    assert resolved is probe_metrics
+    assert all(hasattr(probe_metrics, name) for name in _PRIMITIVE_NAMES)
+    # Value spot-checks (same inputs verified by hand at merge time).
+    a = [0.1, 0.2, 0.3, 0.4, 0.5] * 20
+    b = [0.35, 0.45, 0.55, 0.65, 0.75] * 20
+    assert probe_metrics.ks_statistic(a, b) == pytest.approx(0.6)
+    assert probe_metrics.psi(a, b) > 0
+    assert probe_metrics.psi(a, a) == 0.0
+    assert probe_metrics.wilson_ci(0, 125) == pytest.approx((0.0, 0.02982), abs=1e-4)
+    assert probe_metrics.holm_adjusted([0.001, 0.02, 0.3]) == pytest.approx([0.003, 0.04, 0.3])
 
 
 # ---------------------------------------------------------------------------

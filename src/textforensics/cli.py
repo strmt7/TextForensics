@@ -1201,9 +1201,8 @@ def _drift_run(args: argparse.Namespace) -> int:
     except ImportError:
         print(
             "error: the probe-corpus module (textforensics.probe_corpus) "
-            "is not available yet — the frozen probe corpus is built on "
-            "branch u3-corpus and merges separately. Run 'tf drift run' "
-            "again after that merge.",
+            "is not available — the frozen probe corpus could not be "
+            "imported.",
             file=sys.stderr,
         )
         return EXIT_INCOMPLETE

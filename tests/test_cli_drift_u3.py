@@ -1,11 +1,11 @@
 """CLI tests for ``tf drift run`` / ``tf drift status`` (U3).
 
-The frozen probe corpus and the probe-metrics primitives live on
-branch u3-corpus and have not merged yet, so these tests inject
-small fake ``textforensics.probe_corpus`` / ``textforensics.probe_metrics``
-modules (built from the same closed-form helpers as
-tests/test_probe_runs.py) and exercise the real CLI dispatch,
-including the missing-module exit path.
+The tests inject small fake ``textforensics.probe_corpus`` /
+``textforensics.probe_metrics`` modules (built from the same closed-form
+helpers as tests/test_probe_runs.py) so the CLI dispatch stays hermetic
+and fast, including the missing-module exit path. The real modules have
+merged (frozen probe corpus v1.0.0); the fakes exist only to keep these
+tests independent of the corpus data.
 """
 
 from __future__ import annotations
@@ -132,8 +132,17 @@ def _fake_probe_metrics_module():
 
 @pytest.fixture
 def fake_modules(monkeypatch):
-    monkeypatch.setitem(sys.modules, "textforensics.probe_corpus", _fake_probe_corpus_module())
-    monkeypatch.setitem(sys.modules, "textforensics.probe_metrics", _fake_probe_metrics_module())
+    fake_corpus = _fake_probe_corpus_module()
+    fake_metrics = _fake_probe_metrics_module()
+    monkeypatch.setitem(sys.modules, "textforensics.probe_corpus", fake_corpus)
+    monkeypatch.setitem(sys.modules, "textforensics.probe_metrics", fake_metrics)
+    # `from . import probe_corpus` prefers the package attribute over
+    # sys.modules once the real module was imported (e.g. by the
+    # corpus tests in the same process), so patch the attribute too.
+    import textforensics
+
+    monkeypatch.setattr(textforensics, "probe_corpus", fake_corpus, raising=False)
+    monkeypatch.setattr(textforensics, "probe_metrics", fake_metrics, raising=False)
 
 
 def _cli(argv: list[str]) -> int:
@@ -152,7 +161,14 @@ def _registry_file(tmp_path: Path, detector_id: str = BUILTIN_ID) -> Path:
 
 def test_drift_run_without_corpus_module_exits_2(tmp_path, monkeypatch, capsys):
     manifest, manifest_path, texts_path, holdback_path = _write_fixture_files(tmp_path)
-    monkeypatch.delitem(sys.modules, "textforensics.probe_corpus", raising=False)
+    # Block the import: a None entry in sys.modules makes `import`
+    # raise ImportError, and the package attribute must go too or
+    # `from . import probe_corpus` returns the already-imported module
+    # without importing (and the test would proceed past the guard).
+    import textforensics
+
+    monkeypatch.setitem(sys.modules, "textforensics.probe_corpus", None)
+    monkeypatch.delattr(textforensics, "probe_corpus", raising=False)
     code = _cli(
         [
             "drift",
@@ -169,7 +185,7 @@ def test_drift_run_without_corpus_module_exits_2(tmp_path, monkeypatch, capsys):
     )
     assert code == 2
     captured = capsys.readouterr()
-    assert "not available yet" in captured.err
+    assert "is not available" in captured.err
     assert list((tmp_path / "runs").glob("run-*.json")) == []
 
 
@@ -251,12 +267,15 @@ def test_drift_run_wrong_detector_version_exits_3(tmp_path, fake_modules, capsys
 
 def test_drift_run_corpus_verification_failure_exits_3(tmp_path, monkeypatch, capsys):
     _, manifest_path, texts_path, holdback_path = _write_fixture_files(tmp_path)
-    monkeypatch.setitem(
-        sys.modules,
-        "textforensics.probe_corpus",
-        _fake_probe_corpus_module(fail_verification=True),
-    )
-    monkeypatch.setitem(sys.modules, "textforensics.probe_metrics", _fake_probe_metrics_module())
+    fake_corpus = _fake_probe_corpus_module(fail_verification=True)
+    fake_metrics = _fake_probe_metrics_module()
+    monkeypatch.setitem(sys.modules, "textforensics.probe_corpus", fake_corpus)
+    monkeypatch.setitem(sys.modules, "textforensics.probe_metrics", fake_metrics)
+    # See fake_modules: the package attribute wins over sys.modules.
+    import textforensics
+
+    monkeypatch.setattr(textforensics, "probe_corpus", fake_corpus, raising=False)
+    monkeypatch.setattr(textforensics, "probe_metrics", fake_metrics, raising=False)
     code = _cli(
         [
             "drift",

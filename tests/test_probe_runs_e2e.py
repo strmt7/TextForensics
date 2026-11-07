@@ -102,16 +102,16 @@ def _build_corpus() -> tuple[dict, dict[str, str], dict[str, dict]]:
             holdback[item_id] = {"label": label, "regime": slice_name}
     items_json = json.dumps(items, sort_keys=True)
     manifest = {
-        "schema": "textforensics.probe-corpus/v1",
+        "format": "textforensics.probe-corpus/v1",
         "version": "1.0.0",
         "created_at_utc": "2026-11-07T00:00:00Z",
         "items": items,
         "items_sha256": hashlib.sha256(items_json.encode("utf-8")).hexdigest(),
         "holdback_sha256": hashlib.sha256(b"holdback").hexdigest(),
         "corpus_file_sha256": hashlib.sha256(b"corpus").hexdigest(),
-        "sources": ["synthetic"],
-        "current_generators": [],
-        "notes": "synthetic fixture corpus for perform_probe_run tests",
+        "sources": {"synthetic": {"description": "synthetic fixture corpus"}},
+        "current_generators": {"as_of": "2026-11-07", "generators": []},
+        "notes": ["synthetic fixture corpus for perform_probe_run tests"],
     }
     return manifest, texts, holdback
 
