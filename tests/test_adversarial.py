@@ -288,6 +288,56 @@ class TestAdversarialDetectorRiskAssessment:
         assert report.confidence > 0.5
 
 
+class TestAnalyzeDeduplicatesFindings:
+    """Regression tests (#4a): analyze() de-duplicates before risk/report.
+
+    ``analyze`` builds ``unique_findings`` (de-duped by
+    ``(pattern_id, location)``) but used to feed the raw, duplicated
+    ``all_findings`` into ``_assess_risk`` and the report. A detector
+    that returns the same finding twice must therefore surface once
+    in the report, once in ``patterns_triggered``, and once in the
+    list ``_assess_risk`` receives.
+    """
+
+    def _detector_with_duplicate(self):
+        duplicate = AdversarialFinding(
+            pattern_id="dup_pattern",
+            segment="sha256:" + "0" * 64,
+            evidence=1.0,
+            severity="high",
+            confidence=0.9,
+            location=(0, 10),
+            description="Duplicated finding",
+        )
+        library = HumanizationPatternLibrary()
+        for name in library.list_patterns():
+            library.unregister(name)
+        library.register("dup", lambda text: [duplicate, duplicate])
+        return AdversarialDetector(pattern_library=library), duplicate
+
+    def test_duplicate_finding_appears_once_in_report(self):
+        detector, duplicate = self._detector_with_duplicate()
+        report = detector.analyze("Some text for analysis here.")
+        assert report.findings == [duplicate]
+        assert report.patterns_triggered == 1
+
+    def test_risk_assessment_receives_deduplicated_findings(self):
+        detector, duplicate = self._detector_with_duplicate()
+        seen: dict[str, list[AdversarialFinding]] = {}
+        original_assess_risk = detector._assess_risk
+
+        def spy(findings):
+            seen["findings"] = list(findings)
+            return original_assess_risk(findings)
+
+        detector._assess_risk = spy  # type: ignore[method-assign]
+        report = detector.analyze("Some text for analysis here.")
+        assert seen["findings"] == [duplicate]
+        # The reported risk/confidence are the ones computed from the
+        # de-duplicated list.
+        assert (report.overall_risk, report.confidence) == original_assess_risk([duplicate])
+
+
 class TestCustomPatternRegistration:
     def test_custom_pattern_registration(self):
         library = HumanizationPatternLibrary()
