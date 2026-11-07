@@ -503,6 +503,26 @@ class TestPolicyRevisionFloor:
         assert floor2.floor_revision == valid_policy.revision
         assert floor2.floor_digest == valid_policy.digest
 
+    def test_legacy_32_byte_raw_key_with_whitespace_bytes(self, temp_state_dir, valid_policy):
+        # A raw key may start or end in a byte .strip() would remove; the
+        # 32-byte length check must run BEFORE stripping, or such a key is
+        # wrongly rejected (regression: Core 3.15 failed the random-key
+        # test above on exactly this, ~5% of random keys).
+        raw_key = b" " + os.urandom(30) + b"\n"
+        assert len(raw_key) == 32
+        (temp_state_dir / "key.key").write_bytes(raw_key)
+
+        floor = PolicyRevisionFloor(
+            state_path=temp_state_dir / "state.enc",
+            key_path=temp_state_dir / "key.key",
+        )
+        floor.advance_floor(valid_policy)
+        assert floor.floor_revision == valid_policy.revision
+
+        converted = base64.urlsafe_b64encode(raw_key)
+        assert floor.get_key() == converted
+        assert (temp_state_dir / "key.key").read_bytes() == converted
+
     @pytest.mark.parametrize(
         "bad_key",
         [

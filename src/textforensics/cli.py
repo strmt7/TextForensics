@@ -2227,7 +2227,7 @@ def _run_policy_command(args: argparse.Namespace) -> int:
         )
     except (ep.PolicyStateCorruptError, ep.PolicyKeyError) as exc:
         # Fail closed: a corrupt state or invalid key must never silently
-        # reset the revision floor. Report it and stop (exit 1).
+        # reset the revision floor. Report it and stop (exit 3).
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_ERROR
 

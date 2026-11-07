@@ -743,7 +743,11 @@ class PolicyRevisionFloor:
         it — validated by construction, not by length-sniffing alone.
         """
         if self._key_path.exists():
-            raw = self._key_path.read_bytes().strip()
+            raw = self._key_path.read_bytes()
+            # Check the 32-byte legacy length BEFORE stripping: a raw key
+            # may end (or start) in a whitespace byte that .strip() would
+            # remove, shrinking it to 31 bytes and making a valid legacy
+            # key look invalid (flaky PolicyKeyError, ~5% of random keys).
             if len(raw) == 32:
                 # Legacy raw 32-byte key: convert to base64 form (same key
                 # material, encoding only) and re-persist the converted form.
@@ -751,8 +755,9 @@ class PolicyRevisionFloor:
                 self._Fernet(converted)  # validate by construction
                 self._atomic_write_bytes(self._key_path, converted)
                 return converted
+            stripped = raw.strip()
             try:
-                self._Fernet(raw)
+                self._Fernet(stripped)
             except Exception as exc:
                 raise PolicyKeyError(
                     f"invalid policy key file: {self._key_path}. The file is "
@@ -760,7 +765,7 @@ class PolicyRevisionFloor:
                     "a valid key) to generate a fresh key explicitly; a new "
                     "key is never generated over an existing key file."
                 ) from exc
-            return raw
+            return stripped
         # Generate a new key (only when no key file exists).
         new_key = self._Fernet.generate_key()
         self._atomic_write_bytes(self._key_path, new_key)
