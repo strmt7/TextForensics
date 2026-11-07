@@ -2187,3 +2187,63 @@ compile and lint already passed on this head). Local gate on the
 final tree: full suite 2902 passed / 0 failed (known
 test_memory_check host flake deselected), pre-commit 13/13,
 claims 33/33, schemas 12 OK.
+
+## Verification record — Phase 5, wave 3: downloader urllib tuning + curl fallback (2026-11-07)
+
+Design authority: `hidden_files/downloader-investigation.md`
+(§5 rank 1: urllib tuning + curl fallback, combined). The incident
+it fixes: the shared urllib downloader failed the ~879 MB
+DetectRL-X fetch after 6 attempts, never past headers, while curl
+fetched the file in ~5 min.
+
+**PR #53** — implementation (`ed0fdab`, 4 files) → main `f0391eb`.
+Split connect/stall timeouts (custom urllib handler, socket
+timeout switches after `connect()`; plain `urlopen` path when the
+budgets are equal); jittered capped back-off
+(`random.uniform(0, min(60, 2·2**attempt))`); module logger with
+per-attempt TTFB / bytes / slowest-read timing (host only, never
+argv or curl stderr); `_download_with_curl` (argv list,
+`shell=False`, `--` before URL, `--proto =https`, loopback-http
+carve-out, non-loopback http refused, exit-33 restart, non-zero
+exit → `DownloadError` with exit code only); `limit_bytes` prefix
+probe; `download_detectrl_x` now `stall_timeout_s=300`,
+`retries=8`, with the falsified "stalls under the 30 s default"
+diagnosis corrected in its docstring (the incident ran six
+attempts at a 120 s timeout). `--retry-all-errors` deliberately
+NOT passed — verified locally to retry 404s (3 requests for one
+404, curl 8.5.0). Found during implementation and fixed here: a
+clean mid-body close is silent truncation in CPython 3.12
+(`read()` returns `b""`); a body shorter than the declared
+`Content-Length` now raises `IncompleteRead`, retries, and
+resumes. Branch CI 41 pass / 0 fail.
+
+**PR #54** — stall-server tests, prefix probe, probe workflow
+(`1e0db22`, 3 new files) → main `3f1e113`. `ThreadingHTTPServer`
+fixture (delayed headers, trickle, mid-body-drop resume,
+Range-ignoring restart via forced curl); `scripts/
+download_prefix_probe.py` (first 100 MiB, SHA-256 compare,
+`--force-curl`); `.github/workflows/download-prefix-probe.yml`
+(weekly Saturday 04:30 UTC + `workflow_dispatch` prefix/full).
+Branch CI 42 pass / 0 fail. Reconciliation: worker A's
+`DownloadStallServerTests` and worker B's
+`tests/test_download_stall.py` overlap in behavior coverage but
+differ in emphasis (handler timing + mocked argv vs end-to-end
+fixture incl. curl exit-33); both kept, recorded as a known small
+wart in the wave report.
+
+Live evidence (2026-11-07, healthy egress): prefix probe urllib
+MATCH 4.2 s / 23.95 MiB/s, forced curl MATCH 3.1 s / 31.99 MiB/s;
+full download via shipped `download_detectrl_x()` — 878,631,989
+bytes, SHA-256 match, 316.3 s (~5.3 min, 2.65 MiB/s), attempt 1/9,
+urllib only (curl fallback NOT used — nothing stalled). NOT proven:
+the curl fallback firing on a real stall, the stall timeout firing
+live, the scheduled workflow running on GitHub Actions, the
+`actions/cache` warm-hit path.
+
+Parent verification on merged main `3f1e113`: `tests/
+test_datasets.py` + `tests/test_download_stall.py` 99 passed;
+full extras suite **2923 passed / 0 failed** (known
+`test_memory_check` host flake deselected); pre-commit 13/13;
+claims 33/33; schemas 12 OK. CI on `3f1e113`: all jobs SUCCESS
+except Core Python 3.11 still running at time of writing (the
+branch CI on the identical tree passed Core 3.11).
