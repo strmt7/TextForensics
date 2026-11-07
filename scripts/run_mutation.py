@@ -52,7 +52,7 @@ accepts that marker. "Nothing to mutate" is therefore a pass, distinct from
 
 Equivalent-mutant baseline (``mutation-baseline.toml``)
 --------------------------------------------------------
-Some mutants cannot be killed by any test. Two kinds are recognised:
+Some mutants cannot be killed by any test. Three kinds are recognised:
 
 (a) Annotation mutants: a ``|`` inside a function annotation of a module
     using ``from __future__ import annotations`` (PEP 563), where the
@@ -68,6 +68,18 @@ Some mutants cannot be killed by any test. Two kinds are recognised:
     of the enclosing function (whitespace-normalised source), so any
     change to that function fails the entry loudly instead of passing
     silently. The proof for each entry is recorded in the baseline file.
+(c) Unobservable-value mutants (kind ``"unobservable-value"``): a
+    ``NumberReplacer`` mutant whose replacement value is provably
+    unobservable — the mutated expression's value never affects any
+    observable behaviour for any input (e.g. a tier-order constant
+    above every requirement it is ever compared against, a
+    ``dict.get`` default below every value it is ever compared
+    against, or an ``lru_cache`` ``maxsize`` on a zero-argument
+    function, whose cache can never hold more than one entry). The
+    entry carries the same source-text + function-fingerprint pinning
+    as (b), and the proof for each entry is recorded in the baseline
+    file. A new runtime kind needs its own validator first; the loader
+    rejects unknown kinds loudly rather than accepting them blind.
 
 Entries are keyed by ``(module, operator, start_pos, end_pos,
 occurrence)``. ``occurrence`` is part of the key — not provenance only —
@@ -88,7 +100,8 @@ re-validated: on every run the runner checks each entry against the
 current source (AST — for annotation entries the position must still
 hold the operator inside an annotation, the annotation text must be
 unchanged, the enclosing function must match, and the module must
-still use postponed evaluation; for unreachable-condition entries the
+still use postponed evaluation; for runtime entries (kinds
+``"unreachable-condition"`` and ``"unobservable-value"``) the
 position must still hold the recorded source text inside the recorded
 function and the function's fingerprint must be unchanged). The summary
 reports ``equivalent`` (accepted survivors), ``unexplained_surviving``
@@ -161,12 +174,19 @@ BASELINE_ANNOTATION_KINDS = {"arg", "return", "annassign"}
 
 #: Runtime kinds the baseline validator understands. ``"unreachable-
 #: condition"`` covers a NumberReplacer mutant inside a branch condition
-#: that is provably dead (see :func:`_validate_unreachable_condition_entry`
-#: and the baseline file's header): the condition reduces to a constant
+#: that is provably dead (see :func:`_validate_runtime_entry` and the
+#: baseline file's header): the condition reduces to a constant
 #: ``False`` for every replacement the operator can produce at that
-#: position. A new runtime kind needs its own validator first; the loader
-#: rejects unknown kinds loudly rather than accepting them blind.
-BASELINE_RUNTIME_KINDS = {"unreachable-condition"}
+#: position. ``"unobservable-value"`` covers a NumberReplacer mutant
+#: whose replacement value is provably unobservable (the mutated
+#: expression's value never affects any observable behaviour for any
+#: input). Both kinds are validated the same way — the recorded source
+#: text at the recorded position inside the recorded function, pinned
+#: by that function's fingerprint — because both proofs depend on the
+#: enclosing function's behaviour as a whole. A new runtime kind needs
+#: its own validator first; the loader rejects unknown kinds loudly
+#: rather than accepting them blind.
+BASELINE_RUNTIME_KINDS = {"unreachable-condition", "unobservable-value"}
 
 #: All baseline kinds (annotation + runtime).
 BASELINE_KINDS = BASELINE_ANNOTATION_KINDS | BASELINE_RUNTIME_KINDS
@@ -188,7 +208,7 @@ BASELINE_COMMON_FIELDS = {
 #: the entry pins; see :func:`_validate_annotation_entry`).
 BASELINE_ANNOTATION_FIELDS = {"annotation"}
 
-#: Extra fields an unreachable-condition entry must carry: the exact
+#: Extra fields a runtime-kind entry must carry: the exact
 #: original source text at the position (e.g. ``"0"``) and a SHA-256
 #: fingerprint of the enclosing function (see
 #: :func:`_function_fingerprint`).
@@ -497,8 +517,9 @@ def validate_baseline_entry(entry: dict[str, Any], project_root: Path) -> tuple[
     """Re-validate one baseline entry against the CURRENT source.
 
     Dispatches on kind: annotation kinds go through
-    :func:`_validate_annotation_entry`, ``"unreachable-condition"``
-    through :func:`_validate_unreachable_condition_entry`. Any failure
+    :func:`_validate_annotation_entry`, runtime kinds (``"unreachable-
+    condition"`` and ``"unobservable-value"``) through
+    :func:`_validate_runtime_entry`. Any failure
     returns ``(False, reason)`` — the entry is STALE and the run must
     fail loudly (exit 1), never pass silently.
     """
@@ -516,8 +537,8 @@ def validate_baseline_entry(entry: dict[str, Any], project_root: Path) -> tuple[
     lines = source.splitlines()
     if entry["kind"] in BASELINE_ANNOTATION_KINDS:
         return _validate_annotation_entry(entry, tree, source, lines)
-    if entry["kind"] == "unreachable-condition":
-        return _validate_unreachable_condition_entry(entry, tree, source, lines)
+    if entry["kind"] in BASELINE_RUNTIME_KINDS:
+        return _validate_runtime_entry(entry, tree, source, lines)
     return False, f"unknown baseline kind {entry['kind']!r}"
 
 
@@ -606,10 +627,15 @@ def _validate_annotation_entry(
     return True, "ok"
 
 
-def _validate_unreachable_condition_entry(
+def _validate_runtime_entry(
     entry: dict[str, Any], tree: ast.AST, source: str, lines: list[str]
 ) -> tuple[bool, str]:
-    """Re-validate an unreachable-condition entry against current source.
+    """Re-validate a runtime-kind entry against current source.
+
+    Covers both ``"unreachable-condition"`` and ``"unobservable-value"``
+    entries: the two kinds differ only in their proof (a provably dead
+    branch condition vs a provably unobservable replacement value), and
+    both proofs depend on the enclosing function's behaviour as a whole.
 
     Returns ``(True, "ok")`` only when every check holds: the recorded
     position still holds the recorded source text, it sits inside the
@@ -617,9 +643,9 @@ def _validate_unreachable_condition_entry(
     whitespace-normalised source still hashes to the recorded
     fingerprint. The fingerprint pins the WHOLE function because the
     equivalence proof depends on its behaviour as a whole (which states
-    are ever assigned, which branches are reachable); any edit to the
-    function — even far from the mutant — makes the entry stale so a
-    human re-verifies the proof.
+    are ever assigned, which branches are reachable, which values are
+    ever compared); any edit to the function — even far from the mutant
+    — makes the entry stale so a human re-verifies the proof.
     """
     start_line, start_col = entry["start_pos"]
     end_line, end_col = entry["end_pos"]
