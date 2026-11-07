@@ -14,18 +14,24 @@ Sampling plan (deterministic striding, no randomness)
   (50 human rows) + ai-legacy-generator (50 machine rows; every MAGE
   generator is 2022-or-earlier, newest gpt-3.5-turbo) + benign-
   transformed bases (25 human + 25 machine rows not used elsewhere).
-* RAID train, n=601 strided over 2,270,000 rows — ai-paraphrased
+* RAID train, n=801 strided over 2,270,000 rows — ai-paraphrased
   (50 machine rows, attack=paraphrase) + ai-humanized (50 machine
   rows, attack=synonym; a lexical-evasion attack, i.e. machine text
-  processed to look human).
+  processed to look human). (n=601 yielded only 48 paraphrase rows:
+  paraphrase is ~1/12 of attacks, so 601 strided rows is at the
+  margin; 801 gives ~67 expected.)
 * Beemo train, n=301 records strided over 2,187 records — human-short
   (50 human rows, kind=human, <100 words).
-* OpAI-Bench dev, n=503 strided over 42,363 rows — mixed-origin
+* OpAI-Bench dev, n=601 strided over 42,363 rows — mixed-origin
   (50 partial rows, version=v4, ai_sentence_ratio 0.5–0.55).
-* DetectRL-X test, n=401 source rows strided over 48,000 (streaming
+  (v4 is ~1/9 of rows; 503 strided rows would expect ~56, too
+  close to 50 for comfort — 601 expects ~67.)
+* DetectRL-X test, n=601 source rows strided over 48,000 (streaming
   pass over the cached, hash-verified file) — ai-current-generator
   (50 English machine rows; models deepseek-v3, gemini-2.5-flash,
-  gpt-4o, qwen-max — current as of 2026-11-07).
+  gpt-4o, qwen-max — current as of 2026-11-07). (English is ~1/8
+  of source rows; 401 would expect ~50 with zero margin — 601
+  expects ~75.)
 
 The ``n`` values are deliberately off by one from the U1 sample sizes
 (3000/400/100/500/400) so strided offsets almost never coincide with
@@ -80,10 +86,10 @@ CACHE_VERSION_DIR = pc.default_probe_corpus_dir()
 # (dataset key, config, split, n, expected_total) per fetch.
 FETCH_PLAN: dict[str, tuple[str, str, str, int, int]] = {
     "mage": ("mage", "default", "validation", 401, 56_792),
-    "raid": ("raid", "raid", "train", 601, 2_270_000),
+    "raid": ("raid", "raid", "train", 801, 2_270_000),
     "beemo": ("beemo", "default", "train", 301, 2_187),
-    "opai_bench": ("opai_bench", "default", "dev", 503, 42_363),
-    "detectrl_x": ("detectrl_x", "binary", "test", 401, 48_000),
+    "opai_bench": ("opai_bench", "default", "dev", 601, 42_363),
+    "detectrl_x": ("detectrl_x", "binary", "test", 601, 48_000),
 }
 
 
