@@ -20,9 +20,11 @@ from textforensics.datasets import (
     DatasetFetchError,
     DatasetLicenceError,
     DatasetsServerClient,
+    DownloadError,
     NormalizedRow,
     cache_path,
     default_cache_dir,
+    download_large_file,
     fetch_sample,
     fetch_strided_sample,
     get_spec,
@@ -176,6 +178,142 @@ class ClientTests(unittest.TestCase):
             )
         self.assertEqual(payload, {"rows": [{"row": {"a": 1}}]})
         self.assertEqual(calls["n"], 3)
+
+
+class DownloadTests(unittest.TestCase):
+    """Resumable large-file downloader (wave-2 shared infrastructure).
+
+    No network: urlopen is mocked. A live smoke test (small real file)
+    is run by hand, not in the suite.
+    """
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.dest = Path(self._tmp.name) / "file.bin"
+        self.sleep_patch = mock.patch("textforensics.datasets.time.sleep")
+        self.sleep_patch.start()
+        self.addCleanup(self.sleep_patch.stop)
+
+    def _fake_download_response(self, data: bytes, *, status: int = 200):
+        body = io.BytesIO(data)
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.__exit__.return_value = False
+        response.status = status
+        response.read.side_effect = lambda n=-1: body.read(n)
+        return response
+
+    def test_fresh_download_verifies_hash_and_renames(self) -> None:
+        import hashlib
+
+        data = b"hello world, resumable download"
+        expected = hashlib.sha256(data).hexdigest()
+        with mock.patch(
+            "urllib.request.urlopen",
+            return_value=self._fake_download_response(data),
+        ):
+            result = download_large_file(
+                "https://example.invalid/file.bin", self.dest, expected_sha256=expected
+            )
+        self.assertEqual(result, self.dest)
+        self.assertEqual(self.dest.read_bytes(), data)
+        self.assertFalse(Path(str(self.dest) + ".part").exists())
+
+    def test_hash_mismatch_raises_and_leaves_no_valid_file(self) -> None:
+        with (
+            mock.patch(
+                "urllib.request.urlopen",
+                return_value=self._fake_download_response(b"corrupt"),
+            ),
+            self.assertRaises(DownloadError),
+        ):
+            download_large_file(
+                "https://example.invalid/file.bin",
+                self.dest,
+                expected_sha256="0" * 64,
+            )
+        self.assertFalse(self.dest.exists())
+        self.assertTrue(Path(str(self.dest) + ".part").exists())
+
+    def test_resume_uses_range_and_appends(self) -> None:
+
+        part = Path(str(self.dest) + ".part")
+        part.write_bytes(b"hello ")
+        seen: dict[str, str] = {}
+
+        def _urlopen(request, **kwargs):
+            seen["range"] = request.get_header("Range")
+            return self._fake_download_response(b"world", status=206)
+
+        with mock.patch("urllib.request.urlopen", side_effect=_urlopen):
+            download_large_file("https://example.invalid/file.bin", self.dest)
+        self.assertEqual(seen["range"], "bytes=6-")
+        self.assertEqual(self.dest.read_bytes(), b"hello world")
+
+    def test_server_ignoring_range_restarts_from_zero(self) -> None:
+        part = Path(str(self.dest) + ".part")
+        part.write_bytes(b"stale partial")
+        with mock.patch(
+            "urllib.request.urlopen",
+            return_value=self._fake_download_response(b"full file", status=200),
+        ):
+            download_large_file("https://example.invalid/file.bin", self.dest)
+        self.assertEqual(self.dest.read_bytes(), b"full file")
+
+    def test_transient_disconnect_is_retried_then_resumed(self) -> None:
+        import http.client
+
+        calls = {"n": 0}
+
+        def _flaky(request, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise http.client.RemoteDisconnected("Remote end closed connection")
+            return self._fake_download_response(b"data")
+
+        with mock.patch("urllib.request.urlopen", side_effect=_flaky):
+            download_large_file("https://example.invalid/file.bin", self.dest, retries=2)
+        self.assertEqual(self.dest.read_bytes(), b"data")
+        self.assertEqual(calls["n"], 2)
+
+    def test_404_fails_immediately_without_retry(self) -> None:
+        with (
+            mock.patch(
+                "urllib.request.urlopen",
+                side_effect=urllib.error.HTTPError(
+                    "https://example.invalid/missing", 404, "Not Found", {}, None
+                ),
+            ) as urlopen,
+            self.assertRaises(DownloadError),
+        ):
+            download_large_file("https://example.invalid/missing", self.dest, retries=3)
+        self.assertEqual(urlopen.call_count, 1)
+        self.assertFalse(self.dest.exists())
+
+    def test_already_downloaded_file_is_not_refetched(self) -> None:
+        import hashlib
+
+        data = b"already here"
+        self.dest.write_bytes(data)
+        expected = hashlib.sha256(data).hexdigest()
+        with mock.patch("urllib.request.urlopen") as urlopen:
+            result = download_large_file(
+                "https://example.invalid/file.bin", self.dest, expected_sha256=expected
+            )
+        urlopen.assert_not_called()
+        self.assertEqual(result, self.dest)
+
+    def test_expected_byte_count_mismatch_raises(self) -> None:
+        with (
+            mock.patch(
+                "urllib.request.urlopen",
+                return_value=self._fake_download_response(b"short"),
+            ),
+            self.assertRaises(DownloadError),
+        ):
+            download_large_file("https://example.invalid/file.bin", self.dest, expected_bytes=100)
+        self.assertFalse(self.dest.exists())
 
 
 class FetchSampleTests(unittest.TestCase):

@@ -36,6 +36,11 @@ Design rules
   exact format :func:`textforensics.benchmark.fingerprint_dataset` and
   :func:`textforensics.benchmark.check_disjointness` consume, so split
   disjointness is checked with the existing fail-closed machinery.
+* Large files. :func:`download_large_file` is the shared resumable
+  downloader for whole-file fetches (wave-2 worker B needs it for a
+  ~1 GB DetectRL-X file): HTTP Range resume, retries with back-off,
+  ``.part`` + atomic rename so a partial file is never mistaken for a
+  valid one, and SHA-256 verification against a manifest hash.
 
 Wave-1 scope only. RealDet / CrisisFake have no verified route (no
 loader), PAN 2025 is wave 2 (gated on TIRA registration), MultiSocial
@@ -88,6 +93,135 @@ class DatasetLicenceError(DatasetError):
 
 class DatasetFetchError(DatasetError):
     """Raised when the datasets-server API cannot serve a request."""
+
+
+class DownloadError(DatasetError):
+    """Raised when a large-file download cannot be completed/verified."""
+
+
+DOWNLOAD_CHUNK_SIZE = 1 << 20  # 1 MiB per read while streaming
+
+
+def _is_retryable_download_error(exc: Exception) -> bool:
+    """True for transient download failures; 4xx HTTP errors are not retried."""
+    if isinstance(exc, urllib.error.HTTPError):
+        return exc.code >= 500
+    return isinstance(
+        exc,
+        (
+            urllib.error.URLError,
+            TimeoutError,
+            http.client.HTTPException,
+            ConnectionError,
+        ),
+    )
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(DOWNLOAD_CHUNK_SIZE), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def download_large_file(
+    url: str,
+    dest: str | Path,
+    *,
+    expected_sha256: str | None = None,
+    expected_bytes: int | None = None,
+    chunk_size: int = DOWNLOAD_CHUNK_SIZE,
+    timeout_s: float = DEFAULT_TIMEOUT_S,
+    retries: int = DEFAULT_RETRIES,
+    user_agent: str = "TextForensics/0.2.0 (research evaluation)",
+) -> Path:
+    """Download ``url`` to ``dest`` with resume, retries and verification.
+
+    Standard library only. The download streams to ``dest`` + ``".part"``
+    and is renamed into place with :func:`os.replace` only after the
+    transfer completes and verifies — a partial or corrupt file is
+    never left at ``dest``. A pre-existing ``.part`` file is resumed
+    with an HTTP ``Range`` request when the server honours it (HTTP
+    206); if the server ignores the range (HTTP 200) the partial file
+    is discarded and the download restarts from byte 0. Transient
+    failures (``RemoteDisconnected`` / ``HTTPException`` /
+    ``ConnectionError`` / ``URLError`` / timeouts, and 5xx HTTP
+    errors) are retried with exponential back-off, reusing the
+    wave-1 client retry discipline; 4xx errors fail immediately.
+    ``expected_sha256`` (and ``expected_bytes`` when known) are checked
+    before the rename; a mismatch raises :class:`DownloadError` and
+    leaves only the ``.part`` file behind. A destination that already
+    exists and verifies against the expected hash/size is returned
+    without re-downloading.
+    """
+    dest = Path(dest)
+    part = dest.with_name(dest.name + ".part")
+    if dest.exists():
+        if expected_sha256 is not None and _sha256_file(dest) == expected_sha256:
+            return dest
+        if (
+            expected_sha256 is None
+            and expected_bytes is not None
+            and dest.stat().st_size == expected_bytes
+        ):
+            return dest
+        if expected_sha256 is None and expected_bytes is None:
+            return dest
+        dest.unlink()
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    last_error: Exception | None = None
+    for attempt in range(retries + 1):
+        resume_from = part.stat().st_size if part.exists() else 0
+        headers = {"User-Agent": user_agent}
+        if resume_from:
+            headers["Range"] = f"bytes={resume_from}-"
+        request = urllib.request.Request(url, headers=headers)
+        try:
+            with urllib.request.urlopen(request, timeout=timeout_s) as response:
+                status = getattr(response, "status", 200)
+                if status == 416:
+                    # Range not satisfiable: the part already holds the
+                    # whole file; fall through to verification below.
+                    break
+                if resume_from and status != 206:
+                    # Server ignored the Range header; restart cleanly.
+                    part.unlink(missing_ok=True)
+                    resume_from = 0
+                mode = "ab" if resume_from else "wb"
+                with part.open(mode) as handle:
+                    while True:
+                        chunk = response.read(chunk_size)
+                        if not chunk:
+                            break
+                        handle.write(chunk)
+            break
+        except Exception as exc:  # noqa: BLE001 — retryability decides
+            if not _is_retryable_download_error(exc):
+                raise DownloadError(f"GET {url} failed (not retryable): {exc}") from exc
+            last_error = exc
+            if attempt < retries:
+                time.sleep(2**attempt)
+    else:  # pragma: no cover — loop only exits via break or raise
+        raise DownloadError(f"GET {url} failed after {retries + 1} attempts: {last_error}")
+    if not part.exists():
+        raise DownloadError(f"GET {url}: server reported the range complete but no data arrived")
+
+    if expected_bytes is not None and part.stat().st_size != expected_bytes:
+        raise DownloadError(
+            f"GET {url}: downloaded {part.stat().st_size} bytes, "
+            f"expected {expected_bytes}; leaving {part} for inspection"
+        )
+    if expected_sha256 is not None:
+        actual = _sha256_file(part)
+        if actual != expected_sha256:
+            raise DownloadError(
+                f"GET {url}: SHA-256 mismatch (got {actual}, "
+                f"expected {expected_sha256}); leaving {part} for inspection"
+            )
+    os.replace(part, dest)
+    return dest
 
 
 @dataclass(frozen=True)
