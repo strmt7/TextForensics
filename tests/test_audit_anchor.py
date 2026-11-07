@@ -162,6 +162,35 @@ class TestHashDirectory:
         assert first != ""
         assert first != hashlib.sha256(b"").hexdigest()
 
+    def test_large_file_hashed_in_chunks(self, tmp_path: Path):
+        # File larger than the 1 MiB read chunk: chunked reading must
+        # produce the identical digest to hashing the same bytes directly.
+        from textforensics.ledger import _HASH_CHUNK_SIZE
+
+        content = (b"0123456789abcdef" * 163840) + b"tail"  # 2.5 MiB + 4 B
+        assert len(content) > _HASH_CHUNK_SIZE
+        large = tmp_path / "large"
+        large.mkdir()
+        (large / "big.bin").write_bytes(content)
+
+        expected = hashlib.sha256()
+        expected.update(b"big.bin")
+        expected.update(b"\x00")
+        for offset in range(0, len(content), _HASH_CHUNK_SIZE):
+            expected.update(content[offset : offset + _HASH_CHUNK_SIZE])
+        expected.update(b"\n")
+
+        assert _hash_directory(large) == expected.hexdigest()
+
+        # Same digest again when the whole content is fed in one update,
+        # proving chunk boundaries do not change the result.
+        whole = hashlib.sha256()
+        whole.update(b"big.bin")
+        whole.update(b"\x00")
+        whole.update(content)
+        whole.update(b"\n")
+        assert _hash_directory(large) == whole.hexdigest()
+
 
 # ---------------------------------------------------------------------------
 # verify_audit_anchor

@@ -1424,6 +1424,11 @@ class AuditAnchor:
         )
 
 
+# Chunk size for streaming file reads in _hash_directory: files are hashed
+# in fixed 1 MiB chunks so a large artifact never has to fit in RAM whole.
+_HASH_CHUNK_SIZE = 1 << 20
+
+
 def _hash_directory(dir_path: Path) -> str:
     """Compute a deterministic SHA-256 hash of a directory tree.
 
@@ -1445,7 +1450,9 @@ def _hash_directory(dir_path: Path) -> str:
             rel = str(file_path.relative_to(dir_path))
             hasher.update(rel.encode("utf-8"))
             hasher.update(b"\x00")
-            hasher.update(file_path.read_bytes())
+            with file_path.open("rb") as handle:
+                while chunk := handle.read(_HASH_CHUNK_SIZE):
+                    hasher.update(chunk)
             hasher.update(b"\n")
     return hasher.hexdigest()
 
