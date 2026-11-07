@@ -2247,3 +2247,85 @@ full extras suite **2923 passed / 0 failed** (known
 claims 33/33; schemas 12 OK. CI on `3f1e113`: all jobs SUCCESS
 except Core Python 3.11 still running at time of writing (the
 branch CI on the identical tree passed Core 3.11).
+
+## Verification record — Phase 5, wave 4: latent defects register (2026-11-07)
+
+All 13 findings from the latent-defects register
+(`hidden_files/latent-defects-register.md`) are fixed and on main
+`721b564`. Detail: `hidden_files/phase5-wave4-latent-defects.md`.
+
+#1 + #8 (High — silent anti-rollback bypass, fixed together):
+`PolicyRevisionFloor._load_state` no longer fail-opens; corrupt state
+raises `PolicyStateCorruptError`, a wrong-length key file raises
+`PolicyKeyError` instead of being silently overwritten, legacy 32-byte
+raw keys are converted explicitly, state/key writes are atomic, the
+CLI fails closed with exit 3. Two pinned tests that asserted the
+reset were changed. A real defect found while fixing: the 32-byte
+length was checked AFTER `.strip()` — a legacy key whose first/last
+byte is ASCII whitespace lost a byte and failed the check (Core 3.15
+CI failure, fixed in `284b118`). A flaky test using `os.urandom(32)`
+failed ~4.5% of runs for the same reason; now a fixed key.
+
+#3 (Medium): `EnterprisePolicyEngine.evaluate` implements the
+`"disable"` action the schema enum and docstring already advertised.
+#2 (Low): `_hash_directory` docstring corrected (missing dir returns
+`""`, empty dir returns the empty-string hash). #13 (Low): file reads
+streamed in 1 MiB chunks instead of unbounded `read_bytes()`.
+
+#4a/#4b/#4c/#10/#11/#12 (adversarial): `analyze` de-dup now feeds
+risk + report (was computed and discarded); duplicated `_sha256`
+removed; `false_positive_rate` no longer defaults to a fabricated
+0.0; `detect_regex_artifacts` hashes the real matched span, not
+`text[:200]`; dead `HumanizationPattern` dataclass deleted; two
+discarded no-op statements removed.
+
+#5 (Low): `ModelCard.load`/`load_model_card` are real loaders now
+(they parsed JSON and unconditionally returned `None`). #9 (Low):
+v3 overall on zero dimensions returns `"insufficient"` in both the
+primary and the replay path. #6 (Low): the gitleaks false positive
+(`tests/test_watermarking.py:533`, runtime-generated keypair
+comparison) is allowlisted in `.gitleaks.toml`.
+
+Mutation — policy.py is the second target module with a kill/baseline
+proof after trust.py (wave 2). The runner itself needed a fix:
+`test_command_for` mapped `textforensics.policy` to
+`tests/test_policy.py`, which does not exist (tests live in
+`tests/test_enterprise_policy.py`), so it fell back to the full
+suite and the 30 s per-test timeout killed the baseline before any
+mutant ran — that is exactly what failed PR #56's Mutation job
+before the mapping fix landed. New baseline kind
+`"unobservable-value"` (a NumberReplacer mutant whose replacement
+value is provably unobservable) reuses the `unreachable-condition`
+validation path exactly; the loader rejects unknown kinds. Baseline
+entries are position-keyed: the strip fix added +5 lines above the
+baselined positions, so 42 entries pointed 5 lines too high — caught
+by the runner's own re-validation (51 test failures, all position
+failures) and fixed by shifting positions only, same as the wave-2
++11 precedent.
+
+Proofs (all parent-verified independently): #55 branch head
+`9a89264` — budget-200 diff run: total 200, killed 118, surviving
+82, equivalent 82, unexplained 0, stale 0, exit 0; full suite 3007
+passed / 0 failed (1 deselected, known `test_memory_check` host
+flake); branch CI Mutation job pass (6m5s). #56 branch head
+`721b564` (rebased onto `9a89264` with zero conflicts) — budget-200
+diff run: total 200, killed 119, surviving 81, equivalent 81,
+unexplained 0, stale 0, exit 0; full suite 3016 passed / 0 failed
+(1 deselected); branch CI Mutation job pass (6m54s), 39 pass / 0
+fail. Gate not weakened: exit 2 on unexplained survivors, exit 1
+on stale entries, equivalents never counted as killed.
+
+Process change (Greg, 2026-11-07 21:51 CET): development ONLY in
+main, no PRs, no lingering branches, no manual review by Greg. The
+parent merged #57 (adversarial, `db2b331`), #58 (misc, `65d761b`),
+#55 (`9a89264`) and #56 (`721b564`) directly by fast-forward of the
+exact verified commits, closed redundant PR #59 unmerged, and
+deleted every non-main branch including the leftover
+`codeql-proof-pr2`. End state: only `main` exists locally and
+remotely; 0 open PRs.
+
+Honest gaps: 298 unexecuted work items in the 498-item policy
+session (incl. 3 Pow mutants deliberately not baselined) remain
+unknown until a larger-budget run; the baseline stays position-keyed,
+so any edit above a baselined position that changes the line count
+must refresh the baseline or the gate fails loudly by design.
