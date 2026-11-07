@@ -1180,3 +1180,169 @@ SHA-256 `815be166…`) and `binary/train.jsonl` (800 rows, SHA-256
 - **Other Python versions**: measured on 3.12.3 only; CI covers the
   matrix.
 - **No push, no release, no tag.** Pushing is the parent's step.
+
+## Verification record — Phase 3, datasets wave 2, worker C: DetectRL, M4, M4GT-Bench (licence-blocked loaders) (2026-11-07)
+
+Three licence-blocked loaders, MixSet precedent: specs + mappers
+that refuse, mocked tests only. No live rows, no artifacts, no U1
+records, no registry changes. Work is in `main` only, canonical
+identity `Stratos <28989754+strmt7@users.noreply.github.com>`; no
+push, no release, no tag. Commits `3a385f3` (DetectRL), `c09dce5`
+(M4), `e5b9177` (M4GT-Bench), plus this docs commit, on top of
+`ceca136` (workers A+B head). PAN 2025 is not this worker (gated on
+Greg's TIRA access).
+
+### What was built
+
+- Three `DatasetSpec` entries in `src/textforensics/datasets.py`
+  (`detectrl`, `m4`, `m4gt_bench`), all with `licence=None` and
+  `licence_status="unresolved"`. Each `licence_note` documents
+  exactly what was checked (sources, dates, `license:null`, no
+  LICENSE file, per-source paper tables where they exist, including
+  the NC terms) and what would unblock it (a dataset licence
+  statement from the authors). Each spec's `notes` record the
+  verified route, file lists, and scope-qualified counts — with
+  contradictions stated, never resolved by picking one figure.
+  All three have `configs=()` / `splits=()`: no loader splits are
+  mapped until a live row is inspected. None of the three has a
+  Hugging Face dataset, so `hf_id` holds the GitHub repo slug —
+  never pass it to the datasets-server client.
+- Three refusing mappers (`_map_detectrl`, `_map_m4`,
+  `_map_m4gt_bench`), registered in `_MAPPERS` and reached through
+  `map_row`. Each raises `DatasetFetchError` whose message states
+  both conditions: the licence is unresolved AND no live row has
+  been inspected — refusing to map. M4's schema is documented
+  (`data/README.md`: `prompt, human_text, machine_text, model,
+  source, source_ID`, one (human, machine) pair per row, label
+  implicit, no numeric label column) but still unconfirmed against
+  data, so it refuses too; DetectRL's and M4GT-Bench's field names
+  are unverified and their docstrings say so.
+- Tests in `tests/test_datasets.py` (mocked only, no network): per
+  dataset a spec-presence/licence test (key registered,
+  `licence=None`, status unresolved, gate raises, note/note
+  contents), a licence-gate test (gate raises before any fetch
+  attempt — mocked client, `client.rows` never called), and a
+  mapper-refusal test (gate fires first via `map_row` with
+  `DatasetLicenceError`; the mapper itself, called directly,
+  raises `DatasetFetchError` naming both refusal conditions).
+- No fetchers were written (deferred, by design): the git-clone /
+  Drive-download fetchers cannot be tested without live data and
+  the gate would refuse them anyway. The verified route + what the
+  fetcher must do are recorded in each spec's notes.
+
+### Licence verdicts (coordinator-verified live 2026-11-07; relied on, not re-researched)
+
+- **DetectRL** (`NLP2CT/DetectRL`): **NO-GO.** GitHub API record
+  `"license":null` (parent fork `junchaoIU/DetectRL` also null);
+  no LICENSE file (404); no licence statement in the README. The
+  FAU Erlangen reprocessed version
+  (`philipp-ding/Contamination-in-Generated-Text-Detection-Benchmarks`,
+  `cleaned_DetectRL_files/`) is ALSO `"license":null` with no
+  LICENSE file — same gate.
+- **M4** (`mbzuai-nlp/M4`): **NO-GO.** GitHub API record
+  `"license":null`; no LICENSE file; no licence statement in the
+  README. Per-source licences exist in paper Table 1 (arXiv HTML
+  2305.14902, verified) — Wikipedia CC BY-SA-3.0; Reddit ELI5
+  "Huggingface" (not a licence); WikiHow CC-BY-NC-SA; PeerRead
+  Apache; arXiv abstract CC0; Arabic-Wikipedia CC BY-SA-3.0; True
+  & Fake News MIT; Baike/Web QA MIT; id_newspapers_2018 CC
+  BY-NC-SA-4.0; RuATD Apache 2.0; Urdu-news CC BY 4.0 — two
+  sources are NC. Per-source licences do not add up to a dataset
+  licence.
+- **M4GT-Bench** (`mbzuai-nlp/M4GT-Bench`): **NO-GO.** GitHub API
+  record `"license":null`; no LICENSE file; no licence statement
+  in the README. Per-source licences exist in paper Table 2
+  (arXiv HTML 2402.11175v2, verified) — Arabic-Wikipedia CC
+  BY-SA-3.0; True & Fake News (Bulgarian) MIT; Baike/Web QA
+  (Chinese) MIT; id_newspapers_2018 CC BY-NC-SA-4.0; RuATD Apache
+  2.0; Urdu-news CC BY 4.0; News (Arabic) Apache 2.0; CHANGE-it
+  News (Italian) CC BY-NC-SA 4.0; News (German) CC BY-NC-SA-4.0;
+  Wikipedia (German) CC BY-SA-3.0 — three sources are NC.
+  Per-source licences do not add up to a dataset licence.
+
+### Routes and counts as recorded (verified, for the record — DO NOT clone/download for data)
+
+- **DetectRL**: `git clone https://github.com/NLP2CT/DetectRL.git`
+  (271,708 KB). Human data in `Benchmark/Original_Dataset/` (4 ×
+  2,800 JSONs: arxiv, writing_prompt, xsum, yelp_review; 11,200
+  human texts). Generated data in `Benchmark/Benchmark_Data/` (11
+  subdirs). Task splits in `Benchmark/Tasks/` (Task1–4; Task1 ==
+  Task2 content). Paper count 235,200 (100,800 H + 134,400 LGT)
+  is a paper figure only; in-repo file row counts NOT verified.
+  Labels implicit in file/directory (task × domain × LLM ×
+  attack); field names inside the benchmark JSONs NOT verified.
+  Traps recorded in the spec notes: `load_dataset.sh` only runs
+  the four `get_*_data.py` samplers against LOCAL `*_all.json`
+  files not in the repo (downloads nothing);
+  `data_generation.sh` regenerates via paid LLM APIs (cannot
+  re-run without keys); `benchmark_construction.sh` does NOT exist
+  at the repo root (README stale) — the construction script is
+  `Data_Generation/benchmark construction.py` (space in the
+  filename). FAU shortcut finding recorded: 98.5% of Claude-LLM
+  data shows simple patterns — do not use the original as a clean
+  training set without the cleansing.
+- **M4**: `git clone https://github.com/mbzuai-nlp/M4.git`;
+  `data/` has 38 `.jsonl` files + README.md (1,005,995,293 B
+  total, ~1.006 GB), naming `<DOMAIN>_<MODEL>.jsonl`
+  (`russian_chatGPT.jsonl` 74,318,020 B largest). NO
+  `*_human.jsonl` files exist despite `data/README.md`
+  documenting that naming scheme — human text is embedded
+  per-row. Counts, contradiction stated not resolved, quote none
+  as the size: paper Table 1 total 147,895 (35,798 H + 112,097
+  M); secondary figures 122K and 245K BOTH contradict the paper's
+  own table. Per-file row counts NOT verified. The paper lists
+  14,344 GPT-4 generations but NO `*gpt4*` file exists in
+  `data/`; `flant5` only for arXiv/Reddit, `llama` only for
+  PeerRead. No train/test split defined; authors' metrics are
+  accuracy/precision/recall/F1.
+- **M4GT-Bench**: Google Drive folder
+  `https://drive.google.com/drive/folders/1xC-n5hHiXmaCLmA0q3p8Cbyd7Dk0dpDE?usp=sharing`
+  (verbatim from the README, public link):
+  `SubtaskA_multilingual.jsonl` 693.4 MB; `SubtaskA.jsonl` 480.5
+  MB; `SubtaskB.jsonl` 332.3 MB; `subtaskC_test.jsonl` 73.8 MB;
+  `subtaskC_train_dev.jsonl` 138.4 MB (≈1.72 GB total). Drive
+  offers no row counts — Drive row counts NOT verifiable without
+  downloading. Counts, scope-qualified only, from the paper's own
+  tables: Task 1 EN 138,465 (65,177 H + 73,288 M); + multilingual
+  65,100 + GPT-4 14,344 = 217,909 (≈217k); Task 3 adds 31,893;
+  all-in with OUTFOX ≈281k. Tasks: (1) binary mono/multilingual;
+  (2) multi-way generator identification; (3) mixed human-machine
+  change-point detection (human share 0–50% of words) — the U4
+  spine. Authors' metrics: Tasks 1/2 F1/precision/recall per
+  generator + F1-macro and accuracy; Task 3 MAE on the boundary
+  index. Report per-task, never pooled.
+
+### Known limitation recorded for future fetchers
+
+The shared urllib downloader (`download_large_file`) could not
+sustain an ~879 MB DetectRL-X download (timed out after 6
+attempts, never past headers) while curl fetched the full file in
+~5 min with the SHA-256 verified; the shipped loader still uses
+`download_large_file`. Recorded in the M4 and M4GT-Bench spec
+notes: a future ~1.006 GB M4 fetch / ~1.72 GB Drive fetch will
+likely need curl or a downloader fix. The downloader was NOT fixed
+in this task; fetchers are deferred by the brief.
+
+### What is NOT verified / NOT done here
+
+- **No new claims.** The claims gate stays **33/33**; no registry
+  was touched (U7 registry still 17 records, validation registry
+  still 6 records). No run artifacts, no measurements, no U1
+  records for any of the three datasets — there are no live rows
+  to measure.
+- **No dataset data anywhere.** Nothing was cloned or downloaded
+  for data (no DetectRL clone, no M4 clone, no Drive download).
+  No cache files, no raw text in the repo, tests, or docs.
+- **No fetchers written.** The git-clone / Drive-download fetchers
+  are deferred: untestable without live data, and the licence
+  gate would refuse them anyway. A future fetcher must follow the
+  route recorded in each spec's notes.
+- **No baseline graft.** No new hashes were introduced (no
+  artifacts, no records), so nothing tripped the secrets hooks;
+  the `.secrets.baseline` is untouched (still 121 entries).
+- **No downloader fix.** The `download_large_file` large-file
+  limitation is recorded, not fixed.
+- **PAN 2025**: not this worker (gated on Greg's TIRA access).
+- **Other Python versions**: verified on 3.12.3 only; CI covers the
+  matrix.
+- **No push, no release, no tag.** Pushing is the parent's step.
