@@ -1,0 +1,22 @@
+{
+  "badge": "available",
+  "cited_content": "license = {text = \"AGPL-3.0-or-later\"",
+  "code_version": "264344ec8bc4f50c705d9724355afa18f8a7c3a6",
+  "command": "read pyproject.toml; record license field",
+  "document": "pyproject.toml",
+  "document_sha256": "3c8de200abaab783e1dfab443624ae473c5549be69a31336633deb1b1aea99e5",
+  "drops": [],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261107-doc-license",
+  "kind": "doc",
+  "results": {
+    "cited_content_present": true,
+    "license": "AGPL-3.0-or-later"
+  },
+  "run_date": "2026-11-07",
+  "schema": "textforensics.run-artifact/v1"
+}

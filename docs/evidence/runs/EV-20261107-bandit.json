@@ -1,0 +1,21 @@
+{
+  "badge": "available",
+  "code_version": "264344ec8bc4f50c705d9724355afa18f8a7c3a6",
+  "command": "bandit -r src/ -lll",
+  "drops": [],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261107-bandit",
+  "kind": "security-scan",
+  "results": {
+    "bandit_high": 0,
+    "bandit_lll_exit": 0,
+    "bandit_low": 26,
+    "bandit_medium": 3
+  },
+  "run_date": "2026-11-07",
+  "schema": "textforensics.run-artifact/v1"
+}

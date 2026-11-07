@@ -76,6 +76,16 @@
       "run_artifact_sha256": "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
     },
     {
+      "evidence_record_id": "EV-20261107-bandit",
+      "run_artifact": "docs/evidence/runs/EV-20261107-bandit.json",
+      "run_artifact_sha256": "436681d416b714085d0fee41bb2d55a1aaef7debd4666dbc1a1779849067680a"
+    },
+    {
+      "evidence_record_id": "EV-20261107-code-audit",
+      "run_artifact": "docs/evidence/runs/EV-20261107-code-audit.json",
+      "run_artifact_sha256": "f54995ef72dbe45453fed1a80eab792d28924f607c6d286c4b0ae3ab9656463b"
+    },
+    {
       "evidence_record_id": "EV-20261107-dataset-detectrl-x",
       "run_artifact": "docs/evidence/runs/EV-20261107-dataset-detectrl-x.json",
       "run_artifact_sha256": "efc7ec05ac495c7b3460f557cea4d2e81b6cfafbf5861bb2d1be722cb0bf7e8d"
@@ -89,6 +99,51 @@
       "evidence_record_id": "EV-20261107-dataset-opai-bench-segments",
       "run_artifact": "docs/evidence/runs/EV-20261107-dataset-opai-bench-segments.json",
       "run_artifact_sha256": "5ecc111efa6b4a836e337d226ed6abc09eb8fb7cf59de65818389af4165a57ee"
+    },
+    {
+      "evidence_record_id": "EV-20261107-determinism",
+      "run_artifact": "docs/evidence/runs/EV-20261107-determinism.json",
+      "run_artifact_sha256": "28cc04b0e70f2041b83d55603ff3d5f766b6fce3e05d8d1f042a14674be01798"
+    },
+    {
+      "evidence_record_id": "EV-20261107-doc-ci-matrix",
+      "run_artifact": "docs/evidence/runs/EV-20261107-doc-ci-matrix.json",
+      "run_artifact_sha256": "04818f262edf6463ad3098ec88751170f625eedae225f10632019daefac09bf5"
+    },
+    {
+      "evidence_record_id": "EV-20261107-doc-license",
+      "run_artifact": "docs/evidence/runs/EV-20261107-doc-license.json",
+      "run_artifact_sha256": "980b8b6f8abefd1eda38d34d8722c2d67c01f866f3b2b2f3802655df729813f6"
+    },
+    {
+      "evidence_record_id": "EV-20261107-doc-repro",
+      "run_artifact": "docs/evidence/runs/EV-20261107-doc-repro.json",
+      "run_artifact_sha256": "b54525a4246755a34b475f2caf4c143f1eae68c65ebd946580d4dd55878788eb"
+    },
+    {
+      "evidence_record_id": "EV-20261107-pip-audit",
+      "run_artifact": "docs/evidence/runs/EV-20261107-pip-audit.json",
+      "run_artifact_sha256": "2f59b2619c9d76b195b673cf069fde969d7ebbef323f432309fd0ef7dd4dfc4c"
+    },
+    {
+      "evidence_record_id": "EV-20261107-ruff",
+      "run_artifact": "docs/evidence/runs/EV-20261107-ruff.json",
+      "run_artifact_sha256": "d7c97135df258d9875705e14a72ee0b4f302bda17a932ecfcb0df4bcabdec0eb"
+    },
+    {
+      "evidence_record_id": "EV-20261107-schemas",
+      "run_artifact": "docs/evidence/runs/EV-20261107-schemas.json",
+      "run_artifact_sha256": "1d8d10ce669944270ea881fa5d52fe6c6a8ccc35579ea40cbaa1184134fa4ed9"
+    },
+    {
+      "evidence_record_id": "EV-20261107-suite-core",
+      "run_artifact": "docs/evidence/runs/EV-20261107-suite-core.json",
+      "run_artifact_sha256": "1a2ab10713fb2402c40a5d3d56119df695c45421b4b0f90a4f7ed10513f92477"
+    },
+    {
+      "evidence_record_id": "EV-20261107-suite",
+      "run_artifact": "docs/evidence/runs/EV-20261107-suite.json",
+      "run_artifact_sha256": "223484e3e9c85484605bf89b2ec5276969f708c2c713d5fe5d877957b7f9b7c1"
     }
   ],
   "schema": "textforensics.evidence-registry/v1"

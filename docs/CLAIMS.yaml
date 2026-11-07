@@ -35,8 +35,11 @@
 # Rules for this file (AGENTS.md rule 1: never invent benchmark results):
 # - A claim's statement must match what its evidence actually shows.
 # - Numbers come from the cited run artifact in docs/evidence/runs/
-#   (measured 2026-11-06), never from an earlier run or from memory.
-# - Capabilities with no implementation (RAID/DetectRL/M4 integration)
+#   (suite and dependency measurements re-seeded 2026-11-07; dataset
+#   artifacts measured 2026-11-06/2026-11-07), never from an earlier run
+#   or from memory.
+# - Capabilities with no release-grade evidence (dataset measurements
+#   are preliminary; DetectRL/M4/M4GT-Bench/MixSet are licence-blocked)
 #   have NO claim here at all. A missing claim is honest; a
 #   partially_verified placeholder is not.
 # - Duplicate YAML keys are rejected by check_claims.py (see F12, audit §4).
@@ -142,7 +145,7 @@ claims:
     run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "trustmap.evidence_conditioned"
-    statement: "Trust Map v2 is evidence-conditioned: 'supported' requires registered, held-out validation slices; metadata alone yields at most 'partial'"
+    statement: "Trust Map v2/v3 is evidence-conditioned: 'supported' requires registered, held-out validation slices; metadata alone yields at most 'partial'"
     category: "capability"
     status: "verified"
     evidence_type: "test"
@@ -269,7 +272,7 @@ claims:
     run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "mcp.tools_exposed"
-    statement: "MCP server exposes verify_case_file, analyze_text, and capability_list tools"
+    statement: "MCP server exposes verify_case_file, analyze_ai_text, and capability_list tools"
     category: "compatibility"
     status: "verified"
     evidence_type: "test"
@@ -280,38 +283,38 @@ claims:
     run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
 
   - id: "test_suite_measured"
-    statement: "Full test suite measured in the extras venv: 2354 passed, 1 failed (known host-memory flake), 0 skipped; 86% line coverage (measured 2026-11-06, Python 3.12.3)"
+    statement: "Full test suite measured in the extras venv: 3016 passed, 1 failed (known host-memory flake), 0 skipped; 83% line coverage (measured 2026-11-07, Python 3.12.3)"
     category: "maturity"
     status: "verified"
     evidence_type: "doc"
     evidence_path: "docs/VERIFICATION.md"
     owner: "dev"
-    last_verified: "2026-11-06"
-    notes: "The 1 failure is tests/test_diagnostics.py::TestDiagnosticsEngine::test_memory_check, a known host-memory flake: it fails when this VM sits above 95% memory use and passes in isolation and in CI. The old '2210 passed, 147 skipped, 0 failed; 78%' note (Phase 1 bare-venv numbers) is superseded; the bare core-only numbers are now in test_suite_measured_core."
-    evidence_record_id: "EV-20261106-suite"
-    run_artifact_sha256: "bfb3faa38a4667014a4e47edf5a62d838bbae37f95d1d906511f0b355cf96bf4"
+    last_verified: "2026-11-07"
+    notes: "The 1 failure is tests/test_diagnostics.py::TestDiagnosticsEngine::test_memory_check, a known host-memory flake: it fails when this VM sits above 95% memory use and passes in isolation and in CI. Supersedes the 2026-11-06 record (2354 passed, 1 failed, 86%). The bare core-only numbers are in test_suite_measured_core."
+    evidence_record_id: "EV-20261107-suite"
+    run_artifact_sha256: "223484e3e9c85484605bf89b2ec5276969f708c2c713d5fe5d877957b7f9b7c1"
     values:
-      tests_passed: 2354
+      tests_passed: 3016
       tests_failed: 1
       tests_skipped: 0
-      coverage_pct: 86
+      coverage_pct: 83
 
   - id: "test_suite_measured_core"
-    statement: "Full test suite measured in a bare core-only venv (no optional extras): 2243 passed, 0 failed, 112 skipped; 82% line coverage (measured 2026-11-06, Python 3.12.3)"
+    statement: "Full test suite measured in a bare core-only venv (no optional extras): 2904 passed, 1 failed (known host-memory flake), 112 skipped; 81% line coverage (measured 2026-11-07, Python 3.12.3)"
     category: "maturity"
     status: "verified"
     evidence_type: "doc"
     evidence_path: "docs/VERIFICATION.md"
     owner: "dev"
-    last_verified: "2026-11-06"
-    notes: "The 112 skips are tests for optional extras not installed in the core venv (fastapi/typer-gated). The test_memory_check host-memory flake did not fire in this run; on runs where it does, the record's drops manifest names it."
-    evidence_record_id: "EV-20261106-suite-core"
-    run_artifact_sha256: "eebc9ccedd2673e4d4d9339b29d32fce7e6450d1366ce90b15fed9fb4f419800"
+    last_verified: "2026-11-07"
+    notes: "The 112 skips are tests for optional extras not installed in the core venv (fastapi/typer-gated). The 1 failure is the test_memory_check host-memory flake (see test_suite_measured); the record's drops manifest names it. Supersedes the 2026-11-06 record (2243 passed, 0 failed, 112 skipped, 82%)."
+    evidence_record_id: "EV-20261107-suite-core"
+    run_artifact_sha256: "1a2ab10713fb2402c40a5d3d56119df695c45421b4b0f90a4f7ed10513f92477"
     values:
-      tests_passed: 2243
-      tests_failed: 0
+      tests_passed: 2904
+      tests_failed: 1
       tests_skipped: 112
-      coverage_pct: 82
+      coverage_pct: 81
 
   - id: "python_version_support"
     statement: "Python 3.11-3.15 are in the CI test matrix; the local measured run used Python 3.12.3"
@@ -364,21 +367,21 @@ claims:
       bandit_low: 16
 
   - id: "security.pip_audit_tracked"
-    statement: "pip-audit reports 25 known findings in 3 packages (cryptography 42.0.8: 11, pip 24.0: 12, pytest 8.4.2: 2); every finding has a fixed version and the cryptography cap is widened by Dependabot #27 in Phase 4"
+    statement: "pip-audit reports 12 known findings in 1 package (pip 24.0: 12); every finding has a fixed version and the cryptography cap was widened by Dependabot #27 in Phase 4 (cryptography is now >=42.0.8,<51, 0 findings; pytest 0 findings)"
     category: "security"
     status: "verified"
     evidence_type: "doc"
     evidence_path: "docs/VERIFICATION.md"
     owner: "security"
-    last_verified: "2026-11-06"
-    notes: "Replaces the old 'no critical vulnerabilities' claim, whose own note admitted 108 vulns. pip 24.0 is the venv installer, not a shipped dependency; pytest is dev-only."
-    evidence_record_id: "EV-20261106-pip-audit"
-    run_artifact_sha256: "ffaa16dc4c6b1020f1ce7debd318995998a48a4c76dc27ac8d011804ccc624ba"
+    last_verified: "2026-11-07"
+    notes: "Replaces the old 'no critical vulnerabilities' claim, whose own note admitted 108 vulns. pip 24.0 is the venv installer, not a shipped dependency; pytest is dev-only. Re-seeded 2026-11-07: Dependabot #27 (Phase 4, commit ac030c7) widened the cryptography cap from <43 to <51, clearing all 11 cryptography findings (installed 50.0.2, 0 findings); pytest is now 9.2.0 with 0 findings."
+    evidence_record_id: "EV-20261107-pip-audit"
+    run_artifact_sha256: "2f59b2619c9d76b195b673cf069fde969d7ebbef323f432309fd0ef7dd4dfc4c"
     values:
-      findings_total: 25
-      packages.cryptography: 11
+      findings_total: 12
+      packages.cryptography: 0
       packages.pip: 12
-      packages.pytest: 2
+      packages.pytest: 0
 
   - id: "deterministic_builds"
     statement: "Wheel builds are reproducible: the reproducibility workflow builds twice with SOURCE_DATE_EPOCH=1704067200 and compares the artifacts"

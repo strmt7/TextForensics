@@ -1,0 +1,19 @@
+{
+  "badge": "available",
+  "code_version": "264344ec8bc4f50c705d9724355afa18f8a7c3a6",
+  "command": "python scripts/validate_schemas.py",
+  "drops": [],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261107-schemas",
+  "kind": "schema-validation",
+  "results": {
+    "schemas_ok": 12,
+    "schemas_total": 12
+  },
+  "run_date": "2026-11-07",
+  "schema": "textforensics.run-artifact/v1"
+}

@@ -1,0 +1,43 @@
+{
+  "badge": "available",
+  "code_version": "264344ec8bc4f50c705d9724355afa18f8a7c3a6",
+  "command": "/tmp/tfc-core-venv/bin/python -m pytest tests/ -q -p no:cacheprovider --cov=src/textforensics --cov-report=term -o addopts=",
+  "detector_version": "0.1.0",
+  "drops": [
+    {
+      "item": "Python 3.11, 3.13, 3.14, 3.15 not run locally",
+      "reason": "Local verification covers 3.12.3 only; those versions are in the CI matrix"
+    },
+    {
+      "item": "112 skipped tests",
+      "reason": "Tests for optional extras not installed in this environment"
+    },
+    {
+      "item": "Failed test recorded, not hidden: tests/test_diagnostics.py::TestDiagnosticsEngine::test_memory_check",
+      "reason": "test_memory_check is a known host-memory flake: it fails when this VM sits above 95% memory use and passes in isolation and in CI"
+    }
+  ],
+  "environment": {
+    "extras": "none",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261107-suite-core",
+  "kind": "test-suite",
+  "results": {
+    "coverage_branches": 6716,
+    "coverage_missed": 2933,
+    "coverage_partial": 1188,
+    "coverage_pct": 81,
+    "coverage_stmts": 17831,
+    "duration_s": 353.83,
+    "failed_tests": [
+      "tests/test_diagnostics.py::TestDiagnosticsEngine::test_memory_check"
+    ],
+    "tests_failed": 1,
+    "tests_passed": 2904,
+    "tests_skipped": 112
+  },
+  "run_date": "2026-11-07",
+  "schema": "textforensics.run-artifact/v1"
+}

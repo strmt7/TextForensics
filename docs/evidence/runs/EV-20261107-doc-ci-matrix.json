@@ -1,0 +1,28 @@
+{
+  "badge": "available",
+  "cited_content": "python-version: [\"3.11\", \"3.12\", \"3.13\", \"3.14\", \"3.15\"]",
+  "code_version": "264344ec8bc4f50c705d9724355afa18f8a7c3a6",
+  "command": "read .github/workflows/ci.yml; record core matrix versions",
+  "document": ".github/workflows/ci.yml",
+  "document_sha256": "b6577edebc105668ecec201fe0772bc2c14c2190adcc8d97cadea8641be80f66",
+  "drops": [],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261107-doc-ci-matrix",
+  "kind": "doc",
+  "results": {
+    "cited_content_present": true,
+    "python_versions": [
+      "3.11",
+      "3.12",
+      "3.13",
+      "3.14",
+      "3.15"
+    ]
+  },
+  "run_date": "2026-11-07",
+  "schema": "textforensics.run-artifact/v1"
+}
