@@ -41,10 +41,13 @@ Design rules
   :func:`textforensics.benchmark.check_disjointness` consume, so split
   disjointness is checked with the existing fail-closed machinery.
 * Large files. :func:`download_large_file` is the shared resumable
-  downloader for whole-file fetches (wave-2 worker B needs it for a
-  ~1 GB DetectRL-X file): HTTP Range resume, retries with back-off,
+  downloader for whole-file fetches (a ~1 GB DetectRL-X file):
+  HTTP Range resume, retries with jittered capped back-off,
   ``.part`` + atomic rename so a partial file is never mistaken for a
-  valid one, and SHA-256 verification against a manifest hash.
+  valid one, SHA-256 verification against a manifest hash, split
+  connect vs stall timeouts, and a curl subprocess fallback for
+  stalls urllib cannot ride out (curl is a recommended system tool,
+  not a Python dependency; core stays stdlib-only).
 * Whole-file datasets. DetectRL-X is served as one JSON array per
   file (~879 MB for the general file); loading it whole would need
   several GB of RAM, so :func:`iter_detectrl_x_rows` decodes one
@@ -66,7 +69,11 @@ import ast
 import hashlib
 import http.client
 import json
+import logging
 import os
+import random
+import shutil
+import subprocess
 import time
 import urllib.error
 import urllib.parse
@@ -79,6 +86,24 @@ DATASETS_SERVER_BASE = "https://datasets-server.huggingface.co"
 ROWS_PER_REQUEST = 100
 DEFAULT_TIMEOUT_S = 30
 DEFAULT_RETRIES = 3
+
+logger = logging.getLogger(__name__)
+
+# curl fallback caps (see _download_with_curl): connect budget, total
+# wall-clock budget, and the stall detector (abort only if throughput
+# collapses below this floor for this long, instead of a fixed read
+# timeout — the property that lets curl ride out the stalls that
+# abort urllib attempts).
+_CURL_CONNECT_TIMEOUT_S = 30
+_CURL_MAX_TIME_S = 3600
+_CURL_SPEED_LIMIT_BPS = 1024
+_CURL_SPEED_TIME_S = 120
+_CURL_RETRIES = 3
+_CURL_RETRY_DELAY_S = 5
+
+# Plain http is only ever allowed to loopback (local fixtures); see
+# _curl_proto_args.
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 
 # TextForensics label convention: 1 = machine-generated / machine-involved,
 # 0 = human. Mirrors PAN subtask 1 (class 1 = machine, 0 = human).
@@ -172,6 +197,217 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _log_host(url: str) -> str:
+    """Host part of ``url`` for log lines (never the full URL)."""
+    return urllib.parse.urlparse(url).hostname or "?"
+
+
+def _response_content_length(response: Any) -> int | None:
+    """Declared Content-Length of ``response``, or None if absent/unparseable.
+
+    Only a plain int/str header is trusted: mocked responses return
+    MagicMocks for unconfigured attributes, and those must never be
+    mistaken for a declared length.
+    """
+    raw = response.getheader("Content-Length")
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, str):
+        try:
+            return int(raw.strip())
+        except ValueError:
+            return None
+    return None
+
+
+def _backoff_delay(attempt: int, base: float = 2.0, cap: float = 60.0) -> float:
+    """Full-jitter back-off before download attempt ``attempt`` (0-based).
+
+    Uniform in ``[0, min(cap, base * 2**attempt)]``: retries spread
+    over minutes instead of re-hitting the same stalled window seconds
+    apart (the shipped ``2**attempt`` discipline totalled 31 s for
+    six attempts), and concurrent clients do not synchronise their
+    retries. The ``time.sleep`` call site stays patchable in tests.
+    """
+    return random.uniform(0, min(cap, base * 2**attempt))
+
+
+class _SplitTimeoutHTTPConnection(http.client.HTTPConnection):
+    """HTTPConnection whose socket timeout switches after connect().
+
+    The connection is created with the connect budget (``timeout``);
+    once connect() returns — TCP + proxy CONNECT done — the socket
+    timeout becomes the stall budget, which then bounds TTFB and every
+    body read. Verified against a local delayed-headers server
+    (2026-11-07): a 2 s header delay trips a 0.5 s stall budget in
+    ~0.53 s and succeeds with a 5 s budget.
+    """
+
+    def __init__(self, *args: Any, stall_timeout_s: float | None = None, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._stall_timeout_s = stall_timeout_s
+
+    def connect(self) -> None:
+        super().connect()
+        if self._stall_timeout_s is not None and self.sock is not None:
+            self.sock.settimeout(self._stall_timeout_s)
+
+
+class _SplitTimeoutHTTPSConnection(http.client.HTTPSConnection):
+    """HTTPSConnection with the same connect/stall split (see above).
+
+    connect() does TCP + TLS here, so the stall budget is set on the
+    wrapped socket after the handshake, and bounds TTFB and reads.
+    """
+
+    def __init__(self, *args: Any, stall_timeout_s: float | None = None, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._stall_timeout_s = stall_timeout_s
+
+    def connect(self) -> None:
+        super().connect()
+        if self._stall_timeout_s is not None and self.sock is not None:
+            self.sock.settimeout(self._stall_timeout_s)
+
+
+class _SplitTimeoutHTTPHandler(urllib.request.HTTPHandler):
+    """HTTPHandler opening connections with a split connect/stall timeout."""
+
+    def __init__(self, stall_timeout_s: float) -> None:
+        super().__init__()
+        self._stall_timeout_s = stall_timeout_s
+
+    def http_open(self, req: urllib.request.Request):
+        return self.do_open(_SplitTimeoutHTTPConnection, req, stall_timeout_s=self._stall_timeout_s)
+
+
+class _SplitTimeoutHTTPSHandler(urllib.request.HTTPSHandler):
+    """HTTPSHandler opening connections with a split connect/stall timeout."""
+
+    def __init__(self, stall_timeout_s: float) -> None:
+        super().__init__()
+        self._stall_timeout_s = stall_timeout_s
+
+    def https_open(self, req: urllib.request.Request):
+        return self.do_open(
+            _SplitTimeoutHTTPSConnection, req, stall_timeout_s=self._stall_timeout_s
+        )
+
+
+def _split_timeout_opener(stall_timeout_s: float) -> urllib.request.OpenerDirector:
+    """Opener whose HTTP/HTTPS handlers enforce a split connect/stall timeout.
+
+    ``build_opener`` keeps its default ProxyHandler (egress proxies
+    still work) and drops only the default HTTP/HTTPS handlers, which
+    these subclasses replace; each redirect hop re-enters the handler,
+    so every hop gets the same split. The ``timeout=`` passed to
+    ``opener.open`` is the connect budget; the stall budget travels
+    inside the handler.
+    """
+    return urllib.request.build_opener(
+        _SplitTimeoutHTTPHandler(stall_timeout_s),
+        _SplitTimeoutHTTPSHandler(stall_timeout_s),
+    )
+
+
+def _curl_proto_args(url: str) -> tuple[str, str]:
+    """``--proto`` / ``--proto-redir`` values for ``url``.
+
+    https everywhere; plain http only for loopback (local fixtures).
+    Any other http URL is refused: a redirect downgrade to http (or
+    file) would be an SSRF / file-exfiltration shape, and the only
+    production caller passes a constant https URL.
+    """
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme == "https":
+        return "=https", "=https"
+    if parsed.scheme == "http" and (parsed.hostname or "").lower() in _LOOPBACK_HOSTS:
+        return "=http", "=http"
+    raise DownloadError(
+        "curl fallback refuses non-https URL (loopback http only): "
+        f"{parsed.scheme}://{parsed.hostname or '?'}"
+    )
+
+
+def _download_with_curl(url: str, part: Path, *, limit_bytes: int | None = None) -> None:
+    """Fetch ``url`` into ``part`` with curl (fallback / forced path).
+
+    argv list via :func:`subprocess.run` (``shell=False``), with a
+    ``--`` separator before the URL so a hostile URL cannot be parsed
+    as flags. Flags: ``--fail`` (HTTP errors fail instead of writing
+    an error page to ``.part``), ``--location`` with
+    ``--proto =https --proto-redir =https`` (no downgrade), a 30 s
+    connect timeout, a 3600 s total budget, and the stall detector
+    ``--speed-limit 1024 --speed-time 120`` (abort only if throughput
+    collapses, instead of a fixed read timeout). ``--retry 3
+    --retry-delay 5`` retries transient failures.
+
+    ``--retry-all-errors`` is deliberately NOT passed: verified
+    2026-11-07 against a local server (curl 8.5.0) that it retries
+    404s (3 requests for one 404, vs 1 without it), which would
+    defeat the fail-fast 4xx discipline. A server that ignores Range
+    on a resume makes curl exit 33; the ``.part`` is then deleted and
+    the fetch restarts from byte 0 (also verified locally). Any other
+    non-zero exit raises :class:`DownloadError` with the exit code
+    only — curl's stderr can echo the URL, so it is never logged or
+    included in the error. The caller still runs the size/SHA-256
+    verification + atomic rename afterwards; the transport is never
+    trusted.
+
+    With ``limit_bytes`` the fetch is a prefix probe: ``--range`` asks
+    for the first N bytes and ``--max-filesize`` is the fail-safe if
+    the server ignores Range and answers 200 with the whole file
+    (curl then exits 63 instead of downloading it all).
+    """
+    curl = shutil.which("curl")
+    if curl is None:
+        raise DownloadError(
+            "curl fallback unavailable: no curl binary on PATH; the urllib download already failed"
+        )
+    proto, proto_redir = _curl_proto_args(url)
+
+    def _argv(*, resume: bool) -> list[str]:
+        argv = [
+            curl,
+            "--fail",
+            "--silent",
+            "--show-error",
+            "--location",
+            "--proto",
+            proto,
+            "--proto-redir",
+            proto_redir,
+            "--connect-timeout",
+            str(_CURL_CONNECT_TIMEOUT_S),
+            "--max-time",
+            str(_CURL_MAX_TIME_S),
+            "--speed-limit",
+            str(_CURL_SPEED_LIMIT_BPS),
+            "--speed-time",
+            str(_CURL_SPEED_TIME_S),
+            "--retry",
+            str(_CURL_RETRIES),
+            "--retry-delay",
+            str(_CURL_RETRY_DELAY_S),
+        ]
+        if limit_bytes is not None:
+            argv += ["--range", f"0-{limit_bytes - 1}", "--max-filesize", str(limit_bytes)]
+        elif resume:
+            argv += ["--continue-at", "-"]
+        argv += ["-o", str(part), "--", url]
+        return argv
+
+    logger.debug("curl download: host=%s resume=%s", _log_host(url), limit_bytes is None)
+    result = subprocess.run(_argv(resume=True), shell=False, capture_output=True, text=True)
+    if result.returncode == 33 and limit_bytes is None:
+        # Server ignored Range on a resume: restart from byte 0.
+        logger.debug("curl exit 33 (server ignored Range); restarting from byte 0")
+        part.unlink(missing_ok=True)
+        result = subprocess.run(_argv(resume=False), shell=False, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise DownloadError(f"curl download failed with exit code {result.returncode}")
+
+
 def download_large_file(
     url: str,
     dest: str | Path,
@@ -182,29 +418,71 @@ def download_large_file(
     timeout_s: float = DEFAULT_TIMEOUT_S,
     retries: int = DEFAULT_RETRIES,
     user_agent: str = "TextForensics/0.2.0 (research evaluation)",
+    stall_timeout_s: float | None = None,
+    connect_timeout_s: float = 30,
+    use_curl_fallback: bool = True,
+    force_curl: bool = False,
+    limit_bytes: int | None = None,
 ) -> Path:
     """Download ``url`` to ``dest`` with resume, retries and verification.
 
-    Standard library only. The download streams to ``dest`` + ``".part"``
-    and is renamed into place with :func:`os.replace` only after the
-    transfer completes and verifies — a partial or corrupt file is
-    never left at ``dest``. A pre-existing ``.part`` file is resumed
-    with an HTTP ``Range`` request when the server honours it (HTTP
-    206); if the server ignores the range (HTTP 200) the partial file
-    is discarded and the download restarts from byte 0. Transient
-    failures (``RemoteDisconnected`` / ``HTTPException`` /
-    ``ConnectionError`` / ``URLError`` / timeouts, and 5xx HTTP
-    errors) are retried with exponential back-off, reusing the
-    wave-1 client retry discipline; 4xx errors fail immediately.
-    ``expected_sha256`` (and ``expected_bytes`` when known) are checked
-    before the rename; a mismatch raises :class:`DownloadError` and
-    leaves only the ``.part`` file behind. A destination that already
-    exists and verifies against the expected hash/size is returned
-    without re-downloading.
+    Standard library only, plus an opportunistic curl subprocess
+    fallback (curl is a recommended system tool, not a dependency).
+    The download streams to ``dest`` + ``".part"`` and is renamed into
+    place with :func:`os.replace` only after the transfer completes
+    and verifies — a partial or corrupt file is never left at
+    ``dest``. A pre-existing ``.part`` file is resumed with an HTTP
+    ``Range`` request when the server honours it (HTTP 206); if the
+    server ignores the range (HTTP 200) the partial file is discarded
+    and the download restarts from byte 0. A body shorter than the
+    declared ``Content-Length`` is treated as a truncated transfer
+    and retried (a clean mid-body close otherwise reads as a
+    successful short download). Transient failures
+    (``RemoteDisconnected`` / ``HTTPException`` / ``ConnectionError``
+    / ``URLError`` / timeouts, and 5xx HTTP errors) are retried with
+    jittered capped back-off (see :func:`_backoff_delay`); 4xx errors
+    fail immediately. ``expected_sha256`` (and ``expected_bytes`` when
+    known) are checked before the rename; a mismatch raises
+    :class:`DownloadError` and leaves only the ``.part`` file behind.
+    A destination that already exists and verifies against the
+    expected hash/size is returned without re-downloading.
+
+    Timeouts are split: ``connect_timeout_s`` bounds TCP connect, TLS
+    handshake and proxy CONNECT, while ``stall_timeout_s`` bounds
+    time-to-first-byte and every body read (``None`` falls back to
+    ``timeout_s``). The split is implemented with a custom urllib
+    handler (see :func:`_split_timeout_opener`); when the two budgets
+    are equal the plain ``urlopen`` path is used instead, which is
+    the same semantics with no extra machinery. Per-attempt phase
+    timing (TTFB, bytes written, slowest chunk read) is logged at
+    debug level; argv and curl stderr are never logged.
+
+    When urllib exhausts its retries and ``use_curl_fallback`` is
+    set, the download is retried once via :func:`_download_with_curl`
+    (curl has no read timeout, only a throughput-floor stall
+    detector, so it rides out the stalls that abort urllib attempts;
+    it is also the existence proof for the 2026-11-07 DetectRL-X
+    incident). If curl is absent the error names curl and chains the
+    urllib error as context. ``force_curl`` skips urllib entirely
+    (for the probe job); the size/SHA-256 verification + atomic
+    rename still gate the rename on every path.
+
+    ``limit_bytes`` fetches only the first N bytes (``Range:
+    bytes=0-(N-1)``, reads capped so a Range-ignoring server cannot
+    stream the whole file) and skips the full-file size/SHA-256
+    checks — a prefix probe, not a verified download. Callers must
+    only pass allowlisted dataset URLs.
     """
+    stall = timeout_s if stall_timeout_s is None else stall_timeout_s
     dest = Path(dest)
     part = dest.with_name(dest.name + ".part")
-    if dest.exists():
+    if limit_bytes is not None:
+        # A prefix probe is always a fresh fetch: a stale destination
+        # or .part must not short-circuit it, and a resumed Range
+        # would overshoot the prefix.
+        dest.unlink(missing_ok=True)
+        part.unlink(missing_ok=True)
+    elif dest.exists():
         if expected_sha256 is not None and _sha256_file(dest) == expected_sha256:
             return dest
         if (
@@ -219,55 +497,129 @@ def download_large_file(
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     last_error: Exception | None = None
-    for attempt in range(retries + 1):
-        resume_from = part.stat().st_size if part.exists() else 0
-        headers = {"User-Agent": user_agent}
-        if resume_from:
-            headers["Range"] = f"bytes={resume_from}-"
-        request = urllib.request.Request(url, headers=headers)
-        try:
-            with urllib.request.urlopen(request, timeout=timeout_s) as response:
-                status = getattr(response, "status", 200)
-                if status == 416:
-                    # Range not satisfiable: the part already holds the
-                    # whole file; fall through to verification below.
-                    break
-                if resume_from and status != 206:
-                    # Server ignored the Range header; restart cleanly.
-                    part.unlink(missing_ok=True)
-                    resume_from = 0
-                mode = "ab" if resume_from else "wb"
-                with part.open(mode) as handle:
-                    while True:
-                        chunk = response.read(chunk_size)
-                        if not chunk:
-                            break
-                        handle.write(chunk)
-            break
-        except Exception as exc:  # noqa: BLE001 — retryability decides
-            if not _is_retryable_download_error(exc):
-                raise DownloadError(f"GET {url} failed (not retryable): {exc}") from exc
-            last_error = exc
-            if attempt < retries:
-                time.sleep(2**attempt)
-    else:  # pragma: no cover — loop only exits via break or raise
-        raise DownloadError(f"GET {url} failed after {retries + 1} attempts: {last_error}")
+    if force_curl:
+        _download_with_curl(url, part, limit_bytes=limit_bytes)
+    else:
+        for attempt in range(retries + 1):
+            resume_from = part.stat().st_size if part.exists() else 0
+            headers = {"User-Agent": user_agent}
+            if limit_bytes is not None:
+                headers["Range"] = f"bytes=0-{limit_bytes - 1}"
+            elif resume_from:
+                headers["Range"] = f"bytes={resume_from}-"
+            request = urllib.request.Request(url, headers=headers)
+            attempt_started = time.monotonic()
+            ttfb_s: float | None = None
+            bytes_written = 0
+            slowest_read_s = 0.0
+            try:
+                if stall == connect_timeout_s:
+                    response_cm = urllib.request.urlopen(request, timeout=stall)
+                else:
+                    opener = _split_timeout_opener(stall)
+                    response_cm = opener.open(request, timeout=connect_timeout_s)
+                with response_cm as response:
+                    ttfb_s = time.monotonic() - attempt_started
+                    status = getattr(response, "status", 200)
+                    if status == 416:
+                        # Range not satisfiable: the part already holds the
+                        # whole file; fall through to verification below.
+                        break
+                    if resume_from and status != 206:
+                        # Server ignored the Range header; restart cleanly.
+                        part.unlink(missing_ok=True)
+                        resume_from = 0
+                    mode = "ab" if resume_from else "wb"
+                    remaining = limit_bytes if limit_bytes is not None else None
+                    with part.open(mode) as handle:
+                        while True:
+                            if remaining is not None and remaining <= 0:
+                                break
+                            read_started = time.monotonic()
+                            chunk = response.read(
+                                chunk_size if remaining is None else min(chunk_size, remaining)
+                            )
+                            slowest_read_s = max(slowest_read_s, time.monotonic() - read_started)
+                            if not chunk:
+                                break
+                            handle.write(chunk)
+                            bytes_written += len(chunk)
+                            if remaining is not None:
+                                remaining -= len(chunk)
+                    if limit_bytes is None:
+                        # A clean mid-body close is silent truncation:
+                        # read() returns b"" instead of raising, so a
+                        # short body would otherwise be renamed as
+                        # complete. Compare against the declared length
+                        # (206: the remaining bytes) and retry on a
+                        # mismatch — the next attempt resumes from the
+                        # bytes already written.
+                        declared = _response_content_length(response)
+                        if declared is not None and bytes_written != declared:
+                            raise http.client.IncompleteRead(b"", declared)
+                logger.debug(
+                    "download attempt %d/%d: host=%s status=%s ttfb=%.2fs "
+                    "bytes=%d slowest_read=%.2fs",
+                    attempt + 1,
+                    retries + 1,
+                    _log_host(url),
+                    status,
+                    ttfb_s if ttfb_s is not None else float("nan"),
+                    bytes_written,
+                    slowest_read_s,
+                )
+                break
+            except Exception as exc:  # noqa: BLE001 — retryability decides
+                logger.debug(
+                    "download attempt %d/%d failed: host=%s ttfb=%.2fs bytes=%d error=%s",
+                    attempt + 1,
+                    retries + 1,
+                    _log_host(url),
+                    ttfb_s if ttfb_s is not None else float("nan"),
+                    bytes_written,
+                    type(exc).__name__,
+                )
+                if not _is_retryable_download_error(exc):
+                    raise DownloadError(f"GET {url} failed (not retryable): {exc}") from exc
+                last_error = exc
+                if attempt < retries:
+                    time.sleep(_backoff_delay(attempt))
+        else:
+            # urllib exhausted every attempt: one curl fallback, then
+            # the error stands (with the urllib error as context).
+            if not use_curl_fallback:
+                raise DownloadError(
+                    f"GET {url} failed after {retries + 1} attempts: {last_error}"
+                ) from last_error
+            try:
+                _download_with_curl(url, part, limit_bytes=limit_bytes)
+            except DownloadError as exc:
+                raise exc from last_error
     if not part.exists():
         raise DownloadError(f"GET {url}: server reported the range complete but no data arrived")
 
-    if expected_bytes is not None and part.stat().st_size != expected_bytes:
-        raise DownloadError(
-            f"GET {url}: downloaded {part.stat().st_size} bytes, "
-            f"expected {expected_bytes}; leaving {part} for inspection"
-        )
-    if expected_sha256 is not None:
-        actual = _sha256_file(part)
-        if actual != expected_sha256:
+    if limit_bytes is None:
+        if expected_bytes is not None and part.stat().st_size != expected_bytes:
             raise DownloadError(
-                f"GET {url}: SHA-256 mismatch (got {actual}, "
-                f"expected {expected_sha256}); leaving {part} for inspection"
+                f"GET {url}: downloaded {part.stat().st_size} bytes, "
+                f"expected {expected_bytes}; leaving {part} for inspection"
             )
+        if expected_sha256 is not None:
+            actual = _sha256_file(part)
+            if actual != expected_sha256:
+                raise DownloadError(
+                    f"GET {url}: SHA-256 mismatch (got {actual}, "
+                    f"expected {expected_sha256}); leaving {part} for inspection"
+                )
+    else:
+        logger.debug(
+            "prefix fetch: host=%s bytes=%d (limit %d, no full-file checks)",
+            _log_host(url),
+            part.stat().st_size,
+            limit_bytes,
+        )
     os.replace(part, dest)
+    logger.info("downloaded host=%s bytes=%d -> %s", _log_host(url), dest.stat().st_size, dest)
     return dest
 
 
@@ -698,10 +1050,11 @@ SPECS: dict[str, DatasetSpec] = {
         "(`download_large_file`) could not sustain an ~879 MB "
         "DetectRL-X download (timed out after 6 attempts, never past "
         "headers) while curl fetched the full file in ~5 min with the "
-        "SHA-256 verified; the shipped loader still uses "
-        "`download_large_file`, so a future ~1.006 GB M4 fetch will "
-        "likely need curl or a downloader fix — the downloader is NOT "
-        "fixed in this task, fetchers are deferred. No Hugging Face "
+        "SHA-256 verified; fixed 2026-11-07 — `download_large_file` "
+        "now has split connect/stall timeouts, jittered back-off and "
+        "a curl subprocess fallback, so a future ~1.006 GB M4 fetch "
+        "uses the fixed downloader; fetchers are still deferred "
+        "pending licence resolution. No Hugging Face "
         "dataset exists, so hf_id holds the GitHub repo slug — never "
         "pass it to the datasets-server client. Domains: Wikipedia, "
         "WikiHow, Reddit ELI5, arXiv, PeerRead, Chinese Baike/Web QA, "
@@ -763,10 +1116,11 @@ SPECS: dict[str, DatasetSpec] = {
         "a future Drive fetch) could not sustain an ~879 MB "
         "DetectRL-X download (timed out after 6 attempts, never past "
         "headers) while curl fetched the full file in ~5 min with the "
-        "SHA-256 verified; the shipped loader still uses "
-        "`download_large_file`, so a future ~1.72 GB Drive fetch will "
-        "likely need curl or a downloader fix — the downloader is NOT "
-        "fixed in this task, fetchers are deferred. No Hugging Face "
+        "SHA-256 verified; fixed 2026-11-07 — `download_large_file` "
+        "now has split connect/stall timeouts, jittered back-off and "
+        "a curl subprocess fallback, so a future ~1.72 GB Drive fetch "
+        "uses the fixed downloader; fetchers are still deferred "
+        "pending licence resolution. No Hugging Face "
         "dataset exists, so hf_id holds the GitHub repo slug — never "
         "pass it to the datasets-server client. Scope: 9 languages, 6 "
         "domains, 9 generators (incl. GPT-4, LLaMA-2).",
@@ -1462,8 +1816,9 @@ def _map_m4(row: dict[str, Any], config: str, split: str) -> list[NormalizedRow]
     the licence is clarified AND a live row has been read. No fetcher
     is written in this task — the verified route is a git clone (see
     the spec notes); a future fetcher must clone mbzuai-nlp/M4 and
-    map the 38 ``data/*.jsonl`` files, and will likely need curl or a
-    downloader fix for the ~1.006 GB fetch (see the spec notes).
+    map the 38 ``data/*.jsonl`` files; a future fetcher uses
+    `download_large_file`, whose split timeouts and curl fallback
+    were fixed 2026-11-07 (see the spec notes).
     """
     raise DatasetFetchError(
         "m4: licence unresolved AND no live row inspected "
@@ -1483,8 +1838,9 @@ def _map_m4gt_bench(row: dict[str, Any], config: str, split: str) -> list[Normal
     licence is clarified AND a live row has been read. No fetcher is
     written in this task — the verified route is the public Google
     Drive folder (see the spec notes); a future fetcher must download
-    the five Subtask files from Drive, and will likely need curl or a
-    downloader fix for the ~1.72 GB total (see the spec notes).
+    the five Subtask files from Drive; a future fetcher uses
+    `download_large_file`, whose split timeouts and curl fallback
+    were fixed 2026-11-07 (see the spec notes).
     """
     raise DatasetFetchError(
         "m4gt_bench: licence unresolved AND no live row inspected "
@@ -1661,17 +2017,22 @@ def download_detectrl_x(*, cache_dir: Path | None = None) -> Path:
 
     The HF resolve URL + expected SHA-256/size come from the HF tree
     API (2026-11-07); a destination that already exists and verifies
-    is returned without re-downloading. Timeout and retries are raised
-    above the defaults: the egress proxy is intermittent and a ~879 MB
-    transfer stalls under the 30 s default.
+    is returned without re-downloading. Stall budget and retries are
+    raised above the defaults (300 s, 8 retries) with a curl fallback:
+    the 2026-11-07 incident — six attempts stalling in the header
+    phase — falsified the earlier diagnosis that the transfer "stalls
+    under the 30 s default", because those attempts ran with a 120 s
+    timeout, so the stall exceeded 120 s per attempt. The fix is a
+    long stall budget plus curl, which has no read timeout and waits
+    stalls out — not a larger single timeout alone.
     """
     return download_large_file(
         DETECTRL_X_URL,
         detectrl_x_raw_path(cache_dir=cache_dir),
         expected_sha256=DETECTRL_X_SHA256,
         expected_bytes=DETECTRL_X_BYTES,
-        timeout_s=120,
-        retries=5,
+        stall_timeout_s=300,
+        retries=8,
     )
 
 

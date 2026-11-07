@@ -7,6 +7,12 @@ TextForensics is designed to avoid coupling to one package manager, operating sy
 Core:
 - Python 3.11–3.15
 - no mandatory runtime dependencies
+- curl (recommended system tool, not a Python dependency): large
+  benchmark downloads (DetectRL-X, ~879 MB) fall back to curl when
+  the stdlib downloader cannot ride out an egress stall. curl ships
+  with macOS, Windows 10+, and most Linux distributions; without it
+  the download fails with a clear error naming curl instead of
+  silently succeeding.
 
 Optional surfaces:
 - API server: `textforensics[api]`
