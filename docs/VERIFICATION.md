@@ -1839,3 +1839,259 @@ met in any cell.
   untouched (release gate, as before).
 - **Other Python versions**: verified on 3.12.3 only; CI covers
   the matrix.
+
+## Verification record — Phase 4 Dependabot recovery (2026-11-07)
+
+Recovery of the 10 Dependabot PRs #25–#34 closed unmerged by the
+2026-11-06 history force-push, per
+`hidden_files/phase4-dependabot-plan.md` (plan baseline `5ab3c45`;
+execution baseline remote main `f1f391c`, U4 head). Full per-item
+record — patches, SHA re-verifications, gate numbers, CI run ids —
+is `hidden_files/phase4-dependabot-recovery.md`. Every plan claim
+about "current version in main" was re-verified against the
+execution baseline before acting; discrepancies are recorded there
+and below.
+
+**Method correction vs the plan (§4.1 path A):** `git rebase
+origin/main` does NOT work for the surviving Dependabot branches.
+Each is a single Dependabot commit on top of the OLD pre-rewrite
+history and shares NO commits with rewritten main, so a rebase
+tries to replay the entire old history. The correct equivalent is
+**cherry-pick of the single Dependabot tip commit** onto a fresh
+branch from `origin/main`, which preserves Dependabot authorship
+(author `dependabot[bot]`, committer Stratos canonical). A plain
+rebase DOES work for the recovery branches, which share history
+with main.
+
+### Recovered items (all 10 on main)
+
+- **#30 pytest-timeout — no-op.** `pytest-timeout>=2.4.0,<3`
+  already in both `pyproject.toml` and
+  `requirements-pinned.txt`. Remote branch deleted. No commit.
+- **#34 pytest-cov `<6` → `<8` — PR #35** (branch `recover/34`,
+  cherry-picked tip `ca367fc` → `fe41839`, rebased onto `f7a80b3`
+  as `b23fa1c`). Diff exactly 2 lines. CI on the rebased head:
+  Core 3.11–3.15 ALL PASS on both runs, Dependency review PASS
+  (7s), Pip Audit PASS (11s), claims gate PASS. Merged to
+  `ba67a09`.
+- **#25 attest-build-provenance v1 → v4 — PR #38** (cherry-picked
+  tip `0d0d440` → `1c8627e`). SHA re-verified via tags API:
+  v4.2.2 = `4d101475d8b20a2381f78447822ac1eab6504dd8`. Diff exactly
+  3 lines: `container.yml` `@v1` → `@v4`, `release.yml` SHA pin
+  + comment `# v1.4.4 (v1)` → `# v4.2.2`, release-notes echo
+  `@v1` → `@v4`. Merged to `a809af5`.
+- **#29 build-push-action v6 → v7 — PR #39** (cherry-picked tip
+  `5657645` → `b2ae7e5`). Diff exactly 1 line. The Container
+  workflow does not run on PRs; it ran on the merge commit and
+  completed SUCCESS, proving the v7 step on main. Merged to
+  `9a9fd8a`.
+- **#27 cryptography `<43` → `<51` — `ac030c7`.** PyPI latest
+  50.0.2, inside `<51`. Pinned file updated too (the old PR did
+  not touch it). CI on the pushed head (run 42383119991): Core
+  3.11–3.15 ALL SUCCESS, claims gate SUCCESS. Only failure:
+  atheris pinned-install (known release-gate item).
+- **#32 rich `<14` → `<16` — `4137c1b`.** Plan discrepancy: the
+  plan says rich occurs twice in pyproject (`cli-rich` +
+  `cli-typer`); no `cli-typer` extra exists — it was deleted in
+  Phase 2 wave (b) before the plan was written. One occurrence
+  only. PyPI latest 15.0.0, inside `<16`. CI on the pushed head
+  (run 42383721159): Core ALL SUCCESS, claims gate SUCCESS.
+  Only failure: atheris.
+- **#33 pytest `<9` → `<10` — `868306d`, plus required
+  follow-on `1b13129`.** PyPI latest 9.2.0, inside `<10`. The
+  pushed head `868306d` was RED on all five Core jobs (CI run
+  42384073692) — the ONLY failures were the 12
+  `tests/test_performance.py` errors (`AttributeError: 'Function'
+  object has no attribute '_nodeid'`): pytest-benchmark 4.0.0
+  reads pytest's private `node._nodeid`, removed in pytest 9.2.0.
+  Verified in an isolated probe venv (4.0.0 → 12 errors; 5.3.1 →
+  12 passed) and fixed by widening the pytest-benchmark cap
+  `<5` → `<6` (`1b13129`). CI on `1b13129` (run 42384474993):
+  Core ALL SUCCESS, claims gate SUCCESS. Only failure: atheris.
+- **#26 codeql-action → v4.39.3 — `fc20c65`** (NOT v4.39.2,
+  superseded). SHA verified by dereferencing the tag object
+  (`f3bbb056…` → `33d7b85da1a04171e211befe2c739303b9a4c066`).
+  Exactly THREE usages (codeql.yml init + analyze, scorecard.yml
+  upload-sarif — the dependency-audit.yml usage was removed by
+  PR #36, see below). CI on the pushed head (run 42384859292):
+  Core ALL SUCCESS, claims gate SUCCESS; CodeQL workflow run
+  42384859218 completed SUCCESS. Only failure: atheris.
+- **#28 setup-buildx v3 → v4 — `dc8a1e9`.** Latest v4.4.1,
+  floating `@v4` correct. CI on the pushed head (run
+  42385257727): Core ALL SUCCESS; Container run 42385257702
+  completed SUCCESS.
+- **#31 metadata-action v5 → v6 — `be2a344`.** Latest v6.2.0,
+  floating `@v6` correct. Container run 42385719149 completed
+  SUCCESS; CI run 42385719068: Core ALL SUCCESS, claims gate
+  SUCCESS. Only failure: atheris.
+- Remote main after the seven local commits: **`be2a344`**.
+  Each was pushed one at a time by the parent, CI-gated on the
+  pushed head before the next (per the plan). Local gates on the
+  stacked head before pushing: ruff clean, format clean, claims
+  33/33, schemas 12 OK, pre-commit 13/13, gitleaks 0 leaks over
+  `9a9fd8a..HEAD`, extras 2850 passed + 1 known memory flake /
+  57 subtests, core-only 2738 passed + 1 same flake / 112
+  skipped / 57 subtests — baseline totals, no regression.
+
+### Two pre-existing PR-only CI defects (found by PR #35, fixed as PRs #36/#37)
+
+PR #35 was the first pull request since the rewrite; two workflows
+only run on `pull_request` events (or PRs touching dependency
+files), so their defects were invisible until then.
+
+- **dependency-review.yml:25 — typo'd action SHA — PR #37.**
+  Pinned `…f609a47…`; upstream v5.0.0 is `…f609c47…` (one
+  character; the pinned SHA does not exist). One-character fix.
+  Its own Dependency review check PASSED (6s). Merged to
+  `3889086`.
+- **dependency-audit.yml — `pip install sarif-tool` can never
+  succeed — PR #36.** `sarif-tool` does not exist on PyPI (404);
+  `sarif-tools` has no conversion command; pip-audit's `--format`
+  choices are columns/json/cyclonedx-json/cyclonedx-xml/markdown
+  (no SARIF). The dead Convert + Upload SARIF steps were removed;
+  the JSON artifact is kept. Proven by a manual
+  `workflow_dispatch` run (42373111977, completed success) and
+  again on the rebased head (42374557149, completed success).
+  Merged to `f7a80b3`. **Scope interaction:** removing the
+  dependency-audit upload-sarif step is why #26 updates three
+  codeql-action usages, not four.
+- After #37 + #36 merged, PR #35's Dependency review (7s) and
+  Pip Audit (11s) checks went green on fresh runs, as predicted.
+
+### Flaky test fixed by the parent (found on PR #38)
+
+`tests/test_timestamp.py::test_tampered_signature_fails` failed
+once on Core 3.12 (PR run) and passed on retry. Root cause: the
+tamper zeroed the first byte of an RSA signature, which is
+already `0x00` with probability ~1/256 — a no-op tamper
+(reproduced 1/400 fresh-key trials). Parent commit `e3cc99f`:
+tamper now flips a bit mid-signature; test passes 10/10, full
+file 15 passed, ruff clean. Same defect class as the U2 Ed25519
+flaky tamper test.
+
+### Node 24 sweep — PRs #40–#46 (rebased onto `be2a344`, CI-green, awaiting parent merge)
+
+One workflow file per PR, each branched from `9a9fd8a` and
+rebased onto `be2a344` with **zero rebase conflicts** (the
+pushed commits' lines and the sweep lines did not overlap).
+Each rebased head got the local gate (YAML parse, claims 33/33,
+pre-commit 13/13, gitleaks 0 leaks); the Python tree is
+byte-identical to the gated `be2a344` baseline, so the PRs' own
+CI (full Core suite on each head) is the authoritative check.
+
+| PR | File | Change | Rebased head |
+|----|------|--------|--------------|
+| #40 | container.yml | login-action @v3→@v4; upload-artifact @v4→v7.0.2 SHA | `5a99c7a` |
+| #41 | dependency-audit.yml | upload-artifact @v4→v7.0.2 SHA | `1d8390f` |
+| #42 | repository-integrity.yml | sbom @v0.21.0→@v0.24.3; upload-artifact @v4→v7.0.2 SHA | `82a127d` |
+| #43 | reproducibility.yml | checkout @v4→v7.0.1 SHA ×4; setup-python @v5→v7.0.0 SHA ×4; upload-artifact @v4→v7.0.2 SHA ×3 | `1dda2f5` |
+| #44 | semver.yml | checkout @v4→v7.0.1 SHA; setup-python @v5→v7.0.0 SHA | `a564cae` |
+| #45 | fuzz.yml | checkout @11bd719→v7.0.1 SHA ×2; upload-artifact @5d5d22a→v7.0.2 SHA ×3 | `7c605e5` |
+| #46 | mutation.yml | checkout @11bd719→v7.0.1 SHA ×2 | `b73a559` |
+
+All three v7 SHAs were re-verified against the tags API and
+match the in-repo pins exactly (checkout v7.0.1 `3d3c42e5…`,
+setup-python v7.0.0 `5fda3b95…`, upload-artifact v7.0.2
+`cf430e03…`). `container.yml:42 actions/checkout@v5` is already
+Node 24 upstream — no action needed. `sigstore/cosign-installer@main`
+untouched (out of scope).
+
+**CI on all 7 rebased heads (verified 2026-11-07 ~16:00 CET):
+39 pass / 3 fail / 3 skipping, 0 pending on every PR.**
+Core Python 3.11–3.15 ALL PASS on both runs; claims gate,
+build/wheel-install, OS smoke, Optional API/MCP, CodeQL,
+Actionlint, Dependency review all PASS. The only failures
+anywhere are the two known release-gate items (Pinned
+requirements install ×2 — atheris; Diff-based Mutation —
+0 mutations).
+
+**CodeQL concurrency wart (pre-existing, not introduced by the
+sweep):** `codeql.yml`'s concurrency group for PRs is the
+shared `codeql-main` with `cancel-in-progress: true`, so the
+seven PR-event CodeQL runs cancelled each other as the branches
+were pushed in succession (#40–#45 showed a red CodeQL check
+whose run conclusion was `cancelled`, not failed). All six
+cancelled runs were rerun sequentially, one at a time, and all
+six completed SUCCESS (runs 42386318075, 42386394409,
+42386465080, 42386538946, 42386611636, 42386685608); #46's run
+completed SUCCESS on its own (42386769828). Fixing the
+concurrency group is a Phase 5 candidate, not part of this
+sweep.
+
+**Merge status (updated by the parent after the merges):** PRs
+#40–#46 are all MERGED, in order, each by rebase merge, with
+CI-green on main confirmed between merges (Core 3.11–3.15 +
+claims gate green on the merge heads; the Container workflow
+also ran SUCCESS on the #40 merge commit, proving login v4 +
+upload-artifact v7.0.2 on main). Merge SHAs: #40 `f02f622`,
+#41 `57e2c4a`, #42 `2e58018`, #43 `273e6be`, #44 `4a0c804`,
+#45 `bdabbcb`, #46 `362d7d5`. No Node 20 stragglers remain on
+main (the last ones — upload-artifact @v4, checkout @v4 /
+@11bd719, setup-python @v5, sbom @v0.21.0 — were all covered
+by #40–#46).
+
+### Twine follow-up — pushed as `5b9e97a` (rebased from `1fb5b10`)
+
+`twine>=4,<7` → `>=4,<8` in `pyproject.toml` + `requirements-pinned.txt`,
+with the stale comment updated (the rich<14 conflict #32 removed
+is gone). No Dependabot twine PR exists, so the manual edit is the
+path (the plan says to prefer a Dependabot PR only if one exists).
+PyPI latest twine **7.0.0**, which requires `rich>=14.3.3` —
+satisfied by rich 15.0.0.
+
+Evidence that rich 15 + twine 7 coexist: `pip install --dry-run
+--upgrade -r requirements-pinned.txt` resolves **twine-7.0.0**
+alongside rich 15.0.0 with no conflict; twine 7.0.0 + rich
+15.0.0 in an isolated probe venv run (`twine --version` reports
+rich 15.0.0) and `twine check` PASSED on the freshly built wheel
++ sdist. Local gate on `1fb5b10`: ruff check clean, format clean
+(255 files), claims 33/33, schemas 12 OK, pre-commit 13/13,
+gitleaks 0 leaks over `be2a344..HEAD`, extras suite **2851
+passed / 0 failed / 57 subtests passed**, core-only suite
+**2738 passed + 1 failed / 112 skipped / 57 subtests passed** —
+the single failure is the known `test_memory_check` host flake
+(host at 95.05% memory; the check fails when `mem.percent >
+95`, and it fails even in isolation at that pressure).
+`scripts/validate_pyproject_deps.py` green. The parent verified
+and pushed this commit as `5b9e97a` (rebased from `1fb5b10`
+onto `362d7d5` after the sweep merges; clean rebase, no
+conflicts). CI on the pushed head (run 42389566451): Core
+3.11–3.15 ALL SUCCESS, claims gate SUCCESS, build/OS smoke /
+API/MCP SUCCESS. The pinned-install job failed ONLY at the
+atheris wheel build (`ERROR: Failed building wheel for
+atheris`, `failed-wheel-build-for-install`, `╰─> atheris`) —
+dependency resolution itself succeeded with twine 7.0.0 +
+rich 15.0.0, which is the coexistence proof.
+
+### Final state checks
+
+- **0 surviving `dependabot/*` branches** on the remote
+  (verified 2026-11-07; the last one, build-push-action-7, was
+  deleted after PR #39 merged).
+- **0 open PRs.** All 7 sweep PRs (#40–#46) are merged; 0
+  surviving `dependabot/*` branches; 0 open Dependabot PRs.
+- Dependabot's next weekly run should find nothing outdated
+  except genuinely new releases: every recovered cap now covers
+  the current latest (cryptography 50.0.2 <51, rich 15.0.0 <16,
+  pytest 9.2.0 <10, pytest-cov 7.1.0 <8, pytest-benchmark 5.3.1
+  <6, twine 7.0.0 <8) and every action pin is at the current
+  latest major/tag or SHA (attest v4.2.2, build-push v7.4.0,
+  setup-buildx v4.4.1, metadata v6.2.0, login v4.8.0, codeql
+  v4.39.3, checkout v7.0.1, setup-python v7.0.0, upload-artifact
+  v7.0.2, sbom v0.24.3, dependency-review v5.0.0).
+
+### What is NOT verified / NOT done here
+
+- **Atheris + Mutation (release gate):** untouched in Phase 4.
+  The pinned-install job still fails building atheris 1.0.11 on
+  Python 3.12, and Mutation still runs 0 mutations. Both have
+  known root causes and bounded fixes (see the release-gate
+  investigation reports); they are Phase 5 work.
+- **CodeQL concurrency group:** the shared `codeql-main` group
+  with `cancel-in-progress: true` cancels parallel PR CodeQL
+  runs. Diagnosed, worked around by sequential reruns; the fix
+  itself is a Phase 5 candidate.
+- **`sigstore/cosign-installer@main`** (repository-integrity.yml)
+  is still a floating branch ref; pinning it is a separate
+  decision, not a Dependabot recovery.
+- **No release, no tag.** Nothing in Phase 4 creates a release.
