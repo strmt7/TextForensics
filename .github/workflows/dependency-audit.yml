@@ -42,7 +42,7 @@ jobs:
         run: pip-audit --desc=on --format=json --output=pip-audit.json
       - name: Upload pip-audit results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pip-audit-results
           path: pip-audit.json
