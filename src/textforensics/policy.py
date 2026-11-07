@@ -989,6 +989,21 @@ class EnterprisePolicyEngine:
     def evaluate(self, scope: str) -> dict[str, Any]:
         """Evaluate active policy rules for a given scope.
 
+        A rule matches when its ``scope`` is ``"all"`` or equals ``scope``.
+        Matching rules are collected by action:
+
+        - ``"enforce"`` rules become ``violations``,
+        - ``"warn"`` rules become ``warnings``,
+        - ``"log"`` rules become ``logs``,
+        - ``"disable"`` rules become ``disabled`` (the scope is disabled
+          for the operation being evaluated).
+
+        Status precedence is: violations beat warnings, warnings beat
+        disabled, and disabled beats ok. A matching ``"disable"`` rule
+        therefore reports status ``"disabled"`` only when no violation
+        or warning applies; it is still listed in ``disabled`` when a
+        violation or warning wins.
+
         Returns:
             A dict with:
             - ``scope``: the scope evaluated
@@ -997,7 +1012,12 @@ class EnterprisePolicyEngine:
             - ``violations``: list of violated rules
             - ``warnings``: list of warning rules
             - ``logs``: list of logged rules
-            - ``status``: "ok", "warning", "violation", or "no_policy"
+            - ``disabled``: list of disable rules that matched, each
+              with ``rule_id``, ``description`` and ``scope``
+            - ``disabled_scopes``: distinct scopes of the matching
+              disable rules, in order of first appearance
+            - ``status``: "ok", "warning", "violation", "disabled",
+              or "no_policy"
         """
         if self._policy is None:
             return {
@@ -1007,12 +1027,16 @@ class EnterprisePolicyEngine:
                 "violations": [],
                 "warnings": [],
                 "logs": [],
+                "disabled": [],
+                "disabled_scopes": [],
                 "status": "no_policy",
             }
 
         violations: list[dict[str, Any]] = []
         warnings: list[dict[str, Any]] = []
         logs: list[dict[str, Any]] = []
+        disabled: list[dict[str, Any]] = []
+        disabled_scopes: list[str] = []
         rules_checked = 0
 
         for rule in self._policy.rules:
@@ -1029,11 +1053,23 @@ class EnterprisePolicyEngine:
                 warnings.append({"rule_id": rule["id"], "description": rule["description"]})
             elif action == "log":
                 logs.append({"rule_id": rule["id"], "description": rule["description"]})
+            elif action == "disable":
+                disabled.append(
+                    {
+                        "rule_id": rule["id"],
+                        "description": rule["description"],
+                        "scope": rule_scope,
+                    }
+                )
+                if rule_scope not in disabled_scopes:
+                    disabled_scopes.append(rule_scope)
 
         if violations:
             status = "violation"
         elif warnings:
             status = "warning"
+        elif disabled:
+            status = "disabled"
         else:
             status = "ok"
 
@@ -1044,6 +1080,8 @@ class EnterprisePolicyEngine:
             "violations": violations,
             "warnings": warnings,
             "logs": logs,
+            "disabled": disabled,
+            "disabled_scopes": disabled_scopes,
             "status": status,
         }
 

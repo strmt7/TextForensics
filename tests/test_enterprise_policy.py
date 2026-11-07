@@ -659,6 +659,8 @@ class TestEnterprisePolicyEngine:
         engine = EnterprisePolicyEngine()
         result = engine.evaluate("analysis")
         assert result["status"] == "no_policy"
+        assert result["disabled"] == []
+        assert result["disabled_scopes"] == []
 
     def test_evaluate_all_scope(self, temp_state_dir, policy_data):
         floor = PolicyRevisionFloor(
@@ -709,6 +711,132 @@ class TestEnterprisePolicyEngine:
         result = engine.evaluate("analysis")
         assert result["status"] == "ok"
         assert len(result["logs"]) == 1
+
+    def test_evaluate_disable_action(self, temp_state_dir):
+        policy = {
+            "revision": 1,
+            "settings": {},
+            "rules": [
+                {
+                    "id": "disable-analysis",
+                    "description": "Analysis is disabled",
+                    "action": "disable",
+                    "scope": "analysis",
+                },
+            ],
+        }
+        floor = PolicyRevisionFloor(
+            state_path=temp_state_dir / "state.enc",
+            key_path=temp_state_dir / "key.key",
+        )
+        engine = EnterprisePolicyEngine(floor=floor)
+        engine.load_policy(policy)
+
+        result = engine.evaluate("analysis")
+        assert result["status"] == "disabled"
+        assert result["disabled"] == [
+            {
+                "rule_id": "disable-analysis",
+                "description": "Analysis is disabled",
+                "scope": "analysis",
+            }
+        ]
+        assert result["disabled_scopes"] == ["analysis"]
+        assert result["violations"] == []
+        assert result["warnings"] == []
+
+    def test_evaluate_disable_non_matching_scope(self, temp_state_dir):
+        policy = {
+            "revision": 1,
+            "settings": {},
+            "rules": [
+                {
+                    "id": "disable-detection",
+                    "description": "Detection is disabled",
+                    "action": "disable",
+                    "scope": "detection",
+                },
+            ],
+        }
+        floor = PolicyRevisionFloor(
+            state_path=temp_state_dir / "state.enc",
+            key_path=temp_state_dir / "key.key",
+        )
+        engine = EnterprisePolicyEngine(floor=floor)
+        engine.load_policy(policy)
+
+        result = engine.evaluate("analysis")
+        assert result["status"] == "ok"
+        assert result["rules_checked"] == 0
+        assert result["disabled"] == []
+        assert result["disabled_scopes"] == []
+
+    def test_evaluate_disable_plus_violation(self, temp_state_dir):
+        policy = {
+            "revision": 1,
+            "settings": {},
+            "rules": [
+                {
+                    "id": "disable-analysis",
+                    "description": "Analysis is disabled",
+                    "action": "disable",
+                    "scope": "analysis",
+                },
+                {
+                    "id": "no-remote",
+                    "description": "No remote detectors",
+                    "action": "enforce",
+                    "scope": "all",
+                },
+            ],
+        }
+        floor = PolicyRevisionFloor(
+            state_path=temp_state_dir / "state.enc",
+            key_path=temp_state_dir / "key.key",
+        )
+        engine = EnterprisePolicyEngine(floor=floor)
+        engine.load_policy(policy)
+
+        result = engine.evaluate("analysis")
+        # Violations win over disabled, but the disable rule is still listed.
+        assert result["status"] == "violation"
+        assert len(result["violations"]) == 1
+        assert result["violations"][0]["rule_id"] == "no-remote"
+        assert [d["rule_id"] for d in result["disabled"]] == ["disable-analysis"]
+        assert result["disabled_scopes"] == ["analysis"]
+
+    def test_evaluate_disable_plus_warning(self, temp_state_dir):
+        policy = {
+            "revision": 1,
+            "settings": {},
+            "rules": [
+                {
+                    "id": "disable-analysis",
+                    "description": "Analysis is disabled",
+                    "action": "disable",
+                    "scope": "analysis",
+                },
+                {
+                    "id": "warn-provenance",
+                    "description": "Require provenance",
+                    "action": "warn",
+                    "scope": "all",
+                },
+            ],
+        }
+        floor = PolicyRevisionFloor(
+            state_path=temp_state_dir / "state.enc",
+            key_path=temp_state_dir / "key.key",
+        )
+        engine = EnterprisePolicyEngine(floor=floor)
+        engine.load_policy(policy)
+
+        result = engine.evaluate("analysis")
+        # Warnings win over disabled, but the disable rule is still listed.
+        assert result["status"] == "warning"
+        assert len(result["warnings"]) == 1
+        assert [d["rule_id"] for d in result["disabled"]] == ["disable-analysis"]
+        assert result["disabled_scopes"] == ["analysis"]
 
     def test_get_status(self, temp_state_dir, policy_data, valid_policy):
         floor = PolicyRevisionFloor(
