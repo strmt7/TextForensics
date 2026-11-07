@@ -1,6 +1,6 @@
 {
   "schema": "textforensics.validation-registry/v1",
-  "registry_id": "60aa564e5ecd65b78e48c37085af234bc6b07f45280effeb1ae4e6d8ac606472",
+  "registry_id": "8e09d9edd1457486f90da47769618774d6127731f244e12215c1bed8f46233af",
   "created_at_utc": "2026-11-06T23:24:11.755599+00:00",
   "records": [
     {
@@ -1100,6 +1100,201 @@
         "demoted_by": null
       },
       "signature": "4a22010600737ec0f432421c0879542c98ebee6037e0976f441dfe5e2a66cafc"
+    },
+    {
+      "schema": "textforensics.evidence-record/v1",
+      "record_id": "evr-20261107-opai-bench-builtin-heuristic",
+      "detector_id": "textforensics/builtin-heuristic",
+      "detector_version": "0.1.0",
+      "detector_family": "stylometric-heuristic",
+      "calibration_id": null,
+      "status": "partial",
+      "supersedes": null,
+      "regime": {
+        "language": "en",
+        "script": "Latn",
+        "language_variety": null,
+        "length_bucket": {
+          "min_words": 1,
+          "max_words": null,
+          "floor_words": 1,
+          "measured_min_words": 1,
+          "measured_median_words": 21,
+          "measured_max_words": 143
+        },
+        "domain": [
+          "abstracts",
+          "essays",
+          "news",
+          "reports"
+        ],
+        "genre": "segment-level (sentence) slice — OpAI-Bench v0–v8 edit ladder",
+        "generator": {
+          "families": [
+            "gemini-2.5-flash",
+            "gpt-5.4",
+            "gpt-5.4-nano"
+          ],
+          "vintage": "2026 (gemini-2.5-flash, gpt-5.4 family; Bsharat et al. 2026)",
+          "current_as_of": "2026-11-07"
+        },
+        "editing_regime": "LLM-edited",
+        "human_population": {
+          "populations": [
+            "general human authors"
+          ],
+          "determined_how": "Dataset documentation (OpAI-Bench card, Bsharat et al. 2026): human documents from news, essays, reports and abstracts; no per-author demographics recorded; sentence labels are the dataset's own sentence_labels field"
+        },
+        "attack_slice": null
+      },
+      "data": {
+        "dataset_name": "OpAI-Bench (segment-level)",
+        "dataset_version": "OpAI-Bench1/OpAI-Bench snapshot 2026-11-07 (no versioned release)",
+        "file_sha256": "67f83757e0f446aee0d6be47075035465e6dc8b817ad2c7cab8236c81fe6ba35",
+        "row_hash_method": "sha256 of normalised text (benchmark fingerprint)",
+        "split": "train",
+        "split_role": "test",
+        "n_human": 4785,
+        "n_ai": 5268,
+        "licence": "Apache-2.0",
+        "licence_reference": "https://huggingface.co/datasets/OpAI-Bench1/OpAI-Bench",
+        "contamination_flag": "no",
+        "near_duplicate_rate": null,
+        "near_duplicate_method": null
+      },
+      "run": {
+        "run_id": "EV-20261107-dataset-opai-bench-segments",
+        "run_artifact": "docs/evidence/runs/EV-20261107-dataset-opai-bench-segments.json",
+        "run_artifact_sha256": "5ecc111efa6b4a836e337d226ed6abc09eb8fb7cf59de65818389af4165a57ee",
+        "run_date": "2026-11-07",
+        "runner": "U4 segment seed (scripts/measure_segments.py)",
+        "code_version": "e0f60ae01e936cb61295497b47305fc885793128",
+        "dependency_lock_sha": null,
+        "hardware": "x86_64 (Linux 7.0.0-43-generic)",
+        "runtime": "CPython 3.12.3 on linux",
+        "seeds": {
+          "bootstrap_seed": 20261106
+        },
+        "command": "python scripts/measure_segments.py",
+        "drops_manifest": [
+          {
+            "item": "full-corpus evaluation",
+            "reason": "preliminary sample only (n=500 strided train rows of 196,029)"
+          },
+          {
+            "item": "ai→human direction",
+            "reason": "no data source covers it: every OpAI-Bench row is human→ai, so those cells are unknown"
+          },
+          {
+            "item": "population slicing",
+            "reason": "no population-labelled source exists; the human-slice segment FPR is pooled by domain only, never by population"
+          },
+          {
+            "item": "dedicated adversarial-paraphrase attack slice",
+            "reason": "no paraphrase generator exists in core; the paraphrase/style operations are the boundary-blurring edits in effect"
+          },
+          {
+            "item": "per-sentence probabilities",
+            "reason": "segment scores are evidence scores, never sentence authorship probabilities; no threshold was fitted"
+          },
+          {
+            "item": "dev-50 replication pooling",
+            "reason": "the dev slice is reported separately as a replication, not pooled into the train metrics"
+          },
+          {
+            "item": "ratio/label agreement",
+            "reason": "6/500 train rows have mean(sentence_labels) != ai_sentence_ratio (max |diff| 0.032, all intermediate versions): the ratio and the labels were computed on slightly different segmentations; the labels are the segment ground truth and the ratio is the document summary, each used for its own purpose"
+          },
+          {
+            "item": "segment precision/F1 at the declared operating point",
+            "reason": "no train segment scores >= 0.68, so no AI prediction exists: precision and F1 are undefined (recorded as null), recall is 0.0; the builtin heuristic never fires ai_like on sentences at the document operating point — see results.segments_train.precision_recall_f1"
+          },
+          {
+            "item": "document-cache rewrite",
+            "reason": "the segment caches are separate files (train-segments.jsonl); the U1 document record's cited cache hash is preserved"
+          },
+          {
+            "item": "per-slice breakdowns (per-domain / per-generator / per-attack)",
+            "reason": "this seed record reports one pooled slice per dataset; finer slices are wave-2 work"
+          }
+        ],
+        "reporting_rules": "Labelled rows only; abstentions counted separately from AUROC/TPR (abstained rows still contribute their score); no score threshold fitted — AUROC and TPR@FPR are threshold-free; native FPR/TPR at the detector's native categorical verdict; bootstrap 95% CIs, 1000 resamples, seed 20261106"
+      },
+      "metrics": [
+        {
+          "slice_id": "opai_bench_segments-builtin-heuristic",
+          "n_human": 4785,
+          "n_ai": 5268,
+          "auroc": {
+            "value": 0.4772,
+            "n": 10053,
+            "ci_lower": 0.4665,
+            "ci_upper": 0.4879,
+            "method": "bootstrap, 1000 resamples, seed 20261106"
+          },
+          "tpr_at_fpr_0_01": {
+            "value": 0.0015,
+            "n": 5268,
+            "ci_lower": 0.0006,
+            "ci_upper": 0.009,
+            "method": "bootstrap, 1000 resamples, seed 20261106"
+          },
+          "tpr_at_fpr_0_05": {
+            "value": 0.0514,
+            "n": 5268,
+            "ci_lower": 0.0431,
+            "ci_upper": 0.0653,
+            "method": "bootstrap, 1000 resamples, seed 20261106"
+          },
+          "fpr_native": {
+            "value": 0.0,
+            "n": 4785,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "bootstrap, 1000 resamples, seed 20261106",
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold"
+          },
+          "coverage": 0.445,
+          "abstention_rate": 0.555,
+          "worst_slice": true,
+          "tpr_native": {
+            "value": 0.0,
+            "n": 5268,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "bootstrap, 1000 resamples, seed 20261106"
+          }
+        }
+      ],
+      "limits": {
+        "known_failure_modes": [
+          "segment scores are evidence scores, not sentence authorship probabilities; per-segment F1 is modest and the segment method is weak by design (research §8.2)",
+          "segments under 20 words never carry a verdict, so short sentences contribute abstentions, not evidence",
+          "the ai→human direction has no data source in v1.0: every OpAI-Bench row is human→ai, so those cells are unknown",
+          "no population-labelled source exists, so the human-slice segment FPR is pooled by domain only, never by population"
+        ],
+        "limitations": [
+          "not validated for non-English text",
+          "not validated for texts below 80 words (the detector's minimum)",
+          "not validated for generators newer than the record's declared vintage",
+          "not validated for human populations outside the record's declared population",
+          "no reviewer has assessed this record; it is a preliminary seed, not a reviewed validation",
+          "the sample is a strided subset of the split, not a full-corpus evaluation",
+          "near-duplicate rate was not measured for this sample",
+          "contamination_flag is 'no' because the builtin detector is a hand-written stylometric heuristic with no training: it was not trained on this dataset or on any other text corpus, so it cannot have memorised evaluation rows",
+          "per-segment precision/recall/F1 by version, operation and length live in the U7 run artifact (the evidence-record schema has no slots for them), not in this record",
+          "the operation-hypothesis accuracy and the verdict distribution on mixed documents live in the U7 run artifact",
+          "the record covers the train split only; the dev-50 slice is a replication reported in the artifact, not pooled here",
+          "this record is segment-level evidence: it must never be read as a document-level claim and never auto-matches a Trust Map dimension",
+          "native FPR/TPR here are at the segment operating point (score >=0.68 / <=0.32, segments under 20 words abstain), not at the document detector's reliability-gated verdict — the document verdict abstains on all short text by construction (length_reliability = word_count/250), so it would zero out every segment-level native metric"
+        ],
+        "next_revalidation_due": "2027-02-05",
+        "appeal_note": "A reviewed assessment, a dedicated mixed-origin calibration set, and per-(operation × direction) cells with n>=100 segments would change this record",
+        "reviewer": null,
+        "review_date": null,
+        "demoted_by": null
+      },
+      "signature": "0af2d5f086b7478100252aed0b7f6ffdd38ca2050195eb14109efa127757d4cd"
     }
   ]
 }

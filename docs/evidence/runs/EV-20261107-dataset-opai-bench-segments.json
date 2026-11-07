@@ -1,0 +1,1587 @@
+{
+  "badge": "available",
+  "code_version": "e0f60ae01e936cb61295497b47305fc885793128",
+  "command": "python scripts/measure_segments.py",
+  "drops": [
+    {
+      "item": "full-corpus evaluation",
+      "reason": "preliminary sample only (n=500 strided train rows of 196,029)"
+    },
+    {
+      "item": "ai\u2192human direction",
+      "reason": "no data source covers it: every OpAI-Bench row is human\u2192ai, so those cells are unknown"
+    },
+    {
+      "item": "population slicing",
+      "reason": "no population-labelled source exists; the human-slice segment FPR is pooled by domain only, never by population"
+    },
+    {
+      "item": "dedicated adversarial-paraphrase attack slice",
+      "reason": "no paraphrase generator exists in core; the paraphrase/style operations are the boundary-blurring edits in effect"
+    },
+    {
+      "item": "per-sentence probabilities",
+      "reason": "segment scores are evidence scores, never sentence authorship probabilities; no threshold was fitted"
+    },
+    {
+      "item": "dev-50 replication pooling",
+      "reason": "the dev slice is reported separately as a replication, not pooled into the train metrics"
+    },
+    {
+      "item": "ratio/label agreement",
+      "reason": "6/500 train rows have mean(sentence_labels) != ai_sentence_ratio (max |diff| 0.032, all intermediate versions): the ratio and the labels were computed on slightly different segmentations; the labels are the segment ground truth and the ratio is the document summary, each used for its own purpose"
+    },
+    {
+      "item": "segment precision/F1 at the declared operating point",
+      "reason": "no train segment scores >= 0.68, so no AI prediction exists: precision and F1 are undefined (recorded as null), recall is 0.0; the builtin heuristic never fires ai_like on sentences at the document operating point \u2014 see results.segments_train.precision_recall_f1"
+    },
+    {
+      "item": "document-cache rewrite",
+      "reason": "the segment caches are separate files (train-segments.jsonl); the U1 document record's cited cache hash is preserved"
+    }
+  ],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261107-dataset-opai-bench-segments",
+  "kind": "command",
+  "results": {
+    "cache_file": "train-segments.jsonl",
+    "cache_file_sha256": "67f83757e0f446aee0d6be47075035465e6dc8b817ad2c7cab8236c81fe6ba35",
+    "config": "default",
+    "dataset": "opai_bench_segments",
+    "detector": "textforensics/builtin-heuristic",
+    "detector_version": "0.1.0",
+    "disjointness": {
+      "against": "default/dev (n=50)",
+      "checked": true,
+      "disjoint": true,
+      "errors": [],
+      "segment_hashes_shared": 1,
+      "shared_samples": 0,
+      "shared_segment_word_counts": [
+        1,
+        1
+      ],
+      "verified": true
+    },
+    "hf_id": "OpAI-Bench1/OpAI-Bench",
+    "licence": "Apache-2.0",
+    "mean_score_by_label": {
+      "human": {
+        "mean": 0.3404,
+        "n": 4785
+      },
+      "machine": {
+        "mean": 0.3342,
+        "n": 5268
+      }
+    },
+    "operation_hypothesis_train": {
+      "accuracy": 0.0,
+      "confusion_true_operation_to_predicted": {
+        "compress": {
+          "humanise": 6,
+          "unknown": 49
+        },
+        "expand": {
+          "humanise": 14,
+          "unknown": 42
+        },
+        "paraphrase": {
+          "humanise": 11,
+          "unknown": 100
+        },
+        "polish": {
+          "humanise": 9,
+          "unknown": 102
+        },
+        "style": {
+          "humanise": 15,
+          "unknown": 96
+        }
+      },
+      "correct": 0,
+      "docs_evaluated": 444,
+      "verdict_distribution_no_coverage": {
+        "withheld": 444
+      },
+      "verdict_distribution_with_coverage": {
+        "human": 388,
+        "withheld": 56
+      }
+    },
+    "preliminary": true,
+    "ratio_label_agreement": {
+      "disagreeing_record_ids": [
+        "opt-68277a5e9e2f80fcb568",
+        "opt-ac12f69605b632abff50",
+        "opt-08cb6fe4a9db2df48bc7",
+        "opt-38ca2b54680cf810d70b",
+        "opt-b315e828b05c7807ff69",
+        "opt-ef86173cf22ec91cc133"
+      ],
+      "max_abs_diff": 0.0316,
+      "rows_agreeing": 494,
+      "rows_disagreeing": 6,
+      "rows_total": 500
+    },
+    "rows_fetched": 500,
+    "rows_normalised": 500,
+    "sampling": "strided",
+    "segment_scorer": "analyze_text(include_robustness=False) at the declared operating point (score >=0.68 ai_like, <=0.32 human_like, else abstain; segments under 20 words abstain) \u2014 mixed_origin.segment_verdict",
+    "segmentation_fidelity_train": {
+      "docs_exact_match": 204,
+      "docs_exact_match_rate": 0.408,
+      "docs_total": 500,
+      "sentence_match_rate": 0.8398,
+      "sentences_matched": 8443,
+      "sentences_total": 10053
+    },
+    "segments_by_domain": {
+      "abstracts": {
+        "abstention_ci": [
+          0.5246,
+          0.5808
+        ],
+        "abstention_rate": 0.5531,
+        "auroc": {
+          "ci_lower": 0.437,
+          "ci_upper": 0.5023,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1300,
+          "value": 0.4687
+        },
+        "coverage": 0.4469,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 621,
+          "value": 0.0
+        },
+        "n_ai_segments": 679,
+        "n_human_segments": 621,
+        "n_segments": 1300,
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 679,
+          "fp": 0,
+          "n_ai": 679,
+          "n_human": 621,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0221,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 679,
+          "value": 0.0074
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": 0.0222,
+          "ci_upper": 0.0725,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 679,
+          "value": 0.0457
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 679,
+          "value": 0.0
+        }
+      },
+      "essays": {
+        "abstention_ci": [
+          0.675,
+          0.7095
+        ],
+        "abstention_rate": 0.6928,
+        "auroc": {
+          "ci_lower": 0.4372,
+          "ci_upper": 0.4786,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 2874,
+          "value": 0.458
+        },
+        "coverage": 0.3072,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1397,
+          "value": 0.0
+        },
+        "n_ai_segments": 1477,
+        "n_human_segments": 1397,
+        "n_segments": 2874,
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 1477,
+          "fp": 0,
+          "n_ai": 1477,
+          "n_human": 1397,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1477,
+          "value": 0.0
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": 0.0289,
+          "ci_upper": 0.0889,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1477,
+          "value": 0.0521
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1477,
+          "value": 0.0
+        }
+      },
+      "news": {
+        "abstention_ci": [
+          0.5268,
+          0.5594
+        ],
+        "abstention_rate": 0.5434,
+        "auroc": {
+          "ci_lower": 0.4736,
+          "ci_upper": 0.5121,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 3307,
+          "value": 0.4931
+        },
+        "coverage": 0.4566,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1565,
+          "value": 0.0
+        },
+        "n_ai_segments": 1742,
+        "n_human_segments": 1565,
+        "n_segments": 3307,
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 1742,
+          "fp": 0,
+          "n_ai": 1742,
+          "n_human": 1565,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": 0.0132,
+          "ci_upper": 0.0371,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1742,
+          "value": 0.0212
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": 0.0263,
+          "ci_upper": 0.0436,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1742,
+          "value": 0.035
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1742,
+          "value": 0.0
+        }
+      },
+      "reports": {
+        "abstention_ci": [
+          0.3989,
+          0.4347
+        ],
+        "abstention_rate": 0.4168,
+        "auroc": {
+          "ci_lower": 0.4597,
+          "ci_upper": 0.5025,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 2572,
+          "value": 0.4807
+        },
+        "coverage": 0.5832,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1202,
+          "value": 0.0
+        },
+        "n_ai_segments": 1370,
+        "n_human_segments": 1202,
+        "n_segments": 2572,
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 1370,
+          "fp": 0,
+          "n_ai": 1370,
+          "n_human": 1202,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.01,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1370,
+          "value": 0.0051
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": 0.0207,
+          "ci_upper": 0.0508,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1370,
+          "value": 0.0358
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1370,
+          "value": 0.0
+        }
+      }
+    },
+    "segments_by_length": {
+      "20-49": {
+        "abstention_ci": [
+          0.1697,
+          0.1921
+        ],
+        "abstention_rate": 0.1809,
+        "auroc": {
+          "ci_lower": 0.4866,
+          "ci_upper": 0.5179,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 5285,
+          "value": 0.5037
+        },
+        "coverage": 0.8191,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 2346,
+          "value": 0.0
+        },
+        "n_ai_segments": 2939,
+        "n_human_segments": 2346,
+        "n_segments": 5285,
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 2939,
+          "fp": 0,
+          "n_ai": 2939,
+          "n_human": 2346,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": 0.001,
+          "ci_upper": 0.0103,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 2939,
+          "value": 0.0068
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": 0.0452,
+          "ci_upper": 0.0737,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 2939,
+          "value": 0.0572
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 2939,
+          "value": 0.0
+        }
+      },
+      "50+": {
+        "abstention_ci": [
+          0.1389,
+          0.2556
+        ],
+        "abstention_rate": 0.1944,
+        "auroc": {
+          "ci_lower": 0.4197,
+          "ci_upper": 0.595,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 180,
+          "value": 0.5095
+        },
+        "coverage": 0.8056,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 99,
+          "value": 0.0
+        },
+        "n_ai_segments": 81,
+        "n_human_segments": 99,
+        "n_segments": 180,
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 81,
+          "fp": 0,
+          "n_ai": 81,
+          "n_human": 99,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0649,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 81,
+          "value": 0.0123
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.1724,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 81,
+          "value": 0.0494
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 81,
+          "value": 0.0
+        }
+      },
+      "<20 (never verdicted)": {
+        "abstention_ci": [
+          1.0,
+          1.0
+        ],
+        "abstention_rate": 1.0,
+        "auroc": {
+          "ci_lower": 0.4503,
+          "ci_upper": 0.4833,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 4588,
+          "value": 0.4669
+        },
+        "coverage": 0.0,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 2340,
+          "value": 0.0
+        },
+        "n_ai_segments": 2248,
+        "n_human_segments": 2340,
+        "n_segments": 4588,
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 2248,
+          "fp": 0,
+          "n_ai": 2248,
+          "n_human": 2340,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0031,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 2248,
+          "value": 0.0
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": 0.0295,
+          "ci_upper": 0.0657,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 2248,
+          "value": 0.0458
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 2248,
+          "value": 0.0
+        }
+      }
+    },
+    "segments_by_operation": {
+      "compress": {
+        "abstention_ci": [
+          0.6323,
+          0.6834
+        ],
+        "abstention_rate": 0.6587,
+        "auroc": {
+          "ci_lower": 0.5349,
+          "ci_upper": 0.5983,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1172,
+          "value": 0.5672
+        },
+        "coverage": 0.3413,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 574,
+          "value": 0.0
+        },
+        "n_ai_segments": 598,
+        "n_human_segments": 574,
+        "n_segments": 1172,
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 598,
+          "fp": 0,
+          "n_ai": 598,
+          "n_human": 574,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 598,
+          "value": 0.0
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0169,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 598,
+          "value": 0.0
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 598,
+          "value": 0.0
+        }
+      },
+      "expand": {
+        "abstention_ci": [
+          0.4852,
+          0.5461
+        ],
+        "abstention_rate": 0.5166,
+        "auroc": {
+          "ci_lower": 0.383,
+          "ci_upper": 0.4539,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1084,
+          "value": 0.4191
+        },
+        "coverage": 0.4834,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 412,
+          "value": 0.0
+        },
+        "n_ai_segments": 672,
+        "n_human_segments": 412,
+        "n_segments": 1084,
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 672,
+          "fp": 0,
+          "n_ai": 672,
+          "n_human": 412,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": 0.0046,
+          "ci_upper": 0.033,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 672,
+          "value": 0.0208
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": 0.026,
+          "ci_upper": 0.1025,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 672,
+          "value": 0.058
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 672,
+          "value": 0.0
+        }
+      },
+      "none": {
+        "abstention_ci": [
+          0.5579,
+          0.6171
+        ],
+        "abstention_rate": 0.588,
+        "auroc": {
+          "ci_lower": null,
+          "ci_upper": null,
+          "method": null,
+          "n": 1097,
+          "note": "single-class slice (only human segments): AUROC and TPR@FPR are undefined \u2014 they need both classes. v0 is all-human and v8 is all-AI by construction of the edit ladder.",
+          "value": null
+        },
+        "coverage": 0.412,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap percentile, 1000 resamples, seed 20261106",
+          "n": 1097,
+          "value": 0.0
+        },
+        "n_ai_segments": 0,
+        "n_human_segments": 1097,
+        "n_segments": 1097,
+        "note": "single-class slice (only human segments): AUROC and TPR@FPR are undefined \u2014 they need both classes. v0 is all-human and v8 is all-AI by construction of the edit ladder.",
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 0,
+          "fp": 0,
+          "n_ai": 0,
+          "n_human": 1097,
+          "precision": null,
+          "recall": null,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": null,
+          "ci_upper": null,
+          "method": null,
+          "n": 1097,
+          "note": "single-class slice (only human segments): AUROC and TPR@FPR are undefined \u2014 they need both classes. v0 is all-human and v8 is all-AI by construction of the edit ladder.",
+          "value": null
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": null,
+          "ci_upper": null,
+          "method": null,
+          "n": 1097,
+          "note": "single-class slice (only human segments): AUROC and TPR@FPR are undefined \u2014 they need both classes. v0 is all-human and v8 is all-AI by construction of the edit ladder.",
+          "value": null
+        },
+        "tpr_native": {
+          "ci_lower": null,
+          "ci_upper": null,
+          "method": null,
+          "n": 0,
+          "note": "no AI segments in this slice",
+          "value": null
+        }
+      },
+      "paraphrase": {
+        "abstention_ci": [
+          0.5197,
+          0.5623
+        ],
+        "abstention_rate": 0.543,
+        "auroc": {
+          "ci_lower": 0.4437,
+          "ci_upper": 0.4924,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 2232,
+          "value": 0.4691
+        },
+        "coverage": 0.457,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 832,
+          "value": 0.0
+        },
+        "n_ai_segments": 1400,
+        "n_human_segments": 832,
+        "n_segments": 2232,
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 1400,
+          "fp": 0,
+          "n_ai": 1400,
+          "n_human": 832,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": 0.0063,
+          "ci_upper": 0.0283,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1400,
+          "value": 0.0114
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": 0.0415,
+          "ci_upper": 0.0945,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1400,
+          "value": 0.0707
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1400,
+          "value": 0.0
+        }
+      },
+      "polish": {
+        "abstention_ci": [
+          0.4947,
+          0.5361
+        ],
+        "abstention_rate": 0.5163,
+        "auroc": {
+          "ci_lower": 0.4437,
+          "ci_upper": 0.4917,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 2173,
+          "value": 0.4679
+        },
+        "coverage": 0.4837,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 939,
+          "value": 0.0
+        },
+        "n_ai_segments": 1234,
+        "n_human_segments": 939,
+        "n_segments": 2173,
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 1234,
+          "fp": 0,
+          "n_ai": 1234,
+          "n_human": 939,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": 0.0025,
+          "ci_upper": 0.0231,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1234,
+          "value": 0.0097
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": 0.0561,
+          "ci_upper": 0.0991,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1234,
+          "value": 0.0859
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1234,
+          "value": 0.0
+        }
+      },
+      "style": {
+        "abstention_ci": [
+          0.5316,
+          0.5739
+        ],
+        "abstention_rate": 0.5525,
+        "auroc": {
+          "ci_lower": 0.4583,
+          "ci_upper": 0.5082,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 2295,
+          "value": 0.4833
+        },
+        "coverage": 0.4475,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 931,
+          "value": 0.0
+        },
+        "n_ai_segments": 1364,
+        "n_human_segments": 931,
+        "n_segments": 2295,
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 1364,
+          "fp": 0,
+          "n_ai": 1364,
+          "n_human": 931,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0216,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1364,
+          "value": 0.011
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": 0.0527,
+          "ci_upper": 0.1014,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1364,
+          "value": 0.0689
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1364,
+          "value": 0.0
+        }
+      }
+    },
+    "segments_by_version": {
+      "v0": {
+        "abstention_ci": [
+          0.5579,
+          0.6171
+        ],
+        "abstention_rate": 0.588,
+        "auroc": {
+          "ci_lower": null,
+          "ci_upper": null,
+          "method": null,
+          "n": 1097,
+          "note": "single-class slice (only human segments): AUROC and TPR@FPR are undefined \u2014 they need both classes. v0 is all-human and v8 is all-AI by construction of the edit ladder.",
+          "value": null
+        },
+        "coverage": 0.412,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap percentile, 1000 resamples, seed 20261106",
+          "n": 1097,
+          "value": 0.0
+        },
+        "n_ai_segments": 0,
+        "n_human_segments": 1097,
+        "n_segments": 1097,
+        "note": "single-class slice (only human segments): AUROC and TPR@FPR are undefined \u2014 they need both classes. v0 is all-human and v8 is all-AI by construction of the edit ladder.",
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 0,
+          "fp": 0,
+          "n_ai": 0,
+          "n_human": 1097,
+          "precision": null,
+          "recall": null,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": null,
+          "ci_upper": null,
+          "method": null,
+          "n": 1097,
+          "note": "single-class slice (only human segments): AUROC and TPR@FPR are undefined \u2014 they need both classes. v0 is all-human and v8 is all-AI by construction of the edit ladder.",
+          "value": null
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": null,
+          "ci_upper": null,
+          "method": null,
+          "n": 1097,
+          "note": "single-class slice (only human segments): AUROC and TPR@FPR are undefined \u2014 they need both classes. v0 is all-human and v8 is all-AI by construction of the edit ladder.",
+          "value": null
+        },
+        "tpr_native": {
+          "ci_lower": null,
+          "ci_upper": null,
+          "method": null,
+          "n": 0,
+          "note": "no AI segments in this slice",
+          "value": null
+        }
+      },
+      "v1": {
+        "abstention_ci": [
+          0.5347,
+          0.5954
+        ],
+        "abstention_rate": 0.5638,
+        "auroc": {
+          "ci_lower": 0.4855,
+          "ci_upper": 0.5708,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1137,
+          "value": 0.5282
+        },
+        "coverage": 0.4362,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 939,
+          "value": 0.0
+        },
+        "n_ai_segments": 198,
+        "n_human_segments": 939,
+        "n_segments": 1137,
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 198,
+          "fp": 0,
+          "n_ai": 198,
+          "n_human": 939,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0276,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 198,
+          "value": 0.0
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": 0.0293,
+          "ci_upper": 0.1036,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 198,
+          "value": 0.0707
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 198,
+          "value": 0.0
+        }
+      },
+      "v2": {
+        "abstention_ci": [
+          0.5349,
+          0.5978
+        ],
+        "abstention_rate": 0.5679,
+        "auroc": {
+          "ci_lower": 0.4457,
+          "ci_upper": 0.5268,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1002,
+          "value": 0.4841
+        },
+        "coverage": 0.4321,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 731,
+          "value": 0.0
+        },
+        "n_ai_segments": 271,
+        "n_human_segments": 731,
+        "n_segments": 1002,
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 271,
+          "fp": 0,
+          "n_ai": 271,
+          "n_human": 731,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": 0.0038,
+          "ci_upper": 0.0412,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 271,
+          "value": 0.0185
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": 0.0288,
+          "ci_upper": 0.0913,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 271,
+          "value": 0.0554
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 271,
+          "value": 0.0
+        }
+      },
+      "v3": {
+        "abstention_ci": [
+          0.5545,
+          0.6107
+        ],
+        "abstention_rate": 0.5839,
+        "auroc": {
+          "ci_lower": 0.4906,
+          "ci_upper": 0.5557,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1156,
+          "value": 0.5222
+        },
+        "coverage": 0.4161,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 669,
+          "value": 0.0
+        },
+        "n_ai_segments": 487,
+        "n_human_segments": 669,
+        "n_segments": 1156,
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 487,
+          "fp": 0,
+          "n_ai": 487,
+          "n_human": 669,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0377,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 487,
+          "value": 0.0226
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": 0.0713,
+          "ci_upper": 0.135,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 487,
+          "value": 0.1068
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 487,
+          "value": 0.0
+        }
+      },
+      "v4": {
+        "abstention_ci": [
+          0.6323,
+          0.6834
+        ],
+        "abstention_rate": 0.6587,
+        "auroc": {
+          "ci_lower": 0.5349,
+          "ci_upper": 0.5983,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1172,
+          "value": 0.5672
+        },
+        "coverage": 0.3413,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 574,
+          "value": 0.0
+        },
+        "n_ai_segments": 598,
+        "n_human_segments": 574,
+        "n_segments": 1172,
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 598,
+          "fp": 0,
+          "n_ai": 598,
+          "n_human": 574,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 598,
+          "value": 0.0
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0169,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 598,
+          "value": 0.0
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 598,
+          "value": 0.0
+        }
+      },
+      "v5": {
+        "abstention_ci": [
+          0.4852,
+          0.5461
+        ],
+        "abstention_rate": 0.5166,
+        "auroc": {
+          "ci_lower": 0.383,
+          "ci_upper": 0.4539,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1084,
+          "value": 0.4191
+        },
+        "coverage": 0.4834,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 412,
+          "value": 0.0
+        },
+        "n_ai_segments": 672,
+        "n_human_segments": 412,
+        "n_segments": 1084,
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 672,
+          "fp": 0,
+          "n_ai": 672,
+          "n_human": 412,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": 0.0046,
+          "ci_upper": 0.033,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 672,
+          "value": 0.0208
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": 0.026,
+          "ci_upper": 0.1025,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 672,
+          "value": 0.058
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 672,
+          "value": 0.0
+        }
+      },
+      "v6": {
+        "abstention_ci": [
+          0.4925,
+          0.5478
+        ],
+        "abstention_rate": 0.5206,
+        "auroc": {
+          "ci_lower": 0.4233,
+          "ci_upper": 0.504,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1139,
+          "value": 0.4668
+        },
+        "coverage": 0.4794,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 262,
+          "value": 0.0
+        },
+        "n_ai_segments": 877,
+        "n_human_segments": 262,
+        "n_segments": 1139,
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 877,
+          "fp": 0,
+          "n_ai": 877,
+          "n_human": 262,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": 0.0023,
+          "ci_upper": 0.0232,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 877,
+          "value": 0.0103
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": 0.017,
+          "ci_upper": 0.087,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 877,
+          "value": 0.057
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 877,
+          "value": 0.0
+        }
+      },
+      "v7": {
+        "abstention_ci": [
+          0.4967,
+          0.5504
+        ],
+        "abstention_rate": 0.5228,
+        "auroc": {
+          "ci_lower": 0.3964,
+          "ci_upper": 0.503,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1230,
+          "value": 0.4495
+        },
+        "coverage": 0.4772,
+        "fpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 101,
+          "value": 0.0
+        },
+        "n_ai_segments": 1129,
+        "n_human_segments": 101,
+        "n_segments": 1230,
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 1129,
+          "fp": 0,
+          "n_ai": 1129,
+          "n_human": 101,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": 0.0053,
+          "ci_upper": 0.0907,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1129,
+          "value": 0.0151
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": 0.0282,
+          "ci_upper": 0.1093,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1129,
+          "value": 0.0939
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106",
+          "n": 1129,
+          "value": 0.0
+        }
+      },
+      "v8": {
+        "abstention_ci": [
+          0.4324,
+          0.4932
+        ],
+        "abstention_rate": 0.4643,
+        "auroc": {
+          "ci_lower": null,
+          "ci_upper": null,
+          "method": null,
+          "n": 1036,
+          "note": "single-class slice (only ai segments): AUROC and TPR@FPR are undefined \u2014 they need both classes. v0 is all-human and v8 is all-AI by construction of the edit ladder.",
+          "value": null
+        },
+        "coverage": 0.5357,
+        "fpr_native": {
+          "ci_lower": null,
+          "ci_upper": null,
+          "method": null,
+          "n": 0,
+          "note": "no human segments in this slice",
+          "value": null
+        },
+        "n_ai_segments": 1036,
+        "n_human_segments": 0,
+        "n_segments": 1036,
+        "note": "single-class slice (only ai segments): AUROC and TPR@FPR are undefined \u2014 they need both classes. v0 is all-human and v8 is all-AI by construction of the edit ladder.",
+        "prf1_at_operating_point": {
+          "f1": null,
+          "f1_ci_lower": null,
+          "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+          "f1_ci_upper": null,
+          "fn": 1036,
+          "fp": 0,
+          "n_ai": 1036,
+          "n_human": 0,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "tpr_at_1pct_fpr": {
+          "ci_lower": null,
+          "ci_upper": null,
+          "method": null,
+          "n": 1036,
+          "note": "single-class slice (only ai segments): AUROC and TPR@FPR are undefined \u2014 they need both classes. v0 is all-human and v8 is all-AI by construction of the edit ladder.",
+          "value": null
+        },
+        "tpr_at_5pct_fpr": {
+          "ci_lower": null,
+          "ci_upper": null,
+          "method": null,
+          "n": 1036,
+          "note": "single-class slice (only ai segments): AUROC and TPR@FPR are undefined \u2014 they need both classes. v0 is all-human and v8 is all-AI by construction of the edit ladder.",
+          "value": null
+        },
+        "tpr_native": {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap percentile, 1000 resamples, seed 20261106",
+          "n": 1036,
+          "value": 0.0
+        }
+      }
+    },
+    "segments_dev_replication": {
+      "abstention_ci": [
+        0.4794,
+        0.5445
+      ],
+      "abstention_rate": 0.5119,
+      "auroc": {
+        "ci_lower": 0.4391,
+        "ci_upper": 0.512,
+        "method": "bootstrap, 1000 resamples, seed 20261106",
+        "n": 922,
+        "value": 0.4743
+      },
+      "coverage": 0.4881,
+      "fpr_native": {
+        "ci_lower": 0.0,
+        "ci_upper": 0.0,
+        "method": "bootstrap, 1000 resamples, seed 20261106",
+        "n": 428,
+        "value": 0.0
+      },
+      "n_ai_segments": 494,
+      "n_human_segments": 428,
+      "n_segments": 922,
+      "prf1_at_operating_point": {
+        "f1": null,
+        "f1_ci_lower": null,
+        "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+        "f1_ci_upper": null,
+        "fn": 494,
+        "fp": 0,
+        "n_ai": 494,
+        "n_human": 428,
+        "precision": null,
+        "recall": 0.0,
+        "tp": 0
+      },
+      "tpr_at_1pct_fpr": {
+        "ci_lower": 0.0039,
+        "ci_upper": 0.0318,
+        "method": "bootstrap, 1000 resamples, seed 20261106",
+        "n": 494,
+        "value": 0.0101
+      },
+      "tpr_at_5pct_fpr": {
+        "ci_lower": 0.0262,
+        "ci_upper": 0.0861,
+        "method": "bootstrap, 1000 resamples, seed 20261106",
+        "n": 494,
+        "value": 0.0547
+      },
+      "tpr_native": {
+        "ci_lower": 0.0,
+        "ci_upper": 0.0,
+        "method": "bootstrap, 1000 resamples, seed 20261106",
+        "n": 494,
+        "value": 0.0
+      }
+    },
+    "segments_train": {
+      "abstention_ci": [
+        0.5451,
+        0.5643
+      ],
+      "abstention_rate": 0.555,
+      "auroc": {
+        "ci_lower": 0.4665,
+        "ci_upper": 0.4879,
+        "method": "bootstrap, 1000 resamples, seed 20261106",
+        "n": 10053,
+        "value": 0.4772
+      },
+      "coverage": 0.445,
+      "fpr_native": {
+        "ci_lower": 0.0,
+        "ci_upper": 0.0,
+        "method": "bootstrap, 1000 resamples, seed 20261106",
+        "n": 4785,
+        "value": 0.0
+      },
+      "n_ai_segments": 5268,
+      "n_human_segments": 4785,
+      "n_segments": 10053,
+      "prf1_at_operating_point": {
+        "f1": null,
+        "f1_ci_lower": null,
+        "f1_ci_note": "undefined: no segment reached the 0.68 operating point, so no AI prediction exists to score precision/F1 against",
+        "f1_ci_upper": null,
+        "fn": 5268,
+        "fp": 0,
+        "n_ai": 5268,
+        "n_human": 4785,
+        "precision": null,
+        "recall": 0.0,
+        "tp": 0
+      },
+      "tpr_at_1pct_fpr": {
+        "ci_lower": 0.0006,
+        "ci_upper": 0.009,
+        "method": "bootstrap, 1000 resamples, seed 20261106",
+        "n": 5268,
+        "value": 0.0015
+      },
+      "tpr_at_5pct_fpr": {
+        "ci_lower": 0.0431,
+        "ci_upper": 0.0653,
+        "method": "bootstrap, 1000 resamples, seed 20261106",
+        "n": 5268,
+        "value": 0.0514
+      },
+      "tpr_native": {
+        "ci_lower": 0.0,
+        "ci_upper": 0.0,
+        "method": "bootstrap, 1000 resamples, seed 20261106",
+        "n": 5268,
+        "value": 0.0
+      }
+    },
+    "split": "train",
+    "split_rows_total": 196029
+  },
+  "run_date": "2026-11-07",
+  "schema": "textforensics.run-artifact/v1"
+}

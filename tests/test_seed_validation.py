@@ -734,9 +734,9 @@ class TestAppendMode:
 
 
 class TestSeededRegistry:
-    def test_committed_registry_loads_with_six_records_and_no_mixset(self):
+    def test_committed_registry_loads_with_seven_records_and_no_mixset(self):
         registry = ValidationRegistry.load(REPO_ROOT / "docs" / "validation" / "registry.json")
-        assert len(registry.records) == 6
+        assert len(registry.records) == 7
         assert [record.record_id for record in registry.records] == [
             "evr-20261106-beemo-builtin-heuristic",
             "evr-20261106-mage-builtin-heuristic",
@@ -744,6 +744,11 @@ class TestSeededRegistry:
             "evr-20261106-raid-builtin-heuristic",
             "evr-20261107-detectrl-x-builtin-heuristic",
             "evr-20261107-ghostwriter-builtin-heuristic",
+            # Segment-level record (U4): sorted last by record_id; it
+            # must never auto-match a Trust Map dimension (regime
+            # LLM-edited), so the per-record assertions below apply
+            # to it exactly as to the document records.
+            "evr-20261107-opai-bench-builtin-heuristic",
         ]
         for record in registry.records:
             assert record.status == "partial"

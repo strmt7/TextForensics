@@ -84,6 +84,11 @@
       "evidence_record_id": "EV-20261107-dataset-ghostwriter",
       "run_artifact": "docs/evidence/runs/EV-20261107-dataset-ghostwriter.json",
       "run_artifact_sha256": "a2d1ba76f61051f464e8717c02809f18dbfbeae4453d5b6166579d8e3f7aa836"
+    },
+    {
+      "evidence_record_id": "EV-20261107-dataset-opai-bench-segments",
+      "run_artifact": "docs/evidence/runs/EV-20261107-dataset-opai-bench-segments.json",
+      "run_artifact_sha256": "5ecc111efa6b4a836e337d226ed6abc09eb8fb7cf59de65818389af4165a57ee"
     }
   ],
   "schema": "textforensics.evidence-registry/v1"

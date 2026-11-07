@@ -20,6 +20,25 @@ TEXT = (
 
 CANARY = "CANARY-2d7c5-PEACOCK-GRANITE-9914"
 
+# Plain human prose (original filler, six sentences of 25-31 words
+# each) used for the covered-regime path: every segment scores
+# human-consistent, so the report verdicts "human" when the regime
+# is covered by the segment record.
+LIBRARY_TEXT = (
+    "The old library on Mill Street opens its reading room at nine in the morning, "
+    "and the morning light falls across the long wooden tables where students spread "
+    "out their notes. The librarian keeps a small brass bell on the desk, and she "
+    "rings it once when the clock strikes twelve to mark the lunch hour. In the "
+    "afternoon the room grows quieter, and the only sounds are pages turning and the "
+    "occasional cough from the far corner near the window. The collection holds mostly "
+    "local history, with shelves of parish records, maps of the old railway lines, and "
+    "bound volumes of the town newspaper going back a hundred years. Visitors who want "
+    "a particular volume fill in a slip at the desk, and the librarian fetches it from "
+    "the stack room behind the counter. On rainy days the reading room fills early, and "
+    "the regulars take their usual seats by the tall windows that look out over the "
+    "market square."
+)
+
 
 class MixedOriginCliTests(unittest.TestCase):
     def run_cli(self, *args, input_text=None):
@@ -42,23 +61,47 @@ class MixedOriginCliTests(unittest.TestCase):
         self.assertTrue(any("no_validation_slice" in r for r in payload["withheld_reasons"]))
         self.assertNotIn(TEXT, result.stdout)
 
-    def test_json_report_withheld_with_regime_but_no_segment_record(self):
-        # Even a declared en/news regime is uncovered: the repo
-        # registry has no segment-level record yet (commit 5 adds it).
+    def test_json_report_human_with_covered_regime(self):
+        # The segment record (commit 5) covers en + news, so a plain
+        # human text in that regime is verdicted "human", exit 0.
         result = self.run_cli(
             "mixed-origin",
             "--text",
-            TEXT,
+            LIBRARY_TEXT,
             "--json",
             "--language",
             "en",
             "--domain",
             "news",
         )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["verdict"], "human")
+        self.assertEqual(payload["withheld_reasons"], [])
+        self.assertEqual(payload["collaboration_type"], "HH")
+        self.assertTrue(payload["regime"]["validation_slice_covered"])
+        self.assertTrue(all(s["evidence"] == "human-consistent" for s in payload["segments"]))
+        self.assertNotIn("Mill Street", result.stdout)
+
+    def test_json_report_withheld_with_uncovered_domain(self):
+        # A declared regime outside the segment record's domains
+        # ("legal" is not in abstracts/essays/news/reports) is
+        # uncovered: condition (iv) withholds the verdict.
+        result = self.run_cli(
+            "mixed-origin",
+            "--text",
+            LIBRARY_TEXT,
+            "--json",
+            "--language",
+            "en",
+            "--domain",
+            "legal",
+        )
         self.assertEqual(result.returncode, EXIT_DOWNGRADED, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["verdict"], "withheld")
         self.assertTrue(any("no_validation_slice" in r for r in payload["withheld_reasons"]))
+        self.assertFalse(payload["regime"]["validation_slice_covered"])
 
     def test_pretty_output_has_no_raw_text(self):
         text = (
