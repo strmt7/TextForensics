@@ -17,12 +17,42 @@
 # same justification, and do NOT remove `[extend] useDefault = true`:
 # without it a custom config REPLACES the default rules instead of
 # extending them, and the scan would silently catch nothing.
+#
+# False positive in tests/test_watermarking.py:533 (rule
+# `generic-api-key`, fingerprint
+# `tests/test_watermarking.py:generic-api-key:533`):
+#   `assert kp2.private_key == kp1.private_key`  # pragma: allowlist secret — quoted test assertion, no key material
+# The line compares two runtime-generated WatermarkKeyPair objects
+# inside a `tempfile.TemporaryDirectory()`; the file contains no key
+# material at all, only attribute names. It is allowlisted below with
+# a fully anchored line regex (`regexTarget = "line"`), which matches
+# only that exact assertion line — not the whole file, not the whole
+# rule, and no other line (the assertion text occurs exactly once in
+# the repo). A fingerprint entry was deliberately NOT used: the
+# gitleaks 8.24.3 config `Allowlist` has no `fingerprints` field
+# (only `commits`, `paths`, `regexTarget`, `regexes`, `stopwords`),
+# so a `fingerprints = [...]` entry in this file is silently ignored
+# — verified live against 8.24.3, where it left the finding in place.
+# Fingerprint suppression exists only via a `.gitleaksignore` file.
+#
+# Config-discovery caveat (gitleaks 8.24.3 `--help`): the config is
+# found at `(target path)/.gitleaks.toml`, so `gitleaks git` (target:
+# the repo root, as CI's Supply-chain job runs it) and
+# `gitleaks detect --config .gitleaks.toml` load this file, but
+# `gitleaks detect --no-git --source <single file>` does NOT — it
+# uses the default config and still reports this line. Verify this
+# entry with `--config .gitleaks.toml`, never with a bare single-file
+# scan.
 
 [extend]
 useDefault = true
 
 [allowlist]
-description = "detect-secrets baseline: SHA-1 hashes of audited values only, never raw secrets"
+description = "detect-secrets baseline: SHA-1 hashes of audited values only, never raw secrets; plus one runtime-key comparison line (see header comment)"
 paths = [
   '''^\.secrets\.baseline$''',
+]
+regexTarget = "line"
+regexes = [
+  '''^\s*assert kp2\.private_key == kp1\.private_key$''',  # pragma: allowlist secret — matches a test assertion comparing runtime-generated keypair objects, no key material
 ]
