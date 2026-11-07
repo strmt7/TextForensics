@@ -45,7 +45,12 @@ jobs:
   fuzz-regression:
     name: Fuzz Regression (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 9 targets x 5 min direct fuzzing = 45 min minimum, plus setup and
+    # the pytest suite. The -runs=0 bug used to make the direct step exit
+    # in ~0.1s per target, so the old 30 min timeout never bound; now
+    # that direct runs actually fuzz for the stated duration, the
+    # timeout must cover the intended work.
+    timeout-minutes: 60
     permissions:
       contents: read
       actions: write
@@ -105,7 +110,9 @@ jobs:
   fuzz-weekly:
     name: Fuzz Extended (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Default duration is 10 min x 9 targets = 90 min minimum; same
+    # -runs=0 masking as the regression job (see above).
+    timeout-minutes: 120
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
