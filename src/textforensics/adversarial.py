@@ -674,9 +674,6 @@ class AdversarialDetector:
                 limitations=["Empty input text"],
             )
 
-        _sha256(text)
-        len(text)
-
         # Run all pattern detectors
         all_findings = self.pattern_library.run_all(text)
 
