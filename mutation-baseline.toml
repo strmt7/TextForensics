@@ -1,0 +1,954 @@
+# mutation-baseline.toml — equivalent-mutant baseline for TextForensics.
+#
+# WHAT THIS IS
+# ------------
+# Cosmic Ray mutates `|` (BitOr) inside function annotations of
+# `textforensics.trust`, and the mutants survive: no test can kill them,
+# because the mutation changes only an annotation *string* that is never
+# evaluated. Each entry below is one such mutant, individually verified
+# (see PROOF) and individually justified. This file does NOT weaken the
+# gate: the gate still fails on any UNEXPLAINED survivor (exit 2), and a
+# baseline entry that no longer matches the current source fails LOUDLY
+# (exit 1) instead of passing silently. Raw counts are never relabelled:
+# the summary keeps `total` / `killed` / `surviving` exactly as measured
+# and reports `equivalent` / `unexplained_surviving` / `equivalent_dormant`
+# / `equivalent_superseded` / `stale_baseline_entries` alongside them.
+# Equivalent mutants are NEVER counted as killed.
+#
+# DESIGN DECISION (hybrid: explicit baseline + structural re-validation)
+# ----------------------------------------------------------------------
+# Two candidates were considered:
+#   (a) a checked-in baseline/allowlist, one entry per equivalent mutant;
+#   (b) a structural rule in the runner that excludes any mutant whose
+#       start position falls inside an annotation (AST-based).
+# Neither alone is sufficient:
+#   - (b) alone would silently accept ANY future annotation mutant with no
+#     human review, including one that later becomes behaviour-changing
+#     (e.g. if `from __future__ import annotations` were removed, or if
+#     annotation evaluation were introduced). It is a blanket rule, and
+#     blanket rules rot into blanket ignores.
+#   - (a) alone rots the other way: positions shift, entries stop matching,
+#     and a static file becomes dead weight nobody re-checks.
+# The mechanism is therefore a hybrid: (a) explicit per-mutant entries
+# (auditable, individually justified, addable without code changes) PLUS
+# (b) as a *validator*, not as an acceptor — on every run the runner
+# re-validates each entry against the CURRENT source (AST: the recorded
+# position must still hold `|` inside an annotation, the annotation text
+# must be unchanged, and the module must still use postponed evaluation).
+# An entry that fails re-validation is STALE and fails the run with
+# exit 1. An entry that passes re-validation but matched no live survivor
+# in this run is DORMANT (reported, not failed): the mutant was not
+# executed in this run, e.g. it fell outside the budget-200 prefix.
+# An entry whose mutant was executed and KILLED is SUPERSEDED (reported):
+# the tests now catch it, the entry is unnecessary, and a human should
+# remove it — leaving it is harmless only because it can only ever
+# excuse survivors, never kills.
+#
+# PROOF (per-mutant, verified 2026-11-07 against run 42393966895)
+# ---------------------------------------------------------------
+# For each of the 69 mutants: the CI diff replaces exactly the `|` at the
+# recorded start position with one other operator (+, &, ^, /, //); the
+# position lies inside a function argument or return annotation (checked
+# with `ast` + `tokenize` against trust.py at commit 76fc8b1, which is
+# byte-identical to the CI commit 153b5ab for trust.py); and the enclosing
+# function matches the entry. 69/69 verified, 0 exceptions.
+# The 15 distinct positions are exactly the `|` operators inside function
+# annotations in trust.py (verified: mutant positions == function-annotation
+# `|` positions). Three further `|` operators exist in TrustMap dataclass
+# field annotations (L103, L104, L106) but cosmic-ray 8.7.0 never generates
+# mutants for them — it deliberately excludes `|` in assignment
+# annotations (parso `annassign` rule in
+# cosmic_ray/operators/binary_operator_replacement.py, function
+# `_is_binary_operator`). Nothing to baseline there.
+# Why the annotation change cannot affect behaviour:
+#   1. trust.py has `from __future__ import annotations` (line 30), so
+#      under PEP 563 every annotation in the module is a string, stored
+#      unevaluated at function definition and call time.
+#   2. Nothing evaluates these annotations: no `get_type_hints`,
+#      `__annotations__`, `eval_str`, `get_annotations` or `ForwardRef`
+#      anywhere in src/, tests/ or scripts/ (grep, 2026-11-07); no
+#      pydantic / TypeAdapter; no `inspect.signature(..., eval_str=True)`.
+#      This is guarded by a test (tests/test_mutation.py).
+#   3. dataclasses never evaluates string annotations: TrustMap /
+#      TrustDimension field types stay strings (`dataclasses.fields(...).type`
+#      is `str`), and `__init__` / `__post_init__` / `asdict` use field
+#      names and values only.
+#   4. Empirical check: all 75 mutants (15 positions x 5 operators,
+#      including the 6 FloorDiv mutants never executed in CI) were applied
+#      to a copy of trust.py and probed (construction, validation,
+#      dimension(), assess_trust_map(), build_trust_map()); all 75 produced
+#      byte-identical behaviour, differing only in the annotation string
+#      itself. 75/75.
+# The mutated annotation strings are all syntactically valid expressions
+# (`X + None`, `X / None`, ...), so the mutants compile and run — that is
+# why they report as "survived" rather than "incompetent".
+#
+# KNOWN MUTANTS *NOT* IN THIS BASELINE (do not add without verification)
+# ---------------------------------------------------------------------
+# - ReplaceBinaryOperator_BitOr_FloorDiv occurrences 9-14 (positions
+#   L420, L421, L422:18, L422:24, L425, L426): same 15 positions, same
+#   proof (they are in the 75/75 empirical check), but they were never
+#   executed in run 42393966895 — the budget-200 trim cut the session at
+#   200 work items and FloorDiv sorts last. If a future run with a larger
+#   budget executes them and they survive, the gate fails (exit 2) until
+#   a human adds verified entries. That is by design.
+# - The other six BitOr replacement operators (LShift, Mod, Mul, Pow,
+#   RShift, Sub) x 15 positions = 90 mutants: present in the full 618-item
+#   session, never executed under budget 200. Same rule: verify, then add.
+# - The 54 AddNot / NumberReplacer / ReplaceAndWithOr survivors are NOT
+#   equivalent; they are runtime mutants being killed with tests by a
+#   parallel worker. Never add a runtime mutant to this file.
+#
+# HOW TO ADD AN ENTRY
+# -------------------
+# 1. Verify the mutant per the PROOF above (diff + AST position +
+#    no-evaluation + empirical probe). Do not copy an entry and change
+#    the numbers.
+# 2. Add one [[equivalent]] entry with module, operator, occurrence,
+#    start_pos, end_pos, function, kind, annotation and a reason naming
+#    the specific annotation. No code change is needed.
+# 3. Run tests/test_mutation.py and a full budget-200 trust.py run through
+#    scripts/run_mutation.py; the summary must show the mutant under
+#    `equivalent`, not under `unexplained_surviving`.
+#
+# MATCHING
+# --------
+# A live surviving mutant matches an entry iff (module, operator,
+# start_pos, end_pos) are equal. Occurrence is provenance only (see the
+# generator note) and the annotation text + function are re-validated
+# against the current source on every run.
+
+version = 1
+source_run = "42393966895"
+source_commit = "153b5ab"
+source_tool = "cosmic-ray 8.7.0"
+source_budget = 200
+source_module = "textforensics.trust"
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Add:0"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 0
+start_pos = [130, 53]
+end_pos = [130, 54]
+function = "TrustMap.dimension"
+kind = "return"
+annotation = "TrustDimension | None"
+reason = "Postponed-evaluation annotation (return of TrustMap.dimension): the `|` in `TrustDimension | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Add:1"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 1
+start_pos = [178, 28]
+end_pos = [178, 29]
+function = "_stability_dimension"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (arg of _stability_dimension): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Add:2"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 2
+start_pos = [326, 31]
+end_pos = [326, 32]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "EvidenceRegistry | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `EvidenceRegistry | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Add:3"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 3
+start_pos = [329, 28]
+end_pos = [329, 29]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "bool | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `bool | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Add:4"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 4
+start_pos = [330, 18]
+end_pos = [330, 19]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "datetime | str | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `datetime | str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Add:5"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 5
+start_pos = [330, 24]
+end_pos = [330, 25]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "datetime | str | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `datetime | str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Add:6"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 6
+start_pos = [333, 28]
+end_pos = [333, 29]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Add:7"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 7
+start_pos = [334, 26]
+end_pos = [334, 27]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Add:8"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 8
+start_pos = [419, 32]
+end_pos = [419, 33]
+function = "build_trust_map"
+kind = "arg"
+annotation = "InputConditions | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `InputConditions | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Add:9"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 9
+start_pos = [420, 31]
+end_pos = [420, 32]
+function = "build_trust_map"
+kind = "arg"
+annotation = "EvidenceRegistry | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `EvidenceRegistry | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Add:10"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 10
+start_pos = [421, 28]
+end_pos = [421, 29]
+function = "build_trust_map"
+kind = "arg"
+annotation = "bool | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `bool | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Add:11"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 11
+start_pos = [422, 18]
+end_pos = [422, 19]
+function = "build_trust_map"
+kind = "arg"
+annotation = "datetime | str | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `datetime | str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Add:12"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 12
+start_pos = [422, 24]
+end_pos = [422, 25]
+function = "build_trust_map"
+kind = "arg"
+annotation = "datetime | str | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `datetime | str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Add:13"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 13
+start_pos = [425, 28]
+end_pos = [425, 29]
+function = "build_trust_map"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Add:14"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 14
+start_pos = [426, 26]
+end_pos = [426, 27]
+function = "build_trust_map"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitAnd:0"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 0
+start_pos = [130, 53]
+end_pos = [130, 54]
+function = "TrustMap.dimension"
+kind = "return"
+annotation = "TrustDimension | None"
+reason = "Postponed-evaluation annotation (return of TrustMap.dimension): the `|` in `TrustDimension | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitAnd:1"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 1
+start_pos = [178, 28]
+end_pos = [178, 29]
+function = "_stability_dimension"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (arg of _stability_dimension): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitAnd:2"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 2
+start_pos = [326, 31]
+end_pos = [326, 32]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "EvidenceRegistry | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `EvidenceRegistry | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitAnd:3"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 3
+start_pos = [329, 28]
+end_pos = [329, 29]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "bool | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `bool | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitAnd:4"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 4
+start_pos = [330, 18]
+end_pos = [330, 19]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "datetime | str | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `datetime | str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitAnd:5"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 5
+start_pos = [330, 24]
+end_pos = [330, 25]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "datetime | str | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `datetime | str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitAnd:6"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 6
+start_pos = [333, 28]
+end_pos = [333, 29]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitAnd:7"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 7
+start_pos = [334, 26]
+end_pos = [334, 27]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitAnd:8"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 8
+start_pos = [419, 32]
+end_pos = [419, 33]
+function = "build_trust_map"
+kind = "arg"
+annotation = "InputConditions | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `InputConditions | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitAnd:9"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 9
+start_pos = [420, 31]
+end_pos = [420, 32]
+function = "build_trust_map"
+kind = "arg"
+annotation = "EvidenceRegistry | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `EvidenceRegistry | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitAnd:10"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 10
+start_pos = [421, 28]
+end_pos = [421, 29]
+function = "build_trust_map"
+kind = "arg"
+annotation = "bool | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `bool | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitAnd:11"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 11
+start_pos = [422, 18]
+end_pos = [422, 19]
+function = "build_trust_map"
+kind = "arg"
+annotation = "datetime | str | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `datetime | str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitAnd:12"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 12
+start_pos = [422, 24]
+end_pos = [422, 25]
+function = "build_trust_map"
+kind = "arg"
+annotation = "datetime | str | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `datetime | str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitAnd:13"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 13
+start_pos = [425, 28]
+end_pos = [425, 29]
+function = "build_trust_map"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitAnd:14"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 14
+start_pos = [426, 26]
+end_pos = [426, 27]
+function = "build_trust_map"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitXor:0"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 0
+start_pos = [130, 53]
+end_pos = [130, 54]
+function = "TrustMap.dimension"
+kind = "return"
+annotation = "TrustDimension | None"
+reason = "Postponed-evaluation annotation (return of TrustMap.dimension): the `|` in `TrustDimension | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitXor:1"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 1
+start_pos = [178, 28]
+end_pos = [178, 29]
+function = "_stability_dimension"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (arg of _stability_dimension): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitXor:2"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 2
+start_pos = [326, 31]
+end_pos = [326, 32]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "EvidenceRegistry | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `EvidenceRegistry | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitXor:3"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 3
+start_pos = [329, 28]
+end_pos = [329, 29]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "bool | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `bool | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitXor:4"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 4
+start_pos = [330, 18]
+end_pos = [330, 19]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "datetime | str | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `datetime | str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitXor:5"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 5
+start_pos = [330, 24]
+end_pos = [330, 25]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "datetime | str | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `datetime | str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitXor:6"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 6
+start_pos = [333, 28]
+end_pos = [333, 29]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitXor:7"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 7
+start_pos = [334, 26]
+end_pos = [334, 27]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitXor:8"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 8
+start_pos = [419, 32]
+end_pos = [419, 33]
+function = "build_trust_map"
+kind = "arg"
+annotation = "InputConditions | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `InputConditions | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitXor:9"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 9
+start_pos = [420, 31]
+end_pos = [420, 32]
+function = "build_trust_map"
+kind = "arg"
+annotation = "EvidenceRegistry | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `EvidenceRegistry | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitXor:10"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 10
+start_pos = [421, 28]
+end_pos = [421, 29]
+function = "build_trust_map"
+kind = "arg"
+annotation = "bool | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `bool | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitXor:11"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 11
+start_pos = [422, 18]
+end_pos = [422, 19]
+function = "build_trust_map"
+kind = "arg"
+annotation = "datetime | str | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `datetime | str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitXor:12"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 12
+start_pos = [422, 24]
+end_pos = [422, 25]
+function = "build_trust_map"
+kind = "arg"
+annotation = "datetime | str | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `datetime | str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitXor:13"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 13
+start_pos = [425, 28]
+end_pos = [425, 29]
+function = "build_trust_map"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_BitXor:14"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 14
+start_pos = [426, 26]
+end_pos = [426, 27]
+function = "build_trust_map"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Div:0"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 0
+start_pos = [130, 53]
+end_pos = [130, 54]
+function = "TrustMap.dimension"
+kind = "return"
+annotation = "TrustDimension | None"
+reason = "Postponed-evaluation annotation (return of TrustMap.dimension): the `|` in `TrustDimension | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Div:1"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 1
+start_pos = [178, 28]
+end_pos = [178, 29]
+function = "_stability_dimension"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (arg of _stability_dimension): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Div:2"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 2
+start_pos = [326, 31]
+end_pos = [326, 32]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "EvidenceRegistry | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `EvidenceRegistry | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Div:3"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 3
+start_pos = [329, 28]
+end_pos = [329, 29]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "bool | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `bool | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Div:4"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 4
+start_pos = [330, 18]
+end_pos = [330, 19]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "datetime | str | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `datetime | str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Div:5"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 5
+start_pos = [330, 24]
+end_pos = [330, 25]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "datetime | str | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `datetime | str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Div:6"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 6
+start_pos = [333, 28]
+end_pos = [333, 29]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Div:7"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 7
+start_pos = [334, 26]
+end_pos = [334, 27]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Div:8"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 8
+start_pos = [419, 32]
+end_pos = [419, 33]
+function = "build_trust_map"
+kind = "arg"
+annotation = "InputConditions | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `InputConditions | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Div:9"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 9
+start_pos = [420, 31]
+end_pos = [420, 32]
+function = "build_trust_map"
+kind = "arg"
+annotation = "EvidenceRegistry | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `EvidenceRegistry | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Div:10"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 10
+start_pos = [421, 28]
+end_pos = [421, 29]
+function = "build_trust_map"
+kind = "arg"
+annotation = "bool | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `bool | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Div:11"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 11
+start_pos = [422, 18]
+end_pos = [422, 19]
+function = "build_trust_map"
+kind = "arg"
+annotation = "datetime | str | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `datetime | str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Div:12"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 12
+start_pos = [422, 24]
+end_pos = [422, 25]
+function = "build_trust_map"
+kind = "arg"
+annotation = "datetime | str | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `datetime | str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Div:13"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 13
+start_pos = [425, 28]
+end_pos = [425, 29]
+function = "build_trust_map"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_Div:14"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 14
+start_pos = [426, 26]
+end_pos = [426, 27]
+function = "build_trust_map"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_FloorDiv:0"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 0
+start_pos = [130, 53]
+end_pos = [130, 54]
+function = "TrustMap.dimension"
+kind = "return"
+annotation = "TrustDimension | None"
+reason = "Postponed-evaluation annotation (return of TrustMap.dimension): the `|` in `TrustDimension | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_FloorDiv:1"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 1
+start_pos = [178, 28]
+end_pos = [178, 29]
+function = "_stability_dimension"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (arg of _stability_dimension): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_FloorDiv:2"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 2
+start_pos = [326, 31]
+end_pos = [326, 32]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "EvidenceRegistry | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `EvidenceRegistry | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_FloorDiv:3"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 3
+start_pos = [329, 28]
+end_pos = [329, 29]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "bool | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `bool | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_FloorDiv:4"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 4
+start_pos = [330, 18]
+end_pos = [330, 19]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "datetime | str | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `datetime | str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_FloorDiv:5"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 5
+start_pos = [330, 24]
+end_pos = [330, 25]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "datetime | str | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `datetime | str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_FloorDiv:6"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 6
+start_pos = [333, 28]
+end_pos = [333, 29]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_FloorDiv:7"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 7
+start_pos = [334, 26]
+end_pos = [334, 27]
+function = "assess_trust_map"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of assess_trust_map): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/ReplaceBinaryOperator_BitOr_FloorDiv:8"
+module = "textforensics.trust"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 8
+start_pos = [419, 32]
+end_pos = [419, 33]
+function = "build_trust_map"
+kind = "arg"
+annotation = "InputConditions | None"
+reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `InputConditions | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."

@@ -50,16 +50,43 @@ No-op case: a diff run with no relevant module changed writes a summary with
 accepts that marker. "Nothing to mutate" is therefore a pass, distinct from
 "mutation failed" (exit 1) and "surviving mutants" (exit 2).
 
+Equivalent-mutant baseline (``mutation-baseline.toml``)
+--------------------------------------------------------
+Some mutants cannot be killed by any test because they change only text
+that is never evaluated — e.g. a ``|`` inside a function annotation of a
+module using ``from __future__ import annotations`` (PEP 563), where the
+annotation is a string stored unevaluated. Such mutants are recorded in
+``mutation-baseline.toml``, one entry per mutant, keyed by
+``(module, operator, start_pos, end_pos)`` and carrying the annotation
+text, the enclosing function and a per-entry reason. This is a hybrid
+mechanism, deliberately NOT a blanket structural rule: a pure "ignore
+mutants inside annotations" rule would silently accept any future
+annotation mutant with no human review, including one that later becomes
+behaviour-changing. Instead the baseline is explicit AND re-validated:
+on every run the runner checks each entry against the current source
+(AST — the position must still hold the operator inside an annotation,
+the annotation text must be unchanged, the enclosing function must match,
+and the module must still use postponed evaluation). The summary reports
+``equivalent`` (accepted survivors), ``unexplained_surviving`` (the count
+the gate fails on), ``equivalent_dormant`` (valid entries whose mutant was
+not executed in this run, e.g. outside the budget prefix),
+``equivalent_superseded`` (entries whose mutant was executed and KILLED —
+the entry is now unnecessary and should be removed) and
+``stale_baseline_entries``. Raw counts are never relabelled: ``total`` /
+``killed`` / ``surviving`` keep their measured meanings and equivalent
+mutants are never counted as killed (rule 17).
+
 Exit codes:
 
-- 0: All executed mutations killed, or a legitimate no-op.
-- 1: Runner / baseline / cosmic-ray failure, or a summary with no mutations
+- 0: All executed mutations killed (or accepted as equivalent), or a legitimate no-op.
+- 1: Runner / baseline / cosmic-ray failure, a stale baseline entry, or a summary with no mutations
   and no ``skipped_reason``.
-- 2: Surviving mutants detected.
+- 2: Unexplained surviving mutants detected.
 - 3: Mutation budget exceeded (timeout ratio above 10%).
 """
 
 import argparse
+import ast
 import json
 import subprocess
 import sys
@@ -98,6 +125,28 @@ DEFAULT_TIMEOUT = 30
 
 #: Default mutation budget (work items) per run; 0 means no cap.
 DEFAULT_BUDGET = 200
+
+#: Default equivalent-mutant baseline file (repo root, next to .cosmic-ray.toml).
+DEFAULT_BASELINE = "mutation-baseline.toml"
+
+#: Annotation kinds the baseline validator understands (see
+#: :func:`_annotation_spans`). A new kind needs span support first; the
+#: loader rejects unknown kinds loudly rather than accepting them blind.
+BASELINE_ANNOTATION_KINDS = {"arg", "return", "annassign"}
+
+#: Required fields of one [[equivalent]] baseline entry.
+BASELINE_ENTRY_FIELDS = {
+    "id",
+    "module",
+    "operator",
+    "occurrence",
+    "start_pos",
+    "end_pos",
+    "function",
+    "kind",
+    "annotation",
+    "reason",
+}
 
 
 def run_command(
@@ -159,6 +208,342 @@ def load_base_config(config_path: Path) -> dict[str, Any]:
         "timeout": cosmic_ray.get("timeout", DEFAULT_TIMEOUT),
         "excluded-modules": cosmic_ray.get("excluded-modules", []),
     }
+
+
+def _dotted_module(module_path: str) -> str:
+    """Normalise a cosmic-ray ``module_path`` (absolute filesystem path) to a
+    dotted module name (``textforensics.trust``).
+
+    CI and local checkouts differ in their absolute prefix, so the match key
+    uses the path below the ``src/`` directory, never the full path.
+    """
+    path = module_path.replace("\\", "/")
+    if "/src/" in path:
+        path = path.split("/src/", 1)[1]
+    elif path.startswith("src/"):
+        path = path[4:]
+    if path.endswith(".py"):
+        path = path[:-3]
+    return path.replace("/", ".")
+
+
+def _annotation_spans(tree: ast.AST, source: str) -> list[dict[str, Any]]:
+    """Collect every annotation in a module as a span dict.
+
+    Covers function argument annotations, return annotations and ``AnnAssign``
+    (variable / dataclass-field) annotations, with the qualified owner name
+    (``TrustMap.dimension``, ``assess_trust_map``) and the annotation source
+    text. Positions are 1-based lines / 0-based columns, end exclusive —
+    the same convention cosmic-ray uses for ``start_pos`` / ``end_pos``.
+    """
+    spans: list[dict[str, Any]] = []
+
+    def add(node: ast.AST, kind: str, owner: str) -> None:
+        spans.append(
+            {
+                "start_line": node.lineno,
+                "start_col": node.col_offset,
+                "end_line": node.end_lineno,
+                "end_col": node.end_col_offset,
+                "kind": kind,
+                "owner": owner,
+                "text": ast.get_source_segment(source, node),
+            }
+        )
+
+    def walk(node: ast.AST, owner: str) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                child_owner = f"{owner}.{child.name}" if owner else child.name
+                for arg in (
+                    list(child.args.posonlyargs)
+                    + list(child.args.args)
+                    + list(child.args.kwonlyargs)
+                ):
+                    if arg.annotation is not None:
+                        add(arg.annotation, "arg", child_owner)
+                for extra in (child.args.vararg, child.args.kwarg):
+                    if extra is not None and extra.annotation is not None:
+                        add(extra.annotation, "arg", child_owner)
+                if child.returns is not None:
+                    add(child.returns, "return", child_owner)
+                walk(child, child_owner)
+            elif isinstance(child, ast.ClassDef):
+                walk(child, f"{owner}.{child.name}" if owner else child.name)
+            elif isinstance(child, ast.AnnAssign):
+                add(child.annotation, "annassign", owner or "?")
+            else:
+                walk(child, owner)
+
+    walk(tree, "")
+    return spans
+
+
+def _has_postponed_evaluation(tree: ast.AST) -> bool:
+    """True when the module uses ``from __future__ import annotations``
+    (PEP 563: annotations are strings, never evaluated at runtime)."""
+    return any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "__future__"
+        and any(alias.name == "annotations" for alias in node.names)
+        for node in ast.walk(tree)
+    )
+
+
+def _entry_key(entry: dict[str, Any]) -> tuple[str, str, tuple[int, int], tuple[int, int]]:
+    """Match key of a baseline entry: (module, operator, start_pos, end_pos).
+
+    ``occurrence`` is deliberately NOT part of the key: cosmic-ray renumbers
+    occurrences when an earlier mutation point is added or removed, while
+    positions are stable. The annotation text and owner are re-validated
+    separately by :func:`validate_baseline_entry`.
+    """
+    return (
+        entry["module"],
+        entry["operator"],
+        tuple(entry["start_pos"]),
+        tuple(entry["end_pos"]),
+    )
+
+
+def load_baseline(baseline_path: Path) -> dict[str, Any]:
+    """Load and structurally validate ``mutation-baseline.toml``.
+
+    Raises ``FileNotFoundError`` when the file is missing and ``ValueError``
+    on any malformed content (wrong version, missing field, duplicate id or
+    duplicate match key, unknown annotation kind, malformed position).
+    Structural problems fail loudly at load time; staleness against the
+    current source is checked per entry by :func:`validate_baseline_entry`.
+    """
+    with open(baseline_path, "rb") as f:
+        data = tomllib.load(f)
+    if data.get("version") != 1:
+        raise ValueError(f"Unsupported baseline version (expected 1): {data.get('version')!r}")
+    entries = data.get("equivalent", [])
+    if not isinstance(entries, list):
+        raise ValueError("Baseline 'equivalent' must be a list of entries")
+    seen_keys: set[tuple[str, str, tuple[int, int], tuple[int, int]]] = set()
+    seen_ids: set[str] = set()
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise ValueError(f"Baseline entry is not a table: {entry!r}")
+        missing = BASELINE_ENTRY_FIELDS - set(entry)
+        if missing:
+            raise ValueError(
+                f"Baseline entry {entry.get('id', '?')!r} is missing field(s): "
+                + ", ".join(sorted(missing))
+            )
+        if entry["kind"] not in BASELINE_ANNOTATION_KINDS:
+            raise ValueError(
+                f"Baseline entry {entry['id']!r} has unknown annotation kind "
+                f"{entry['kind']!r} (supported: {sorted(BASELINE_ANNOTATION_KINDS)})"
+            )
+        for field in ("start_pos", "end_pos"):
+            pos = entry[field]
+            if (
+                not isinstance(pos, list)
+                or len(pos) != 2
+                or not all(isinstance(v, int) for v in pos)
+            ):
+                raise ValueError(f"Baseline entry {entry['id']!r} has malformed {field}: {pos!r}")
+        if entry["id"] in seen_ids:
+            raise ValueError(f"Duplicate baseline entry id: {entry['id']!r}")
+        key = _entry_key(entry)
+        if key in seen_keys:
+            raise ValueError(f"Duplicate baseline match key: {key!r}")
+        seen_ids.add(entry["id"])
+        seen_keys.add(key)
+    return {
+        "version": 1,
+        "entries": entries,
+        "source_run": data.get("source_run"),
+        "source_commit": data.get("source_commit"),
+        "source_tool": data.get("source_tool"),
+        "source_budget": data.get("source_budget"),
+    }
+
+
+def validate_baseline_entry(entry: dict[str, Any], project_root: Path) -> tuple[bool, str]:
+    """Re-validate one baseline entry against the CURRENT source.
+
+    Returns ``(True, "ok")`` only when every check holds: the module source
+    exists and parses, the module still uses postponed evaluation, the
+    recorded position still holds the recorded operator inside an
+    annotation, the enclosing function still matches, and the annotation
+    text is unchanged. Any failure returns ``(False, reason)`` — the entry
+    is STALE and the run must fail loudly (exit 1), never pass silently.
+    """
+    source_path = module_path(entry["module"], project_root)
+    if not source_path.is_file():
+        return False, f"module source not found: {source_path}"
+    try:
+        source = source_path.read_text()
+    except OSError as exc:
+        return False, f"module source unreadable: {exc}"
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as exc:
+        return False, f"module does not parse: {exc}"
+    if not _has_postponed_evaluation(tree):
+        return (
+            False,
+            "module no longer uses postponed evaluation "
+            "(`from __future__ import annotations` missing) — the annotation "
+            "may now be evaluated at runtime, so the equivalence proof no "
+            "longer holds",
+        )
+    lines = source.splitlines()
+    start_line, start_col = entry["start_pos"]
+    end_line, end_col = entry["end_pos"]
+    if not (1 <= start_line <= len(lines)) or start_line != end_line:
+        return False, f"position {entry['start_pos']} is outside the current source"
+    line = lines[start_line - 1]
+    if not (0 <= start_col < end_col <= len(line)):
+        return (
+            False,
+            f"position {entry['start_pos']}-{entry['end_pos']} is outside line {start_line}",
+        )
+    segment = line[start_col:end_col]
+    if "BitOr" in entry["operator"]:
+        if segment != "|":
+            return (
+                False,
+                f"position L{start_line}:{start_col} no longer holds `|` "
+                f"(found {segment!r}) — the annotated code moved or changed",
+            )
+    elif not segment or any(ch.isspace() or ch.isalnum() or ch == "_" for ch in segment):
+        return (
+            False,
+            f"position L{start_line}:{start_col} no longer holds an operator (found {segment!r})",
+        )
+    span = None
+    for candidate in _annotation_spans(tree, source):
+        sl, sc, el, ec = (
+            candidate["start_line"],
+            candidate["start_col"],
+            candidate["end_line"],
+            candidate["end_col"],
+        )
+        if (
+            (sl == el == start_line and sc <= start_col < ec)
+            or (sl < start_line < el)
+            or (sl == start_line < el and start_col >= sc)
+            or (sl < start_line == el and start_col < ec)
+        ):
+            span = candidate
+            break
+    if span is None:
+        return (
+            False,
+            f"position L{start_line}:{start_col} is no longer inside an "
+            "annotation — the mutant is now in runtime code",
+        )
+    if span["kind"] != entry["kind"]:
+        return (
+            False,
+            f"annotation kind changed ({entry['kind']!r} -> {span['kind']!r})",
+        )
+    if span["owner"] != entry["function"]:
+        return (
+            False,
+            f"enclosing function changed ({entry['function']!r} -> "
+            f"{span['owner']!r}) — re-verify the mutant",
+        )
+    current_text = " ".join((span["text"] or "").split())
+    recorded_text = " ".join(str(entry["annotation"]).split())
+    if current_text != recorded_text:
+        return (
+            False,
+            f"annotation text changed ({recorded_text!r} -> {current_text!r}) "
+            "— re-verify the mutant",
+        )
+    return True, "ok"
+
+
+def _record_mutant_key(
+    record: dict[str, Any],
+) -> tuple[str, str, tuple[int, int], tuple[int, int]] | None:
+    """Match key of one cosmic-ray dump record, or None when malformed."""
+    try:
+        mutation = record["work_item"]["mutations"][0]
+        return (
+            _dotted_module(mutation["module_path"]),
+            mutation["operator_name"],
+            tuple(mutation["start_pos"]),
+            tuple(mutation["end_pos"]),
+        )
+    except (KeyError, IndexError, TypeError, AttributeError):
+        return None
+
+
+def classify_baseline(
+    records: list[dict[str, Any]],
+    baseline: dict[str, Any] | None,
+    project_root: Path,
+) -> dict[str, Any]:
+    """Classify surviving mutants against the equivalent-mutant baseline.
+
+    Returns the baseline portion of the summary: how many survivors were
+    accepted as equivalent (each matched to a re-validated entry), how many
+    remain unexplained, which entries are stale (failed re-validation),
+    dormant (valid but no live survivor in this run) or superseded (valid
+    but the mutant was executed and killed — the entry is now unnecessary).
+    A stale entry never excuses a survivor: a survivor matching a stale
+    entry counts as unexplained as well.
+    """
+    entries = list(baseline.get("entries", [])) if baseline else []
+    result: dict[str, Any] = {
+        "equivalent": 0,
+        "equivalent_mutants": [],
+        "equivalent_dormant": 0,
+        "equivalent_dormant_ids": [],
+        "equivalent_superseded": 0,
+        "equivalent_superseded_ids": [],
+        "unexplained_surviving": 0,
+        "stale_baseline_entries": [],
+        "baseline_entries": len(entries),
+    }
+    validation = {entry["id"]: validate_baseline_entry(entry, project_root) for entry in entries}
+    result["stale_baseline_entries"] = [
+        {"id": entry["id"], "reason": validation[entry["id"]][1]}
+        for entry in entries
+        if not validation[entry["id"]][0]
+    ]
+    by_key = {_entry_key(entry): entry for entry in entries}
+    executed: dict[tuple[str, str, tuple[int, int], tuple[int, int]], str] = {}
+    survivors: list[tuple[str, str, tuple[int, int], tuple[int, int]]] = []
+    for record in records:
+        if "error" in record:
+            continue
+        outcome = record.get("result")
+        if outcome is None:
+            continue
+        key = _record_mutant_key(record)
+        if key is None:
+            continue
+        test_outcome = str(outcome.get("test_outcome") or "").lower()
+        executed[key] = test_outcome
+        if test_outcome == "survived":
+            survivors.append(key)
+    matched_valid: set[str] = set()
+    for key in survivors:
+        entry = by_key.get(key)
+        if entry is not None and validation[entry["id"]][0]:
+            result["equivalent_mutants"].append(entry["id"])
+            matched_valid.add(entry["id"])
+        else:
+            result["unexplained_surviving"] += 1
+    result["equivalent"] = len(result["equivalent_mutants"])
+    for entry in entries:
+        if not validation[entry["id"]][0] or entry["id"] in matched_valid:
+            continue
+        if executed.get(_entry_key(entry)) == "killed":
+            result["equivalent_superseded_ids"].append(entry["id"])
+        else:
+            result["equivalent_dormant_ids"].append(entry["id"])
+    result["equivalent_dormant"] = len(result["equivalent_dormant_ids"])
+    result["equivalent_superseded"] = len(result["equivalent_superseded_ids"])
+    return result
 
 
 def _toml_str(value: str) -> str:
@@ -367,13 +752,25 @@ def run_cosmic_ray(
         return 0, records
 
 
-def parse_results(records: list[dict[str, Any]] | dict[str, Any]) -> dict[str, Any]:
+def parse_results(
+    records: list[dict[str, Any]] | dict[str, Any],
+    baseline: dict[str, Any] | None = None,
+    project_root: Path | None = None,
+) -> dict[str, Any]:
     """Parse cosmic-ray 8.x ``dump`` records into summary statistics.
 
     Accepts the list returned by :func:`run_cosmic_ray`. A record carrying an
     ``"error"`` key (baseline/init/exec/dump failure) sets ``error`` to 1.
     ``total`` counts completed work items only; unexecuted items are reported
     separately as ``pending``.
+
+    ``total`` / ``killed`` / ``surviving`` keep their measured meanings.
+    When a baseline is given, surviving mutants are additionally classified
+    by :func:`classify_baseline` into ``equivalent`` (accepted, each matched
+    to a re-validated entry), ``unexplained_surviving`` (the count the gate
+    fails on), ``equivalent_dormant`` / ``equivalent_superseded`` and
+    ``stale_baseline_entries``. Equivalent mutants are never counted as
+    killed and never removed from ``total`` or ``surviving``.
     """
     summary: dict[str, Any] = {
         "total": 0,
@@ -384,6 +781,15 @@ def parse_results(records: list[dict[str, Any]] | dict[str, Any]) -> dict[str, A
         "skipped": 0,
         "incompetent": 0,
         "pending": 0,
+        "equivalent": 0,
+        "equivalent_mutants": [],
+        "equivalent_dormant": 0,
+        "equivalent_dormant_ids": [],
+        "equivalent_superseded": 0,
+        "equivalent_superseded_ids": [],
+        "unexplained_surviving": 0,
+        "stale_baseline_entries": [],
+        "baseline_entries": 0,
     }
 
     if isinstance(records, dict):
@@ -421,6 +827,8 @@ def parse_results(records: list[dict[str, Any]] | dict[str, Any]) -> dict[str, A
         else:
             summary["error"] += 1
 
+    classification = classify_baseline(records, baseline, project_root or Path.cwd())
+    summary.update(classification)
     return summary
 
 
@@ -434,7 +842,16 @@ def write_summary(summary: dict[str, Any], output_dir: Path) -> None:
 
 
 def check_results(summary_path: Path) -> int:
-    """Check mutation results and return appropriate exit code."""
+    """Check mutation results and return appropriate exit code.
+
+    Exit 1 on stale baseline entries (a baseline entry that no longer
+    matches the current source must fail loudly, never pass silently).
+    Exit 2 only on UNEXPLAINED survivors — survivors accepted as equivalent
+    per a re-validated baseline entry do not fail the gate. Summaries
+    written before the baseline mechanism existed carry no
+    ``unexplained_surviving`` field and fall back to the raw ``surviving``
+    count, so old summaries keep their old verdict.
+    """
     with open(summary_path) as f:
         summary = json.load(f)
 
@@ -450,8 +867,24 @@ def check_results(summary_path: Path) -> int:
         print("Mutation testing failed with errors")
         return 1
 
-    if summary.get("surviving", 0) > 0:
-        print(f"[WARNING] {summary['surviving']} surviving mutant(s) detected!")
+    stale = summary.get("stale_baseline_entries") or []
+    if stale:
+        print(
+            f"[ERROR] {len(stale)} stale baseline entr(y/ies) — the baseline no "
+            "longer matches the current source; re-verify and update it, "
+            "do not delete the entries to make the run pass:"
+        )
+        for entry in stale:
+            print(f"  - {entry.get('id', '?')}: {entry.get('reason', '?')}")
+        return 1
+
+    unexplained = summary.get("unexplained_surviving", summary.get("surviving", 0))
+    if unexplained > 0:
+        print(
+            f"[WARNING] {summary.get('surviving', 0)} surviving mutant(s) detected "
+            f"({summary.get('equivalent', 0)} accepted as equivalent per "
+            f"mutation-baseline.toml, {unexplained} unexplained)!"
+        )
         return 2
 
     if summary.get("timeout", 0) > 0:
@@ -465,7 +898,15 @@ def check_results(summary_path: Path) -> int:
         print("No mutations were run")
         return 1
 
-    print("[OK] All mutations caught!")
+    if summary.get("equivalent", 0):
+        print(
+            f"[OK] All mutations caught! ({summary['equivalent']} surviving "
+            "mutant(s) accepted as equivalent per mutation-baseline.toml; "
+            f"{summary.get('equivalent_dormant', 0)} baseline entr(y/ies) "
+            f"dormant, {summary.get('equivalent_superseded', 0)} superseded.)"
+        )
+    else:
+        print("[OK] All mutations caught!")
     return 0
 
 
@@ -480,6 +921,15 @@ def _no_op_summary() -> dict[str, Any]:
         "skipped": 0,
         "incompetent": 0,
         "pending": 0,
+        "equivalent": 0,
+        "equivalent_mutants": [],
+        "equivalent_dormant": 0,
+        "equivalent_dormant_ids": [],
+        "equivalent_superseded": 0,
+        "equivalent_superseded_ids": [],
+        "unexplained_surviving": 0,
+        "stale_baseline_entries": [],
+        "baseline_entries": 0,
         "skipped_reason": SKIPPED_REASON_NO_CHANGES,
     }
 
@@ -505,6 +955,13 @@ def main() -> int:
         "the runner trims the session to this many work items; 0 = no cap)",
     )
     parser.add_argument(
+        "--baseline",
+        default=None,
+        help="Path to the equivalent-mutant baseline TOML "
+        f"(default: {DEFAULT_BASELINE} in the project root when present; "
+        "an explicitly given file that is missing or malformed fails loudly)",
+    )
+    parser.add_argument(
         "--modules",
         default=None,
         help="Comma-separated dotted module names to mutate (overrides --mode "
@@ -520,6 +977,35 @@ def main() -> int:
 
     config_path = Path(args.config)
     project_root = Path.cwd()
+
+    # Equivalent-mutant baseline: the default file is used when present;
+    # an explicitly given file must exist and parse, or the run fails.
+    if args.baseline:
+        baseline_path = Path(args.baseline)
+        if not baseline_path.is_file():
+            print(f"Baseline file not found: {baseline_path}", file=sys.stderr)
+            return 1
+        try:
+            baseline = load_baseline(baseline_path)
+        except ValueError as exc:
+            print(f"Invalid baseline file {baseline_path}: {exc}", file=sys.stderr)
+            return 1
+    else:
+        default_baseline = project_root / DEFAULT_BASELINE
+        if default_baseline.is_file():
+            try:
+                baseline = load_baseline(default_baseline)
+            except ValueError as exc:
+                print(f"Invalid baseline file {default_baseline}: {exc}", file=sys.stderr)
+                return 1
+        else:
+            baseline = {"version": 1, "entries": []}
+    if baseline["entries"]:
+        print(
+            f"Loaded equivalent-mutant baseline: {len(baseline['entries'])} "
+            f"entr(y/ies) (source run {baseline.get('source_run')}, "
+            f"commit {baseline.get('source_commit')})"
+        )
 
     if args.modules:
         modules = [m.strip() for m in args.modules.split(",") if m.strip()]
@@ -562,7 +1048,7 @@ def main() -> int:
     )
 
     # Parse and write results
-    summary = parse_results(records)
+    summary = parse_results(records, baseline=baseline, project_root=project_root)
     write_summary(summary, Path("mutation-results"))
 
     # Return appropriate exit code based on results
