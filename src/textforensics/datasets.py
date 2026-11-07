@@ -1162,6 +1162,29 @@ def _map_beemo(row: dict[str, Any], config: str, split: str) -> list[NormalizedR
     return out
 
 
+def _parse_json_list_field(row: dict[str, Any], field: str, dataset: str) -> list[Any]:
+    """Parse a datasets-server list column (JSON string or plain list).
+
+    The datasets-server serialises list columns as JSON-encoded
+    strings; a caller may also pass an already-decoded list (tests,
+    cached rows). Anything else — missing, a scalar, malformed JSON,
+    a JSON non-list — is a malformed row and fails closed.
+    """
+    value = row.get(field)
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError as exc:
+            raise DatasetFetchError(f"{dataset}: field {field!r} is not valid JSON: {exc}") from exc
+    elif isinstance(value, list):
+        parsed = value
+    else:
+        raise DatasetFetchError(f"{dataset}: field {field!r} missing or not a list: {value!r}")
+    if not isinstance(parsed, list):
+        raise DatasetFetchError(f"{dataset}: field {field!r} is not a list: {parsed!r}")
+    return parsed
+
+
 def _map_opai_bench(row: dict[str, Any], config: str, split: str) -> list[NormalizedRow]:
     """OpAI-Bench: binary label only at the ends of the edit ladder.
 
@@ -1171,6 +1194,18 @@ def _map_opai_bench(row: dict[str, Any], config: str, split: str) -> list[Normal
     to a mixed-origin document would be a lie, and these rows are the
     U4 spine, reported by ratio, not pooled. ``id`` is the document
     title, not an identifier; ``record_id`` is the per-version key.
+
+    Segment-level ground truth (U4) is preserved in ``meta``:
+    ``sentences`` (list of str), ``sentence_labels`` (list of 0/1,
+    same length), ``ai_spans_char`` (list of [start, end] char offsets
+    into the text). Verified live 2026-11-07 on 30 rows across v0–v8:
+    the fields are JSON-encoded strings on the server, labels are 0/1
+    with ``len(labels) == len(sentences)``, spans lie inside the text,
+    and ``mean(sentence_labels) == ai_sentence_ratio``. Every one of
+    those invariants is checked here and a violation fails closed.
+    The ``default`` config is the verified schema, so it requires the
+    fields; the ``ablations`` config is unverified for them, so it
+    preserves them when present and never assumes them.
     """
     text = _require_text(row, "text", "opai_bench")
     ratio = row.get("ai_sentence_ratio")
@@ -1185,6 +1220,59 @@ def _map_opai_bench(row: dict[str, Any], config: str, split: str) -> list[Normal
         label = None
     else:
         raise DatasetFetchError(f"opai_bench: ai_sentence_ratio out of range: {ratio}")
+    meta = _meta(
+        row,
+        (
+            "version",
+            "version_index",
+            "edit_operation",
+            "generator",
+            "domain",
+            "document_hash_id",
+            "ai_sentence_ratio",
+            "ai_token_ratio",
+            "ai_char_ratio",
+            "boundary_pattern",
+            "subset",
+            "ablation_type",
+        ),
+    )
+    segment_fields = ("sentences", "sentence_labels", "ai_spans_char")
+    if config == "default":
+        sentences = _parse_json_list_field(row, "sentences", "opai_bench")
+        labels = _parse_json_list_field(row, "sentence_labels", "opai_bench")
+        spans = _parse_json_list_field(row, "ai_spans_char", "opai_bench")
+        if not sentences or not all(isinstance(s, str) for s in sentences):
+            raise DatasetFetchError("opai_bench: sentences must be a non-empty list of str")
+        if len(labels) != len(sentences) or any(
+            isinstance(x, bool) or x not in (0, 1) for x in labels
+        ):
+            raise DatasetFetchError(
+                "opai_bench: sentence_labels must be 0/1 with len == len(sentences)"
+            )
+        if any(
+            not (
+                isinstance(p, list)
+                and len(p) == 2
+                and all(isinstance(v, int) and not isinstance(v, bool) for v in p)
+                and 0 <= p[0] <= p[1] <= len(text)
+            )
+            for p in spans
+        ):
+            raise DatasetFetchError(
+                "opai_bench: ai_spans_char must be [start, end] pairs inside the text"
+            )
+        if abs(sum(labels) / len(labels) - ratio) > 1e-9:
+            raise DatasetFetchError(
+                "opai_bench: mean(sentence_labels) disagrees with ai_sentence_ratio"
+            )
+        meta["sentences"] = sentences
+        meta["sentence_labels"] = labels
+        meta["ai_spans_char"] = spans
+    else:
+        for field in segment_fields:
+            if row.get(field) is not None:
+                meta[field] = _parse_json_list_field(row, field, "opai_bench")
     return [
         NormalizedRow(
             text=text,
@@ -1194,23 +1282,7 @@ def _map_opai_bench(row: dict[str, Any], config: str, split: str) -> list[Normal
             split=split,
             source_id=str(row.get("record_id", "")),
             regime="opai_bench",
-            meta=_meta(
-                row,
-                (
-                    "version",
-                    "version_index",
-                    "edit_operation",
-                    "generator",
-                    "domain",
-                    "document_hash_id",
-                    "ai_sentence_ratio",
-                    "ai_token_ratio",
-                    "ai_char_ratio",
-                    "boundary_pattern",
-                    "subset",
-                    "ablation_type",
-                ),
-            ),
+            meta=meta,
         )
     ]
 

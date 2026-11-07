@@ -693,23 +693,118 @@ class MapperTests(unittest.TestCase):
             "domain": "abstracts",
             "document_hash_id": "d1",
         }
-        (human,) = map_row("opai_bench", {**base, "ai_sentence_ratio": 0.0}, "default", "train")
+        (human,) = map_row(
+            "opai_bench",
+            {
+                **base,
+                "ai_sentence_ratio": 0.0,
+                "sentences": '["First sentence.", "Second sentence.", "Third sentence."]',
+                "sentence_labels": "[0, 0, 0]",
+                "ai_spans_char": "[]",
+            },
+            "default",
+            "train",
+        )
         self.assertEqual(human.label, 0)
+        self.assertEqual(
+            human.meta["sentences"], ["First sentence.", "Second sentence.", "Third sentence."]
+        )
+        self.assertEqual(human.meta["sentence_labels"], [0, 0, 0])
+        self.assertEqual(human.meta["ai_spans_char"], [])
         (full,) = map_row(
             "opai_bench",
-            {**base, "record_id": "opt-2", "ai_sentence_ratio": 1.0},
+            {
+                **base,
+                "record_id": "opt-2",
+                "ai_sentence_ratio": 1.0,
+                "sentences": '["First sentence.", "Second sentence.", "Third sentence."]',
+                "sentence_labels": "[1, 1, 1]",
+                "ai_spans_char": "[[0, 13]]",
+            },
             "default",
             "train",
         )
         self.assertEqual(full.label, 1)
         (partial,) = map_row(
             "opai_bench",
-            {**base, "record_id": "opt-3", "ai_sentence_ratio": 0.2},
+            {
+                **base,
+                "record_id": "opt-3",
+                "ai_sentence_ratio": 0.2,
+                "sentences": '["One.", "Two.", "Three.", "Four.", "Five."]',
+                "sentence_labels": "[0, 1, 0, 0, 0]",
+                "ai_spans_char": "[[5, 9]]",
+            },
             "default",
             "train",
         )
         self.assertIsNone(partial.label)
         self.assertEqual(partial.meta["ai_sentence_ratio"], 0.2)
+        self.assertEqual(partial.meta["sentence_labels"], [0, 1, 0, 0, 0])
+        self.assertEqual(partial.meta["ai_spans_char"], [[5, 9]])
+
+    def test_opai_bench_segment_fields_fail_closed(self) -> None:
+        """U4: segment ground truth is validated, never silently dropped."""
+        base = {
+            "record_id": "opt-9",
+            "text": "some document here",
+            "version": "v4",
+            "generator": "gemini-2.5-flash",
+            "domain": "essays",
+            "document_hash_id": "d9",
+            "ai_sentence_ratio": 0.5,
+            "sentences": '["First sentence.", "Second sentence."]',
+            "sentence_labels": "[0, 1]",
+            "ai_spans_char": "[[0, 5]]",
+        }
+        # Missing segment fields on the verified default schema.
+        for field in ("sentences", "sentence_labels", "ai_spans_char"):
+            row = {k: v for k, v in base.items() if k != field}
+            with self.assertRaises(DatasetFetchError):
+                map_row("opai_bench", row, "default", "train")
+        # Malformed JSON.
+        with self.assertRaises(DatasetFetchError):
+            map_row("opai_bench", {**base, "sentences": "[not json"}, "default", "train")
+        # Length mismatch between sentences and labels.
+        with self.assertRaises(DatasetFetchError):
+            map_row("opai_bench", {**base, "sentence_labels": "[0]"}, "default", "train")
+        # Non-binary label.
+        with self.assertRaises(DatasetFetchError):
+            map_row("opai_bench", {**base, "sentence_labels": "[0, 2]"}, "default", "train")
+        # Span outside the text.
+        with self.assertRaises(DatasetFetchError):
+            map_row("opai_bench", {**base, "ai_spans_char": "[[0, 9999]]"}, "default", "train")
+        # Labels disagree with the document-level ratio.
+        with self.assertRaises(DatasetFetchError):
+            map_row("opai_bench", {**base, "sentence_labels": "[0, 0]"}, "default", "train")
+        # Already-decoded lists are accepted (tests / cached rows).
+        (row_out,) = map_row(
+            "opai_bench",
+            {
+                **base,
+                "sentences": ["First sentence.", "Second sentence."],
+                "sentence_labels": [0, 1],
+                "ai_spans_char": [[0, 5]],
+            },
+            "default",
+            "train",
+        )
+        self.assertEqual(row_out.meta["sentences"], ["First sentence.", "Second sentence."])
+        # The ablations config is unverified for these fields: rows
+        # without them map fine, rows with them preserve them.
+        (ablation,) = map_row(
+            "opai_bench",
+            {
+                k: v
+                for k, v in base.items()
+                if k not in ("sentences", "sentence_labels", "ai_spans_char")
+            },
+            "ablations",
+            "train",
+        )
+        self.assertNotIn("sentences", ablation.meta)
+        (ablation_with,) = map_row("opai_bench", base, "ablations", "train")
+        self.assertEqual(ablation_with.meta["sentence_labels"], [0, 1])
 
     def test_mixset_mapper_refuses(self) -> None:
         # Licence gate fires first (DatasetLicenceError); even if it
