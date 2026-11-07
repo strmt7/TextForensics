@@ -50,3 +50,5 @@ Initial alpha foundation:
 - MCP/API scaffolding;
 - provenance ledger;
 - benchmark/calibration scaffolding.
+
+<!-- Proof PR for the CodeQL per-PR concurrency fix (Phase 5 wave 1): a docs-only change opened while PR #47 is running, to verify the two PRs' CodeQL runs do not cancel each other. -->
