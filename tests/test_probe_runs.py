@@ -378,6 +378,48 @@ def test_compute_run_metrics_baseline_run(stub_primitives):
     assert metrics["overall"]["abstention_rate"] == 0.0
 
 
+def test_compute_run_metrics_mixed_origin_label_none(stub_primitives):
+    """Mixed-origin items (label None) are scored but never labelled."""
+    records, labels, slices = _make_records(seed=11)
+    # Add 50 mixed-origin items with no binary label.
+    for i in range(50):
+        item_id = f"mo-{i:03d}"
+        records.append(
+            {
+                "sample_id": item_id,
+                "text_sha256": "c" * 64,
+                "detector_id": "textforensics/builtin-heuristic",
+                "detector_version": "0.1.0",
+                "detector_family": "heuristic",
+                "execution": "local",
+                "score": 0.55,
+                "score_semantics": "native heuristic score; not a probability",
+                "verdict": "human_like",
+                "threshold": 0.68,
+                "calibrated_ai_probability": None,
+                "calibration_id": None,
+                "provider_version": None,
+                "observed_at": "2026-11-07T00:00:00+00:00",
+            }
+        )
+        labels[item_id] = None
+        slices[item_id] = "mixed-origin"
+    metrics = compute_run_metrics(
+        **_metrics_kwargs(records, labels, slices), primitives=stub_primitives
+    )
+    mixed = metrics["slices"]["mixed-origin"]
+    assert mixed["n"] == 50
+    assert mixed["n_human"] == 0 and mixed["n_ai"] == 0
+    assert mixed["human_fpr"] is None
+    assert mixed["attacked_tpr"] is None
+    # They still count in the overall population and abstention rate.
+    assert metrics["overall"]["n"] == 350
+    # A bad label value (not 0/1/None) still fails closed.
+    labels["mo-000"] = 2
+    with pytest.raises(ProbeRunError, match="must be 0, 1, or None"):
+        compute_run_metrics(**_metrics_kwargs(records, labels, slices), primitives=stub_primitives)
+
+
 def test_compute_run_metrics_no_drift_vs_baseline(stub_primitives):
     records, labels, slices = _make_records(seed=2)
     metrics = compute_run_metrics(
@@ -630,6 +672,53 @@ def test_tier1_flip_rate_above_5pct_demotes():
     assert any(a["tier"] == 1 and a["rule"] == "flip_rate" for a in result["alerts"])
 
 
+def test_tier1_flip_rate_requires_human_to_ai_direction():
+    # Same 6% flip rate, but every flip is AI->human (a recovery, or
+    # a sensitivity loss on machine slices) — never a Tier-1 demotion.
+    metrics = _tier_metrics(flip_rate=0.06)
+    flips = metrics["slices"]["human-native"]["flips"]
+    flips["human_to_ai"] = 0
+    flips["ai_to_human"] = flips["flips"]
+    result = evaluate_tiers(metrics=metrics, detector_version="0.1.0")
+    assert result["demote"] is False
+    assert not any(a["tier"] == 1 for a in result["alerts"])
+    # It is still a Tier-2 watch: a 6% flip rate deserves investigation.
+    assert result["watch"] is True
+
+
+def test_tier1_flip_rate_ignores_machine_slice_flips():
+    # Mass AI->human flips on an attacked slice are a sensitivity
+    # signal, not a human-FPR event; the flip rule alone never demotes.
+    metrics = _tier_metrics(flip_rate=None)
+    metrics["slices"]["ai-paraphrased"] = {
+        "n": 50,
+        "is_human_slice": False,
+        "drift_signal_allowed": True,
+        "score_shift": {
+            "ks_statistic": 0.02,
+            "ks_pvalue": 0.6,
+            "ks_pvalue_holm_adjusted": 0.6,
+            "psi": 0.02,
+            "status": "stable",
+        },
+        "flips": {
+            "n": 50,
+            "flips": 40,
+            "flip_rate": 0.8,
+            "flip_rate_ci": [0.7, 0.9],
+            "human_to_ai": 0,
+            "ai_to_human": 40,
+            "to_abstain": 0,
+            "from_abstain": 0,
+        },
+        "calibration": {"ece": None, "baseline_ece": None},
+        "human_fpr": None,
+    }
+    result = evaluate_tiers(metrics=metrics, detector_version="0.1.0")
+    assert result["demote"] is False
+    assert not any(a["tier"] == 1 for a in result["alerts"])
+
+
 def test_tier1_fpr_cap_breach_is_ci_aware():
     # FPR 0.08 with CI lower bound 0.06 > cap 0.05 -> demote.
     result = evaluate_tiers(
@@ -779,6 +868,22 @@ def _history_run(run_id, at, *, baseline=False, version="0.1.0", alerts=()):
         "is_baseline": baseline,
         "alerts": list(alerts),
     }
+
+
+def test_resolve_baseline_ignores_partial_scope_run():
+    history = [
+        _history_run("r1", "2026-11-01T00:00:00+00:00", baseline=True),
+    ]
+    history[0]["scope"] = "monthly-attacked"
+    assert (
+        resolve_baseline(
+            history,
+            detector_id="textforensics/builtin-heuristic",
+            detector_version="0.1.0",
+            corpus_fingerprint=HEX64,
+        )
+        is None
+    )
 
 
 def test_resolve_baseline_first_run():

@@ -126,6 +126,7 @@ __all__ = [
     "summarize_longitudinal",
     "build_run_manifest",
     "validate_run_manifest",
+    "perform_probe_run",
     "save_run",
     "load_run",
     "load_run_history",
@@ -147,7 +148,7 @@ KS_EFFECT_SIZE = 0.10  # Pre-registered effect size for the KS Tier-3 rule
 # (matches the §7.2 0.1 convention for normed Wasserstein / Jensen-Shannon).
 KS_P_THRESHOLD = 0.05  # KS p-value gate, always paired with the effect size.
 FLIP_RATE_TIER2 = 0.01  # >1% flips with Wilson CI excluding 0 -> investigate.
-FLIP_RATE_TIER1 = 0.05  # >5% flips -> demote.
+FLIP_RATE_TIER1 = 0.05  # >5% human->AI flips on a human slice -> demote (FPR event).
 ECE_INCREASE_TIER2 = 0.05  # ECE increase > 0.05 -> investigate.
 COVERAGE_SHORTFALL_TIER2_PP = 5.0  # Conformal coverage shortfall > 5pp -> investigate.
 COVERAGE_SHORTFALL_TIER1_PP = 10.0  # Conformal coverage shortfall > 10pp -> demote.
@@ -336,6 +337,48 @@ def _records_by_item(records: Sequence[Mapping[str, Any]]) -> dict[str, Mapping[
     return by_item
 
 
+def _records_from_series(series: Mapping[str, Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Rebuild the minimal snapshot records a stored score series stands for.
+
+    The metrics only ever read ``score``, ``verdict``,
+    ``calibrated_ai_probability`` and ``calibration_id`` from baseline /
+    previous records, so the series (numbers + IDs, never raw text) is
+    sufficient for KS/PSI/flip/calibration comparisons.
+    """
+    records: list[dict[str, Any]] = []
+    for item_id in sorted(series):
+        entry = series[item_id]
+        records.append(
+            {
+                "sample_id": item_id,
+                "score": entry.get("score"),
+                "verdict": entry.get("verdict"),
+                "calibrated_ai_probability": entry.get("calibrated_ai_probability"),
+                "calibration_id": entry.get("calibration_id"),
+            }
+        )
+    return records
+
+
+def _series_from_records(records: Sequence[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Reduce snapshot records to the stored score series (no raw text)."""
+    series: dict[str, dict[str, Any]] = {}
+    for record in records:
+        sample_id = record.get("sample_id")
+        if not isinstance(sample_id, str) or not sample_id:
+            raise ProbeRunError("snapshot records need a non-empty sample_id.")
+        score = _score(record)
+        if score is None:
+            raise ProbeRunError(f"snapshot record for {sample_id!r} has no score.")
+        series[sample_id] = {
+            "score": score,
+            "verdict": _verdict(record),
+            "calibrated_ai_probability": _calibrated_probability(record),
+            "calibration_id": record.get("calibration_id"),
+        }
+    return series
+
+
 def _score(record: Mapping[str, Any]) -> float | None:
     value = record.get("score")
     if value is None:
@@ -369,7 +412,7 @@ def _slice_metrics(
     current: dict[str, Mapping[str, Any]],
     baseline: dict[str, Mapping[str, Any]] | None,
     previous: dict[str, Mapping[str, Any]] | None,
-    labels: Mapping[str, int],
+    labels: Mapping[str, int | None],
     primitives: Any,
     is_human_slice: bool,
     is_attacked_slice: bool,
@@ -384,7 +427,12 @@ def _slice_metrics(
     scores = [_score(current[item]) for item in present]
     scores = [s for s in scores if s is not None]
     verdicts = [_verdict(current[item]) for item in present]
-    item_labels = [int(labels[item]) for item in present]
+    # Items with label None (mixed-origin: no binary label exists) are
+    # scored and counted, but excluded from every label-dependent
+    # metric (FPR, TPR, ECE/Brier). They are never treated as human or
+    # machine by assumption.
+    labelled = [item for item in present if labels[item] is not None]
+    item_labels = [int(labels[item]) for item in labelled]
     n_human = sum(1 for y in item_labels if y == 0)
     n_ai = sum(1 for y in item_labels if y == 1)
 
@@ -444,7 +492,7 @@ def _slice_metrics(
     # Metric 3: calibration drift — ECE + Brier where calibrated
     # probabilities are emitted; conformal coverage is unavailable
     # (no conformal machinery exists in the repo; U5 is v1.1).
-    probs = [_calibrated_probability(current[item]) for item in present]
+    probs = [_calibrated_probability(current[item]) for item in labelled]
     calibration: dict[str, Any] = {
         "ece": None,
         "brier": None,
@@ -463,7 +511,7 @@ def _slice_metrics(
         # Baseline ECE for the Tier-2 calibration-drift rule (ECE increase
         # > 0.05): same items, baseline run's calibrated probabilities.
         if baseline is not None:
-            baseline_probs = [_calibrated_probability(baseline[item]) for item in present]
+            baseline_probs = [_calibrated_probability(baseline[item]) for item in labelled]
             if baseline_probs and all(p is not None for p in baseline_probs):
                 calibration["baseline_ece"] = _round(
                     primitives.ece([float(p) for p in baseline_probs], item_labels)
@@ -510,7 +558,7 @@ def _slice_metrics(
     if is_human_slice and n_human > 0:
         false_positives = sum(
             1
-            for item, y in zip(present, item_labels, strict=True)
+            for item, y in zip(labelled, item_labels, strict=True)
             if y == 0 and _verdict(current[item]) == "ai_like"
         )
         lo, hi = primitives.wilson_ci(false_positives, n_human)
@@ -532,7 +580,7 @@ def _slice_metrics(
     if is_attacked_slice:
         machine_scores = [
             float(s)
-            for item, y in zip(present, item_labels, strict=True)
+            for item, y in zip(labelled, item_labels, strict=True)
             if y == 1 and (s := _score(current[item])) is not None
         ]
         if machine_scores and human_scores_all:
@@ -571,6 +619,7 @@ def _slice_metrics(
         "n": n,
         "n_human": n_human,
         "n_ai": n_ai,
+        "is_human_slice": is_human_slice,
         "drift_signal_allowed": n >= MIN_SLICE_N,
         "score_shift": score_shift,
         "flips": flips,
@@ -587,7 +636,7 @@ def compute_run_metrics(
     current_records: Sequence[Mapping[str, Any]],
     baseline_records: Sequence[Mapping[str, Any]] | None,
     previous_records: Sequence[Mapping[str, Any]] | None,
-    labels: Mapping[str, int],
+    labels: Mapping[str, int | None],
     slices: Mapping[str, str],
     detector_id: str,
     primitives: Any = None,
@@ -599,8 +648,9 @@ def compute_run_metrics(
     ``current_records`` are this run's snapshot records,
     ``baseline_records`` the baseline run's (None for the baseline run
     itself), ``previous_records`` the previous run's (None on the first
-    run). ``labels`` maps item_id -> 0 (human) / 1 (machine) and is
-    read from the holdback file only after scoring. ``slices`` maps
+    run). ``labels`` maps item_id -> 0 (human) / 1 (machine) / None
+    (mixed-origin: no binary label exists) and is read from the
+    holdback file only after scoring. ``slices`` maps
     item_id -> slice name from the corpus manifest. Scores are native
     detector scores; only ``calibrated_ai_probability`` (when the
     detector emits it) feeds ECE/Brier. The return value is JSON-safe.
@@ -613,8 +663,8 @@ def compute_run_metrics(
     previous = _records_by_item(previous_records) if previous_records is not None else None
 
     for item_id, label in labels.items():
-        if label not in (0, 1):
-            raise ProbeRunError(f"label for {item_id!r} must be 0 or 1, got {label!r}.")
+        if label is not None and label not in (0, 1):
+            raise ProbeRunError(f"label for {item_id!r} must be 0, 1, or None, got {label!r}.")
     for item_id in current:
         if item_id not in labels:
             raise ProbeRunError(
@@ -898,14 +948,27 @@ def evaluate_tiers(
                 ),
             )
 
-    # --- Verdict flips (Tier 2 at >1% with Wilson CI excluding 0; Tier 1 at >5%).
+    # --- Verdict flips (Tier 2 at >1% with Wilson CI excluding 0;
+    # Tier 1 at >5% human->AI flips on a human slice only). A flip
+    # toward AI on a human slice is an FPR event; a flip toward human
+    # is a recovery (or a sensitivity loss on machine slices) and must
+    # never demote on its own — otherwise the clean re-run that
+    # recovers from a demotion would re-demote the detector and the
+    # demotion could never clear. The verdict-based FPR rule already
+    # covers sustained human-slice FPR; this rule covers the case
+    # where the FPR is not claimable (n_human < 100) but a mass
+    # human->AI flip is still a measured performance breach.
     for slice_name in sorted(slices):
-        flips = (slices[slice_name] or {}).get("flips")
+        slice_metrics = slices[slice_name]
+        flips = (slice_metrics or {}).get("flips")
         if not flips:
             continue
         rate = flips["flip_rate"]
         ci_lo, ci_hi = flips["flip_rate_ci"]
-        if rate is not None and rate > FLIP_RATE_TIER1:
+        n_flips = flips["n"] or 0
+        human_to_ai_rate = (flips["human_to_ai"] or 0) / n_flips if n_flips else 0.0
+        is_human = slice_metrics.get("is_human_slice", slice_name in HUMAN_SLICES)
+        if is_human and human_to_ai_rate > FLIP_RATE_TIER1:
             demote = True
             _alert(
                 tier=1,
@@ -913,6 +976,7 @@ def evaluate_tiers(
                 slice_name=slice_name,
                 statistic={
                     "flip_rate": rate,
+                    "human_to_ai_rate": human_to_ai_rate,
                     "flip_rate_ci": [ci_lo, ci_hi],
                     "flips": flips["flips"],
                     "n": flips["n"],
@@ -923,7 +987,7 @@ def evaluate_tiers(
                 consecutive_runs=1,
                 action="demote",
                 detail=(
-                    f"Flip rate {rate} > {FLIP_RATE_TIER1} on slice {slice_name!r} "
+                    f"Human->AI flip rate {human_to_ai_rate} > {FLIP_RATE_TIER1} on human slice {slice_name!r} "
                     f"({flips['human_to_ai']} human->AI, {flips['ai_to_human']} AI->human). "
                     "Demote the detector's U1 records to stale; withhold binary verdicts until a full re-run passes."
                 ),
@@ -948,31 +1012,16 @@ def evaluate_tiers(
                     f"excluding 0 ([{ci_lo}, {ci_hi}]). Trust Map watch; human review required."
                 ),
             )
+    # Overall flips are Tier 2 only: they mix human->AI and AI->human
+    # directions across slices, so they can never be a Tier-1
+    # performance breach on their own (a recovery run flips massively
+    # toward human). The per-slice human->AI rule above is the Tier-1
+    # flip rule.
     overall_flips = overall.get("flips")
     if overall_flips:
         rate = overall_flips["flip_rate"]
         ci_lo, _ = overall_flips["flip_rate_ci"]
-        if rate is not None and rate > FLIP_RATE_TIER1:
-            demote = True
-            _alert(
-                tier=1,
-                rule=RULE_FLIP_RATE,
-                slice_name="overall",
-                statistic={
-                    "flip_rate": rate,
-                    "flip_rate_ci": overall_flips["flip_rate_ci"],
-                    "flips": overall_flips["flips"],
-                    "n": overall_flips["n"],
-                },
-                threshold=FLIP_RATE_TIER1,
-                consecutive_runs=1,
-                action="demote",
-                detail=(
-                    f"Overall flip rate {rate} > {FLIP_RATE_TIER1}. Demote the "
-                    "detector's U1 records to stale; withhold binary verdicts until a full re-run passes."
-                ),
-            )
-        elif rate is not None and rate > FLIP_RATE_TIER2 and ci_lo > 0:
+        if rate is not None and rate > FLIP_RATE_TIER2 and ci_lo > 0:
             watch = True
             _alert(
                 tier=2,
@@ -1264,9 +1313,12 @@ def resolve_baseline(
     """Return the baseline run for this detector/version/corpus, if any.
 
     The baseline is the run flagged ``is_baseline`` for the same
-    detector id, detector version, and corpus fingerprint. A version
-    change has no baseline until the re-baseline run completes (the
-    caller marks that run ``is_baseline`` with ``rebaselined_from``).
+    detector id, detector version, and corpus fingerprint. Only
+    full-scope runs (``full`` / ``event-driven``) can be baselines:
+    a monthly partial run never becomes one, however early it ran.
+    A version change has no baseline until the re-baseline run
+    completes (the caller marks that run ``is_baseline`` with
+    ``rebaselined_from``).
     """
     candidates = [
         run
@@ -1275,6 +1327,7 @@ def resolve_baseline(
         and run.get("detector_version") == detector_version
         and run.get("corpus_fingerprint") == corpus_fingerprint
         and run.get("is_baseline") is True
+        and run.get("scope") in ("full", "event-driven")
     ]
     if not candidates:
         return None
@@ -1367,6 +1420,7 @@ def build_run_manifest(
     demotions_cleared: Mapping[str, Any] | None = None,
     watches: Sequence[Mapping[str, Any]] | None = None,
     gaps: Sequence[str] | None = None,
+    score_series: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Build a ``textforensics.probe-run/v1`` run manifest (JSON-safe)."""
     if scope not in RUN_SCOPES:
@@ -1423,6 +1477,7 @@ def build_run_manifest(
         "demotions_cleared": dict(demotions_cleared or {}),
         "watches": [dict(w) for w in (watches or [])],
         "gaps": gaps,
+        "score_series": {k: dict(v) for k, v in (score_series or {}).items()},
         "scope_statement": _SCOPE_STATEMENT,
         "limitations": list(RUN_LIMITATIONS),
     }
@@ -1460,6 +1515,18 @@ def validate_run_manifest(manifest: Mapping[str, Any]) -> None:
             raise ProbeRunError("run manifest alerts must carry a valid action.")
     if not isinstance(manifest.get("breaches"), list):
         raise ProbeRunError("run manifest breaches must be a list.")
+    score_series = manifest.get("score_series")
+    if score_series is not None:
+        if not isinstance(score_series, Mapping):
+            raise ProbeRunError("run manifest score_series must be an object.")
+        for item_id, entry in score_series.items():
+            if not isinstance(entry, Mapping):
+                raise ProbeRunError(f"score_series entry for {item_id!r} must be an object.")
+            score = entry.get("score")
+            if not isinstance(score, (int, float)) or isinstance(score, bool):
+                raise ProbeRunError(f"score_series entry for {item_id!r} needs a numeric score.")
+            if entry.get("verdict") not in ("human_like", "ai_like", "abstain"):
+                raise ProbeRunError(f"score_series entry for {item_id!r} needs a valid verdict.")
     if manifest.get("scope_statement") != _SCOPE_STATEMENT:
         raise ProbeRunError("run manifest scope statement must match the canonical text.")
     datetime.fromisoformat(str(manifest["run_at_utc"]))
@@ -1510,3 +1577,257 @@ def load_run_history(directory: str | Path) -> list[dict[str, Any]]:
     runs = [load_run(path) for path in sorted(target_dir.glob("run-*.json"))]
     runs.sort(key=lambda r: str(r.get("run_at_utc", "")))
     return runs
+
+
+def perform_probe_run(
+    *,
+    manifest: Mapping[str, Any],
+    texts: Mapping[str, str],
+    holdback_loader: Any,
+    detector: Any,
+    scope: str = "full",
+    runs_dir: str | Path | None = None,
+    registry_path: str | Path | None = None,
+    corpus_manifest_sha256: str | None = None,
+    dry_run: bool = False,
+    allow_remote: bool = False,
+    primitives: Any = None,
+    run_at: datetime | None = None,
+) -> dict[str, Any]:
+    """Run one U3 probe run end to end and return its run manifest.
+
+    ``manifest`` is a ``textforensics.probe-corpus/v1`` manifest dict
+    (``version``, ``items_sha256``, ``items`` with ``item_id`` /
+    ``slice`` / ``content_sha256``). ``texts`` maps item_id -> text.
+    ``holdback_loader`` is a zero-argument callable returning the
+    holdback mapping item_id -> entry dict with a ``label`` key
+    (0 human / 1 machine / None mixed-origin). It is invoked **only
+    after scoring completes**: the labels must never influence which
+    items are scored or how they are scored. ``detector`` is a
+    detector object (``detector_id`` / ``detector_version``) from the
+    detector registry. ``registry_path`` is the U1 validation
+    registry; it is required whenever a Tier-1 alert fires (demotion
+    writes there) unless ``dry_run`` is set.
+
+    The run is saved to ``runs_dir`` (default
+    :func:`default_probe_runs_dir`) unless ``dry_run``. A Tier-1
+    alert applies demotions to the registry; a clean full run clears
+    U3 demotions for this detector. The returned manifest is the
+    exact dict that was saved (or would have been saved, dry-run).
+    """
+    from .observatory import DriftObservatory
+
+    if scope not in RUN_SCOPES:
+        raise ProbeRunError(f"scope must be one of {RUN_SCOPES}, got {scope!r}.")
+    if not callable(holdback_loader):
+        raise ProbeRunError("holdback_loader must be a callable.")
+    detector_id = _require_nonempty_string(
+        getattr(detector, "detector_id", None), "detector.detector_id"
+    )
+    detector_version = _require_nonempty_string(
+        getattr(detector, "detector_version", None), "detector.detector_version"
+    )
+    corpus_version = _require_nonempty_string(manifest.get("version"), "manifest version")
+    corpus_fingerprint = _require_hex64(manifest.get("items_sha256"), "manifest items_sha256")
+    items = manifest.get("items")
+    if not isinstance(items, list) or not items:
+        raise ProbeRunError("probe corpus manifest has no items.")
+    run_at_dt = run_at or datetime.now(UTC)
+    run_at_utc = run_at_dt.isoformat().replace("+00:00", "Z")
+    if not run_at_utc.endswith("Z"):
+        run_at_utc = run_at_dt.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+    # Scope-filter the corpus before scoring: a monthly run scores
+    # only its slices, and unscored slices never enter the metrics.
+    scope_slices: set[str] | None = None
+    if scope == "monthly-attacked":
+        scope_slices = set(ATTACKED_SLICES)
+    elif scope == "monthly-current-generator":
+        scope_slices = {"ai-current-generator"}
+    scoped_items: list[Mapping[str, Any]] = []
+    slices: dict[str, str] = {}
+    for item in items:
+        if not isinstance(item, Mapping):
+            raise ProbeRunError("probe corpus manifest items must be objects.")
+        item_id = _require_nonempty_string(item.get("item_id"), "item item_id")
+        slice_name = _require_nonempty_string(item.get("slice"), "item slice")
+        content_sha256 = _require_hex64(item.get("content_sha256"), "item content_sha256")
+        if scope_slices is not None and slice_name not in scope_slices:
+            continue
+        if item_id in slices:
+            raise ProbeRunError(f"probe corpus manifest has duplicate item_id: {item_id!r}.")
+        text = texts.get(item_id)
+        if text is None:
+            raise ProbeRunError(f"probe corpus has no text for item {item_id!r}.")
+        scoped_items.append(
+            {
+                "id": item_id,
+                "text_sha256": content_sha256,
+                "text": text,
+                "metadata": {"slice": slice_name},
+            }
+        )
+        slices[item_id] = slice_name
+    if not scoped_items:
+        raise ProbeRunError(f"scope {scope!r} selects no corpus items.")
+
+    # Score first. Labels are loaded only after this returns.
+    observatory = DriftObservatory(
+        corpus={"schema": "textforensics.drift-corpus/v1", "samples": scoped_items}
+    )
+    snapshot = observatory.take_snapshot(detectors=[detector], allow_remote=bool(allow_remote))
+    current_records = snapshot.get("records") or []
+    if not current_records:
+        raise ProbeRunError("probe run scored no records.")
+    provider_metadata: dict[str, Any] = {}
+    for record in current_records:
+        provider_version = record.get("provider_version")
+        if provider_version is not None:
+            provider_metadata[str(record.get("detector_id", detector_id))] = provider_version
+
+    # Labels only now, after scoring.
+    holdback = holdback_loader()
+    if not isinstance(holdback, Mapping):
+        raise ProbeRunError("holdback_loader must return a mapping.")
+    labels: dict[str, int | None] = {}
+    for item_id in slices:
+        entry = holdback.get(item_id)
+        if entry is None:
+            raise ProbeRunError(
+                f"holdback has no entry for scored item {item_id!r}; labels must "
+                "cover every scored item."
+            )
+        if not isinstance(entry, Mapping) or "label" not in entry:
+            raise ProbeRunError(f"holdback entry for {item_id!r} has no label.")
+        label = entry["label"]
+        if label is not None and label not in (0, 1):
+            raise ProbeRunError(
+                f"holdback label for {item_id!r} must be 0, 1, or None, got {label!r}."
+            )
+        labels[item_id] = label
+
+    directory = (
+        Path(runs_dir)
+        if runs_dir is not None
+        else default_probe_runs_dir(corpus_version=corpus_version)
+    )
+    history = load_run_history(directory) if directory.is_dir() else []
+    detector_history = [r for r in history if r.get("detector_id") == detector_id]
+    previous = detector_history[-1] if detector_history else None
+    baseline = resolve_baseline(
+        history,
+        detector_id=detector_id,
+        detector_version=detector_version,
+        corpus_fingerprint=corpus_fingerprint,
+    )
+    version_changed = (
+        previous is not None
+        and previous.get("detector_version") is not None
+        and previous.get("detector_version") != detector_version
+    )
+    # Only a full-scope run can be (or re-establish) the baseline.
+    # A monthly partial run with no baseline yet simply has none.
+    is_baseline = baseline is None and scope in ("full", "event-driven")
+    rebaselined_from: str | None = None
+    if version_changed and scope in ("full", "event-driven"):
+        is_baseline = True
+        rebaselined_from = (
+            baseline.get("run_id") if baseline else (previous.get("run_id") if previous else None)
+        )
+        baseline = None
+
+    metrics = compute_run_metrics(
+        current_records=current_records,
+        baseline_records=_records_from_series(baseline.get("score_series") or {})
+        if baseline
+        else None,
+        previous_records=_records_from_series(previous.get("score_series") or {})
+        if previous
+        else None,
+        labels=labels,
+        slices=slices,
+        detector_id=detector_id,
+        primitives=primitives,
+        now=run_at_dt,
+    )
+    # The run manifest stores metrics plus the per-item score series
+    # (numbers + IDs, never raw text); the raw snapshot records are
+    # not embedded. The next run rebuilds baseline/previous records
+    # from the stored series, which carries exactly the fields the
+    # metrics read (score, verdict, calibrated probability,
+    # calibration id).
+    tier_result = evaluate_tiers(
+        metrics=metrics,
+        previous_breaches=previous.get("breaches") if previous else None,
+        previous_run_at=previous.get("run_at_utc") if previous else None,
+        detector_version=detector_version,
+        previous_detector_version=previous.get("detector_version") if previous else None,
+        previous_provider_metadata=previous.get("provider_metadata") if previous else None,
+        provider_metadata=provider_metadata,
+        run_at=run_at_utc,
+    )
+    alerts = tier_result["alerts"]
+    breaches = tier_result["breaches"]
+    tier1 = [a for a in alerts if a.get("tier") == 1]
+    watches = [
+        {
+            "rule": a.get("rule"),
+            "slice": a.get("slice"),
+            "detail": a.get("detail"),
+            "run_id": None,  # filled below, after the run id exists
+        }
+        for a in alerts
+        if a.get("tier") == 2
+    ]
+
+    run_id = uuid.uuid4().hex
+    for watch in watches:
+        watch["run_id"] = run_id
+    demotions_applied: dict[str, Any] = {}
+    demotions_cleared: dict[str, Any] = {}
+    if not dry_run:
+        if tier1:
+            if registry_path is None:
+                raise ProbeRunError(
+                    "Tier-1 alert fired but no validation registry path was "
+                    "given; refusing to demote without a registry."
+                )
+            demotions_applied = apply_demotions(
+                registry_path=registry_path,
+                detector_id=detector_id,
+                run_id=run_id,
+                alerts=tier1,
+            )
+        elif scope == "full" and registry_path is not None:
+            demotions_cleared = clear_demotions(
+                registry_path=registry_path,
+                detector_id=detector_id,
+                run_id=run_id,
+            )
+
+    manifest_out = build_run_manifest(
+        run_id=run_id,
+        run_at_utc=run_at_utc,
+        scope=scope,
+        corpus_version=corpus_version,
+        corpus_fingerprint=corpus_fingerprint,
+        corpus_manifest_sha256=corpus_manifest_sha256,
+        detector_id=detector_id,
+        detector_version=detector_version,
+        provider_metadata=provider_metadata,
+        code_sha=git_code_sha(),
+        baseline_run_id=baseline.get("run_id") if baseline else (run_id if is_baseline else None),
+        is_baseline=is_baseline,
+        rebaselined_from=rebaselined_from,
+        previous_run_id=previous.get("run_id") if previous else None,
+        metrics=metrics,
+        alerts=alerts,
+        breaches=breaches,
+        demotions_applied=demotions_applied,
+        demotions_cleared=demotions_cleared,
+        watches=watches,
+        score_series=_series_from_records(current_records),
+    )
+    if not dry_run:
+        save_run(manifest_out, directory)
+    return manifest_out
