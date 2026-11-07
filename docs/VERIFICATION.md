@@ -2095,3 +2095,95 @@ rich 15.0.0, which is the coexistence proof.
   is still a floating branch ref; pinning it is a separate
   decision, not a Dependabot recovery.
 - **No release, no tag.** Nothing in Phase 4 creates a release.
+
+## Verification record — Phase 5, wave 1: atheris, Mutation wiring, CodeQL concurrency (2026-11-07)
+
+Three PRs, each verified locally and in CI on its own branch before
+merging (stacked on the Phase 4 close `ca56440`):
+
+- **#49 atheris 3.x** (`10d91c3`, 4 lines: `atheris>=3.0,<4` in
+  pyproject `[fuzzing]` + pinned; both Fuzz jobs install
+  `.[dev,fuzzing]`) → main `92bce94`. Pinned-install **SUCCESS** on
+  main — the release-gate atheris failure is fixed there. Fuzz manual
+  dispatch run 42391456528: all 5 jobs green, 9 targets in direct
+  atheris mode, 0 crashes.
+- **#50 Mutation cosmic-ray 8.x rewrite** (`027c361`) → main
+  `8851f1f`. All five wiring defects fixed (changed_files output,
+  push base `github.event.before`, module filter synced, runner
+  rewritten for cosmic-ray 8.x `baseline → init → exec → dump`, no-op
+  case passes). Mutation (Push) **PASS** on the PR via the genuine
+  no-op path. Mutation Testing run on main at `67eab33` completed
+  **SUCCESS** (no-op path, first green Mutation run on main).
+- **#47 CodeQL per-PR concurrency** (`fd25079`, 1 line) → main
+  `67eab33`. CodeQL runs 42391013563 (#47) and 42391079313 (#48)
+  both **SUCCESS**, observed `in_progress` simultaneously.
+- **PR #48** (throwaway CodeQL proof PR) closed unmerged.
+
+**Post-merge Mutation proof (parent, commit `153b5ab`, comment-only
+change to `src/textforensics/trust.py`).** Mutation Testing run
+42393966895 on main ran real mutants: **total 200, killed 77,
+surviving 123**, exit 2. The failure is the gate's designed
+fail-on-survivor semantics, not a wiring failure; killed=77 matches
+the local run exactly.
+
+**Fuzz follow-ups (parent, after the merges).** The atheris bump
+exposed a latent defect: five fuzz targets never bound
+`instrument_func` when atheris was installed (dead
+`if atheris is not None` guard inside the ImportError branch).
+Fix `54d505e`; Fuzz run 42394702170 completed **SUCCESS**.
+`-runs=0` verified empirically (with the flag: 0.1 s / 2 runs;
+without: 6.1 s / 147,837 runs) and removed in `a269135`, with the
+seed corpus now passed positionally instead of via `-dict=`. That
+fix exposed a timeout-design bug (9 targets x 5 min = 45 min in a
+30-min Regression job; Extended 9 x 10 = 90 min in 45 min), fixed
+in `76fc8b1` (Regression 60 min, Extended 120 min). The Fuzz run
+on `76fc8b1` itself never started (workflow `on.push.paths`
+excludes workflow-only changes); the 60-min timeout is being
+proven by the Fuzz run on `231a840` (42401880362), still in
+progress at time of writing.
+
+## Verification record — Phase 5, wave 2: mutation survivors (2026-11-07)
+
+**PR #51** — equivalent-mutant baseline mechanism
+(`58b2fe3` + consolidation `5bd2d4e`, 73 entries in
+`mutation-baseline.toml`) → main `31d0a4b`. **PR #52** — 26 new
+`TrustMutationKillTests` killing 50 of 54 killable survivors
+(`3d14319` + `404684a`, tests only) → main `404684a`. Both
+branch-CI fully green (41 pass / 0 fail each); neither PR's own
+Mutation run proves the kills (both are no-op-path runs).
+
+**Integration proof (coordinator, merged tree):** budget-200 run —
+total 200, killed 127, surviving 73, equivalent 73, unexplained 0,
+exit 0 ("[OK] All mutations caught!"). Arithmetic closes exactly:
+77+50=127; 69+4=73; 127+73=200. Gate semantics unchanged (exit 2
+on unexplained survivors, exit 1 on stale entries, equivalents
+never counted as killed).
+
+**Baseline refresh incident (parent).** The proof push `231a840`
+(docstring record in trust.py) added 11 lines above every
+baselined position, so all 73 entries went stale at once: the
+Mutation run failed exit 1 and all five Core jobs failed on the
+`EquivalentBaselineTests` — the mechanism failing loudly as
+designed. Refresh `2d3c9a7` shifted every `start_pos`/`end_pos`
++11 lines and updated the 5 tests pinning absolute trust.py
+positions; all 73 entries re-validate, and a local budget-200 run
+reproduced the integration numbers exactly (200/127/73/0, exit 0).
+A follow-up docstring edit `47e971d` miscounted the line delta
+(2-line tail replaced with 3 lines, net +1; 88 local test
+failures masked because `pytest ... | tail` returns tail's exit
+code in a `&&` chain); fixed by `a36cb6f`, trust.py back to 616
+lines, 84 trust/mutation tests pass. Lesson: never pipe a gate
+command through `tail` in a `&&` chain; any docstring edit above
+baselined positions must preserve the exact line count.
+
+**CI proof on main (parent, commit `a36cb6f`, touches trust.py).**
+Mutation Testing run 42403769698: Diff-based Mutation (Push)
+**SUCCESS** — summary from the job log: killed 127, surviving 73,
+equivalent 73, dormant 0, superseded 0. CI run 42403770029: Core
+3.12–3.15, claims gate, pinned-install, build/OS smoke, API/MCP
+all **SUCCESS**; Core Python 3.11 still running in Unit tests at
+time of writing (its 404684a run finished SUCCESS; pre-commit,
+compile and lint already passed on this head). Local gate on the
+final tree: full suite 2902 passed / 0 failed (known
+test_memory_check host flake deselected), pre-commit 13/13,
+claims 33/33, schemas 12 OK.
