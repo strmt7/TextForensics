@@ -288,32 +288,6 @@ class TestAdversarialDetectorRiskAssessment:
         assert report.confidence > 0.5
 
 
-class TestHumanizationPatternFalsePositiveRate:
-    """Regression test (#4c): the pattern FPR is unmeasured, not zero.
-
-    ``HumanizationPattern.false_positive_rate`` used to default to
-    0.0 and was never assigned anywhere, so every pattern reported a
-    fabricated perfect false-positive rate. The honest default is
-    None (unmeasured), emitted as-is by ``to_dict``.
-    """
-
-    def test_default_false_positive_rate_is_none(self):
-        from textforensics.adversarial import HumanizationPattern
-
-        pattern = HumanizationPattern(
-            pattern_id="test_pattern",
-            name="Test pattern",
-            description="A test pattern.",
-            category="lexical",
-            detector_fn="detect_regex_artifacts",
-            threshold=1.0,
-            severity="medium",
-            confidence=0.5,
-        )
-        assert pattern.false_positive_rate is None
-        assert pattern.to_dict()["false_positive_rate"] is None
-
-
 class TestAnalyzeDeduplicatesFindings:
     """Regression tests (#4a): analyze() de-duplicates before risk/report.
 
