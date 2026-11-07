@@ -20,6 +20,11 @@ Two surfaces are exposed:
 * :func:`trust_map_from_capability_ledger` — a legacy v1 compatibility view of
   capability claims.  It is **not** evidence-conditioned and must not be used
   to claim Trust Map v2 coverage.
+
+Mutation baseline (cosmic-ray 8.7.0, 2026-11-07, commit ``5ab3c45``):
+618 work items, 267 executed, 107 killed / 160 survived.  The baseline is
+recorded so later mutation runs can be compared against it; see the
+release-gate investigation report for the full smoke-test record.
 """
 
 from __future__ import annotations
