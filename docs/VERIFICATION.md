@@ -1,5 +1,37 @@
 # Verification record — Phase 1 (2026-11-06)
 
+## Current state (HEAD `264344e`, 2026-11-07)
+
+Read this first. The dated sections below are historical records;
+their numbers are the numbers as measured at the time, and some of
+their "NOT verified" items have since been superseded (marked
+inline). The current picture, measured in the docs worktree at
+`264344e` (Python 3.12.3, extras venv, `test_memory_check` host
+flake deselected — see the HEAD section at the end of this file):
+
+- **Full suite (extras): 3016 passed, 0 failed, 1 deselected,
+  232 subtests passed, 83% line coverage** (17,831 statements,
+  2,375 missed, 6,716 branches, 1,214 partial). Core-only suite
+  not re-measured in this pass (last recorded in the U4 section
+  below: 2739 passed / 0 failed / 112 skipped).
+- **Claims gate: 33 passed, 0 failed.** **Schemas: 12 OK.**
+  **Ruff: 0 errors, 210 files formatted.** **Pre-commit: 13/13**
+  (see the HEAD section below).
+- **U7 evidence registry: 18 records**
+  (`docs/evidence/registry.json`). **Validation registry:
+  7 records, all `partial`** (`docs/validation/registry.json` —
+  6 dataset seeds + 1 U4 segment record).
+- **Worst-slice human FPR: unknown** (`docs/evidence/report-card.md`).
+  Pooled human FPR 0.0 [0.0, 0.0298] was measured on the first U3
+  live probe run, and native-verdict FPR 0.0000 on the U1 seeds —
+  neither is release-gate FPR evidence.
+- **Open items:** human-FPR evidence (release gate), live-host
+  verification, `pip-audit` as a failing gate, SBOM, live-TSA
+  interop (never achieved from the sandbox VM), the seal-time
+  `not_reproducible` declaration for non-deterministic detectors,
+  and the coverage gate (still `--fail-under=70` in CI, not yet
+  raised to the measured ~83%).
+
 Every number in this file was measured on 2026-11-06 by running the
 stated command in the stated environment. Nothing here is copied from
 an earlier run. `docs/CLAIMS.yaml` cites this file where a claim's
@@ -75,6 +107,12 @@ Notes:
   forces the vulnerable 42.x line. Dependabot PR #27 widens the cap;
   it is merged in Phase 4, after the history rewrite lands and CI is
   green — it is not silently upgraded here.
+  **Update (Phase 4, 2026-11-07): #27 LANDED** — commit `ac030c7`
+  widened the cap to `cryptography>=42.0.8,<51` in `pyproject.toml`
+  (both occurrences) and in `requirements-pinned.txt`; the 42.x
+  forced line above is history. The 25-findings table above is the
+  2026-11-06 measurement, kept as a dated record; re-run pip-audit
+  before the release and re-seed if the counts moved.
 - `pip` 24.0 is the virtualenv's own installer, not a shipped project
   dependency.
 - `pytest` 8.4.2 is a dev-only dependency.
@@ -118,11 +156,20 @@ command for `command` claims) and fails on any `unverified`/`false`/
   exist under `benchmarks/`; no loader or run artifact. The old
   `partially_verified` claims were deleted, not restated. Real
   integration is Phase 3 work.
+  **Superseded by the datasets wave 1 / wave 2 sections below:**
+  RAID, MAGE, Beemo, OpAI-Bench, GhostWriter and DetectRL-X are now
+  measured (preliminary); DetectRL, M4, M4GT-Bench and MixSet are
+  licence-blocked with refusing loaders.
 - Python 3.11 / 3.13 / 3.14 / 3.15: only 3.12.3 was run locally. Those
   versions are in the CI matrix (`.github/workflows/ci.yml`); local
   verification on them is not claimed.
 - Human false-positive rate: no human-FPR evidence exists yet. It is a
   Phase 5 release gate (AGENTS.md rule 10), not a claim made here.
+  **Partly superseded, still open:** native-verdict FPR 0.0000 was
+  measured on the U1 seeds (see the U1 and wave 2 sections below) and
+  pooled human FPR 0.0 [0.0, 0.0298] on the first U3 live probe run —
+  but worst-slice human FPR is still **unknown** (see the current-state
+  summary at the top of this file), so the release gate is still blocked.
 - Live-host Docker/API/web verification: not run in Phase 1. Phase 5.
 
 ---
@@ -757,6 +804,10 @@ and the regime-conditioned Trust Map derivation engine (Trust Map v3). Design:
   case-file verification, so a v3 Trust Map embedded in a case file
   would be rejected there. Nothing embeds v3 maps in case files yet;
   this is a U2/release-gate decision, not a U1 fix.
+  **Resolved in U2 (see the U2 section below):** `verify.py` now
+  accepts v1/v2/v3 Trust Maps, with `stale` a distinct state. No new
+  work — this item is closed, recorded here so the U1 section is not
+  misread as current.
 - **A v3 map from U1 records alone is at most `mixed`**: temporal
   stability caps at `partial` from a single snapshot, so `strong`
   is unreachable until U3 supplies longitudinal evidence. By design.
@@ -2329,3 +2380,45 @@ session (incl. 3 Pow mutants deliberately not baselined) remain
 unknown until a larger-budget run; the baseline stays position-keyed,
 so any edit above a baselined position that changes the line count
 must refresh the baseline or the gate fails loudly by design.
+
+## Measured numbers at HEAD `264344e` (2026-11-07)
+
+Docs wave, branch `docs/roadmap-verification`. The tree at this head
+is code-identical to main `264344e` (Phase 5 wave 4); only
+`ROADMAP.md`, `docs/VERIFICATION.md` (this file) and the goal working
+notes `hidden_files/roadmap.md` changed. Environment: Linux VM,
+Python 3.12.3, main clone's extras venv (`.venv`), `PYTHONPATH` set
+to this worktree's `src/` so the worktree code is what ran.
+
+- Full suite, extras venv: **3016 passed, 0 failed, 1 deselected,
+  232 subtests passed in 635.91 s.** The 1 deselection is the known
+  `test_memory_check` host flake (`tests/test_diagnostics.py::
+  TestDiagnosticsEngine::test_memory_check`), deselected because the
+  host was at 7,739/7,934 MB used during the run; it is a host-memory
+  assertion, not a code failure. Command:
+  `python -m pytest tests/ -q -p no:cacheprovider --deselect
+  "tests/test_diagnostics.py::TestDiagnosticsEngine::test_memory_check"
+  -o addopts=''`.
+- Same suite with coverage: **3016 passed, 0 failed, 1 deselected,
+  232 subtests passed in 652.20 s; 83% line coverage** (17,831
+  statements, 2,375 missed, 6,716 branches, 1,214 partial). Coverage
+  is down from the 86% recorded in earlier waves because the tree
+  grew (11,582 statements at U7 → 17,831 now); the new modules
+  (probe runs, mixed-origin, sealing) carry the lower-coverage tail.
+  This is the measured number the Phase 5 coverage-gate item refers
+  to: CI still enforces `--fail-under=70`, not 83%.
+- Claims gate: **33 passed, 0 failed**
+  (`python scripts/check_claims.py`, exit 0).
+- Schemas: **12 OK** (`python scripts/validate_schemas.py`).
+- Ruff: **0 errors, 210 files formatted**
+  (`ruff check` + `ruff format --check` over `src/ tests/ scripts/`).
+- Registries (read, not re-seeded): U7 evidence registry **18
+  records** (`docs/evidence/registry.json`); validation registry
+  **7 records, all `partial`** (`docs/validation/registry.json`).
+- Report card still leads with worst-slice human FPR = **unknown**.
+- Core-only suite not re-run in this pass (no bare venv was built
+  for a docs-only change); last recorded in the U4 section above.
+- `pre-commit run --all-files`: **13 hooks pass, 0 fail** (run after
+  the docs edits above; ruff lint + format, json-schema-validator,
+  detect-secrets, trailing-whitespace, end-of-file-fixer and the
+  rest all green).
