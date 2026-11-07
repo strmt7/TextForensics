@@ -1667,7 +1667,8 @@ score series + Tier-1 flip-direction fix), `4565115` (CLI:
   artifact (the tests shell out to the `textforensics` console
   script, which was not on PATH for that run; all 5 pass with the
   venv bin on PATH) plus the same `test_memory_check` flake. A
-  re-run with the schema tests deselected exits 0.
+  re-run with the schema tests deselected gives 2672 passed, 112
+  skipped, 1 failed (the same flake).
 - Ruff check + format clean (182 files); `pre-commit run
   --all-files` green; claims gate **33/33**; schemas **11 OK**;
   gitleaks 8.24.3 over `ca3af3d..HEAD`: **0 leaks** (4 commits);
