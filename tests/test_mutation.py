@@ -382,8 +382,10 @@ class EquivalentBaselineTests(unittest.TestCase):
     survivor (exit 2) and on any stale entry (exit 1).
     """
 
-    #: The 15 annotation positions the 69 baseline entries cover, verified
-    #: against CI run 42393966895 (dump + AST + tokenize + empirical probe).
+    #: The annotation positions the 69 annotation baseline entries cover,
+    #: verified against CI run 42393966895 (dump + AST + tokenize +
+    #: empirical probe), plus the 3 runtime positions of the 4
+    #: unreachable-condition entries.
     EXPECTED_POSITIONS = {
         (130, 53),
         (178, 28),
@@ -400,6 +402,9 @@ class EquivalentBaselineTests(unittest.TestCase):
         (422, 24),
         (425, 28),
         (426, 26),
+        (437, 24),
+        (542, 54),
+        (542, 76),
     }
 
     @classmethod
@@ -462,19 +467,32 @@ class EquivalentBaselineTests(unittest.TestCase):
         finally:
             Path(temp_path).unlink(missing_ok=True)
 
-    def test_baseline_file_loads_with_69_entries(self):
-        """The baseline has exactly the 69 verified BitOr annotation mutants."""
+    def test_baseline_file_loads_with_73_entries(self):
+        """The baseline has exactly the 73 verified equivalent mutants.
+
+        69 annotation BitOr mutants + 4 unreachable-condition
+        NumberReplacer mutants (see the baseline file's header for both
+        proofs). Match keys include occurrence: two entries share the
+        (module, operator, start_pos, end_pos) of L542:76 and differ
+        only by occurrence (44 vs 45).
+        """
         self.assertEqual(self.baseline["version"], 1)
         self.assertEqual(self.baseline["source_run"], "42393966895")
         self.assertEqual(self.baseline["source_commit"], "153b5ab")
         entries = self.baseline["entries"]
-        self.assertEqual(len(entries), 69)
-        self.assertEqual(len({e["id"] for e in entries}), 69, "entry ids must be unique")
+        self.assertEqual(len(entries), 73)
+        self.assertEqual(len({e["id"] for e in entries}), 73, "entry ids must be unique")
         keys = {
-            (e["module"], e["operator"], tuple(e["start_pos"]), tuple(e["end_pos"]))
+            (
+                e["module"],
+                e["operator"],
+                tuple(e["start_pos"]),
+                tuple(e["end_pos"]),
+                e["occurrence"],
+            )
             for e in entries
         }
-        self.assertEqual(len(keys), 69, "match keys must be unique")
+        self.assertEqual(len(keys), 73, "match keys must be unique")
         from collections import Counter
 
         self.assertEqual(
@@ -485,14 +503,47 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "core/ReplaceBinaryOperator_BitOr_BitXor": 15,
                 "core/ReplaceBinaryOperator_BitOr_Div": 15,
                 "core/ReplaceBinaryOperator_BitOr_FloorDiv": 9,
+                "core/NumberReplacer": 4,
             },
         )
         self.assertEqual({tuple(e["start_pos"]) for e in entries}, self.EXPECTED_POSITIONS)
         for entry in entries:
             self.assertEqual(entry["module"], "textforensics.trust")
             self.assertTrue(entry["reason"], f"entry {entry['id']} needs a reason")
-            self.assertIn(entry["annotation"], entry["reason"])
             self.assertIn(entry["function"], entry["reason"])
+            if entry["kind"] in self.runner.BASELINE_ANNOTATION_KINDS:
+                self.assertIn(entry["annotation"], entry["reason"])
+            else:
+                self.assertEqual(entry["kind"], "unreachable-condition")
+                self.assertIn(entry["source_text"], entry["reason"])
+                self.assertEqual(len(entry["source_fingerprint"]), 64)
+
+    def test_runtime_entries(self):
+        """The 4 unreachable-condition entries carry the dead-condition proof."""
+        runtime = [e for e in self.baseline["entries"] if e["kind"] == "unreachable-condition"]
+        self.assertEqual(len(runtime), 4)
+        by_id = {e["id"]: e for e in runtime}
+        self.assertEqual(
+            {e["occurrence"] for e in runtime},
+            {39, 42, 44, 45},
+            "occurrences must match the CI dump (survivor indices 41/44/46/47)",
+        )
+        # Two entries share one position and differ only by occurrence.
+        at_542_76 = [e for e in runtime if tuple(e["start_pos"]) == (542, 76)]
+        self.assertEqual(len(at_542_76), 2)
+        self.assertEqual({e["occurrence"] for e in at_542_76}, {44, 45})
+        self.assertEqual({e["source_text"] for e in at_542_76}, {"2"})
+        # Same enclosing function, hence the same fingerprint.
+        self.assertEqual(len({e["source_fingerprint"] for e in at_542_76}), 1)
+        self.assertEqual(
+            by_id["textforensics.trust:core/NumberReplacer:39"]["function"],
+            "build_trust_map",
+        )
+        self.assertEqual(by_id["textforensics.trust:core/NumberReplacer:39"]["source_text"], "0")
+        for entry in runtime:
+            with self.subTest(entry=entry["id"]):
+                ok, reason = self.runner.validate_baseline_entry(entry, self.project_root)
+                self.assertTrue(ok, f"{entry['id']} failed re-validation: {reason}")
 
     def test_all_baseline_entries_validate_against_current_source(self):
         """Every entry re-validates (AST position + annotation text + owner)."""
@@ -604,10 +655,10 @@ class EquivalentBaselineTests(unittest.TestCase):
             "baseline_entries",
         ):
             self.assertIn(key, summary, f"summary is missing {key}")
-        self.assertEqual(summary["baseline_entries"], 69)
+        self.assertEqual(summary["baseline_entries"], 73)
         self.assertEqual(summary["equivalent"], 2)
-        # The other 67 entries matched no live survivor in this run.
-        self.assertEqual(summary["equivalent_dormant"], 67)
+        # The other 71 entries matched no live survivor in this run.
+        self.assertEqual(summary["equivalent_dormant"], 71)
         self.assertEqual(summary["equivalent_superseded"], 0)
         self.assertEqual(summary["stale_baseline_entries"], [])
         # Raw counts are never relabelled: the survivors stay in `surviving`.
@@ -626,7 +677,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(summary["equivalent_mutants"], [entries[0]["id"]])
         self.assertEqual(summary["equivalent_superseded"], 1)
         self.assertEqual(summary["equivalent_superseded_ids"], [entries[1]["id"]])
-        self.assertEqual(summary["equivalent_dormant"], 67)
+        self.assertEqual(summary["equivalent_dormant"], 71)
         self.assertEqual(summary["unexplained_surviving"], 0)
         result = self._check_summary(summary)
         self.assertEqual(result.returncode, 0, result.stdout)
@@ -666,6 +717,132 @@ class EquivalentBaselineTests(unittest.TestCase):
         ok, reason = self.runner.validate_baseline_entry(entry, self.project_root)
         self.assertFalse(ok, "changed annotation text must not validate")
         self.assertIn("annotation text changed", reason)
+
+    def test_unreachable_condition_mutants_accepted(self):
+        """Survivors matching re-validated runtime entries are accepted (exit 0)."""
+        runtime = [e for e in self.baseline["entries"] if e["kind"] == "unreachable-condition"]
+        self.assertEqual(len(runtime), 4)
+        records = [self._record_for_entry(e, "survived") for e in runtime]
+        summary = self.runner.parse_results(records, self.baseline, self.project_root)
+        self.assertEqual(summary["total"], 4)
+        self.assertEqual(summary["surviving"], 4)
+        self.assertEqual(summary["equivalent"], 4)
+        self.assertEqual(summary["unexplained_surviving"], 0)
+        self.assertEqual(summary["equivalent_mutants"], [e["id"] for e in runtime])
+        result = self._check_summary(summary)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("accepted as equivalent", result.stdout)
+
+    def test_occurrence_disambiguates_same_position_mutants(self):
+        """Two entries at one position differ only by occurrence — and match only their own mutant.
+
+        L542:76 carries occurrences 44 (`2` -> `3`, equivalent) and 45
+        (`2` -> `1`, equivalent). A survivor with an occurrence that
+        matches neither entry (e.g. a hypothetical `2` -> `0`) must stay
+        unexplained even though its position matches both entries.
+        """
+        runtime = {
+            e["occurrence"]: e
+            for e in self.baseline["entries"]
+            if e["kind"] == "unreachable-condition"
+        }
+        entry_44 = runtime[44]
+        entry_45 = runtime[45]
+        self.assertEqual(tuple(entry_44["start_pos"]), tuple(entry_45["start_pos"]))
+        self.assertEqual(tuple(entry_44["end_pos"]), tuple(entry_45["end_pos"]))
+
+        records = [
+            self._record_for_entry(entry_44, "survived"),
+            self._record_for_entry(entry_45, "survived"),
+            self._record(
+                operator="core/NumberReplacer",
+                occurrence=99,
+                start_pos=(542, 76),
+                end_pos=(542, 77),
+                outcome="survived",
+            ),
+        ]
+        summary = self.runner.parse_results(records, self.baseline, self.project_root)
+        self.assertEqual(summary["surviving"], 3)
+        self.assertEqual(summary["equivalent"], 2)
+        self.assertEqual(summary["equivalent_mutants"], [entry_44["id"], entry_45["id"]])
+        self.assertEqual(summary["unexplained_surviving"], 1)
+        result = self._check_summary(summary)
+        self.assertEqual(result.returncode, 2, result.stdout)
+
+    def test_stale_runtime_entry_fails_loudly(self):
+        """A runtime entry whose function changed fails re-validation (exit 1)."""
+        import copy
+
+        runtime = [e for e in self.baseline["entries"] if e["kind"] == "unreachable-condition"]
+        cases = {
+            "changed fingerprint": (
+                "source_fingerprint",
+                "0" * 64,
+                "fingerprint mismatch",
+            ),
+            "changed source text": ("source_text", "9", "no longer holds"),
+            "changed function": (
+                "function",
+                "assess_trust_map",
+                "enclosing function changed",
+            ),
+        }
+        for name, (field, value, fragment) in cases.items():
+            with self.subTest(case=name):
+                entry = copy.deepcopy(runtime[0])
+                entry[field] = value
+                ok, reason = self.runner.validate_baseline_entry(entry, self.project_root)
+                self.assertFalse(ok, f"{name} must not validate")
+                self.assertIn(fragment, reason)
+
+        entry = copy.deepcopy(runtime[0])
+        entry["source_fingerprint"] = "0" * 64
+        tampered = copy.deepcopy(self.baseline)
+        tampered["entries"] = [entry] + [
+            e for e in self.baseline["entries"] if e["id"] != entry["id"]
+        ]
+        records = [self._record_for_entry(entry, "survived")]
+        summary = self.runner.parse_results(records, tampered, self.project_root)
+        self.assertEqual(len(summary["stale_baseline_entries"]), 1)
+        self.assertEqual(summary["stale_baseline_entries"][0]["id"], entry["id"])
+        self.assertEqual(summary["unexplained_surviving"], 1)
+        self.assertEqual(summary["equivalent"], 0)
+        result = self._check_summary(summary)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("stale baseline", result.stdout.lower())
+
+    def test_runtime_entry_fields_required(self):
+        """Runtime entries need source_text + source_fingerprint; unknown kinds fail."""
+        base = (
+            "version = 1\n"
+            '[[equivalent]]\nid = "x"\nmodule = "textforensics.trust"\n'
+            'operator = "core/NumberReplacer"\noccurrence = 39\n'
+            'start_pos = [437, 24]\nend_pos = [437, 25]\nfunction = "build_trust_map"\n'
+            'reason = "r"\n'
+        )
+        cases = {
+            "runtime entry missing source_text": (
+                base + 'kind = "unreachable-condition"\nsource_fingerprint = "' + "0" * 64 + '"\n'
+            ),
+            "runtime entry missing source_fingerprint": (
+                base + 'kind = "unreachable-condition"\nsource_text = "0"\n'
+            ),
+            "unknown kind": base + 'kind = "magic"\nannotation = "x"\n',
+            "annotation entry missing annotation": (base + 'kind = "arg"\n'),
+        }
+        for name, text in cases.items():
+            with (
+                self.subTest(case=name),
+                tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f,
+            ):
+                f.write(text)
+                temp_path = f.name
+            try:
+                with self.assertRaises(ValueError):
+                    self.runner.load_baseline(Path(temp_path))
+            finally:
+                Path(temp_path).unlink(missing_ok=True)
 
     def test_malformed_baseline_rejected(self):
         """Wrong version / missing field / duplicate id fail loudly at load."""

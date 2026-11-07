@@ -52,26 +52,50 @@ accepts that marker. "Nothing to mutate" is therefore a pass, distinct from
 
 Equivalent-mutant baseline (``mutation-baseline.toml``)
 --------------------------------------------------------
-Some mutants cannot be killed by any test because they change only text
-that is never evaluated — e.g. a ``|`` inside a function annotation of a
-module using ``from __future__ import annotations`` (PEP 563), where the
-annotation is a string stored unevaluated. Such mutants are recorded in
-``mutation-baseline.toml``, one entry per mutant, keyed by
-``(module, operator, start_pos, end_pos)`` and carrying the annotation
-text, the enclosing function and a per-entry reason. This is a hybrid
-mechanism, deliberately NOT a blanket structural rule: a pure "ignore
-mutants inside annotations" rule would silently accept any future
-annotation mutant with no human review, including one that later becomes
-behaviour-changing. Instead the baseline is explicit AND re-validated:
-on every run the runner checks each entry against the current source
-(AST — the position must still hold the operator inside an annotation,
-the annotation text must be unchanged, the enclosing function must match,
-and the module must still use postponed evaluation). The summary reports
-``equivalent`` (accepted survivors), ``unexplained_surviving`` (the count
-the gate fails on), ``equivalent_dormant`` (valid entries whose mutant was
-not executed in this run, e.g. outside the budget prefix),
-``equivalent_superseded`` (entries whose mutant was executed and KILLED —
-the entry is now unnecessary and should be removed) and
+Some mutants cannot be killed by any test. Two kinds are recognised:
+
+(a) Annotation mutants: a ``|`` inside a function annotation of a module
+    using ``from __future__ import annotations`` (PEP 563), where the
+    annotation is a string stored unevaluated. Such mutants are recorded
+    in ``mutation-baseline.toml``, one entry per mutant, carrying the
+    annotation text, the enclosing function and a per-entry reason.
+(b) Unreachable-condition mutants (kind ``"unreachable-condition"``): a
+    ``NumberReplacer`` mutant inside a branch condition that is provably
+    dead — the condition reduces to a constant ``False`` for every
+    replacement the operator can produce at that position, so no input
+    can distinguish the mutant from the original. Each entry carries the
+    exact original source text at the position and a SHA-256 fingerprint
+    of the enclosing function (whitespace-normalised source), so any
+    change to that function fails the entry loudly instead of passing
+    silently. The proof for each entry is recorded in the baseline file.
+
+Entries are keyed by ``(module, operator, start_pos, end_pos,
+occurrence)``. ``occurrence`` is part of the key — not provenance only —
+because one operator can generate several distinct mutants at one
+position: ``trust_map_from_capability_ledger`` L542:54 proves it, with
+``max(1, ...)`` -> ``max(2, ...)`` equivalent but ``max(1, ...)`` ->
+``max(0, ...)`` killable (``0 >= 0`` becomes True). Position-only
+matching would conflate the two. An occurrence renumbering (a new
+mutation point earlier in the file) makes the entry dormant and the
+survivor unexplained, so the gate fails loudly (exit 2) rather than
+passing silently.
+
+This is a hybrid mechanism, deliberately NOT a blanket structural rule:
+a pure "ignore mutants inside annotations" rule would silently accept
+any future annotation mutant with no human review, including one that
+later becomes behaviour-changing. Instead the baseline is explicit AND
+re-validated: on every run the runner checks each entry against the
+current source (AST — for annotation entries the position must still
+hold the operator inside an annotation, the annotation text must be
+unchanged, the enclosing function must match, and the module must
+still use postponed evaluation; for unreachable-condition entries the
+position must still hold the recorded source text inside the recorded
+function and the function's fingerprint must be unchanged). The summary
+reports ``equivalent`` (accepted survivors), ``unexplained_surviving``
+(the count the gate fails on), ``equivalent_dormant`` (valid entries
+whose mutant was not executed in this run, e.g. outside the budget
+prefix), ``equivalent_superseded`` (entries whose mutant was executed
+and KILLED — the entry is now unnecessary and should be removed) and
 ``stale_baseline_entries``. Raw counts are never relabelled: ``total`` /
 ``killed`` / ``surviving`` keep their measured meanings and equivalent
 mutants are never counted as killed (rule 17).
@@ -87,6 +111,7 @@ Exit codes:
 
 import argparse
 import ast
+import hashlib
 import json
 import subprocess
 import sys
@@ -134,8 +159,20 @@ DEFAULT_BASELINE = "mutation-baseline.toml"
 #: loader rejects unknown kinds loudly rather than accepting them blind.
 BASELINE_ANNOTATION_KINDS = {"arg", "return", "annassign"}
 
-#: Required fields of one [[equivalent]] baseline entry.
-BASELINE_ENTRY_FIELDS = {
+#: Runtime kinds the baseline validator understands. ``"unreachable-
+#: condition"`` covers a NumberReplacer mutant inside a branch condition
+#: that is provably dead (see :func:`_validate_unreachable_condition_entry`
+#: and the baseline file's header): the condition reduces to a constant
+#: ``False`` for every replacement the operator can produce at that
+#: position. A new runtime kind needs its own validator first; the loader
+#: rejects unknown kinds loudly rather than accepting them blind.
+BASELINE_RUNTIME_KINDS = {"unreachable-condition"}
+
+#: All baseline kinds (annotation + runtime).
+BASELINE_KINDS = BASELINE_ANNOTATION_KINDS | BASELINE_RUNTIME_KINDS
+
+#: Fields every [[equivalent]] baseline entry must carry.
+BASELINE_COMMON_FIELDS = {
     "id",
     "module",
     "operator",
@@ -144,9 +181,18 @@ BASELINE_ENTRY_FIELDS = {
     "end_pos",
     "function",
     "kind",
-    "annotation",
     "reason",
 }
+
+#: Extra fields an annotation-kind entry must carry (the annotation text
+#: the entry pins; see :func:`_validate_annotation_entry`).
+BASELINE_ANNOTATION_FIELDS = {"annotation"}
+
+#: Extra fields an unreachable-condition entry must carry: the exact
+#: original source text at the position (e.g. ``"0"``) and a SHA-256
+#: fingerprint of the enclosing function (see
+#: :func:`_function_fingerprint`).
+BASELINE_RUNTIME_FIELDS = {"source_text", "source_fingerprint"}
 
 
 def run_command(
@@ -290,19 +336,29 @@ def _has_postponed_evaluation(tree: ast.AST) -> bool:
     )
 
 
-def _entry_key(entry: dict[str, Any]) -> tuple[str, str, tuple[int, int], tuple[int, int]]:
-    """Match key of a baseline entry: (module, operator, start_pos, end_pos).
+def _entry_key(
+    entry: dict[str, Any],
+) -> tuple[str, str, tuple[int, int], tuple[int, int], int]:
+    """Match key of a baseline entry: (module, operator, start_pos, end_pos, occurrence).
 
-    ``occurrence`` is deliberately NOT part of the key: cosmic-ray renumbers
-    occurrences when an earlier mutation point is added or removed, while
-    positions are stable. The annotation text and owner are re-validated
-    separately by :func:`validate_baseline_entry`.
+    ``occurrence`` is part of the key, not provenance only: one operator
+    generates several distinct mutants at one position (NumberReplacer
+    replaces a literal with several values), and those mutants need not
+    share equivalence — at ``trust_map_from_capability_ledger`` L542:54,
+    ``max(1, ...)`` -> ``max(2, ...)`` is equivalent while ``max(1, ...)``
+    -> ``max(0, ...)`` is killable. Position-only matching would conflate
+    them. A renumbering (a new mutation point earlier in the file) makes
+    the entry dormant and the survivor unexplained, so the gate fails
+    loudly (exit 2) rather than passing silently. The annotation text,
+    source text and owner are re-validated separately by
+    :func:`validate_baseline_entry`.
     """
     return (
         entry["module"],
         entry["operator"],
         tuple(entry["start_pos"]),
         tuple(entry["end_pos"]),
+        int(entry["occurrence"]),
     )
 
 
@@ -311,9 +367,9 @@ def load_baseline(baseline_path: Path) -> dict[str, Any]:
 
     Raises ``FileNotFoundError`` when the file is missing and ``ValueError``
     on any malformed content (wrong version, missing field, duplicate id or
-    duplicate match key, unknown annotation kind, malformed position).
-    Structural problems fail loudly at load time; staleness against the
-    current source is checked per entry by :func:`validate_baseline_entry`.
+    duplicate match key, unknown kind, malformed position). Structural
+    problems fail loudly at load time; staleness against the current source
+    is checked per entry by :func:`validate_baseline_entry`.
     """
     with open(baseline_path, "rb") as f:
         data = tomllib.load(f)
@@ -322,21 +378,32 @@ def load_baseline(baseline_path: Path) -> dict[str, Any]:
     entries = data.get("equivalent", [])
     if not isinstance(entries, list):
         raise ValueError("Baseline 'equivalent' must be a list of entries")
-    seen_keys: set[tuple[str, str, tuple[int, int], tuple[int, int]]] = set()
+    seen_keys: set[tuple[str, str, tuple[int, int], tuple[int, int], int]] = set()
     seen_ids: set[str] = set()
     for entry in entries:
         if not isinstance(entry, dict):
             raise ValueError(f"Baseline entry is not a table: {entry!r}")
-        missing = BASELINE_ENTRY_FIELDS - set(entry)
+        missing = BASELINE_COMMON_FIELDS - set(entry)
         if missing:
             raise ValueError(
                 f"Baseline entry {entry.get('id', '?')!r} is missing field(s): "
                 + ", ".join(sorted(missing))
             )
-        if entry["kind"] not in BASELINE_ANNOTATION_KINDS:
+        if entry["kind"] not in BASELINE_KINDS:
             raise ValueError(
-                f"Baseline entry {entry['id']!r} has unknown annotation kind "
-                f"{entry['kind']!r} (supported: {sorted(BASELINE_ANNOTATION_KINDS)})"
+                f"Baseline entry {entry['id']!r} has unknown kind "
+                f"{entry['kind']!r} (supported: {sorted(BASELINE_KINDS)})"
+            )
+        kind_fields = (
+            BASELINE_ANNOTATION_FIELDS
+            if entry["kind"] in BASELINE_ANNOTATION_KINDS
+            else BASELINE_RUNTIME_FIELDS
+        )
+        missing_kind = kind_fields - set(entry)
+        if missing_kind:
+            raise ValueError(
+                f"Baseline entry {entry['id']!r} (kind {entry['kind']!r}) is "
+                "missing field(s): " + ", ".join(sorted(missing_kind))
             )
         for field in ("start_pos", "end_pos"):
             pos = entry[field]
@@ -363,15 +430,59 @@ def load_baseline(baseline_path: Path) -> dict[str, Any]:
     }
 
 
+def _enclosing_function(tree: ast.AST, line: int, col: int) -> tuple[str | None, ast.AST | None]:
+    """Innermost function containing ``(line, col)``: (qualified name, node).
+
+    Qualified names follow the :func:`_annotation_spans` convention
+    (``TrustMap.dimension``, ``assess_trust_map``). Returns ``(None, None)``
+    when the position is not inside any function. The walk visits parents
+    before children, so the last containing function found is the
+    innermost one.
+    """
+    found: tuple[str, ast.AST] | None = None
+
+    def walk(node: ast.AST, owner: str) -> None:
+        nonlocal found
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                child_owner = f"{owner}.{child.name}" if owner else child.name
+                start = (child.lineno, child.col_offset)
+                end = (child.end_lineno or child.lineno, child.end_col_offset or 0)
+                if start <= (line, col) < end:
+                    found = (child_owner, child)
+                walk(child, child_owner)
+            elif isinstance(child, ast.ClassDef):
+                walk(child, f"{owner}.{child.name}" if owner else child.name)
+            else:
+                walk(child, owner)
+
+    walk(tree, "")
+    if found is None:
+        return None, None
+    return found
+
+
+def _function_fingerprint(source: str, node: ast.AST) -> str:
+    """SHA-256 of the whitespace-normalised source of a function node.
+
+    Pure-text normalisation (``" ".join(segment.split())``) makes the
+    fingerprint independent of formatting and of the Python version that
+    parses the tree (unlike ``ast.dump``, whose output gained
+    ``type_params`` in 3.12). Any token change in the function changes
+    the fingerprint, so the entry goes stale and must be re-verified.
+    """
+    segment = ast.get_source_segment(source, node) or ""
+    return hashlib.sha256(" ".join(segment.split()).encode()).hexdigest()
+
+
 def validate_baseline_entry(entry: dict[str, Any], project_root: Path) -> tuple[bool, str]:
     """Re-validate one baseline entry against the CURRENT source.
 
-    Returns ``(True, "ok")`` only when every check holds: the module source
-    exists and parses, the module still uses postponed evaluation, the
-    recorded position still holds the recorded operator inside an
-    annotation, the enclosing function still matches, and the annotation
-    text is unchanged. Any failure returns ``(False, reason)`` — the entry
-    is STALE and the run must fail loudly (exit 1), never pass silently.
+    Dispatches on kind: annotation kinds go through
+    :func:`_validate_annotation_entry`, ``"unreachable-condition"``
+    through :func:`_validate_unreachable_condition_entry`. Any failure
+    returns ``(False, reason)`` — the entry is STALE and the run must
+    fail loudly (exit 1), never pass silently.
     """
     source_path = module_path(entry["module"], project_root)
     if not source_path.is_file():
@@ -384,6 +495,24 @@ def validate_baseline_entry(entry: dict[str, Any], project_root: Path) -> tuple[
         tree = ast.parse(source)
     except SyntaxError as exc:
         return False, f"module does not parse: {exc}"
+    lines = source.splitlines()
+    if entry["kind"] in BASELINE_ANNOTATION_KINDS:
+        return _validate_annotation_entry(entry, tree, source, lines)
+    if entry["kind"] == "unreachable-condition":
+        return _validate_unreachable_condition_entry(entry, tree, source, lines)
+    return False, f"unknown baseline kind {entry['kind']!r}"
+
+
+def _validate_annotation_entry(
+    entry: dict[str, Any], tree: ast.AST, source: str, lines: list[str]
+) -> tuple[bool, str]:
+    """Re-validate an annotation-kind entry against the current source.
+
+    Returns ``(True, "ok")`` only when every check holds: the module
+    still uses postponed evaluation, the recorded position still holds
+    the recorded operator inside an annotation, the enclosing function
+    still matches, and the annotation text is unchanged.
+    """
     if not _has_postponed_evaluation(tree):
         return (
             False,
@@ -392,7 +521,6 @@ def validate_baseline_entry(entry: dict[str, Any], project_root: Path) -> tuple[
             "may now be evaluated at runtime, so the equivalence proof no "
             "longer holds",
         )
-    lines = source.splitlines()
     start_line, start_col = entry["start_pos"]
     end_line, end_col = entry["end_pos"]
     if not (1 <= start_line <= len(lines)) or start_line != end_line:
@@ -460,10 +588,71 @@ def validate_baseline_entry(entry: dict[str, Any], project_root: Path) -> tuple[
     return True, "ok"
 
 
+def _validate_unreachable_condition_entry(
+    entry: dict[str, Any], tree: ast.AST, source: str, lines: list[str]
+) -> tuple[bool, str]:
+    """Re-validate an unreachable-condition entry against current source.
+
+    Returns ``(True, "ok")`` only when every check holds: the recorded
+    position still holds the recorded source text, it sits inside the
+    recorded (innermost) function, and that function's
+    whitespace-normalised source still hashes to the recorded
+    fingerprint. The fingerprint pins the WHOLE function because the
+    equivalence proof depends on its behaviour as a whole (which states
+    are ever assigned, which branches are reachable); any edit to the
+    function — even far from the mutant — makes the entry stale so a
+    human re-verifies the proof.
+    """
+    start_line, start_col = entry["start_pos"]
+    end_line, end_col = entry["end_pos"]
+    if not (1 <= start_line <= len(lines)) or start_line != end_line:
+        return False, f"position {entry['start_pos']} is outside the current source"
+    line = lines[start_line - 1]
+    if not (0 <= start_col < end_col <= len(line)):
+        return (
+            False,
+            f"position {entry['start_pos']}-{entry['end_pos']} is outside line {start_line}",
+        )
+    segment = line[start_col:end_col]
+    if segment != entry["source_text"]:
+        return (
+            False,
+            f"position L{start_line}:{start_col} no longer holds "
+            f"{entry['source_text']!r} (found {segment!r}) — the code moved "
+            "or changed",
+        )
+    name, node = _enclosing_function(tree, start_line, start_col)
+    if node is None:
+        return (
+            False,
+            f"position L{start_line}:{start_col} is no longer inside a function",
+        )
+    if name != entry["function"]:
+        return (
+            False,
+            f"enclosing function changed ({entry['function']!r} -> {name!r}) "
+            "— re-verify the mutant",
+        )
+    current = _function_fingerprint(source, node)
+    if current != entry["source_fingerprint"]:
+        return (
+            False,
+            f"enclosing function {name!r} changed (fingerprint mismatch) "
+            "— the equivalence proof no longer holds against the current "
+            "source; re-verify the mutant",
+        )
+    return True, "ok"
+
+
 def _record_mutant_key(
     record: dict[str, Any],
-) -> tuple[str, str, tuple[int, int], tuple[int, int]] | None:
-    """Match key of one cosmic-ray dump record, or None when malformed."""
+) -> tuple[str, str, tuple[int, int], tuple[int, int], int] | None:
+    """Match key of one cosmic-ray dump record, or None when malformed.
+
+    Mirrors :func:`_entry_key`: (module, operator, start_pos, end_pos,
+    occurrence). ``occurrence`` disambiguates the several mutants one
+    operator generates at one position (see :func:`_entry_key`).
+    """
     try:
         mutation = record["work_item"]["mutations"][0]
         return (
@@ -471,8 +660,9 @@ def _record_mutant_key(
             mutation["operator_name"],
             tuple(mutation["start_pos"]),
             tuple(mutation["end_pos"]),
+            int(mutation["occurrence"]),
         )
-    except (KeyError, IndexError, TypeError, AttributeError):
+    except (KeyError, IndexError, TypeError, AttributeError, ValueError):
         return None
 
 
@@ -510,8 +700,8 @@ def classify_baseline(
         if not validation[entry["id"]][0]
     ]
     by_key = {_entry_key(entry): entry for entry in entries}
-    executed: dict[tuple[str, str, tuple[int, int], tuple[int, int]], str] = {}
-    survivors: list[tuple[str, str, tuple[int, int], tuple[int, int]]] = []
+    executed: dict[tuple[str, str, tuple[int, int], tuple[int, int], int], str] = {}
+    survivors: list[tuple[str, str, tuple[int, int], tuple[int, int], int]] = []
     for record in records:
         if "error" in record:
             continue

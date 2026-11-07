@@ -29,16 +29,18 @@
 #
 # Equivalent mutants: a few mutants cannot be killed by any test because
 # they change only text that is never evaluated (e.g. `|` inside a function
-# annotation of a module using `from __future__ import annotations`).
-# Those are recorded one-by-one in `mutation-baseline.toml`, each with its
-# reason and proof; the runner re-validates every entry against the current
-# source on each run, and a stale entry fails loudly (exit 1). Equivalent
-# mutants are reported separately in the summary (`equivalent`,
-# `unexplained_surviving`) and are NEVER counted as killed: the raw kill
-# ratio stays killed/total, and the gate fails on any unexplained survivor.
-# See the baseline file's header for the design rationale and the proof.
-# Adding an entry needs human verification first — never add a runtime
-# mutant to the baseline.
+# annotation of a module using `from __future__ import annotations`), or
+# because they sit in a provably dead branch condition (kind
+# "unreachable-condition"). Those are recorded one-by-one in
+# `mutation-baseline.toml`, each with its reason and proof; the runner
+# re-validates every entry against the current source on each run, and a
+# stale entry fails loudly (exit 1). Equivalent mutants are reported
+# separately in the summary (`equivalent`, `unexplained_surviving`) and
+# are NEVER counted as killed: the raw kill ratio stays killed/total, and
+# the gate fails on any unexplained survivor. See the baseline file's
+# header for the design rationale and the proof. Adding an entry needs
+# human verification first — never add a runtime mutant to the baseline
+# except as "unreachable-condition" with its proof.
 #
 # Diff-based optimisation: on push/PR only changed target modules are
 # mutated (see .github/workflows/mutation.yml and the `diff` mode of
