@@ -479,7 +479,13 @@ class TestPolicyRevisionFloor:
             )
 
     def test_legacy_32_byte_raw_key_converted(self, temp_state_dir, valid_policy):
-        raw_key = os.urandom(32)
+        # Fixed key, not os.urandom(32): _load_or_generate_key strips the
+        # key file's bytes, and a random key whose first/last byte is
+        # ASCII whitespace loses a byte to .strip(), so the 32-byte check
+        # fails ~4.5% of runs and the test flakes (PolicyKeyError instead
+        # of conversion). bytes(range(32)) has no edge-whitespace byte,
+        # so .strip() is a no-op and the test is deterministic.
+        raw_key = bytes(range(32))
         (temp_state_dir / "key.key").write_bytes(raw_key)
 
         floor = PolicyRevisionFloor(
