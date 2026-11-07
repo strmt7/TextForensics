@@ -109,7 +109,111 @@
 #   parallel worker (PR #52). Four of the original 54 were reclassified
 #   as equivalent instead and ARE in this file, as kind
 #   "unreachable-condition" (see PROOF below). Never add a runtime mutant
-#   to this file except as that kind, with its proof.
+#   to this file except as "unreachable-condition" or "unobservable-value",
+#   with its proof.
+#
+# POLICY ENTRIES (82: 78 annotation + 4 unobservable-value, 2026-11-07)
+# -------------------------------------------------------------------
+# Source: local budget-200 repro run on branch fix/w4-policy-mutation
+# at 6159552 (Phase 5 wave 4E), `scripts/run_mutation.py --mode diff
+# --base-sha 1e0fb2b --budget 200 --modules textforensics.policy`:
+# session 498 work items, executed 200, killed 58 as recorded — of
+# which 10 were FALSE kills from a flaky test
+# (test_legacy_32_byte_raw_key_converted used os.urandom(32); the key
+# file is .strip()ed, so a random edge-whitespace byte shortens the key
+# and fails the test ~4.5% of runs; fixed by using a fixed key). True
+# population: killed 48, survivors 152. The 70 killable survivors were
+# killed with tests in tests/test_enterprise_policy.py (each verified
+# individually by hand-applying its diff: 70/70 killed). The remaining
+# 82 are the entries below.
+#
+# PROOF — POLICY ANNOTATION MUTANTS (78 entries)
+# ---------------------------------------------
+# The 78 are all 9 ReplaceBinaryOperator_BitOr_* operators at 9
+# positions, except the 3 ReplaceBinaryOperator_BitOr_Pow mutants at
+# L914/L922/L929, which fall outside the budget-200 prefix (never
+# executed — see NOT IN THIS BASELINE below). Per-mutant verification,
+# as for trust: for each, the diff replaces exactly the `|` at the
+# recorded start position; the position lies inside a function arg or
+# return annotation (AST); the enclosing function matches. The 9
+# positions are exactly the `|` operators inside function annotations
+# in policy.py (verified: mutant positions == function-annotation `|`
+# positions). Why the change cannot affect behaviour:
+#   1. policy.py has `from __future__ import annotations` (line 30),
+#      so under PEP 563 every annotation in the module is a string,
+#      stored unevaluated.
+#   2. Nothing evaluates these annotations: no `get_type_hints`,
+#      `__annotations__`, `eval_str`, `get_annotations`, `ForwardRef`
+#      or `TypeAdapter` anywhere in src/, tests/ or scripts/ (grep,
+#      2026-11-07); no pydantic model wraps a policy class. Guarded by
+#      tests/test_mutation.py (test_no_annotation_evaluation_in_repo).
+#   3. Dataclasses never evaluate string annotations: the dataclass
+#      field types stay strings, and `__init__` / `__post_init__` /
+#      `asdict` use field names and values only.
+#   4. Empirical check: all 85 mutants (9 positions x 9 operators,
+#      plus the 4 unobservable-value mutants below) were applied to a
+#      copy of policy.py and probed with a fixed behavioural battery
+#      (ledger ops, validate_claim, trust dimensions, tier matrix
+#      incl. unknown tiers, pattern matrix, factories, digest, schema
+#      validation, floor advance/check/rollback/drift, engine
+#      load/evaluate/status/export, state roundtrip); all 85 produced
+#      byte-identical behaviour (identical SHA-256 of the canonical
+#      probe output). 85/85.
+# Two further `|` operators exist in dataclass field annotations
+# (EvidenceRef.detail L92, CapabilityClaim.valid_until L103) but
+# cosmic-ray 8.7.0 never generates mutants for them (parso `annassign`
+# exclusion) — nothing to baseline.
+#
+# PROOF — KIND "unobservable-value" (4 entries, verified 2026-11-07)
+# ------------------------------------------------------------------
+# These four NumberReplacer survivors sit in no branch condition, so
+# "unreachable-condition" does not apply — yet no test can kill them,
+# because the replacement value is provably unobservable: the mutated
+# expression's value never affects any observable behaviour for any
+# input. Each was verified by the 85/85 empirical probe above (the
+# probe battery exercises every value below exhaustively, including
+# the full tier matrix with unknown tiers) plus the source reasoning
+# below. Each entry pins its proof with source_text + the enclosing
+# function's fingerprint, exactly like unreachable-condition entries.
+#
+# [occ 4] CapabilityPolicyEngine.evaluate L376:33, `2` -> `3` in
+#      `"validated": 2` of the tier_order table. The claim-tier value
+#      is only ever compared as
+#      `tier_order.get(claim_tier, -1) < tier_order.get(min_tier, -1)`
+#      against min-tier values in {0, 1, 2, -1}; the comparison is
+#      False for x in {2, 3} against every one of those, and the value
+#      is used nowhere else. The sibling `2` -> `1` (occurrence 5) IS
+#      killable — a VALIDATED claim then fails a validated requirement
+#      — which is why entries are keyed by occurrence (see MATCHING).
+# [occ 8] CapabilityPolicyEngine.evaluate L381:78, `-1` -> `-2` as the
+#      default of `tier_order.get(min_tier, -1)` (the recorded position
+#      is the `1`; cosmic-ray records the number literal, not the
+#      sign). The claim-tier value is always >= -1 (valid tiers map to
+#      0/1/2, unknown tiers to the other -1 default), so `claim < -1`
+#      and `claim < -2` are both always False; the default is used
+#      nowhere else. The siblings ARE killable: claim default -1 -> 0
+#      (occurrence 7) and min default -1 -> 0 (occurrence 9) both flip
+#      a comparison for a bogus-tier claim, and the tests kill them.
+# [occ 22/23] _load_enterprise_policy_schema L540:19, `4` -> `5` /
+#      `4` -> `3` in `@lru_cache(maxsize=4)`. The function takes no
+#      arguments, so its cache can hold at most one entry and maxsize
+#      3/4/5 never triggers eviction; the cached value and call
+#      behaviour are identical. (These two entries are also the reason
+#      the runner's enclosing-function lookup and function fingerprint
+#      cover decorator lines: the mutant sits on the decorator line,
+#      above the `def` line.)
+#
+# KNOWN POLICY MUTANTS *NOT* IN THIS BASELINE (do not add without verification)
+# -----------------------------------------------------------------------------
+# - ReplaceBinaryOperator_BitOr_Pow at L914, L922, L929: same 9
+#   positions, same proof (they are in the 85/85 empirical check), but
+#   they were never executed in the budget-200 run — the trim cut the
+#   session at 200 work items and Pow sorts last at those positions.
+#   If a future run with a larger budget executes them and they
+#   survive, the gate fails (exit 2) until a human adds verified
+#   entries. That is by design.
+# - The remaining 298 work items of the 498-item session were never
+#   executed under budget 200 (same rule: verify, then add).
 #
 # PROOF — KIND "unreachable-condition" (4 entries, verified 2026-11-07)
 # ------------------------------------------------------------------
@@ -165,18 +269,22 @@
 # 1. Verify the mutant per the PROOF above (diff + AST position +
 #    no-evaluation + empirical probe for annotation mutants; exhaustive
 #    differential runs + the dead-condition source reasoning for
-#    unreachable-condition mutants). Do not copy an entry and change
+#    unreachable-condition mutants; exhaustive differential runs + the
+#    unobservable-value source reasoning for unobservable-value
+#    mutants). Do not copy an entry and change
 #    the numbers.
 # 2. Add one [[equivalent]] entry with module, operator, occurrence,
 #    start_pos, end_pos, function, kind and a reason naming the specific
 #    annotation (kind "arg" / "return" / "annassign": also `annotation`)
-#    or the specific dead condition (kind "unreachable-condition": also
+#    or the specific dead condition / unobservable value (kind
+#    "unreachable-condition" / "unobservable-value": also
 #    `source_text` and `source_fingerprint`, computed with
 #    scripts/run_mutation.py helpers `_enclosing_function` /
 #    `_function_fingerprint`). No code change is needed.
-# 3. Run tests/test_mutation.py and a full budget-200 trust.py run through
-#    scripts/run_mutation.py; the summary must show the mutant under
-#    `equivalent`, not under `unexplained_surviving`.
+# 3. Run tests/test_mutation.py and a full budget-200 run through
+#    scripts/run_mutation.py for the affected module; the summary must
+#    show the mutant under `equivalent`, not under
+#    `unexplained_surviving`.
 #
 # MATCHING
 # --------
@@ -1074,3 +1182,991 @@ kind = "unreachable-condition"
 source_text = "2"
 source_fingerprint = "6d8810e3d56f2d120c022fa06c4b6d82f1528486ce0150da5e6f6e8f130e64c7"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "Unreachable-condition mutant (trust_map_from_capability_ledger): `2` -> `1` in len(dimensions) // 2. The guarded condition reduces to `0 >= threshold` with threshold = max(1, len//1) >= 1 always (unknown_count and out_of_scope_count are both always 0 by construction), so it is always False under this replacement."
+[[equivalent]]
+id = "textforensics.policy:core/NumberReplacer:4"
+module = "textforensics.policy"
+operator = "core/NumberReplacer"
+occurrence = 4
+start_pos = [376, 33]
+end_pos = [376, 34]
+function = "CapabilityPolicyEngine.evaluate"
+kind = "unobservable-value"
+source_text = "2"
+source_fingerprint = "7bd5e37984df20fc1b5dd1c3a339c44539cd8b3ec47baea64350eea94d756b5b"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable-value mutant (CapabilityPolicyEngine.evaluate): `2` -> `3` in `'validated': 2` of the tier_order table. The claim-tier value is only ever compared as `tier_order.get(claim_tier, -1) < tier_order.get(min_tier, -1)` against min-tier values in {0, 1, 2, -1}; the comparison is False for x in {2, 3} against every one of those, and the value is used nowhere else. No input distinguishes the mutant."
+
+[[equivalent]]
+id = "textforensics.policy:core/NumberReplacer:8"
+module = "textforensics.policy"
+operator = "core/NumberReplacer"
+occurrence = 8
+start_pos = [381, 78]
+end_pos = [381, 79]
+function = "CapabilityPolicyEngine.evaluate"
+kind = "unobservable-value"
+source_text = "1"
+source_fingerprint = "7bd5e37984df20fc1b5dd1c3a339c44539cd8b3ec47baea64350eea94d756b5b"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable-value mutant (CapabilityPolicyEngine.evaluate): `-1` -> `-2` as the default of `tier_order.get(min_tier, -1)`. The claim-tier value is always >= -1 (valid tiers map to 0/1/2, unknown tiers to the other -1 default), so `claim < -1` and `claim < -2` are both always False; the default is used nowhere else. No input distinguishes the mutant."
+
+[[equivalent]]
+id = "textforensics.policy:core/NumberReplacer:22"
+module = "textforensics.policy"
+operator = "core/NumberReplacer"
+occurrence = 22
+start_pos = [540, 19]
+end_pos = [540, 20]
+function = "_load_enterprise_policy_schema"
+kind = "unobservable-value"
+source_text = "4"
+source_fingerprint = "c16ebdbadc811a8bc97f8babb6b098fd0e59e26f3582b680882055867bc7a50d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable-value mutant (_load_enterprise_policy_schema): `4` -> `5` in `@lru_cache(maxsize=4)`. The function takes no arguments, so its cache can hold at most one entry and maxsize 3/4/5 never triggers eviction; the cached value and call behaviour are identical. No input distinguishes the mutant."
+
+[[equivalent]]
+id = "textforensics.policy:core/NumberReplacer:23"
+module = "textforensics.policy"
+operator = "core/NumberReplacer"
+occurrence = 23
+start_pos = [540, 19]
+end_pos = [540, 20]
+function = "_load_enterprise_policy_schema"
+kind = "unobservable-value"
+source_text = "4"
+source_fingerprint = "c16ebdbadc811a8bc97f8babb6b098fd0e59e26f3582b680882055867bc7a50d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable-value mutant (_load_enterprise_policy_schema): `4` -> `3` in `@lru_cache(maxsize=4)`. The function takes no arguments, so its cache can hold at most one entry and maxsize 3/4/5 never triggers eviction; the cached value and call behaviour are identical. No input distinguishes the mutant."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Add:0"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 0
+start_pos = [126, 72]
+end_pos = [126, 73]
+function = "CapabilityLedger.get"
+kind = "return"
+annotation = "CapabilityClaim | None"
+reason = "Postponed-evaluation annotation (return of CapabilityLedger.get): the `|` in `CapabilityClaim | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Add:1"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 1
+start_pos = [670, 25]
+end_pos = [670, 26]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Add:2"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 2
+start_pos = [671, 19]
+end_pos = [671, 20]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Add:3"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 3
+start_pos = [672, 23]
+end_pos = [672, 24]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Add:4"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 4
+start_pos = [907, 33]
+end_pos = [907, 34]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Add:5"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 5
+start_pos = [908, 35]
+end_pos = [908, 36]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Add:6"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 6
+start_pos = [914, 41]
+end_pos = [914, 42]
+function = "EnterprisePolicyEngine.policy"
+kind = "return"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.policy): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Add:7"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 7
+start_pos = [922, 43]
+end_pos = [922, 44]
+function = "EnterprisePolicyEngine.floor"
+kind = "return"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.floor): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Add:8"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 8
+start_pos = [929, 35]
+end_pos = [929, 36]
+function = "EnterprisePolicyEngine.load_policy"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.load_policy): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_BitAnd:0"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 0
+start_pos = [126, 72]
+end_pos = [126, 73]
+function = "CapabilityLedger.get"
+kind = "return"
+annotation = "CapabilityClaim | None"
+reason = "Postponed-evaluation annotation (return of CapabilityLedger.get): the `|` in `CapabilityClaim | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_BitAnd:1"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 1
+start_pos = [670, 25]
+end_pos = [670, 26]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_BitAnd:2"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 2
+start_pos = [671, 19]
+end_pos = [671, 20]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_BitAnd:3"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 3
+start_pos = [672, 23]
+end_pos = [672, 24]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_BitAnd:4"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 4
+start_pos = [907, 33]
+end_pos = [907, 34]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_BitAnd:5"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 5
+start_pos = [908, 35]
+end_pos = [908, 36]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_BitAnd:6"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 6
+start_pos = [914, 41]
+end_pos = [914, 42]
+function = "EnterprisePolicyEngine.policy"
+kind = "return"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.policy): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_BitAnd:7"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 7
+start_pos = [922, 43]
+end_pos = [922, 44]
+function = "EnterprisePolicyEngine.floor"
+kind = "return"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.floor): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_BitAnd:8"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 8
+start_pos = [929, 35]
+end_pos = [929, 36]
+function = "EnterprisePolicyEngine.load_policy"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.load_policy): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_BitXor:0"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 0
+start_pos = [126, 72]
+end_pos = [126, 73]
+function = "CapabilityLedger.get"
+kind = "return"
+annotation = "CapabilityClaim | None"
+reason = "Postponed-evaluation annotation (return of CapabilityLedger.get): the `|` in `CapabilityClaim | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_BitXor:1"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 1
+start_pos = [670, 25]
+end_pos = [670, 26]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_BitXor:2"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 2
+start_pos = [671, 19]
+end_pos = [671, 20]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_BitXor:3"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 3
+start_pos = [672, 23]
+end_pos = [672, 24]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_BitXor:4"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 4
+start_pos = [907, 33]
+end_pos = [907, 34]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_BitXor:5"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 5
+start_pos = [908, 35]
+end_pos = [908, 36]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_BitXor:6"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 6
+start_pos = [914, 41]
+end_pos = [914, 42]
+function = "EnterprisePolicyEngine.policy"
+kind = "return"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.policy): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_BitXor:7"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 7
+start_pos = [922, 43]
+end_pos = [922, 44]
+function = "EnterprisePolicyEngine.floor"
+kind = "return"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.floor): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_BitXor:8"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 8
+start_pos = [929, 35]
+end_pos = [929, 36]
+function = "EnterprisePolicyEngine.load_policy"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.load_policy): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Div:0"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 0
+start_pos = [126, 72]
+end_pos = [126, 73]
+function = "CapabilityLedger.get"
+kind = "return"
+annotation = "CapabilityClaim | None"
+reason = "Postponed-evaluation annotation (return of CapabilityLedger.get): the `|` in `CapabilityClaim | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Div:1"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 1
+start_pos = [670, 25]
+end_pos = [670, 26]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Div:2"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 2
+start_pos = [671, 19]
+end_pos = [671, 20]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Div:3"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 3
+start_pos = [672, 23]
+end_pos = [672, 24]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Div:4"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 4
+start_pos = [907, 33]
+end_pos = [907, 34]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Div:5"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 5
+start_pos = [908, 35]
+end_pos = [908, 36]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Div:6"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 6
+start_pos = [914, 41]
+end_pos = [914, 42]
+function = "EnterprisePolicyEngine.policy"
+kind = "return"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.policy): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Div:7"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 7
+start_pos = [922, 43]
+end_pos = [922, 44]
+function = "EnterprisePolicyEngine.floor"
+kind = "return"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.floor): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Div:8"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 8
+start_pos = [929, 35]
+end_pos = [929, 36]
+function = "EnterprisePolicyEngine.load_policy"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.load_policy): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_FloorDiv:0"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 0
+start_pos = [126, 72]
+end_pos = [126, 73]
+function = "CapabilityLedger.get"
+kind = "return"
+annotation = "CapabilityClaim | None"
+reason = "Postponed-evaluation annotation (return of CapabilityLedger.get): the `|` in `CapabilityClaim | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_FloorDiv:1"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 1
+start_pos = [670, 25]
+end_pos = [670, 26]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_FloorDiv:2"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 2
+start_pos = [671, 19]
+end_pos = [671, 20]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_FloorDiv:3"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 3
+start_pos = [672, 23]
+end_pos = [672, 24]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_FloorDiv:4"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 4
+start_pos = [907, 33]
+end_pos = [907, 34]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_FloorDiv:5"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 5
+start_pos = [908, 35]
+end_pos = [908, 36]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_FloorDiv:6"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 6
+start_pos = [914, 41]
+end_pos = [914, 42]
+function = "EnterprisePolicyEngine.policy"
+kind = "return"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.policy): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_FloorDiv:7"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 7
+start_pos = [922, 43]
+end_pos = [922, 44]
+function = "EnterprisePolicyEngine.floor"
+kind = "return"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.floor): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_FloorDiv:8"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 8
+start_pos = [929, 35]
+end_pos = [929, 36]
+function = "EnterprisePolicyEngine.load_policy"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.load_policy): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_LShift:0"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 0
+start_pos = [126, 72]
+end_pos = [126, 73]
+function = "CapabilityLedger.get"
+kind = "return"
+annotation = "CapabilityClaim | None"
+reason = "Postponed-evaluation annotation (return of CapabilityLedger.get): the `|` in `CapabilityClaim | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_LShift:1"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 1
+start_pos = [670, 25]
+end_pos = [670, 26]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_LShift:2"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 2
+start_pos = [671, 19]
+end_pos = [671, 20]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_LShift:3"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 3
+start_pos = [672, 23]
+end_pos = [672, 24]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_LShift:4"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 4
+start_pos = [907, 33]
+end_pos = [907, 34]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_LShift:5"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 5
+start_pos = [908, 35]
+end_pos = [908, 36]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_LShift:6"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 6
+start_pos = [914, 41]
+end_pos = [914, 42]
+function = "EnterprisePolicyEngine.policy"
+kind = "return"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.policy): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_LShift:7"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 7
+start_pos = [922, 43]
+end_pos = [922, 44]
+function = "EnterprisePolicyEngine.floor"
+kind = "return"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.floor): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_LShift:8"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 8
+start_pos = [929, 35]
+end_pos = [929, 36]
+function = "EnterprisePolicyEngine.load_policy"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.load_policy): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Mod:0"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 0
+start_pos = [126, 72]
+end_pos = [126, 73]
+function = "CapabilityLedger.get"
+kind = "return"
+annotation = "CapabilityClaim | None"
+reason = "Postponed-evaluation annotation (return of CapabilityLedger.get): the `|` in `CapabilityClaim | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Mod:1"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 1
+start_pos = [670, 25]
+end_pos = [670, 26]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Mod:2"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 2
+start_pos = [671, 19]
+end_pos = [671, 20]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Mod:3"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 3
+start_pos = [672, 23]
+end_pos = [672, 24]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Mod:4"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 4
+start_pos = [907, 33]
+end_pos = [907, 34]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Mod:5"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 5
+start_pos = [908, 35]
+end_pos = [908, 36]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Mod:6"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 6
+start_pos = [914, 41]
+end_pos = [914, 42]
+function = "EnterprisePolicyEngine.policy"
+kind = "return"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.policy): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Mod:7"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 7
+start_pos = [922, 43]
+end_pos = [922, 44]
+function = "EnterprisePolicyEngine.floor"
+kind = "return"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.floor): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Mod:8"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 8
+start_pos = [929, 35]
+end_pos = [929, 36]
+function = "EnterprisePolicyEngine.load_policy"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.load_policy): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Mul:0"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 0
+start_pos = [126, 72]
+end_pos = [126, 73]
+function = "CapabilityLedger.get"
+kind = "return"
+annotation = "CapabilityClaim | None"
+reason = "Postponed-evaluation annotation (return of CapabilityLedger.get): the `|` in `CapabilityClaim | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Mul:1"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 1
+start_pos = [670, 25]
+end_pos = [670, 26]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Mul:2"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 2
+start_pos = [671, 19]
+end_pos = [671, 20]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Mul:3"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 3
+start_pos = [672, 23]
+end_pos = [672, 24]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Mul:4"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 4
+start_pos = [907, 33]
+end_pos = [907, 34]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Mul:5"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 5
+start_pos = [908, 35]
+end_pos = [908, 36]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Mul:6"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 6
+start_pos = [914, 41]
+end_pos = [914, 42]
+function = "EnterprisePolicyEngine.policy"
+kind = "return"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.policy): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Mul:7"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 7
+start_pos = [922, 43]
+end_pos = [922, 44]
+function = "EnterprisePolicyEngine.floor"
+kind = "return"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.floor): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Mul:8"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 8
+start_pos = [929, 35]
+end_pos = [929, 36]
+function = "EnterprisePolicyEngine.load_policy"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.load_policy): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Pow:0"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 0
+start_pos = [126, 72]
+end_pos = [126, 73]
+function = "CapabilityLedger.get"
+kind = "return"
+annotation = "CapabilityClaim | None"
+reason = "Postponed-evaluation annotation (return of CapabilityLedger.get): the `|` in `CapabilityClaim | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Pow:1"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 1
+start_pos = [670, 25]
+end_pos = [670, 26]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Pow:2"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 2
+start_pos = [671, 19]
+end_pos = [671, 20]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Pow:3"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 3
+start_pos = [672, 23]
+end_pos = [672, 24]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Pow:4"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 4
+start_pos = [907, 33]
+end_pos = [907, 34]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Pow:5"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 5
+start_pos = [908, 35]
+end_pos = [908, 36]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
