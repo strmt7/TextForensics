@@ -1,6 +1,73 @@
 {
-  "case_sha256": "5fca15d50ebde22af1134ecf37b8b71d478fbfb51f475b9d8f1a4d215075dcbd",
+  "case_sha256": "56cdfa377e2c8752c296d55cfcebd564e5eb567fbf0dc7b6fa4e0da6c9fcd0fc",
   "created_at_utc": "1970-01-01T00:00:00+00:00",
+  "custody": [
+    {
+      "action": "sealed",
+      "actor": "sealer",
+      "at_utc": "1970-01-01T00:00:00+00:00",
+      "entry_hash": "3d6dbb9a0f8712e3aff1fbb1f8c7370194371025b49c1e0200a697d040c5f9d4",
+      "note": null,
+      "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "detector_observations": [
+    {
+      "calibration_id": null,
+      "checkpoint_or_provider_version": null,
+      "config_hash": null,
+      "detector_id": "textforensics/builtin-heuristic",
+      "detector_version": "0.1.0",
+      "disposition": null,
+      "disposition_reason": null,
+      "kind": "observed",
+      "min_words": 80,
+      "native_score_direction": "higher_means_ai",
+      "runtime": {
+        "device": "cpu",
+        "mode": "local",
+        "model_id": "builtin-stylometric-heuristic",
+        "provider": "textforensics",
+        "provider_version": "0.1.0"
+      },
+      "score": 0.4373,
+      "score_range": [
+        0.0,
+        1.0
+      ],
+      "score_semantics": "higher_means_more_machine_like; uncalibrated pattern score",
+      "supported_languages": [
+        "en"
+      ],
+      "verdict": "abstain"
+    },
+    {
+      "calibration_id": null,
+      "checkpoint_or_provider_version": null,
+      "config_hash": null,
+      "detail": {
+        "detector_id": "textforensics/builtin-heuristic",
+        "entry_point": "builtin",
+        "error_type": null,
+        "message": null,
+        "status": "ok"
+      },
+      "detector_id": "textforensics/builtin-heuristic",
+      "detector_version": null,
+      "disposition": null,
+      "disposition_reason": null,
+      "kind": "plugin_health",
+      "min_words": null,
+      "native_score_direction": null,
+      "reason": null,
+      "runtime": null,
+      "score": null,
+      "score_range": null,
+      "score_semantics": null,
+      "supported_languages": null,
+      "verdict": null
+    }
+  ],
   "forensic_bundle": {
     "consensus": {
       "calibrated_ai_probability": null,
@@ -445,6 +512,72 @@
       "schema": "textforensics.trust-map/v2"
     }
   },
+  "gaps": [
+    {
+      "field": "input.sentence_count",
+      "reason": "Sentence counts are not recorded by the forensic bundle (input_conditions carries word and character counts only)."
+    },
+    {
+      "field": "input.paragraph_count",
+      "reason": "Paragraph counts are not recorded by the forensic bundle (input_conditions carries word and character counts only)."
+    },
+    {
+      "field": "input.source",
+      "reason": "No submission-system, receipt, or filename hash was supplied at seal time."
+    },
+    {
+      "field": "input.acquired_by",
+      "reason": "No acquired_by was supplied at seal time."
+    },
+    {
+      "field": "input.acquisition_method",
+      "reason": "No acquisition_method was supplied at seal time."
+    },
+    {
+      "field": "input.authorisation_ref",
+      "reason": "No authorisation_ref was supplied at seal time."
+    },
+    {
+      "field": "input.acquired_at_utc",
+      "reason": "No acquired_at_utc was supplied at seal time."
+    },
+    {
+      "field": "validation_refs",
+      "reason": "No validation registry was supplied at seal time; no evidence pointers were recorded."
+    }
+  ],
+  "input": {
+    "acquired_at_utc": null,
+    "acquired_by": null,
+    "acquisition_method": null,
+    "authorisation_ref": null,
+    "char_count": 119,
+    "content_sha256": "3c6a9d9e66d03095d9e2610b19d9c40655904a023a34b130267365741fd2c177",
+    "normalisation": "The submitted text is hashed exactly as supplied, encoded as UTF-8, with no case folding, whitespace normalisation, or other transformation.",
+    "source": {},
+    "word_count": 20
+  },
+  "limitations": {
+    "bundle_limitations": [
+      "Text-only detector evidence is not proof of authorship. False positives and false negatives remain possible.",
+      "Detector-native scores are not treated as comparable probabilities unless explicit calibration evidence exists.",
+      "The Trust Map describes evidence coverage; it is not an authorship probability.",
+      "A Trust Map 'supported' state requires registered, held-out, evidence-grade validation slices for this input regime.",
+      "No validation evidence registry was supplied; evidence dimensions cannot be supported."
+    ],
+    "counterfactuals": [
+      "A longer sample of the subject's writing.",
+      "Draft or revision history for the submitted text.",
+      "A C2PA or other provenance manifest for the document.",
+      "A second, independent detector family reaching the same conclusion.",
+      "Evidence about the editing or paraphrase regime applied to the text."
+    ],
+    "plain_language": {
+      "authorship_warning": "Text-only detection cannot prove authorship. A detector result is evidence about textual signals, not a finding about who wrote the text.",
+      "human_fpr": "No human false-positive evidence is available for this input regime in the validation records supplied at seal time; the worst-slice human false-positive rate is unknown.",
+      "score_not_probability": "The detector score is not a probability that the text was written by an AI system. Scores are detector-native values; only a documented calibration artifact can support a probability, and only for the exact output semantics it was fitted for."
+    }
+  },
   "manifest": {
     "calibration_ids": [],
     "content_sha256": "3c6a9d9e66d03095d9e2610b19d9c40655904a023a34b130267365741fd2c177",
@@ -457,11 +590,103 @@
       "trust_map": "textforensics.trust-map/v2"
     }
   },
+  "process": {
+    "alternative_explanations": {},
+    "appeal": null,
+    "contrary_evidence": [],
+    "evidence_dispositions": {},
+    "items": {
+      "D1": {
+        "actor": null,
+        "at_utc": null,
+        "evidence": [],
+        "note": "Not recorded at seal time; complete before consequential use.",
+        "status": "unknown"
+      },
+      "D10": {
+        "actor": null,
+        "at_utc": null,
+        "evidence": [],
+        "note": "Not recorded at seal time; complete before consequential use.",
+        "status": "unknown"
+      },
+      "D2": {
+        "actor": null,
+        "at_utc": null,
+        "evidence": [],
+        "note": "Not recorded at seal time; complete before consequential use.",
+        "status": "unknown"
+      },
+      "D3": {
+        "actor": null,
+        "at_utc": null,
+        "evidence": [],
+        "note": "Not recorded at seal time; complete before consequential use.",
+        "status": "unknown"
+      },
+      "D4": {
+        "actor": null,
+        "at_utc": null,
+        "evidence": [],
+        "note": "Not recorded at seal time; complete before consequential use.",
+        "status": "unknown"
+      },
+      "D5": {
+        "actor": null,
+        "at_utc": null,
+        "evidence": [],
+        "note": "Not recorded at seal time; complete before consequential use.",
+        "status": "unknown"
+      },
+      "D6": {
+        "actor": null,
+        "at_utc": null,
+        "evidence": [],
+        "note": "Not recorded at seal time; complete before consequential use.",
+        "status": "unknown"
+      },
+      "D7": {
+        "actor": null,
+        "at_utc": null,
+        "evidence": [],
+        "note": "Not recorded at seal time; complete before consequential use.",
+        "status": "unknown"
+      },
+      "D8": {
+        "actor": null,
+        "at_utc": null,
+        "evidence": [],
+        "note": "Not recorded at seal time; complete before consequential use.",
+        "status": "unknown"
+      },
+      "D9": {
+        "actor": null,
+        "at_utc": null,
+        "evidence": [],
+        "note": "Not recorded at seal time; complete before consequential use.",
+        "status": "unknown"
+      }
+    },
+    "policy_version": null,
+    "procedure_version": null,
+    "retention": null,
+    "reviewer": null,
+    "subject_response": null,
+    "template_notice": "Template, not legal advice. This checklist is an education-grounded template for due-process review of an AI-text detection finding. It is not a policy, not legal advice, and not a finding of admissibility or compliance. Adapt it to the institution's own code with legal review before consequential use."
+  },
   "raw_text_included": false,
-  "schema": "textforensics.case-file/v2",
+  "schema": "textforensics.case-file/v3",
+  "seal": {
+    "algorithm": "sha256",
+    "custody_head": "3d6dbb9a0f8712e3aff1fbb1f8c7370194371025b49c1e0200a697d040c5f9d4",
+    "digest_publication": null,
+    "signature": null,
+    "timestamp": null
+  },
   "tool": {
     "git_sha": null,
     "name": "TextForensics",
     "version": "0.2.0"
-  }
+  },
+  "validation_refs": []
 }

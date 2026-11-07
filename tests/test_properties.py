@@ -16,7 +16,7 @@ from textforensics import emergency_stop
 from textforensics.analyzers import run_builtin_analyzers
 from textforensics.bundle import pack_bundle, verify_bundle
 from textforensics.calibration import select_threshold, validate_no_contamination
-from textforensics.casefile import CASE_SCHEMA, seal_case_file, verify_case_file
+from textforensics.casefile import CASE_SCHEMA_V3, seal_case_file, verify_case_file
 from textforensics.detectors import (
     _FORBIDDEN_EVIDENCE_KEYS,
     BuiltinHeuristicDetector,
@@ -564,7 +564,7 @@ def test_case_file_hash_round_trip(bundle: dict) -> None:
         deterministic=True,
         fixed_timestamp="2026-01-01T00:00:00+00:00",
     )
-    assert case["schema"] == CASE_SCHEMA
+    assert case["schema"] == CASE_SCHEMA_V3
     assert case["raw_text_included"] is False
     assert verify_case_file(case)["valid"] is True
 
@@ -1089,7 +1089,7 @@ class TestPropertyInvariants:
         )
 
         # Basic schema checks
-        assert case["schema"] == CASE_SCHEMA
+        assert case["schema"] == CASE_SCHEMA_V3
         assert case["raw_text_included"] is False
         assert case["case_sha256"] is not None
         assert isinstance(case["case_sha256"], str)
