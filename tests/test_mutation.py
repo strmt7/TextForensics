@@ -374,6 +374,353 @@ class CosmicRayIntegrationTests(unittest.TestCase):
                 )
 
 
+class EquivalentBaselineTests(unittest.TestCase):
+    """Tests for the equivalent-mutant baseline (mutation-baseline.toml).
+
+    The baseline accepts only mutants verified equivalent (see the baseline
+    file's header for the proof); the gate still fails on any unexplained
+    survivor (exit 2) and on any stale entry (exit 1).
+    """
+
+    #: The 15 annotation positions the 69 baseline entries cover, verified
+    #: against CI run 42393966895 (dump + AST + tokenize + empirical probe).
+    EXPECTED_POSITIONS = {
+        (130, 53),
+        (178, 28),
+        (326, 31),
+        (329, 28),
+        (330, 18),
+        (330, 24),
+        (333, 28),
+        (334, 26),
+        (419, 32),
+        (420, 31),
+        (421, 28),
+        (422, 18),
+        (422, 24),
+        (425, 28),
+        (426, 26),
+    }
+
+    @classmethod
+    def setUpClass(cls):
+        cls.project_root = Path(__file__).parent.parent
+        cls.runner = _load_runner(cls.project_root / "scripts" / "run_mutation.py")
+        cls.baseline_path = cls.project_root / "mutation-baseline.toml"
+        cls.baseline = cls.runner.load_baseline(cls.baseline_path)
+        cls.trust_module_path = str(cls.project_root / "src" / "textforensics" / "trust.py")
+
+    def _record(self, *, operator, occurrence, start_pos, end_pos, outcome, module_path=None):
+        return {
+            "work_item": {
+                "job_id": f"test-{operator}-{occurrence}",
+                "mutations": [
+                    {
+                        "module_path": module_path or self.trust_module_path,
+                        "operator_name": operator,
+                        "occurrence": occurrence,
+                        "start_pos": list(start_pos),
+                        "end_pos": list(end_pos),
+                        "operator_args": {},
+                        "definition_name": "test",
+                    }
+                ],
+            },
+            "result": {
+                "worker_outcome": "normal",
+                "test_outcome": outcome,
+                "output": None,
+                "diff": None,
+            },
+        }
+
+    def _record_for_entry(self, entry, outcome):
+        return self._record(
+            operator=entry["operator"],
+            occurrence=entry["occurrence"],
+            start_pos=entry["start_pos"],
+            end_pos=entry["end_pos"],
+            outcome=outcome,
+        )
+
+    def _check_summary(self, summary):
+        """Run --check-results on a summary dict; return the process result."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(summary, f)
+            temp_path = f.name
+        try:
+            return subprocess.run(
+                [
+                    sys.executable,
+                    str(self.project_root / "scripts" / "run_mutation.py"),
+                    "--check-results",
+                    temp_path,
+                ],
+                capture_output=True,
+                text=True,
+            )
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+
+    def test_baseline_file_loads_with_69_entries(self):
+        """The baseline has exactly the 69 verified BitOr annotation mutants."""
+        self.assertEqual(self.baseline["version"], 1)
+        self.assertEqual(self.baseline["source_run"], "42393966895")
+        self.assertEqual(self.baseline["source_commit"], "153b5ab")
+        entries = self.baseline["entries"]
+        self.assertEqual(len(entries), 69)
+        self.assertEqual(len({e["id"] for e in entries}), 69, "entry ids must be unique")
+        keys = {
+            (e["module"], e["operator"], tuple(e["start_pos"]), tuple(e["end_pos"]))
+            for e in entries
+        }
+        self.assertEqual(len(keys), 69, "match keys must be unique")
+        from collections import Counter
+
+        self.assertEqual(
+            Counter(e["operator"] for e in entries),
+            {
+                "core/ReplaceBinaryOperator_BitOr_Add": 15,
+                "core/ReplaceBinaryOperator_BitOr_BitAnd": 15,
+                "core/ReplaceBinaryOperator_BitOr_BitXor": 15,
+                "core/ReplaceBinaryOperator_BitOr_Div": 15,
+                "core/ReplaceBinaryOperator_BitOr_FloorDiv": 9,
+            },
+        )
+        self.assertEqual({tuple(e["start_pos"]) for e in entries}, self.EXPECTED_POSITIONS)
+        for entry in entries:
+            self.assertEqual(entry["module"], "textforensics.trust")
+            self.assertTrue(entry["reason"], f"entry {entry['id']} needs a reason")
+            self.assertIn(entry["annotation"], entry["reason"])
+            self.assertIn(entry["function"], entry["reason"])
+
+    def test_all_baseline_entries_validate_against_current_source(self):
+        """Every entry re-validates (AST position + annotation text + owner)."""
+        for entry in self.baseline["entries"]:
+            with self.subTest(entry=entry["id"]):
+                ok, reason = self.runner.validate_baseline_entry(entry, self.project_root)
+                self.assertTrue(ok, f"{entry['id']} failed re-validation: {reason}")
+
+    def test_postponed_evaluation_precondition(self):
+        """trust.py still uses `from __future__ import annotations` (PEP 563)."""
+        import ast as _ast
+
+        source = (self.project_root / "src" / "textforensics" / "trust.py").read_text()
+        self.assertTrue(self.runner._has_postponed_evaluation(_ast.parse(source)))
+
+    def test_no_annotation_evaluation_in_repo(self):
+        """Nothing in src/ or tests/ evaluates annotations.
+
+        This is the repo-wide invariant the equivalence proof rests on: if
+        any code called get_type_hints / read __annotations__ / used
+        eval_str / TypeAdapter on these types, a mutated annotation string
+        could change runtime behaviour. This test file itself names the
+        APIs, so it is excluded from the search.
+        """
+        import re
+
+        patterns = [
+            re.compile(r"get_type_hints"),
+            re.compile(r"__annotations__"),
+            re.compile(r"eval_str"),
+            re.compile(r"get_annotations"),
+            re.compile(r"ForwardRef"),
+            re.compile(r"TypeAdapter"),
+        ]
+        hits = []
+        for base in (self.project_root / "src", self.project_root / "tests"):
+            for path in sorted(base.rglob("*.py")):
+                if path.resolve() == Path(__file__).resolve():
+                    continue
+                text = path.read_text()
+                for pattern in patterns:
+                    if pattern.search(text):
+                        hits.append(f"{path.relative_to(self.project_root)}: {pattern.pattern}")
+        self.assertEqual(hits, [], f"annotation-evaluating code found: {hits}")
+
+    def test_equivalent_mutant_accepted(self):
+        """Survivors matching re-validated entries are accepted (exit 0)."""
+        entries = self.baseline["entries"][:2]
+        records = [self._record_for_entry(e, "survived") for e in entries]
+        records.append(
+            self._record(
+                operator="core/AddNot",
+                occurrence=0,
+                start_pos=(124, 19),
+                end_pos=(124, 27),
+                outcome="killed",
+            )
+        )
+        summary = self.runner.parse_results(records, self.baseline, self.project_root)
+        self.assertEqual(summary["total"], 3)
+        self.assertEqual(summary["surviving"], 2)
+        self.assertEqual(summary["equivalent"], 2)
+        self.assertEqual(summary["unexplained_surviving"], 0)
+        self.assertEqual(summary["equivalent_mutants"], [e["id"] for e in entries])
+        result = self._check_summary(summary)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("accepted as equivalent", result.stdout)
+
+    def test_non_baseline_survivor_still_fails(self):
+        """A survivor with no baseline entry still fails (exit 2)."""
+        records = [
+            self._record(
+                operator="core/AddNot",
+                occurrence=8,
+                start_pos=(124, 19),
+                end_pos=(124, 27),
+                outcome="survived",
+            ),
+            self._record(
+                operator="core/AddNot",
+                occurrence=9,
+                start_pos=(126, 19),
+                end_pos=(126, 27),
+                outcome="killed",
+            ),
+        ]
+        summary = self.runner.parse_results(records, self.baseline, self.project_root)
+        self.assertEqual(summary["surviving"], 1)
+        self.assertEqual(summary["equivalent"], 0)
+        self.assertEqual(summary["unexplained_surviving"], 1)
+        result = self._check_summary(summary)
+        self.assertEqual(result.returncode, 2, result.stdout)
+        self.assertIn("1 unexplained", result.stdout)
+
+    def test_summary_reports_excluded_count(self):
+        """The summary reports equivalent/dormant/superseded/stale transparently."""
+        entries = self.baseline["entries"][:2]
+        records = [self._record_for_entry(e, "survived") for e in entries]
+        summary = self.runner.parse_results(records, self.baseline, self.project_root)
+        for key in (
+            "equivalent",
+            "equivalent_mutants",
+            "equivalent_dormant",
+            "equivalent_dormant_ids",
+            "equivalent_superseded",
+            "equivalent_superseded_ids",
+            "unexplained_surviving",
+            "stale_baseline_entries",
+            "baseline_entries",
+        ):
+            self.assertIn(key, summary, f"summary is missing {key}")
+        self.assertEqual(summary["baseline_entries"], 69)
+        self.assertEqual(summary["equivalent"], 2)
+        # The other 67 entries matched no live survivor in this run.
+        self.assertEqual(summary["equivalent_dormant"], 67)
+        self.assertEqual(summary["equivalent_superseded"], 0)
+        self.assertEqual(summary["stale_baseline_entries"], [])
+        # Raw counts are never relabelled: the survivors stay in `surviving`.
+        self.assertEqual(summary["surviving"], 2)
+        self.assertEqual(summary["killed"], 0)
+
+    def test_dormant_and_superseded_reported(self):
+        """An entry whose mutant was killed is superseded, not equivalent."""
+        entries = self.baseline["entries"][:2]
+        records = [
+            self._record_for_entry(entries[0], "survived"),
+            self._record_for_entry(entries[1], "killed"),
+        ]
+        summary = self.runner.parse_results(records, self.baseline, self.project_root)
+        self.assertEqual(summary["equivalent"], 1)
+        self.assertEqual(summary["equivalent_mutants"], [entries[0]["id"]])
+        self.assertEqual(summary["equivalent_superseded"], 1)
+        self.assertEqual(summary["equivalent_superseded_ids"], [entries[1]["id"]])
+        self.assertEqual(summary["equivalent_dormant"], 67)
+        self.assertEqual(summary["unexplained_surviving"], 0)
+        result = self._check_summary(summary)
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_stale_baseline_entry_fails_loudly(self):
+        """An entry whose position moved out of an annotation fails (exit 1)."""
+        import copy
+
+        entry = copy.deepcopy(self.baseline["entries"][0])
+        # Move the entry onto runtime code (L300 is `if supported == 0 ...`).
+        entry["start_pos"] = [300, 20]
+        entry["end_pos"] = [300, 21]
+        ok, reason = self.runner.validate_baseline_entry(entry, self.project_root)
+        self.assertFalse(ok, "moved entry must not validate")
+        self.assertIn("no longer holds `|`", reason)
+
+        tampered = copy.deepcopy(self.baseline)
+        tampered["entries"] = [entry] + self.baseline["entries"][1:]
+        records = [self._record_for_entry(entry, "survived")]
+        summary = self.runner.parse_results(records, tampered, self.project_root)
+        self.assertEqual(len(summary["stale_baseline_entries"]), 1)
+        self.assertEqual(summary["stale_baseline_entries"][0]["id"], entry["id"])
+        # A stale entry never excuses its survivor: it counts as unexplained
+        # too, but the stale failure (exit 1) takes precedence over exit 2.
+        self.assertEqual(summary["unexplained_surviving"], 1)
+        self.assertEqual(summary["equivalent"], 0)
+        result = self._check_summary(summary)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("stale baseline", result.stdout.lower())
+
+    def test_changed_annotation_text_is_stale(self):
+        """An entry whose annotation text changed fails re-validation."""
+        import copy
+
+        entry = copy.deepcopy(self.baseline["entries"][0])
+        entry["annotation"] = "TrustDimension | str | None"
+        ok, reason = self.runner.validate_baseline_entry(entry, self.project_root)
+        self.assertFalse(ok, "changed annotation text must not validate")
+        self.assertIn("annotation text changed", reason)
+
+    def test_malformed_baseline_rejected(self):
+        """Wrong version / missing field / duplicate id fail loudly at load."""
+        cases = {
+            "wrong version": "version = 2\n",
+            "missing field": (
+                'version = 1\n[[equivalent]]\nid = "x"\nmodule = "textforensics.trust"\n'
+            ),
+            "duplicate id": (
+                "version = 1\n"
+                '[[equivalent]]\nid = "dup"\nmodule = "textforensics.trust"\n'
+                'operator = "core/ReplaceBinaryOperator_BitOr_Add"\noccurrence = 0\n'
+                'start_pos = [130, 53]\nend_pos = [130, 54]\nfunction = "TrustMap.dimension"\n'
+                'kind = "return"\nannotation = "TrustDimension | None"\nreason = "r"\n'
+                '[[equivalent]]\nid = "dup"\nmodule = "textforensics.trust"\n'
+                'operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"\noccurrence = 0\n'
+                'start_pos = [130, 53]\nend_pos = [130, 54]\nfunction = "TrustMap.dimension"\n'
+                'kind = "return"\nannotation = "TrustDimension | None"\nreason = "r"\n'
+            ),
+        }
+        for name, text in cases.items():
+            with (
+                self.subTest(case=name),
+                tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f,
+            ):
+                f.write(text)
+                temp_path = f.name
+            try:
+                with self.assertRaises(ValueError):
+                    self.runner.load_baseline(Path(temp_path))
+            finally:
+                Path(temp_path).unlink(missing_ok=True)
+
+    def test_explicit_missing_baseline_file_fails(self):
+        """--baseline pointing at a missing file fails loudly (exit 1)."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(self.project_root / "scripts" / "run_mutation.py"),
+                "--baseline",
+                "/tmp/definitely-not-a-baseline.toml",
+                "--mode",
+                "diff",
+                "--base-sha",
+                "HEAD",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=self.project_root,
+            timeout=60,
+        )
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Baseline file not found", result.stderr)
+
+
 class MutationWorkflowTests(unittest.TestCase):
     """Test that the workflow and the runner agree (defects 1–3 regressions)."""
 

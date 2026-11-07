@@ -186,6 +186,8 @@ def test_full_analysis_pipeline(self):
 - Kill rate target: ≥ 70% for new code
 - Mutation results archived in `mutation-results/`
 
+**Equivalent mutants:** a mutant that survives only because it changes text that is never evaluated — e.g. `|` inside a function annotation of a module using `from __future__ import annotations` (PEP 563) — cannot be killed by any test. Such mutants are recorded one-by-one in `mutation-baseline.toml`, each with its reason and proof (see that file's header for the design rationale and the verification). The runner re-validates every entry against the current source on each run; a stale entry fails loudly (exit 1), and the gate still fails on any unexplained survivor (exit 2). Equivalent mutants are reported separately in the summary (`equivalent`, `unexplained_surviving`) and are never counted as killed: the raw kill rate stays killed/total. The ≥ 70% target above is unchanged by this mechanism. Never add a runtime mutant to the baseline — only mutants verified equivalent per the baseline file's proof.
+
 ### 2.4 Fuzz Testing
 
 **Scope:** Input boundary testing for text parsing, JSON deserialization, and protocol validation.
