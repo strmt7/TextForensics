@@ -392,7 +392,9 @@ class EquivalentBaselineTests(unittest.TestCase):
     #: The annotation positions the 69 annotation baseline entries cover,
     #: verified against CI run 42393966895 (dump + AST + tokenize +
     #: empirical probe), plus the 3 runtime positions of the 4
-    #: unreachable-condition entries.
+    #: unreachable-condition entries — and the 9 annotation positions +
+    #: 3 runtime positions of the 82 policy entries (wave 4E, local
+    #: budget-200 repro run on 6159552: dump + AST + 85/85 probe).
     EXPECTED_POSITIONS = {
         (141, 53),
         (189, 28),
@@ -412,6 +414,20 @@ class EquivalentBaselineTests(unittest.TestCase):
         (448, 24),
         (553, 54),
         (553, 76),
+        # Policy annotation positions.
+        (126, 72),
+        (670, 25),
+        (671, 19),
+        (672, 23),
+        (907, 33),
+        (908, 35),
+        (914, 41),
+        (922, 43),
+        (929, 35),
+        # Policy runtime positions.
+        (376, 33),
+        (381, 78),
+        (540, 19),
     }
 
     @classmethod
@@ -474,12 +490,14 @@ class EquivalentBaselineTests(unittest.TestCase):
         finally:
             Path(temp_path).unlink(missing_ok=True)
 
-    def test_baseline_file_loads_with_73_entries(self):
-        """The baseline has exactly the 73 verified equivalent mutants.
+    def test_baseline_file_loads_with_155_entries(self):
+        """The baseline has exactly the 155 verified equivalent mutants.
 
         69 annotation BitOr mutants + 4 unreachable-condition
-        NumberReplacer mutants (see the baseline file's header for both
-        proofs). Match keys include occurrence: two entries share the
+        NumberReplacer mutants for trust (see the baseline file's header
+        for both proofs), plus 78 annotation BitOr mutants + 4
+        unobservable-value NumberReplacer mutants for policy (wave 4E).
+        Match keys include occurrence: two entries share the
         (module, operator, start_pos, end_pos) of L553:76 and differ
         only by occurrence (44 vs 45).
         """
@@ -487,8 +505,8 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(self.baseline["source_run"], "42393966895")
         self.assertEqual(self.baseline["source_commit"], "153b5ab")
         entries = self.baseline["entries"]
-        self.assertEqual(len(entries), 73)
-        self.assertEqual(len({e["id"] for e in entries}), 73, "entry ids must be unique")
+        self.assertEqual(len(entries), 155)
+        self.assertEqual(len({e["id"] for e in entries}), 155, "entry ids must be unique")
         keys = {
             (
                 e["module"],
@@ -499,44 +517,60 @@ class EquivalentBaselineTests(unittest.TestCase):
             )
             for e in entries
         }
-        self.assertEqual(len(keys), 73, "match keys must be unique")
+        self.assertEqual(len(keys), 155, "match keys must be unique")
         from collections import Counter
 
         self.assertEqual(
             Counter(e["operator"] for e in entries),
             {
-                "core/ReplaceBinaryOperator_BitOr_Add": 15,
-                "core/ReplaceBinaryOperator_BitOr_BitAnd": 15,
-                "core/ReplaceBinaryOperator_BitOr_BitXor": 15,
-                "core/ReplaceBinaryOperator_BitOr_Div": 15,
-                "core/ReplaceBinaryOperator_BitOr_FloorDiv": 9,
-                "core/NumberReplacer": 4,
+                "core/ReplaceBinaryOperator_BitOr_Add": 24,
+                "core/ReplaceBinaryOperator_BitOr_BitAnd": 24,
+                "core/ReplaceBinaryOperator_BitOr_BitXor": 24,
+                "core/ReplaceBinaryOperator_BitOr_Div": 24,
+                "core/ReplaceBinaryOperator_BitOr_FloorDiv": 18,
+                "core/ReplaceBinaryOperator_BitOr_LShift": 9,
+                "core/ReplaceBinaryOperator_BitOr_Mod": 9,
+                "core/ReplaceBinaryOperator_BitOr_Mul": 9,
+                "core/ReplaceBinaryOperator_BitOr_Pow": 6,
+                "core/NumberReplacer": 8,
             },
         )
         self.assertEqual({tuple(e["start_pos"]) for e in entries}, self.EXPECTED_POSITIONS)
         for entry in entries:
-            self.assertEqual(entry["module"], "textforensics.trust")
+            self.assertIn(
+                entry["module"],
+                {"textforensics.trust", "textforensics.policy"},
+            )
             self.assertTrue(entry["reason"], f"entry {entry['id']} needs a reason")
             self.assertIn(entry["function"], entry["reason"])
             if entry["kind"] in self.runner.BASELINE_ANNOTATION_KINDS:
                 self.assertIn(entry["annotation"], entry["reason"])
             else:
-                self.assertEqual(entry["kind"], "unreachable-condition")
+                self.assertIn(
+                    entry["kind"],
+                    {"unreachable-condition", "unobservable-value"},
+                )
                 self.assertIn(entry["source_text"], entry["reason"])
                 self.assertEqual(len(entry["source_fingerprint"]), 64)
 
     def test_runtime_entries(self):
-        """The 4 unreachable-condition entries carry the dead-condition proof."""
-        runtime = [e for e in self.baseline["entries"] if e["kind"] == "unreachable-condition"]
-        self.assertEqual(len(runtime), 4)
+        """The 8 runtime entries carry their equivalence proofs."""
+        runtime = [
+            e
+            for e in self.baseline["entries"]
+            if e["kind"] in self.runner.BASELINE_RUNTIME_KINDS
+        ]
+        self.assertEqual(len(runtime), 8)
+        unreachable = [e for e in runtime if e["kind"] == "unreachable-condition"]
+        self.assertEqual(len(unreachable), 4)
         by_id = {e["id"]: e for e in runtime}
         self.assertEqual(
-            {e["occurrence"] for e in runtime},
+            {e["occurrence"] for e in unreachable},
             {39, 42, 44, 45},
             "occurrences must match the CI dump (survivor indices 41/44/46/47)",
         )
         # Two entries share one position and differ only by occurrence.
-        at_542_76 = [e for e in runtime if tuple(e["start_pos"]) == (553, 76)]
+        at_542_76 = [e for e in unreachable if tuple(e["start_pos"]) == (553, 76)]
         self.assertEqual(len(at_542_76), 2)
         self.assertEqual({e["occurrence"] for e in at_542_76}, {44, 45})
         self.assertEqual({e["source_text"] for e in at_542_76}, {"2"})
@@ -547,6 +581,26 @@ class EquivalentBaselineTests(unittest.TestCase):
             "build_trust_map",
         )
         self.assertEqual(by_id["textforensics.trust:core/NumberReplacer:39"]["source_text"], "0")
+        unobservable = [e for e in runtime if e["kind"] == "unobservable-value"]
+        self.assertEqual(len(unobservable), 4)
+        self.assertEqual(
+            {e["occurrence"] for e in unobservable},
+            {4, 8, 22, 23},
+            "occurrences must match the policy budget-200 dump",
+        )
+        self.assertEqual(
+            {e["function"] for e in unobservable},
+            {"CapabilityPolicyEngine.evaluate", "_load_enterprise_policy_schema"},
+        )
+        self.assertEqual(
+            {e["source_text"] for e in unobservable},
+            {"2", "1", "4"},
+        )
+        # The two lru_cache entries share one position and function.
+        at_540_19 = [e for e in unobservable if tuple(e["start_pos"]) == (540, 19)]
+        self.assertEqual(len(at_540_19), 2)
+        self.assertEqual({e["occurrence"] for e in at_540_19}, {22, 23})
+        self.assertEqual(len({e["source_fingerprint"] for e in at_540_19}), 1)
         for entry in runtime:
             with self.subTest(entry=entry["id"]):
                 ok, reason = self.runner.validate_baseline_entry(entry, self.project_root)
@@ -564,6 +618,13 @@ class EquivalentBaselineTests(unittest.TestCase):
         import ast as _ast
 
         source = (self.project_root / "src" / "textforensics" / "trust.py").read_text()
+        self.assertTrue(self.runner._has_postponed_evaluation(_ast.parse(source)))
+
+    def test_postponed_evaluation_precondition_policy(self):
+        """policy.py still uses `from __future__ import annotations` (PEP 563)."""
+        import ast as _ast
+
+        source = (self.project_root / "src" / "textforensics" / "policy.py").read_text()
         self.assertTrue(self.runner._has_postponed_evaluation(_ast.parse(source)))
 
     def test_no_annotation_evaluation_in_repo(self):
@@ -662,10 +723,10 @@ class EquivalentBaselineTests(unittest.TestCase):
             "baseline_entries",
         ):
             self.assertIn(key, summary, f"summary is missing {key}")
-        self.assertEqual(summary["baseline_entries"], 73)
+        self.assertEqual(summary["baseline_entries"], 155)
         self.assertEqual(summary["equivalent"], 2)
-        # The other 71 entries matched no live survivor in this run.
-        self.assertEqual(summary["equivalent_dormant"], 71)
+        # The other 153 entries matched no live survivor in this run.
+        self.assertEqual(summary["equivalent_dormant"], 153)
         self.assertEqual(summary["equivalent_superseded"], 0)
         self.assertEqual(summary["stale_baseline_entries"], [])
         # Raw counts are never relabelled: the survivors stay in `surviving`.
@@ -684,7 +745,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(summary["equivalent_mutants"], [entries[0]["id"]])
         self.assertEqual(summary["equivalent_superseded"], 1)
         self.assertEqual(summary["equivalent_superseded_ids"], [entries[1]["id"]])
-        self.assertEqual(summary["equivalent_dormant"], 71)
+        self.assertEqual(summary["equivalent_dormant"], 153)
         self.assertEqual(summary["unexplained_surviving"], 0)
         result = self._check_summary(summary)
         self.assertEqual(result.returncode, 0, result.stdout)
@@ -730,6 +791,32 @@ class EquivalentBaselineTests(unittest.TestCase):
         runtime = [e for e in self.baseline["entries"] if e["kind"] == "unreachable-condition"]
         self.assertEqual(len(runtime), 4)
         records = [self._record_for_entry(e, "survived") for e in runtime]
+        summary = self.runner.parse_results(records, self.baseline, self.project_root)
+        self.assertEqual(summary["total"], 4)
+        self.assertEqual(summary["surviving"], 4)
+        self.assertEqual(summary["equivalent"], 4)
+        self.assertEqual(summary["unexplained_surviving"], 0)
+        self.assertEqual(summary["equivalent_mutants"], [e["id"] for e in runtime])
+        result = self._check_summary(summary)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("accepted as equivalent", result.stdout)
+
+    def test_unobservable_value_mutants_accepted(self):
+        """Survivors matching re-validated unobservable-value entries are accepted (exit 0)."""
+        runtime = [e for e in self.baseline["entries"] if e["kind"] == "unobservable-value"]
+        self.assertEqual(len(runtime), 4)
+        policy_path = str(self.project_root / "src" / "textforensics" / "policy.py")
+        records = [
+            self._record(
+                operator=e["operator"],
+                occurrence=e["occurrence"],
+                start_pos=e["start_pos"],
+                end_pos=e["end_pos"],
+                outcome="survived",
+                module_path=policy_path,
+            )
+            for e in runtime
+        ]
         summary = self.runner.parse_results(records, self.baseline, self.project_root)
         self.assertEqual(summary["total"], 4)
         self.assertEqual(summary["surviving"], 4)
