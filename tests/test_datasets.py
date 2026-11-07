@@ -357,6 +357,25 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(payload, {"rows": [{"row": {"a": 1}}]})
         self.assertEqual(calls["n"], 3)
 
+    def test_refuses_plain_http_base_url(self) -> None:
+        # B310 fix: the client must not fetch over plain http (the
+        # default is a constant https URL; no caller passes a custom
+        # base_url in production). Fails at construction, no network.
+        with self.assertRaises(DownloadError) as ctx:
+            DatasetsServerClient("http://example.invalid")
+        self.assertIn("refuses", str(ctx.exception))
+
+    def test_refuses_file_base_url(self) -> None:
+        # urllib would honour file:// — a scheme the API client must
+        # never speak.
+        with self.assertRaises(DownloadError):
+            DatasetsServerClient("file:///tmp/datasets-server")
+
+    def test_accepts_loopback_http_base_url(self) -> None:
+        # Local fixtures (a datasets-server stub on loopback) stay usable.
+        client = DatasetsServerClient("http://127.0.0.1:9")
+        self.assertEqual(client.base_url, "http://127.0.0.1:9")
+
 
 class DownloadTests(unittest.TestCase):
     """Resumable large-file downloader (wave-2 shared infrastructure).
@@ -784,6 +803,47 @@ class DownloadTests(unittest.TestCase):
         self.assertEqual(argv[argv.index("--max-filesize") + 1], "10")
         self.assertNotIn("--continue-at", argv)
         self.assertEqual(self.dest.read_bytes(), b"0123456789")
+
+
+class DownloadUrlValidationTests(unittest.TestCase):
+    """B310 fix: download_large_file refuses non-https URLs up front.
+
+    No network is used: the scheme check runs before any fetch, so a
+    refused URL must raise without urlopen ever being called.
+    """
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.dest = Path(self._tmp.name) / "file.bin"
+
+    def test_refuses_plain_http_url(self) -> None:
+        with (
+            mock.patch("urllib.request.urlopen") as urlopen,
+            self.assertRaises(DownloadError) as ctx,
+        ):
+            download_large_file("http://example.invalid/file.bin", self.dest, retries=0)
+        self.assertIn("refuses", str(ctx.exception))
+        urlopen.assert_not_called()
+        self.assertFalse(self.dest.exists())
+
+    def test_refuses_file_url(self) -> None:
+        # urllib would read a local file into the download — the
+        # file-exfiltration shape B310 exists to catch.
+        with (
+            mock.patch("urllib.request.urlopen") as urlopen,
+            self.assertRaises(DownloadError),
+        ):
+            download_large_file("file:///etc/passwd", self.dest, retries=0)
+        urlopen.assert_not_called()
+
+    def test_refuses_ftp_url(self) -> None:
+        with (
+            mock.patch("urllib.request.urlopen") as urlopen,
+            self.assertRaises(DownloadError),
+        ):
+            download_large_file("ftp://example.invalid/file.bin", self.dest, retries=0)
+        urlopen.assert_not_called()
 
 
 class _StallHandler(http.server.BaseHTTPRequestHandler):

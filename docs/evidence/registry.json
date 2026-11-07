@@ -144,6 +144,11 @@
       "evidence_record_id": "EV-20261107-suite",
       "run_artifact": "docs/evidence/runs/EV-20261107-suite.json",
       "run_artifact_sha256": "223484e3e9c85484605bf89b2ec5276969f708c2c713d5fe5d877957b7f9b7c1"
+    },
+    {
+      "evidence_record_id": "EV-20261108-bandit",
+      "run_artifact": "docs/evidence/runs/EV-20261108-bandit.json",
+      "run_artifact_sha256": "23cac0711a9ccfc49b5d421968879ed6c0b0f3cb0295883ef85b7b619ad4befe"
     }
   ],
   "schema": "textforensics.evidence-registry/v1"

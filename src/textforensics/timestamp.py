@@ -28,6 +28,7 @@ from __future__ import annotations
 import hashlib
 import secrets
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import UTC, datetime
 from typing import Any
@@ -348,6 +349,31 @@ def build_timestamp_request(
     return request, nonce
 
 
+# Plain http is only ever allowed to loopback (local TSA fixtures);
+# the dataset downloader enforces the same policy (see
+# ``_require_https_or_loopback_http`` in datasets.py).
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def _require_https_tsa_url(tsa_url: str) -> None:
+    """Refuse any TSA URL that is not https (or http on loopback).
+
+    The URL comes from the user (``--timestamp-url``), but a
+    plain-http TSA would let a network attacker substitute the token
+    endpoint, and ``urllib`` would also honour non-http schemes such
+    as ``file://``. https everywhere; plain http only for loopback
+    fixtures. Raises :class:`TimestampError` before any network use.
+    """
+    parsed = urllib.parse.urlparse(tsa_url)
+    if parsed.scheme == "https":
+        return
+    if parsed.scheme == "http" and (parsed.hostname or "").lower() in _LOOPBACK_HOSTS:
+        return
+    raise TimestampError(
+        f"TSA URL must be https (loopback http only): {parsed.scheme}://{parsed.hostname or '?'}"
+    )
+
+
 def request_timestamp(
     digest: bytes,
     tsa_url: str,
@@ -363,6 +389,7 @@ def request_timestamp(
     :class:`TimestampError` on any transport, status, parse or
     verification failure.
     """
+    _require_https_tsa_url(tsa_url)
     request_der, used_nonce = build_timestamp_request(
         digest, hash_algorithm=hash_algorithm, nonce=nonce
     )
@@ -376,7 +403,11 @@ def request_timestamp(
         method="POST",
     )
     try:
-        with urllib.request.urlopen(http_request, timeout=timeout) as response:
+        # B310 reviewed: tsa_url validated at the top of request_timestamp
+        # by _require_https_tsa_url (https, or http on loopback only);
+        # the body is only a hash digest, the response is size-capped
+        # and the token is cryptographically verified before use.
+        with urllib.request.urlopen(http_request, timeout=timeout) as response:  # nosec B310
             raw = response.read(MAX_TIMESTAMP_RESPONSE_BYTES + 1)
     except urllib.error.HTTPError as exc:
         raise TimestampError(f"TSA HTTP error: {exc.code} {exc.reason}.") from exc

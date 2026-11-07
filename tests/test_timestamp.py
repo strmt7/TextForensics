@@ -9,7 +9,9 @@ development check, recorded in the U2 report, not a CI test.
 
 import hashlib
 import unittest
+import urllib.error
 from datetime import UTC, datetime, timedelta
+from unittest import mock
 
 from textforensics.timestamp import (
     OID_ECDSA_WITH_SHA256,
@@ -29,6 +31,7 @@ from textforensics.timestamp import (
     build_timestamp_request,
     parse_timestamp_response,
     parse_timestamp_token,
+    request_timestamp,
     verify_timestamp_token,
 )
 
@@ -230,6 +233,50 @@ class TimestampRequestTests(unittest.TestCase):
     def test_build_request_rejects_unknown_hash(self):
         with self.assertRaises(TimestampError):
             build_timestamp_request(DIGEST, hash_algorithm="md5")
+
+    def test_request_timestamp_refuses_plain_http_url(self):
+        # B310 fix: a plain-http TSA would let a network attacker
+        # substitute the token endpoint. Fails before any network use.
+        with (
+            mock.patch("urllib.request.urlopen") as urlopen,
+            self.assertRaises(TimestampError) as ctx,
+        ):
+            request_timestamp(DIGEST, "http://example.invalid/tsa")
+        self.assertIn("https", str(ctx.exception))
+        urlopen.assert_not_called()
+
+    def test_request_timestamp_refuses_file_url(self):
+        with (
+            mock.patch("urllib.request.urlopen") as urlopen,
+            self.assertRaises(TimestampError),
+        ):
+            request_timestamp(DIGEST, "file:///tmp/tsa")
+        urlopen.assert_not_called()
+
+    def test_request_timestamp_https_reaches_network(self):
+        # An https URL passes validation and attempts the fetch: a
+        # transport failure surfaces as "unreachable", not a refusal.
+        with (
+            mock.patch(
+                "urllib.request.urlopen",
+                side_effect=urllib.error.URLError("down"),
+            ),
+            self.assertRaises(TimestampError) as ctx,
+        ):
+            request_timestamp(DIGEST, "https://example.invalid/tsa")
+        self.assertIn("unreachable", str(ctx.exception))
+
+    def test_request_timestamp_loopback_http_reaches_network(self):
+        # Local TSA fixtures on loopback stay usable.
+        with (
+            mock.patch(
+                "urllib.request.urlopen",
+                side_effect=urllib.error.URLError("down"),
+            ),
+            self.assertRaises(TimestampError) as ctx,
+        ):
+            request_timestamp(DIGEST, "http://127.0.0.1:9/tsa")
+        self.assertIn("unreachable", str(ctx.exception))
 
 
 class TimestampResponseTests(unittest.TestCase):

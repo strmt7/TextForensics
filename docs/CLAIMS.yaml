@@ -351,20 +351,20 @@ claims:
       ruff_format_exit: 0
 
   - id: "security.bandit_no_medium_high"
-    statement: "Bandit reports 0 medium- and 0 high-severity findings in src/ (16 Low)"
+    statement: "Bandit reports 0 medium- and 0 high-severity findings in src/ (26 Low)"
     category: "security"
     status: "verified"
     evidence_type: "command"
     evidence_path: "bandit -r src/ -lll"
     owner: "security"
-    last_verified: "2026-11-06"
-    notes: "Measured 2026-11-06 in the bare venv (bandit 1.9.4). The -lll flag makes the exit code encode 'no medium/high'."
-    evidence_record_id: "EV-20261106-bandit"
-    run_artifact_sha256: "036b7a7d770cd71b3c5ca75cc41fd5cbd6a61d85f8bd41c389b83dcd3216bf29"
+    last_verified: "2026-11-08"
+    notes: "Measured 2026-11-08 in the extras venv (bandit 1.9.4). The -lll flag makes the exit code encode 'no medium/high'. The 3 MEDIUM B310 urlopen findings measured 2026-11-07 were fixed 2026-11-08: each site now validates the URL scheme (https, or http on loopback only) before the call, and carries a narrow '# nosec B310' with a written justification — bandit flags urlopen statically, so validation alone does not clear the finding."
+    evidence_record_id: "EV-20261108-bandit"
+    run_artifact_sha256: "23cac0711a9ccfc49b5d421968879ed6c0b0f3cb0295883ef85b7b619ad4befe"
     values:
       bandit_medium: 0
       bandit_high: 0
-      bandit_low: 16
+      bandit_low: 26
 
   - id: "security.pip_audit_tracked"
     statement: "pip-audit reports 12 known findings in 1 package (pip 24.0: 12); every finding has a fixed version and the cryptography cap was widened by Dependabot #27 in Phase 4 (cryptography is now >=42.0.8,<51, 0 findings; pytest 0 findings)"

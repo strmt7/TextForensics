@@ -102,8 +102,34 @@ _CURL_RETRIES = 3
 _CURL_RETRY_DELAY_S = 5
 
 # Plain http is only ever allowed to loopback (local fixtures); see
-# _curl_proto_args.
+# _require_https_or_loopback_http.
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def _require_https_or_loopback_http(url: str) -> None:
+    """Refuse any URL that is not https (or http on loopback).
+
+    The scheme policy shared by every network call in this module —
+    the urllib path of :func:`download_large_file`, the curl fallback
+    (see :func:`_curl_proto_args`, which used to enforce it alone)
+    and :class:`DatasetsServerClient`. Plain http off-loopback would
+    send the request (and, for the downloader, the dataset bytes) in
+    the clear where it can be observed or altered, and ``urllib``
+    would also honour non-http schemes such as ``file://``. https
+    everywhere; plain http only for loopback fixtures (the local
+    stall servers in the tests). Raises :class:`DownloadError` with
+    the same wording the curl fallback already used, so the two
+    transports cannot drift apart again.
+    """
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme == "https":
+        return
+    if parsed.scheme == "http" and (parsed.hostname or "").lower() in _LOOPBACK_HOSTS:
+        return
+    raise DownloadError(
+        f"refuses non-https URL (loopback http only): {parsed.scheme}://{parsed.hostname or '?'}"
+    )
+
 
 # TextForensics label convention: 1 = machine-generated / machine-involved,
 # 0 = human. Mirrors PAN subtask 1 (class 1 = machine, 0 = human).
@@ -316,17 +342,15 @@ def _curl_proto_args(url: str) -> tuple[str, str]:
     https everywhere; plain http only for loopback (local fixtures).
     Any other http URL is refused: a redirect downgrade to http (or
     file) would be an SSRF / file-exfiltration shape, and the only
-    production caller passes a constant https URL.
+    production caller passes a constant https URL. The refusal itself
+    lives in :func:`_require_https_or_loopback_http`, which the
+    urllib path calls too, so both transports enforce one policy.
     """
+    _require_https_or_loopback_http(url)
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme == "https":
         return "=https", "=https"
-    if parsed.scheme == "http" and (parsed.hostname or "").lower() in _LOOPBACK_HOSTS:
-        return "=http", "=http"
-    raise DownloadError(
-        "curl fallback refuses non-https URL (loopback http only): "
-        f"{parsed.scheme}://{parsed.hostname or '?'}"
-    )
+    return "=http", "=http"
 
 
 def _download_with_curl(url: str, part: Path, *, limit_bytes: int | None = None) -> None:
@@ -426,6 +450,12 @@ def download_large_file(
 ) -> Path:
     """Download ``url`` to ``dest`` with resume, retries and verification.
 
+    ``url`` must be https, or http on loopback (local fixtures):
+    anything else raises :class:`DownloadError` before any network
+    use — the urllib path enforces the same scheme policy the curl
+    fallback already enforced (see
+    :func:`_require_https_or_loopback_http`).
+
     Standard library only, plus an opportunistic curl subprocess
     fallback (curl is a recommended system tool, not a dependency).
     The download streams to ``dest`` + ``".part"`` and is renamed into
@@ -473,6 +503,7 @@ def download_large_file(
     checks — a prefix probe, not a verified download. Callers must
     only pass allowlisted dataset URLs.
     """
+    _require_https_or_loopback_http(url)
     stall = timeout_s if stall_timeout_s is None else stall_timeout_s
     dest = Path(dest)
     part = dest.with_name(dest.name + ".part")
@@ -514,7 +545,10 @@ def download_large_file(
             slowest_read_s = 0.0
             try:
                 if stall == connect_timeout_s:
-                    response_cm = urllib.request.urlopen(request, timeout=stall)
+                    # B310 reviewed: url scheme validated at the top of
+                    # download_large_file by _require_https_or_loopback_http
+                    # (https, or http on loopback only).
+                    response_cm = urllib.request.urlopen(request, timeout=stall)  # nosec B310
                 else:
                     opener = _split_timeout_opener(stall)
                     response_cm = opener.open(request, timeout=connect_timeout_s)
@@ -1180,6 +1214,10 @@ class DatasetsServerClient:
     datasets: ``/splits`` and ``/size`` for metadata, ``/rows`` for
     paginated row fetches (at most 100 rows per request). No state is
     kept between calls, so the client is safe to construct per use.
+    ``base_url`` must be https (http on loopback only, for local
+    fixtures); anything else raises at construction — the same scheme
+    policy the downloader enforces (see
+    :func:`_require_https_or_loopback_http`).
     """
 
     def __init__(
@@ -1190,6 +1228,7 @@ class DatasetsServerClient:
         retries: int = DEFAULT_RETRIES,
         user_agent: str = "TextForensics/0.2.0 (research evaluation)",
     ) -> None:
+        _require_https_or_loopback_http(base_url)
         self.base_url = base_url.rstrip("/")
         self.timeout_s = timeout_s
         self.retries = retries
@@ -1201,7 +1240,10 @@ class DatasetsServerClient:
         last_error: Exception | None = None
         for attempt in range(self.retries + 1):
             try:
-                with urllib.request.urlopen(request, timeout=self.timeout_s) as response:
+                # B310 reviewed: base_url validated in __init__ by
+                # _require_https_or_loopback_http (https, or http on
+                # loopback only); path is a fixed literal, params urlencoded.
+                with urllib.request.urlopen(request, timeout=self.timeout_s) as response:  # nosec B310
                     return json.loads(response.read().decode("utf-8"))
             except (
                 urllib.error.URLError,

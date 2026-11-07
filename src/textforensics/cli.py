@@ -706,7 +706,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     case_export.add_argument(
         "--timestamp-url",
-        help="RFC 3161 TSA URL for a T3 timestamp token. Requires --seal; "
+        help="RFC 3161 TSA URL for a T3 timestamp token (https; http "
+        "only on loopback). Requires --seal; "
         "a token that cannot be obtained fails the seal.",
     )
     case_verify = case_sub.add_parser("verify", help="Verify case-file integrity.")
