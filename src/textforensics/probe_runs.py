@@ -406,6 +406,37 @@ def _verdict(record: Mapping[str, Any]) -> str:
     return str(verdict)
 
 
+def _score_shift_status(shift: Mapping[str, Any]) -> tuple[str, str]:
+    """Status + reason for a score-shift dict, from the Tier-3 rule.
+
+    ``breach`` iff PSI > 0.2, or KS effect >= 0.10 with Holm-adjusted
+    p < 0.05 — exactly the rule :func:`_drift_breaches_for_slice`
+    applies, so the label can never disagree with the breach list.
+    Before the Holm fill the adjusted p is None and the KS branch
+    cannot fire (same as the breach rule); the caller recomputes the
+    status after the fill.
+    """
+    psi = shift.get("psi")
+    ks = shift.get("ks_statistic")
+    ks_p_adj = shift.get("ks_pvalue_holm_adjusted")
+    if psi is not None and psi > PSI_ACTION:
+        return "breach", f"PSI {psi} > {PSI_ACTION}"
+    if (
+        ks is not None
+        and ks_p_adj is not None
+        and ks_p_adj < KS_P_THRESHOLD
+        and ks >= KS_EFFECT_SIZE
+    ):
+        return (
+            "breach",
+            f"KS statistic {ks} >= {KS_EFFECT_SIZE} with Holm-adjusted p "
+            f"{ks_p_adj} < {KS_P_THRESHOLD}",
+        )
+    if psi is None and ks is None:
+        return "unavailable", "no baseline run to compare against"
+    return "stable", "PSI <= 0.2 and KS within bounds"
+
+
 def _slice_metrics(
     *,
     item_ids: list[str],
@@ -453,13 +484,22 @@ def _slice_metrics(
             ks = primitives.ks_statistic(baseline_scores, scores)
             ks_p = primitives.ks_pvalue(ks, len(baseline_scores), len(scores))
             psi_value = primitives.psi(baseline_scores, scores)
+            # Status is preliminary here (no Holm-adjusted p yet); the
+            # caller recomputes it after the Holm fill.
+            status, reason = _score_shift_status(
+                {
+                    "psi": _round(psi_value),
+                    "ks_statistic": _round(ks),
+                    "ks_pvalue_holm_adjusted": None,
+                }
+            )
             score_shift = {
                 "ks_statistic": _round(ks),
                 "ks_pvalue": _round(ks_p),
                 "ks_pvalue_holm_adjusted": None,  # Filled in by the caller (family = slices).
                 "psi": _round(psi_value),
-                "status": "breach" if psi_value > PSI_ACTION else "stable",
-                "reason": ("PSI > 0.2" if psi_value > PSI_ACTION else "PSI <= 0.2"),
+                "status": status,
+                "reason": reason,
             }
         else:
             score_shift["reason"] = "no paired scores against the baseline run"
@@ -716,6 +756,15 @@ def compute_run_metrics(
         for (slice_name, _), adj in zip(ks_pvalues, adjusted, strict=True):
             holm_adjusted[slice_name] = _round(adj)
             slice_metrics[slice_name]["score_shift"]["ks_pvalue_holm_adjusted"] = _round(adj)
+    # The score-shift status follows the Tier-3 rule (PSI or KS with
+    # Holm-adjusted p); recompute it now the adjusted p-values exist,
+    # so the label can never disagree with the breach list.
+    for slice_name in slice_metrics:
+        shift = slice_metrics[slice_name]["score_shift"]
+        if shift.get("ks_statistic") is not None or shift.get("psi") is not None:
+            status, reason = _score_shift_status(shift)
+            shift["status"] = status
+            shift["reason"] = reason
 
     overall = _slice_metrics(
         item_ids=sorted(current),

@@ -1,0 +1,186 @@
+name: Drift Observatory
+
+# U3 drift observatory cadence.
+#
+# The frozen probe corpus (NC-licensed dataset text) cannot live in
+# this repo or in GitHub-hosted CI. The machinery-smoke job below
+# always runs in CI and proves the machinery end to end on synthetic
+# fixtures. Real probe runs execute on the corpus host, where the
+# corpus cache exists: the scheduled-probe-run job checks for the
+# corpus first and exits cleanly with a notice when it is absent,
+# instead of failing. The corpus host runs this same workflow file
+# (or the equivalent operator cron) with the cache paths below.
+#
+# Cadence:
+# - Monthly (1st, 03:00 UTC, non-quarterly months): attacked slices +
+#   current-generator slice.
+# - Quarterly (1st of Jan/Apr/Jul/Oct, 03:00 UTC): full corpus.
+# - Event-driven: a detector/provider version change is handled in
+#   code (the version-change Tier-1 rule + re-baselining); dispatch
+#   this workflow with scope=event-driven after a version change if
+#   the scheduled run has not picked it up yet.
+# - Annual: the quarterly full run in January doubles as the annual
+#   review run; the operator re-validates thresholds then (see
+#   docs/OBSERVATORY.md).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/textforensics/probe_runs.py"
+      - "src/textforensics/observatory.py"
+      - "src/textforensics/validation.py"
+      - "src/textforensics/cli.py"
+      - "tests/test_probe_runs*.py"
+      - "tests/test_cli_drift_u3.py"
+      - "tests/test_u3_trustmap.py"
+      - ".github/workflows/observatory.yml"
+  pull_request:
+    paths:
+      - "src/textforensics/probe_runs.py"
+      - "src/textforensics/observatory.py"
+      - "src/textforensics/validation.py"
+      - "src/textforensics/cli.py"
+      - "tests/test_probe_runs*.py"
+      - "tests/test_cli_drift_u3.py"
+      - "tests/test_u3_trustmap.py"
+      - ".github/workflows/observatory.yml"
+  schedule:
+    - cron: '0 3 1 2,3,5,6,8,9,11,12 *' # Monthly, non-quarterly months
+    - cron: '0 3 1 1,4,7,10 *' # Quarterly: Jan/Apr/Jul/Oct
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: 'Probe-run scope'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - monthly-attacked
+          - monthly-current-generator
+          - event-driven
+      fail_on_tier1:
+        description: 'Fail the job when a Tier-1 alert fires'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: 1
+  PIP_NO_WARN_SCRIPT_LOCATION: 1
+  PROBE_CORPUS_DIR: ~/.cache/textforensics/probe-corpus/1.0.0
+  PROBE_RUNS_DIR: ~/.cache/textforensics/probe-runs/1.0.0
+
+jobs:
+  machinery-smoke:
+    name: Observatory machinery smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install development dependencies
+        run: python -m pip install -e ".[dev]"
+      - name: U3 engine, orchestration, Trust Map and CLI tests
+        run: |
+          python -m pytest tests/test_probe_runs.py tests/test_probe_runs_e2e.py \
+            tests/test_u3_trustmap.py tests/test_cli_drift_u3.py \
+            tests/test_validation.py tests/test_validation_trustmap.py -q
+      - name: CLI smoke (status with no runs)
+        run: |
+          textforensics drift status --detector-id textforensics/builtin-heuristic \
+            --runs-dir "$RUNNER_TEMP/empty-probe-runs"
+
+  scheduled-probe-run:
+    name: Scheduled probe run
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install development dependencies
+        run: python -m pip install -e ".[dev]"
+      - name: Check probe corpus availability
+        id: corpus
+        run: |
+          if python -c "import textforensics.probe_corpus" 2>/dev/null \
+            && [ -f "$PROBE_CORPUS_DIR/manifest.json" ] \
+            && [ -f "$PROBE_CORPUS_DIR/corpus.jsonl" ] \
+            && [ -f "$PROBE_CORPUS_DIR/holdback.jsonl" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Probe corpus is not available on this runner."
+            echo "Real probe runs execute on the corpus host, where the"
+            echo "frozen corpus cache lives; see docs/OBSERVATORY.md."
+          fi
+      - name: Monthly attacked slices
+        if: >-
+          steps.corpus.outputs.available == 'true' &&
+          github.event.schedule == '0 3 1 2,3,5,6,8,9,11,12 *'
+        run: |
+          textforensics drift run \
+            --manifest "$PROBE_CORPUS_DIR/manifest.json" \
+            --texts "$PROBE_CORPUS_DIR/corpus.jsonl" \
+            --holdback "$PROBE_CORPUS_DIR/holdback.jsonl" \
+            --scope monthly-attacked \
+            --runs-dir "$PROBE_RUNS_DIR" \
+            --fail-on-tier1
+      - name: Monthly current-generator slice
+        if: >-
+          steps.corpus.outputs.available == 'true' &&
+          github.event.schedule == '0 3 1 2,3,5,6,8,9,11,12 *'
+        run: |
+          textforensics drift run \
+            --manifest "$PROBE_CORPUS_DIR/manifest.json" \
+            --texts "$PROBE_CORPUS_DIR/corpus.jsonl" \
+            --holdback "$PROBE_CORPUS_DIR/holdback.jsonl" \
+            --scope monthly-current-generator \
+            --runs-dir "$PROBE_RUNS_DIR" \
+            --fail-on-tier1
+      - name: Quarterly full run
+        if: >-
+          steps.corpus.outputs.available == 'true' &&
+          github.event.schedule == '0 3 1 1,4,7,10 *'
+        run: |
+          textforensics drift run \
+            --manifest "$PROBE_CORPUS_DIR/manifest.json" \
+            --texts "$PROBE_CORPUS_DIR/corpus.jsonl" \
+            --holdback "$PROBE_CORPUS_DIR/holdback.jsonl" \
+            --scope full \
+            --runs-dir "$PROBE_RUNS_DIR" \
+            --fail-on-tier1
+      - name: Dispatched run
+        if: >-
+          steps.corpus.outputs.available == 'true' &&
+          github.event_name == 'workflow_dispatch'
+        run: |
+          textforensics drift run \
+            --manifest "$PROBE_CORPUS_DIR/manifest.json" \
+            --texts "$PROBE_CORPUS_DIR/corpus.jsonl" \
+            --holdback "$PROBE_CORPUS_DIR/holdback.jsonl" \
+            --scope "${{ inputs.scope }}" \
+            --runs-dir "$PROBE_RUNS_DIR" \
+            ${{ inputs.fail_on_tier1 && '--fail-on-tier1' || '' }}
+      - name: Upload run manifests
+        if: steps.corpus.outputs.available == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: probe-runs-${{ github.run_id }}
+          path: ${{ env.PROBE_RUNS_DIR }}/run-*.json
+          if-no-files-found: warn
+          retention-days: 90

@@ -297,7 +297,7 @@ Aggregation across detectors uses the best state per detector, then:
 | `human_false_positive_evidence` | registry | matching slice has `fpr` with CI, `n_human >= 100`, and `fpr.ci_upper <= 0.05` |
 | `detector_diversity` | live observations | >=2 independent families and no detector failures |
 | `benign_stability` | live robustness probes | all usable detectors keep categorical verdicts and native-score drift is bounded |
-| `temporal_version_stability` | registry age + drift snapshots | current record is fresh and >=2 drift snapshots over >=30 days show no material change |
+| `temporal_version_stability` | registry age + probe runs | current record is fresh and >=2 consecutive clean full-corpus probe runs at the same detector version exist (see docs/OBSERVATORY.md) |
 
 The FPR ceiling (`0.05`) is a product policy, not a universal truth. It is recorded in the Trust Map `observed` block and can be configured. A detector with FPR evidence above the ceiling is `partial`, never `supported` for consequential use.
 
@@ -524,7 +524,7 @@ textforensics calibration verify ARTIFACT
 textforensics case seal BUNDLE --out PATH
 textforensics case verify CASE
 textforensics case replay CASE [--text FILE]
-textforensics drift snapshot/compare/report ...
+textforensics drift snapshot/compare/report/run/status ...
 textforensics claims check
 ```
 

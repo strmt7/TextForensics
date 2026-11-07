@@ -1527,3 +1527,170 @@ v1 and v2 case files still verify; v3 is what the system seals.
 - **No hardware keys / managed PKI / revocation infrastructure.**
   Deferred by design decision (Phase 3 research §13, decision 5);
   `docs/SEALING_KEYS.md` documents the v1.0 procedure instead.
+
+## Verification record — Phase 3, U3 drift observatory (2026-11-07)
+
+Work is in `main` only, canonical identity
+`Stratos <28989754+strmt7@users.noreply.github.com>`; no push, no
+release, no tag. Commits on top of `ca3af3d` (parent's Python 3.15
+base64 fix): `55b0e3d` (probe-run engine: per-run metrics,
+persistence-gated tiers, demotion hook), `99de3c6` (Trust Map
+longitudinal threading), `3f93f1c` (probe-run orchestration +
+score series + Tier-1 flip-direction fix), `4565115` (CLI:
+`tf drift run` / `tf drift status`), plus the docs/cadence commit
+(this section, `docs/OBSERVATORY.md`,
+`.github/workflows/observatory.yml`, REVAMP_SPEC touch).
+
+### Deliberate deviations
+
+- The brief said the corpus half and the observatory half land
+  together; they did not. The frozen probe corpus v1.0.0
+  (`probe_corpus.py`, `probe_metrics.py`,
+  `scripts/build_probe_corpus.py`) lives on branch `u3-corpus` in
+  the worktree `~/workspace/TextForensics-u3` and merges separately
+  through the parent. This half never touched it. Until the merge,
+  `tf drift run` exits 2 with a clear message, and the U3 tests
+  drive the machinery through injected test doubles (closed-form
+  primitives + a fake corpus module).
+- The corpus has 8 slices, not the 9 prescribed: the
+  `human-non-native` / ESL slice is cut in v1.0.0 — no licensed
+  source was found (corpus half's decision, recorded in its
+  manifest notes).
+- The Trust Map has no `watch` state (exactly 5 states in v3), so a
+  Tier-2 watch is carried in the dimension's `observed` dict
+  (`u3_watch`) + a limitations line, never as a new state.
+- Demotion is per-detector in v1.0, not per-slice (U1 records are
+  regime-coarse).
+
+### What was built
+
+- **Engine** (`src/textforensics/probe_runs.py`, ~1,900 lines).
+  Pre-registered thresholds (PSI 0.1/0.2, KS effect 0.10 + Holm
+  p < 0.05, flip Tier 2 > 1% / Tier 1 > 5% human→AI on a human
+  slice, ECE increase > 0.05, version-change stale after 7 days,
+  FPR cap 0.05, 2 clean full runs for temporal support); §7.6
+  metrics 1–7 per slice + overall (KS/PSI, directional flips with
+  Wilson CI, ECE/Brier, verdict-based human FPR, attacked-slice
+  TPR@1% FPR, conformal coverage, provider metadata diff); three
+  tiers with the iron rules (drift statistic alone never demotes;
+  one run never demotes; no alert silently changes a verdict);
+  demotion hook into the existing `validation.py`
+  `limits.demoted_by` → `stale` (fail-closed, re-signed, registry
+  reloaded to verify); run manifests
+  (`textforensics.probe-run/v1`) with a per-item score series
+  (numbers + IDs only, never raw text) so the next run recomputes
+  KS/PSI/flips without re-scoring.
+- **Trust Map threading** (`validation.py`): `derive_trust_map(...,
+  longitudinal=...)`; `temporal_version_stability` may exceed
+  `partial` only with ≥ 2 consecutive clean full runs at the same
+  detector version (run IDs + corpus fingerprint cited in
+  `observed`); watch surfaced, never a state; fail-closed on wrong
+  detector/version, bad fingerprint, or run-id count mismatch;
+  demotion still wins over longitudinal support.
+- **Orchestration** (`perform_probe_run`): scope-filters the
+  corpus, scores via `DriftObservatory.take_snapshot`, loads the
+  holdback labels only after scoring (callable loader — enforced
+  in code, asserted by test), resolves the baseline (only
+  full-scope runs can be one), evaluates tiers, saves the run,
+  applies/clears demotions. Dry-run computes without writing.
+- **CLI** (`tf drift run` / `tf drift status`): exits 0 completed,
+  1 with `--fail-on-tier1` on Tier 1, 2 when the corpus module is
+  absent, 3 on input errors. Corpus verified against the manifest
+  before scoring; fail-closed on mismatch.
+- **Cadence** (`.github/workflows/observatory.yml`, actionlint
+  clean): monthly attacked + current-generator slices, quarterly
+  full corpus, `workflow_dispatch` with scope input; machinery
+  smoke (U3 tests + CLI smoke) always runs in CI; the scheduled
+  job exits cleanly with a notice when the corpus cache is absent
+  (CI cannot hold NC-licensed corpus text) — real runs execute on
+  the corpus host.
+- **Docs** (`docs/OBSERVATORY.md`): operator guide — concepts,
+  the 7 metrics, threshold table, tiers + iron rules,
+  demotion/watch semantics, Trust Map threading, cadence, CLI
+  reference, manifest fields, honest limits.
+
+### Real defects found and fixed by this work
+
+- **Tier-1 flip rule demoted on recovery.** It fired on any flip
+  direction > 5%, so the clean re-run recovering from a demotion
+  re-demoted the detector and the demotion could never clear.
+  Found by the end-to-end demotion test. Fixed: Tier 1 now
+  requires > 5% human→AI flips on a human slice (an FPR event);
+  recovery flips are Tier 2 at most, overall flips Tier 2 only.
+  Two regression tests added.
+- **Score-shift status lied on KS-only breaches.** The status was
+  PSI-only while breaches also fire on KS, so a KS 1.0 / Holm
+  p 0.0 slice showed status `stable`. Fixed: one helper
+  (`_score_shift_status`) computes the status from the Tier-3 rule
+  (PSI or KS with Holm-adjusted p), recomputed after the Holm
+  fill; regression test added.
+- **Partial-scope runs could become the baseline.**
+  `resolve_baseline` did not filter by scope. Fixed in both
+  `resolve_baseline` and `perform_probe_run`; regression test
+  added.
+- **Run manifests carried no baseline/previous records.**
+  `perform_probe_run` originally passed `None` for both (the
+  manifest holds metrics, not snapshot records), so drift metrics
+  could never fire across runs. Fixed by storing the per-item
+  score series in the manifest and rebuilding records from it
+  (schema extended with optional `score_series`; no field meaning
+  changed).
+
+### Measured numbers (synthetic drift-injection demo, 470 items)
+
+- Baseline run (stub detector, clean): 0 alerts, overall n 470,
+  worst-slice FPR 0.0 (human-native FPR 0.0, CI [0.0, 0.03102],
+  n_human 120).
+- Second run, all scores shifted +0.25: 8 Tier-3 alerts, 8
+  breaches. Human-native: KS 1.0, Holm-adjusted p 0.0, status
+  `breach` (KS reason). PSI reads 0.0 here — a test-double
+  artifact (the stub PSI uses quantile bins over a point-mass
+  baseline, which collapse to one bin); the real
+  `probe_metrics.psi` uses equal-width bins over the combined
+  range and would also breach. The KS signal is real and is what
+  the Tier-3 alert fired on.
+- Third run, same shift: all alerts Tier 2, consecutive_runs 2.
+- End-to-end demotion demo (stub detector flipping all human
+  items to AI): Tier-1 FPR alert on the claimable human-native
+  slice (FPR 1.0), demotion applied, the U1 record's effective
+  status `stale`; the next clean full run clears the demotion.
+  Labels load only after all 470 items are scored (asserted by
+  test). No raw text appears in any run manifest.
+
+### Full verification (this branch, before commit)
+
+- Extras suite: **2789 passed, 1 failed** — the single failure is
+  the known `test_memory_check` host flake (passes in isolation;
+  host at 588 MB available during the run).
+- Core-only suite (bare venv, fastapi absent): **2672 passed, 112
+  skipped, 6 failed** — 5 `SchemaCLITests` failures are a PATH
+  artifact (the tests shell out to the `textforensics` console
+  script, which was not on PATH for that run; all 5 pass with the
+  venv bin on PATH) plus the same `test_memory_check` flake. A
+  re-run with the schema tests deselected exits 0.
+- Ruff check + format clean (182 files); `pre-commit run
+  --all-files` green; claims gate **33/33**; schemas **11 OK**;
+  gitleaks 8.24.3 over `ca3af3d..HEAD`: **0 leaks** (4 commits);
+  `.github/workflows/observatory.yml` passes actionlint.
+
+### What is NOT verified / NOT done here
+
+- **Corpus half not merged.** No live probe run against the real
+  frozen corpus has happened from this branch; the numbers above
+  are synthetic-fixture demonstrations, not corpus measurements.
+  A contract test against the real `probe_metrics` module must run
+  after the corpus merge (the U3 tests use a closed-form stub).
+- **Live-TSA interop, downloader fix, atheris, mutation:** untouched
+  (release gate, as before).
+- **No new claims.** The claims gate stays **33/33**; the report
+  card still leads with worst-slice human FPR = unknown.
+- **No push, no release, no tag.** Pushing is the parent's step.
+- **Other Python versions**: verified on 3.12.3 only; CI covers the
+  matrix.
+- **Overall score-shift status reflects PSI only**: the overall KS
+  is not part of the Holm family (per-slice only, §7.5 rule 4), so
+  no overall KS breach is ever recorded and the overall status
+  cannot say `breach` on KS. Consistent with the breach list, but
+  the pooled KS value is visible in the manifest for inspection.
+- **Per-slice demotion, MMD, conformal coverage:** unavailable in
+  v1.0 by design (declared as gaps in every manifest).

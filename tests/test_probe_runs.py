@@ -448,6 +448,55 @@ def test_compute_run_metrics_drift_injection_shows_psi_breach(stub_primitives):
     assert metrics["slices"]["human-native"]["score_shift"]["status"] == "stable"
 
 
+def test_compute_run_metrics_ks_only_breach_shows_breach_status(stub_primitives):
+    # Point-mass scores, uniformly shifted: KS = 1.0 with Holm p = 0,
+    # but the test-double PSI (quantile bins over a point mass)
+    # collapses to 0. The status must still say "breach" — it follows
+    # the Tier-3 rule (PSI or KS), not PSI alone. (The real
+    # probe_metrics.psi uses equal-width bins over the combined range
+    # and would also breach here; the stub's 0.0 is a double artifact.)
+    def _point_records(score: float) -> tuple[list[dict], dict, dict]:
+        records: list[dict] = []
+        labels: dict[str, int] = {}
+        slices: dict[str, str] = {}
+        for i in range(50):
+            item_id = f"hn-{i:03d}"
+            records.append(
+                {
+                    "sample_id": item_id,
+                    "text_sha256": "c" * 64,
+                    "detector_id": "textforensics/builtin-heuristic",
+                    "detector_version": "0.1.0",
+                    "detector_family": "heuristic",
+                    "execution": "local",
+                    "score": score,
+                    "score_semantics": "native heuristic score; not a probability",
+                    "verdict": "human_like",
+                    "threshold": 0.68,
+                    "calibrated_ai_probability": None,
+                    "calibration_id": None,
+                    "provider_version": None,
+                    "observed_at": "2026-11-07T00:00:00+00:00",
+                }
+            )
+            labels[item_id] = 0
+            slices[item_id] = "human-native"
+        return records, labels, slices
+
+    baseline, labels, slices = _point_records(0.30)
+    current, _, _ = _point_records(0.35)
+    metrics = compute_run_metrics(
+        **_metrics_kwargs(current, labels, slices, baseline=baseline),
+        primitives=stub_primitives,
+    )
+    shift = metrics["slices"]["human-native"]["score_shift"]
+    assert shift["ks_statistic"] == 1.0
+    assert shift["ks_pvalue_holm_adjusted"] == 0.0
+    assert shift["psi"] == 0.0
+    assert shift["status"] == "breach"
+    assert "KS statistic" in shift["reason"]
+
+
 def test_compute_run_metrics_flips_directional(stub_primitives):
     baseline, labels, slices = _make_records(seed=4)
     current, _, _ = _make_records(seed=4, flip_human_to_ai=3)
