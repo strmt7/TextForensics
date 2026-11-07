@@ -1,8 +1,8 @@
-"""Benchmark dataset loaders — Phase 3, datasets wave 1.
+"""Benchmark dataset loaders — Phase 3, datasets wave 1 + wave 2.
 
 Loaders for the five wave-1 evaluation datasets (RAID, MAGE, Beemo, MixSet,
-OpAI-Bench), all fetched from Hugging Face through the public
-datasets-server HTTP API.
+OpAI-Bench) and the wave-2 GhostWriter loader, all fetched from Hugging Face
+through the public datasets-server HTTP API.
 
 Design rules
 ------------
@@ -42,9 +42,9 @@ Design rules
   ``.part`` + atomic rename so a partial file is never mistaken for a
   valid one, and SHA-256 verification against a manifest hash.
 
-Wave-1 scope only. RealDet / CrisisFake have no verified route (no
-loader), PAN 2025 is wave 2 (gated on TIRA registration), MultiSocial
-was dropped by Greg's decision.
+Wave-1 scope only, plus GhostWriter in wave 2. RealDet / CrisisFake have no
+verified route (no loader), PAN 2025 is wave 2 (gated on TIRA
+registration), MultiSocial was dropped by Greg's decision.
 """
 
 from __future__ import annotations
@@ -245,6 +245,11 @@ class DatasetSpec:
     splits: tuple[tuple[str, str], ...]  # (config, split) pairs
     notes: str
     citation: str
+    # Per-domain licences, for datasets with no single licence
+    # (GhostWriter). When present, the mapper refuses any row whose
+    # domain has no recorded licence (fail closed); datasets without
+    # per-domain licences leave this as None.
+    domain_licences: dict[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -282,6 +287,62 @@ class NormalizedRow:
 
 
 SPECS: dict[str, DatasetSpec] = {
+    "ghostwriter": DatasetSpec(
+        key="ghostwriter",
+        name="GhostWriter",
+        hf_id="TheItCrOw/GhostWriter",
+        paper="Schaaf, Bönisch & Mehler, LREC 2026",
+        source_url="https://huggingface.co/datasets/TheItCrOw/GhostWriter",
+        licence="Per-domain licences (no single dataset licence): "
+        "cnn_news Apache-2.0; arxiv_papers arXiv.org non-exclusive "
+        "licence to distribute; blog_authorship_corpus CC0 / free for "
+        "non-commercial research; bundestag DL-DE-BY-2.0; "
+        "house_of_commons Open Parliament Licence; euro_court_cases "
+        "CC-BY-NC-SA 4.0; student_essays CC-BY-NC-SA 4.0; gutenberg CC0",
+        licence_note="Per-domain licence table verified 2026-11-07 from "
+        "the live HF dataset card (lines 340-468): cnn_news Apache-2.0; "
+        "arxiv_papers arXiv.org non-exclusive licence to distribute; "
+        "blog_authorship_corpus CC0 / free for non-commercial research; "
+        "bundestag DL-DE-BY-2.0; house_of_commons Open Parliament "
+        "Licence; euro_court_cases CC-BY-NC-SA 4.0; student_essays "
+        "CC-BY-NC-SA 4.0; gutenberg CC0. There is no `license:` tag in "
+        "the HF API record — the card text is the only licence source. "
+        "Restrictions that govern TextForensics use: euro_court_cases "
+        "and student_essays are CC-BY-NC-SA 4.0 (non-commercial, "
+        "share-alike) and blog_authorship_corpus is free for "
+        "non-commercial research only. Use is non-commercial research "
+        "evaluation, local cache only, no redistribution, no commercial "
+        "use. The card says 'seven domains' in one place, but the "
+        "licence table and the viewer show 8 — trust 8.",
+        licence_status=LICENCE_VERIFIED,
+        configs=("default",),
+        splits=(
+            ("default", "train"),
+            ("default", "validation"),
+            ("default", "test"),
+        ),
+        notes="Mixed-origin slice (label 2 = fusion). 474,904 rows "
+        "verified from datasets-server /size 2026-11-07 (train 332,224 "
+        "/ test 95,132 / validation 47,548; single config `default`, "
+        "9 columns, partial:false). `date` formats are inconsistent "
+        "across rows (e.g. `2025`, `-`, `01,July,2004`, "
+        "`2022-09-23T00:00:00`, `2007-2015`) — never parse as a date; "
+        "the mapper keeps the raw string. `source` mixes UUIDs, Kaggle "
+        "URLs and API URLs; `chunk` rows carry a `__[start:end]` suffix "
+        "on the source id. `lang` has 3 values (en-EN, de-DE + one "
+        "unidentified) — do not assume the third.",
+        citation="Schaaf, Bönisch & Mehler, GhostWriter, LREC 2026.",
+        domain_licences={
+            "cnn_news": "Apache-2.0",
+            "arxiv_papers": "arXiv.org non-exclusive licence to distribute",
+            "blog_authorship_corpus": "CC0 / free for non-commercial research",
+            "bundestag": "DL-DE-BY-2.0",
+            "house_of_commons": "Open Parliament Licence",
+            "euro_court_cases": "CC-BY-NC-SA 4.0",
+            "student_essays": "CC-BY-NC-SA 4.0",
+            "gutenberg": "CC0",
+        },
+    ),
     "raid": DatasetSpec(
         key="raid",
         name="RAID",
@@ -428,7 +489,7 @@ SPECS: dict[str, DatasetSpec] = {
 
 
 def get_spec(key: str) -> DatasetSpec:
-    """Return the spec for a wave-1 dataset key, or raise KeyError."""
+    """Return the spec for a dataset key, or raise KeyError."""
     return SPECS[key]
 
 
@@ -867,6 +928,52 @@ def _map_opai_bench(row: dict[str, Any], config: str, split: str) -> list[Normal
     ]
 
 
+def _map_ghostwriter(row: dict[str, Any], config: str, split: str) -> list[NormalizedRow]:
+    """GhostWriter: per-domain licences, ternary label, fusion is mixed-origin.
+
+    Verified from the viewer 2026-11-07: ``label`` 0 = human, 1 = ai,
+    2 = fusion. Fusion rows get ``label=None`` — a binary label on a
+    mixed-origin document would be a lie (same rule as the OpAI-Bench
+    partials); they take regime ``mixed-origin`` and are the U4 spine.
+    Human and ai rows are regime ``raw``. The mapper refuses any row
+    whose ``domain`` has no recorded licence in the spec (fail closed)
+    and any unexpected label value. ``date`` is kept as the raw string
+    — formats are inconsistent across rows and must never be parsed.
+    ``source_id`` is the row ``id`` (UUID string).
+    """
+    text = _require_text(row, "text", "ghostwriter")
+    domain = row.get("domain")
+    licences = SPECS["ghostwriter"].domain_licences or {}
+    if not isinstance(domain, str) or domain not in licences:
+        raise DatasetFetchError(
+            f"ghostwriter: domain {domain!r} has no recorded licence — refusing to map"
+        )
+    label = row.get("label")
+    if isinstance(label, bool) or label not in (0, 1, 2):
+        raise DatasetFetchError(f"ghostwriter: unexpected label {label!r}")
+    row_id = row.get("id")
+    if not isinstance(row_id, str) or not row_id.strip():
+        raise DatasetFetchError("ghostwriter: row has no id")
+    if label == 2:
+        mapped_label: int | None = None
+        regime = REGIME_MIXED_ORIGIN
+    else:
+        mapped_label = int(label)
+        regime = REGIME_RAW
+    return [
+        NormalizedRow(
+            text=text,
+            label=mapped_label,
+            dataset="ghostwriter",
+            config=config,
+            split=split,
+            source_id=row_id,
+            regime=regime,
+            meta=_meta(row, ("domain", "lang", "agent", "type", "date", "source")),
+        )
+    ]
+
+
 def _map_mixset(row: dict[str, Any], config: str, split: str) -> list[NormalizedRow]:
     """MixSet: refused until the label polarity is verified from data.
 
@@ -888,6 +995,7 @@ _MAPPERS: dict[str, Any] = {
     "beemo": _map_beemo,
     "mixset": _map_mixset,
     "opai_bench": _map_opai_bench,
+    "ghostwriter": _map_ghostwriter,
 }
 
 

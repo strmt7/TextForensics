@@ -61,7 +61,7 @@ def _row(text: str, label: int | None, dataset: str = "mage") -> NormalizedRow:
 
 class SpecTests(unittest.TestCase):
     def test_known_keys(self) -> None:
-        for key in ("raid", "mage", "beemo", "mixset", "opai_bench"):
+        for key in ("raid", "mage", "beemo", "mixset", "opai_bench", "ghostwriter"):
             self.assertEqual(get_spec(key).key, key)
 
     def test_unknown_key_raises(self) -> None:
@@ -87,6 +87,32 @@ class SpecTests(unittest.TestCase):
         self.assertEqual(get_spec("opai_bench").licence, "Apache-2.0")
         for key in ("raid", "mage", "opai_bench"):
             require_licence(get_spec(key))  # must not raise
+
+    def test_ghostwriter_per_domain_licences(self) -> None:
+        # Verified 2026-11-07 from the live HF card (lines 340-468);
+        # there is no `license:` tag in the HF API record, so the card
+        # text is the only licence source. Two domains are NC and the
+        # blog corpus is non-commercial-research-only.
+        spec = get_spec("ghostwriter")
+        self.assertEqual(spec.licence_status, "verified")
+        require_licence(spec)  # must not raise
+        licences = spec.domain_licences
+        assert licences is not None
+        self.assertEqual(len(licences), 8)
+        self.assertEqual(licences["cnn_news"], "Apache-2.0")
+        self.assertEqual(licences["euro_court_cases"], "CC-BY-NC-SA 4.0")
+        self.assertEqual(licences["student_essays"], "CC-BY-NC-SA 4.0")
+        self.assertIn("non-commercial research", licences["blog_authorship_corpus"])
+        self.assertEqual(licences["gutenberg"], "CC0")
+        for domain in licences:
+            self.assertIn(domain, spec.licence or "")
+        self.assertIn("non-commercial research evaluation", spec.licence_note)
+        self.assertIn("no redistribution", spec.licence_note)
+
+    def test_wave1_specs_have_no_domain_licences(self) -> None:
+        # The optional field defaults to None so wave-1 specs are untouched.
+        for key in ("raid", "mage", "beemo", "mixset", "opai_bench"):
+            self.assertIsNone(get_spec(key).domain_licences)
 
     def test_unresolved_licences_block_fetch(self) -> None:
         # MixSet has no licence on any source checked 2026-11-06; the
@@ -521,6 +547,103 @@ class MapperTests(unittest.TestCase):
         # did not, the mapper itself refuses on unverified polarity.
         with self.assertRaises(DatasetLicenceError):
             map_row("mixset", {"text": "x", "binary": 1}, "default", "train")
+
+    def test_ghostwriter_labels_and_regimes(self) -> None:
+        base = {
+            "id": "123e4567-e89b-12d3-a456-426614174000",
+            "text": "some article text",
+            "domain": "cnn_news",
+            "date": "2022-09-23T00:00:00",
+            "source": "https://www.kaggle.com/datasets/xyz",
+            "lang": "en-EN",
+            "agent": "human",
+            "type": "fulltext",
+        }
+        (human,) = map_row("ghostwriter", {**base, "label": 0}, "default", "train")
+        self.assertEqual((human.label, human.regime), (0, "raw"))
+        self.assertEqual(human.source_id, base["id"])
+        self.assertEqual(human.meta["domain"], "cnn_news")
+        self.assertEqual(human.meta["date"], "2022-09-23T00:00:00")
+        (machine,) = map_row(
+            "ghostwriter", {**base, "label": 1, "agent": "gpt-4"}, "default", "train"
+        )
+        self.assertEqual((machine.label, machine.regime), (1, "raw"))
+        self.assertEqual(machine.meta["agent"], "gpt-4")
+        # Fusion rows take no binary label (mixed-origin, U4 spine).
+        (fusion,) = map_row(
+            "ghostwriter",
+            {**base, "label": 2, "domain": "gutenberg", "agent": "fusion-model"},
+            "default",
+            "train",
+        )
+        self.assertIsNone(fusion.label)
+        self.assertEqual(fusion.regime, "mixed-origin")
+
+    def test_ghostwriter_date_is_kept_raw(self) -> None:
+        # `date` formats are inconsistent across rows; the mapper must
+        # never parse them — an unparseable value passes through as-is.
+        (row,) = map_row(
+            "ghostwriter",
+            {
+                "id": "abc",
+                "text": "t",
+                "domain": "bundestag",
+                "label": 0,
+                "date": "01,July,2004",
+                "lang": "de-DE",
+                "agent": "human",
+                "type": "chunk",
+                "source": "uuid-1__[0:500]",
+            },
+            "default",
+            "train",
+        )
+        self.assertEqual(row.meta["date"], "01,July,2004")
+        self.assertEqual(row.meta["type"], "chunk")
+
+    def test_ghostwriter_unknown_domain_fails_closed(self) -> None:
+        # A row whose domain has no recorded licence is refused.
+        with self.assertRaises(DatasetFetchError):
+            map_row(
+                "ghostwriter",
+                {
+                    "id": "abc",
+                    "text": "t",
+                    "domain": "ninth_domain",
+                    "label": 0,
+                },
+                "default",
+                "train",
+            )
+        with self.assertRaises(DatasetFetchError):
+            map_row(
+                "ghostwriter",
+                {"id": "abc", "text": "t", "label": 0},
+                "default",
+                "train",
+            )
+
+    def test_ghostwriter_bad_label_fails_closed(self) -> None:
+        base = {"id": "abc", "text": "t", "domain": "cnn_news"}
+        for bad in (3, -1, "1", None, True):
+            with self.subTest(bad=bad), self.assertRaises(DatasetFetchError):
+                map_row("ghostwriter", {**base, "label": bad}, "default", "train")
+
+    def test_ghostwriter_missing_text_or_id_fails_closed(self) -> None:
+        with self.assertRaises(DatasetFetchError):
+            map_row(
+                "ghostwriter",
+                {"id": "abc", "text": "  ", "domain": "cnn_news", "label": 0},
+                "default",
+                "train",
+            )
+        with self.assertRaises(DatasetFetchError):
+            map_row(
+                "ghostwriter",
+                {"text": "t", "domain": "cnn_news", "label": 0},
+                "default",
+                "train",
+            )
 
 
 if __name__ == "__main__":
