@@ -892,6 +892,47 @@ class EquivalentBaselineTests(unittest.TestCase):
         ok, reason = self.runner.validate_baseline_entry(entry, self.project_root)
         self.assertTrue(ok, f"unobservable-value entry must validate: {reason}")
 
+    def test_decorator_position_entry_validates(self):
+        """A runtime entry on a decorator line re-validates.
+
+        The `4` in `@lru_cache(maxsize=4)` (L540:19) sits on the
+        decorator line, above the `def` line: the enclosing-function
+        lookup and the function fingerprint must both cover the
+        decorator, or the entry for it could never validate.
+        """
+        import ast
+
+        source = (self.project_root / "src" / "textforensics" / "policy.py").read_text()
+        tree = ast.parse(source)
+        name, node = self.runner._enclosing_function(tree, 540, 19)
+        self.assertEqual(name, "_load_enterprise_policy_schema")
+        entry = {
+            "id": "test:decorator-position",
+            "module": "textforensics.policy",
+            "operator": "core/NumberReplacer",
+            "occurrence": 22,
+            "start_pos": [540, 19],
+            "end_pos": [540, 20],
+            "function": name,
+            "kind": "unobservable-value",
+            "reason": "synthetic test entry",
+            "source_text": "4",
+            "source_fingerprint": self.runner._function_fingerprint(source, node),
+        }
+        ok, reason = self.runner.validate_baseline_entry(entry, self.project_root)
+        self.assertTrue(ok, f"decorator-position entry must validate: {reason}")
+        # The fingerprint pins the decorator: changing maxsize must
+        # change the fingerprint.
+        changed = source.replace(
+            "@lru_cache(maxsize=4)", "@lru_cache(maxsize=9)", 1
+        )
+        changed_tree = ast.parse(changed)
+        _, changed_node = self.runner._enclosing_function(changed_tree, 540, 19)
+        self.assertNotEqual(
+            self.runner._function_fingerprint(changed, changed_node),
+            entry["source_fingerprint"],
+        )
+
     def test_malformed_baseline_rejected(self):
         """Wrong version / missing field / duplicate id fail loudly at load."""
         cases = {
