@@ -218,9 +218,20 @@ def test_command_for(modules: list[str], project_root: Path) -> str:
     Scoped to each module's dedicated test file when every module has one;
     otherwise the full suite (slow but correct — a module without a dedicated
     test file must not silently lose coverage).
+
+    Most modules follow the ``tests/test_<stem>.py`` convention; modules
+    whose tests live elsewhere are listed explicitly in
+    :data:`_MODULE_TEST_FILES`. Without the override, ``textforensics.policy``
+    fell back to the full suite, whose ~3-minute runtime exceeds the
+    per-test-run timeout and fails the cosmic-ray baseline before any
+    mutant runs (PR #55).
     """
     test_files: list[str] = []
     for module in modules:
+        override = _MODULE_TEST_FILES.get(module)
+        if override is not None:
+            test_files.extend(override)
+            continue
         stem = module.split(".")[-1]
         test_file = project_root / "tests" / f"test_{stem}.py"
         if test_file.is_file():
@@ -234,6 +245,13 @@ def test_command_for(modules: list[str], project_root: Path) -> str:
             return "python -m pytest tests/ -x -q --tb=short"
     joined = " ".join(test_files)
     return f"python -m pytest {joined} -x -q"
+
+
+# Modules whose tests do not follow the ``tests/test_<stem>.py`` convention.
+_MODULE_TEST_FILES: dict[str, list[str]] = {
+    # Policy tests live in test_enterprise_policy.py, not test_policy.py.
+    "textforensics.policy": ["tests/test_enterprise_policy.py"],
+}
 
 
 def load_base_config(config_path: Path) -> dict[str, Any]:
