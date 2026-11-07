@@ -179,21 +179,37 @@ UNMEASURED_VERSIONS = ["3.11", "3.13", "3.14", "3.15"]
 def auroc(labels: list[int], scores: list[float]) -> float:
     """AUROC via Mann-Whitney U with tie credit (0.5). No third-party deps.
 
+    Rank-based (O(n log n)): sort by score, assign average ranks to
+    ties, AUROC = (sum of positive ranks - n_pos*(n_pos+1)/2) /
+    (n_pos*n_neg). Mathematically identical to the pairwise
+    wins + 0.5*ties count it replaced (verified against that
+    implementation on synthetic data with heavy ties in
+    tests/test_measure_datasets.py) — the pairwise form is O(n^2) per
+    call and made the segment-level bootstrap (1000 resamples over
+    ~5000 segments) take hours instead of minutes.
+
     ``labels`` are 1 (machine) / 0 (human); higher scores mean more
     machine-like. Raises ValueError unless both classes are present.
     """
-    pos = [s for lab, s in zip(labels, scores, strict=True) if lab == 1]
-    neg = [s for lab, s in zip(labels, scores, strict=True) if lab == 0]
-    if not pos or not neg:
+    pairs = sorted(zip(scores, labels, strict=True))
+    n_pos = sum(labels)
+    n_neg = len(labels) - n_pos
+    if n_pos == 0 or n_neg == 0:
         raise ValueError("auroc needs both classes present")
-    wins = 0.0
-    for p in pos:
-        for n in neg:
-            if p > n:
-                wins += 1.0
-            elif p == n:
-                wins += 0.5
-    return wins / (len(pos) * len(neg))
+    rank_sum = 0.0
+    i = 0
+    n = len(pairs)
+    while i < n:
+        j = i
+        while j < n and pairs[j][0] == pairs[i][0]:
+            j += 1
+        # 1-based ranks i+1 .. j; the average rank of this tie group.
+        avg_rank = (i + 1 + j) / 2.0
+        for k in range(i, j):
+            if pairs[k][1] == 1:
+                rank_sum += avg_rank
+        i = j
+    return (rank_sum - n_pos * (n_pos + 1) / 2.0) / (n_pos * n_neg)
 
 
 def tpr_at_fpr(labels: list[int], scores: list[float], target_fpr: float) -> float:

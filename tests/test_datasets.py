@@ -565,6 +565,42 @@ class CacheTests(unittest.TestCase):
             self.assertEqual([r.text for r in back], ["hello world", "machine text here"])
             self.assertEqual([r.label for r in back], [LABEL_HUMAN, LABEL_MACHINE])
 
+    def test_filename_override_coexists_with_default(self) -> None:
+        """U4: a second sample of the same config/split can coexist."""
+        spec = get_spec("beemo")
+        rows = [_row("hello world", LABEL_HUMAN)]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            default_path, _ = write_sample_cache(spec, "default", "train", rows, cache_dir=root)
+            seg_path, seg_manifest = write_sample_cache(
+                spec,
+                "default",
+                "train",
+                rows,
+                cache_dir=root,
+                filename="train-segments.jsonl",
+            )
+            self.assertEqual(seg_path.name, "train-segments.jsonl")
+            self.assertEqual(seg_manifest.name, "train-segments.manifest.json")
+            self.assertNotEqual(default_path, seg_path)
+            # The default cache is untouched by the override write.
+            self.assertTrue(default_path.exists())
+            manifest = json.loads(seg_manifest.read_text(encoding="utf-8"))
+            self.assertEqual(manifest["file"], "train-segments.jsonl")
+            back = read_sample_cache(
+                spec, "default", "train", cache_dir=root, filename="train-segments.jsonl"
+            )
+            self.assertEqual([r.text for r in back], ["hello world"])
+            # A path traversal filename is refused.
+            with self.assertRaises(ValueError):
+                write_sample_cache(
+                    spec, "default", "train", rows, cache_dir=root, filename="../escape.jsonl"
+                )
+            with self.assertRaises(ValueError):
+                read_sample_cache(
+                    spec, "default", "train", cache_dir=root, filename="../escape.jsonl"
+                )
+
     def test_missing_cache_raises(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, self.assertRaises(FileNotFoundError):
             read_sample_cache(get_spec("beemo"), "default", "train", cache_dir=Path(tmp))
@@ -774,9 +810,19 @@ class MapperTests(unittest.TestCase):
         # Span outside the text.
         with self.assertRaises(DatasetFetchError):
             map_row("opai_bench", {**base, "ai_spans_char": "[[0, 9999]]"}, "default", "train")
-        # Labels disagree with the document-level ratio.
-        with self.assertRaises(DatasetFetchError):
-            map_row("opai_bench", {**base, "sentence_labels": "[0, 0]"}, "default", "train")
+        # Labels disagreeing with the document-level ratio map fine:
+        # the ratio and the labels were computed on slightly different
+        # segmentations (6/500 sampled rows disagree, max |diff| 0.032),
+        # so the mapper preserves both and the measurement reports the
+        # agreement instead of asserting it.
+        (disagreeing,) = map_row(
+            "opai_bench",
+            {**base, "sentence_labels": "[0, 0]", "ai_sentence_ratio": 0.5},
+            "default",
+            "train",
+        )
+        self.assertEqual(disagreeing.meta["sentence_labels"], [0, 0])
+        self.assertEqual(disagreeing.meta["ai_sentence_ratio"], 0.5)
         # Already-decoded lists are accepted (tests / cached rows).
         (row_out,) = map_row(
             "opai_bench",

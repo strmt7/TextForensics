@@ -87,8 +87,10 @@ _SEGMENT_REFERENCE_RE = re.compile(r"^(full_text|sha256:[0-9a-f]{64})$")
 #: Segment slice IDs the CLI treats as mixed-origin validation
 #: coverage. A new segment-level U1 record must register its slice
 #: ID here (see scripts/seed_validation.py) before the CLI will
-#: treat its (language, domain) pairs as covered.
-SEGMENT_SLICE_IDS: tuple[str, ...] = ("opai-bench-segments-builtin-heuristic",)
+#: treat its (language, domain) pairs as covered. The ID follows the
+#: seed convention ``<key>-builtin-heuristic`` with the loader key
+#: ``opai_bench_segments`` — underscores and all.
+SEGMENT_SLICE_IDS: tuple[str, ...] = ("opai_bench_segments-builtin-heuristic",)
 
 #: Editing regimes that mark a validation record as segment-level
 #: mixed-origin evidence (as opposed to a document-level record).
@@ -173,6 +175,26 @@ def _segment_evidence(score: float, n_words: int) -> str:
     if score <= HUMAN_THRESHOLD:
         return "human-consistent"
     return "insufficient"
+
+
+def segment_verdict(score: float, n_words: int) -> str:
+    """Native-style verdict for one segment (``ai_like``/``human_like``/``abstain``).
+
+    This mirrors :func:`_segment_evidence` — the segment-level
+    operating point the report builder uses. It deliberately does
+    NOT call ``BuiltinHeuristicDetector.detect()`` on the segment:
+    the engine's verdict first applies a diagnostic-reliability gate
+    (``length_reliability = word_count / 250``), which abstains on
+    ALL short text by construction, so the detector's document
+    verdict would zero out every segment-level native metric. The
+    segment verdict is defined by the declared operating point
+    instead; the U1 segment record states this explicitly.
+    """
+    return {
+        "ai-consistent": "ai_like",
+        "human-consistent": "human_like",
+        "insufficient": "abstain",
+    }[_segment_evidence(score, n_words)]
 
 
 def _methods_agreeing(result: Any, evidence: str) -> list[str]:

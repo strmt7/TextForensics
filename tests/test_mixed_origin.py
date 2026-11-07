@@ -83,6 +83,16 @@ class MixedOriginLogicTest(unittest.TestCase):
         self.assertEqual(_segment_evidence(0.05, 20), "human-consistent")
         self.assertEqual(_segment_evidence(0.5, 30), "insufficient")
 
+    def test_segment_verdict_mapping(self):
+        from textforensics.mixed_origin import segment_verdict
+
+        self.assertEqual(segment_verdict(0.9, 25), "ai_like")
+        self.assertEqual(segment_verdict(0.1, 25), "human_like")
+        self.assertEqual(segment_verdict(0.5, 25), "abstain")
+        # Short segments abstain even at extreme scores.
+        self.assertEqual(segment_verdict(0.9, 5), "abstain")
+        self.assertEqual(segment_verdict(0.1, 19), "abstain")
+
     def test_degree_tier_boundaries(self):
         self.assertEqual(_degree_of_change(25, 75)[0], "human")  # share 0.25
         self.assertEqual(_degree_of_change(26, 74)[0], "lightly")
@@ -366,7 +376,7 @@ class SegmentCoveredRegimesTest(unittest.TestCase):
             status="partial",
             detector_version="0.1.0",
             regime=regime,
-            metrics=[SimpleNamespace(slice_id="opai-bench-segments-builtin-heuristic")],
+            metrics=[SimpleNamespace(slice_id="opai_bench_segments-builtin-heuristic")],
         )
         for key, value in overrides.items():
             if key in ("language", "domain", "editing_regime"):
@@ -415,7 +425,7 @@ class SegmentCoveredRegimesTest(unittest.TestCase):
                 registry,
                 slice_ids=(
                     "other-segments-x",
-                    "opai-bench-segments-builtin-heuristic",
+                    "opai_bench_segments-builtin-heuristic",
                 ),
             ),
             {("en", "news"), ("en", "essays")},

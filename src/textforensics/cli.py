@@ -473,7 +473,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--segment-slice",
         action="append",
         default=None,
-        help="Segment slice ID to treat as mixed-origin coverage (repeatable; default: opai-bench-segments-builtin-heuristic).",
+        help="Segment slice ID to treat as mixed-origin coverage (repeatable; default: opai_bench_segments-builtin-heuristic).",
     )
     mixed_origin.add_argument(
         "--no-adversarial",

@@ -45,6 +45,48 @@ def test_auroc_needs_both_classes(measure):
         measure.auroc([1, 1], [0.5, 0.6])
 
 
+def _pairwise_auroc(labels, scores):
+    """Reference pairwise AUROC (the pre-rank implementation)."""
+    pos = [s for lab, s in zip(labels, scores, strict=True) if lab == 1]
+    neg = [s for lab, s in zip(labels, scores, strict=True) if lab == 0]
+    wins = 0.0
+    for p in pos:
+        for n in neg:
+            if p > n:
+                wins += 1.0
+            elif p == n:
+                wins += 0.5
+    return wins / (len(pos) * len(neg))
+
+
+def test_auroc_rank_matches_pairwise_on_tied_data(measure):
+    """The rank-based AUROC must equal the pairwise count exactly.
+
+    Heavy ties (scores rounded to 1 decimal, so most values tie) plus
+    edge cases: all scores equal (0.5), perfect separation (1.0),
+    and a 5000-item segment-scale sample.
+    """
+    import random
+
+    rng = random.Random(20261107)
+    for _trial in range(20):
+        n = rng.randint(4, 60)
+        labels = [rng.randint(0, 1) for _ in range(n)]
+        if len(set(labels)) < 2:
+            labels[0] = 0
+            labels[1] = 1
+        scores = [round(rng.random(), 1) for _ in range(n)]
+        assert measure.auroc(labels, scores) == pytest.approx(
+            _pairwise_auroc(labels, scores), abs=1e-12
+        )
+    assert measure.auroc([0, 1, 0, 1], [0.5, 0.5, 0.5, 0.5]) == 0.5
+    labels = [rng.randint(0, 1) for _ in range(5000)]
+    scores = [round(rng.random(), 2) for _ in range(5000)]
+    assert measure.auroc(labels, scores) == pytest.approx(
+        _pairwise_auroc(labels, scores), abs=1e-12
+    )
+
+
 def test_tpr_at_fpr_perfect_separation(measure):
     labels = [0, 0, 1, 1]
     scores = [0.1, 0.2, 0.8, 0.9]

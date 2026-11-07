@@ -1198,14 +1198,27 @@ def _map_opai_bench(row: dict[str, Any], config: str, split: str) -> list[Normal
     Segment-level ground truth (U4) is preserved in ``meta``:
     ``sentences`` (list of str), ``sentence_labels`` (list of 0/1,
     same length), ``ai_spans_char`` (list of [start, end] char offsets
-    into the text). Verified live 2026-11-07 on 30 rows across v0–v8:
-    the fields are JSON-encoded strings on the server, labels are 0/1
-    with ``len(labels) == len(sentences)``, spans lie inside the text,
-    and ``mean(sentence_labels) == ai_sentence_ratio``. Every one of
-    those invariants is checked here and a violation fails closed.
-    The ``default`` config is the verified schema, so it requires the
-    fields; the ``ablations`` config is unverified for them, so it
-    preserves them when present and never assumes them.
+    into the text). Verified live 2026-11-07 on 30 rows across v0–v8
+    and on the full 500-row strided sample: the fields are
+    JSON-encoded strings on the server, labels are 0/1 with
+    ``len(labels) == len(sentences)``, and spans lie inside the text.
+    Every one of those invariants is checked here and a violation
+    fails closed. The ``default`` config is the verified schema, so
+    it requires the fields; the ``ablations`` config is unverified
+    for them, so it preserves them when present and never assumes
+    them.
+
+    Deliberately NOT checked: ``mean(sentence_labels)`` against
+    ``ai_sentence_ratio``. That cross-check was in the first version
+    of this mapper and the full 500-row sample falsified it as a
+    dataset invariant: 6/500 rows disagree (max |diff| 0.032, all
+    intermediate versions, no v0/v8 endpoint row affected) because
+    the ratio and the labels were computed on slightly different
+    sentence segmentations (e.g. ratio 12/20 vs labels 12/19). The
+    labels are the segment ground truth and the ratio is the
+    document-level summary; each is used for its own purpose, and
+    the segment run measures and reports the agreement instead of
+    asserting it.
     """
     text = _require_text(row, "text", "opai_bench")
     ratio = row.get("ai_sentence_ratio")
@@ -1261,10 +1274,6 @@ def _map_opai_bench(row: dict[str, Any], config: str, split: str) -> list[Normal
         ):
             raise DatasetFetchError(
                 "opai_bench: ai_spans_char must be [start, end] pairs inside the text"
-            )
-        if abs(sum(labels) / len(labels) - ratio) > 1e-9:
-            raise DatasetFetchError(
-                "opai_bench: mean(sentence_labels) disagrees with ai_sentence_ratio"
             )
         meta["sentences"] = sentences
         meta["sentence_labels"] = labels
@@ -1545,16 +1554,28 @@ def write_sample_cache(
     *,
     cache_dir: Path | None = None,
     fetched_from: str | None = None,
+    filename: str | None = None,
 ) -> tuple[Path, Path]:
     """Write normalised rows as JSONL cache + manifest, return both paths.
 
     The manifest records the source, the fetch date, the row count and
     the SHA-256 of the cache file, so a cached sample can be re-verified
     without re-downloading.
+
+    ``filename`` overrides the cache file name (plain file name only,
+    e.g. ``"train-segments.jsonl"``) — used when a second sample of
+    the same config/split must coexist with the first, as the U4
+    segment cache does next to the U1 document cache. The manifest
+    takes the matching ``.manifest.json`` name. Default preserves the
+    ``<split>.jsonl`` layout.
     """
     from datetime import date
 
     path = cache_path(spec.key, config, split, cache_dir=cache_dir)
+    if filename is not None:
+        if not filename or filename != Path(filename).name:
+            raise ValueError(f"filename must be a plain file name, got {filename!r}")
+        path = path.with_name(filename)
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [json.dumps(row.to_jsonl(), ensure_ascii=False, sort_keys=True) for row in normalized]
     content = "\n".join(lines) + ("\n" if lines else "")
@@ -1572,7 +1593,11 @@ def write_sample_cache(
         "file": path.name,
         "file_sha256": file_sha256,
     }
-    manifest_file = manifest_path(spec.key, config, split, cache_dir=cache_dir)
+    manifest_file = (
+        path.with_suffix(".manifest.json")
+        if filename is not None
+        else manifest_path(spec.key, config, split, cache_dir=cache_dir)
+    )
     manifest_file.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
@@ -1585,9 +1610,19 @@ def read_sample_cache(
     split: str,
     *,
     cache_dir: Path | None = None,
+    filename: str | None = None,
 ) -> list[NormalizedRow]:
-    """Read normalised rows back from a JSONL cache file."""
+    """Read normalised rows back from a JSONL cache file.
+
+    ``filename`` is the ``write_sample_cache`` override: the plain
+    file name of a coexisting second sample of the same config/split
+    (e.g. ``"train-segments.jsonl"``).
+    """
     path = cache_path(spec.key, config, split, cache_dir=cache_dir)
+    if filename is not None:
+        if not filename or filename != Path(filename).name:
+            raise ValueError(f"filename must be a plain file name, got {filename!r}")
+        path = path.with_name(filename)
     if not path.exists():
         raise FileNotFoundError(f"No cached sample for {spec.key} {config}/{split}: {path}")
     rows: list[NormalizedRow] = []

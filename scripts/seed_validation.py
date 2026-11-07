@@ -233,6 +233,63 @@ SEED_CONFIGS = {
         ],
         "appeal_note": ("A reviewed assessment and per-version reporting would change this record"),
     },
+    "opai_bench_segments": {
+        # U4 segment-level record: sentences, not documents, from the
+        # SAME 500-row strided OpAI-Bench train sample as the document
+        # record evr-20261106-opai-bench-builtin-heuristic (re-fetched
+        # with segment ground truth; the document cache is untouched).
+        # editing_regime "LLM-edited" is deliberate AND load-bearing:
+        # no input regime maps to it (validation.py
+        # INPUT_EDITING_REGIME_MAP), so segment FPR can never pollute
+        # a document-level Trust Map dimension. Stored "partial" never
+        # upgrades to "supported" on its own.
+        "record_id": "evr-20261107-opai-bench-builtin-heuristic",
+        "dataset_name": "OpAI-Bench (segment-level)",
+        "genre": "segment-level (sentence) slice — OpAI-Bench v0–v8 edit ladder",
+        "editing_regime": "LLM-edited",
+        "vintage": "2026 (gemini-2.5-flash, gpt-5.4 family; Bsharat et al. 2026)",
+        "populations": ["general human authors"],
+        "determined_how": (
+            "Dataset documentation (OpAI-Bench card, Bsharat et al. 2026): "
+            "human documents from news, essays, reports and abstracts; no "
+            "per-author demographics recorded; sentence labels are the "
+            "dataset's own sentence_labels field"
+        ),
+        "known_failure_modes": [
+            "segment scores are evidence scores, not sentence authorship "
+            "probabilities; per-segment F1 is modest and the segment "
+            "method is weak by design (research §8.2)",
+            "segments under 20 words never carry a verdict, so short "
+            "sentences contribute abstentions, not evidence",
+            "the ai→human direction has no data source in v1.0: every "
+            "OpAI-Bench row is human→ai, so those cells are unknown",
+            "no population-labelled source exists, so the human-slice "
+            "segment FPR is pooled by domain only, never by population",
+        ],
+        "limitations_extra": [
+            "per-segment precision/recall/F1 by version, operation and "
+            "length live in the U7 run artifact (the evidence-record "
+            "schema has no slots for them), not in this record",
+            "the operation-hypothesis accuracy and the verdict "
+            "distribution on mixed documents live in the U7 run artifact",
+            "the record covers the train split only; the dev-50 slice "
+            "is a replication reported in the artifact, not pooled here",
+            "this record is segment-level evidence: it must never be "
+            "read as a document-level claim and never auto-matches a "
+            "Trust Map dimension",
+            "native FPR/TPR here are at the segment operating point "
+            "(score >=0.68 / <=0.32, segments under 20 words abstain), "
+            "not at the document detector's reliability-gated verdict — "
+            "the document verdict abstains on all short text by "
+            "construction (length_reliability = word_count/250), so it "
+            "would zero out every segment-level native metric",
+        ],
+        "appeal_note": (
+            "A reviewed assessment, a dedicated mixed-origin calibration "
+            "set, and per-(operation × direction) cells with n>=100 "
+            "segments would change this record"
+        ),
+    },
     "detectrl_x": {
         "record_id": "evr-20261107-detectrl-x-builtin-heuristic",
         "dataset_name": "DetectRL-X",
@@ -639,6 +696,12 @@ def record_from_triples(
     artifact: dict,
     n_partial: int = 0,
     cache_file_sha256: str,
+    spec_key: str | None = None,
+    slice_id: str | None = None,
+    split: str | None = None,
+    command: str | None = None,
+    runner: str | None = None,
+    length_floor: int = 80,
 ) -> tuple[ValidationRecord, dict]:
     """Build (and dual-validate) one seed ValidationRecord from measured triples.
 
@@ -650,11 +713,20 @@ def record_from_triples(
     the Python validator; any issue raises ValueError. Returns the
     record and the full measurements dict (which also carries native
     TPR — a value the record schema has no slot for).
+
+    The ``spec_key`` / ``slice_id`` / ``split`` / ``command`` /
+    ``runner`` / ``length_floor`` overrides exist for the U4 segment
+    record, whose triples are segments (not documents) from the
+    OpAI-Bench sample: its spec is ``opai_bench``, its slice is
+    ``opai_bench_segments-builtin-heuristic``, its length floor is 1
+    (segments are sentences — a floor of 80 words would misdescribe
+    the slice), and its command/runner name the segment script.
+    Defaults preserve the document-record behaviour exactly.
     """
     if key not in SEED_CONFIGS:
         raise ValueError(f"no seed config for dataset {key!r}")
     config = SEED_CONFIGS[key]
-    spec = get_spec(key)
+    spec = get_spec(spec_key or key)
     measurements = measure_triples(triples)
     if not word_counts:
         raise ValueError(f"{key}: no labelled rows to measure length statistics.")
@@ -708,9 +780,9 @@ def record_from_triples(
             script=config.get("script", "Latn"),
             language_variety=config.get("language_variety"),
             length_bucket=LengthBucket(
-                min_words=80,
+                min_words=length_floor,
                 max_words=None,
-                floor_words=80,
+                floor_words=length_floor,
                 measured_min_words=measured_min,
                 measured_median_words=measured_median,
                 measured_max_words=measured_max,
@@ -734,7 +806,7 @@ def record_from_triples(
             dataset_version=f"{spec.hf_id} snapshot {run_date} (no versioned release)",
             file_sha256=cache_file_sha256,
             row_hash_method=ROW_HASH_METHOD,
-            split=SAMPLE_PLAN[key]["split"],
+            split=split or SAMPLE_PLAN[key]["split"],
             split_role="test",
             n_human=measurements["n_human"],
             n_ai=measurements["n_ai"],
@@ -749,19 +821,19 @@ def record_from_triples(
             run_artifact=artifact["run_artifact"],
             run_artifact_sha256=artifact["run_artifact_sha256"],
             run_date=run_date,
-            runner="U1 seed (scripts/seed_validation.py)",
+            runner=runner or "U1 seed (scripts/seed_validation.py)",
             code_version=artifact["code_version"],
             dependency_lock_sha=None,
             hardware=f"{platform.machine()} ({platform.system()} {platform.release()})",
             runtime=f"CPython {platform.python_version()} on {sys.platform}",
             seeds={"bootstrap_seed": BOOTSTRAP_SEED},
-            command=f"python scripts/seed_validation.py --only {key}",
+            command=command or f"python scripts/seed_validation.py --only {key}",
             drops_manifest=tuple(drops),
             reporting_rules=REPORTING_RULES,
         ),
         metrics=(
             SliceMetrics(
-                slice_id=f"{key}-builtin-heuristic",
+                slice_id=slice_id or f"{key}-builtin-heuristic",
                 n_human=measurements["n_human"],
                 n_ai=measurements["n_ai"],
                 auroc=measurements["auroc"],
@@ -850,6 +922,116 @@ def build_record(
         n_partial=n_partial,
         cache_file_sha256=cache_sha,
     )
+
+
+# Segment cache file names (U4). The segment caches live next to the
+# OpAI-Bench document caches and hold the SAME strided samples with
+# segment ground truth in row meta; the document caches are untouched.
+TRAIN_SEGMENTS_FILENAME = "train-segments.jsonl"
+DEV_SEGMENTS_FILENAME = "dev-segments.jsonl"
+SEGMENT_KEY = "opai_bench_segments"
+
+
+def build_segment_record(
+    *,
+    cache_dir: Path | None = None,
+    repo_root: Path = REPO_ROOT,
+    run_date: str | None = None,
+) -> tuple[ValidationRecord, dict]:
+    """Build the U4 OpAI-Bench segment record and append it to the registry.
+
+    Reads the segment cache (``train-segments.jsonl``, written by
+    scripts/measure_segments.py — the SAME 500-row strided train
+    sample as the document record, re-fetched with segment ground
+    truth), verifies the manifest hash, expands each cached row into
+    its dataset sentences, scores each sentence with the report
+    builder's segment scorer (``analyze_text(include_robustness=False)``
+    + the declared 0.68/0.32 operating point via
+    ``mixed_origin.segment_verdict``), and builds the record via
+    :func:`record_from_triples` with the segment overrides. The
+    record is appended to the existing validation registry (duplicate
+    record ids refused), reloaded and re-verified — the same merge
+    discipline as ``seed_validation.py --append``.
+    """
+    from textforensics.engine import analyze_text
+    from textforensics.mixed_origin import segment_verdict
+
+    key = SEGMENT_KEY
+    spec = get_spec("opai_bench")
+    rows = read_sample_cache(
+        spec, "default", "train", cache_dir=cache_dir, filename=TRAIN_SEGMENTS_FILENAME
+    )
+    cache_file = cache_path("opai_bench", "default", "train", cache_dir=cache_dir).with_name(
+        TRAIN_SEGMENTS_FILENAME
+    )
+    manifest = json.loads(cache_file.with_suffix(".manifest.json").read_text(encoding="utf-8"))
+    cache_sha = _sha256_file(cache_file)
+    if manifest["file_sha256"] != cache_sha:
+        raise ValueError(
+            f"{key}: cache manifest file_sha256 {manifest['file_sha256']} != "
+            f"recomputed SHA-256 {cache_sha} of {cache_file}"
+        )
+    triples: list[tuple[int, float, str]] = []
+    word_counts: list[int] = []
+    domains: set[str] = set()
+    generators: set[str] = set()
+    for row in rows:
+        if row.meta.get("domain"):
+            domains.add(str(row.meta["domain"]))
+        if row.meta.get("generator"):
+            generators.add(str(row.meta["generator"]))
+        sentences = row.meta.get("sentences")
+        labels = row.meta.get("sentence_labels")
+        if (
+            not isinstance(sentences, list)
+            or not isinstance(labels, list)
+            or len(sentences) != len(labels)
+        ):
+            raise ValueError(
+                f"{key}: cached row {row.source_id!r} lacks valid segment meta — "
+                "re-run scripts/measure_segments.py"
+            )
+        for sentence, label in zip(sentences, labels, strict=True):
+            result = analyze_text(sentence, include_robustness=False)
+            score = float(result.score)
+            n_words = len(sentence.split())
+            triples.append((int(label), score, segment_verdict(score, n_words)))
+            word_counts.append(n_words)
+    artifact = verify_run_artifact(key, repo_root=repo_root, run_date=run_date)
+    record, measurements = record_from_triples(
+        key,
+        triples,
+        word_counts=word_counts,
+        domains=sorted(domains),
+        generators=sorted(generators),
+        artifact=artifact,
+        n_partial=0,
+        cache_file_sha256=cache_sha,
+        spec_key="opai_bench",
+        slice_id="opai_bench_segments-builtin-heuristic",
+        split="train",
+        command="python scripts/measure_segments.py",
+        runner="U4 segment seed (scripts/measure_segments.py)",
+        length_floor=1,
+    )
+    registry_path = repo_root / "docs" / "validation" / "registry.json"
+    if not registry_path.exists():
+        raise ValueError(f"no existing registry at {registry_path}")
+    existing = ValidationRegistry.load(registry_path)
+    if existing.record(record.record_id) is not None:
+        raise ValueError(f"{record.record_id} already in {registry_path}; refusing")
+    merged = ValidationRegistry(
+        list(existing.records) + [record],
+        created_at_utc=existing.created_at_utc,
+    )
+    merged.save(registry_path)
+    reloaded = ValidationRegistry.load(registry_path)
+    print(
+        f"Appended segment record {record.record_id} to {registry_path}: "
+        f"{len(existing.records)} -> {len(reloaded.records)} records "
+        f"(registry_id {reloaded.registry_id[:12]}...), reloaded and re-verified."
+    )
+    return record, measurements
 
 
 def seed_registry(
