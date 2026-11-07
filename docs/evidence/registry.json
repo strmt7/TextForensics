@@ -83,7 +83,7 @@
     {
       "evidence_record_id": "EV-20261107-code-audit",
       "run_artifact": "docs/evidence/runs/EV-20261107-code-audit.json",
-      "run_artifact_sha256": "f54995ef72dbe45453fed1a80eab792d28924f607c6d286c4b0ae3ab9656463b"
+      "run_artifact_sha256": "02860fa133b44baef1587323fb8d7657b86f8220f5908d8d8a05455108aabc13"
     },
     {
       "evidence_record_id": "EV-20261107-dataset-detectrl-x",

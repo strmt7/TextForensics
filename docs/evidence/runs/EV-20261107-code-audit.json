@@ -1,6 +1,6 @@
 {
   "badge": "available",
-  "code_version": "264344ec8bc4f50c705d9724355afa18f8a7c3a6",
+  "code_version": "910db750eea08f943320b2ba903627919eb22050",
   "command": "AST scan of src/textforensics/**/*.py for network-client imports",
   "drops": [
     {

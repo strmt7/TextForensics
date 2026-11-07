@@ -376,10 +376,20 @@ def measure_determinism(record_id: str, force: bool) -> None:
 def measure_code_audit(record_id: str, force: bool) -> None:
     """Record which src/ files import a network client library (AST check).
 
-    The claim this backs (core.local_first) states the only network
-    client import in src/ is ollama.py. This check parses every module's
-    AST and lists files importing a network-client module, so the claim
-    is tied to a reproducible measurement instead of an assertion.
+    The claim this backs (core.local_first) states three src/ files
+    import a network client: datasets.py (dataset downloader + HF API
+    client), ollama.py (opt-in Ollama adapter), timestamp.py (TSA POST
+    client). This check parses every module's AST and lists files
+    importing a network-client module, so the claim is tied to a
+    reproducible measurement instead of an assertion.
+
+    Definition (unchanged since 2026-11-06; AGENTS.md rule 17 — no
+    relabelling): the set counts I/O-capable imports only.
+    ``urllib.parse`` is deliberately excluded (``urlparse`` parses
+    strings; it performs no I/O — ollama.py:34 imports it but is
+    counted via its real ``aiohttp`` client instead), and likewise
+    ``urllib.error`` (exception classes only; a file doing I/O needs
+    ``urllib.request`` or ``http.client``, both counted).
     """
     import ast
 
