@@ -2169,4 +2169,3 @@ function = "EnterprisePolicyEngine.__init__"
 kind = "arg"
 annotation = "PolicyRevisionFloor | None"
 reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
-
