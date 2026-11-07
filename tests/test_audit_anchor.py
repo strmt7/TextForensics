@@ -14,6 +14,7 @@ from textforensics.ledger import (
     AuditAnchor,
     CalibrationChain,
     RollbackError,
+    _hash_directory,
     export_audit_anchor,
     verify_audit_anchor,
 )
@@ -128,6 +129,38 @@ class TestExportAuditAnchor:
         anchor = export_audit_anchor(base_dir=workspace)
         # Auto-detection must produce a dict (possibly empty on failure)
         assert isinstance(anchor.detector_versions, dict)
+
+
+# ---------------------------------------------------------------------------
+# _hash_directory
+# ---------------------------------------------------------------------------
+
+
+class TestHashDirectory:
+    def test_missing_directory_returns_empty_string(self, tmp_path: Path):
+        assert _hash_directory(tmp_path / "does-not-exist") == ""
+
+    def test_empty_directory_returns_sha256_of_empty_input(self, tmp_path: Path):
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        assert _hash_directory(empty) == hashlib.sha256(b"").hexdigest()
+        assert _hash_directory(empty) == (
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        )
+
+    def test_missing_and_empty_directories_are_distinct(self, tmp_path: Path):
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        assert _hash_directory(tmp_path / "does-not-exist") != _hash_directory(empty)
+
+    def test_directory_with_file_returns_stable_distinct_hash(self, tmp_path: Path):
+        populated = tmp_path / "populated"
+        populated.mkdir()
+        _make_file(populated / "a.json", '{"threshold": 0.5}')
+        first = _hash_directory(populated)
+        assert first == _hash_directory(populated)
+        assert first != ""
+        assert first != hashlib.sha256(b"").hexdigest()
 
 
 # ---------------------------------------------------------------------------

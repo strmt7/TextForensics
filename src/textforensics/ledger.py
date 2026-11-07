@@ -1427,9 +1427,13 @@ class AuditAnchor:
 def _hash_directory(dir_path: Path) -> str:
     """Compute a deterministic SHA-256 hash of a directory tree.
 
-    Files are sorted by relative path and hashed sequentially. Directories
-    without files produce the empty-string hash. A missing directory also
-    produces the empty-string hash.
+    Files are sorted by relative path and hashed sequentially. A missing
+    directory returns ``""`` (the literal empty-string sentinel meaning
+    "directory absent"). An existing directory with no files returns the
+    SHA-256 of empty input
+    (``e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855``).
+    The two cases are deliberately distinct: an absent directory must
+    never be confused with an empty one.
     """
     if not dir_path.is_dir():
         return ""
