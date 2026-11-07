@@ -20,7 +20,7 @@ twine>=4,<7  # twine 7 requires rich>=14.3.3; see pyproject.toml
 pytest>=8.4.2,<10
 pytest-asyncio>=0.24,<2
 pytest-cov>=5.0.0,<8
-pytest-benchmark>=4.0.0,<5
+pytest-benchmark>=4.0.0,<6
 pytest-timeout>=2.4.0,<3
 hypothesis>=6.170,<7
 
