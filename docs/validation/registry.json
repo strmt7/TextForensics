@@ -1,6 +1,6 @@
 {
   "schema": "textforensics.validation-registry/v1",
-  "registry_id": "85822eabb90096ba692fbc17cf9bc6287f4e97f4a0816d42444898ef3e898c73",
+  "registry_id": "2d2a1651498da9986f76b168b071625306d3ddd968e2d245c93182f7a0eecbee",
   "created_at_utc": "2026-11-06T23:24:11.755599+00:00",
   "records": [
     {
@@ -727,6 +727,190 @@
         "demoted_by": null
       },
       "signature": "a880969ef87900fc3996ec396cc1c3c5ca389378bb65337726b6910dadfe53ea"
+    },
+    {
+      "schema": "textforensics.evidence-record/v1",
+      "record_id": "evr-20261107-ghostwriter-builtin-heuristic",
+      "detector_id": "textforensics/builtin-heuristic",
+      "detector_version": "0.1.0",
+      "detector_family": "stylometric-heuristic",
+      "calibration_id": null,
+      "status": "partial",
+      "supersedes": null,
+      "regime": {
+        "language": "mul",
+        "script": "Latn",
+        "language_variety": "en-EN + de-DE (288 + 59 labelled rows)",
+        "length_bucket": {
+          "min_words": 80,
+          "max_words": null,
+          "floor_words": 80,
+          "measured_min_words": 8,
+          "measured_median_words": 447,
+          "measured_max_words": 20084
+        },
+        "domain": [
+          "arxiv_papers",
+          "blog_authorship_corpus",
+          "bundestag",
+          "cnn_news",
+          "euro_court_cases",
+          "gutenberg",
+          "house_of_commons",
+          "student_essays"
+        ],
+        "genre": "mixed-origin benchmark sample, binary slice only (human/ai fulltext endpoints)",
+        "generator": {
+          "families": [
+            "deepseek-r1:1.5b",
+            "deepseek-r1:32b",
+            "gemma2:9b",
+            "gpt-4o-mini",
+            "nemotron",
+            "phi3:3.8b"
+          ],
+          "vintage": "2024-2025 (gemma2, gpt-4o-mini, phi3, nemotron, deepseek-r1 agents in the GhostWriter release; Schaaf et al. 2026)",
+          "current_as_of": "2026-11-07"
+        },
+        "editing_regime": "raw",
+        "human_population": {
+          "populations": [
+            "general human authors"
+          ],
+          "determined_how": "Dataset documentation (GhostWriter card, Schaaf et al. 2026): human texts from CNN news, arXiv papers, blogs, Bundestag proceedings, House of Commons debates, EU court cases, student essays and Project Gutenberg; no per-author demographics recorded"
+        },
+        "attack_slice": null
+      },
+      "data": {
+        "dataset_name": "GhostWriter",
+        "dataset_version": "TheItCrOw/GhostWriter snapshot 2026-11-07 (no versioned release)",
+        "file_sha256": "12d2ab690b8952d34cb8814231b332f96dbc565de6f2daf4af50d3a60df184c8",
+        "row_hash_method": "sha256 of normalised text (benchmark fingerprint)",
+        "split": "train",
+        "split_role": "test",
+        "n_human": 137,
+        "n_ai": 210,
+        "licence": "Per-domain licences (no single dataset licence): cnn_news Apache-2.0; arxiv_papers arXiv.org non-exclusive licence to distribute; blog_authorship_corpus CC0 / free for non-commercial research; bundestag DL-DE-BY-2.0; house_of_commons Open Parliament Licence; euro_court_cases CC-BY-NC-SA 4.0; student_essays CC-BY-NC-SA 4.0; gutenberg CC0",
+        "licence_reference": "https://huggingface.co/datasets/TheItCrOw/GhostWriter",
+        "contamination_flag": "no",
+        "near_duplicate_rate": null,
+        "near_duplicate_method": null
+      },
+      "run": {
+        "run_id": "EV-20261107-dataset-ghostwriter",
+        "run_artifact": "docs/evidence/runs/EV-20261107-dataset-ghostwriter.json",
+        "run_artifact_sha256": "a2d1ba76f61051f464e8717c02809f18dbfbeae4453d5b6166579d8e3f7aa836",
+        "run_date": "2026-11-07",
+        "runner": "U1 seed (scripts/seed_validation.py)",
+        "code_version": "ef0a93a994f67fba839ae275d51085e8acb5b656",
+        "dependency_lock_sha": null,
+        "hardware": "x86_64 (Linux 7.0.0-43-generic)",
+        "runtime": "CPython 3.12.3 on linux",
+        "seeds": {
+          "bootstrap_seed": 20261106
+        },
+        "command": "python scripts/seed_validation.py --only ghostwriter",
+        "drops_manifest": [
+          {
+            "item": "full-corpus evaluation",
+            "reason": "preliminary sample only (n=500 normalised rows from 332224 split rows)"
+          },
+          {
+            "item": "Python 3.11, 3.13, 3.14, 3.15",
+            "reason": "measured on the local interpreter only; CI covers the matrix"
+          },
+          {
+            "item": "train/test threshold selection",
+            "reason": "no threshold was fitted on this sample; AUROC/TPR@FPR are threshold-free"
+          },
+          {
+            "item": "153 fusion (mixed-origin) rows",
+            "reason": "label 2 rows carry no binary label; they are the U4 spine, not U1 evidence"
+          },
+          {
+            "item": "per-slice breakdowns (per-domain / per-generator / per-attack)",
+            "reason": "this seed record reports one pooled slice per dataset; finer slices are wave-2 work"
+          },
+          {
+            "item": "153 fusion (mixed-origin) rows",
+            "reason": "rows with label 2 carry no binary label; they are the U4 spine, not U1 evidence"
+          }
+        ],
+        "reporting_rules": "Labelled rows only; abstentions counted separately from AUROC/TPR (abstained rows still contribute their score); no score threshold fitted — AUROC and TPR@FPR are threshold-free; native FPR/TPR at the detector's native categorical verdict; bootstrap 95% CIs, 1000 resamples, seed 20261106"
+      },
+      "metrics": [
+        {
+          "slice_id": "ghostwriter-builtin-heuristic",
+          "n_human": 137,
+          "n_ai": 210,
+          "auroc": {
+            "value": 0.436,
+            "n": 347,
+            "ci_lower": 0.3647,
+            "ci_upper": 0.5036,
+            "method": "bootstrap, 1000 resamples, seed 20261106"
+          },
+          "tpr_at_fpr_0_01": {
+            "value": 0.0,
+            "n": 210,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0044,
+            "method": "bootstrap, 1000 resamples, seed 20261106"
+          },
+          "tpr_at_fpr_0_05": {
+            "value": 0.0048,
+            "n": 210,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0332,
+            "method": "bootstrap, 1000 resamples, seed 20261106"
+          },
+          "fpr_native": {
+            "value": 0.0,
+            "n": 137,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "bootstrap, 1000 resamples, seed 20261106",
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold"
+          },
+          "coverage": 0.5331,
+          "abstention_rate": 0.4669,
+          "worst_slice": true,
+          "tpr_native": {
+            "value": 0.0,
+            "n": 210,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "bootstrap, 1000 resamples, seed 20261106"
+          }
+        }
+      ],
+      "limits": {
+        "known_failure_modes": [
+          "heuristic scores human text higher than machine text: AUROC below chance on this slice (0.436)",
+          "fusion rows are all chunks and labelled rows are all fulltext: the binary slice is fulltext-only, so chunk behaviour is unmeasured",
+          "the sample mixes English (288 labelled rows) and German (59 labelled rows); per-language metrics are not reported separately",
+          "TPR@1% FPR is 0.0 and TPR@5% FPR is 0.0048 on this slice"
+        ],
+        "limitations": [
+          "not validated for non-English text",
+          "not validated for texts below 80 words (the detector's minimum)",
+          "not validated for generators newer than the record's declared vintage",
+          "not validated for human populations outside the record's declared population",
+          "no reviewer has assessed this record; it is a preliminary seed, not a reviewed validation",
+          "the sample is a strided subset of the split, not a full-corpus evaluation",
+          "near-duplicate rate was not measured for this sample",
+          "contamination_flag is 'no' because the builtin detector is a hand-written stylometric heuristic with no training: it was not trained on this dataset or on any other text corpus, so it cannot have memorised evaluation rows",
+          "the 153 fusion (mixed-origin) rows are the U4 spine, not U1 evidence, and are excluded from this record",
+          "per-domain and per-generator metrics are not reported in this record (wave-2 concern)",
+          "two domains (euro_court_cases, student_essays) are CC-BY-NC-SA 4.0 and blog_authorship_corpus is non-commercial-research-only; use is non-commercial research evaluation only"
+        ],
+        "next_revalidation_due": "2027-02-05",
+        "appeal_note": "A reviewed assessment and per-domain / per-language reporting would change this record",
+        "reviewer": null,
+        "review_date": null,
+        "demoted_by": null
+      },
+      "signature": "4a22010600737ec0f432421c0879542c98ebee6037e0976f441dfe5e2a66cafc"
     }
   ]
 }

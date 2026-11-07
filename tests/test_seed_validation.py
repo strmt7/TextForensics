@@ -204,31 +204,92 @@ class TestRecordBuilder:
         assert scope["domains"] == ["sci_gen"]
         assert scope["generators"] == ["text-davinci-003"]
 
+    def test_aggregate_scope_ghostwriter_agents_are_generators(self, seed):
+        rows = [
+            NormalizedRow(
+                text="x",
+                label=0,
+                dataset="ghostwriter",
+                config="default",
+                split="train",
+                source_id="g1",
+                regime="raw",
+                meta={"domain": "cnn_news", "agent": "human", "lang": "en-EN"},
+            ),
+            NormalizedRow(
+                text="y",
+                label=1,
+                dataset="ghostwriter",
+                config="default",
+                split="train",
+                source_id="g2",
+                regime="raw",
+                meta={"domain": "bundestag", "agent": "gpt-4o-mini", "lang": "de-DE"},
+            ),
+            NormalizedRow(
+                text="z",
+                label=1,
+                dataset="ghostwriter",
+                config="default",
+                split="train",
+                source_id="g3",
+                regime="raw",
+                meta={"domain": "bundestag", "agent": "gemma2:9b", "lang": "de-DE"},
+            ),
+        ]
+        scope = seed.aggregate_scope("ghostwriter", rows)
+        assert scope["domains"] == ["bundestag", "cnn_news"]
+        # "human" is an agent value on human rows, not a generator.
+        assert scope["generators"] == ["gemma2:9b", "gpt-4o-mini"]
 
-def _write_fake_u7_repo(tmp: Path, *, artifact_sha: str | None = None) -> Path:
+    def test_record_from_synthetic_triples_ghostwriter_is_multilingual(self, seed):
+        record, _measurements = seed.record_from_triples(
+            "ghostwriter",
+            _synthetic_triples(),
+            word_counts=[100] * 80,
+            domains=["cnn_news"],
+            generators=["gpt-4o-mini"],
+            artifact=_synthetic_artifact(),
+            cache_file_sha256="c" * 64,
+        )
+        payload = record.to_dict()
+        assert validate_evidence_record(payload) == []
+        assert validate_record(payload) == []
+        assert verify_signature(payload)
+        assert record.regime.language == "mul"
+        assert record.regime.language_variety == "en-EN + de-DE (288 + 59 labelled rows)"
+        assert record.data.dataset_name == "GhostWriter"
+        assert "CC-BY-NC-SA 4.0" in record.data.licence
+        assert record.limits.next_revalidation_due == "2027-02-04"
+
+
+def _write_fake_u7_repo(
+    tmp: Path, *, key: str = "mage", run_date: str = "20261106", artifact_sha: str | None = None
+) -> Path:
     """Create a synthetic repo root with a fake U7 artifact + registry."""
+    slug = key.replace("_", "-")
     runs_dir = tmp / "docs" / "evidence" / "runs"
-    runs_dir.mkdir(parents=True)
+    runs_dir.mkdir(parents=True, exist_ok=True)
     artifact = {
         "schema": "textforensics.run-artifact/v1",
-        "evidence_record_id": "EV-20261106-dataset-mage",
+        "evidence_record_id": f"EV-{run_date}-dataset-{slug}",
         "kind": "command",
-        "command": "python scripts/measure_datasets.py --only mage",
+        "command": f"python scripts/measure_datasets.py --only {key}",
         "code_version": "a" * 40,
-        "run_date": "2026-11-06",
+        "run_date": f"{run_date[:4]}-{run_date[4:6]}-{run_date[6:]}",
         "results": {},
         "drops": [],
         "badge": "available",
     }
-    artifact_path = runs_dir / "EV-20261106-dataset-mage.json"
+    artifact_path = runs_dir / f"EV-{run_date}-dataset-{slug}.json"
     artifact_path.write_text(json.dumps(artifact, indent=2, sort_keys=True) + "\n")
     sha = artifact_sha or hashlib.sha256(artifact_path.read_bytes()).hexdigest()
     registry = {
         "schema": "textforensics.evidence-registry/v1",
         "records": [
             {
-                "evidence_record_id": "EV-20261106-dataset-mage",
-                "run_artifact": "docs/evidence/runs/EV-20261106-dataset-mage.json",
+                "evidence_record_id": f"EV-{run_date}-dataset-{slug}",
+                "run_artifact": f"docs/evidence/runs/EV-{run_date}-dataset-{slug}.json",
                 "run_artifact_sha256": sha,
             }
         ],
@@ -276,6 +337,70 @@ def _write_synthetic_cache(tmp: Path) -> Path:
     return cache_dir
 
 
+def _write_synthetic_ghostwriter_cache(tmp: Path) -> Path:
+    """Write a small synthetic GhostWriter cache (12 human + 12 machine + 4 fusion)."""
+    cache_dir = tmp / "cache"
+    spec = get_spec("ghostwriter")
+    human_text = " ".join(["The committee reviewed the annual report and noted the findings."] * 12)
+    machine_text = " ".join(
+        ["Moreover the systematic analysis demonstrates significant outcomes."] * 12
+    )
+    fusion_text = " ".join(["The report therefore combines the earlier findings."] * 12)
+    rows = (
+        [
+            NormalizedRow(
+                text=human_text,
+                label=0,
+                dataset="ghostwriter",
+                config="default",
+                split="train",
+                source_id=f"synthetic-human-{i}",
+                regime="raw",
+                meta={"domain": "cnn_news", "agent": "human", "lang": "en-EN", "type": "fulltext"},
+            )
+            for i in range(12)
+        ]
+        + [
+            NormalizedRow(
+                text=machine_text,
+                label=1,
+                dataset="ghostwriter",
+                config="default",
+                split="train",
+                source_id=f"synthetic-machine-{i}",
+                regime="raw",
+                meta={
+                    "domain": "bundestag",
+                    "agent": "gpt-4o-mini",
+                    "lang": "de-DE",
+                    "type": "fulltext",
+                },
+            )
+            for i in range(12)
+        ]
+        + [
+            NormalizedRow(
+                text=fusion_text,
+                label=None,
+                dataset="ghostwriter",
+                config="default",
+                split="train",
+                source_id=f"synthetic-fusion-{i}",
+                regime="mixed-origin",
+                meta={
+                    "domain": "gutenberg",
+                    "agent": "gemma2:9b",
+                    "lang": "en-EN",
+                    "type": "chunk",
+                },
+            )
+            for i in range(4)
+        ]
+    )
+    write_sample_cache(spec, "default", "train", rows, cache_dir=cache_dir)
+    return cache_dir
+
+
 class TestVerifyArtifact:
     def test_verify_run_artifact_success(self, seed):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -310,6 +435,27 @@ class TestVerifyArtifact:
             with pytest.raises(ValueError, match="no entry"):
                 seed.verify_run_artifact("mage", repo_root=repo)
 
+    def test_verify_run_artifact_uses_run_date_not_hardcoded_date(self, seed):
+        # No EV-20261106 date is baked in: the GhostWriter artifact is
+        # dated 20261107 and is found by auto-detection and by stamp.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = _write_fake_u7_repo(Path(tmpdir), key="ghostwriter", run_date="20261107")
+            proven = seed.verify_run_artifact("ghostwriter", repo_root=repo)
+            assert proven["run_id"] == "EV-20261107-dataset-ghostwriter"
+            assert proven["run_date"] == "2026-11-07"
+            proven2 = seed.verify_run_artifact("ghostwriter", repo_root=repo, run_date="20261107")
+            assert proven2["run_id"] == proven["run_id"]
+            with pytest.raises(ValueError, match="missing"):
+                seed.verify_run_artifact("ghostwriter", repo_root=repo, run_date="20261106")
+
+    def test_verify_run_artifact_auto_detect_prefers_latest(self, seed):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            _write_fake_u7_repo(tmp, key="mage", run_date="20261106")
+            _write_fake_u7_repo(tmp, key="mage", run_date="20261107")
+            proven = seed.verify_run_artifact("mage", repo_root=tmp)
+            assert proven["run_id"] == "EV-20261107-dataset-mage"
+
 
 class TestCheckMode:
     def test_check_mode_builds_from_synthetic_cache_without_network(self, seed):
@@ -343,16 +489,95 @@ class TestCheckMode:
             assert record.metrics[0].n_human == 12
             assert record.metrics[0].n_ai == 12
 
+    def test_build_ghostwriter_record_dual_validates_and_excludes_fusion(self, seed):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            repo = _write_fake_u7_repo(tmp / "repo", key="ghostwriter", run_date="20261107")
+            cache_dir = _write_synthetic_ghostwriter_cache(tmp)
+            record, _measurements = seed.build_record(
+                "ghostwriter", cache_dir=cache_dir, repo_root=repo
+            )
+            assert validate_evidence_record(record.to_dict()) == []
+            assert validate_record(record.to_dict()) == []
+            assert record.data.dataset_name == "GhostWriter"
+            assert record.metrics[0].n_human == 12
+            assert record.metrics[0].n_ai == 12
+            assert record.regime.language == "mul"
+            assert record.regime.domain == ("bundestag", "cnn_news")
+            assert record.regime.generator.families == ("gpt-4o-mini",)
+            assert record.limits.next_revalidation_due == "2027-02-05"
+            assert any("fusion" in drop.item for drop in record.run.drops_manifest)
+
+    def test_check_mode_builds_ghostwriter_without_writing(self, seed):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            repo = _write_fake_u7_repo(tmp / "repo", key="ghostwriter", run_date="20261107")
+            cache_dir = _write_synthetic_ghostwriter_cache(tmp)
+            exit_code = seed.main(
+                [
+                    "--only",
+                    "ghostwriter",
+                    "--check",
+                    "--cache-dir",
+                    str(cache_dir),
+                    "--repo-root",
+                    str(repo),
+                ]
+            )
+            assert exit_code == 0
+            assert not (repo / "docs" / "validation" / "registry.json").exists()
+
+
+class TestAppendMode:
+    def test_append_keeps_existing_records_untouched(self, seed):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            repo = _write_fake_u7_repo(tmp / "repo", key="ghostwriter", run_date="20261107")
+            cache_dir = _write_synthetic_ghostwriter_cache(tmp)
+            mage_record, _ = seed.record_from_triples(
+                "mage",
+                _synthetic_triples(),
+                word_counts=[100] * 80,
+                domains=["synthetic-domain"],
+                generators=["synthetic-generator"],
+                artifact=_synthetic_artifact(),
+                cache_file_sha256="c" * 64,
+            )
+            existing = ValidationRegistry([mage_record])
+            registry_path = tmp / "registry.json"
+            existing.save(registry_path)
+            args = [
+                "--only",
+                "ghostwriter",
+                "--append",
+                "--cache-dir",
+                str(cache_dir),
+                "--repo-root",
+                str(repo),
+                "--registry",
+                str(registry_path),
+            ]
+            assert seed.main(args) == 0
+            reloaded = ValidationRegistry.load(registry_path)
+            assert len(reloaded.records) == 2
+            assert reloaded.record("evr-20261107-ghostwriter-builtin-heuristic") is not None
+            kept = next(r for r in reloaded.records if r.record_id == mage_record.record_id)
+            assert kept.to_dict() == mage_record.to_dict()
+            # Appending the same record again is refused.
+            assert seed.main(args) == 2
+            assert len(ValidationRegistry.load(registry_path).records) == 2
+
 
 class TestSeededRegistry:
-    def test_committed_registry_loads_with_four_records_and_no_mixset(self):
+    def test_committed_registry_loads_with_five_records_and_no_mixset(self):
         registry = ValidationRegistry.load(REPO_ROOT / "docs" / "validation" / "registry.json")
-        assert len(registry.records) == 4
+        assert len(registry.records) == 5
         assert [record.record_id for record in registry.records] == [
             "evr-20261106-beemo-builtin-heuristic",
             "evr-20261106-mage-builtin-heuristic",
             "evr-20261106-opai-bench-builtin-heuristic",
             "evr-20261106-raid-builtin-heuristic",
+            "evr-20261107-ghostwriter-builtin-heuristic",
         ]
         for record in registry.records:
             assert record.status == "partial"

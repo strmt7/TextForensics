@@ -1,16 +1,28 @@
 #!/usr/bin/env python3
-"""seed_validation.py — Seed the U1 validation-evidence registry from the wave-1 caches.
+"""seed_validation.py — Seed the U1 validation-evidence registry from the wave-1/wave-2 caches.
 
 Loads the cached JSONL samples (NO network, NO re-fetch — caches live
 in the XDG cache dir / ``TEXTFORENSICS_DATASETS_DIR``), re-runs
 ``BuiltinHeuristicDetector`` (deterministic) over the labelled rows of
-each wave-1 dataset, and builds one ``ValidationRecord`` per dataset
-(RAID, MAGE, Beemo, OpAI-Bench) via the Package A API
+each dataset, and builds one ``ValidationRecord`` per dataset
+(RAID, MAGE, Beemo, OpAI-Bench, GhostWriter in wave 2) via the Package A API
 (``textforensics.validation``). Every record is checked against BOTH
 validators — the JSON schema (``validate_evidence_record``) and the
 Python validator (``validate_record``) — before it is registered, and
 every record's ``run_artifact_sha256`` is verified against the actual
 U7 artifact file AND the U7 evidence registry entry for it.
+
+The U7 artifact is found by run date: ``--run-date`` takes a
+``YYYYMMDD`` stamp (default: the latest ``EV-*-dataset-<key>.json``
+in ``docs/evidence/runs``), so no date is hardcoded — wave-1 seeds
+used 20261106, the GhostWriter seed uses 20261107.
+
+By default the script rebuilds the registry from the requested keys
+(the U1 seeding behaviour). ``--append`` instead loads the existing
+``docs/validation/registry.json``, appends the newly built records
+(duplicate record ids are rejected) and saves the merged registry —
+the existing records are carried over untouched and the registry id
+is recomputed from the merged record set, as always.
 
 Per dataset the script computes AUROC, TPR@1% FPR, TPR@5% FPR,
 native-verdict FPR (P(verdict=ai_like | human)) and native TPR,
@@ -33,6 +45,7 @@ schema forbids a record without a licence (see the README).
 Usage:
     python scripts/seed_validation.py [--only raid,mage] [--check]
     python scripts/seed_validation.py --check   # build + validate, write nothing
+    python scripts/seed_validation.py --only ghostwriter --append
 """
 
 from __future__ import annotations
@@ -219,6 +232,52 @@ SEED_CONFIGS = {
             "in this record (wave-2 concern)",
         ],
         "appeal_note": ("A reviewed assessment and per-version reporting would change this record"),
+    },
+    "ghostwriter": {
+        "record_id": "evr-20261107-ghostwriter-builtin-heuristic",
+        "dataset_name": "GhostWriter",
+        # Bilingual sample: 288 English + 59 German labelled rows.
+        # "mul" is the BCP 47 tag for multiple languages; the split is
+        # recorded in language_variety and the limitations, and
+        # per-language metrics are not reported separately.
+        "language": "mul",
+        "language_variety": "en-EN + de-DE (288 + 59 labelled rows)",
+        "genre": "mixed-origin benchmark sample, binary slice only (human/ai fulltext endpoints)",
+        "editing_regime": "raw",
+        "vintage": (
+            "2024-2025 (gemma2, gpt-4o-mini, phi3, nemotron, deepseek-r1 "
+            "agents in the GhostWriter release; Schaaf et al. 2026)"
+        ),
+        "populations": ["general human authors"],
+        "determined_how": (
+            "Dataset documentation (GhostWriter card, Schaaf et al. 2026): "
+            "human texts from CNN news, arXiv papers, blogs, Bundestag "
+            "proceedings, House of Commons debates, EU court cases, "
+            "student essays and Project Gutenberg; no per-author "
+            "demographics recorded"
+        ),
+        "known_failure_modes": [
+            "heuristic scores human text higher than machine text: AUROC "
+            "below chance on this slice (0.436)",
+            "fusion rows are all chunks and labelled rows are all "
+            "fulltext: the binary slice is fulltext-only, so chunk "
+            "behaviour is unmeasured",
+            "the sample mixes English (288 labelled rows) and German (59 "
+            "labelled rows); per-language metrics are not reported "
+            "separately",
+            "TPR@1% FPR is 0.0 and TPR@5% FPR is 0.0048 on this slice",
+        ],
+        "limitations_extra": [
+            "the 153 fusion (mixed-origin) rows are the U4 spine, not U1 "
+            "evidence, and are excluded from this record",
+            "per-domain and per-generator metrics are not reported in this record (wave-2 concern)",
+            "two domains (euro_court_cases, student_essays) are CC-BY-NC-SA "
+            "4.0 and blog_authorship_corpus is non-commercial-research-only; "
+            "use is non-commercial research evaluation only",
+        ],
+        "appeal_note": (
+            "A reviewed assessment and per-domain / per-language reporting would change this record"
+        ),
     },
 }
 
@@ -425,6 +484,17 @@ def aggregate_scope(key: str, labelled_rows) -> dict[str, list[str]]:
         generators = sorted(
             {str(r.meta.get("generator")) for r in labelled_rows if r.meta.get("generator")}
         )
+    elif key == "ghostwriter":
+        domains = sorted({str(r.meta.get("domain")) for r in labelled_rows if r.meta.get("domain")})
+        # Generators are the `agent` values; human rows carry agent
+        # "human" and are not generators.
+        generators = sorted(
+            {
+                str(r.meta.get("agent"))
+                for r in labelled_rows
+                if r.meta.get("agent") and r.meta.get("agent") != "human"
+            }
+        )
     else:
         raise ValueError(f"no seed config for dataset {key!r}")
     if not domains or not generators:
@@ -440,17 +510,31 @@ def aggregate_scope(key: str, labelled_rows) -> dict[str, list[str]]:
 # ---------------------------------------------------------------------------
 
 
-def verify_run_artifact(key: str, *, repo_root: Path) -> dict:
+def verify_run_artifact(key: str, *, repo_root: Path, run_date: str | None = None) -> dict:
     """Verify a dataset's U7 run artifact against the U7 registry.
 
-    Returns the run provenance the record needs. Raises ValueError
-    (loudly) when the artifact file is missing, when the U7 registry
-    has no entry for it, or when the registry's
+    ``run_date`` is the ``YYYYMMDD`` stamp in the artifact filename
+    (``EV-<run_date>-dataset-<key>.json``). When omitted, the latest
+    matching artifact in ``docs/evidence/runs`` is used, so no date
+    is hardcoded — wave-1 seeds used 20261106, the GhostWriter seed
+    uses 20261107. Returns the run provenance the record needs.
+    Raises ValueError (loudly) when the artifact file is missing,
+    when the U7 registry has no entry for it, or when the registry's
     ``run_artifact_sha256`` differs from the recomputed SHA-256 of
     the artifact file.
     """
-    artifact_name = f"EV-20261106-dataset-{key.replace('_', '-')}.json"
-    artifact_path = repo_root / "docs" / "evidence" / "runs" / artifact_name
+    runs_dir = repo_root / "docs" / "evidence" / "runs"
+    slug = key.replace("_", "-")
+    if run_date is None:
+        candidates = sorted(runs_dir.glob(f"EV-*-dataset-{slug}.json"))
+        if not candidates:
+            raise ValueError(f"U7 run artifact missing: no EV-*-dataset-{slug}.json in {runs_dir}")
+        artifact_path = candidates[-1]  # YYYYMMDD sorts; the last is the latest
+    else:
+        if not run_date.isdigit() or len(run_date) != 8:
+            raise ValueError(f"run_date must be a YYYYMMDD stamp, got {run_date!r}")
+        artifact_path = runs_dir / f"EV-{run_date}-dataset-{slug}.json"
+    artifact_name = artifact_path.name
     if not artifact_path.exists():
         raise ValueError(f"U7 run artifact missing: {artifact_path}")
     artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
@@ -543,6 +627,16 @@ def record_from_triples(
                 ),
             )
         )
+    if key == "ghostwriter" and n_partial:
+        drops.append(
+            DropItem(
+                item=f"{n_partial} fusion (mixed-origin) rows",
+                reason=(
+                    "rows with label 2 carry no binary label; "
+                    "they are the U4 spine, not U1 evidence"
+                ),
+            )
+        )
 
     record = ValidationRecord(
         record_id=config["record_id"],
@@ -553,9 +647,9 @@ def record_from_triples(
         status="partial",
         supersedes=None,
         regime=Regime(
-            language="en",
+            language=config.get("language", "en"),
             script="Latn",
-            language_variety=None,
+            language_variety=config.get("language_variety"),
             length_bucket=LengthBucket(
                 min_words=80,
                 max_words=None,
@@ -647,7 +741,11 @@ def record_from_triples(
 
 
 def build_record(
-    key: str, *, cache_dir: Path | None = None, repo_root: Path = REPO_ROOT
+    key: str,
+    *,
+    cache_dir: Path | None = None,
+    repo_root: Path = REPO_ROOT,
+    run_date: str | None = None,
 ) -> tuple[ValidationRecord, dict]:
     """Build one seed record from the cached sample (no network).
 
@@ -684,7 +782,7 @@ def build_record(
         triples.append((int(row.label), float(prediction.score), str(prediction.verdict)))
         word_counts.append(len(row.text.split()))
     scope = aggregate_scope(key, labelled)
-    artifact = verify_run_artifact(key, repo_root=repo_root)
+    artifact = verify_run_artifact(key, repo_root=repo_root, run_date=run_date)
     return record_from_triples(
         key,
         triples,
@@ -698,7 +796,7 @@ def build_record(
 
 
 def seed_registry(
-    keys, *, cache_dir: Path | None = None, repo_root: Path = REPO_ROOT
+    keys, *, cache_dir: Path | None = None, repo_root: Path = REPO_ROOT, run_date: str | None = None
 ) -> tuple[ValidationRegistry, dict[str, dict]]:
     """Build all seed records; return the registry and per-record measurements.
 
@@ -708,7 +806,9 @@ def seed_registry(
     records: list[ValidationRecord] = []
     measurements: dict[str, dict] = {}
     for key in keys:
-        record, measured = build_record(key, cache_dir=cache_dir, repo_root=repo_root)
+        record, measured = build_record(
+            key, cache_dir=cache_dir, repo_root=repo_root, run_date=run_date
+        )
         records.append(record)
         measurements[record.record_id] = measured
     registry = ValidationRegistry(records)
@@ -758,6 +858,18 @@ def main(argv: list[str] | None = None) -> int:
         help="build + validate the records without writing the registry",
     )
     parser.add_argument(
+        "--run-date",
+        default=None,
+        help="YYYYMMDD stamp of the U7 artifact to seed from "
+        "(default: latest EV-*-dataset-<key>.json in docs/evidence/runs)",
+    )
+    parser.add_argument(
+        "--append",
+        action="store_true",
+        help="append the new records to the existing registry instead of "
+        "rebuilding it from the requested keys (duplicate record ids rejected)",
+    )
+    parser.add_argument(
         "--cache-dir",
         default=None,
         help="dataset cache dir (default: XDG cache / TEXTFORENSICS_DATASETS_DIR)",
@@ -781,7 +893,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     repo_root = Path(args.repo_root) if args.repo_root else REPO_ROOT
     cache_dir = Path(args.cache_dir) if args.cache_dir else None
-    registry, measurements = seed_registry(keys, cache_dir=cache_dir, repo_root=repo_root)
+    registry, measurements = seed_registry(
+        keys, cache_dir=cache_dir, repo_root=repo_root, run_date=args.run_date
+    )
     _print_summary(registry.records, measurements)
     if args.check:
         print(
@@ -793,6 +907,27 @@ def main(argv: list[str] | None = None) -> int:
         if args.registry
         else repo_root / "docs" / "validation" / "registry.json"
     )
+    if args.append:
+        if not registry_path.exists():
+            print(f"--append: no existing registry at {registry_path}")
+            return 2
+        existing = ValidationRegistry.load(registry_path)
+        for record in registry.records:
+            if existing.record(record.record_id) is not None:
+                print(f"--append: {record.record_id} already in {registry_path}; refusing")
+                return 2
+        merged = ValidationRegistry(
+            list(existing.records) + list(registry.records),
+            created_at_utc=existing.created_at_utc,
+        )
+        merged.save(registry_path)
+        reloaded = ValidationRegistry.load(registry_path)
+        print(
+            f"Appended {len(registry.records)} record(s) to {registry_path}: "
+            f"{len(existing.records)} -> {len(reloaded.records)} records "
+            f"(registry_id {reloaded.registry_id[:12]}...), reloaded and re-verified."
+        )
+        return 0
     registry.save(registry_path)
     reloaded = ValidationRegistry.load(registry_path)
     print(
