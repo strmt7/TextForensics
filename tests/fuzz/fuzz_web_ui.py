@@ -18,14 +18,14 @@ from pathlib import Path
 
 try:
     import atheris
-except ImportError:  # atheris optional; TestOneInput still importable
+
+    instrument_func = atheris.instrument_func
+except (ImportError, AttributeError):  # atheris optional; TestOneInput still importable
     atheris = None
 
     def instrument_func(func):
         return func
 
-    if atheris is not None:
-        instrument_func = atheris.instrument_func
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
