@@ -95,18 +95,76 @@
 # - The other six BitOr replacement operators (LShift, Mod, Mul, Pow,
 #   RShift, Sub) x 15 positions = 90 mutants: present in the full 618-item
 #   session, never executed under budget 200. Same rule: verify, then add.
-# - The 54 AddNot / NumberReplacer / ReplaceAndWithOr survivors are NOT
-#   equivalent; they are runtime mutants being killed with tests by a
-#   parallel worker. Never add a runtime mutant to this file.
+# - The remaining 50 AddNot / NumberReplacer / ReplaceAndWithOr survivors
+#   are NOT equivalent; they are runtime mutants killed with tests by a
+#   parallel worker (PR #52). Four of the original 54 were reclassified
+#   as equivalent instead and ARE in this file, as kind
+#   "unreachable-condition" (see PROOF below). Never add a runtime mutant
+#   to this file except as that kind, with its proof.
+#
+# PROOF — KIND "unreachable-condition" (4 entries, verified 2026-11-07)
+# ------------------------------------------------------------------
+# These four NumberReplacer survivors sit in branch conditions that are
+# provably dead: the condition reduces to a constant False for every
+# replacement the operator generates at that position, so no input can
+# distinguish mutant from original. Each was verified by exhaustive
+# differential runs (original vs hand-applied mutant, all reachable
+# inputs compared) plus the source reasoning below.
+#
+# [41] build_trust_map L437:24, `0` -> `-1` in `if word_count < 0:`
+#      raise ValueError("word_count must be non-negative."). For
+#      word_count == -1 the mutant skips the check, but the very next
+#      statement calls length_band(word_count), which raises the
+#      IDENTICAL ValueError (same type, same message,
+#      conditions.py: length_band guards `word_count < 0`). For
+#      word_count <= -2 both raise at the check; for >= 0 neither
+#      raises. No test can observe a difference.
+# [44] trust_map_from_capability_ledger L542:54, `1` -> `2` in
+#      max(1, len(dimensions) // 2). [46] same line L542:76, `2` -> `3`
+#      in len(dimensions) // 2. [47] same position, `2` -> `1`.
+#      The guarded condition is
+#        if out_of_scope_count or unknown_count >= max(1, len(dimensions) // 2):
+#      and it is dead by construction: `capabilities` is built from the
+#      ledger's own claims and the loop iterates exactly those
+#      capabilities, so `relevant` is never empty and no dimension is
+#      ever "unknown" (unknown_count == 0 always); no dimension is ever
+#      assigned "out_of_scope" either (the only states assigned are
+#      "unknown" / "supported" / "partial", and "unknown" is unreachable
+#      as shown), so out_of_scope_count == 0 always. The condition
+#      therefore reduces to `0 >= threshold` with threshold =
+#      max(1, len//2) >= 1 under every variant above — always False.
+#      The sharp edge proving the mutants are equivalent ONLY for these
+#      replacements: the sibling mutant at the same position,
+#      max(1, ...) -> max(0, ...) (occurrence 43), is KILLABLE — when
+#      len(dimensions) < 2 the threshold becomes 0 and `0 >= 0` is True,
+#      flipping overall to "insufficient"; the tests kill it. That is
+#      why entries are keyed by occurrence as well as position (see
+#      MATCHING): a position-level entry would conflate the equivalent
+#      1 -> 2 with the killable 1 -> 0.
+# Each entry pins its proof to the current source with source_text (the
+# exact original literal) and source_fingerprint (SHA-256 of the
+# whitespace-normalised enclosing function). Any edit to that function
+# makes the entry stale (exit 1) until a human re-verifies the proof.
+# A future larger-budget run may execute further NumberReplacer
+# replacements at these positions (e.g. `2` -> `0` at L542:76 would raise
+# ZeroDivisionError when the line evaluates, so it is killed, not
+# equivalent); such mutants have different occurrences, match no entry,
+# and fail the gate as unexplained until verified — by design.
 #
 # HOW TO ADD AN ENTRY
 # -------------------
 # 1. Verify the mutant per the PROOF above (diff + AST position +
-#    no-evaluation + empirical probe). Do not copy an entry and change
+#    no-evaluation + empirical probe for annotation mutants; exhaustive
+#    differential runs + the dead-condition source reasoning for
+#    unreachable-condition mutants). Do not copy an entry and change
 #    the numbers.
 # 2. Add one [[equivalent]] entry with module, operator, occurrence,
-#    start_pos, end_pos, function, kind, annotation and a reason naming
-#    the specific annotation. No code change is needed.
+#    start_pos, end_pos, function, kind and a reason naming the specific
+#    annotation (kind "arg" / "return" / "annassign": also `annotation`)
+#    or the specific dead condition (kind "unreachable-condition": also
+#    `source_text` and `source_fingerprint`, computed with
+#    scripts/run_mutation.py helpers `_enclosing_function` /
+#    `_function_fingerprint`). No code change is needed.
 # 3. Run tests/test_mutation.py and a full budget-200 trust.py run through
 #    scripts/run_mutation.py; the summary must show the mutant under
 #    `equivalent`, not under `unexplained_surviving`.
@@ -114,9 +172,12 @@
 # MATCHING
 # --------
 # A live surviving mutant matches an entry iff (module, operator,
-# start_pos, end_pos) are equal. Occurrence is provenance only (see the
-# generator note) and the annotation text + function are re-validated
-# against the current source on every run.
+# start_pos, end_pos, occurrence) are equal. Occurrence is part of the
+# key, not provenance only: one operator generates several distinct
+# mutants at one position, and they need not share equivalence — at
+# L542:54, `1` -> `2` is equivalent while `1` -> `0` is killable (see
+# PROOF above). The annotation text / source text + function are
+# re-validated against the current source on every run.
 
 version = 1
 source_run = "42393966895"
@@ -952,3 +1013,55 @@ function = "build_trust_map"
 kind = "arg"
 annotation = "InputConditions | None"
 reason = "Postponed-evaluation annotation (arg of build_trust_map): the `|` in `InputConditions | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.trust:core/NumberReplacer:39"
+module = "textforensics.trust"
+operator = "core/NumberReplacer"
+occurrence = 39
+start_pos = [437, 24]
+end_pos = [437, 25]
+function = "build_trust_map"
+kind = "unreachable-condition"
+source_text = "0"
+source_fingerprint = "069067307362b9831654871c83a6eb697022ab59c1e0aae708ca7d3a9a418f26"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unreachable-condition mutant (build_trust_map): `0` -> `-1` in `if word_count < 0: raise ValueError`. For word_count == -1 the mutant skips the check, but length_band(word_count) raises the identical ValueError (same type, same message); for <= -2 both raise at the check; for >= 0 neither raises. The condition's observable behaviour is unchanged for every input."
+
+[[equivalent]]
+id = "textforensics.trust:core/NumberReplacer:42"
+module = "textforensics.trust"
+operator = "core/NumberReplacer"
+occurrence = 42
+start_pos = [542, 54]
+end_pos = [542, 55]
+function = "trust_map_from_capability_ledger"
+kind = "unreachable-condition"
+source_text = "1"
+source_fingerprint = "6d8810e3d56f2d120c022fa06c4b6d82f1528486ce0150da5e6f6e8f130e64c7"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unreachable-condition mutant (trust_map_from_capability_ledger): `1` -> `2` in max(1, len(dimensions) // 2). The guarded condition reduces to `0 >= threshold` with threshold >= 1 always (unknown_count and out_of_scope_count are both always 0 by construction — relevant is never empty, no dimension is ever out_of_scope), so it is always False under this replacement. The sibling 1 -> 0 mutant at the same position is killable and is NOT baselined."
+
+[[equivalent]]
+id = "textforensics.trust:core/NumberReplacer:44"
+module = "textforensics.trust"
+operator = "core/NumberReplacer"
+occurrence = 44
+start_pos = [542, 76]
+end_pos = [542, 77]
+function = "trust_map_from_capability_ledger"
+kind = "unreachable-condition"
+source_text = "2"
+source_fingerprint = "6d8810e3d56f2d120c022fa06c4b6d82f1528486ce0150da5e6f6e8f130e64c7"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unreachable-condition mutant (trust_map_from_capability_ledger): `2` -> `3` in len(dimensions) // 2. The guarded condition reduces to `0 >= threshold` with threshold = max(1, len//3) >= 1 always (unknown_count and out_of_scope_count are both always 0 by construction), so it is always False under this replacement."
+
+[[equivalent]]
+id = "textforensics.trust:core/NumberReplacer:45"
+module = "textforensics.trust"
+operator = "core/NumberReplacer"
+occurrence = 45
+start_pos = [542, 76]
+end_pos = [542, 77]
+function = "trust_map_from_capability_ledger"
+kind = "unreachable-condition"
+source_text = "2"
+source_fingerprint = "6d8810e3d56f2d120c022fa06c4b6d82f1528486ce0150da5e6f6e8f130e64c7"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unreachable-condition mutant (trust_map_from_capability_ledger): `2` -> `1` in len(dimensions) // 2. The guarded condition reduces to `0 >= threshold` with threshold = max(1, len//1) >= 1 always (unknown_count and out_of_scope_count are both always 0 by construction), so it is always False under this replacement."
