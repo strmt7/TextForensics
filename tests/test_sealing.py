@@ -4,9 +4,14 @@ from __future__ import annotations
 
 import base64
 import copy
+import json
 import os
+import stat
+import tempfile
 import unittest
+from pathlib import Path
 
+from textforensics.casefile import canonical_json_bytes
 from textforensics.dsse import (
     PAYLOAD_TYPE_CASE_FILE,
     PAYLOAD_TYPE_SEALED_BUNDLE_MANIFEST,
@@ -20,6 +25,15 @@ from textforensics.ed25519 import (
     public_key_from_seed,
     sign,
     verify,
+)
+from textforensics.sealing import (
+    case_signing_payload,
+    generate_sealing_key,
+    load_sealing_key,
+    public_key_info,
+    save_sealing_key,
+    sign_case_body,
+    verify_case_signature,
 )
 
 # RFC 8032 section 7.1 test vectors, copied from
@@ -228,6 +242,152 @@ class DsseTests(unittest.TestCase):
                 self.assertTrue(result["errors"])
         # A short public key also fails without raising.
         self.assertFalse(verify_envelope(good, b"\x00" * 16)["valid"])
+
+
+class SealingKeyTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.dir = Path(self._tmp.name)
+
+    def test_save_load_round_trip_and_mode(self):
+        key = generate_sealing_key("auditor@example.test", "auditor")
+        path = self.dir / "sealing-key.json"
+        saved = save_sealing_key(path, key)
+        self.assertEqual(saved, path)
+        self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
+        loaded = load_sealing_key(path)
+        self.assertEqual(loaded, key)
+        self.assertEqual(loaded["seed_b64"], key["seed_b64"])
+        self.assertEqual(loaded["keyid"], fingerprint(base64.b64decode(key["public_key_b64"])))
+
+    def test_save_refuses_to_overwrite(self):
+        key = generate_sealing_key("auditor@example.test", "auditor")
+        path = self.dir / "sealing-key.json"
+        save_sealing_key(path, key)
+        with self.assertRaises(FileExistsError):
+            save_sealing_key(path, generate_sealing_key("other", "auditor"))
+        # The original file is untouched.
+        self.assertEqual(load_sealing_key(path), key)
+
+    def test_load_refuses_mismatched_public_key(self):
+        key = generate_sealing_key("auditor@example.test", "auditor")
+        _, other_key = keygen()
+        tampered = dict(key)
+        tampered["public_key_b64"] = base64.b64encode(other_key).decode()
+        path = self.dir / "tampered.json"
+        with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT, 0o600), "w") as handle:
+            json.dump(tampered, handle)
+        with self.assertRaises(ValueError):
+            load_sealing_key(path)
+
+    def test_load_refuses_mismatched_keyid(self):
+        key = generate_sealing_key("auditor@example.test", "auditor")
+        tampered = dict(key)
+        tampered["keyid"] = "0" * 64
+        path = self.dir / "tampered-keyid.json"
+        with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT, 0o600), "w") as handle:
+            json.dump(tampered, handle)
+        with self.assertRaises(ValueError):
+            load_sealing_key(path)
+
+    def test_load_refuses_world_readable_key_file(self):
+        key = generate_sealing_key("auditor@example.test", "auditor")
+        path = self.dir / "readable.json"
+        save_sealing_key(path, key)
+        os.chmod(path, 0o644)
+        with self.assertRaises(ValueError):
+            load_sealing_key(path)
+        os.chmod(path, 0o600)
+        self.assertEqual(load_sealing_key(path), key)
+
+    def test_public_key_info_exposes_no_seed(self):
+        key = generate_sealing_key("auditor@example.test", "auditor")
+        info = public_key_info(key)
+        self.assertEqual(info["algorithm"], "ed25519")
+        self.assertEqual(info["public_key_b64"], key["public_key_b64"])
+        self.assertEqual(info["keyid"], key["keyid"])
+        self.assertEqual(info["identity"], key["identity"])
+        self.assertEqual(info["role"], key["role"])
+        self.assertNotIn("seed_b64", info)
+        self.assertNotIn("seed_b64", json.dumps(info))
+
+    def test_generate_validates_identity_and_role(self):
+        with self.assertRaises(ValueError):
+            generate_sealing_key("", "auditor")
+        with self.assertRaises(ValueError):
+            generate_sealing_key("auditor", "")
+
+
+class CaseSigningTests(unittest.TestCase):
+    def _case(self) -> dict:
+        return {
+            "schema": "textforensics.case-file/v2",
+            "tool": {"name": "TextForensics", "version": "0.2.0"},
+            "created_at_utc": "2026-11-07T06:00:00+00:00",
+            "case_sha256": "a" * 64,
+            "raw_text_included": False,
+            "seal": {"sha256": "b" * 64},
+            "forensic_bundle": {"schema": "textforensics.forensic-bundle/v2"},
+        }
+
+    def test_case_signing_payload_matches_casefile_canonicalisation(self):
+        case = self._case()
+        expected_body = copy.deepcopy(case)
+        expected_body.pop("case_sha256")
+        expected_body.pop("created_at_utc")
+        expected_body["seal"] = {k: v for k, v in expected_body["seal"].items() if k != "signature"}
+        self.assertEqual(case_signing_payload(case), canonical_json_bytes(expected_body))
+
+    def test_case_signing_payload_ignores_seal_and_wall_clock(self):
+        case = self._case()
+        first = case_signing_payload(case)
+        case["created_at_utc"] = "2026-11-08T06:00:00+00:00"
+        case["case_sha256"] = "c" * 64
+        case["seal"]["signature"] = {"dsse": {"payloadType": "stale"}}
+        self.assertEqual(case_signing_payload(case), first)
+
+    def test_sign_and_verify_case_body(self):
+        case = self._case()
+        key = generate_sealing_key("auditor@example.test", "auditor")
+        seed = base64.b64decode(key["seed_b64"])
+        public_key = base64.b64decode(key["public_key_b64"])
+        envelope = sign_case_body(case, seed)
+        self.assertEqual(envelope["payloadType"], PAYLOAD_TYPE_CASE_FILE)
+        case["seal"]["signature"] = {"dsse": envelope}
+        result = verify_case_signature(case, public_key)
+        self.assertTrue(result["valid"], result["errors"])
+        self.assertEqual(result["errors"], [])
+        self.assertEqual(result["keyid"], key["keyid"])
+
+    def test_verify_case_signature_fails_on_tampered_body(self):
+        case = self._case()
+        key = generate_sealing_key("auditor@example.test", "auditor")
+        seed = base64.b64decode(key["seed_b64"])
+        public_key = base64.b64decode(key["public_key_b64"])
+        case["seal"]["signature"] = {"dsse": sign_case_body(case, seed)}
+        case["forensic_bundle"]["schema"] = "textforensics.forensic-bundle/v9"
+        result = verify_case_signature(case, public_key)
+        self.assertFalse(result["valid"])
+        self.assertTrue(result["errors"])
+
+    def test_verify_case_signature_never_raises(self):
+        _, public_key = keygen()
+        bad_cases: list = [
+            {},
+            {"seal": {}},
+            {"seal": {"signature": {}}},
+            {"seal": {"signature": {"dsse": "not a mapping"}}},
+            {"seal": {"signature": {"dsse": {}}}},
+            {"seal": "not a mapping"},
+            "not a mapping",
+            None,
+        ]
+        for case in bad_cases:
+            with self.subTest(case=repr(case)[:40]):
+                result = verify_case_signature(case, public_key)
+                self.assertFalse(result["valid"])
+                self.assertTrue(result["errors"])
 
 
 if __name__ == "__main__":
