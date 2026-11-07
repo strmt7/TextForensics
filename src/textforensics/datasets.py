@@ -53,7 +53,7 @@ Design rules
   split and collects strided samples in a single streaming pass.
 
 Wave-1 scope only, plus GhostWriter and DetectRL-X in wave 2, and
-the licence-blocked DetectRL loader (MixSet precedent: spec + a
+the licence-blocked DetectRL and M4 loaders (MixSet precedent: spec + a
 mapper that refuses until the licence resolves and a live row has
 been inspected — no live rows, no artifacts, no records). RealDet /
 CrisisFake have no verified route (no loader), PAN 2025 is wave 2
@@ -646,6 +646,69 @@ SPECS: dict[str, DatasetSpec] = {
         "PaLM-2-bison, Claude-instant, Llama-2-70b. Attacks: prompt, "
         "paraphrase, perturbation, data-mixing.",
         citation="Wu et al., DetectRL, NeurIPS 2024 D&B, arXiv:2410.23746.",
+    ),
+    "m4": DatasetSpec(
+        key="m4",
+        name="M4",
+        hf_id="mbzuai-nlp/M4",
+        paper="Wang et al., arXiv:2305.14902, EACL 2024 Best Resource Paper",
+        source_url="https://github.com/mbzuai-nlp/M4",
+        licence=None,
+        licence_note="NO SINGLE DATASET LICENCE exists anywhere checked "
+        "2026-11-07. GitHub API record for mbzuai-nlp/M4: "
+        '"license":null; no LICENSE file; no licence statement in the '
+        "README. Per-source licences exist in paper Table 1 (arXiv "
+        "HTML 2305.14902, verified): Wikipedia CC BY-SA-3.0; Reddit "
+        "ELI5 'Huggingface' (not a licence); WikiHow CC-BY-NC-SA; "
+        "PeerRead Apache; arXiv abstract CC0; Arabic-Wikipedia CC "
+        "BY-SA-3.0; True & Fake News MIT; Baike/Web QA MIT; "
+        "id_newspapers_2018 CC BY-NC-SA-4.0; RuATD Apache 2.0; "
+        "Urdu-news CC BY 4.0. Two sources are NC (WikiHow, "
+        "id_newspapers_2018). Per-source licences do not add up to a "
+        "dataset licence — the gate stays closed. DO NOT FETCH until "
+        "unblocked: what would unblock it is a dataset licence "
+        "statement from the authors. The loader is code-complete and "
+        "tested with mocks; live rows and run artifacts are deferred.",
+        licence_status=LICENCE_UNRESOLVED,
+        configs=(),
+        splits=(),
+        notes="Licence-blocked (MixSet precedent). Verified route, for "
+        "the record — DO NOT clone for data: `git clone "
+        "https://github.com/mbzuai-nlp/M4.git`; `data/` holds 38 "
+        "`.jsonl` files + README.md (1,005,995,293 B total, ~1.006 "
+        "GB). Naming `<DOMAIN>_<MODEL>.jsonl` (e.g. "
+        "`arxiv_chatGPT.jsonl`; `russian_chatGPT.jsonl` 74,318,020 B "
+        "largest). NO `*_human.jsonl` files exist despite "
+        "`data/README.md` documenting that naming scheme — human text "
+        "is embedded per-row. Counts — CONTRADICTION, stated not "
+        "resolved, quote none as the size: paper Table 1 total "
+        "147,895 (35,798 human + 112,097 machine); secondary figures "
+        "122K and 245K BOTH contradict the paper's own table. "
+        "Per-file row counts NOT verified. The paper lists 14,344 "
+        "GPT-4 generations but NO `*gpt4*` file exists in `data/`; "
+        "`flant5` only for arXiv/Reddit, `llama` only for PeerRead. "
+        "Loader facts (from `data/README.md`, verified): JSONL fields "
+        "`prompt, human_text, machine_text, model, source, "
+        "source_ID`; each row is a (human, machine) pair — the label "
+        "is implicit, no numeric label column. No train/test split "
+        "defined — loader splits are NOT mapped until a live row is "
+        "inspected, so configs/splits are empty here. Authors' "
+        "metrics are accuracy/precision/recall/F1. Known limitation "
+        "for any future fetcher: the shared urllib downloader "
+        "(`download_large_file`) could not sustain an ~879 MB "
+        "DetectRL-X download (timed out after 6 attempts, never past "
+        "headers) while curl fetched the full file in ~5 min with the "
+        "SHA-256 verified; the shipped loader still uses "
+        "`download_large_file`, so a future ~1.006 GB M4 fetch will "
+        "likely need curl or a downloader fix — the downloader is NOT "
+        "fixed in this task, fetchers are deferred. No Hugging Face "
+        "dataset exists, so hf_id holds the GitHub repo slug — never "
+        "pass it to the datasets-server client. Domains: Wikipedia, "
+        "WikiHow, Reddit ELI5, arXiv, PeerRead, Chinese Baike/Web QA, "
+        "Russian RuATD, Arabic Wikipedia, Urdu/Indonesian/Bulgarian "
+        "news; 7 languages (AR, BG, ZH, EN, ID, RU, UR). Generators: "
+        "davinci-003, ChatGPT, GPT-4, Cohere, Dolly-v2, BLOOMz 176B.",
+        citation="Wang et al., M4, arXiv:2305.14902.",
     ),
 }
 
@@ -1242,6 +1305,29 @@ def _map_detectrl(row: dict[str, Any], config: str, split: str) -> list[Normaliz
     )
 
 
+def _map_m4(row: dict[str, Any], config: str, split: str) -> list[NormalizedRow]:
+    """M4: refused until the licence resolves and a live row is inspected.
+
+    The licence is unresolved (see the spec's ``licence_note``), so no
+    live row has ever been inspected. The row schema IS documented
+    (``data/README.md``: JSONL fields ``prompt, human_text,
+    machine_text, model, source, source_ID``; each row is a (human,
+    machine) pair with the label implicit and no numeric label
+    column), but the mapper still fails closed: the schema has never
+    been confirmed against a live row, and mapping a pair-per-row file
+    without one would be guessing at the pairing. Revisit only after
+    the licence is clarified AND a live row has been read. No fetcher
+    is written in this task — the verified route is a git clone (see
+    the spec notes); a future fetcher must clone mbzuai-nlp/M4 and
+    map the 38 ``data/*.jsonl`` files, and will likely need curl or a
+    downloader fix for the ~1.006 GB fetch (see the spec notes).
+    """
+    raise DatasetFetchError(
+        "m4: licence unresolved AND no live row inspected "
+        "(documented schema unconfirmed against data); refusing to map"
+    )
+
+
 def _map_mixset(row: dict[str, Any], config: str, split: str) -> list[NormalizedRow]:
     """MixSet: refused until the label polarity is verified from data.
 
@@ -1266,6 +1352,7 @@ _MAPPERS: dict[str, Any] = {
     "ghostwriter": _map_ghostwriter,
     "detectrl_x": _map_detectrl_x,
     "detectrl": _map_detectrl,
+    "m4": _map_m4,
 }
 
 

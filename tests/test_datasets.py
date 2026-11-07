@@ -27,6 +27,7 @@ from textforensics.datasets import (
     DownloadError,
     NormalizedRow,
     _map_detectrl,
+    _map_m4,
     cache_path,
     default_cache_dir,
     detectrl_x_raw_path,
@@ -80,6 +81,7 @@ class SpecTests(unittest.TestCase):
             "ghostwriter",
             "detectrl_x",
             "detectrl",
+            "m4",
         ):
             self.assertEqual(get_spec(key).key, key)
 
@@ -186,6 +188,41 @@ class SpecTests(unittest.TestCase):
         self.assertIn("98.5%", spec.notes)
         self.assertIn("benchmark construction.py", spec.notes)
         # No loader splits are mapped until a live row is inspected.
+        self.assertEqual(spec.configs, ())
+        self.assertEqual(spec.splits, ())
+
+    def test_m4_licence_unresolved(self) -> None:
+        # No single dataset licence exists anywhere checked
+        # 2026-11-07: GitHub API record "license":null, no LICENSE
+        # file, no README statement. Per-source licences in paper
+        # Table 1 do not add up to a dataset licence, and two sources
+        # are NC. The gate stays closed.
+        spec = get_spec("m4")
+        self.assertIsNone(spec.licence)
+        self.assertEqual(spec.licence_status, "unresolved")
+        with self.assertRaises(DatasetLicenceError):
+            require_licence(spec)
+        note = spec.licence_note
+        self.assertIn('"license":null', note)
+        self.assertIn("no LICENSE file", note)
+        self.assertIn("CC BY-SA-3.0", note)
+        self.assertIn("CC BY-NC-SA-4.0", note)
+        self.assertIn("Two sources are NC", note)
+        self.assertIn("licence statement from the authors", note)
+        # The verified route and the count contradiction are recorded
+        # in the notes, with no figure quoted as the size.
+        self.assertIn("git clone https://github.com/mbzuai-nlp/M4.git", spec.notes)
+        self.assertIn("147,895", spec.notes)
+        self.assertIn("122K", spec.notes)
+        self.assertIn("245K", spec.notes)
+        self.assertIn("CONTRADICTION", spec.notes)
+        self.assertIn("NO `*gpt4*` file exists", spec.notes)
+        self.assertIn("human_text", spec.notes)
+        self.assertIn("machine_text", spec.notes)
+        self.assertIn("download_large_file", spec.notes)
+        self.assertIn("curl", spec.notes)
+        # No train/test split is defined; no loader splits are mapped
+        # until a live row is inspected.
         self.assertEqual(spec.configs, ())
         self.assertEqual(spec.splits, ())
 
@@ -427,6 +464,14 @@ class FetchSampleTests(unittest.TestCase):
             fetch_sample(get_spec("detectrl"), "default", "train", 5, client=client)
         client.rows.assert_not_called()
 
+    def test_licence_gate_blocks_m4_before_http(self) -> None:
+        # M4 is licence-blocked like MixSet: the gate fires before
+        # any fetch attempt is made.
+        client = mock.MagicMock()
+        with self.assertRaises(DatasetLicenceError):
+            fetch_sample(get_spec("m4"), "default", "train", 5, client=client)
+        client.rows.assert_not_called()
+
     def test_pagination(self) -> None:
         spec = get_spec("beemo")
         client = mock.MagicMock()
@@ -634,6 +679,20 @@ class MapperTests(unittest.TestCase):
             map_row("detectrl", {"text": "x"}, "default", "train")
         with self.assertRaises(DatasetFetchError) as caught:
             _map_detectrl({"text": "x"}, "default", "train")
+        message = str(caught.exception)
+        self.assertIn("licence unresolved", message)
+        self.assertIn("no live row inspected", message)
+        self.assertIn("refusing to map", message)
+
+    def test_m4_mapper_refuses(self) -> None:
+        # Licence gate fires first (DatasetLicenceError); even if it
+        # did not, the mapper itself refuses — the licence is
+        # unresolved AND no live row has been inspected, so the
+        # documented schema is unconfirmed against data.
+        with self.assertRaises(DatasetLicenceError):
+            map_row("m4", {"prompt": "x", "human_text": "h"}, "default", "train")
+        with self.assertRaises(DatasetFetchError) as caught:
+            _map_m4({"prompt": "x", "human_text": "h"}, "default", "train")
         message = str(caught.exception)
         self.assertIn("licence unresolved", message)
         self.assertIn("no live row inspected", message)
