@@ -179,7 +179,7 @@ def test_full_analysis_pipeline(self):
 
 **Scope:** Detects insufficient test coverage by injecting faults and checking whether tests catch them.
 
-**Tool:** Cosmic Ray (`.cosmic-ray.yml`) or Hypothesis for property-based mutation.
+**Tool:** Cosmic Ray 8.x (`.cosmic-ray.toml`) or Hypothesis for property-based mutation.
 
 **Requirements:**
 - All critical paths (verdict logic, threshold selection, contamination detection) must have mutations killed

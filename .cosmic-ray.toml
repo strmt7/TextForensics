@@ -1,0 +1,76 @@
+# Cosmic Ray mutation testing configuration for TextForensics (8.x, TOML-only).
+#
+# Targets: core scoring, calibration, trust map, and ensemble logic.
+# Baseline modules excluded from mutation: CLI entry points.
+#
+# Cosmic Ray 8.x notes (verified against 8.7.0):
+# - The config is TOML-only; the old YAML format cannot be parsed by 8.x.
+# - `module-path` is a filesystem path (string or list), not dotted names.
+# - `test-command` / `timeout` replace the 7.x `test_runner` section.
+# - `[cosmic-ray.distributor] name = "local"` selects the local distributor.
+# - 8.x runs EVERY no-arg core operator (213 in 8.7.0) for every module;
+#   the `operators` table only parameterises argument-taking operators, so
+#   it is intentionally left empty. The 7.x operator names
+#   (`number_replacer`, `arithmetic_operator_replacement`, ...) do not
+#   exist in 8.x.
+# - 8.x has no `--max-mutations`. `scripts/run_mutation.py --budget` enforces
+#   a cap by trimming the session after `init` (see its docstring).
+#
+# `test-command` here runs the full suite: this file must stay directly
+# usable with `cosmic-ray init/exec`. `scripts/run_mutation.py` scopes the
+# test command per run to the dedicated test file(s) of the module(s) under
+# test instead (falling back to the full suite for modules without one).
+#
+# Rejection-rejector pattern: mutations that survive are "rejections" — they
+# indicate gaps in test coverage. Mutations that are caught are "rejectors".
+# Minimum kill ratio target for safety-critical modules: 0.90 (see
+# CONTRIBUTING.md §2.3; the target is a goal, not a CI gate — surviving
+# mutants fail the check step via `scripts/run_mutation.py --check-results`).
+#
+# Diff-based optimisation: on push/PR only changed target modules are
+# mutated (see .github/workflows/mutation.yml and the `diff` mode of
+# `scripts/run_mutation.py`).
+
+[cosmic-ray]
+# Modules to mutate — safety-critical scoring and decision logic.
+module-path = [
+  "src/textforensics/benchmark.py",
+  "src/textforensics/trust.py",
+  "src/textforensics/consensus.py",
+  "src/textforensics/calibration.py",
+  "src/textforensics/detectors.py",
+  "src/textforensics/analyzers.py",
+  "src/textforensics/engine.py",
+  "src/textforensics/policy.py",
+  "src/textforensics/casefile.py",
+]
+
+# Modules explicitly excluded from mutation (not on `module-path`, so the
+# list is documentary: CLI, entry points, and non-scoring modules).
+excluded-modules = [
+  "textforensics.cli",
+  "textforensics.mcp_server",
+  "textforensics.web_ui.main",
+  "textforensics._build_info",
+  "textforensics.config",
+  "textforensics.constants",
+  "textforensics.report",
+  "textforensics.rich_output",
+  "textforensics.schema",
+  "textforensics.verify",
+  "textforensics.ledger",
+  "textforensics.bundle",
+  "textforensics.observatory",
+  "textforensics.localize",
+  "textforensics.features",
+  "textforensics.mcp_tools",
+  "textforensics.models",
+]
+
+test-command = "python -m pytest tests/ -x -q --tb=short"
+timeout = 30.0
+
+[cosmic-ray.operators]
+
+[cosmic-ray.distributor]
+name = "local"
