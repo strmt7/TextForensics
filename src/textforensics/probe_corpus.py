@@ -545,5 +545,15 @@ def load_manifest(path: Path) -> ProbeCorpusManifest:
 
 
 def write_manifest(path: Path, manifest: ProbeCorpusManifest) -> None:
-    """Write a manifest as canonical JSON + trailing newline."""
-    Path(path).write_text(canonical_json(manifest.to_dict()) + "\n", encoding="utf-8")
+    """Write a manifest as sorted, indented JSON + trailing newline.
+
+    The freeze fingerprint (``items_sha256``) is computed over the
+    canonical JSON of the item list, not over the file bytes, so the
+    file formatting is free — indented JSON keeps per-item diffs
+    readable and gives each hash its own line (the detect-secrets
+    baseline audit keys entries by filename + line number).
+    """
+    Path(path).write_text(
+        json.dumps(manifest.to_dict(), indent=2, sort_keys=True, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
