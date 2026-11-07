@@ -832,6 +832,87 @@ def build_parser() -> argparse.ArgumentParser:
         "--rich", action="store_true", help="Use Rich-formatted terminal output"
     )
 
+    drift_run = drift_sub.add_parser(
+        "run",
+        help="Run one U3 probe run over the frozen probe corpus.",
+    )
+    drift_run.add_argument(
+        "--manifest",
+        required=True,
+        help="Path to the probe-corpus v1 manifest JSON.",
+    )
+    drift_run.add_argument(
+        "--texts",
+        required=True,
+        help="Path to the corpus JSONL file (item_id -> text).",
+    )
+    drift_run.add_argument(
+        "--holdback",
+        required=True,
+        help="Path to the holdback JSONL file (item_id -> label). Labels are read only after scoring.",
+    )
+    drift_run.add_argument(
+        "--scope",
+        choices=["full", "monthly-attacked", "monthly-current-generator", "event-driven"],
+        default="full",
+        help="Run scope (default: full). Monthly scopes score only their slices.",
+    )
+    drift_run.add_argument(
+        "--detector-id",
+        default="textforensics/builtin-heuristic",
+        help="Detector to score with (default: textforensics/builtin-heuristic).",
+    )
+    drift_run.add_argument(
+        "--detector-version",
+        help="Expected detector version; fails if it does not match the detector.",
+    )
+    drift_run.add_argument(
+        "--runs-dir",
+        help="Run-history directory (default: ~/.cache/textforensics/probe-runs/<corpus version>).",
+    )
+    drift_run.add_argument(
+        "--registry",
+        help="U1 validation registry path (default: docs/validation/registry.json).",
+    )
+    drift_run.add_argument(
+        "--output",
+        "-o",
+        help="Also write the run manifest to this JSON file.",
+    )
+    drift_run.add_argument(
+        "--allow-remote",
+        action="store_true",
+        help="Allow remote detector adapters to run (off by default; core is local-first).",
+    )
+    drift_run.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Compute and report only; do not save the run or apply demotions.",
+    )
+    drift_run.add_argument(
+        "--fail-on-tier1",
+        action="store_true",
+        help="Exit 1 when a Tier-1 alert fires (for scheduled runs).",
+    )
+
+    drift_status = drift_sub.add_parser(
+        "status",
+        help="Show U3 longitudinal status for a detector.",
+    )
+    drift_status.add_argument("--detector-id", required=True, help="Detector ID.")
+    drift_status.add_argument(
+        "--detector-version",
+        help="Detector version (default: the latest run's version for the detector).",
+    )
+    drift_status.add_argument(
+        "--runs-dir",
+        help="Run-history directory (default: ~/.cache/textforensics/probe-runs/<corpus version>).",
+    )
+    drift_status.add_argument(
+        "--registry",
+        help="U1 validation registry path (default: docs/validation/registry.json).",
+    )
+
     cap = sub.add_parser(
         "capability",
         help="Inspect detector capability claims in the capability ledger.",
@@ -1101,6 +1182,204 @@ def _trust_map_exit_code(bundle: dict[str, Any]) -> int:
         return EXIT_INCOMPLETE
     if any(s == "partial" for s in states):
         return EXIT_DOWNGRADED
+    return EXIT_OK
+
+
+def _drift_run(args: argparse.Namespace) -> int:
+    """Run one U3 probe run (``tf drift run``).
+
+    Exit codes: 0 the run completed (a Tier-1 demotion is an expected
+    outcome, not a failure); 1 with ``--fail-on-tier1`` when a Tier-1
+    alert fired; 2 when the probe-corpus module is not available yet
+    (the corpus half merges separately); 3 on input errors (raised
+    ValueError/OSError/RuntimeError are converted by ``main``).
+    """
+    import hashlib
+
+    try:
+        from . import probe_corpus
+    except ImportError:
+        print(
+            "error: the probe-corpus module (textforensics.probe_corpus) "
+            "is not available yet — the frozen probe corpus is built on "
+            "branch u3-corpus and merges separately. Run 'tf drift run' "
+            "again after that merge.",
+            file=sys.stderr,
+        )
+        return EXIT_INCOMPLETE
+
+    manifest_path = Path(args.manifest)
+    manifest_bytes = manifest_path.read_bytes()
+    manifest = json.loads(manifest_bytes.decode("utf-8"))
+    corpus_manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
+    parsed = probe_corpus.ProbeCorpusManifest.from_dict(manifest)
+    problems = probe_corpus.verify_corpus_files(Path(args.texts), Path(args.holdback), parsed)
+    if problems:
+        print("error: probe corpus verification failed:", file=sys.stderr)
+        for problem in problems:
+            print(f"  - {problem}", file=sys.stderr)
+        return EXIT_ERROR
+
+    from .detectors import discover_detector_registry
+    from .probe_runs import (
+        default_probe_runs_dir,
+        load_run_history,
+        perform_probe_run,
+        summarize_longitudinal,
+    )
+
+    registry = discover_detector_registry()
+    detector = registry.detectors.get(args.detector_id)
+    if detector is None:
+        print(
+            f"error: unknown detector {args.detector_id!r}; "
+            f"known detectors: {sorted(registry.detectors)}",
+            file=sys.stderr,
+        )
+        return EXIT_ERROR
+    if args.detector_version is not None and args.detector_version != detector.detector_version:
+        print(
+            f"error: detector {args.detector_id} is version "
+            f"{detector.detector_version}, not {args.detector_version!r}.",
+            file=sys.stderr,
+        )
+        return EXIT_ERROR
+
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    registry_path = args.registry or str(repo_root / "docs" / "validation" / "registry.json")
+    runs_dir = args.runs_dir or str(default_probe_runs_dir(corpus_version=parsed.version))
+    run = perform_probe_run(
+        manifest=manifest,
+        texts=probe_corpus.load_corpus_texts(Path(args.texts)),
+        holdback_loader=lambda: probe_corpus.load_holdback(Path(args.holdback)),
+        detector=detector,
+        scope=args.scope,
+        runs_dir=runs_dir,
+        registry_path=registry_path,
+        corpus_manifest_sha256=corpus_manifest_sha256,
+        dry_run=bool(args.dry_run),
+        allow_remote=bool(args.allow_remote),
+    )
+    if args.output:
+        _write_json(args.output, run)
+
+    history = load_run_history(runs_dir)
+    summary = summarize_longitudinal(
+        history,
+        detector_id=run["detector_id"],
+        detector_version=run["detector_version"],
+        corpus_fingerprint=run["corpus_fingerprint"],
+    )
+    tier1 = [a for a in run["alerts"] if a["tier"] == 1]
+    tier2 = [a for a in run["alerts"] if a["tier"] == 2]
+    tier3 = [a for a in run["alerts"] if a["tier"] == 3]
+    print(
+        f"Probe run {run['run_id']} ({run['scope']}, {run['detector_id']} {run['detector_version']})"
+    )
+    print(
+        f"  baseline: {'yes' if run['is_baseline'] else 'no'}"
+        f"{' (rebaselined from ' + run['rebaselined_from'] + ')' if run.get('rebaselined_from') else ''}"
+    )
+    print(f"  alerts: {len(tier1)} Tier-1, {len(tier2)} Tier-2, {len(tier3)} Tier-3")
+    for alert in run["alerts"]:
+        print(f"  - Tier {alert['tier']} {alert['rule']} on {alert['slice']}: {alert['detail']}")
+    if run["demotions_applied"]:
+        print(f"  demotions applied: {run['demotions_applied'].get('demoted_record_ids')}")
+    if run["demotions_cleared"]:
+        print(f"  demotions cleared: {run['demotions_cleared'].get('cleared_record_ids')}")
+    print(
+        f"  longitudinal: {summary['consecutive_clean_full_runs']} consecutive clean full run(s)"
+        f" (temporal support needs {summary['clean_full_runs_needed_for_temporal_support']})"
+    )
+    if summary["watch"]:
+        print(f"  active watch: {summary['watch']['run_id']}")
+    print(f"  manifest: {runs_dir}/run-{run['run_id']}.json")
+    if args.dry_run:
+        print("  dry run: nothing was saved and no demotion was applied.")
+    if tier1 and args.fail_on_tier1:
+        return EXIT_DOWNGRADED
+    return EXIT_OK
+
+
+def _drift_status(args: argparse.Namespace) -> int:
+    """Show U3 longitudinal status for a detector (``tf drift status``)."""
+    from datetime import UTC, datetime
+
+    from .probe_runs import (
+        default_probe_runs_dir,
+        load_run_history,
+        summarize_longitudinal,
+    )
+    from .validation import ValidationRegistry, effective_status
+
+    runs_dir = args.runs_dir
+    history: list[dict] = []
+    if runs_dir is not None:
+        history = load_run_history(runs_dir)
+    else:
+        # Search the default run-history dirs for every corpus version
+        # present under the cache root.
+        cache_root = default_probe_runs_dir(corpus_version="1.0.0").parent
+        if cache_root.is_dir():
+            for version_dir in sorted(cache_root.iterdir()):
+                if version_dir.is_dir():
+                    history.extend(load_run_history(version_dir))
+            history.sort(key=lambda r: str(r.get("run_at_utc", "")))
+    detector_runs = [r for r in history if r.get("detector_id") == args.detector_id]
+    if not detector_runs:
+        payload = {
+            "detector_id": args.detector_id,
+            "status": "no_runs",
+            "consecutive_clean_full_runs": 0,
+            "temporal_support": False,
+            "watch": None,
+            "demotions": [],
+        }
+        _write_json(None, payload)
+        print(f"No probe runs recorded for detector {args.detector_id!r}.", file=sys.stderr)
+        return EXIT_OK
+
+    detector_version = args.detector_version or str(detector_runs[-1].get("detector_version"))
+    corpus_fingerprint = str(detector_runs[-1].get("corpus_fingerprint"))
+    summary = summarize_longitudinal(
+        history,
+        detector_id=args.detector_id,
+        detector_version=detector_version,
+        corpus_fingerprint=corpus_fingerprint,
+    )
+    demotions: list[dict] = []
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    registry_path = args.registry or str(repo_root / "docs" / "validation" / "registry.json")
+    if Path(registry_path).exists():
+        registry = ValidationRegistry.load(registry_path)
+        now = datetime.now(UTC)
+        for record in registry.records:
+            if record.detector_id != args.detector_id:
+                continue
+            if record.limits.demoted_by and record.limits.demoted_by.startswith("U3 probe run "):
+                demotions.append(
+                    {
+                        "record_id": record.record_id,
+                        "demoted_by": record.limits.demoted_by,
+                        "effective_status": effective_status(
+                            record, detector_version=detector_version, now=now
+                        ),
+                    }
+                )
+    payload = {**summary, "status": "ok", "demotions": demotions}
+    _write_json(None, payload)
+    # Human summary goes to stderr so stdout stays pure JSON.
+    print(
+        f"Detector {args.detector_id} {detector_version}: "
+        f"{summary['consecutive_clean_full_runs']} consecutive clean full run(s), "
+        f"temporal support: {'yes' if summary['temporal_support'] else 'no'}, "
+        f"{summary['total_runs']} run(s) total, last run {summary['last_run_at_utc']}.",
+        file=sys.stderr,
+    )
+    if summary["watch"]:
+        print(f"Active watch from run {summary['watch']['run_id']}.", file=sys.stderr)
+    if demotions:
+        print(f"Active U3 demotions: {len(demotions)} record(s) stale.", file=sys.stderr)
     return EXIT_OK
 
 
@@ -1487,6 +1766,10 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
                 label=args.label,
             )
             _write_json(args.output, snapshot)
+        elif args.drift_command == "run":
+            return _drift_run(args)
+        elif args.drift_command == "status":
+            return _drift_status(args)
         else:
             observatory = DriftObservatory(corpus_path=args.corpus)
             baseline = DriftObservatory.read_snapshot_file(args.baseline)
