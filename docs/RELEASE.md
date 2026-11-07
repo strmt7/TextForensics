@@ -18,6 +18,8 @@ Use this checklist for every tagged release.
 - [ ] OCI image builds, starts, passes health check, and runs non-root.
 - [ ] `pip check` passes.
 - [ ] Ruff critical checks pass.
+- [ ] `python scripts/validate_schemas.py` reports 12 OK.
+- [ ] `pre-commit run --all-files` passes (13 hooks).
 
 ## Security / supply chain
 - [ ] CodeQL is green.
@@ -31,9 +33,15 @@ Use this checklist for every tagged release.
 - [ ] No benchmark number was copied from external work and presented as TextForensics performance.
 - [ ] Any performance claim points to a reproducible run artifact.
 - [ ] Threshold/calibration data are separate from final evaluation data.
-- [ ] Human false-positive rate is visible at the claimed operating point.
+- [ ] Human false-positive rate is visible at the claimed operating point. (Currently blocked: worst-slice human FPR is unknown — see `docs/evidence/report-card.md`; see AGENTS.md rule 10.)
 - [ ] Relevant domain/language/length/revision limitations are adjacent to the claim.
 - [ ] Any top-level probability has an explicit calibration artifact for the exact detector/ensemble version.
+
+## Evidence gate
+- [ ] `python scripts/check_claims.py` passes (33/33, exit 0).
+- [ ] `docs/evidence/report-card.md` is regenerated and committed with no diff.
+- [ ] No evidence record is stale (>90 days) or superseded by a detector-version change.
+- [ ] `docs/validation/registry.json` loads and every record's signature verifies.
 
 ## Licensing
 - [ ] Core license/version is intentional for this release.

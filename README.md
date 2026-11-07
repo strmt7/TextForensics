@@ -51,13 +51,15 @@ See [SPEC.md](SPEC.md).
 
 ### Trust Map
 
-Reports include a conservative qualitative `textforensics.trust-map/v1`.
+Reports include a conservative qualitative `textforensics.trust-map/v2` (v3, which adds a `stale` state, is used for maps derived from the U1 validation registry).
 
 Current dimensions include:
 - language coverage;
 - text-length coverage;
 - domain/genre coverage;
 - editing/revision evidence;
+- generator scope;
+- human population;
 - nearest-slice human false-positive evidence;
 - detector-family diversity;
 - benign representation stability;
@@ -68,10 +70,19 @@ States are:
 - `partial`
 - `unknown`
 - `out_of_scope`
+- `stale` (v3 only: a matching validation record exists but is stale)
 
 The overall state is `strong`, `mixed`, or `insufficient`.
 
-**The Trust Map is not an authorship probability.** In the current alpha, several benchmark-backed dimensions are intentionally `unknown`, so evidence coverage is commonly `insufficient`.
+**The Trust Map is not an authorship probability.** Benchmark-backed dimensions are `partial` where preliminary U1 evidence exists and `unknown` where no evidence covers the input regime, so overall evidence coverage is commonly `mixed` or `insufficient`.
+
+### Validation evidence and the claims gate
+
+Two registries keep claims tied to measured evidence:
+
+- **Claim-to-evidence gate (U7).** Every documented claim in `docs/CLAIMS.yaml` (33 claims) is linked to a run artifact in the evidence registry (`docs/evidence/`), and `scripts/check_claims.py` re-verifies the linkage in CI — re-hashing artifacts, comparing recorded values, and checking staleness. See the [evidence report card](docs/evidence/report-card.md).
+- **Validation-evidence registry (U1).** `docs/validation/registry.json` holds 7 validation records (all `partial`), each a held-out benchmark measurement of the built-in heuristic on a licensed dataset, with a SHA-256 hash seal. Trust Map v3 dimensions derive from these records.
+- **Datasets measured (preliminary).** RAID, MAGE, Beemo, OpAI-Bench, GhostWriter, and DetectRL-X have been measured with the built-in heuristic; the measurements are preliminary and no new claims were made from them. MixSet, DetectRL, M4, and M4GT-Bench are licence-blocked — their loaders refuse to fetch until a licence is resolved — and PAN 2025 is pending registration. Worst-slice human false-positive rate is **unknown** (see the report card); no FPR is claimed anywhere in this repository.
 
 ### Safe consensus semantics
 
@@ -193,11 +204,13 @@ python -m pip install ".[mcp]"
 textforensics-mcp
 ```
 
-### All optional surfaces
+### API + MCP surfaces
 
 ```bash
 python -m pip install ".[all]"
 ```
+
+`[all]` installs only the API and MCP surfaces (fastapi, jinja2, mcp, uvicorn, websockets). The other extras (`cli-rich`, `enterprise`, `diagnostics`, `fuzzing`, `ollama`, `security`, `dev`) are installed separately.
 
 See [Installation](docs/INSTALLATION.md) for pip, uv, pipx, offline wheelhouses, Docker, Podman, Compose, VM, Kubernetes/Nomad/ECS-style deployments, and configuration.
 
@@ -390,7 +403,7 @@ See:
 
 Before TextForensics can claim detector-performance parity with major commercial products, the project still needs:
 - serious independent detector-family adapters;
-- RAID/DetectRL/M4 evaluation;
+- grown, held-out validation evidence (RAID measured preliminarily; DetectRL/M4/M4GT-Bench licence-blocked; GhostWriter/DetectRL-X measured preliminarily) and per-slice human-FPR evidence;
 - held-out calibration and final evaluation;
 - human false-positive operating points and confidence intervals;
 - language/domain/length/revision slices;

@@ -4,12 +4,12 @@ TextForensics processes text that may be private, unpublished, legally sensitive
 
 ## Supported versions
 
-Until a stable 1.x release exists, security fixes are provided on a best-effort basis for the latest tagged minor release and the current `main` branch.
+Until a stable 1.x release exists, security fixes are provided on a best-effort basis for the current `main` branch. No release has been tagged yet (the only tag in the repository is `backup/pre-rewrite-85031b1`, a history-rewrite backup, not a release), so there is no tagged minor release to receive fixes.
 
 | Version | Security fixes |
 | --- | --- |
-| latest 0.x minor | ✅ |
-| older 0.x minors | ❌ unless explicitly announced |
+| current `main` | ✅ |
+| older 0.x minors | n/a — no release has been tagged |
 | unreleased branches | development only |
 
 ## Reporting a vulnerability
@@ -51,7 +51,13 @@ Python detector plugins execute with the privileges of the TextForensics process
 TextForensics binds to loopback by default. A non-loopback bind requires explicit opt-in. **That opt-in is not authentication.** Shared/public deployments require an external authentication/TLS/rate-limiting layer appropriate to the environment.
 
 ### Case files and provenance
-Hashes detect modification relative to the hashed artifact. A local hash chain does not establish an independent trusted timestamp or prove authorship.
+Hashes detect modification relative to the hashed artifact. A local hash chain does not establish an independent trusted timestamp or prove authorship. Sealed case files have three seal tiers:
+
+- **T1 — hash.** Always present: a SHA-256 hash of the canonical case bytes detects any modification since sealing. It proves integrity since sealing only — never that the analysis was run, and it does not authenticate who sealed the case.
+- **T2 — Ed25519/DSSE signature.** Opt-in (`case export --seal --signing-key <key>`): a detached DSSE signature over the canonical case bytes proves the sealer held the private key. Sealing keys are Ed25519 keypairs in `textforensics.sealing-key/v1` JSON files, made by `case keygen`; the private seed lives only in that key file (written mode `0600`, never overwritten, never committed, never emailed, never placed in a case file or bundle), and only the public half is handed to verifiers. See [Sealing keys](docs/SEALING_KEYS.md).
+- **T3 — RFC 3161 timestamp.** Opt-in (`--timestamp-url <TSA URL>`): a timestamp token proves the case bytes existed at the token's `genTime` according to the TSA's clock. Tokens from free public TSAs are honestly labelled "RFC 3161 timestamp (non-qualified)" — they are **not** trusted timestamps. Only a qualified timestamp from a qualified trust service provider (QTSP, on the EU Trusted List) carries an eIDAS presumption of time and integrity; a qualified timestamp is out of scope for v1.0.
+
+No seal tier turns a detector score into a probability or a detector verdict into proof of authorship.
 
 ## Privacy defaults
 
