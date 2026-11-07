@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from textforensics.adversarial import (
@@ -400,6 +402,96 @@ class TestNoRawTextInFindings:
         for finding in findings:
             assert finding.segment == f"sha256:{expected}"
             assert finding.location == (0, min(len(self.TEXT_WITH_CANARY), 200))
+
+
+class TestNoRawTextInFindingsU4:
+    """U4 precondition (§(f)): no raw text in adversarial findings/reports.
+
+    The 63eac08 fix (``segment`` is a SHA-256 reference, never quoted
+    text) is re-verified here from the U4 side, because the mixed-origin
+    report consumes adversarial findings as one of its evidence
+    families. These tests close the gaps the original canary class
+    left open:
+
+    * a canary planted BEYOND the 200-char truncation boundary
+      (``detect_regex_artifacts`` hashes only ``text[:200]`` — a leak
+      of later text would have escaped the original canary, which sits
+      at char ~20);
+    * a full string-leaf scan of the serialized ``to_dict()`` output
+      of ``detect_regex_artifacts`` (the original class checked only
+      ``segment``/``description`` there — the numeric ``evidence``
+      field was never scanned);
+    * a structural invariant on EVERY finding ``analyze`` returns:
+      ``segment`` is either the literal ``"full_text"`` or
+      ``"sha256:<64 hex>"`` — never quoted input text.
+    """
+
+    CANARY_EARLY = "CANARY-7f3a9-ZEBRA-QUARTZ-4417"
+    CANARY_LATE = "CANARY-9c2d4-MANGO-VELVET-8821"
+    # A distinctive multi-word phrase from the plain filler (chars
+    # <200) — guards against a leak that does not include a canary.
+    FILLER_PHRASE = "annual report in detail"
+
+    TEXT_WITH_LATE_CANARY = (
+        "The committee reviewed the annual report in detail. "
+        "The findings were presented to the board during the spring session. "
+        "Members asked several questions about the budget and the timeline. "
+        "The chair noted that the proposal required further discussion before any vote. "
+        "Furthermore, teh CANARY-9c2d4-MANGO-VELVET-8821 solution is gonna "
+        "change everything, frankly. It is sort of amazing, kinda sorta. "
+        "Additionally, moreover, therefore the results are definately "
+        "recieveing attention from thier team."
+    )
+
+    def _all_string_leaves(self, value):
+        """Every string leaf in a nested output structure."""
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, dict):
+            leaves = []
+            for key, item in value.items():
+                leaves.append(str(key))
+                leaves.extend(self._all_string_leaves(item))
+            return leaves
+        if isinstance(value, (list, tuple)):
+            leaves = []
+            for item in value:
+                leaves.extend(self._all_string_leaves(item))
+            return leaves
+        return []
+
+    def test_late_canary_position(self):
+        """The late canary really sits beyond the 200-char boundary."""
+        assert self.TEXT_WITH_LATE_CANARY.index(self.CANARY_LATE) > 200
+
+    def test_late_canary_absent_from_every_entry_point(self):
+        """No entry point leaks text planted beyond char 200."""
+        text = self.TEXT_WITH_LATE_CANARY
+        outputs = [
+            [f.to_dict() for f in detect_regex_artifacts(text)],
+            detect_humanization(text).to_dict(),
+            detect_humanization_simple(text),
+            AdversarialDetector().analyze(text).to_dict(),
+            [f.to_dict() for f in HumanizationPatternLibrary().run_all(text)],
+        ]
+        assert len(outputs[0]) > 0  # the leak path is exercised
+        for output in outputs:
+            for leaf in self._all_string_leaves(output):
+                assert self.CANARY_LATE not in leaf, f"late canary leaked in: {leaf!r}"
+                assert self.CANARY_EARLY not in leaf
+                assert self.FILLER_PHRASE not in leaf, f"filler phrase leaked in: {leaf!r}"
+
+    def test_all_analyze_segments_are_references(self):
+        """Every finding segment is a reference, never quoted text."""
+        findings = AdversarialDetector().analyze(self.TEXT_WITH_LATE_CANARY).findings
+        assert len(findings) > 0
+        pattern = re.compile(r"^(full_text|sha256:[0-9a-f]{64})$")
+        for finding in findings:
+            assert pattern.match(finding.segment), (
+                f"segment is not a content reference: {finding.segment!r}"
+            )
+            assert self.CANARY_LATE not in finding.segment
+            assert self.FILLER_PHRASE not in finding.segment
 
 
 if __name__ == "__main__":
