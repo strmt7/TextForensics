@@ -67,7 +67,7 @@ diagnostics = [
   "psutil>=6,<8",
 ]
 fuzzing = [
-  "atheris>=1.0,<2",
+  "atheris>=3.0,<4",
 ]
 ollama = [
   "aiohttp>=3.9,<4",

@@ -36,7 +36,7 @@ bandit>=1.7.0,<2
 cosmic-ray>=8.0,<9
 
 # Fuzz testing
-atheris>=1.0,<2
+atheris>=3.0,<4
 
 # Coverage
 coverage>=7.17.2,<8
