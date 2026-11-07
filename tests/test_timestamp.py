@@ -97,7 +97,14 @@ def _build_token(
         signature = _der_sequence(_der_integer(r), _der_integer(s))
         sig_oid = OID_ECDSA_WITH_SHA256
     if tamper_signature:
-        signature = b"\x00" + signature[1:]
+        # Flip a bit in the middle of the signature. Zeroing the first
+        # byte was a no-op for RSA when that byte is already 0x00
+        # (probability ~1/256), which made test_tampered_signature_fails
+        # flaky — the middle byte is inside the signature value for
+        # both RSA and ECDSA, so the flip always changes the value
+        # while keeping the DER structure parseable.
+        mid = len(signature) // 2
+        signature = signature[:mid] + bytes([signature[mid] ^ 0x01]) + signature[mid + 1 :]
     # sid = IssuerAndSerialNumber: the issuer Name DER + serial.
     sid = _der_sequence(issuer_name_der, _der_integer(serial))
     signer_info = _der_sequence(
