@@ -1497,9 +1497,16 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
     else:
         time_part = "local claim only"
     replay_status = report["replay"]["status"]
-    report["scope_statement"] = (
-        f"seal: integrity since sealing only — origin: {origin} — time: {time_part} — replay: {replay_status}"
-    )
+    if failed:
+        # A failed check must show in the scope line: the positive
+        # "integrity since sealing only" form would misdescribe a
+        # bundle whose digest, manifest, case or checklist failed.
+        failed_ids = ", ".join(check["id"] for check in checks if check.get("status") == "fail")
+        report["scope_statement"] = f"seal: not verified ({failed_ids} failed)"
+    else:
+        report["scope_statement"] = (
+            f"seal: integrity since sealing only — origin: {origin} — time: {time_part} — replay: {replay_status}"
+        )
     if failed:
         report["exit_code"] = 1
     elif unavailable:

@@ -305,7 +305,9 @@ def verify_case_file(payload: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def verify_case_file_combined(payload: dict[str, Any]) -> dict[str, Any]:
+def verify_case_file_combined(
+    payload: dict[str, Any], *, public_key: bytes | None = None
+) -> dict[str, Any]:
     """Verify a case file through BOTH independent verifiers.
 
     This is the single entry point for case-file verification, used by
@@ -332,6 +334,11 @@ def verify_case_file_combined(payload: dict[str, Any]) -> dict[str, Any]:
     point never raises for bad data — it reports the file invalid
     instead.
 
+    ``public_key`` supplies the Ed25519 public key for cryptographic
+    verification of a v3 T2 signature in the primary path.  Without
+    it, a present signature is reported in ``primary["warnings"]`` as
+    unverified — never silently treated as verified.
+
     Returns a dict with the N-version keys (``valid``, ``errors``,
     ``seal_verified``, ``trust_map_verified``, ``dimensions``) plus the
     primary-path keys (``schema``, ``case_sha256``, ``note``) and the
@@ -342,7 +349,7 @@ def verify_case_file_combined(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         from .casefile import verify_case_file as _casefile_verify
 
-        primary = _casefile_verify(payload)
+        primary = _casefile_verify(payload, public_key=public_key)
     except ValueError as exc:
         primary = {
             "valid": False,
@@ -367,7 +374,9 @@ def verify_case_file_combined(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def verify_case_file_path_combined(path: str | Path) -> dict[str, Any]:
+def verify_case_file_path_combined(
+    path: str | Path, *, public_key: bytes | None = None
+) -> dict[str, Any]:
     """Load a case file from disk and run the combined verification.
 
     Unlike ``casefile.verify_case_file_path`` this never raises for bad
@@ -402,7 +411,7 @@ def verify_case_file_path_combined(path: str | Path) -> dict[str, Any]:
             "nversion": None,
             "primary": None,
         }
-    return verify_case_file_combined(payload)
+    return verify_case_file_combined(payload, public_key=public_key)
 
 
 # ---------------------------------------------------------------------------

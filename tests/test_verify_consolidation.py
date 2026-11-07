@@ -18,7 +18,7 @@ from io import StringIO
 import pytest
 
 from textforensics.casefile import seal_case_file
-from textforensics.constants import EXIT_INCOMPLETE, EXIT_OK
+from textforensics.constants import EXIT_DOWNGRADED, EXIT_INCOMPLETE, EXIT_OK
 from textforensics.report import build_forensic_bundle
 from textforensics.trust import TRUST_DIMENSIONS
 from textforensics.verify import (
@@ -221,17 +221,20 @@ class TestCliAgreement:
         bad = tmp_path / "bad.json"
         bad.write_text(json.dumps(tampered), encoding="utf-8")
         # Before wave (d) these disagreed: `case verify` passed (seal
-        # only) while `verify` failed (replay). Now both fail.
+        # only) while `verify` failed (replay). Now both fail — under
+        # different exit-code contracts: `case verify` follows the MPL
+        # mapping (seal failed -> 1), `verify` keeps its own (failed
+        # verification -> 2).
         code, _ = self._run_main(["case", "verify", str(bad)])
-        assert code == EXIT_INCOMPLETE
+        assert code == EXIT_DOWNGRADED
         code, _ = self._run_main(["verify", str(bad)])
         assert code == EXIT_INCOMPLETE
 
-    def test_case_verify_malformed_file_is_incomplete_not_crash(self, tmp_path):
+    def test_case_verify_malformed_file_is_downgraded_not_crash(self, tmp_path):
         bad = tmp_path / "bad.json"
         bad.write_text("{not json", encoding="utf-8")
         code, _ = self._run_main(["case", "verify", str(bad)])
-        assert code == EXIT_INCOMPLETE
+        assert code == EXIT_DOWNGRADED
 
 
 class TestCodecOneFormat:

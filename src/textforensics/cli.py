@@ -148,6 +148,282 @@ def _strip_runtime_ms(data: dict) -> dict:
     return data
 
 
+# ---------------------------------------------------------------------------
+# Sealed case files (Phase 3 U2): key loading, scope statement, verify/seal
+# ---------------------------------------------------------------------------
+
+_SEAL_SCOPE_TEMPLATE = (
+    "seal: integrity since sealing only — origin: {origin} — "
+    "time: {time_part} — replay: {replay_status}"
+)
+
+
+def _load_public_key_arg(value: str) -> bytes:
+    """Load a 32-byte Ed25519 public key for ``case verify --public-key``.
+
+    Accepts, in order:
+
+    - a sealing-key file (``textforensics.sealing-key/v1`` JSON — the
+      seed is validated against the public key on load, and only the
+      public half is used),
+    - a public-key file (JSON with a ``public_key_b64`` field, as
+      written by ``case keygen --public-out``),
+    - a file holding 64 hex characters or exactly 32 raw bytes,
+    - a bare 64-hex-character string.
+
+    Raises ``ValueError`` on anything else.  A private key is never
+    printed or returned — only the 32 public bytes.
+    """
+    import base64
+
+    candidate = value.strip()
+    if Path(candidate).exists():
+        raw = Path(candidate).read_bytes()
+        try:
+            parsed = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            parsed = None
+        if isinstance(parsed, dict) and parsed.get("public_key_b64"):
+            try:
+                key = base64.b64decode(parsed["public_key_b64"], validate=True)
+            except (ValueError, TypeError) as exc:
+                raise ValueError(
+                    f"public key file {candidate} has an invalid public_key_b64"
+                ) from exc
+            if len(key) != 32:
+                raise ValueError(f"public key file {candidate} does not hold a 32-byte key")
+            if parsed.get("seed_b64"):
+                # A full sealing-key file: validate seed/public/keyid
+                # (and the POSIX mode) before trusting the public half.
+                from .sealing import load_sealing_key
+
+                load_sealing_key(candidate)
+            return key
+        if len(raw) == 32:
+            return raw
+        candidate = raw.decode("ascii", "ignore").strip()
+    try:
+        key = bytes.fromhex(candidate)
+    except ValueError as exc:
+        raise ValueError(
+            "--public-key must be a sealing-key file, a public-key file, "
+            "a file holding 64 hex characters, or a 64-hex-character string"
+        ) from exc
+    if len(key) != 32:
+        raise ValueError("--public-key must hold a 32-byte Ed25519 public key")
+    return key
+
+
+def _case_scope_statement(
+    case: dict[str, Any],
+    result: dict[str, Any],
+    *,
+    token_report: dict[str, Any] | None = None,
+    replay_status: str = "not requested",
+) -> str:
+    """One-line scope statement for a bare case-file verification.
+
+    Same shape as the standalone verifier's statement: the seal proves
+    integrity since sealing only (never authorship, never that the
+    analysis was run), the origin is authenticated only when a T2
+    signature verified, and the time is a local claim unless a
+    timestamp token verified.
+    """
+    primary = result.get("primary") or {}
+    warnings = primary.get("warnings") or []
+    errors = primary.get("errors") or []
+    seal = case.get("seal") or {}
+    if any(str(w).startswith("signature_invalid") for w in errors):
+        origin = "signature failed"
+    elif any(str(w).startswith("signature_present_public_key_not_supplied") for w in warnings):
+        origin = "not checked (no public key supplied)"
+    elif seal.get("signature") is not None:
+        origin = "signature verified"
+    else:
+        origin = "T1 hash seal only (origin not authenticated)"
+    if token_report is not None and token_report.get("valid"):
+        time_part = "RFC 3161 genTime {} (non-qualified)".format(token_report.get("gen_time"))
+    else:
+        time_part = "local claim only"
+    return _SEAL_SCOPE_TEMPLATE.format(
+        origin=origin, time_part=time_part, replay_status=replay_status
+    )
+
+
+def _verify_case_cli(args: argparse.Namespace, settings: Settings) -> int:
+    """``case verify``: bare case file or sealed bundle.
+
+    Exit codes follow the MPL contract: 0 = seal verified, 1 = seal
+    failed (tamper, mismatch, invalid token), 2 = checks could not run
+    (signature present but no public key supplied, replay unavailable).
+    """
+    import hashlib
+
+    from .casefile import replay_case_file_path
+    from .sealed_bundle import canonical_json_bytes, verify_sealed_bundle
+    from .timestamp import verify_timestamp_token
+
+    path = Path(args.case_file)
+    data = path.read_bytes()
+    public_key = _load_public_key_arg(args.public_key) if args.public_key else None
+    replay_text: str | None = None
+    if args.text is not None and args.text_file is not None:
+        raise ValueError("Use only one of --text and --text-file.")
+    if args.text is not None:
+        replay_text = validate_text_input(args.text, max_input_bytes=settings.max_input_bytes)
+    elif args.text_file is not None:
+        replay_text = _read_file_text(args.text_file, settings)
+
+    if data[:4] == b"PK\x03\x04":
+        if args.timestamp_token is not None:
+            raise ValueError(
+                "--timestamp-token is for bare case files; a sealed bundle "
+                "carries its token inside."
+            )
+        report = verify_sealed_bundle(
+            data,
+            expected_digest=args.expect_digest,
+            public_key=public_key,
+            text=replay_text,
+        )
+        _write_json(None, report)
+        return report["exit_code"]
+
+    # Bare case file (JSON).
+    if args.expect_digest is not None:
+        digest = args.expect_digest.strip().lower()
+        if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+            raise ValueError("--expect-digest must be a 64-character hex digest")
+        if hashlib.sha256(data).hexdigest() != digest:
+            result = verify_case_file_path_combined(path, public_key=public_key)
+            result["errors"] = [
+                "expected digest mismatch: the case file bytes do not match --expect-digest"
+            ] + list(result.get("errors") or [])
+            result["valid"] = False
+            _write_json(None, result)
+            return EXIT_DOWNGRADED
+    result = verify_case_file_path_combined(path, public_key=public_key)
+    try:
+        case = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        case = {}
+    if not isinstance(case, dict):
+        case = {}
+    gaps = case.get("gaps") if isinstance(case.get("gaps"), list) else []
+
+    token_report: dict[str, Any] | None = None
+    if args.timestamp_token is not None:
+        token = Path(args.timestamp_token).read_bytes()
+        token_report = verify_timestamp_token(
+            token,
+            expected_digest=hashlib.sha256(canonical_json_bytes(case)).digest(),
+        )
+        result["timestamp"] = token_report
+        if not token_report["valid"]:
+            result["valid"] = False
+            result["errors"] = list(result.get("errors") or []) + [
+                "timestamp token does not verify: " + "; ".join(token_report["errors"])
+            ]
+
+    replay_status = "not requested"
+    if replay_text is not None:
+        replay = replay_case_file_path(path, text=replay_text)
+        result["replay"] = replay
+        replay_status = "verified" if replay.get("valid") else "failed"
+        if not replay.get("valid"):
+            result["valid"] = False
+            result["errors"] = list(result.get("errors") or []) + list(replay.get("errors") or [])
+    result["gaps"] = gaps
+    result["scope"] = _case_scope_statement(
+        case, result, token_report=token_report, replay_status=replay_status
+    )
+    _write_json(None, result)
+    if not result.get("valid"):
+        return EXIT_DOWNGRADED
+    primary = result.get("primary") or {}
+    warnings = primary.get("warnings") or []
+    if any(str(w).startswith("signature_present_public_key_not_supplied") for w in warnings):
+        return EXIT_INCOMPLETE
+    if replay_text is not None and replay_status == "failed":
+        return EXIT_DOWNGRADED
+    return EXIT_OK
+
+
+def _sealed_bundle_paths(output: str) -> tuple[Path, Path]:
+    """Bundle + seal-record paths derived from a ``case export`` output."""
+    out = Path(output)
+    bundle = (
+        out.with_suffix(".sealed.zip") if out.suffix == ".json" else Path(str(out) + ".sealed.zip")
+    )
+    return bundle, Path(str(bundle) + ".seal.json")
+
+
+def _seal_exported_case(
+    args: argparse.Namespace,
+    case: dict[str, Any],
+    *,
+    signing_seed: bytes | None = None,
+    signer: dict[str, Any] | None = None,
+) -> None:
+    """Pack the just-exported case into a sealed bundle (``--seal``)."""
+    import hashlib
+
+    from .sealed_bundle import canonical_json_bytes, write_sealed_bundle
+    from .timestamp import request_timestamp
+
+    bundle_path, record_path = _sealed_bundle_paths(args.output)
+    token: bytes | None = None
+    if args.timestamp_url is not None:
+        # Fail closed: a requested timestamp that cannot be obtained is
+        # an error, never a silent T1/T2 bundle the user thinks is T3.
+        report = request_timestamp(
+            hashlib.sha256(canonical_json_bytes(case)).digest(),
+            args.timestamp_url,
+        )
+        token = report["token_der"]
+    write_sealed_bundle(
+        case,
+        bundle_path,
+        record_path,
+        signing_seed=signing_seed,
+        signer=signer,
+        timestamp_token=token,
+        tsa_url=args.timestamp_url,
+    )
+    print(str(bundle_path))
+    print(str(record_path))
+
+
+def _keygen_cli(args: argparse.Namespace) -> int:
+    """``case keygen``: generate a sealing-key file (Ed25519, mode 0600)."""
+    import base64
+    import getpass
+
+    from .sealing import generate_sealing_key, public_key_info, save_sealing_key
+
+    identity = args.identity or getpass.getuser()
+    key = generate_sealing_key(identity, args.role)
+    save_sealing_key(args.output, key)
+    public_out = getattr(args, "public_out", None)
+    if public_out is not None:
+        info = public_key_info(key)
+        Path(public_out).write_text(
+            json.dumps(info, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+    _write_json(
+        None,
+        {
+            "key_file": args.output,
+            "keyid": key["keyid"],
+            "public_key_hex": base64.b64decode(key["public_key_b64"]).hex(),
+            "identity": key["identity"],
+            "role": key["role"],
+            "public_key_file": public_out,
+        },
+    )
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="textforensics",
@@ -384,8 +660,54 @@ def build_parser() -> argparse.ArgumentParser:
     case_export.add_argument(
         "--rich", action="store_true", help="Use Rich-formatted terminal output"
     )
+    case_export.add_argument(
+        "--seal",
+        action="store_true",
+        help="Also pack a sealed MPL bundle next to the case file.",
+    )
+    case_export.add_argument(
+        "--signing-key",
+        help="Path to a sealing-key file (Ed25519, T2 signature for the "
+        "case and the bundle). Requires --seal.",
+    )
+    case_export.add_argument(
+        "--timestamp-url",
+        help="RFC 3161 TSA URL for a T3 timestamp token. Requires --seal; "
+        "a token that cannot be obtained fails the seal.",
+    )
     case_verify = case_sub.add_parser("verify", help="Verify case-file integrity.")
     case_verify.add_argument("case_file")
+    case_verify.add_argument(
+        "--expect-digest",
+        help="Expected SHA-256 digest: the bundle archive for a sealed "
+        "bundle, the case-file bytes for a bare case file.",
+    )
+    case_verify.add_argument("--text", "-t", help="Holder-supplied text for replay.")
+    case_verify.add_argument("--text-file", help="File holding holder-supplied text for replay.")
+    case_verify.add_argument(
+        "--public-key",
+        help="Path to a sealing-key file, a public-key file, or a hex "
+        "public key (verifies a T2 signature).",
+    )
+    case_verify.add_argument(
+        "--timestamp-token",
+        help="Path to a DER RFC 3161 token to verify against the case file (bare case files only).",
+    )
+    case_keygen = case_sub.add_parser(
+        "keygen", help="Generate a sealing-key file (Ed25519, mode 0600)."
+    )
+    case_keygen.add_argument(
+        "--output",
+        "-o",
+        required=True,
+        help="Path for the new sealing-key file (refuses to overwrite).",
+    )
+    case_keygen.add_argument("--identity", help="Key holder identity (default: current username).")
+    case_keygen.add_argument("--role", default="sealer", help="Key role (default: sealer).")
+    case_keygen.add_argument(
+        "--public-out",
+        help="Also write the public half (public key + keyid) to this path.",
+    )
 
     bundle_cmd = sub.add_parser(
         "bundle",
@@ -1047,6 +1369,18 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
 
     elif args.command == "case":
         if args.case_command == "export":
+            if (args.signing_key is not None or args.timestamp_url is not None) and (not args.seal):
+                raise ValueError("--signing-key and --timestamp-url require --seal")
+            signing_seed: bytes | None = None
+            signer: dict[str, Any] | None = None
+            if args.signing_key is not None:
+                import base64
+
+                from .sealing import load_sealing_key
+
+                key = load_sealing_key(args.signing_key)
+                signing_seed = base64.b64decode(key["seed_b64"])
+                signer = {"identity": key["identity"], "role": key["role"]}
             bundle = build_forensic_bundle(
                 _read_text(args.file, settings, text=args.text),
                 ledger_path=args.ledger,
@@ -1061,26 +1395,27 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
                 bundle_dict,
                 deterministic=args.deterministic,
                 fixed_timestamp=args.fixed_timestamp,
+                signing_seed=signing_seed,
+                signer=signer,
             )
             print(args.output)
+            case_data = json.loads(Path(args.output).read_text(encoding="utf-8"))
+            if args.seal:
+                _seal_exported_case(args, case_data, signing_seed=signing_seed, signer=signer)
             if getattr(args, "rich", False):
                 from .rich_output import HAS_RICH as _has_rich
                 from .rich_output import print_case_summary
 
                 if _has_rich:
-                    # Need to read back the case file to show structure
-                    case_data = json.loads(Path(args.output).read_text(encoding="utf-8"))
                     print_case_summary(case_data)
                 else:
                     print(
                         "Warning: Rich is not installed. Install with: pip install textforensics[cli-rich]"
                     )
+        elif args.case_command == "keygen":
+            return _keygen_cli(args)
         else:
-            # Combined verification (N-version replay AND primary-path
-            # seal check) — the same answer `verify` gives for this file.
-            result = verify_case_file_path_combined(args.case_file)
-            _write_json(None, result)
-            return EXIT_OK if result.get("valid") else EXIT_INCOMPLETE
+            return _verify_case_cli(args, settings)
 
     elif args.command == "web":
         # The remote-bind guard runs before the optional web-UI import:

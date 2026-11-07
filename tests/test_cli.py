@@ -67,8 +67,8 @@ class CliTests(unittest.TestCase):
             case.write_text(json.dumps(payload), encoding="utf-8")
 
             tampered = self.run_cli("case", "verify", str(case))
-            # Tampered case should return EXIT_INCOMPLETE (verification failure)
-            self.assertEqual(tampered.returncode, EXIT_INCOMPLETE)
+            # Tampered case: MPL exit 1 (seal failed), not 2 (incomplete).
+            self.assertEqual(tampered.returncode, EXIT_DOWNGRADED)
             self.assertFalse(json.loads(tampered.stdout)["valid"])
 
     def test_remote_bind_guard_surfaces_clean_error(self):

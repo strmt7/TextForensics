@@ -10,8 +10,8 @@ from pathlib import Path
 
 from textforensics.cli import build_parser, main
 from textforensics.constants import (
+    EXIT_DOWNGRADED,
     EXIT_ERROR,
-    EXIT_INCOMPLETE,
     EXIT_OK,
 )
 
@@ -139,8 +139,8 @@ class CliInProcessTests(unittest.TestCase):
             case.write_text(json.dumps(payload), encoding="utf-8")
 
             code, out, err = self._run_main(["case", "verify", str(case)])
-            # Tampered case returns EXIT_INCOMPLETE (verification failure)
-            self.assertEqual(code, EXIT_INCOMPLETE, err)
+            # Tampered case: MPL exit 1 (seal failed), not 2 (incomplete).
+            self.assertEqual(code, EXIT_DOWNGRADED, err)
             self.assertFalse(json.loads(out)["valid"])
 
     def test_calibrate_benchmark_roundtrip(self):
