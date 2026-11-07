@@ -443,15 +443,33 @@ class TestNoRawTextInFindings:
                 assert self.CANARY not in leaf, f"canary leaked in: {leaf!r}"
 
     def test_segment_reference_matches_matched_span(self):
-        """Test that the segment hash identifies the matched span."""
+        """Test that the segment hash identifies the matched span.
+
+        Per the AdversarialFinding contract, ``segment`` is the
+        SHA-256 of the FIRST matched span and ``location`` is that
+        span — not a hash of ``text[:200]`` with a fixed (0, 200)
+        location. The expected span is computed independently here
+        with re.search over the artifact's patterns.
+        """
         import hashlib
+
+        from textforensics.adversarial import _HUMANIZER_ARTIFACTS
 
         findings = detect_regex_artifacts(self.TEXT_WITH_CANARY)
         assert len(findings) > 0
-        expected = hashlib.sha256(self.TEXT_WITH_CANARY[:200].encode("utf-8")).hexdigest()
         for finding in findings:
+            artifact_id = finding.pattern_id.removeprefix("regex_")
+            patterns = _HUMANIZER_ARTIFACTS[artifact_id]["patterns"]
+            spans = [
+                match.span()
+                for pat in patterns
+                if (match := re.search(pat, self.TEXT_WITH_CANARY, re.IGNORECASE)) is not None
+            ]
+            assert spans, f"no match found for {finding.pattern_id}"
+            start, end = min(spans)
+            expected = hashlib.sha256(self.TEXT_WITH_CANARY[start:end].encode("utf-8")).hexdigest()
             assert finding.segment == f"sha256:{expected}"
-            assert finding.location == (0, min(len(self.TEXT_WITH_CANARY), 200))
+            assert finding.location == (start, end)
 
 
 class TestNoRawTextInFindingsU4:
@@ -464,9 +482,9 @@ class TestNoRawTextInFindingsU4:
     left open:
 
     * a canary planted BEYOND the 200-char truncation boundary
-      (``detect_regex_artifacts`` hashes only ``text[:200]`` — a leak
-      of later text would have escaped the original canary, which sits
-      at char ~20);
+      (``detect_regex_artifacts`` used to hash only ``text[:200]`` —
+      a leak of later text would have escaped the original canary,
+      which sits at char ~20);
     * a full string-leaf scan of the serialized ``to_dict()`` output
       of ``detect_regex_artifacts`` (the original class checked only
       ``segment``/``description`` there — the numeric ``evidence``
@@ -542,6 +560,72 @@ class TestNoRawTextInFindingsU4:
             )
             assert self.CANARY_LATE not in finding.segment
             assert self.FILLER_PHRASE not in finding.segment
+
+
+class TestRegexArtifactFirstMatchSpan:
+    """Regression tests (#10): regex findings reference the matched span.
+
+    ``detect_regex_artifacts`` used to hash ``text[:200]`` and report
+    location ``(0, 200)`` regardless of where the match actually sits,
+    contradicting the ``AdversarialFinding.segment`` contract. The
+    segment is now the SHA-256 of the FIRST matched span and
+    ``location`` is that span; the aggregate match count stays in
+    ``evidence``.
+    """
+
+    CANARY = "CANARY-5e8b1-TULIP-GRANITE-7734"
+    # Filler with no humanizer-artifact words, long enough to push
+    # the planted match beyond character 200.
+    TEXT_WITH_LATE_MATCH = (
+        "The committee reviewed the annual report in detail. "
+        "The findings were presented to the board during the spring session. "
+        "Members asked several questions about the budget and the timeline. "
+        "The chair noted that the proposal required further discussion before any vote. "
+        "A follow-up meeting was set for the following month to check progress. "
+        "The draft was teh CANARY-5e8b1-TULIP-GRANITE-7734 version circulated for comment."
+    )
+
+    def _all_string_leaves(self, value):
+        """Every string leaf in a nested output structure."""
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, dict):
+            leaves = []
+            for key, item in value.items():
+                leaves.append(str(key))
+                leaves.extend(self._all_string_leaves(item))
+            return leaves
+        if isinstance(value, (list, tuple)):
+            leaves = []
+            for item in value:
+                leaves.extend(self._all_string_leaves(item))
+            return leaves
+        return []
+
+    def test_match_beyond_200_segment_and_location(self):
+        """A match past char 200 is hashed at its own span, not text[:200]."""
+        import hashlib
+
+        text = self.TEXT_WITH_LATE_MATCH
+        start = text.index("teh")
+        assert start > 200  # the match really is beyond the old boundary
+        end = start + len("teh")
+        findings = detect_regex_artifacts(text)
+        finding = next(f for f in findings if f.pattern_id == "regex_deliberate_typo")
+        expected = hashlib.sha256(text[start:end].encode("utf-8")).hexdigest()
+        assert finding.segment == f"sha256:{expected}"
+        assert finding.location == (start, end)
+        assert finding.evidence >= 1  # aggregate count still recorded
+
+    def test_late_canary_still_absent_from_findings(self):
+        """The canary behaviour still holds after the span fix (rule 22)."""
+        findings = detect_regex_artifacts(self.TEXT_WITH_LATE_MATCH)
+        assert len(findings) > 0  # the leak path is exercised
+        for finding in findings:
+            for leaf in self._all_string_leaves(finding.to_dict()):
+                assert self.CANARY not in leaf, f"canary leaked in: {leaf!r}"
+            assert finding.segment.startswith("sha256:")
+            assert len(finding.segment) == len("sha256:") + 64
 
 
 if __name__ == "__main__":
