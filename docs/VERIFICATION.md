@@ -1695,3 +1695,147 @@ score series + Tier-1 flip-direction fix), `4565115` (CLI:
   the pooled KS value is visible in the manifest for inspection.
 - **Per-slice demotion, MMD, conformal coverage:** unavailable in
   v1.0 by design (declared as gaps in every manifest).
+
+## Verification record — Phase 3, U4 mixed-origin / co-authorship report (2026-11-07)
+
+U4 builds the mixed-origin report (§8.6 output shape): verdict,
+HART collaboration type, degree-of-change tiers, operation
+hypothesis, per-segment evidence, the verbatim
+non-monotonicity warning, and the idea-provenance note. Six commits
+on top of `87dde38` (U3), all canonical identity, none pushed
+(pushing is the parent's step):
+
+- `6efc084` (f) canary tests proving no raw text appears in
+  adversarial findings — the brief's original §(f) claim of a
+  raw-text leak was wrong; `63eac08` holds, `adversarial.py`
+  untouched.
+- `9e70c8c` OpAI-Bench mapper preserves segment-level ground truth
+  (`sentences`, `sentence_labels`, `ai_spans_char`), fail-closed.
+- `94f822e` report builder `mixed_origin.py` + schema
+  `textforensics.mixed-origin-report/v1` (12th schema).
+- `720cd6a` `tf mixed-origin` CLI command.
+- `e0f60ae` segment validation run tooling (5a, code only).
+- `c663a23` segment validation run + U1 segment record (5b).
+
+### Segment validation run (the §12(g) evidence)
+
+Script `scripts/measure_segments.py --run-date 20261107`, run at
+committed HEAD `e0f60ae` (code_version in the artifact is exactly
+that commit; a pre-commit trial run reproduced byte-identical
+metrics). OpAI-Bench, Apache-2.0, licence verified before the
+fetch. Strided train n=500 of 196,029 + dev n=50 replication;
+disjoint by document (0 shared docs, verified); one 1-word
+segment shared between train and dev (a valediction, word counts
+only — no dataset text in the repo). Ratio/label agreement 494/500
+(6 rows disagree, max |diff| 0.032).
+
+Artifact: `docs/evidence/runs/EV-20261107-dataset-opai-bench-segments.json`
+(SHA-256 `5ecc111efa6b…`, U7 registry 17 → 18 records, badge
+`available`, `preliminary: true`, 9 drops). Segment record
+`evr-20261107-opai-bench-builtin-heuristic` (validation registry
+6 → 7 records, status `partial`, editing_regime `LLM-edited` so it
+never auto-matches a Trust Map dimension; slice_id
+`opai_bench_segments-builtin-heuristic`).
+
+Detector: builtin-heuristic 0.1.0 at the DECLARED operating point
+(score ≥0.68 ai_like, ≤0.32 human_like, segments under 20 words
+abstain; no threshold fitted). 1000 bootstrap resamples, seed
+20261106. Pooled train, 10,053 segments (4,785 human / 5,268 AI):
+
+- AUROC **0.4772 [0.4665, 0.4879]** — below chance (CI entirely
+  below 0.5). Dev replication, 922 segments: AUROC 0.4743 [0.4391,
+  0.512]. Mean score human 0.3404 vs machine 0.3342 (inverted).
+- TPR@1%FPR 0.0015, TPR@5%FPR 0.0514; native FPR 0.0, native TPR
+  0.0; coverage 0.445, abstention 0.555.
+- Precision/F1 **undefined (null)**: no segment scores ≥0.68, so
+  no AI prediction exists (tp=0, fp=0, fn=5,268); recall 0.0.
+- By version: v4 highest AUROC 0.5672, v5 lowest 0.4191 —
+  non-monotonic across the ladder; v0 (all-human) and v8 (all-AI)
+  carry null AUROC by construction.
+- By operation: compress 0.5672 best, expand 0.4191 worst;
+  paraphrase 0.4691, polish 0.4679, style 0.4833.
+- By length: segments under 20 words are 4,588/10,053 (46%) and
+  never verdicted (coverage 0.0); 20+ word segments sit at chance
+  (AUROC 0.5037 / 0.5095).
+- By domain: news 0.4931 best, essays 0.458 worst; all at or
+  below chance.
+- Operation-hypothesis accuracy **0.0 (0/444)**: every doc
+  predicted `unknown` (389) or `humanise` (55, from adversarial
+  artifacts). With coverage, 388/444 mixed docs are verdicted
+  `human` and 56 withheld.
+- Segmentation fidelity: the builder's `SENTENCE_RE` split
+  reproduces 8,443/10,053 dataset sentences (84.0%) and 204/500
+  docs exactly (40.8%).
+
+Headline, stated plainly: the builtin heuristic cannot separate AI
+from human sentences, and the v1.0 report calls most mixed-origin
+text human. No threshold was lowered and no metric relabelled to
+hide this (AGENTS.md rules 4, 17, 18). Every segment claim stays
+`partial` / `unknown`; the 8-condition bar for `supported` is not
+met in any cell.
+
+### What else was verified during the run
+
+- The ratio cross-check the mapper asserted (mean of
+  `sentence_labels` == `ai_sentence_ratio`) is FALSE on the full
+  sample — 6/500 rows disagree. The check was removed from the
+  mapper; the run measures the agreement instead of asserting it.
+- `measure_datasets.auroc` was O(n²) per call: the segment
+  bootstrap (1000 resamples × ~5,000 segments) would have taken
+  hours. Rewritten rank-based (O(n log n)), verified identical to
+  the pairwise form on tied data including a 5,000-item sample
+  (same value 0.4974, 0.21 s → 0.0042 s per call).
+- The engine verdict's reliability gate (`length_reliability` <
+  0.28) would abstain on ALL short text by construction, so the
+  segment verdict is defined by the declared operating point, not
+  by `detect()` — recorded in the helper docstring, the record's
+  limits, and the U4 report.
+- The document cache was not overwritten: the U1 document record's
+  cited `train.jsonl` SHA-256 still matches the file.
+- Covered-path CLI check (live): a plain human text with
+  `--language en --domain news` verdicts `human`, exit 0, with
+  `validation_slice_covered: true`; `--domain legal` (uncovered)
+  withholds. No raw text in the CLI output.
+
+### Full verification (commits 1–4 + 5a, then 5b, before commit)
+
+- Extras suite: **2851 passed, 0 failed** (152.4 s). Core-only
+  suite (bare venv, fastapi absent): **2739 passed, 0 failed, 112
+  skipped** (144.0 s). The `test_memory_check` host flake did not
+  fire on either run.
+- Ruff check + format clean; `pre-commit run --all-files`
+  **13/13**; claims gate **33/33**; schemas **12 OK**;
+  gitleaks 8.24.3 over `87dde38..HEAD`: **0 leaks** (6 commits),
+  and 0 leaks over the staged 5b content before commit.
+- `.secrets.baseline` 574 → 581 (+7 audited entries, 0 dropped,
+  no duplicates): the 4 distinct hashes (segment-cache SHA-256,
+  artifact SHA-256, commit SHA `e0f60ae`, record signature) across
+  7 (file, line) locations. Audit script:
+  `hidden_files/graft_baseline_u4_segments.py`. One graft-script
+  bug caught during the work: re-running it duplicated entries —
+  the script now refuses to duplicate and the baseline was restored
+  from git and grafted once.
+- The segment record loads with signature verification
+  (`load_validation_registry` passes; signature recomputed ==
+  stored), status `partial`, contamination `no`.
+
+### What is NOT verified / NOT done here
+
+- **No new claims.** The claims gate stays **33/33**; the report
+  card still leads with worst-slice human FPR = unknown (the
+  segment record's native FPR 0.0 is a quiet verdict — nothing
+  fires — not evidence of separation).
+- **No push, no release, no tag.** Pushing is the parent's step.
+- **Segment-level calibration:** the document operating point
+  (0.68/0.32) does not transfer to sentences — the AI side never
+  fires. A segment-level operating point needs a disjoint
+  calibration set (v1.1 work, not fitted on this sample).
+- **ai→human direction:** no data source covers it; those cells
+  are `unknown`. M4GT-Bench Task 3 (the real spine) is still
+  licence-blocked; MixSet is licence-blocked and too small.
+- **Population slicing:** no population-labelled source exists;
+  the human-slice segment FPR is pooled by domain only.
+- **Live-TSA interop, downloader fix, atheris, mutation:**
+  untouched (release gate, as before).
+- **Other Python versions**: verified on 3.12.3 only; CI covers
+  the matrix.
