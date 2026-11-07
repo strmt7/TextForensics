@@ -162,7 +162,7 @@ This prevents one easy form of in-sample performance inflation; it is not a comp
 
 ### Core
 
-The core has **no mandatory third-party runtime dependency**.
+The core has **no mandatory third-party runtime dependency**. `curl` is recommended as a system tool (ships with macOS, Windows 10+, and most Linux): large benchmark downloads fall back to it when the stdlib downloader cannot ride out an egress stall.
 
 ```bash
 git clone https://github.com/strmt7/TextForensics.git

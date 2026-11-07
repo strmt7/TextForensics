@@ -5,10 +5,15 @@ covered by the smoke tests in the measurement script, which are skipped
 without network/cache.
 """
 
+import http.client
+import http.server
 import io
 import json
 import os
+import subprocess
 import tempfile
+import threading
+import time
 import unittest
 import urllib.error
 from pathlib import Path
@@ -29,6 +34,8 @@ from textforensics.datasets import (
     _map_detectrl,
     _map_m4,
     _map_m4gt_bench,
+    _SplitTimeoutHTTPHandler,
+    _SplitTimeoutHTTPSHandler,
     cache_path,
     default_cache_dir,
     detectrl_x_raw_path,
@@ -485,6 +492,426 @@ class DownloadTests(unittest.TestCase):
         ):
             download_large_file("https://example.invalid/file.bin", self.dest, expected_bytes=100)
         self.assertFalse(self.dest.exists())
+
+    def test_truncated_body_is_retried_not_renamed(self) -> None:
+        # Server declares 100 bytes but closes after 5: the
+        # Content-Length check must retry instead of renaming a short file.
+        def _truncated(request: urllib.request.Request, **kwargs: object):
+            response = self._fake_download_response(b"short")
+            response.getheader = lambda name, default=None: (
+                "100" if name == "Content-Length" else default
+            )
+            return response
+
+        with (
+            mock.patch("urllib.request.urlopen", side_effect=_truncated) as urlopen,
+            self.assertRaises(DownloadError),
+        ):
+            download_large_file(
+                "https://example.invalid/file.bin",
+                self.dest,
+                retries=1,
+                use_curl_fallback=False,
+            )
+        self.assertEqual(urlopen.call_count, 2)
+        self.assertFalse(self.dest.exists())
+        self.assertTrue(Path(str(self.dest) + ".part").exists())
+
+    def test_urlopen_receives_stall_budget_when_budgets_equal(self) -> None:
+        # Equal connect/stall budgets use plain urlopen with the stall budget.
+        with mock.patch(
+            "urllib.request.urlopen",
+            return_value=self._fake_download_response(b"data"),
+        ) as urlopen:
+            download_large_file("https://example.invalid/file.bin", self.dest)
+        self.assertEqual(urlopen.call_args.kwargs["timeout"], 30)
+
+        dest2 = Path(self._tmp.name) / "file2.bin"
+        with mock.patch(
+            "urllib.request.urlopen",
+            return_value=self._fake_download_response(b"data"),
+        ) as urlopen:
+            download_large_file(
+                "https://example.invalid/file.bin",
+                dest2,
+                stall_timeout_s=300,
+                connect_timeout_s=300,
+            )
+        self.assertEqual(urlopen.call_args.kwargs["timeout"], 300)
+
+    def test_split_timeouts_use_custom_opener(self) -> None:
+        fake_opener = mock.MagicMock()
+        fake_opener.open.return_value = self._fake_download_response(b"data")
+        with mock.patch("urllib.request.build_opener", return_value=fake_opener) as build_opener:
+            download_large_file(
+                "https://example.invalid/file.bin",
+                self.dest,
+                stall_timeout_s=300,
+                connect_timeout_s=30,
+            )
+        handlers = build_opener.call_args.args
+        self.assertEqual(len(handlers), 2)
+        self.assertIsInstance(handlers[0], _SplitTimeoutHTTPHandler)
+        self.assertIsInstance(handlers[1], _SplitTimeoutHTTPSHandler)
+        self.assertEqual(handlers[0]._stall_timeout_s, 300)
+        self.assertEqual(handlers[1]._stall_timeout_s, 300)
+        self.assertEqual(fake_opener.open.call_args.kwargs["timeout"], 30)
+        self.assertEqual(self.dest.read_bytes(), b"data")
+
+    def test_backoff_jitter_within_cap_and_growing(self) -> None:
+        sleeps: list[float] = []
+        bounds: list[tuple[float, float]] = []
+
+        def _uniform(lo: float, hi: float) -> float:
+            bounds.append((lo, hi))
+            return hi  # worst case: the cap itself
+
+        with (
+            mock.patch("textforensics.datasets.random.uniform", side_effect=_uniform),
+            mock.patch("textforensics.datasets.time.sleep", side_effect=sleeps.append),
+            mock.patch(
+                "urllib.request.urlopen",
+                side_effect=http.client.RemoteDisconnected("Remote end closed connection"),
+            ),
+            self.assertRaises(DownloadError),
+        ):
+            download_large_file(
+                "https://example.invalid/file.bin",
+                self.dest,
+                retries=8,
+                use_curl_fallback=False,
+            )
+        # 8 sleeps (attempts 0..7); the bound grows 2, 4, 8, 16, 32
+        # then caps at 60.
+        self.assertEqual(
+            bounds,
+            [(0, 2.0), (0, 4.0), (0, 8.0), (0, 16.0), (0, 32.0), (0, 60.0), (0, 60.0), (0, 60.0)],
+        )
+        self.assertEqual(sleeps, [2.0, 4.0, 8.0, 16.0, 32.0, 60.0, 60.0, 60.0])
+        for value in sleeps:
+            self.assertGreaterEqual(value, 0)
+            self.assertLessEqual(value, 60.0)
+
+    def test_curl_fallback_argv_exactness(self) -> None:
+        part = Path(str(self.dest) + ".part")
+        seen: dict[str, object] = {}
+
+        def _run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess:
+            seen["argv"] = argv
+            seen["kwargs"] = kwargs
+            part.write_bytes(b"via curl")
+            return subprocess.CompletedProcess(argv, 0)
+
+        with (
+            mock.patch(
+                "urllib.request.urlopen",
+                side_effect=http.client.RemoteDisconnected("Remote end closed connection"),
+            ),
+            mock.patch("textforensics.datasets.shutil.which", return_value="/usr/bin/curl"),
+            mock.patch("textforensics.datasets.subprocess.run", side_effect=_run),
+        ):
+            download_large_file("https://example.invalid/file.bin", self.dest, retries=0)
+        argv = seen["argv"]
+        assert isinstance(argv, list)
+        self.assertEqual(argv[0], "/usr/bin/curl")
+        for flag in (
+            "--fail",
+            "--silent",
+            "--show-error",
+            "--location",
+            "--connect-timeout",
+            "30",
+            "--max-time",
+            "3600",
+            "--speed-limit",
+            "1024",
+            "--speed-time",
+            "120",
+            "--retry",
+            "3",
+            "--retry-delay",
+            "5",
+            "--continue-at",
+            "-",
+        ):
+            self.assertIn(flag, argv)
+        self.assertNotIn("--retry-all-errors", argv)
+        self.assertEqual(argv[argv.index("--proto") + 1], "=https")
+        self.assertEqual(argv[argv.index("--proto-redir") + 1], "=https")
+        self.assertEqual(argv[argv.index("-o") + 1], str(part))
+        self.assertEqual(argv[-2], "--")
+        self.assertEqual(argv[-1], "https://example.invalid/file.bin")
+        kwargs = seen["kwargs"]
+        assert isinstance(kwargs, dict)
+        self.assertIs(kwargs["shell"], False)
+        self.assertEqual(self.dest.read_bytes(), b"via curl")
+
+    def test_curl_exit_33_restarts_from_zero(self) -> None:
+        part = Path(str(self.dest) + ".part")
+        part.write_bytes(b"stale partial")
+        calls: list[list[str]] = []
+        part_existed_on_second_call: list[bool] = []
+
+        def _run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess:
+            calls.append(list(argv))
+            if len(calls) == 1:
+                return subprocess.CompletedProcess(argv, 33)
+            part_existed_on_second_call.append(part.exists())
+            part.write_bytes(b"full file")
+            return subprocess.CompletedProcess(argv, 0)
+
+        with (
+            mock.patch(
+                "urllib.request.urlopen",
+                side_effect=http.client.RemoteDisconnected("Remote end closed connection"),
+            ),
+            mock.patch("textforensics.datasets.shutil.which", return_value="/usr/bin/curl"),
+            mock.patch("textforensics.datasets.subprocess.run", side_effect=_run),
+        ):
+            download_large_file("https://example.invalid/file.bin", self.dest, retries=0)
+        self.assertEqual(len(calls), 2)
+        self.assertIn("--continue-at", calls[0])
+        self.assertNotIn("--continue-at", calls[1])
+        self.assertEqual(part_existed_on_second_call, [False])
+        self.assertEqual(self.dest.read_bytes(), b"full file")
+
+    def test_curl_absent_raises_download_error_with_urllib_context(self) -> None:
+        with (
+            mock.patch(
+                "urllib.request.urlopen",
+                side_effect=http.client.RemoteDisconnected("Remote end closed connection"),
+            ),
+            mock.patch("textforensics.datasets.shutil.which", return_value=None),
+            self.assertRaises(DownloadError) as ctx,
+        ):
+            download_large_file("https://example.invalid/file.bin", self.dest, retries=0)
+        self.assertIn("curl", str(ctx.exception))
+        self.assertIsInstance(ctx.exception.__cause__, http.client.RemoteDisconnected)
+        self.assertFalse(self.dest.exists())
+
+    def test_curl_failure_raises_and_leaves_part(self) -> None:
+        part = Path(str(self.dest) + ".part")
+        part.write_bytes(b"partial")
+        with (
+            mock.patch(
+                "urllib.request.urlopen",
+                side_effect=http.client.RemoteDisconnected("Remote end closed connection"),
+            ),
+            mock.patch("textforensics.datasets.shutil.which", return_value="/usr/bin/curl"),
+            mock.patch(
+                "textforensics.datasets.subprocess.run",
+                return_value=subprocess.CompletedProcess([], 22),
+            ) as run,
+            self.assertRaises(DownloadError) as ctx,
+        ):
+            download_large_file("https://example.invalid/file.bin", self.dest, retries=0)
+        self.assertIn("22", str(ctx.exception))
+        self.assertEqual(run.call_count, 1)
+        self.assertFalse(self.dest.exists())
+        self.assertTrue(part.exists())
+        self.assertEqual(part.read_bytes(), b"partial")
+
+    def test_curl_refuses_non_loopback_http(self) -> None:
+        with (
+            mock.patch(
+                "urllib.request.urlopen",
+                side_effect=http.client.RemoteDisconnected("Remote end closed connection"),
+            ),
+            mock.patch("textforensics.datasets.shutil.which", return_value="/usr/bin/curl"),
+            mock.patch("textforensics.datasets.subprocess.run") as run,
+            self.assertRaises(DownloadError) as ctx,
+        ):
+            download_large_file("http://example.invalid/file.bin", self.dest, retries=0)
+        self.assertIn("refuses", str(ctx.exception))
+        run.assert_not_called()
+
+    def test_force_curl_skips_urllib(self) -> None:
+        part = Path(str(self.dest) + ".part")
+
+        def _run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess:
+            part.write_bytes(b"forced curl")
+            return subprocess.CompletedProcess(argv, 0)
+
+        with (
+            mock.patch("urllib.request.urlopen") as urlopen,
+            mock.patch("textforensics.datasets.shutil.which", return_value="/usr/bin/curl"),
+            mock.patch("textforensics.datasets.subprocess.run", side_effect=_run),
+        ):
+            download_large_file("https://example.invalid/file.bin", self.dest, force_curl=True)
+        urlopen.assert_not_called()
+        self.assertEqual(self.dest.read_bytes(), b"forced curl")
+
+    def test_limit_bytes_fetches_prefix_only(self) -> None:
+        seen: dict[str, str | None] = {}
+
+        def _urlopen(request: urllib.request.Request, **kwargs: object):
+            seen["range"] = request.get_header("Range")
+            return self._fake_download_response(b"0123456789" * 10)
+
+        with mock.patch("urllib.request.urlopen", side_effect=_urlopen):
+            download_large_file(
+                "https://example.invalid/file.bin",
+                self.dest,
+                limit_bytes=10,
+                expected_bytes=100,  # full-file checks are skipped for a prefix
+            )
+        self.assertEqual(seen["range"], "bytes=0-9")
+        self.assertEqual(self.dest.read_bytes(), b"0123456789")
+
+    def test_curl_prefix_probe_argv(self) -> None:
+        part = Path(str(self.dest) + ".part")
+        seen: dict[str, object] = {}
+
+        def _run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess:
+            seen["argv"] = argv
+            part.write_bytes(b"0123456789")
+            return subprocess.CompletedProcess(argv, 0)
+
+        with (
+            mock.patch(
+                "urllib.request.urlopen",
+                side_effect=http.client.RemoteDisconnected("Remote end closed connection"),
+            ),
+            mock.patch("textforensics.datasets.shutil.which", return_value="/usr/bin/curl"),
+            mock.patch("textforensics.datasets.subprocess.run", side_effect=_run),
+        ):
+            download_large_file(
+                "https://example.invalid/file.bin", self.dest, retries=0, limit_bytes=10
+            )
+        argv = seen["argv"]
+        assert isinstance(argv, list)
+        self.assertEqual(argv[argv.index("--range") + 1], "0-9")
+        self.assertEqual(argv[argv.index("--max-filesize") + 1], "10")
+        self.assertNotIn("--continue-at", argv)
+        self.assertEqual(self.dest.read_bytes(), b"0123456789")
+
+
+class _StallHandler(http.server.BaseHTTPRequestHandler):
+    """Range-capable fixture server with scripted faults.
+
+    Class attributes configure the fault for the next test:
+    ``delay_s`` (header delay), ``trickle_s`` (seconds between 10-byte
+    body chunks), ``drop_after`` (body bytes sent before the connection
+    is dropped mid-body, once). ``requests_seen`` counts GETs.
+    """
+
+    protocol_version = "HTTP/1.1"
+    body = b"0123456789" * 10  # 100 bytes
+    delay_s = 0.0
+    trickle_s = 0.0
+    drop_after: int | None = None
+    requests_seen = 0
+    _dropped = False
+
+    def log_message(self, *args: object) -> None:
+        pass
+
+    def do_GET(self) -> None:  # noqa: N802 - stdlib handler name
+        type(self).requests_seen += 1
+        time.sleep(type(self).delay_s)
+        range_header = self.headers.get("Range")
+        start = 0
+        status = 200
+        if range_header and range_header.startswith("bytes="):
+            try:
+                start = int(range_header[6:].split("-")[0])
+            except ValueError:
+                start = 0
+            status = 206
+        payload = type(self).body[start:]
+        if type(self).drop_after is not None and not type(self)._dropped:
+            type(self)._dropped = True
+            self._send(status, start, payload, payload[: type(self).drop_after])
+            self.close_connection = True
+            return
+        self._send(status, start, payload, payload)
+
+    def _send(self, status: int, start: int, payload: bytes, chunk: bytes) -> None:
+        self.send_response(status)
+        self.send_header("Content-Length", str(len(payload)))
+        if status == 206:
+            self.send_header(
+                "Content-Range",
+                f"bytes {start}-{len(type(self).body) - 1}/{len(type(self).body)}",
+            )
+        self.end_headers()
+        if type(self).trickle_s:
+            for i in range(0, len(chunk), 10):
+                time.sleep(type(self).trickle_s)
+                self.wfile.write(chunk[i : i + 10])
+                self.wfile.flush()
+        else:
+            self.wfile.write(chunk)
+            self.wfile.flush()
+
+
+class DownloadStallServerTests(unittest.TestCase):
+    """Local stall-server fixtures (no egress): the failure mode is
+    deterministic instead of weather-dependent.
+    """
+
+    BODY = b"0123456789" * 10  # 100 bytes
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.dest = Path(self._tmp.name) / "file.bin"
+        _StallHandler.delay_s = 0.0
+        _StallHandler.trickle_s = 0.0
+        _StallHandler.drop_after = None
+        _StallHandler.requests_seen = 0
+        _StallHandler._dropped = False
+        self._server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _StallHandler)
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+        self._thread.start()
+        self.addCleanup(self._server.shutdown)
+        self.addCleanup(self._server.server_close)
+        port = self._server.server_address[1]
+        self.url = f"http://127.0.0.1:{port}/file.bin"
+
+    def test_delayed_headers_trip_stall_timeout(self) -> None:
+        _StallHandler.delay_s = 2.0
+        with self.assertRaises(DownloadError):
+            download_large_file(
+                self.url,
+                self.dest,
+                stall_timeout_s=0.5,
+                connect_timeout_s=5,
+                retries=1,
+                use_curl_fallback=False,
+            )
+        # Both attempts hit the 0.5 s stall budget, not the 5 s connect budget.
+        self.assertEqual(_StallHandler.requests_seen, 2)
+        self.assertFalse(self.dest.exists())
+
+    def test_delay_within_stall_budget_succeeds(self) -> None:
+        _StallHandler.delay_s = 1.0
+        result = download_large_file(self.url, self.dest, stall_timeout_s=5, connect_timeout_s=5)
+        self.assertEqual(result, self.dest)
+        self.assertEqual(self.dest.read_bytes(), self.BODY)
+
+    def test_trickle_body_does_not_trip_stall(self) -> None:
+        _StallHandler.trickle_s = 0.2
+        result = download_large_file(
+            self.url, self.dest, stall_timeout_s=1, connect_timeout_s=5, chunk_size=10
+        )
+        self.assertEqual(result, self.dest)
+        self.assertEqual(self.dest.read_bytes(), self.BODY)
+
+    def test_mid_body_drop_resumes_with_range(self) -> None:
+        _StallHandler.drop_after = 50
+        result = download_large_file(
+            self.url,
+            self.dest,
+            stall_timeout_s=5,
+            connect_timeout_s=5,
+            chunk_size=10,
+            retries=2,
+            use_curl_fallback=False,
+        )
+        self.assertEqual(result, self.dest)
+        self.assertEqual(self.dest.read_bytes(), self.BODY)
+        self.assertEqual(_StallHandler.requests_seen, 2)
 
 
 class FetchSampleTests(unittest.TestCase):
