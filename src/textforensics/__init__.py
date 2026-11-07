@@ -383,8 +383,10 @@ def __getattr__(name: str):
     enterprise_names = {
         "EnterprisePolicy",
         "EnterprisePolicyEngine",
+        "PolicyKeyError",
         "PolicyRevisionFloor",
         "PolicyState",
+        "PolicyStateCorruptError",
         "compute_policy_digest",
         "validate_enterprise_policy",
     }
