@@ -941,3 +941,242 @@ never committed): `train.jsonl` (500 rows, SHA-256
 - **Other Python versions**: measured on 3.12.3 only; CI covers the
   matrix.
 - **No push, no release, no tag.** Pushing is the parent's step.
+
+## Verification record — Phase 3, datasets wave 2, worker B: DetectRL-X (2026-11-07)
+
+DetectRL-X loader + first preliminary measurement + U1 seed record.
+Work is in `main` only, canonical identity
+`Stratos <28989754+strmt7@users.noreply.github.com>`; no push, no
+release, no tag. Commits `b80097a`…`ff662d1` (3 commits) on top of
+`6e57340` (worker A head). M4, M4GT-Bench, DetectRL and PAN 2025
+belong to later workers and are deliberately NOT done here.
+
+### What was built
+
+- DetectRL-X spec + mapper in `src/textforensics/datasets.py`:
+  licence is the three-way conflict recorded verbatim (see below);
+  `DatasetSpec` gains no new fields. The mapper emits one
+  normalised row per text field — `human_written_text` → label 0,
+  `llm_generated_text` → label 1, both regime `raw` — and, when a
+  row carries `llm_refined_text` (Ternary files), a third row with
+  `label=None`, regime `mixed-origin` (U4 spine, like the
+  OpAI-Bench partials). `source_id` is file + row index (the file
+  has no id field); the mapper fails closed without a row index,
+  on missing/empty text fields, on unknown lang/model/domain
+  values, and on a row whose own `split` field disagrees with the
+  split being mapped. Meta carries lang, model, split, domain,
+  file.
+- Streaming whole-file reader: `iter_detectrl_x_rows` decodes one
+  object at a time with `json.JSONDecoder.raw_decode` over a 1 MiB
+  rolling buffer (the file is ~879 MB; loading it whole would need
+  several GB of RAM) and refuses anything that is not a JSON array
+  of objects; `sample_detectrl_x_rows` counts rows per split and
+  collects strided samples in a single streaming pass, failing
+  closed on an unexpected split value or a short sample.
+  `download_detectrl_x` fetches via worker A's shared resumable
+  downloader (`download_large_file`, Range resume + retries +
+  SHA-256/size verification); `verify_detectrl_x_file` re-checks
+  size and SHA-256 before any row is read.
+- Measurement: `scripts/measure_datasets.py` SAMPLE_PLAN gains
+  detectrl_x (train n=400 strided source rows, total 76,800;
+  disjointness vs test n=50 strided, total 48,000). Artifact
+  `docs/evidence/runs/EV-20261107-dataset-detectrl-x.json`
+  (badge `available`, `preliminary: true`, drops manifest); U7
+  registry rebuilt (17 records); report card regenerated.
+- U1 seed: `evr-20261107-detectrl-x-builtin-heuristic` appended to
+  `docs/validation/registry.json` (5 → 6 records; the existing 5
+  records are byte-identical, `created_at_utc` preserved,
+  registry_id recomputed). `scripts/seed_validation.py` gains the
+  detectrl_x config (language `mul`, script `mul`) and an
+  `aggregate_scope` branch (domains from `domain`, generators from
+  `model`); `record_from_triples` now takes the script from the
+  per-dataset config (default `Latn`, so wave-1/U1 records are
+  untouched).
+- Baseline grafts: 4 measurement hashes + 4 seed-record hashes,
+  each audited by recomputation (raw-file SHA-256 against the HF
+  LFS oid, cache/artifact SHA-256s recomputed, record signature
+  via `verify_signature`, code_version checked as a real commit,
+  registry_id recomputed by `ValidationRegistry`); 113 → 117 →
+  121 entries, 0 unexpected drops (multiset check). No full rescan
+  was ever run. The public file hash constant
+  (`DETECTRL_X_SHA256`) carries a `pragma: allowlist secret`
+  comment — it is the HF-published content hash, not a credential.
+
+### Licence (three-way conflict, verified live 2026-11-07)
+
+- GitHub README §License (ATH-MaaS/Marco-LLM, formerly
+  AIDC-AI/Marco-LLM): "licensed under the Apache License 2.0.
+  Usage is strictly restricted to non-commercial academic research
+  purposes." (README badge also says Apache 2.0; repo record
+  `license:null`, no LICENSE file.)
+- HF card + HF API record: MIT (`license:mit` tag; record last
+  modified 2026-07-27).
+- ACL 2026 paper, Ethical Considerations: use "strictly restricted
+  to noncommercial academic research purposes."
+- Reasoning (Beemo precedent): the strictest reading
+  (non-commercial academic research only) is satisfiable, and
+  under ALL THREE readings TextForensics' intended use —
+  non-commercial academic research evaluation, local cache only, no
+  redistribution, no commercial use — is permitted. The conflict
+  blocks commercial use and redistribution, neither of which we do.
+  All three strings are recorded verbatim in the spec; the
+  NC-academic-only restriction governs. No redistribution of raw
+  text, ever.
+
+### Route + verified row counts (HF tree API + downloaded file, 2026-11-07 — not paper figures)
+
+- HF dataset `WUJUNCHAO/DetectRL-X`, `gated:false`. GitHub mirror
+  exists but HF is the route (the repo route would be a ~28 GB
+  clone). HF viewer / default load is BROKEN
+  (`DatasetGenerationCastError` — perturbation files add a
+  `perturbation_info` column; datasets-server `/size` confirms
+  `num_rows: 0`); load per-file only, never the dataset default.
+- Scope: ONE Binary file, `Binary/binary_general_open.json`
+  (878,631,989 bytes; SHA-256 `815be166…`, the HF LFS oid,
+  verified from the HF tree API before download
+  and re-verified after). The README states the train split is
+  identical across all strategy files, so the general file is the
+  representative preliminary slice; downloading all 16 Binary
+  files (~14.67 GB) for a preliminary slice is not proportionate.
+  Ternary files are out of scope for the measurement (the mapper
+  supports them if cheap — see above).
+- Verified from the downloaded file (single streaming pass):
+  **124,800 rows (76,800 train + 48,000 test)**, exactly matching
+  the README "Open vs. Heldout" table (2:1 train-test split, 192
+  language × model × domain cells). The headline 3,456,000 counts
+  overlapping categories — never quoted as a downloadable row
+  count. The file is a JSON array of objects with exactly 6 keys
+  (`domain`, `human_written_text`, `lang`, `llm_generated_text`,
+  `model`, `split`); no id field, no `perturbation_info` column in
+  this file. The strided sample landed exactly 100 rows per
+  language, so the file is ordered/blocked by language (same shape
+  as RAID's blocked train split).
+
+### Sampling (strided, as in wave 1)
+
+Train n=400 strided source rows across 76,800 train rows (→ 800
+normalised rows, one per text field); disjointness vs test n=50
+strided across 48,000 test rows (→ 100 normalised rows). The
+measurement verifies the file's per-split counts against the plan
+totals BEFORE any row is mapped or cached and refuses on a
+mismatch. Raw file + caches under
+`~/.cache/textforensics/datasets/detectrl_x/` (local only, never
+committed): `Binary/binary_general_open.json` (878,631,989 bytes,
+SHA-256 `815be166…`) and `binary/train.jsonl` (800 rows, SHA-256
+`08f23dc3…`) / `binary/test.jsonl` (100 rows).
+
+### Measured numbers (BuiltinHeuristicDetector 0.1.0, Python 3.12.3, preliminary)
+
+| Dataset | Sample | Labels (0 / 1 / None) | AUROC | TPR@1% FPR | TPR@5% FPR | Abstentions |
+| --- | --- | --- | --- | --- | --- | --- |
+| DetectRL-X | 400 strided train source rows | 400 / 400 / 0 | 0.5972 | 0.005 | 0.0825 | 100/800 |
+
+- DetectRL-X: AUROC 0.5972 — the heuristic separates weakly on
+  this multilingual slice (human mean 0.1805 vs machine 0.2078;
+  human max 0.4964, machine max 0.4560). TPR@1% FPR is 0.005 and
+  TPR@5% FPR is 0.0825. Disjointness vs test (n=50):
+  **disjoint, verified, 0 shared**.
+- Per language: exactly 100 labelled rows each (50 human + 50
+  machine per language: arabic, chinese, english, french, german,
+  portuguese, russian, spanish). Abstentions are uneven across
+  languages — chinese 28/100, english 22/100, spanish 22/100,
+  portuguese 15/100, french 8/100, german 3/100, arabic 2/100,
+  russian 0/100 — so the "English-focused detector abstains on
+  non-English text" expectation was only partly borne out: English
+  itself abstains at 22%. Per-language AUROC/TPR are not reported
+  (pooled slice only); per-language counts and abstentions are in
+  the artifact. The shortest texts in both classes are 1 word.
+- U1 seed record `evr-20261107-detectrl-x-builtin-heuristic`
+  (partial / partial, next revalidation 2027-02-05): AUROC 0.5972
+  [0.5567, 0.6384], TPR@1% FPR 0.0050 [0.0000, 0.0158], TPR@5% FPR
+  0.0825 [0.0215, 0.1469], native FPR 0.0000 [0.0000, 0.0000],
+  native TPR 0.0000 [0.0000, 0.0000], abstention 0.1250 [0.1037,
+  0.1500] (bootstrap 95% CIs, 1000 resamples, seed 20261106).
+  Length (labelled rows): min 1 / median 385 / max 3242 words.
+  Domains all 6 (Academic, News, Novel, SEO, Webtext, Wiki);
+  generators all 4 (deepseek-v3, gemini-2.5-flash, gpt-4o,
+  qwen-max). The native-verdict zeros are the quiet-verdict
+  pattern: the highest human score (0.4964) and the highest
+  machine score (0.4560) are both far below the detector's 0.68
+  `ai_like` bar, so the categorical verdict never fires on this
+  slice. A second `build_record` run reproduces the metrics
+  exactly (deterministic re-seed from the same cache).
+
+### Measured verification numbers (HEAD `ff662d1`, 2026-11-07, Python 3.12.3)
+
+- Full suite, extras venv: **2576 passed, 0 failed, 86%** coverage
+  (13,173 stmts, 1,501 missed, 4,568 branches, 710 partial).
+- Full suite, bare core-only venv (`/tmp/tfc-core-venv`,
+  recreated after a sandbox restart wiped `/tmp`; fastapi
+  confirmed absent): **2464 passed, 0 failed, 112 skipped**.
+- `ruff check` + `ruff format --check` clean (179 Python files
+  under `src/`, `tests/`, `scripts/`).
+- Claims gate: **33/33**; report-card diff clean (regenerated).
+- Schemas: **9 OK**.
+- `pre-commit run --all-files`: **13 hooks pass, 0 fail**.
+- Gitleaks 8.24.3 (binary at `~/workspace/.gw-smoke/gitleaks`):
+  **0 leaks** on `6e57340..HEAD` (3 commits).
+
+### Incidents found during this wave
+
+- **urllib cannot sustain the DetectRL-X download through the
+  egress proxy, curl can.** The shared resumable downloader
+  (`download_large_file`, urllib) failed after 6 attempts with
+  "The read operation timed out" — it never got past the headers
+  on this host — while curl to the same HF resolve URL pulled
+  361 MB in 8 s and the full 878,631,989 bytes in ~5 min (with a
+  mid-transfer slowdown to ~2.6 MB/s). The file was fetched with
+  curl into the cache (`.part` + rename, mirroring the
+  downloader's semantics) and verified by size + SHA-256 against
+  the HF LFS oid; the shipped loader still uses
+  `download_large_file` as its code path, and
+  `download_detectrl_x` returns the verified file without
+  re-downloading. Same transient-egress shape as the wave-1
+  `raw.githubusercontent.com` incident, but on this host the
+  urllib path never recovered — later workers fetching whole
+  files (M4/M4GT-Bench) should expect the same and verify by hash.
+- **Sandbox service restarts mid-run** (twice, as in wave 1 and
+  worker A). `/tmp` is wiped on restart: a counting script and
+  the bare core-only venv were both lost and recreated (the
+  measurement's single streaming pass does the counting, so no
+  separate count was needed; the core venv was rebuilt with
+  `TMPDIR=$PWD/.tmp PIP_NO_CACHE_DIR=1`). Caches survived (they
+  live in `~/.cache`, not `/tmp`).
+- **detect-secrets flags the new artifact/record hashes**, as
+  designed: the hook failed on the new U7 registry entry, the 3
+  new values in the validation registry, and the public file-hash
+  constant in code. Grafted entry-by-entry after recomputation
+  (see above); the hook is green on the committed tree. The
+  baseline entries are per (filename, value), so the
+  cache/artifact/code-version hashes needed one entry under each
+  filename that carries them (the seed graft added 3 such
+  per-file entries; the new `registry_id` did not trip the
+  plugin). The hook re-normalised the baseline after each graft
+  (line numbers + within-file sort order); the entry multiset was
+  verified unchanged by that normalisation both times.
+- **Two edit slips caught by diff review before committing:**
+  a `muse.edit` that dropped GhostWriter's `dataset_name` line in
+  `seed_validation.py` (reverted immediately; diff empty) and one
+  that consumed a GhostWriter test's `def` line (re-added; final
+  diff purely additive). No wrong content was ever committed.
+
+### What is NOT verified / NOT done here
+
+- **No new claims.** The claims gate stays **33/33** and the report
+  card still leads with worst-slice human FPR = unknown. The
+  DetectRL-X native-verdict zeros are the same quiet-verdict
+  pattern as the U1 seeds, not release-gate FPR evidence.
+- **DetectRL, M4, M4GT-Bench, PAN 2025**: not this worker (later
+  wave-2 workers; PAN is gated on Greg's TIRA access). No loader
+  code for them was touched.
+- **Full-corpus evaluation**: the measurement is a 400-row strided
+  sample, not the 76,800-row split.
+- **Per-language AUROC/TPR metrics**: the cache carries lang on
+  every row and the artifact carries per-language counts and
+  abstentions; sliced metrics are U1/wave-2 work.
+- **The other 15 Binary files + all Ternary files**: unmeasured.
+  The Ternary mapper path (`llm_refined_text` → mixed-origin) is
+  code + mocked tests only; no Ternary file was downloaded.
+- **Other Python versions**: measured on 3.12.3 only; CI covers the
+  matrix.
+- **No push, no release, no tag.** Pushing is the parent's step.

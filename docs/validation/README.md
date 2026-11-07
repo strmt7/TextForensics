@@ -69,9 +69,39 @@ is unmeasured. Licence is the full per-domain table (two domains
 CC-BY-NC-SA 4.0, blog corpus non-commercial-research-only); use is
 non-commercial research evaluation only.
 
+## DetectRL-X seed (2026-11-07, datasets wave 2)
+
+Appended by `python scripts/seed_validation.py --only detectrl_x
+--append` (registry 5 → 6 records; the five existing seeds are
+untouched, byte-identical). Stored as `partial`, effective `partial`;
+`next_revalidation_due` is 2027-02-05 (run date + 90 days). Same
+detector (`textforensics/builtin-heuristic` 0.1.0) and CI method
+(bootstrap, 1000 resamples, seed 20261106) as the U1 seeds.
+
+| record | n_human / n_ai | AUROC [95% CI] | TPR@1% FPR [95% CI] | TPR@5% FPR [95% CI] | native FPR [95% CI] | native TPR [95% CI] | abstention [95% CI] |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `evr-20261107-detectrl-x-builtin-heuristic` | 400 / 400 | 0.5972 [0.5567, 0.6384] | 0.0050 [0.0000, 0.0158] | 0.0825 [0.0215, 0.1469] | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | 0.1250 [0.1037, 0.1500] |
+
+Length (whitespace word count, labelled rows): min 1 / median 385 /
+max 3242. The sample is exactly balanced per language: 100 labelled
+rows each (50 human + 50 machine) in arabic, chinese, english,
+french, german, portuguese, russian and spanish. The record's regime
+language is `mul` (BCP 47) and its script is `mul` (the 8 languages
+span Arab, Hans, Cyrl and Latn); per-language AUROC/TPR metrics are
+not reported separately — per-language label counts and abstentions
+are in the U7 run artifact. All 6 domains are in scope; generators
+are the 4 commercial LLMs (deepseek-v3, gemini-2.5-flash, gpt-4o,
+qwen-max). Abstentions are uneven across languages (chinese 28/100,
+english 22/100, spanish 22/100; russian 0/100). Licence is the
+three-way conflict (GitHub README Apache-2.0 + non-commercial
+academic research restriction, HF MIT, ACL 2026 paper noncommercial
+restriction); the strictest reading (non-commercial academic research
+only) governs; no redistribution. Single-file preliminary slice: only
+`Binary/binary_general_open.json` was measured.
+
 ### Reading the native-verdict zeros honestly
 
-Native FPR is 0.0000 on all five slices, and native TPR is 0.0000–
+Native FPR is 0.0000 on all six slices, and native TPR is 0.0000–
 0.0189. That is NOT evidence that the detector never false-positives
 in general. The detector emits `ai_like` only when its score reaches
 0.68 (`engine._verdict`); the highest human score in any seed sample
@@ -80,13 +110,14 @@ machine rows do. The score-based metrics tell the other half of the
 story: AUROC is below chance on Beemo (0.3976), OpAI-Bench (0.3961)
 and GhostWriter (0.4360) — the heuristic scores expert human text
 and pure human text HIGHER than machine text there — and near chance
-on MAGE (0.5567). A zero native FPR with a below-chance AUROC means the
+on MAGE (0.5567), while DetectRL-X separates weakly (0.5972). A zero native FPR with a below-chance AUROC means the
 categorical verdict is quiet, not that the detector separates the
 classes. The degenerate [0.0000, 0.0000] CIs are the percentile
 bootstrap of a zero count (every resample is also zero); they are
 reported as measured, not widened into a claim. (Highest human score
 in any seed sample: 0.674 on GhostWriter; highest machine scores:
-RAID 0.784, MAGE 0.724 — only those two slices ever cross 0.68.)
+RAID 0.784, MAGE 0.724 — only those two slices ever cross 0.68.
+DetectRL-X never comes close: human max 0.4964, machine max 0.4560.)
 
 Native TPR is carried in the records as the optional `tpr_native`
 metric (evidence-record/v1), paired with `fpr_native` at the same
@@ -108,6 +139,9 @@ operating point; the table above also reports it.
   (English/German) with no per-language reporting; fusion rows are
   all chunks and labelled rows all fulltext, so chunk behaviour is
   unmeasured; per-domain metrics not reported separately; no reviewer.
+- DetectRL-X: AUROC 0.5972 (weak separation); 8-language sample
+  with no per-language AUROC/TPR reporting; single-file preliminary
+  slice (1 of 16 Binary files; Ternary unmeasured); no reviewer.
 
 ## How to re-seed
 
@@ -152,7 +186,7 @@ trained on the evaluation dataset), `no`, or `unknown`. Licence and
 contamination flag are registration-blocking — a record missing
 either is rejected, it cannot be registered at any tier. A `yes`
 record is labelled `contaminated — do not report as generalisation`
-and can never support an out-of-distribution claim. All five seeds
+and can never support an out-of-distribution claim. All six seeds
 are `no`: the builtin detector is a hand-written stylometric
 heuristic with no training, so it was not trained on any of these
 datasets (or any other text corpus).
