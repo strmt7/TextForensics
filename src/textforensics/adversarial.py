@@ -289,26 +289,48 @@ def _detect_regex_patterns(text: str, patterns: list[str]) -> int:
     return count
 
 
+def _first_match_span(text: str, patterns: list[str]) -> tuple[int, int] | None:
+    """Character span of the earliest regex match across ``patterns``.
+
+    ``re.findall`` returns groups when a pattern has groups, so it
+    cannot give spans; ``re.search`` on the raw pattern strings can.
+    Returns ``None`` when no pattern matches.
+    """
+    best: tuple[int, int] | None = None
+    for pat in patterns:
+        match = re.search(pat, text, re.IGNORECASE)
+        if match is None:
+            continue
+        span = match.span()
+        if best is None or span < best:
+            best = span
+    return best
+
+
 def detect_regex_artifacts(text: str) -> list[AdversarialFinding]:
     """Detect regex-based humanizer artifacts."""
     findings = []
     for artifact_id, config in _HUMANIZER_ARTIFACTS.items():
         count = _detect_regex_patterns(text, config["patterns"])
         if count > 0:
+            # Content reference, never raw text (AGENTS.md rule 22):
+            # the SHA-256 of the FIRST matched span, whose character
+            # offsets are in `location` — the contract AdversarialFinding
+            # documents. Hashing text[:200] regardless of where the
+            # match sits contradicts that contract.
+            span = _first_match_span(text, config["patterns"])
+            if span is None:  # Defensive: count > 0 implies a match.
+                continue
+            start, end = span
             severity = "high" if config["weight"] > 1.3 else "medium"
-            segment_text = text[:200]
             findings.append(
                 AdversarialFinding(
                     pattern_id=f"regex_{artifact_id}",
-                    # Content reference, never raw text (AGENTS.md rule 22):
-                    # the SHA-256 of the matched span. A holder of the
-                    # original text can recompute it to identify the span;
-                    # the offsets are in `location`.
-                    segment=f"sha256:{_sha256(segment_text)}",
+                    segment=f"sha256:{_sha256(text[start:end])}",
                     evidence=float(count),
                     severity=severity,
                     confidence=min(0.8, 0.3 + 0.1 * count),
-                    location=(0, min(len(text), 200)),
+                    location=(start, end),
                     description=f"Detected {count} instances of {artifact_id.replace('_', ' ')}",
                 )
             )
