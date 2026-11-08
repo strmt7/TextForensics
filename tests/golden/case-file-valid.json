@@ -1,5 +1,5 @@
 {
-  "case_sha256": "56cdfa377e2c8752c296d55cfcebd564e5eb567fbf0dc7b6fa4e0da6c9fcd0fc",
+  "case_sha256": "0f15e188ccac0ab6010b19410b5f573850dd2243fbe47965c0c761079ce538f5",
   "created_at_utc": "1970-01-01T00:00:00+00:00",
   "custody": [
     {
@@ -18,6 +18,8 @@
       "config_hash": null,
       "detector_id": "textforensics/builtin-heuristic",
       "detector_version": "0.1.0",
+      "determinism": "deterministic",
+      "determinism_reason": null,
       "disposition": null,
       "disposition_reason": null,
       "kind": "observed",
@@ -54,6 +56,8 @@
       },
       "detector_id": "textforensics/builtin-heuristic",
       "detector_version": null,
+      "determinism": "unknown",
+      "determinism_reason": null,
       "disposition": null,
       "disposition_reason": null,
       "kind": "plugin_health",
@@ -113,6 +117,8 @@
         "detector_family": "stylometric-heuristic",
         "detector_id": "textforensics/builtin-heuristic",
         "detector_version": "0.1.0",
+        "determinism": "deterministic",
+        "determinism_reason": null,
         "evidence": [
           {
             "analyzer": "structural_uniformity",
@@ -675,7 +681,7 @@
     "template_notice": "Template, not legal advice. This checklist is an education-grounded template for due-process review of an AI-text detection finding. It is not a policy, not legal advice, and not a finding of admissibility or compliance. Adapt it to the institution's own code with legal review before consequential use."
   },
   "raw_text_included": false,
-  "schema": "textforensics.case-file/v3",
+  "schema": "textforensics.case-file/v4",
   "seal": {
     "algorithm": "sha256",
     "custody_head": "3d6dbb9a0f8712e3aff1fbb1f8c7370194371025b49c1e0200a697d040c5f9d4",

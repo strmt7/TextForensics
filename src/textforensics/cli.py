@@ -220,6 +220,7 @@ def _case_scope_statement(
     *,
     token_report: dict[str, Any] | None = None,
     replay_status: str = "not requested",
+    replay_outcome: str | None = None,
 ) -> str:
     """One-line scope statement for a bare case-file verification.
 
@@ -227,7 +228,11 @@ def _case_scope_statement(
     integrity since sealing only (never authorship, never that the
     analysis was run), the origin is authenticated only when a T2
     signature verified, and the time is a local claim unless a
-    timestamp token verified.
+    timestamp token verified.  When a replay ran, its outcome
+    (``reproduced`` / ``inconclusive`` / ``failed``) is stated next
+    to the replay status: an inconclusive replay — a declared
+    non-deterministic detector that could not be reproduced — is
+    valid-but-inconclusive, never presented as a clean reproduction.
     """
     primary = result.get("primary") or {}
     warnings = primary.get("warnings") or []
@@ -245,8 +250,11 @@ def _case_scope_statement(
         time_part = "RFC 3161 genTime {} (non-qualified)".format(token_report.get("gen_time"))
     else:
         time_part = "local claim only"
+    replay_part = replay_status
+    if replay_outcome is not None:
+        replay_part += f" (replay_outcome: {replay_outcome})"
     return _SEAL_SCOPE_TEMPLATE.format(
-        origin=origin, time_part=time_part, replay_status=replay_status
+        origin=origin, time_part=time_part, replay_status=replay_part
     )
 
 
@@ -326,16 +334,22 @@ def _verify_case_cli(args: argparse.Namespace, settings: Settings) -> int:
             ]
 
     replay_status = "not requested"
+    replay_outcome: str | None = None
     if replay_text is not None:
         replay = replay_case_file_path(path, text=replay_text)
         result["replay"] = replay
+        replay_outcome = replay.get("replay_outcome")
         replay_status = "verified" if replay.get("valid") else "failed"
         if not replay.get("valid"):
             result["valid"] = False
             result["errors"] = list(result.get("errors") or []) + list(replay.get("errors") or [])
     result["gaps"] = gaps
     result["scope"] = _case_scope_statement(
-        case, result, token_report=token_report, replay_status=replay_status
+        case,
+        result,
+        token_report=token_report,
+        replay_status=replay_status,
+        replay_outcome=replay_outcome,
     )
     _write_json(None, result)
     if not result.get("valid"):
@@ -343,6 +357,8 @@ def _verify_case_cli(args: argparse.Namespace, settings: Settings) -> int:
     primary = result.get("primary") or {}
     warnings = primary.get("warnings") or []
     if any(str(w).startswith("signature_present_public_key_not_supplied") for w in warnings):
+        return EXIT_INCOMPLETE
+    if replay_text is not None and replay_outcome == "inconclusive":
         return EXIT_INCOMPLETE
     if replay_text is not None and replay_status == "failed":
         return EXIT_DOWNGRADED
@@ -690,6 +706,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     case_export.add_argument(
         "--fixed-timestamp", help="Fixed ISO timestamp for reproducible output"
+    )
+    case_export.add_argument(
+        "--determinism",
+        action="append",
+        default=None,
+        metavar="<detector_id>:<value>",
+        help="Seal-time determinism declaration for one detector, "
+        "repeatable: <detector_id>:deterministic | non_deterministic | "
+        "unknown. An explicit declaration wins over the value the "
+        "analysis recorded; absent everywhere, the detector is "
+        "unknown. A declared non_deterministic detector whose replay "
+        "differs is reported not_reproducible instead of failing.",
     )
     case_export.add_argument(
         "--rich", action="store_true", help="Use Rich-formatted terminal output"
@@ -1809,6 +1837,28 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             bundle_dict = bundle.to_dict()
             if args.deterministic:
                 bundle_dict = _strip_runtime_ms(bundle_dict)
+            determinism: dict[str, str] | None = None
+            for item in getattr(args, "determinism", None) or []:
+                if ":" not in item:
+                    raise ValueError(
+                        "--determinism expects <detector_id>:<value> with value "
+                        "deterministic, non_deterministic or unknown."
+                    )
+                detector_id, value = item.split(":", 1)
+                detector_id = detector_id.strip()
+                value = value.strip()
+                if not detector_id or value not in {
+                    "deterministic",
+                    "non_deterministic",
+                    "unknown",
+                }:
+                    raise ValueError(
+                        "--determinism expects <detector_id>:<value> with value "
+                        "deterministic, non_deterministic or unknown."
+                    )
+                if determinism is None:
+                    determinism = {}
+                determinism[detector_id] = value
             write_case_file(
                 args.output,
                 bundle_dict,
@@ -1816,6 +1866,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
                 fixed_timestamp=args.fixed_timestamp,
                 signing_seed=signing_seed,
                 signer=signer,
+                determinism=determinism,
             )
             print(args.output)
             case_data = json.loads(Path(args.output).read_text(encoding="utf-8"))

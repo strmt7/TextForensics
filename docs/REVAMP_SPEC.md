@@ -85,7 +85,7 @@ These are derived from `AGENTS.md` and are enforced in code and tests.
           ┌──────────────────────┼──────────────────────┐
           │                      │                      │
 ┌─────────▼─────────┐  ┌─────────▼─────────┐  ┌─────────▼─────────┐
-│ report bundle v2  │  │ case file v3      │  │ drift observatory │
+│ report bundle v2  │  │ case file v4      │  │ drift observatory │
 │ JSON/CLI/API/MCP  │  │ seal + replay     │  │ snapshots + alerts│
 └───────────────────┘  └───────────────────┘  └───────────────────┘
 ```
@@ -101,7 +101,7 @@ These are derived from `AGENTS.md` and are enforced in code and tests.
 | `detectors.py` | TFDP/2 protocol, prediction validation, plugin discovery, execution isolation. |
 | `policy.py` | Claim records tied to verified evidence artifacts and expiry. |
 | `report.py` | Forensic Bundle v2 orchestration and deterministic serialization. |
-| `casefile.py` | Sealed case file v3 (default seal), portable manifest, replay. |
+| `casefile.py` | Sealed case file v4 (default seal), portable manifest, replay. |
 | `verify.py` | Independent re-derivation and verification paths. Accepts case-file v1/v2/v3, Trust Map v1/v2/v3, bundle v1/v2. |
 | `observatory.py` | Longitudinal probe snapshots and drift reports. |
 | `probe_runs.py` | U3 drift observatory probe runs: per-run metrics, persistence-gated alerts, demotion into the validation registry, Trust Map threading. |
@@ -447,13 +447,13 @@ Validation rules remain: finite scores, probability only with calibration ID, no
 
 ---
 
-## 9. Case file v3 and replay
+## 9. Case file v4 and replay
 
 ### 9.1 Case file
 
 ```json
 {
-  "schema": "textforensics.case-file/v3",
+  "schema": "textforensics.case-file/v4",
   "tool": {"name": "TextForensics", "version": "1.0.0", "git_sha": "..."},
   "created_at_utc": "...",
   "raw_text_included": false,
@@ -480,7 +480,7 @@ Validation rules remain: finite scores, probability only with calibration ID, no
 
 Three seal tiers (U2):
 
-- **T1 — hash seal (default):** `seal.signature` and `seal.timestamp` are `null`. Integrity rests on `case_sha256` (SHA-256 over canonical JSON excluding `case_sha256`), the per-file manifest hashes, and the v3-only `custody` hash chain (`seal.custody_head` is the last custody entry's hash; each entry chains the previous entry hash). A hash seal proves integrity since sealing only — never authorship, never that the analysis was run.
+- **T1 — hash seal (default):** `seal.signature` and `seal.timestamp` are `null`. Integrity rests on `case_sha256` (SHA-256 over canonical JSON excluding `case_sha256`), the per-file manifest hashes, and the v3/v4 `custody` hash chain (`seal.custody_head` is the last custody entry's hash; each entry chains the previous entry hash). A hash seal proves integrity since sealing only — never authorship, never that the analysis was run.
 - **T2 — Ed25519/DSSE signature (opt-in):** `seal.signature` is `{"algorithm": "ed25519", "key_fingerprint": "...", "signer": {"identity": ..., "role": ...}, "dsse": <envelope>}` — a DSSE envelope over the case body, produced by `sealing.sign_case_body` (pure-stdlib Ed25519, `ed25519.py` + `dsse.py`). Keys come from a sealing-key file created by `case keygen` (Ed25519 seed, file mode 0600); `case export --seal --signing-key PATH` supplies it. Verification needs the public key (`case verify --public-key PATH`, or a hex public key); a signature present without a public key yields exit 2 (checks could not run), not a pass.
 - **T3 — RFC 3161 timestamp (opt-in):** `seal.timestamp` holds a timestamp-token record (`timestamp.py`) when `--timestamp-url` was supplied to `case export --seal`. A token from a free TSA is labelled non-qualified: only a qualified timestamp (QTSP, EU Trusted List) carries an eIDAS presumption of time/integrity. A token that cannot be obtained fails the seal. A token supplied separately is verified with `case verify --timestamp-token PATH` (bare case files only; a sealed bundle carries its token inside).
 - `seal.digest_publication` records an optional public digest publication. Signing (T2) and timestamping (T3) both require `--seal`: they apply to the sealed MPL bundle, not to a bare case file export.
@@ -488,15 +488,35 @@ Three seal tiers (U2):
 - `case_sha256` is SHA-256 over canonical JSON excluding `case_sha256`.
 - Raw text keys are rejected recursively.
 - Deterministic mode removes `runtime_ms`, `generated_at_utc` volatility, and other non-reproducible fields.
-- v1 and v2 case files still verify; v3 is what the system seals.
+- v1, v2 and v3 case files still verify; v4 is what the system seals.
   The seal cannot contain its own bundle digest (circularity), so the
   per-file manifest + bundle digest live in the sealed bundle's
   `manifest.json` (MPL pattern) plus a companion seal record.
+- **Determinism declarations (v4):** every `detector_observations`
+  item carries `determinism` (`deterministic` / `non_deterministic` /
+  `unknown`) and `determinism_reason`; v4 requires `determinism` on
+  `kind: "observed"` items, v3 keeps it optional (absent means
+  unknown). The value comes from the analysis (the detector's
+  declaration, recorded into the bundle's `detector_results` at
+  analysis time — the builtin heuristic detector declares
+  `deterministic`, the Ollama adapter `non_deterministic` because it
+  samples), or from an explicit seal-time override
+  (`seal_case_file(..., determinism={detector_id: value},
+  determinism_reasons={detector_id: reason})`; CLI `case export
+  --determinism <detector_id>:<value>`, repeatable). An override wins
+  over the bundle-recorded value and is written into the sealed
+  bundle copy as well as the observations, so verification rebuilds
+  exactly what was sealed; the declaration itself is protected by
+  the case hash (and T2 signature, when attached). Absent everywhere,
+  a detector is `unknown`. A v4 observed item without `determinism`
+  fails verification; v3 files sealed before determinism existed
+  still verify (their observations are compared ignoring the
+  determinism fields).
 - `seal.signature` is `null` for a T1 hash-only seal, or an Ed25519 /
   DSSE object (T2, `{"algorithm": "ed25519", "key_fingerprint": ..., "signer": ..., "dsse": ...}`) when a signing key was supplied; `seal.timestamp`
   holds an RFC 3161 token record (T3, free TSAs labelled
   non-qualified) when one was requested. `seal.custody_head` is the
-  hash of the last `custody` entry (v3 only).
+  hash of the last `custody` entry (v3/v4 only).
 - The D1–D10 checklist is re-derived at verification time
   (`_checklist_consistency`): an item marked `satisfied` without its
   supporting evidence is reported, never silently accepted. Sealing
@@ -513,14 +533,34 @@ Three seal tiers (U2):
    - native scores within an explicit tolerance (default exact for deterministic local detectors; `atol=1e-9`),
    - categorical verdicts,
    - calibration IDs;
+   - **determinism (v4):** when a compared field differs AND the
+     sealed observation declares the detector `non_deterministic`,
+     that detector's check status is `not_reproducible`, no mismatch
+     error is recorded, and a warning
+     `not_reproducible:<detector_id>[:<reason>]` carries the sealed
+     reason. A `deterministic` or `unknown` declaration fails closed
+     on a mismatch, exactly as before. A detector that fails to
+     execute at replay is an error regardless of its declaration;
 4. re-derive Trust Map dimensions from the sealed conditions and registry (v3 maps via the U1 validation registry when supplied; `stale` is a distinct state);
-5. return `{"valid": bool, "errors": [...], "checks": {...}}`.
+5. return `{"valid": bool, "errors": [...], "warnings": [...], "checks": {...}, "replay_outcome": "reproduced" | "inconclusive" | "failed"}`.
+
+`replay_outcome` is `failed` when any error exists, `inconclusive`
+when there are no errors but at least one detector is
+`not_reproducible`, and `reproduced` otherwise. `valid` keeps its
+meaning (true when there are no errors), so an inconclusive replay
+is valid-but-inconclusive — explicit in `replay_outcome` and the
+warning, never silently passed. A sealed-bundle verification of an
+inconclusive replay exits 2 (valid but incomplete); `case verify`
+on a bare case file does the same when its replay is inconclusive.
+The CLI does not re-run detectors, so a CLI replay can only
+reproduce or fail; `replay_outcome` is still reported in its JSON
+output and scope statement.
 
 Replay without text verifies only structural integrity and re-derivation. It cannot re-run detection.
 
 ### 9.3 Sealed bundle
 
-`case export --seal` packs a v3 case into a deterministic MPL bundle
+`case export --seal` packs a v3/v4 case into a deterministic MPL bundle
 (`sealed_bundle.py`): canonical JSON, sorted stored ZIP entries,
 normalised ZipInfo, archive comment `mpl-bundle-sha256:<manifest
 SHA-256>`, carrying `case.json`, the standalone stdlib-only verifier
@@ -608,7 +648,7 @@ textforensics policy ...                                # enterprise policy mana
 textforensics emergency ...                             # out-of-band emergency stop sentinel
 ```
 
-There is no `trust` command, no `evidence` command group, no `calibration verify`, no `case seal`, no `case replay`, and no `claims check`. The equivalents are: Trust Map inspection via `report` (the bundle carries the Trust Map); registry inspection via `python scripts/validate_schemas.py`, the registry JSON files, and `validation.py` directly; case sealing via `case export` (v3 by default, `--seal` for a sealed MPL bundle); replay via `case verify --text ...` and the `verify` command; claims via `python scripts/check_claims.py` (see §10).
+There is no `trust` command, no `evidence` command group, no `calibration verify`, no `case seal`, no `case replay`, and no `claims check`. The equivalents are: Trust Map inspection via `report` (the bundle carries the Trust Map); registry inspection via `python scripts/validate_schemas.py`, the registry JSON files, and `validation.py` directly; case sealing via `case export` (v4 by default, `--seal` for a sealed MPL bundle); replay via `case verify --text ...` and the `verify` command; claims via `python scripts/check_claims.py` (see §10).
 
 Global rules:
 
@@ -626,7 +666,7 @@ Global rules:
 - `GET /v1/detectors` — installed detector adapters and health.
 - `POST /v1/analyze` → per-detector observations for a text.
 - `POST /v1/report` → forensic bundle (observations + Trust Map + limitations).
-- `POST /v1/case` → sealed case file (v3 by default).
+- `POST /v1/case` → sealed case file (v4 by default).
 - `POST /v1/audit` → audit bundle (formulaic/naturalness patterns).
 - `POST /v1/compare` → comparison of two text versions.
 - All endpoints validate input size, content type, and raw-text policy. CORS is loopback-only by default.
@@ -637,7 +677,7 @@ Global rules:
 
 - `analyze_ai_text(text)` — local alpha baseline analysis.
 - `build_forensic_report(text)` — detector observations, Trust Map, stability, limitations.
-- `build_case_file(text)` — sealed, raw-text-free case artifact (v3 by default).
+- `build_case_file(text)` — sealed, raw-text-free case artifact (v4 by default).
 - `detector_health()` — detector adapters and plugin-loading health.
 - `localize_text_patterns(text, sentences_per_segment=4)` — diagnostic segment patterns.
 - `compare_text_versions(before, after)` — compare two versions.

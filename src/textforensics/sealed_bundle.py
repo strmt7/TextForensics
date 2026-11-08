@@ -54,6 +54,7 @@ from typing import Any
 from ._build_info import get_version
 from .casefile import (
     CASE_SCHEMA_V3,
+    CASE_SCHEMA_V4,
     replay_case_file,
     verify_case_file,
 )
@@ -210,7 +211,7 @@ def pack_sealed_bundle(
     tsa_url: str | None = None,
     digest_publication: dict[str, Any] | None = None,
 ) -> tuple[bytes, dict[str, Any]]:
-    """Pack a sealed v3 case file into a sealed bundle.
+    """Pack a sealed v3/v4 case file into a sealed bundle.
 
     Returns ``(bundle_bytes, seal_record)``.  The seal record is the
     companion file the sealer keeps or publishes alongside the bundle;
@@ -219,13 +220,14 @@ def pack_sealed_bundle(
 
     The case must verify before packing (fail closed); a timestamp
     token must verify against the case bytes before packing.  Only
-    case-file/v3 cases can be packed: v1/v2 carry no checklist or
-    custody sections for the manifest context to reference.
+    case-file/v3 and case-file/v4 cases can be packed: v1/v2 carry no
+    checklist or custody sections for the manifest context to
+    reference.
     """
     if not isinstance(case, dict):
         raise SealedBundleError("A case file must be a JSON object.")
-    if case.get("schema") != CASE_SCHEMA_V3:
-        raise SealedBundleError("Only case-file/v3 cases can be packed.")
+    if case.get("schema") not in {CASE_SCHEMA_V3, CASE_SCHEMA_V4}:
+        raise SealedBundleError("Only case-file/v3 and case-file/v4 cases can be packed.")
     verification = verify_case_file(case)
     if not verification["valid"]:
         raise SealedBundleError(
@@ -350,6 +352,21 @@ def verify_sealed_bundle(
     dict with the standalone report embedded under ``standalone``,
     the seal-record cross-check under ``seal_record`` (when supplied),
     and replay under ``replay`` (when requested).
+
+    Exit-code mapping for a requested replay (``report["exit_code"]``,
+    when the seal itself passed):
+
+    - ``0`` — the replay reproduced (``replay_outcome`` is
+      ``"reproduced"``) and no warning was raised;
+    - ``1`` — the replay failed (``replay_outcome`` is ``"failed"``,
+      i.e. ``replay["valid"]`` is ``False``);
+    - ``2`` — the replay is valid but inconclusive
+      (``replay_outcome`` is ``"inconclusive"``: a detector declared
+      ``non_deterministic`` at seal time could not be reproduced, so
+      the replay carries a ``"not_reproducible:<detector_id>"``
+      warning).  An inconclusive replay is valid-but-inconclusive,
+      never silently passed as a clean verification and never
+      reported as a seal failure.
     """
     import importlib.util
 

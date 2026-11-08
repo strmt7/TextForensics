@@ -117,11 +117,55 @@ class DetectorRegistry:
 
 @runtime_checkable
 class Detector(Protocol):
+    """A detector adapter.
+
+    A detector MAY additionally declare two optional class attributes:
+
+    - ``deterministic: bool | None`` — ``True`` when the detector
+      re-runs exactly on the same text (same score, verdict and
+      version), ``False`` when it may not (for example a sampled LLM
+      adapter), ``None`` (or absent) when determinism is unknown.
+    - ``determinism_reason: str | None`` — why the detector is (not)
+      deterministic, recorded at seal time when the detector is
+      declared non-deterministic.
+
+    These are deliberately NOT protocol members: this protocol is
+    ``runtime_checkable``, and ``isinstance`` against it rejects any
+    object missing a declared member, so making them members would
+    break every existing detector that does not declare them.  They
+    are read with :func:`detector_determinism`, which treats a
+    missing or ``None`` declaration as ``"unknown"``.
+    """
+
     detector_id: str
     detector_version: str
     detector_family: str
 
     def detect(self, text: str) -> DetectorPrediction: ...
+
+
+DETERMINISM_VALUES = frozenset({"deterministic", "non_deterministic", "unknown"})
+
+
+def detector_determinism(detector: Any) -> tuple[str, str | None]:
+    """Return a detector's ``(determinism, reason)`` declaration.
+
+    Reads the optional ``deterministic`` / ``determinism_reason``
+    attributes (see :class:`Detector`).  A detector that declares
+    nothing is ``"unknown"`` with no reason; a non-boolean
+    declaration is treated as unknown rather than trusted.
+    """
+    declared = getattr(detector, "deterministic", None)
+    if declared is True:
+        value = "deterministic"
+    elif declared is False:
+        value = "non_deterministic"
+    else:
+        value = "unknown"
+    reason = getattr(detector, "determinism_reason", None)
+    if not isinstance(reason, str) or not reason.strip():
+        reason = None
+    return value, reason
 
 
 def _require_nonempty_string(value: Any, field_name: str) -> None:
@@ -439,6 +483,10 @@ class BuiltinHeuristicDetector:
     detector_id = "textforensics/builtin-heuristic"
     detector_version = "0.1.0"
     detector_family = "stylometric-heuristic"
+    # Pure function of the input text: re-running it returns the same
+    # score, verdict and version, so replay can reproduce it exactly.
+    deterministic = True
+    determinism_reason = None
 
     def detect(self, text: str) -> DetectorPrediction:
         started = time.perf_counter()
@@ -627,7 +675,11 @@ def run_all_detectors(text: str) -> list[dict[str, Any]]:
     for detector in detector_list:
         prediction, failure = execute_detector(detector, text)
         if prediction is not None:
-            results.append(prediction.to_dict())
+            row = prediction.to_dict()
+            value, reason = detector_determinism(detector)
+            row["determinism"] = value
+            row["determinism_reason"] = reason
+            results.append(row)
         elif failure is not None:
             results.append(
                 {

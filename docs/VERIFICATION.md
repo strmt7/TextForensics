@@ -2544,3 +2544,83 @@ fixed the four stale citations from the actual tree
 (:517→:551, :1204→:1246, :379→:410, cli.py :1790-1791→:1791-1792)
 before merging. Full extras suite on the merged tree: **3026
 passed / 0 failed** (1 deselected flake; +10 new tests).
+
+## Verification record — Phase 5, U2 follow-up: seal-time not_reproducible declaration (2026-11-08)
+
+Detail: branch `fix/u2-not-reproducible` (base `3e53278`); closes
+U2 report §(h), the one partial criterion carried to the release
+gate.
+
+- **Schema v4:** `textforensics.case-file/v4` is the default seal
+  (v1–v3 still verify). v4 is v3 plus per-observation determinism:
+  `detector_observations[]` items gain optional `determinism`
+  (`deterministic` / `non_deterministic` / `unknown`) and
+  `determinism_reason`; the v4 `allOf` branch requires `determinism`
+  on `kind: "observed"` items. The detector-result schema gains the
+  same two optional properties so analysis-time `detector_results`
+  entries validate. The golden case file was regenerated as v4
+  (case_sha256 `0f15e188ccac0ab6010b19410b5f573850dd2243fbe47965c0c761079ce538f5`).
+- **Seal-time sources:** the builtin heuristic detector declares
+  `deterministic`; the Ollama adapter (`OllamaDetectorMixin`)
+  declares `non_deterministic` with a sampling reason; anything
+  undeclared is `unknown`. `build_forensic_bundle` records the
+  declaration into each `detector_results` entry at analysis time.
+  `seal_case_file` accepts explicit `determinism` /
+  `determinism_reasons` overrides keyed by detector ID; an override
+  wins over the bundle-recorded value and is written into the sealed
+  bundle copy as well as the observations, so verification rebuilds
+  exactly what was sealed (the declaration itself is protected by
+  the case hash / T2 signature). Unknown detector IDs and invalid
+  values are rejected at seal time, never silently dropped.
+- **Replay:** a score/verdict/version/calibration mismatch on a
+  detector whose sealed observation declares `non_deterministic`
+  yields check status `not_reproducible`, no mismatch errors, and a
+  warning `not_reproducible:<detector_id>[:<reason>]`.
+  `deterministic` / `unknown` mismatch fails closed, exactly as
+  before. `replay_case_file` returns `replay_outcome`:
+  `reproduced` (no errors, nothing not_reproducible) /
+  `inconclusive` (no errors, >=1 not_reproducible) / `failed` (any
+  error); `valid` keeps its meaning, so inconclusive is
+  valid-but-inconclusive, never silently passed. A sealed-bundle
+  verification of an inconclusive replay exits 2 (the existing
+  valid-plus-warnings rule); `case verify` on a bare case file does
+  the same, and both surface `replay_outcome` in their JSON output
+  (bare case files also in the scope statement).
+- **Verification compatibility:** v3 files sealed before determinism
+  existed still verify — v3 observations are compared ignoring the
+  determinism fields (present declarations must still be valid);
+  v4 compares exactly, determinism included. The standalone verifier
+  mirrors the new fields, accepts v4 bundles, and rejects a tampered
+  determinism field (hash check when un-rehashed, observations check
+  when re-hashed).
+- **Deviations from the brief, recorded:** (1) the `deterministic`
+  attribute is documented on the `Detector` protocol but is NOT a
+  protocol member: the protocol is `runtime_checkable`, and
+  `isinstance` rejects any object missing a declared member, so
+  making it a member would break every existing detector that does
+  not declare it (verified empirically). It is read via
+  `detector_determinism()` with `getattr`, missing/`None` meaning
+  `unknown`. (2) `replay_outcome` is `reproduced` when no detectors
+  are supplied and nothing errors — per the pinned definition —
+  even though no detector re-execution was attempted; the
+  `checks["detectors"]` status (`not_supplied`) disambiguates, and
+  the caveat is documented in `replay_case_file` and the spec. The
+  CLI does not re-run detectors, so a CLI replay can only reproduce
+  or fail; `replay_outcome` is still reported.
+- **Docs:** `SEALING_KEYS.md` (new determinism section),
+  `README.md`, `ARCHITECTURE.md` §1.7, `REVAMP_SPEC.md` §9,
+  `CHANGELOG.md` ([Unreleased]). No claim was weakened: claims
+  33/33, `casefile.replay_verifies` still holds (replay now also
+  reports `replay_outcome`).
+
+Verification on the branch (extras venv, bin/ on PATH,
+`PYTHONPATH` = worktree `src`): pre-commit **13/13**,
+`scripts/check_claims.py` **33/33**, `tests/test_schema.py` **26
+passed**, full extras suite **3057 passed / 0 failed** (232
+subtests passed; 3026 baseline + 29 new `test_casefile_v4.py` tests
++ 1 new explicit-v3 test in `test_casefile_v3.py` + 1
+`test_memory_check` host test that passed this run instead of being
+deselected). The golden file verifies via
+`scripts/verify_golden.py`. Two ruff findings from the first pass
+were fixed, not suppressed (a lambda in `_standalone_verify.py`,
+an unused loop variable in `report.py`).

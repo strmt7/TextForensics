@@ -106,10 +106,15 @@ Raw submitted text is not included in the report.
 
 ### Sealed case files
 
-Case files (schema `textforensics.case-file/v3`; v1 and v2 still
+Case files (schema `textforensics.case-file/v4`; v1–v3 still
 verify) add deterministic integrity sealing around a forensic bundle,
-plus a D1–D10 appeal checklist, a custody hash chain, and validation
-references into the evidence registry:
+plus a D1–D10 appeal checklist, a custody hash chain, validation
+references into the evidence registry, and a per-observation
+determinism declaration (`deterministic` / `non_deterministic` /
+`unknown`): a detector declared `non_deterministic` at seal time
+whose replayed output differs is reported `not_reproducible` and the
+replay outcome is `inconclusive` (valid but inconclusive) instead of
+failing — or silently passing:
 
 ```bash
 textforensics case export --file essay.txt --output case.json

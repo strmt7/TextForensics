@@ -133,17 +133,28 @@ Tamper-evident local draft ledger:
 ### 1.7 Case File (`src/textforensics/casefile.py`)
 
 Portable, reproducible audit artifact (schema
-`textforensics.case-file/v3`; v1 and v2 still verify):
+`textforensics.case-file/v4`; v1–v3 still verify):
 - Wraps a forensic bundle with tool version and integrity seal
 - `seal_case_file(bundle)` → adds schema, version, `case_sha256`,
-  plus the v3 sections: `input` (content hash only, no raw text),
+  plus the v3/v4 sections: `input` (content hash only, no raw text),
   `detector_observations`, `validation_refs` (into the U1 validation
   registry), `limitations` (plain language, counterfactuals), `process`
   (the D1–D10 appeal checklist, "template, not legal advice"),
   `custody` (hash-chained entries), `seal`, and `gaps` (every absent
   item declared with a reason)
+- v4 adds a per-observation determinism declaration
+  (`determinism` / `determinism_reason` on `detector_observations`
+  items, required on `kind: "observed"` items): the value the
+  analysis recorded in the bundle's `detector_results`, or an
+  explicit seal-time override (`seal_case_file(..., determinism={...},
+  determinism_reasons={...})`, CLI `case export --determinism
+  <detector_id>:<value>`), or `"unknown"` when neither exists. An
+  override is recorded in the sealed bundle copy as well as the
+  observations, so verification rebuilds exactly what was sealed.
+  The builtin heuristic detector declares `deterministic`; the
+  Ollama adapter declares `non_deterministic` (sampling).
 - `verify_case_file(payload, public_key=None)` → validates structure,
-  hash, raw-text policy, v3 sections, custody chain and checklist
+  hash, raw-text policy, v3/v4 sections, custody chain and checklist
   re-derivation; a present T2 signature is verified only when a public
   key is supplied, otherwise reported as unverified, never as a pass
 - `verify_case_file_combined(payload, public_key=None)` (in `verify.py`)
@@ -159,7 +170,7 @@ Portable, reproducible audit artifact (schema
 - Atomic write via temp file + `os.replace`
 
 Sealed bundle (`src/textforensics/sealed_bundle.py`, Phase 3 U2):
-packs a v3 case into a deterministic MPL bundle (canonical JSON,
+packs a v3/v4 case into a deterministic MPL bundle (canonical JSON,
 sorted stored ZIP entries, normalised ZipInfo, archive comment
 `mpl-bundle-sha256:<manifest SHA-256>`) carrying `case.json`, the
 standalone stdlib-only verifier (`_standalone_verify.py`, runs
@@ -171,7 +182,13 @@ timestamp record). Three seal tiers: T1 hash (always), T2 Ed25519/DSSE
 (`timestamp.py`; free TSAs labelled non-qualified). `case verify`
 exits 0/1/2 (verified / seal failed / checks could not run); replay
 runs only when the seal passes and aborts on a text-hash mismatch
-before any detector runs.
+before any detector runs. Replay returns `replay_outcome`
+(`reproduced` / `inconclusive` / `failed`): a declared
+`non_deterministic` detector whose replayed output differs is
+`not_reproducible` (warning `not_reproducible:<detector_id>`,
+valid-but-inconclusive), and a sealed-bundle verification of such a
+replay exits 2; a `deterministic` or `unknown` declaration fails
+closed on a mismatch.
 
 One bundle format, three layers (not three formats): the forensic
 bundle JSON is the data; the sealed case file is its integrity

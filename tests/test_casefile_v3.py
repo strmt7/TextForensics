@@ -1,6 +1,8 @@
 """Tests for the case-file v3 model (Phase 3 U2).
 
-v3 is the default seal since U2: the D1-D10 appeal checklist lives in
+v4 is the default seal since the U2 not_reproducible follow-up (v3
+plus per-observation determinism declarations); v3 keeps sealing and
+verifying explicitly.  The D1-D10 appeal checklist lives in
 ``process``, custody is a hash chain in ``custody``, validation pointers
 into the U1 registry live in ``validation_refs``, and an optional
 Ed25519/DSSE signature lives in ``seal.signature`` (``None`` for a T1
@@ -16,6 +18,7 @@ from pathlib import Path
 
 from textforensics.casefile import (
     CASE_SCHEMA_V3,
+    CASE_SCHEMA_V4,
     append_custody_entry,
     build_checklist,
     replay_case_file,
@@ -91,10 +94,10 @@ def v3_trust_map(bundle: dict, registry: ValidationRegistry) -> dict:
 
 
 class CaseFileV3SealTests(unittest.TestCase):
-    def test_v3_is_default_and_sections_present(self):
+    def test_v4_is_default_and_sections_present(self):
         bundle = build_forensic_bundle(TEXT).to_dict()
         case = seal_case_file(bundle)
-        self.assertEqual(case["schema"], CASE_SCHEMA_V3)
+        self.assertEqual(case["schema"], CASE_SCHEMA_V4)
         for section in (
             "input",
             "detector_observations",
@@ -111,6 +114,12 @@ class CaseFileV3SealTests(unittest.TestCase):
         self.assertIsNone(case["seal"]["signature"])
         self.assertTrue(verify_case_file(case)["valid"])
         self.assertNotIn(TEXT, json.dumps(case))
+
+    def test_v3_seal_explicit_still_works(self):
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        case = seal_case_file(bundle, version="v3")
+        self.assertEqual(case["schema"], CASE_SCHEMA_V3)
+        self.assertTrue(verify_case_file(case)["valid"])
 
     def test_v3_gaps_cover_unrecorded_counts(self):
         bundle = build_forensic_bundle(TEXT).to_dict()

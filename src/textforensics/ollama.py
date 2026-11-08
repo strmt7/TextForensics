@@ -622,6 +622,16 @@ class OllamaDetectorMixin:
     optionally use Ollama for enhanced detection.
     """
 
+    # An Ollama-backed detector samples from the model, so repeated
+    # runs on the same text may return different scores: it is declared
+    # non-deterministic at seal time, and a replay mismatch for it is
+    # reported as ``not_reproducible`` rather than a failure.
+    deterministic = False
+    determinism_reason = (
+        "Ollama sampling is non-deterministic: repeated runs on the same "
+        "text may return different scores."
+    )
+
     def __init__(self, *args, ollama_config: OllamaConfig | None = None, **kwargs):
         super().__init__(*args, **kwargs)
         self._ollama_config = ollama_config or OllamaConfig()

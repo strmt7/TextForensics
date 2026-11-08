@@ -103,6 +103,58 @@
           "gaps"
         ]
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema": {
+            "const": "textforensics.case-file/v4"
+          }
+        },
+        "required": [
+          "schema"
+        ]
+      },
+      "then": {
+        "properties": {
+          "detector_observations": {
+            "items": {
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "observed"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "then": {
+                "required": [
+                  "determinism"
+                ]
+              }
+            }
+          },
+          "tool": {
+            "required": [
+              "git_sha"
+            ]
+          }
+        },
+        "required": [
+          "created_at_utc",
+          "manifest",
+          "input",
+          "detector_observations",
+          "validation_refs",
+          "limitations",
+          "process",
+          "custody",
+          "seal",
+          "gaps"
+        ]
+      }
     }
   ],
   "properties": {
@@ -180,6 +232,19 @@
           },
           "detail": {
             "type": "object"
+          },
+          "determinism": {
+            "enum": [
+              "deterministic",
+              "non_deterministic",
+              "unknown"
+            ]
+          },
+          "determinism_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "detector_id": {
             "minLength": 1,
@@ -614,7 +679,8 @@
       "enum": [
         "textforensics.case-file/v1",
         "textforensics.case-file/v2",
-        "textforensics.case-file/v3"
+        "textforensics.case-file/v3",
+        "textforensics.case-file/v4"
       ]
     },
     "seal": {

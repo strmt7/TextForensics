@@ -66,18 +66,19 @@ DEFAULT_CONFIG = CodecConfig()
 
 
 # Schema version mapping — the CURRENT version of each format. The case
-# file is v3 here (v3 is what the system produces everywhere else since
-# U2: casefile.py seals v3 by default); the remaining v2 formats stay v2
+# file is v4 here (v4 is what the system produces everywhere else since
+# the U2 not_reproducible follow-up: casefile.py seals v4 by default);
+# the remaining v2 formats stay v2
 # (v2 is what the system produces everywhere else: report.py, trust.py);
 # the formats with no v2 yet stay v1. The codec must not maintain a
 # parallel v1 dialect of a current format: previously this map was
 # v1-only, so decoding a current v2 artifact silently relabelled it
-# v1. Legacy v1/v2 artifacts still decode (with a warning); they keep
+# v1. Legacy v1/v2/v3 artifacts still decode (with a warning); they keep
 # their label — see decode().
 _SCHEMA_VERSIONS = {
     "forensic-bundle": "textforensics.forensic-bundle/v2",
     "detector-result": "textforensics.detector-result/v2",
-    "case-file": "textforensics.case-file/v3",
+    "case-file": "textforensics.case-file/v4",
     "trust-map": "textforensics.trust-map/v2",
     "enterprise-policy": "textforensics.enterprise-policy/v1",
     "drift-report": "textforensics.drift-report/v1",

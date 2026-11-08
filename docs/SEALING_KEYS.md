@@ -125,6 +125,52 @@ current public-key notice before trusting an origin claim. The
 verifier itself cannot know a key was compromised — that information
 travels out of band, like the digest in `--expect-digest`.
 
+## Determinism declarations (v4)
+
+Case files sealed by default are `textforensics.case-file/v4`: v3
+plus a per-observation determinism declaration. Every
+`detector_observations` item carries `determinism`
+(`deterministic` / `non_deterministic` / `unknown`) and
+`determinism_reason`; v4 requires `determinism` on `kind:
+"observed"` items, v3 keeps it optional (absent means unknown).
+
+The declaration comes from, in order:
+
+1. an explicit seal-time override — `case export --determinism
+   <detector_id>:<value>` (repeatable; invalid values error out),
+   or `seal_case_file(..., determinism={...},
+   determinism_reasons={...})`;
+2. the value the analysis recorded in the bundle's
+   `detector_results` — the detector's own declaration (the builtin
+   heuristic detector declares `deterministic`; the Ollama adapter
+   declares `non_deterministic`, because sampling means repeated runs
+   may return different scores);
+3. `unknown`, when neither exists. A detector that declares nothing
+   is `unknown`, and `unknown` fails closed on a replay mismatch.
+
+An explicit override wins over the bundle-recorded value and is
+written into the sealed bundle copy as well as the observations, so
+verification rebuilds exactly what was sealed; the declaration itself
+is protected by the case hash (and T2 signature, when attached). An
+override for a detector ID that is not in the bundle, or an invalid
+value, is rejected at seal time — a declaration is never silently
+dropped.
+
+Replay: when a detector's score, verdict, version or calibration
+differs at replay AND its sealed observation declares it
+`non_deterministic`, that detector's check status is
+`not_reproducible`, no mismatch error is recorded, and a warning
+`not_reproducible:<detector_id>[:<reason>]` carries the sealed
+reason. The replay outcome is then `inconclusive` — valid but
+inconclusive, made explicit by `replay_outcome` and the warning,
+never silently passed. A `deterministic` or `unknown` declaration
+fails closed on a mismatch. A sealed-bundle verification of an
+inconclusive replay exits 2 (valid but incomplete); `case verify` on
+a bare case file does the same when its replay is inconclusive. The
+CLI does not re-run detectors, so a CLI replay can only reproduce or
+fail; `replay_outcome` is still reported in its JSON output and scope
+statement.
+
 ## Timestamps (T3)
 
 A timestamp token is requested with `case export --seal

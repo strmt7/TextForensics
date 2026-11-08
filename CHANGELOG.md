@@ -11,8 +11,10 @@ The project is pre-1.0. Public schemas and detector/calibration semantics are tr
 - detector plugin-health reporting with redacted failure messages;
 - qualitative `textforensics.trust-map/v2` (v3, which adds a `stale`
   state for registry-derived maps, added in U1 — see below);
-- sealed, raw-text-free `textforensics.case-file/v3` artifacts
-  (v2/v1 still verify; v3 is the default seal since U2 — see below);
+- sealed, raw-text-free `textforensics.case-file/v4` artifacts
+  (v3/v2/v1 still verify; v4 is the default seal since the U2
+  `not_reproducible` follow-up, v3 was the default seal since U2 —
+  see below);
 - case export/verification CLI;
 - split-aware calibration artifacts and held-out evaluation guard;
 - unified environment configuration and UTF-8 input-size limits;

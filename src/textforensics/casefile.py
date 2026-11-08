@@ -19,17 +19,23 @@ process is reproducible from the recorded inputs.
 Case-file versions
 ------------------
 ``v1`` is the legacy shape (no manifest, no creation timestamp).
-``v2`` adds the manifest and ``created_at_utc``.  ``v3`` (the current
-default) adds the U2 legal-process sections: ``input`` (acquisition
-metadata), ``detector_observations`` (a normalised, re-verifiable view
-of the bundle's observations), ``validation_refs`` (pointers into the
-U1 validation registry), ``limitations`` (mandatory plain-language
-disclosure plus counterfactuals), ``process`` (the D1–D10
-due-process/appeal checklist), ``custody`` (an append-only hash chain),
-``seal`` (three-tier seal record: hash always, Ed25519/DSSE signature,
-RFC 3161 timestamp reference) and ``gaps`` (absent items declared with
-a reason, never silently omitted).  All three versions verify; only v3
-is sealed by default.
+``v2`` adds the manifest and ``created_at_utc``.  ``v3`` (the U2
+legal-process format) adds the U2 legal-process sections: ``input``
+(acquisition metadata), ``detector_observations`` (a normalised,
+re-verifiable view of the bundle's observations), ``validation_refs``
+(pointers into the U1 validation registry), ``limitations`` (mandatory
+plain-language disclosure plus counterfactuals), ``process`` (the
+D1–D10 due-process/appeal checklist), ``custody`` (an append-only hash
+chain), ``seal`` (three-tier seal record: hash always, Ed25519/DSSE
+signature, RFC 3161 timestamp reference) and ``gaps`` (absent items
+declared with a reason, never silently omitted).  ``v4`` is v3 plus a
+per-observation determinism declaration (``determinism`` /
+``determinism_reason`` on ``detector_observations`` items, required on
+``kind: "observed"`` items): a detector declared ``non_deterministic``
+at seal time whose replayed score, verdict, version or calibration
+differs is reported ``not_reproducible`` instead of failing replay,
+so an inconclusive replay is explicit rather than silently passed.
+All four versions verify; only v4 is sealed by default.
 
 The seal record cannot hold the sealed *bundle's* own digest: the
 bundle digest depends on the case file's bytes, so a case file that
@@ -56,6 +62,7 @@ from typing import Any
 from ._build_info import get_version
 from .conditions import conditions_from_dict
 from .detectors import (
+    DETERMINISM_VALUES,
     Detector,
     DetectorPrediction,
     execute_detector,
@@ -64,10 +71,11 @@ from .detectors import (
 from .evidence import EvidenceRegistry
 from .trust import assess_trust_map
 
+CASE_SCHEMA_V4 = "textforensics.case-file/v4"
 CASE_SCHEMA_V3 = "textforensics.case-file/v3"
 CASE_SCHEMA = "textforensics.case-file/v2"
 LEGACY_CASE_SCHEMA = "textforensics.case-file/v1"
-CASE_SCHEMAS = frozenset({CASE_SCHEMA_V3, CASE_SCHEMA, LEGACY_CASE_SCHEMA})
+CASE_SCHEMAS = frozenset({CASE_SCHEMA_V4, CASE_SCHEMA_V3, CASE_SCHEMA, LEGACY_CASE_SCHEMA})
 BUNDLE_SCHEMA = "textforensics.forensic-bundle/v2"
 LEGACY_BUNDLE_SCHEMA = "textforensics.forensic-bundle/v1"
 TRUST_SCHEMA = "textforensics.trust-map/v2"
@@ -627,18 +635,46 @@ def build_case_input(
     )
 
 
+def _resolve_determinism(entry: Mapping[str, Any]) -> tuple[str, str | None]:
+    """Resolve a bundle entry's determinism declaration.
+
+    Returns ``(determinism, reason)`` where determinism is one of
+    ``"deterministic"`` / ``"non_deterministic"`` / ``"unknown"``.
+    An absent declaration is ``"unknown"`` with no reason.  A present
+    but invalid value (or a non-string reason) raises ``ValueError``:
+    sealing must fail closed on a bogus declaration, and verification
+    reports it as an error rather than trusting it.
+    """
+    value = entry.get("determinism")
+    if value is None:
+        value = "unknown"
+    if value not in DETERMINISM_VALUES:
+        raise ValueError(f"Invalid determinism declaration: {value!r}.")
+    reason = entry.get("determinism_reason")
+    if reason is not None and not isinstance(reason, str):
+        raise ValueError("determinism_reason must be a string or null.")
+    return str(value), reason
+
+
 def build_detector_observations(
     bundle: Mapping[str, Any],
     *,
     dispositions: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Build the v3 ``detector_observations`` view of the bundle.
+    """Build the v3/v4 ``detector_observations`` view of the bundle.
 
     A normalised, re-verifiable view of ``detector_results``,
     ``detector_failures`` and ``plugin_health``: every observation
     carries detector ID/version, checkpoint/provider version, config
     hash, runtime, calibration ID and native score semantics.  Failures
-    are recorded with their reason, never silently dropped.
+    are recorded with their reason, never silently dropped.  Every
+    observation also carries the seal-time determinism declaration
+    (``determinism`` / ``determinism_reason``): the bundle-recorded
+    value where the analysis recorded one, ``"unknown"`` otherwise.
+    In v4, ``determinism`` is required on ``kind: "observed"`` items;
+    on ``failed`` / ``plugin_health`` items it is optional in the
+    schema (absent means unknown), but the sealer always writes it so
+    a sealed file is self-describing.
     """
     observations: list[dict[str, Any]] = []
     for result in bundle.get("detector_results", []):
@@ -646,6 +682,7 @@ def build_detector_observations(
             continue
         detector_id = result.get("detector_id")
         disposition = (dispositions or {}).get(str(detector_id)) or {}
+        determinism, determinism_reason = _resolve_determinism(result)
         observations.append(
             {
                 "kind": "observed",
@@ -666,11 +703,14 @@ def build_detector_observations(
                 "min_words": result.get("min_words"),
                 "disposition": disposition.get("disposition"),
                 "disposition_reason": disposition.get("reason"),
+                "determinism": determinism,
+                "determinism_reason": determinism_reason,
             }
         )
     for failure in bundle.get("detector_failures", []):
         if not isinstance(failure, Mapping):
             continue
+        determinism, determinism_reason = _resolve_determinism(failure)
         observations.append(
             {
                 "kind": "failed",
@@ -691,6 +731,8 @@ def build_detector_observations(
                 "disposition_reason": None,
                 "reason": failure.get("reason") or failure.get("error") or "detector failed",
                 "detail": dict(failure),
+                "determinism": determinism,
+                "determinism_reason": determinism_reason,
             }
         )
     for row in bundle.get("plugin_health", []):
@@ -716,9 +758,67 @@ def build_detector_observations(
                 "disposition_reason": None,
                 "reason": None,
                 "detail": dict(row),
+                "determinism": "unknown",
+                "determinism_reason": None,
             }
         )
     return observations
+
+
+def _apply_determinism_overrides(
+    bundle: dict[str, Any],
+    determinism: Mapping[str, str] | None,
+    determinism_reasons: Mapping[str, str] | None,
+) -> None:
+    """Apply seal-time determinism overrides to the bundle being sealed.
+
+    ``determinism`` / ``determinism_reasons`` are keyed by detector
+    ID; an explicit override wins over the bundle-recorded value.  The
+    override is written into the sealed bundle copy's
+    ``detector_results`` / ``detector_failures`` entries as well as the
+    observations built from them, so the sealed artifact stays
+    internally consistent: verification rebuilds the observations from
+    the sealed bundle and compares them exactly, and the declaration
+    itself is protected by the case hash (and T2 signature, when one
+    is attached).  An override for a detector ID that appears nowhere
+    in the bundle, an invalid determinism value, or a non-string
+    reason raises ``ValueError`` — a declaration must never be
+    silently dropped.  A detector with no override and no
+    bundle-recorded value stays ``"unknown"``.
+    """
+    if determinism is None and determinism_reasons is None:
+        return
+    determinism = dict(determinism or {})
+    determinism_reasons = dict(determinism_reasons or {})
+    for detector_id, value in determinism.items():
+        if value not in DETERMINISM_VALUES:
+            raise ValueError(
+                f"Invalid determinism for {detector_id!r}: {value!r} "
+                "(expected 'deterministic', 'non_deterministic' or 'unknown')."
+            )
+    for detector_id, reason in determinism_reasons.items():
+        if not isinstance(reason, str):
+            raise ValueError(f"determinism_reason for {detector_id!r} must be a string.")
+    known_ids = {
+        str(entry.get("detector_id"))
+        for key in ("detector_results", "detector_failures")
+        for entry in bundle.get(key, [])
+        if isinstance(entry, Mapping) and entry.get("detector_id")
+    }
+    for detector_id in set(determinism) | set(determinism_reasons):
+        if detector_id not in known_ids:
+            raise ValueError(
+                f"Determinism override for unknown detector: {detector_id!r} "
+                "(no such detector in the bundle)."
+            )
+    for key in ("detector_results", "detector_failures"):
+        for entry in bundle.get(key, []):
+            if not isinstance(entry, Mapping):
+                continue
+            detector_id = str(entry.get("detector_id"))
+            if detector_id in determinism:
+                entry["determinism"] = determinism[detector_id]
+                entry["determinism_reason"] = determinism_reasons.get(detector_id)
 
 
 def build_validation_refs(
@@ -1006,9 +1106,49 @@ def _checklist_consistency(case: Mapping[str, Any], bundle: Mapping[str, Any]) -
     return errors
 
 
-def _verify_v3_sections(case: Mapping[str, Any], bundle: Mapping[str, Any]) -> list[str]:
-    """Verify the v3-only sections against the sealed bundle."""
+def _observations_match(sealed: list, expected: list, *, version: str) -> bool:
+    """Compare sealed observations against the rebuilt ones.
+
+    v4 compares exactly, determinism included.  v3 compares ignoring
+    the determinism fields: determinism is optional in v3, so a v3
+    file sealed before determinism existed carries no declaration to
+    compare against — requiring it would break verification of
+    genuine older v3 files.
+    """
+    if version == "v4":
+        return sealed == expected
+
+    def _strip(items: list) -> list:
+        return [
+            {
+                key: value
+                for key, value in item.items()
+                if key not in ("determinism", "determinism_reason")
+            }
+            if isinstance(item, Mapping)
+            else item
+            for item in items
+        ]
+
+    return _strip(sealed) == _strip(expected)
+
+
+def _verify_case_sections(
+    case: Mapping[str, Any], bundle: Mapping[str, Any], *, version: str = "v3"
+) -> list[str]:
+    """Verify the v3/v4-only sections against the sealed bundle.
+
+    ``version`` is ``"v3"`` or ``"v4"``.  v4 additionally requires a
+    ``determinism`` declaration on every ``kind: "observed"`` item
+    (``failed`` / ``plugin_health`` items keep it optional: absent
+    means unknown).  The observations are rebuilt from the sealed
+    bundle and compared exactly, determinism included — the sealed
+    bundle carries the seal-time declaration (an explicit override is
+    recorded in the sealed bundle copy at seal time, so the rebuild
+    sees it).
+    """
     errors: list[str] = []
+    prefix = "v4" if version == "v4" else "v3"
     input_section = case.get("input")
     if not isinstance(input_section, Mapping):
         errors.append("v3_input_missing")
@@ -1018,14 +1158,34 @@ def _verify_v3_sections(case: Mapping[str, Any], bundle: Mapping[str, Any]) -> l
     if not isinstance(observations, list):
         errors.append("v3_detector_observations_missing")
     else:
-        expected = build_detector_observations(
-            bundle,
-            dispositions=(case.get("process") or {}).get("evidence_dispositions")
-            if isinstance(case.get("process"), Mapping)
-            else None,
-        )
-        if observations != expected:
-            errors.append("v3_detector_observations_mismatch")
+        # A present declaration must be a valid one, in both versions;
+        # v4 additionally requires it on every observed item.
+        for item in observations:
+            if not isinstance(item, Mapping) or item.get("kind") != "observed":
+                continue
+            detector_id = item.get("detector_id")
+            if "determinism" not in item:
+                if version == "v4":
+                    errors.append(f"v4_detector_observations_determinism_missing:{detector_id}")
+            elif item.get("determinism") not in DETERMINISM_VALUES:
+                errors.append(f"{prefix}_detector_observations_determinism_invalid:{detector_id}")
+            reason = item.get("determinism_reason")
+            if reason is not None and not isinstance(reason, str):
+                errors.append(
+                    f"{prefix}_detector_observations_determinism_reason_invalid:{detector_id}"
+                )
+        try:
+            expected = build_detector_observations(
+                bundle,
+                dispositions=(case.get("process") or {}).get("evidence_dispositions")
+                if isinstance(case.get("process"), Mapping)
+                else None,
+            )
+        except ValueError:
+            errors.append(f"{prefix}_detector_observations_invalid")
+        else:
+            if not _observations_match(observations, expected, version=version):
+                errors.append("v3_detector_observations_mismatch")
     refs = case.get("validation_refs")
     if not isinstance(refs, list):
         errors.append("v3_validation_refs_missing")
@@ -1116,7 +1276,7 @@ def seal_case_file(
     deterministic: bool = False,
     fixed_timestamp: str | None = None,
     *,
-    version: str = "v3",
+    version: str = "v4",
     process: Mapping[str, Any] | None = None,
     custody: Iterable[Mapping[str, Any]] | None = None,
     validation_registry: Any | None = None,
@@ -1125,23 +1285,36 @@ def seal_case_file(
     signer: Mapping[str, Any] | None = None,
     digest_publication: Mapping[str, Any] | None = None,
     limitations: Mapping[str, Any] | None = None,
+    determinism: Mapping[str, str] | None = None,
+    determinism_reasons: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Seal a forensic bundle into a case file.
 
-    ``version`` selects the case-file schema: ``"v3"`` (default, the U2
-    legal-process format), ``"v2"`` (the previous shape) or ``"v1"``
-    (legacy bundles only).  A v3 seal requires a v2 bundle; a legacy v1
-    bundle always seals as v1.  ``process`` supplies the D1–D10
-    checklist (defaults to all ``unknown``); ``custody`` supplies extra
-    custody events to chain after the genesis entry; ``validation_registry``
-    supplies the U1 registry for ``validation_refs``; ``input_meta``
-    supplies acquisition metadata (``source``, ``acquired_by``,
-    ``acquisition_method``, ``authorisation_ref``, ``acquired_at_utc``).
-    ``signing_seed`` + ``signer`` attach the T2 Ed25519/DSSE signature
-    over the case body; ``digest_publication`` records where the sealed
-    bundle digest was published out-of-band.
+    ``version`` selects the case-file schema: ``"v4"`` (default, the
+    current format — v3 sections plus a per-observation determinism
+    declaration), ``"v3"`` (the U2 legal-process format),
+    ``"v2"`` (the previous shape) or ``"v1"`` (legacy bundles only).
+    A v3/v4 seal requires a v2 bundle; a legacy v1 bundle always seals
+    as v1.  ``process`` supplies the D1–D10 checklist (defaults to all
+    ``unknown``); ``custody`` supplies extra custody events to chain
+    after the genesis entry; ``validation_registry`` supplies the U1
+    registry for ``validation_refs``; ``input_meta`` supplies
+    acquisition metadata (``source``, ``acquired_by``,
+    ``acquisition_method``, ``authorisation_ref``,
+    ``acquired_at_utc``).  ``signing_seed`` + ``signer`` attach the T2
+    Ed25519/DSSE signature over the case body;
+    ``digest_publication`` records where the sealed bundle digest was
+    published out-of-band.  ``determinism`` / ``determinism_reasons``
+    are explicit seal-time determinism declarations keyed by detector
+    ID (values ``"deterministic"`` / ``"non_deterministic"`` /
+    ``"unknown"``); an explicit declaration wins over the
+    bundle-recorded value and is recorded in the sealed bundle copy
+    as well as the observations, so verification rebuilds exactly
+    what was sealed.  Absent everywhere, a detector is
+    ``"unknown"``.  Overrides apply to v3/v4 seals only (v1/v2 carry
+    no observations).
     """
-    if version not in {"v1", "v2", "v3"}:
+    if version not in {"v1", "v2", "v3", "v4"}:
         raise ValueError(f"Unsupported case-file version: {version!r}.")
     bundle = deepcopy(dict(forensic_bundle))
     _validate_portable_bundle(bundle)
@@ -1192,7 +1365,8 @@ def seal_case_file(
         case["case_sha256"] = _hash_without_seal(case)
         return case
 
-    # --- v3 ---
+    # --- v3/v4 ---
+    _apply_determinism_overrides(bundle, determinism, determinism_reasons)
     if not isinstance(input_meta, Mapping) and input_meta is not None:
         raise ValueError("input_meta must be a mapping.")
     meta = dict(input_meta or {})
@@ -1282,7 +1456,7 @@ def seal_case_file(
         ):
             raise ValueError("digest_publication needs channel, reference and published_at_utc.")
     case = {
-        "schema": CASE_SCHEMA_V3,
+        "schema": CASE_SCHEMA_V4 if version == "v4" else CASE_SCHEMA_V3,
         "tool": tool,
         "created_at_utc": timestamp,
         "raw_text_included": False,
@@ -1343,10 +1517,10 @@ def _verify_manifest(case: Mapping[str, Any], bundle: Mapping[str, Any]) -> list
 def verify_case_file(
     payload: Mapping[str, Any], *, public_key: bytes | None = None
 ) -> dict[str, Any]:
-    """Verify a case file (v1, v2 or v3).
+    """Verify a case file (v1, v2, v3 or v4).
 
     ``public_key`` supplies the Ed25519 public key for cryptographic
-    verification of a v3 T2 signature.  Without it, a present signature
+    verification of a v3/v4 T2 signature.  Without it, a present signature
     is reported as a warning (present but not cryptographically
     verified), never as a pass: a signature nobody checks authenticates
     nothing.
@@ -1377,10 +1551,14 @@ def verify_case_file(
             _validate_portable_bundle(bundle)
         except ValueError:
             errors.append("invalid_or_nonportable_forensic_bundle")
-        if schema in {CASE_SCHEMA, CASE_SCHEMA_V3}:
+        if schema in {CASE_SCHEMA, CASE_SCHEMA_V3, CASE_SCHEMA_V4}:
             errors.extend(_verify_manifest(payload, bundle))
-        if schema == CASE_SCHEMA_V3:
-            errors.extend(_verify_v3_sections(payload, bundle))
+        if schema in {CASE_SCHEMA_V3, CASE_SCHEMA_V4}:
+            errors.extend(
+                _verify_case_sections(
+                    payload, bundle, version="v4" if schema == CASE_SCHEMA_V4 else "v3"
+                )
+            )
             seal = payload.get("seal")
             signature = seal.get("signature") if isinstance(seal, Mapping) else None
             if signature is None:
@@ -1423,16 +1601,16 @@ def append_custody_entry(
     at_utc: str | None = None,
     note: str | None = None,
 ) -> dict[str, Any]:
-    """Append a custody event to a sealed v3 case file and re-seal it.
+    """Append a custody event to a sealed v3/v4 case file and re-seal it.
 
     Returns a new case dict; the input is not mutated.  Appending
     changes ``case_sha256`` (the seal covers the whole case), so the
     custody hash chain — not the case hash — is the continuity record
     across versions: each version's seal covers that version, and the
-    chain links the versions.  Only v3 case files carry custody.
+    chain links the versions.  Only v3/v4 case files carry custody.
     """
-    if case.get("schema") != CASE_SCHEMA_V3:
-        raise ValueError("Custody entries exist only on case-file/v3.")
+    if case.get("schema") not in {CASE_SCHEMA_V3, CASE_SCHEMA_V4}:
+        raise ValueError("Custody entries exist only on case-file/v3 and case-file/v4.")
     updated = deepcopy(dict(case))
     custody = list(updated.get("custody") or [])
     entry = chain_custody_entry(
@@ -1559,8 +1737,24 @@ def _replay_detectors(
     text: str,
     *,
     atol: float,
-) -> tuple[list[str], dict[str, Any]]:
+    determinism_by_detector: Mapping[str, Mapping[str, Any]] | None = None,
+) -> tuple[list[str], list[str], dict[str, Any]]:
+    """Re-run detectors and compare against the sealed results.
+
+    Returns ``(errors, warnings, checks)``.  When a detector's
+    score, verdict, version or calibration differs from the sealed
+    value AND the sealed observation declares that detector
+    ``non_deterministic``, the detector's check status is
+    ``"not_reproducible"``, no mismatch error is recorded, and a
+    warning ``"not_reproducible:<detector_id>[:<reason>]"`` carries
+    the sealed reason.  A ``"deterministic"`` or ``"unknown"``
+    declaration fails closed: the mismatch is an error exactly as
+    before.  A detector that fails to execute at replay is an error
+    regardless of its declaration (a crash is not a mismatch), as is
+    a sealed detector that was not replayed at all.
+    """
     errors: list[str] = []
+    warnings: list[str] = []
     checks: dict[str, Any] = {}
     expected = {
         str(item.get("detector_id")): item for item in sealed_results if isinstance(item, Mapping)
@@ -1588,23 +1782,38 @@ def _replay_detectors(
             row["status"] = "not_in_case"
             errors.append(f"unexpected_detector:{detector_id}")
         else:
+            mismatches: list[str] = []
             if prediction.detector_version != baseline.get("detector_version"):
-                errors.append(f"detector_version_mismatch:{detector_id}")
+                mismatches.append(f"detector_version_mismatch:{detector_id}")
                 row["version_match"] = False
             if prediction.verdict != baseline.get("verdict"):
-                errors.append(f"verdict_mismatch:{detector_id}")
+                mismatches.append(f"verdict_mismatch:{detector_id}")
                 row["verdict_match"] = False
             if not _compare_scores(baseline.get("score"), prediction.score, atol=atol):
-                errors.append(f"score_mismatch:{detector_id}")
+                mismatches.append(f"score_mismatch:{detector_id}")
                 row["score_match"] = False
             if prediction.calibration_id != baseline.get("calibration_id"):
-                errors.append(f"calibration_id_mismatch:{detector_id}")
+                mismatches.append(f"calibration_id_mismatch:{detector_id}")
                 row["calibration_match"] = False
+            if mismatches:
+                declaration = (determinism_by_detector or {}).get(detector_id) or {}
+                determinism = declaration.get("determinism") or "unknown"
+                if determinism == "non_deterministic":
+                    row["status"] = "not_reproducible"
+                    row["determinism"] = "non_deterministic"
+                    reason = declaration.get("determinism_reason")
+                    if isinstance(reason, str) and reason:
+                        row["determinism_reason"] = reason
+                        warnings.append(f"not_reproducible:{detector_id}:{reason}")
+                    else:
+                        warnings.append(f"not_reproducible:{detector_id}")
+                else:
+                    errors.extend(mismatches)
         observed[detector_id] = row
     for detector_id in sorted(set(expected) - set(observed)):
         errors.append(f"detector_not_replayed:{detector_id}")
     checks["detectors"] = observed
-    return errors, checks
+    return errors, warnings, checks
 
 
 def _replay_trust_map_v3(
@@ -1827,6 +2036,25 @@ def replay_case_file(
     performed rather than silently passing.  ``validation_registry`` is the
     U1 registry used to re-derive a Trust Map v3; a v3 map without it is
     reported as not re-derived.
+
+    The return gains ``"replay_outcome"``:
+
+    - ``"reproduced"`` — no errors and no detector reported
+      ``not_reproducible``;
+    - ``"inconclusive"`` — no errors, but at least one detector was
+      declared ``non_deterministic`` at seal time and its replayed
+      output differed (its check status is ``"not_reproducible"`` and
+      a ``"not_reproducible:<detector_id>"`` warning carries the
+      sealed reason);
+    - ``"failed"`` — any error.
+
+    ``"valid"`` keeps its current meaning (``True`` when there are no
+    errors), so an inconclusive replay is valid-but-inconclusive,
+    made explicit by ``replay_outcome`` and the warning, never
+    silently passed.  Note the caveat: when no detectors are supplied,
+    no detector re-execution was attempted — ``checks["detectors"]``
+    says ``"not_supplied"`` — and ``"reproduced"`` then means only
+    that the seal, text hash and Trust Map checks passed.
     """
     if isinstance(atol, bool) or not isinstance(atol, (int, float)) or atol < 0:
         raise ValueError("atol must be a non-negative number.")
@@ -1848,6 +2076,7 @@ def replay_case_file(
             "errors": errors,
             "warnings": warnings,
             "checks": checks,
+            "replay_outcome": "failed",
         }
 
     if text is not None:
@@ -1865,13 +2094,40 @@ def replay_case_file(
             errors.append("text_required_for_detector_replay")
             checks["detectors"] = {"status": "not_performed", "reason": "text_not_supplied"}
         else:
-            detector_errors, detector_checks = _replay_detectors(
+            # The sealed observation is the authoritative determinism
+            # declaration; fall back to the bundle-recorded value for
+            # cases whose observations carry none (v1/v2, or v3 sealed
+            # before determinism existed).  Absent everywhere means
+            # "unknown", which fails closed on a mismatch.
+            determinism_by_detector: dict[str, dict[str, Any]] = {}
+            for item in case.get("detector_observations", []) or []:
+                if (
+                    isinstance(item, Mapping)
+                    and item.get("kind") == "observed"
+                    and item.get("detector_id")
+                ):
+                    determinism_by_detector[str(item["detector_id"])] = {
+                        "determinism": item.get("determinism") or "unknown",
+                        "determinism_reason": item.get("determinism_reason"),
+                    }
+            for row in bundle.get("detector_results", []) or []:
+                if not isinstance(row, Mapping) or not row.get("detector_id"):
+                    continue
+                detector_id = str(row["detector_id"])
+                if detector_id not in determinism_by_detector and row.get("determinism"):
+                    determinism_by_detector[detector_id] = {
+                        "determinism": row.get("determinism"),
+                        "determinism_reason": row.get("determinism_reason"),
+                    }
+            detector_errors, detector_warnings, detector_checks = _replay_detectors(
                 bundle.get("detector_results", []),
                 detectors,
                 text,
                 atol=float(atol),
+                determinism_by_detector=determinism_by_detector,
             )
             errors.extend(detector_errors)
+            warnings.extend(detector_warnings)
             checks["detectors"] = detector_checks
     else:
         checks["detectors"] = {"status": "not_supplied"}
@@ -1883,11 +2139,29 @@ def replay_case_file(
     warnings.extend(trust_warnings)
     checks["trust_map"] = trust_checks
 
+    detector_rows = checks.get("detectors")
+    not_reproducible = 0
+    if isinstance(detector_rows, dict):
+        rows = detector_rows.get("detectors")
+        if isinstance(rows, dict):
+            not_reproducible = sum(
+                1
+                for row in rows.values()
+                if isinstance(row, dict) and row.get("status") == "not_reproducible"
+            )
+    if errors:
+        replay_outcome = "failed"
+    elif not_reproducible:
+        replay_outcome = "inconclusive"
+    else:
+        replay_outcome = "reproduced"
+
     return {
         "valid": not errors,
         "errors": errors,
         "warnings": warnings,
         "checks": checks,
+        "replay_outcome": replay_outcome,
         "note": (
             "Replay establishes reproducibility of the recorded process; it "
             "does not prove authorship."
@@ -1911,6 +2185,7 @@ def replay_case_file_path(
             "errors": ["case_file_must_be_json_object"],
             "warnings": [],
             "checks": {},
+            "replay_outcome": "failed",
         }
     return replay_case_file(
         payload,

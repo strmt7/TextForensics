@@ -47,6 +47,7 @@ TOOL = "textforensics-standalone-verify"
 REPORT_SCHEMA = "textforensics.verification-report/v1"
 MANIFEST_SCHEMA = "textforensics.sealed-bundle-manifest/v1"
 BUNDLE_SCHEMA = "textforensics.sealed-bundle/v1"
+CASE_SCHEMA_V4 = "textforensics.case-file/v4"
 CASE_SCHEMA_V3 = "textforensics.case-file/v3"
 CASE_SCHEMA_V2 = "textforensics.case-file/v2"
 CASE_SCHEMA_V1 = "textforensics.case-file/v1"
@@ -881,10 +882,52 @@ def _verify_custody(custody):
     return errors
 
 
-def _build_observations(bundle, dispositions=None):
-    """Rebuild the v3 detector_observations view of a bundle.
+def _strip_determinism(items):
+    """Return observation items without the determinism fields.
 
-    Mirrors ``textforensics.casefile.build_detector_observations``.
+    Used when comparing v3 observations: determinism is optional in
+    v3, so the fields are ignored there (see ``verify_bundle_bytes``).
+    """
+    return [
+        {
+            key: value
+            for key, value in item.items()
+            if key not in ("determinism", "determinism_reason")
+        }
+        if isinstance(item, dict)
+        else item
+        for item in items
+    ]
+
+
+def _resolve_determinism(entry):
+    """Resolve a bundle entry's determinism declaration, never raising.
+
+    Mirrors ``textforensics.casefile._resolve_determinism`` except that
+    a hostile or malformed value normalises to ``"unknown"`` instead of
+    raising: a verifier must report a mismatch, never crash.  A sealed
+    observation carrying an invalid declaration then differs from the
+    rebuilt one and fails the observations check.
+    """
+    value = entry.get("determinism")
+    if value not in ("deterministic", "non_deterministic", "unknown"):
+        value = "unknown"
+    reason = entry.get("determinism_reason")
+    if reason is not None and not isinstance(reason, str):
+        reason = None
+    return value, reason
+
+
+def _build_observations(bundle, dispositions=None):
+    """Rebuild the v3/v4 detector_observations view of a bundle.
+
+    Mirrors ``textforensics.casefile.build_detector_observations``,
+    including the per-observation determinism declaration (the
+    bundle-recorded value where the analysis recorded one,
+    ``"unknown"`` otherwise).  It does NOT replay detectors
+    (stdlib-only, no package): determinism is a seal-time declaration
+    carried by the bundle, and this verifier checks that the sealed
+    observations match the sealed bundle — including determinism.
     """
     dispositions = dispositions or {}
     observations = []
@@ -895,6 +938,7 @@ def _build_observations(bundle, dispositions=None):
         disposition = dispositions.get(str(detector_id)) or {}
         if not isinstance(disposition, dict):
             disposition = {}
+        determinism, determinism_reason = _resolve_determinism(result)
         observations.append(
             {
                 "kind": "observed",
@@ -915,11 +959,14 @@ def _build_observations(bundle, dispositions=None):
                 "min_words": result.get("min_words"),
                 "disposition": disposition.get("disposition"),
                 "disposition_reason": disposition.get("reason"),
+                "determinism": determinism,
+                "determinism_reason": determinism_reason,
             }
         )
     for failure in bundle.get("detector_failures", []):
         if not isinstance(failure, dict):
             continue
+        determinism, determinism_reason = _resolve_determinism(failure)
         observations.append(
             {
                 "kind": "failed",
@@ -940,6 +987,8 @@ def _build_observations(bundle, dispositions=None):
                 "disposition_reason": None,
                 "reason": failure.get("reason") or failure.get("error") or "detector failed",
                 "detail": dict(failure),
+                "determinism": determinism,
+                "determinism_reason": determinism_reason,
             }
         )
     for row in bundle.get("plugin_health", []):
@@ -965,6 +1014,8 @@ def _build_observations(bundle, dispositions=None):
                 "disposition_reason": None,
                 "reason": None,
                 "detail": dict(row),
+                "determinism": "unknown",
+                "determinism_reason": None,
             }
         )
     return observations
@@ -1339,7 +1390,7 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
     else:
         gaps.append({"field": "manifest.context.case_id", "reason": "manifest records no case_id"})
     schema = case.get("schema")
-    if schema == CASE_SCHEMA_V3:
+    if schema in (CASE_SCHEMA_V4, CASE_SCHEMA_V3):
         bundle = case.get("forensic_bundle")
         if not isinstance(bundle, dict):
             fail("seal_case_bundle", "case file has no forensic bundle")
@@ -1355,17 +1406,61 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
             if not isinstance(observations, list):
                 fail("seal_case_observations", "v3 detector observations are missing")
             else:
-                process = case.get("process")
-                dispositions = (
-                    process.get("evidence_dispositions") if isinstance(process, dict) else None
-                )
-                expected = _build_observations(bundle, dispositions)
-                if observations != expected:
-                    fail(
-                        "seal_case_observations", "v3 detector observations do not match the bundle"
+                # A present declaration must be a valid one, in both
+                # versions; v4 additionally requires it on every
+                # observed item.  The exact-match comparison below
+                # would also fail on a missing v4 declaration, since
+                # the rebuild always writes it.
+                determinism_errors = []
+                for item in observations:
+                    if not isinstance(item, dict) or item.get("kind") != "observed":
+                        continue
+                    if "determinism" not in item:
+                        if schema == CASE_SCHEMA_V4:
+                            determinism_errors.append(
+                                "v4 observed item "
+                                f"{item.get('detector_id')} has no determinism declaration"
+                            )
+                    elif item.get("determinism") not in (
+                        "deterministic",
+                        "non_deterministic",
+                        "unknown",
+                    ):
+                        determinism_errors.append(
+                            "observed item "
+                            f"{item.get('detector_id')} has an invalid determinism value"
+                        )
+                    reason = item.get("determinism_reason")
+                    if reason is not None and not isinstance(reason, str):
+                        determinism_errors.append(
+                            "observed item "
+                            f"{item.get('detector_id')} has a non-string determinism_reason"
+                        )
+                if determinism_errors:
+                    fail("seal_case_observations", "; ".join(determinism_errors))
+                    observations = None
+                if observations is not None:
+                    process = case.get("process")
+                    dispositions = (
+                        process.get("evidence_dispositions") if isinstance(process, dict) else None
                     )
-                else:
-                    ok("seal_case_observations", "v3 detector observations match the bundle")
+                    expected = _build_observations(bundle, dispositions)
+                    # v3 compares ignoring the determinism fields:
+                    # determinism is optional in v3, so a v3 file
+                    # sealed before determinism existed carries no
+                    # declaration to compare against.  v4 compares
+                    # exactly, determinism included.
+                    if schema == CASE_SCHEMA_V4:
+                        matches = observations == expected
+                    else:
+                        matches = _strip_determinism(observations) == _strip_determinism(expected)
+                    if not matches:
+                        fail(
+                            "seal_case_observations",
+                            "v3 detector observations do not match the bundle",
+                        )
+                    else:
+                        ok("seal_case_observations", "v3 detector observations match the bundle")
             refs = case.get("validation_refs")
             if not isinstance(refs, list):
                 fail("seal_case_validation_refs", "v3 validation refs are missing")

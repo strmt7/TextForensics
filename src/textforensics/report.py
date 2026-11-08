@@ -28,6 +28,7 @@ from .detectors import (
     Detector,
     DetectorFailure,
     DetectorPrediction,
+    detector_determinism,
     discover_detector_registry,
     execute_detector,
     text_sha256,
@@ -395,6 +396,14 @@ def build_forensic_bundle(
     else:
         detector_results = [prediction.to_dict() for prediction in predictions]
         detector_failures = [failure.to_dict() for failure in failures]
+
+    # Record each detector's determinism declaration at analysis time,
+    # so the sealer can declare it without re-running the detector.
+    # A detector that declares nothing records "unknown".
+    for detector, row in zip(successful_detectors, detector_results, strict=True):
+        value, reason = detector_determinism(detector)
+        row["determinism"] = value
+        row["determinism_reason"] = reason
 
     limitations = [
         (

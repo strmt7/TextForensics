@@ -36,8 +36,11 @@ _TRUST_MAP_V1_SCHEMA = "textforensics.trust-map/v1"
 # for legacy artifacts so that older case files can still be replayed.
 # v3 case files (U2) and v3 Trust Maps (U1) are accepted as well: a v3 map
 # embedded in a case file must verify, with "stale" as a distinct state.
+# v4 case files add the per-observation determinism declaration; they
+# verify through the same sections as v3.
 _CASE_FILE_SCHEMAS = frozenset(
     {
+        "textforensics.case-file/v4",
         "textforensics.case-file/v3",
         "textforensics.case-file/v2",
         "textforensics.case-file/v1",

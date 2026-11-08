@@ -119,6 +119,12 @@
     "evidence_schema": {
       "const": "textforensics.detector-evidence/v1"
     },
+    "determinism": {
+      "enum": ["deterministic", "non_deterministic", "unknown"]
+    },
+    "determinism_reason": {
+      "type": ["string", "null"]
+    },
     "protocol_version": {"enum": ["TFDP/1", "TFDP/2"]},
     "normalized_from": {
       "type": ["string", "null"],
