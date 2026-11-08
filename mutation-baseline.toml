@@ -4858,7 +4858,7 @@ kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "5b6ba1cd99ccb3f23cdd15c72ca32f0bf94635c26112e53d8fd33f047de9132d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "Domain-equivalent mutant (calibrate_threshold_jsonl): `label == \"human\"` -> `>=` (humans comprehension). Rows come from _load_scores, which rejects any label outside {\"human\", \"ai\"}; on that domain the replacement coincides with `==` (\"ai\" >= \"human\" is False). Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the differential battery (256-case _metrics grid, 20 calibrate cases, _load_scores rows, sha incl. empty / 1-byte / 240 KB / ~2 MB files, content/sample hashes, fingerprint verify)."
-# CONSENSUS ENTRIES (128: 121 annotation + 7 runtime, 2026-11-08)
+# CONSENSUS ENTRIES (139: 121 annotation + 7 runtime + 11 domain-equivalent, 2026-11-08)
 # -------------------------------------------------------------------
 # Source: local FULL run on branch fix/mutation-consensus at 8e6ffd1
 # (Phase 5 mutation-survivors wave), `scripts/run_mutation.py --mode
@@ -4866,13 +4866,15 @@ reason = "Domain-equivalent mutant (calibrate_threshold_jsonl): `label == \"huma
 # items, executed 792, killed 115, survived 662, no-test 15. The 73 new
 # tests in tests/test_consensus.py (class ConsensusMutationKillTests)
 # kill the killable runtime survivors; the 11 survivors listed under
-# KNOWN CONSENSUS MUTANTS *NOT* IN THIS BASELINE below are genuine
-# equivalents that fit no existing kind and are NOT baselined here —
-# they need a coordinator decision on a new kind first. (The first 8
-# were found in the measurement run; the last 3 in the proof run on the
-# finished branch — the proof run also exposed 7 more killable survivors
-# the first kill tests missed, which the 7 added tests now kill; each
-# was verified to fail against its hand-applied mutant.)
+# KNOWN CONSENSUS MUTANTS below were genuine equivalents that fit no
+# existing kind at the time, so they stayed unexplained (gate exit 2)
+# until the kind wave (2026-11-08) added the "domain-equivalent" kind
+# + validator and baselined all 11 in this file, after the 7 runtime
+# entries. (The first 8 were found in the measurement run; the last 3
+# in the proof run on the finished branch — the proof run also exposed
+# 7 more killable survivors the first kill tests missed, which the 7
+# added tests now kill; each was verified to fail against its
+# hand-applied mutant.)
 #
 # PROOF RUNS (finished branch, head 893f977, 2026-11-08)
 # ------------------------------------------------------
@@ -4893,10 +4895,16 @@ reason = "Domain-equivalent mutant (calibrate_threshold_jsonl): `label == \"huma
 # surviving 139, timeout 0, error 0, pending 0, equivalent 128 (all 128
 # entries matched live survivors), unexplained 11, dormant 155 (trust +
 # policy entries, out of scope for this session), superseded 0, stale [].
-# Gate exit is 2, not 0: the 11 unexplained are exactly the no-kind
-# equivalents listed below, which need a coordinator decision first.
-# Exit 0 is impossible until they are resolved (new kind + validator, or
-# source change where one is a genuine cleanup).
+# Gate exit was 2, not 0: the 11 unexplained were exactly the no-kind
+# equivalents listed below, which needed a coordinator decision first.
+# RESOLVED 2026-11-08 (kind wave): the "domain-equivalent" kind +
+# validator landed (branch fix/mutation-kinds, 7419e98) and the 11 are
+# baselined below; the fresh full-session proof run on branch
+# fix/mutation-domain-consensus confirms all 11 as equivalent
+# (total 792, killed 653, surviving 139, equivalent 139, unexplained
+# 0, dormant 659, superseded 0, stale [], error 0, timeout 0,
+# pending 0; gate exit 0 — summary mutation-results/summary.json,
+# dump cosmic-ray-full.json).
 #
 # MEASUREMENT INCIDENT (read before trusting the raw counts): the first
 # runner-driven exec was killed mid-run (cosmic-ray exec exit -15,
@@ -4980,22 +4988,25 @@ reason = "Domain-equivalent mutant (calibrate_threshold_jsonl): `label == \"huma
 #      check that raises unless all sequences have equal length, so
 #      strict=True observes exactly the same pairs/rows as strict=False.
 #
-# KNOWN CONSENSUS MUTANTS *NOT* IN THIS BASELINE (do not add without a new kind)
-# -------------------------------------------------------------------------------
+# KNOWN CONSENSUS MUTANTS — BASELINED AS domain-equivalent (2026-11-08, kind wave)
+# ----------------------------------------------------------------------------------
 # Eleven survivors are genuine equivalents that fit NO existing kind
-# (they are not annotation mutants, not NumberReplacer, and neither
-# "unreachable-condition" nor "unobservable-value" as documented).
-# Each was verified equivalent by the same 78-case differential battery
-# (original vs hand-applied mutant on a clean copy, all 78 cases
-# identical) plus the source reasoning below. Do NOT baseline them under
-# an existing kind — the kind names would lie about the proof — and do
-# NOT invent a new kind in this file: the loader rejects unknown kinds,
-# and a new kind needs its own validator first. They stay unexplained
-# (gate exit 2) until the coordinator decides: either a new baseline
-# kind (e.g. "domain-equivalent", validated like the runtime kinds with
-# source_text + function fingerprint) or a source change where one is a
-# genuine cleanup. All eleven share one shape: the replacement is
-# provably indistinguishable from the original given invariants of the
+# at the time (they are not annotation mutants, not NumberReplacer, and
+# neither "unreachable-condition" nor "unobservable-value" as
+# documented), so they stayed unexplained (gate exit 2) until the kind
+# wave added the "domain-equivalent" kind + validator (branch
+# fix/mutation-kinds, 7419e98: validated like the runtime kinds with
+# source_text + function fingerprint) and baselined all 11 in this
+# file, after the 7 runtime entries. Each was verified equivalent by
+# the same differential battery (original vs hand-applied mutant on a
+# clean copy — 78 cases in the wave-1 run, 86 cases in the kind-wave
+# re-run, all identical) plus the source reasoning below, and confirmed
+# by the fresh full-session proof run on branch
+# fix/mutation-domain-consensus (total 792, killed 653, surviving 139,
+# equivalent 139, unexplained 0, dormant 659, superseded 0, stale [],
+# error 0, timeout 0, pending 0; gate exit 0).
+# All eleven share one shape: the replacement is provably
+# indistinguishable from the original given invariants of the
 # enclosing function (restricted value domains, zero-valued terms, dead
 # code, bool singletons).
 #
@@ -5016,20 +5027,25 @@ reason = "Domain-equivalent mutant (calibrate_threshold_jsonl): `label == \"huma
 #   `>= "human_like"`. The `voting` list filters verdicts to
 #   {"ai_like", "human_like"}, on which both replacements coincide
 #   with `==`.
-# - family_balanced_consensus L81 ReplaceComparisonOperator_Eq_LtE
+# - _family_vote L81 ReplaceComparisonOperator_Eq_LtE
 #   occ 0: `len(predictions) == 1` -> `<= 1`; _family_vote is only
 #   ever called with non-empty lists, so len >= 1 and the two
-#   conditions coincide.
+#   conditions coincide. (Enclosing function corrected here from the
+#   wave-1 prose's `family_balanced_consensus`: the runner's
+#   _enclosing_function returns _family_vote; the entry agrees.)
 # - cohens_kappa L345 ReplaceBinaryOperator_BitOr_BitAnd occ 8: the set
 #   union `set(counts_a) | set(counts_b)` -> `&` (intersection) in the
 #   p_e sum. Categories present in only one rater's Counter contribute
 #   a zero term (the other .get() returns 0), so dropping them leaves
 #   the sum bit-identical. (The sibling `|` -> `^` / `-` DO differ —
 #   they drop the shared categories — and are killed by the tests.)
-# - family_balanced_consensus L77 ReplaceComparisonOperator_Gt_NotEq
+# - _family_vote L77 ReplaceComparisonOperator_Gt_NotEq
 #   occ 1: `human > ai` -> `human != ai` in the second branch of the
 #   _family_vote verdict ternary. The first branch already established
 #   `ai > human` is False (ai <= human), so `human != ai` <=> `human > ai`.
+#   (Enclosing function corrected here from the wave-1 prose's
+#   `family_balanced_consensus`: the runner's _enclosing_function
+#   returns _family_vote; the entry agrees.)
 # - family_balanced_consensus L137 ReplaceComparisonOperator_Gt_GtE
 #   occ 2: `ai > human` -> `ai >= human` in the consensus_verdict
 #   ternary. The first branch established `ai == human` is False, so
@@ -6579,6 +6595,149 @@ kind = "unobservable-value"
 source_text = "False"
 source_fingerprint = "d1b3928b0db23d899a0b2076f235a1f63700a6486edaca13c5574bd61200b0c2"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "Unobservable-value mutant (build_agreement_matrix): the `False` is the `strict` argument of the zip that transposes the per-detector verdict sequences into per-text rows; the length check above it raises ValueError unless every sequence has length n_texts, so strict=True observes exactly the same rows as strict=False for every input that reaches the zip."
+
+[[equivalent]]
+id = "textforensics.consensus:core/ReplaceComparisonOperator_Gt_NotEq:1"
+module = "textforensics.consensus"
+operator = "core/ReplaceComparisonOperator_Gt_NotEq"
+occurrence = 1
+start_pos = [77, 69]
+end_pos = [77, 70]
+function = "_family_vote"
+kind = "domain-equivalent"
+source_text = ">"
+source_fingerprint = "529688b3cb6a465dd51c81201f1fd40ebc3d5fc5668de783fdf944bf23005f75"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_family_vote): `human > ai` -> `human != ai` in the second branch of the verdict ternary. The first branch already established `ai > human` is False (ai <= human), so on that branch `human != ai` <=> `human > ai` for every input. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the 86-case differential battery (mutation-results/differential.py). Enclosing function is `_family_vote` per the runner's `_enclosing_function` (the brief's `family_balanced_consensus` was wrong; the dump and the baseline header prose agree on `_family_vote`)."
+
+[[equivalent]]
+id = "textforensics.consensus:core/ReplaceComparisonOperator_Eq_LtE:0"
+module = "textforensics.consensus"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 0
+start_pos = [81, 24]
+end_pos = [81, 26]
+function = "_family_vote"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "529688b3cb6a465dd51c81201f1fd40ebc3d5fc5668de783fdf944bf23005f75"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_family_vote): `len(predictions) == 1` -> `<= 1`. `_family_vote` is only ever called with non-empty lists, so len >= 1 and the two conditions coincide for every input. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the 86-case differential battery (mutation-results/differential.py)."
+
+[[equivalent]]
+id = "textforensics.consensus:core/ReplaceComparisonOperator_NotEq_IsNot:0"
+module = "textforensics.consensus"
+operator = "core/ReplaceComparisonOperator_NotEq_IsNot"
+occurrence = 0
+start_pos = [110, 38]
+end_pos = [110, 40]
+function = "family_balanced_consensus"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "98fff6beaeaf5673dd4d56f236cb97d39e856a66888c4ff82cb63a98779c2d9c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (family_balanced_consensus): `(x is None) != (y is None)` -> `is not`. Both operands are bools (True/False singletons), and `!=` and `is not` have identical truth tables on bools, so no input distinguishes the mutant. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the 86-case differential battery (mutation-results/differential.py)."
+
+[[equivalent]]
+id = "textforensics.consensus:core/ReplaceComparisonOperator_Eq_LtE:1"
+module = "textforensics.consensus"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 1
+start_pos = [135, 30]
+end_pos = [135, 32]
+function = "family_balanced_consensus"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "98fff6beaeaf5673dd4d56f236cb97d39e856a66888c4ff82cb63a98779c2d9c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (family_balanced_consensus): `vote.verdict == \"ai_like\"` -> `<= \"ai_like\"`. The `voting` list filters verdicts to {\"ai_like\", \"human_like\"}, on which `<=` coincides with `==` (both order below \"human_like\" and above nothing in the set), so no input distinguishes the mutant. EVIDENCE CHAIN — do not mistake the raw dump for a kill: the contaminated second proof-run dump (hidden_files/phase5-mutation-consensus/cosmic-ray-full.json) records this mutant killed by `ConsensusMutationKillTests::test_fleiss_abstain_cells_excluded` via a bare TypeError, `unsupported operand type(s) for <<: 'float' and 'float'` at consensus.py:425 on the line `kappa = (p_bar << p_e) / (1.0 - p_e)` — that is the baked-in L425 `(p_bar - p_e)` -> `(p_bar << p_e)` Sub_LShift occ 4 mutant left in the file when the runner was killed ~26 min into the second proof run, not this mutant (the record's own diff shows only the L135 `==` -> `<=` change; the killing test exercises fleiss_kappa, which hits L425). The corrected re-verification (reverify_resume.py, which individually re-measured the 73 resume outcomes against a clean copy with cosmic-ray's own mutate_code and the runner's exact test command) and the coordinator's independent clean re-run (same 792/653/139/128/11, this mutant extracted position-for-position among the 11 unexplained) both classify it unexplained, i.e. a live survivor. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the 86-case differential battery (mutation-results/differential.py). The stage-2 fresh full-session proof run is the final confirmation of this entry."
+
+[[equivalent]]
+id = "textforensics.consensus:core/ReplaceComparisonOperator_Eq_GtE:2"
+module = "textforensics.consensus"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 2
+start_pos = [136, 33]
+end_pos = [136, 35]
+function = "family_balanced_consensus"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "98fff6beaeaf5673dd4d56f236cb97d39e856a66888c4ff82cb63a98779c2d9c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (family_balanced_consensus): `vote.verdict == \"human_like\"` -> `>= \"human_like\"`. The `voting` list filters verdicts to {\"ai_like\", \"human_like\"}, on which `>=` coincides with `==`, so no input distinguishes the mutant. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the 86-case differential battery (mutation-results/differential.py)."
+
+[[equivalent]]
+id = "textforensics.consensus:core/ReplaceComparisonOperator_Gt_GtE:2"
+module = "textforensics.consensus"
+operator = "core/ReplaceComparisonOperator_Gt_GtE"
+occurrence = 2
+start_pos = [137, 74]
+end_pos = [137, 75]
+function = "family_balanced_consensus"
+kind = "domain-equivalent"
+source_text = ">"
+source_fingerprint = "98fff6beaeaf5673dd4d56f236cb97d39e856a66888c4ff82cb63a98779c2d9c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (family_balanced_consensus): `ai > human` -> `ai >= human` in the consensus_verdict ternary. The first branch established `ai == human` is False, so on the remaining branch `ai >= human` <=> `ai > human` for every input. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the 86-case differential battery (mutation-results/differential.py)."
+
+[[equivalent]]
+id = "textforensics.consensus:core/ReplaceComparisonOperator_Lt_NotEq:2"
+module = "textforensics.consensus"
+operator = "core/ReplaceComparisonOperator_Lt_NotEq"
+occurrence = 2
+start_pos = [139, 21]
+end_pos = [139, 22]
+function = "family_balanced_consensus"
+kind = "domain-equivalent"
+source_text = "<"
+source_fingerprint = "98fff6beaeaf5673dd4d56f236cb97d39e856a66888c4ff82cb63a98779c2d9c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (family_balanced_consensus): `agreement < 1.0` -> `agreement != 1.0`. `agreement` is a ratio in [0, 1], so `!= 1.0` <=> `< 1.0` for every input. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the 86-case differential battery (mutation-results/differential.py)."
+
+[[equivalent]]
+id = "textforensics.consensus:core/ReplaceComparisonOperator_Eq_LtE:5"
+module = "textforensics.consensus"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 5
+start_pos = [298, 14]
+end_pos = [298, 16]
+function = "percent_agreement"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "a20484c9b1c02c5c80d07231e6f6a806a86878c1424382695c9886ef5bd3fd0e"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (percent_agreement): `paired == 0` -> `paired <= 0`. `paired` is a count (>= 0 always), so the two conditions are identical for every input. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the 86-case differential battery (mutation-results/differential.py)."
+
+[[equivalent]]
+id = "textforensics.consensus:core/ReplaceComparisonOperator_Eq_LtE:7"
+module = "textforensics.consensus"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 7
+start_pos = [339, 14]
+end_pos = [339, 16]
+function = "cohens_kappa"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "a06e01d81699c3f82b464ab41595eb7dc2f7a559469ecac6efacdc93c49530b2"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (cohens_kappa): `paired == 0` -> `paired <= 0`. `paired` is a count (>= 0 always), so the two conditions are identical for every input. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the 86-case differential battery (mutation-results/differential.py)."
+
+[[equivalent]]
+id = "textforensics.consensus:core/ReplaceBinaryOperator_BitOr_BitAnd:8"
+module = "textforensics.consensus"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 8
+start_pos = [345, 33]
+end_pos = [345, 34]
+function = "cohens_kappa"
+kind = "domain-equivalent"
+source_text = "|"
+source_fingerprint = "a06e01d81699c3f82b464ab41595eb7dc2f7a559469ecac6efacdc93c49530b2"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (cohens_kappa): the set union `set(counts_a) | set(counts_b)` -> `&` (intersection) in the p_e sum. Categories present in only one rater's Counter contribute a zero term (the other .get() returns 0), so dropping them leaves the sum bit-identical for every input. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the 86-case differential battery (mutation-results/differential.py). (The sibling `|` -> `^` / `-` DO differ — they drop the shared categories — and are killed by the tests; both DIFFER under the same battery in this run, so the battery distinguishes at this exact position.)"
+
+[[equivalent]]
+id = "textforensics.consensus:core/ReplaceContinueWithBreak:2"
+module = "textforensics.consensus"
+operator = "core/ReplaceContinueWithBreak"
+occurrence = 2
+start_pos = [412, 12]
+end_pos = [412, 20]
+function = "fleiss_kappa"
+kind = "domain-equivalent"
+source_text = "continue"
+source_fingerprint = "e95259ccc8c18449db357140c5d4c36c9be52d9af5c9e5d94cc12bd6018b75d9"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (fleiss_kappa): the `continue` inside `if n_i < 2:` is dead — every usable item has n_i >= 2 — so replacing it with `break` is never executed, for any input. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the 86-case differential battery (mutation-results/differential.py)."
 
 [[equivalent]]
 id = "textforensics.calibration:core/NumberReplacer:36"

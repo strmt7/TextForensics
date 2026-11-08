@@ -485,6 +485,18 @@ class EquivalentBaselineTests(unittest.TestCase):
         (337, 41),
         (411, 17),
         (483, 90),
+        # Consensus domain-equivalent positions (11).
+        (77, 69),
+        (81, 24),
+        (110, 38),
+        (135, 30),
+        (136, 33),
+        (137, 74),
+        (139, 21),
+        (298, 14),
+        (339, 14),
+        (345, 33),
+        (412, 12),
         # Calibration runtime positions.
         (255, 47),
         (411, 54),
@@ -586,8 +598,8 @@ class EquivalentBaselineTests(unittest.TestCase):
         finally:
             Path(temp_path).unlink(missing_ok=True)
 
-    def test_baseline_file_loads_with_814_entries(self):
-        """The baseline has exactly the 814 verified equivalent mutants.
+    def test_baseline_file_loads_with_825_entries(self):
+        """The baseline has exactly the 825 verified equivalent mutants.
 
         69 annotation BitOr mutants + 4 unreachable-condition
         NumberReplacer mutants for trust (see the baseline file's header
@@ -598,8 +610,10 @@ class EquivalentBaselineTests(unittest.TestCase):
         benchmark (Phase 5 survivors wave, full 909-item session at
         8e6ffd1; the 27 baselined 2026-11-08 in the kind wave).
         plus 121 annotation BitOr mutants + 7 runtime mutants (6
-        unobservable-value, 1 unreachable-condition) for consensus
-        (mutation-survivors wave, full run on 8e6ffd1).
+        unobservable-value, 1 unreachable-condition) + 11
+        domain-equivalent mutants for consensus (mutation-survivors
+        wave, full run on 8e6ffd1; the 11 domain-equivalent entries
+        were baselined by the kind wave, 2026-11-08).
         plus 5 unobservable-value mutants and 330
         annotation BitOr mutants for calibration (prefix-200 wave and
         full-session remainder wave).
@@ -611,8 +625,8 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(self.baseline["source_run"], "42393966895")
         self.assertEqual(self.baseline["source_commit"], "153b5ab")
         entries = self.baseline["entries"]
-        self.assertEqual(len(entries), 814)
-        self.assertEqual(len({e["id"] for e in entries}), 814, "entry ids must be unique")
+        self.assertEqual(len(entries), 825)
+        self.assertEqual(len({e["id"] for e in entries}), 825, "entry ids must be unique")
         keys = {
             (
                 e["module"],
@@ -623,14 +637,14 @@ class EquivalentBaselineTests(unittest.TestCase):
             )
             for e in entries
         }
-        self.assertEqual(len(keys), 814, "match keys must be unique")
+        self.assertEqual(len(keys), 825, "match keys must be unique")
         from collections import Counter
 
         self.assertEqual(
             Counter(e["operator"] for e in entries),
             {
                 "core/ReplaceBinaryOperator_BitOr_Add": 80,
-                "core/ReplaceBinaryOperator_BitOr_BitAnd": 80,
+                "core/ReplaceBinaryOperator_BitOr_BitAnd": 81,
                 "core/ReplaceBinaryOperator_BitOr_BitXor": 80,
                 "core/ReplaceBinaryOperator_BitOr_Div": 80,
                 "core/ReplaceBinaryOperator_BitOr_FloorDiv": 74,
@@ -641,20 +655,24 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "core/ReplaceBinaryOperator_BitOr_RShift": 56,
                 "core/ReplaceBinaryOperator_BitOr_Sub": 56,
                 "core/NumberReplacer": 20,
-                "core/ReplaceFalseWithTrue": 5,
+                "core/ReplaceBinaryOperator_Add_BitOr": 5,
+                "core/ReplaceBinaryOperator_Add_LShift": 5,
+                "core/ReplaceComparisonOperator_Eq_GtE": 2,
+                "core/ReplaceComparisonOperator_Eq_LtE": 8,
+                "core/ReplaceComparisonOperator_Gt_GtE": 2,
+                "core/ReplaceComparisonOperator_Gt_NotEq": 1,
+                "core/ReplaceComparisonOperator_Lt_NotEq": 1,
                 "core/ReplaceBinaryOperator_Mul_Add": 1,
                 "core/ReplaceBinaryOperator_Mul_BitAnd": 1,
                 "core/ReplaceBinaryOperator_Mul_BitOr": 1,
                 "core/ReplaceBinaryOperator_Mul_FloorDiv": 1,
+                "core/ReplaceComparisonOperator_NotEq_IsNot": 1,
+                "core/ReplaceContinueWithBreak": 1,
+                "core/ReplaceFalseWithTrue": 5,
                 "core/ReplaceTrueWithFalse": 3,
                 "core/ReplaceUnaryOperator_Delete_USub": 1,
                 "core/ReplaceUnaryOperator_USub_Not": 1,
                 "core/ReplaceUnaryOperator_USub_UAdd": 1,
-                "core/ReplaceComparisonOperator_Gt_GtE": 1,
-                "core/ReplaceComparisonOperator_Eq_LtE": 4,
-                "core/ReplaceBinaryOperator_Add_LShift": 5,
-                "core/ReplaceBinaryOperator_Add_BitOr": 5,
-                "core/ReplaceComparisonOperator_Eq_GtE": 1,
             },
         )
         self.assertEqual({tuple(e["start_pos"]) for e in entries}, self.EXPECTED_POSITIONS)
@@ -682,11 +700,11 @@ class EquivalentBaselineTests(unittest.TestCase):
                 self.assertEqual(len(entry["source_fingerprint"]), 64)
 
     def test_runtime_entries(self):
-        """The 51 runtime entries carry their equivalence proofs."""
+        """The 62 runtime entries carry their equivalence proofs."""
         runtime = [
             e for e in self.baseline["entries"] if e["kind"] in self.runner.BASELINE_RUNTIME_KINDS
         ]
-        self.assertEqual(len(runtime), 51)
+        self.assertEqual(len(runtime), 62)
         unreachable = [e for e in runtime if e["kind"] == "unreachable-condition"]
         self.assertEqual(len(unreachable), 5)
         by_id = {e["id"]: e for e in runtime}
@@ -798,19 +816,26 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual({e["occurrence"] for e in coerce}, {9, 118})
         self.assertEqual({e["source_text"] for e in coerce}, {"0", "False"})
         self.assertEqual(len({e["source_fingerprint"] for e in coerce}), 1)
-        # The 27 benchmark domain-equivalent entries (kind wave,
-        # 2026-11-08): all in textforensics.benchmark, no other module.
+        # The 38 domain-equivalent entries (kind wave, 2026-11-08):
+        # 27 in textforensics.benchmark + 11 in textforensics.consensus.
         domain = [e for e in runtime if e["kind"] == "domain-equivalent"]
-        self.assertEqual(len(domain), 27)
-        self.assertEqual({e["module"] for e in domain}, {"textforensics.benchmark"})
+        self.assertEqual(len(domain), 38)
         self.assertEqual(
-            {e["occurrence"] for e in domain},
+            {e["module"] for e in domain},
+            {"textforensics.benchmark", "textforensics.consensus"},
+        )
+        # Benchmark's 27 (13 round-1 + 14 round-2 genuinely-equivalent
+        # survivors of the full 909-item session).
+        bench_domain = [e for e in domain if e["module"] == "textforensics.benchmark"]
+        self.assertEqual(len(bench_domain), 27)
+        self.assertEqual(
+            {e["occurrence"] for e in bench_domain},
             {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
             "occurrences must match the benchmark full-session dump "
             "(13 round-1 + 14 round-2 genuinely-equivalent survivors)",
         )
         self.assertEqual(
-            {e["function"] for e in domain},
+            {e["function"] for e in bench_domain},
             {
                 "_load_scores",
                 "dataset_sha256",
@@ -822,7 +847,7 @@ class EquivalentBaselineTests(unittest.TestCase):
             },
         )
         self.assertEqual(
-            {tuple(e["start_pos"]) for e in domain},
+            {tuple(e["start_pos"]) for e in bench_domain},
             {
                 (74, 58),
                 (35, 51),
@@ -846,7 +871,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         # The four chunk-size Mul entries share one position and function
         # (and hence one fingerprint) with the four baselined
         # NumberReplacer entries at the same line.
-        mul = [e for e in domain if e["operator"].startswith("core/ReplaceBinaryOperator_Mul_")]
+        mul = [e for e in bench_domain if e["operator"].startswith("core/ReplaceBinaryOperator_Mul_")]
         self.assertEqual(len(mul), 4)
         self.assertEqual({tuple(e["start_pos"]) for e in mul}, {(35, 51)})
         self.assertEqual({e["source_text"] for e in mul}, {"*"})
@@ -855,7 +880,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         # at the same five positions) share one function and fingerprint.
         guard = [
             e
-            for e in domain
+            for e in bench_domain
             if e["function"] == "_metrics"
             and e["operator"].startswith("core/ReplaceBinaryOperator_Add_")
         ]
@@ -866,6 +891,35 @@ class EquivalentBaselineTests(unittest.TestCase):
         )
         self.assertEqual({e["source_text"] for e in guard}, {"+"})
         self.assertEqual(len({e["source_fingerprint"] for e in guard}), 1)
+        # Consensus's 11: the no-kind equivalents from the consensus
+        # full-session run, baselined once the kind + validator landed.
+        cons_domain = [e for e in domain if e["module"] == "textforensics.consensus"]
+        self.assertEqual(len(cons_domain), 11)
+        self.assertEqual(
+            {e["occurrence"] for e in cons_domain},
+            {0, 1, 2, 5, 7, 8},
+            "occurrences must match the consensus full-session dump "
+            "(corrected re-verification + coordinator clean re-run, "
+            "792/653/139/128/11)",
+        )
+        self.assertEqual(
+            {e["function"] for e in cons_domain},
+            {
+                "_family_vote",
+                "family_balanced_consensus",
+                "percent_agreement",
+                "cohens_kappa",
+                "fleiss_kappa",
+            },
+        )
+        self.assertEqual(
+            {e["source_text"] for e in cons_domain},
+            {">", "==", "!=", "<", "|", "continue"},
+        )
+        self.assertEqual(
+            {e["module"] for e in cons_domain},
+            {"textforensics.consensus"},
+        )
         for entry in runtime:
             with self.subTest(entry=entry["id"]):
                 ok, reason = self.runner.validate_baseline_entry(entry, self.project_root)
@@ -1002,10 +1056,10 @@ class EquivalentBaselineTests(unittest.TestCase):
             "baseline_entries",
         ):
             self.assertIn(key, summary, f"summary is missing {key}")
-        self.assertEqual(summary["baseline_entries"], 814)
+        self.assertEqual(summary["baseline_entries"], 825)
         self.assertEqual(summary["equivalent"], 2)
-        # The other 812 entries matched no live survivor in this run.
-        self.assertEqual(summary["equivalent_dormant"], 812)
+        # The other 823 entries matched no live survivor in this run.
+        self.assertEqual(summary["equivalent_dormant"], 823)
         self.assertEqual(summary["equivalent_superseded"], 0)
         self.assertEqual(summary["stale_baseline_entries"], [])
         # Raw counts are never relabelled: the survivors stay in `surviving`.
@@ -1024,7 +1078,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(summary["equivalent_mutants"], [entries[0]["id"]])
         self.assertEqual(summary["equivalent_superseded"], 1)
         self.assertEqual(summary["equivalent_superseded_ids"], [entries[1]["id"]])
-        self.assertEqual(summary["equivalent_dormant"], 812)
+        self.assertEqual(summary["equivalent_dormant"], 823)
         self.assertEqual(summary["unexplained_surviving"], 0)
         result = self._check_summary(summary)
         self.assertEqual(result.returncode, 0, result.stdout)
@@ -1074,6 +1128,22 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(summary["total"], 5)
         self.assertEqual(summary["surviving"], 5)
         self.assertEqual(summary["equivalent"], 5)
+        self.assertEqual(summary["unexplained_surviving"], 0)
+        self.assertEqual(summary["equivalent_mutants"], [e["id"] for e in runtime])
+        result = self._check_summary(summary)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("accepted as equivalent", result.stdout)
+
+    def test_domain_equivalent_mutants_accepted(self):
+        """Survivors matching re-validated domain-equivalent entries are accepted (exit 0)."""
+        runtime = [e for e in self.baseline["entries"] if e["kind"] == "domain-equivalent"]
+        self.assertEqual(len(runtime), 11)
+        self.assertEqual({e["module"] for e in runtime}, {"textforensics.consensus"})
+        records = [self._record_for_entry(e, "survived") for e in runtime]
+        summary = self.runner.parse_results(records, self.baseline, self.project_root)
+        self.assertEqual(summary["total"], 11)
+        self.assertEqual(summary["surviving"], 11)
+        self.assertEqual(summary["equivalent"], 11)
         self.assertEqual(summary["unexplained_surviving"], 0)
         self.assertEqual(summary["equivalent_mutants"], [e["id"] for e in runtime])
         result = self._check_summary(summary)
