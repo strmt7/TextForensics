@@ -1,0 +1,136 @@
+{
+  "schema": "textforensics.human-fpr-registry-patch/v1",
+  "evidence_record_id": "EV-20261108-human-fpr-registry-patch",
+  "run_date": "2026-11-08",
+  "source_artifact": "docs/evidence/EV-20261108-human-fpr.json",
+  "note": "Recommendation for the parent only. No registry file was edited by scripts/measure_human_fpr.py. Applying the CI replacement requires re-signing each touched record and recomputing the registry id.",
+  "records": [
+    {
+      "record_id": "evr-20261106-beemo-builtin-heuristic",
+      "dataset": "Beemo",
+      "slice_kind": "document",
+      "proposed_change": "replace metrics[0].fpr_native ci_lower/ci_upper/method with the Wilson 95% CI from EV-20261108-human-fpr (value stays 0.0); do NOT change status, value, or any other field",
+      "wilson_fpr_native": {
+        "k": 0,
+        "n": 200,
+        "value": 0.0,
+        "ci_lower": 0.0,
+        "ci_upper": 0.018846,
+        "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+      },
+      "fpr_bar_met": true,
+      "fpr_bar_blockers": [],
+      "recommendation": "apply the Wilson CI replacement; keep status partial"
+    },
+    {
+      "record_id": "evr-20261106-mage-builtin-heuristic",
+      "dataset": "MAGE",
+      "slice_kind": "document",
+      "proposed_change": "replace metrics[0].fpr_native ci_lower/ci_upper/method with the Wilson 95% CI from EV-20261108-human-fpr (value stays 0.0); do NOT change status, value, or any other field",
+      "wilson_fpr_native": {
+        "k": 0,
+        "n": 117,
+        "value": 0.0,
+        "ci_lower": 0.0,
+        "ci_upper": 0.03179,
+        "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+      },
+      "fpr_bar_met": true,
+      "fpr_bar_blockers": [],
+      "recommendation": "apply the Wilson CI replacement; keep status partial"
+    },
+    {
+      "record_id": "evr-20261106-opai-bench-builtin-heuristic",
+      "dataset": "OpAI-Bench",
+      "slice_kind": "document",
+      "proposed_change": "replace metrics[0].fpr_native ci_lower/ci_upper/method with the Wilson 95% CI from EV-20261108-human-fpr (value stays 0.0); do NOT change status, value, or any other field",
+      "wilson_fpr_native": {
+        "k": 0,
+        "n": 56,
+        "value": 0.0,
+        "ci_lower": 0.0,
+        "ci_upper": 0.064196,
+        "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+      },
+      "fpr_bar_met": false,
+      "fpr_bar_blockers": [
+        "n_human=56 is below the 100-row minimum for a supported slice",
+        "n_ai=55 is below the 100-row minimum (paired native TPR is thin)",
+        "Wilson fpr_native ci_upper is 0.064196, which exceeds the ceiling 0.05"
+      ],
+      "recommendation": "apply the Wilson CI replacement; keep status partial \u2014 the FPR bar is NOT met, so this record must not be cited as human-FPR evidence"
+    },
+    {
+      "record_id": "evr-20261106-raid-builtin-heuristic",
+      "dataset": "RAID",
+      "slice_kind": "document",
+      "proposed_change": "replace metrics[0].fpr_native ci_lower/ci_upper/method with the Wilson 95% CI from EV-20261108-human-fpr (value stays 0.0); do NOT change status, value, or any other field",
+      "wilson_fpr_native": {
+        "k": 0,
+        "n": 92,
+        "value": 0.0,
+        "ci_lower": 0.0,
+        "ci_upper": 0.040083,
+        "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+      },
+      "fpr_bar_met": false,
+      "fpr_bar_blockers": [
+        "n_human=92 is below the 100-row minimum for a supported slice"
+      ],
+      "recommendation": "apply the Wilson CI replacement; keep status partial \u2014 the FPR bar is NOT met, so this record must not be cited as human-FPR evidence"
+    },
+    {
+      "record_id": "evr-20261107-detectrl-x-builtin-heuristic",
+      "dataset": "DetectRL-X",
+      "slice_kind": "document",
+      "proposed_change": "replace metrics[0].fpr_native ci_lower/ci_upper/method with the Wilson 95% CI from EV-20261108-human-fpr (value stays 0.0); do NOT change status, value, or any other field",
+      "wilson_fpr_native": {
+        "k": 0,
+        "n": 400,
+        "value": 0.0,
+        "ci_lower": 0.0,
+        "ci_upper": 0.009513,
+        "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+      },
+      "fpr_bar_met": true,
+      "fpr_bar_blockers": [],
+      "recommendation": "apply the Wilson CI replacement; keep status partial"
+    },
+    {
+      "record_id": "evr-20261107-ghostwriter-builtin-heuristic",
+      "dataset": "GhostWriter",
+      "slice_kind": "document",
+      "proposed_change": "replace metrics[0].fpr_native ci_lower/ci_upper/method with the Wilson 95% CI from EV-20261108-human-fpr (value stays 0.0); do NOT change status, value, or any other field",
+      "wilson_fpr_native": {
+        "k": 0,
+        "n": 137,
+        "value": 0.0,
+        "ci_lower": 0.0,
+        "ci_upper": 0.027276,
+        "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+      },
+      "fpr_bar_met": true,
+      "fpr_bar_blockers": [],
+      "recommendation": "apply the Wilson CI replacement; keep status partial"
+    },
+    {
+      "record_id": "evr-20261107-opai-bench-builtin-heuristic",
+      "dataset": "OpAI-Bench (segment-level)",
+      "slice_kind": "segment",
+      "proposed_change": "replace metrics[0].fpr_native ci_lower/ci_upper/method with the Wilson 95% CI from EV-20261108-human-fpr (value stays 0.0); do NOT change status, value, or any other field",
+      "wilson_fpr_native": {
+        "k": 0,
+        "n": 4785,
+        "value": 0.0,
+        "ci_lower": 0.0,
+        "ci_upper": 0.000802,
+        "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+      },
+      "fpr_bar_met": false,
+      "fpr_bar_blockers": [
+        "segment-level slice (sentences, not documents): cannot support a document-level human-FPR claim; assessed separately"
+      ],
+      "recommendation": "apply the Wilson CI replacement; keep status partial"
+    }
+  ]
+}
