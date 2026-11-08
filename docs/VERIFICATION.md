@@ -1,40 +1,49 @@
 # Verification record — Phase 1 (2026-11-06)
 
-## Current state (HEAD `3d88f94`, 2026-11-08)
+## Current state (HEAD `a1e7857`, 2026-11-09)
 
 Read this first. The dated sections below are historical records;
 their numbers are the numbers as measured at the time, and some of
 their "NOT verified" items have since been superseded (marked
-inline). The current picture, measured in the docs worktree at
-`264344e` and re-seeded by the docs wave on `3d88f94` (Python 3.12.3,
-extras venv, `test_memory_check` host flake deselected — see the
-HEAD section at the end of this file):
+inline). The current picture, measured on `a1e7857` (Python 3.12.3,
+`test_memory_check` host flake deselected — see the HEAD section at
+the end of this file):
 
-- **Full suite (extras): 3016 passed, 0 failed, 1 deselected,
-  232 subtests passed, 83% line coverage** (17,831 statements,
-  2,372 missed, 6,716 branches, 1,211 partial — per committed
-  `EV-20261107-suite.json`). Core-only suite:
-  **2904 passed, 1 failed (the same known `test_memory_check`
-  flake), 112 skipped, 81%** (re-seeded 2026-11-07,
-  `EV-20261107-suite-core.json`).
+- **Full suite (extras): 3633 passed, 0 failed, 1 skipped, 1
+  deselected, 1209 subtests passed in 347.69 s, 81% line coverage**
+  (18,020 statements, 2,936 missed, 6,830 branches, 1,073 partial).
+  Core-only suite (fresh bare venv `~/workspace/.tfc-core-venv`,
+  `pip install -e ".[dev]"`): **3513 passed, 121 skipped, 1
+  deselected, 1209 subtests passed in 291.25 s, coverage 76.95%** —
+  the 121 skips are all core-only-venv environment artifacts
+  (fastapi/uvicorn/MCP/web_ui not installed by design).
 - **Claims gate: 33 passed, 0 failed.** **Schemas: 12 OK.**
-  **Ruff: 0 errors, 210 files formatted.** **Pre-commit: 13/13**
-  (see the HEAD section below).
-- **U7 evidence registry: 29 records**
-  (`docs/evidence/registry.json` — 18 records at `264344e` plus 11
-  re-seeded 2026-11-07 run artifacts). **Validation registry:
-  7 records, all `partial`** (`docs/validation/registry.json` —
-  6 dataset seeds + 1 U4 segment record).
+  **Pre-commit: 13/13** (see the HEAD section below).
+- **U7 evidence registry: 32 records**
+  (`docs/evidence/registry.json`). **Validation registry:
+  8 records** (`docs/validation/registry.json` — 7 `partial` + the
+  RAID humans record, the first `supported` record).
+- **Mutation baseline: 963 equivalent mutants** (arg 678, return 140,
+  annassign 11, domain-equivalent 100, unobservable-value 23,
+  unreachable-condition 5, ulp-equivalent 6; runtime 134) across 8
+  modules; every full-session proof exits 0 with 0 unexplained.
 - **Worst-slice human FPR: unknown** (`docs/evidence/report-card.md`).
   Pooled human FPR 0.0 [0.0, 0.0298] was measured on the first U3
   live probe run, and native-verdict FPR 0.0000 on the U1 seeds —
-  neither is release-gate FPR evidence.
-- **Open items:** human-FPR evidence (release gate), live-host
-  verification, `pip-audit` as a failing gate, SBOM, live-TSA
-  interop (never achieved from the sandbox VM), the seal-time
-  `not_reproducible` declaration for non-deterministic detectors,
-  and the coverage gate (still `--fail-under=70` in CI, not yet
-  raised to the measured ~83%).
+  neither is release-gate FPR evidence. The best measured per-slice
+  Wilson 95% upper is 0.0038 pooled docs (0/1002); the worst document
+  slice is OpAI-Bench 0.0642 (n=56), which fails the bar.
+- **CI on HEAD `a1e7857` (run 42533532099): SUCCESS — all 19 jobs
+  green**, including Core Python 3.11 / 3.12 / 3.13 / 3.14 / 3.15,
+  the claims gate, the SBOM staleness job, and all OS smokes.
+- **Open items:** the casefile mutation proof (running under its
+  monitor cron, 1605/2118 at 00:23 CET 2026-11-09), live-TSA
+  interop (never achieved from the sandbox VM), the coverage gate
+  (still `--fail-under=70` in CI, not yet raised to the measured
+  ~81%), the 11 remaining unpinned action refs surveyed in
+  SECURITY.md, the `enterprise-deep-verification.yml` SBOM step that
+  silently produces nothing, and the policy session's 298 unexecuted
+  work items (unknown until a larger-budget run).
 
 Every number in this file was measured on 2026-11-06 by running the
 stated command in the stated environment. Nothing here is copied from
@@ -2958,3 +2967,162 @@ reviewable in the diff and lets the gate fail on every push.
   several parallel suites plus a live cosmic-ray run; the suite stalls
   longest in `test_mutation.py`'s 787-entry baseline validation, which
   this change does not touch.)
+
+## Verification record — Phase 5, mutation-survivors kind wave: two new baseline kinds (2026-11-08)
+
+Wave-1 full sessions on the three safety-critical modules left 100
+unexplained survivors (benchmark 27, consensus 11, calibration 62).
+All 100 were hand-verified as equivalent mutants, split across two new
+narrow baseline kinds approved by the parent:
+
+- **`"domain-equivalent"` (94 entries):** the mutant changes a value
+  or operator whose two versions are provably identical on the
+  function's actual domain (e.g. a comparison whose operands can never
+  cross the mutated boundary). Each entry carries a hand-applied-mutant
+  differential probe (a grid of inputs run under both versions, SHA-256
+  compared, 0 diffs) plus the module tests under both versions.
+- **`"ulp-equivalent"` (6 entries, calibration only):** the mutant
+  changes a floating-point result by at most a measured number of
+  ULPs. Each entry records `ulp_bound_ulps` (a non-negative int) and
+  the `swept_domain` it was measured over. The bounds are MEASURED
+  MAXIMA — 2, 3, 0, 3, 1, 1 — not the blanket "≤2 ULPs" the wave-1
+  header claimed; two entries refuted ≤2 on re-run. The bound-0 fix in
+  the same wave relaxed the validator from positive to non-negative
+  (`GtE_Gt:0` measured 0, bit-identical on 1,150,004 points), and a
+  vacuous-test bug (literal `\n` escapes in TOML test cases) was fixed.
+
+Runner fix in the same wave: a record is now treated as incompetent
+when `test_outcome` is `"incompetent"`, with a unit test; the
+calibration prefix proof was re-run to show error 0.
+
+- **Proofs (all exit 0, 0 unexplained):** benchmark 909 total / 713
+  killed / 196 surviving / 196 equivalent (error 0); consensus 792 /
+  653 / 139 / 139 (error 0); calibration 1937 / 1539 / 397 / 397
+  (error 0, incompetent 1).
+- **Baseline:** 787 → **887** (arg 656, return 107, domain-equivalent
+  94, unobservable-value 19, ulp-equivalent 6, unreachable-condition 5;
+  runtime 124; modules trust 73, policy 82, benchmark 196, consensus
+  139, calibration 397).
+- **Merges (main `a966ac2`):** kinds `5427284`, benchmark `2f6cde7`,
+  consensus `cb340dd`, calibration `a966ac2`. Parent verification per
+  branch: claims 33/33, schemas OK, pre-commit 13/13, kind tests and
+  count tests passed.
+- **Parent incidents, owned:** (a) the consensus and calibration
+  branches both added `test_domain_equivalent_mutants_accepted`, so the
+  merge produced a duplicate definition (ruff F811) — replaced with one
+  union test; (b) the parent merged `cb340dd` (the union-test commit)
+  instead of the ruff-format fix commit on top of it, so main briefly
+  carried an unformatted line, fixed as a side effect by the
+  calibration merge. Lesson: merge the branch HEAD, never an earlier
+  hash.
+
+## Verification record — Phase 5, Core 3.11 stall fix: per-module AST cache (2026-11-08)
+
+CI on main `2e28466` cancelled all five Core jobs at the 15-minute
+timeout; raising it to 30 minutes (`0d9d2d1`) left 3.11 cancelled at
+30m19s, and a 3.11-specific 45 minutes (`380353a`) also failed (run
+42503380894, cancelled 45m18s). The 3.11 log ends after 2561 progress
+chars (71.0% of 3605 tests); the 30-minute run reached the identical
+2561 chars — a stall, not linear slowness. The stall point is test
+2562, `test_dormant_and_superseded_reported`, which calls
+`parse_results` → `classify_baseline`, re-validating all baseline
+entries with one full `ast.parse` per entry plus a whole-module walk
+calling `ast.get_source_segment` per annotation, no caching.
+
+- **Fix (merged `ad15419`, main `dd8bd83`):** per-module
+  `_ModuleContext` cache in `scripts/run_mutation.py` (parse +
+  annotation spans + function table + fingerprints, keyed by
+  path/mtime/size; an edited file is re-parsed, never stale).
+  `validate_baseline_entry`'s signature is unchanged; the two
+  `_validate_*_entry` helpers take the context.
+- **Measured on the same CPython 3.11.18 venv:** test 2562 alone
+  599.92 s timeout → **3.53 s**. Full `tests/test_mutation.py` on
+  3.12: **54 passed / 1051 subtests in 9.91 s** (was ~35 min CPU).
+  On 3.11: 46 passed / 8 env failures (4 need PyYAML, 3 need
+  cosmic-ray — neither in the minimal 3.11 venv) / 1051 subtests in
+  25.56 s.
+- **Real bug found by the 3.11 full-file run:** the calibration merge
+  had raised the domain-equivalent count to 94 but
+  `test_domain_equivalent_mutants_accepted` still asserted 38 — fixed
+  as a separate commit `dd8bd83`. Lesson: after a merge, run the FULL
+  affected test file on the merged tree, not only the tests the merge
+  touched.
+- **CI consequence:** CI on `dd8bd83` is SUCCESS (run 42528702649),
+  and CI on the later head `a1e7857` is SUCCESS with Core 3.11 green
+  (see the Phase-2 section below). No timeout change was made.
+
+## Verification record — Phase 5, mutation-survivors wave 2 Phase 2: detectors / analyzers / engine baselines (2026-11-09)
+
+Phase 1 measured full sessions for detectors (606), analyzers (516)
+and engine (322) and added kill tests only. Phase 2 baselined the
+survivors. Each worker re-ran its module's full session on `dd8bd83`
+as the proof (Phase-1 dumps were in deleted worktrees); every survivor
+set reproduced the Phase-1 list position-for-position before
+baselining; each domain entry carries a hand-applied-mutant
+differential probe.
+
+| Module | Entries added | Proof (total/killed/surviving/equivalent/unexplained) |
+|---|---|---|
+| detectors | 66 annotation + 1 domain | 606 / 539 / 67 / 67 / 0, exit 0 |
+| analyzers | 4 domain | 516 / 512 / 4 / 4 / 0, exit 0 |
+| engine | 4 unobservable + 1 domain | 322 / 317 / 5 / 5 / 0, exit 0 |
+
+- **Baseline:** 887 → **963** (arg 678, return 140, annassign 11,
+  domain-equivalent 100, unobservable-value 23, unreachable-condition
+  5, ulp-equivalent 6; runtime 134; modules trust 73, policy 82,
+  benchmark 196, consensus 139, calibration 397, detectors 67,
+  analyzers 4, engine 5).
+- **Merges (main `a1e7857`):** detectors `6e7d3f2`, analyzers
+  `12c1dc6`, engine `a1e7857` (the engine merge includes a parent fix
+  commit for the runtime count, see below). Parent verification per
+  branch and on merged main: claims 33/33, schemas OK, pre-commit
+  13/13, full `tests/test_mutation.py` 55 passed / 1137 subtests in
+  ~10 s on each rebased tree and on merged main.
+- **Detectors correction (worker, verified by the coordinator):** the
+  domain entry's `source_text` is `"is not"`, not `"is not None"` as
+  briefed — the dump span is [260,75]–[260,81]. The test asserts
+  `"is not"`.
+- **Parent incidents, owned:** (a) the analyzers rebase first used
+  `origin/main`, which had not yet received the detectors merge push —
+  it reported "up to date" and changed nothing; rebased onto local
+  `main`. (b) A resolution script keyed two conflicts on the same
+  first line and broke the cache test's `try` block (SyntaxError) —
+  key on the full line including indentation. (c) Same-number trap,
+  twice: the cache module count (both sides wrote 6, union needs 7,
+  then 7 vs 6 → 8) and the runtime count (both sides wrote 129, union
+  needs 134) merged cleanly because the two sides AGREED — both were
+  caught only by running the full test file on the rebased branch.
+  Standing lesson: after a union merge, re-derive EVERY count from the
+  resolved baseline, including counts that did NOT conflict.
+- **CI on the merged head `a1e7857` (run 42533532099): SUCCESS — all
+  19 jobs green**, including Core Python 3.11 / 3.12 / 3.13 / 3.14 /
+  3.15, the claims-to-evidence gate, the checked-in SBOM staleness
+  job, and all OS smokes. Core 3.11 is green after the cache fix
+  above; CI on `dd8bd83` was also SUCCESS.
+- **Full verification at HEAD `a1e7857` (2026-11-09, bare core-only
+  venv `~/workspace/.tfc-core-venv`, Python 3.12.3, `pip install -e
+  ".[dev]"`, venv `bin/` first on PATH): 3513 passed, 121 skipped, 1
+  deselected (the known `test_memory_check` host flake), 1209 subtests
+  passed in 291.25 s, coverage 76.95% (gate 70% passed). The 121 skips
+  are all core-only-venv environment artifacts (51 fastapi not
+  installed, 22 API dev deps, 20 web_ui, 15 MCP dev deps, 7 API deps,
+  2 uvicorn, 1 full-pinned-install check, 1 cyclonedx) — the extras
+  surface is not installed in a core-only venv by design. The
+  extras-venv full suite on the same head: **3633 passed, 1 skipped,
+  1 deselected, 1209 subtests passed in 347.69 s, 81% line coverage**
+  (18,020 statements, 2,936 missed, 6,830 branches, 1,073 partial),
+  exit 0, 0 failures; the single skip is the SBOM
+  full-pinned-install check (atheris/wheel not in the main venv).
+- **Manual end-to-end checks (2026-11-09, main venv, HEAD
+  `a1e7857`):** `textforensics scan` on a 29-word human-like text
+  scores 0.2947 (`insufficient_evidence` — honest abstention on short
+  text); on a 35-word machine-like text 0.6697
+  (`insufficient_evidence`, just below the 0.68 `ai_like` threshold),
+  sane direction. Case-file round-trip: `case keygen` creates a
+  0600 key file; `case export --seal` produces the bundle; the
+  standalone stdlib verifier in the bundle exits 2 without a public
+  key and 0 with the correct public key (signature verified, key
+  fingerprint matches).
+- **Still open (wave 2):** casefile only. Its full session (2118
+  items) is running under the monitor cron; 1408/2118 at resume
+  00:08 CET 2026-11-09, integrity ok.
