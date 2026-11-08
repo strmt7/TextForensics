@@ -628,6 +628,20 @@
 # pins source_text + the enclosing function's fingerprint, exactly
 # like the runtime kinds above; the loader re-validates both on
 # every run.
+# Full-session proof (branch fix/mutation-domain-calibration,
+# 2026-11-08): `scripts/run_mutation.py --mode full --modules
+# textforensics.calibration --budget 0` plus two direct
+# `cosmic-ray exec` resumes of the same session (the runner's exec
+# was killed with 222/1937 done; resume 1 stopped at 527/1937 with
+# an unexplained cosmic-ray exit 120 and no output; resume 2
+# finished the remaining 1410): total 1937, killed 1539,
+# surviving 397, equivalent 397, unexplained 0, stale 0, error 0,
+# incompetent 1, pending 0, dormant 452, superseded 0 —
+# check_results exit 0. The 397 equivalent are the 335 previously
+# baselined + these 62; the incompetent 1 is the ExceptionReplacer
+# operator crash at L727, now counted incompetent (not error) by
+# the fix/mutation-kinds runner fix. This reproduces the wave-1
+# accounting exactly (1539 killed / 397 surviving).
 #
 # CALIBRATION ANNOTATION ENTRIES (330: 30 positions x 11 operators,
 # 2026-11-08)
