@@ -26,6 +26,7 @@ Use this checklist for every tagged release.
 - [ ] Dependency review is green for release PR.
 - [ ] Scheduled/manual dependency audit has no unaccepted high/critical finding.
 - [ ] Release artifacts are checksummed.
+- [ ] GitHub Actions pins match `SECURITY.md` ("GitHub Actions pinning policy"): cosign-installer pinned to the recorded SHA, no floating (`@main`, bare major-tag) refs added to release workflows.
 - [ ] No credentials, private corpora, or raw user documents are included.
 - [ ] New network behavior is documented and opt-in where required.
 
