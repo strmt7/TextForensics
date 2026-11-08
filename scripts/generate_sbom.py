@@ -10,8 +10,13 @@ plus every package named directly in the file (e.g. ``atheris``,
 plus their transitive ``Requires-Dist`` closure. The project itself is the
 ``metadata.component`` (``textforensics``). Install tooling appears only
 where it is genuinely required: ``setuptools`` and ``wheel`` are direct
-pins in requirements-pinned.txt, and ``pip`` enters as a real transitive
-dependency (``pip-audit`` depends on ``pip-api``, which requires ``pip``).
+pins in requirements-pinned.txt. ``pip`` is EXCLUDED from the closure
+(see ``EXCLUDED_DISTRIBUTIONS``): it enters only as a transitive edge
+(``pip-audit`` depends on ``pip-api``, which requires ``pip``), but the
+version recorded would be the venv's bundled installer pip, which
+requirements-pinned.txt does not pin (24.0 in a fresh canonical venv
+against 26.3 in the worker's environment) — including it made ``--check``
+fail in the canonical environment and flap on runner-image pip updates.
 
 Why stdlib only
 ---------------
@@ -78,11 +83,24 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
-GENERATOR_VERSION = "1.0.0"
+GENERATOR_VERSION = "1.0.1"
 GENERATOR_NAME = "generate_sbom.py"
 SPEC_VERSION = "1.6"
 PROJECT_URL = "https://github.com/strmt7/TextForensics"
 DEFAULT_OUTPUT = Path("sbom/textforensics.cdx.json")
+# Distributions that are install tooling, not shipped dependencies, and
+# whose version is environment noise rather than project data. ``pip``
+# enters the closure only as a transitive edge (``pip-audit`` depends on
+# ``pip-api``, which requires ``pip``), but the version recorded is the
+# venv's bundled installer pip, which requirements-pinned.txt does not
+# pin: 24.0 in a fresh ``pip install -r requirements-pinned.txt`` venv
+# against 26.3 in the worker's environment. Including it made ``--check``
+# fail in the canonical environment and flap on runner-image pip
+# updates, so it is excluded from the closure (components and edges).
+# Consistent with the pip-audit reasoning that pip is the installer,
+# not a shipped dependency (pip-audit-baseline.toml treats pip 24.0
+# exactly that way).
+EXCLUDED_DISTRIBUTIONS = frozenset({"pip"})
 NAME_SPLIT_RE = re.compile(r"[<>=!~\s;\[]")
 EXTRAS_RE = re.compile(r"\[\s*([^\]]*?)\s*\]")
 
@@ -296,6 +314,11 @@ def dependency_closure(
         if name in seen:
             continue
         seen.add(name)
+        # Install tooling, not a shipped dependency: excluded from the
+        # closure entirely (no component, no edges), even when a root
+        # requires it. See EXCLUDED_DISTRIBUTIONS.
+        if name in EXCLUDED_DISTRIBUTIONS:
+            continue
         dist = installed.get(name)
         if dist is None:
             if name in roots:

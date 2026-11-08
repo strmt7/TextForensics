@@ -112,6 +112,22 @@ def test_dependency_closure_follows_only_installed():
     assert "zzz" not in included
 
 
+def test_dependency_closure_excludes_pip():
+    # pip is install tooling, not a shipped dependency: even when it is
+    # installed and required by a root (pip-audit -> pip-api -> pip),
+    # it must not enter the closure — no component, no edges. Its
+    # version is the venv's bundled installer pip, unpinned by
+    # requirements-pinned.txt (24.0 in a fresh venv vs 26.3 in the
+    # worker's environment), so including it made --check flap.
+    installed = {
+        "aaa": sbom.Distribution("aaa", "1.0.0", ["pip"]),
+        "pip": sbom.Distribution("pip", "26.3", []),
+    }
+    included, unresolved = sbom.dependency_closure({"aaa"}, installed)
+    assert included == {"aaa"}
+    assert unresolved == set()
+
+
 def test_generate_fake_repo_is_deterministic(tmp_path):
     freeze = _fake_repo(tmp_path)
     text1, count1, unresolved1 = sbom.generate(tmp_path, freeze)
@@ -212,6 +228,9 @@ def test_real_repo_generation(tmp_path):
     # while sorting, purls and bom-refs use the normalized name (pip-audit).
     assert "pip-audit" in names
     assert "pytest" in names
+    # pip is excluded from the closure (install tooling, not a shipped
+    # dependency; its version is the venv's bundled installer pip).
+    assert "pip" not in names
     assert "textforensics" not in names  # the project is metadata.component
     props = {p["name"]: p["value"] for p in bom["metadata"]["properties"]}
     assert props["requirementsPinnedSha256"] == sbom.sha256_file(
