@@ -2684,3 +2684,30 @@ them. Detail: `hidden_files/phase5-u2-leftovers.md`.
   both sections, in order.
 - Full extras suite on the merged tree: **3060 passed / 0 failed**
   (1 deselected flake; 3026 + 30 v4 tests + 4 mock-TSA tests).
+
+## Phase 5 — RAID humans-100 + human-FPR evidence (merged 2026-11-08, apply `bce1e90`)
+
+- **RAID humans past 100 (merged `ef6bfc7`):** new n=6000 sample, 171 human /
+  5829 AI, AUROC 0.5958 [0.5621, 0.6314], native FPR 0.0. First `supported`
+  validation record (`evr-20261108-raid-builtin-heuristic`, all 8 conditions
+  verified from the code). Parent-verified on the branch: claims 33/33,
+  pre-commit 13/13, 203 tests passed.
+- **Human-FPR evidence (merged `802a61e`):** per-slice Wilson 95% FPR uppers
+  (all k_fp = 0); worst document slice OpAI-Bench 20261106, 0.0642 (n=56,
+  fails the n>=100 + upper<=0.05 bar); pooled docs 0/1002, upper 0.0038.
+  GhostWriter max human score 0.6740, 0.006 below the 0.68 threshold.
+  Parent-verified on the branch: claims 33/33, pre-commit 13/13, 12 tests.
+- **Wave-2 Phase-1 kill tests (merged `4817971`, `6dc777c`, `8569e3f`):**
+  detectors 181 tests, analyzers 15, engine 46 — tests only, no baseline
+  changes. Parent-verified on each branch: claims 33/33, pre-commit 13/13.
+- **Parent registry apply (commit `bce1e90`, pushed):** validation registry
+  7 -> 8 records (RAID record inserted, all 7 Wilson CI replacements
+  applied, every touched record re-signed, registry id recomputed,
+  RAID still `supported`); evidence registry 30 -> 31 records (RAID run
+  artifact pinned). The FPR artifact is NOT pinned — it fails run-artifact/v1
+  (6 errors) and pinning it would fail the claims gate; it stays a standalone
+  artifact in `docs/evidence/` and the report-card lead stays "unknown".
+  The committed-registry test was updated seven -> eight records (RAID
+  20261108 `supported`, rest `partial`). Verified on the applied tree:
+  claims 33/33, pre-commit 13/13, schemas OK, validation/RAID/FPR tests
+  115/115.
