@@ -183,6 +183,13 @@ scope for v1.0. If the TSA cannot be reached, the seal fails with an
 error instead of silently producing a bundle the user thinks is
 timestamped.
 
+Live-TSA interop from the development VM is still blocked (both free
+TSAs hang on the `/tsr` POST; see `docs/TSA_INTEROP.md` for the exact
+probe record and the procedure to re-attempt the round-trip from an
+unrestricted host). The client itself is verified against a local
+mock TSA in `tests/test_timestamp_mock_tsa.py` — no live-network test
+exists in the suite, and CI stays offline.
+
 ## What the seal does not prove
 
 - A hash seal (T1) proves the case bytes have not changed since

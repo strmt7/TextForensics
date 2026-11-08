@@ -2624,3 +2624,37 @@ deselected). The golden file verifies via
 `scripts/verify_golden.py`. Two ruff findings from the first pass
 were fixed, not suppressed (a lambda in `_standalone_verify.py`,
 an unused loop variable in `report.py`).
+## Verification record — Phase 5, U2-leftovers: live-TSA interop re-attempt (2026-11-08)
+
+Branch `fix/u2-tsa-interop`, based on main `3e53278`. No push, no
+merge, no release, no tag (parent merges).
+
+- **Live-TSA interop: STILL BLOCKED from this VM.** Re-attempted
+  2026-11-08 00:11–00:22 UTC with 10 s timeouts, max 2 attempts per
+  endpoint, every attempt wrapped in a hard outer timeout.
+  `request_timestamp(timeout=10.0)` against `https://freetsa.org/tsr`
+  and `https://timestamp.digicert.com` both timed out on read
+  (10.51 s / 10.30 s); a second attempt via raw urllib with a real
+  62-byte `TimeStampReq` timed out the same way (10.35 s / 10.27 s);
+  curl POST to freetsa `/tsr` gave HTTP 000 in 10.002 s, 0 bytes,
+  exit 28. Controls: freetsa homepage GET 200 in 1.08 s (urllib) /
+  302 in 0.63 s (curl) — egress reaches the host, only the `/tsr`
+  POST path hangs. DigiCert homepage GET itself timed out at
+  10.12 s this time. No production timeout was edited; no retry was
+  added; no claim was changed. Full probe record and the exact
+  unrestricted-host re-attempt procedure: `docs/TSA_INTEROP.md`
+  (pointer also in `docs/SEALING_KEYS.md`, Timestamps section).
+- **Mock-TSA tests (new):** `tests/test_timestamp_mock_tsa.py`
+  (4 tests) — stdlib `http.server` on loopback accepts a
+  TimeStampReq and returns a TimeStampResp carrying a real CMS token
+  built with the production DER encoder (`tests/_token_fixture.py`);
+  `request_timestamp` round-trips and verifies it through
+  `verify_timestamp_token` exactly as it would a live token. Covers:
+  successful round-trip (incl. request Content-Type and digest/nonce
+  echo), token over the wrong digest rejected
+  (`message_imprint_mismatch`), non-200 (500) handled, rejection
+  status (2) handled. No live-network test in the suite; CI stays
+  offline.
+- **Claims gate:** 33/33, unchanged — no live round-trip is claimed,
+  `qualified` stays `"unknown"`. No evidence artifact was produced
+  (nothing succeeded to record).
