@@ -4363,6 +4363,30 @@ reason = "Unobservable-value mutant (dataset_sha256): `1024` -> `1023` in `handl
 # the first kill tests missed, which the 7 added tests now kill; each
 # was verified to fail against its hand-applied mutant.)
 #
+# PROOF RUNS (finished branch, head 893f977, 2026-11-08)
+# ------------------------------------------------------
+# First proof run (66 kill tests): total 792, killed 646, surviving 146,
+# equivalent 128, unexplained 18 (the 8 no-kind equivalents + 7 killable
+# survivors the first tests missed + 3 more no-kind equivalents).
+# Second proof run (73 kill tests): the runner was killed ~26 min in at
+# 719/792 items and left a mutant baked into consensus.py (`(p_bar - p_e)`
+# -> `(p_bar << p_e)` at L425, Sub_LShift occ 4 — same failure mode as the
+# measurement run). The 73-item resume therefore ran against a contaminated
+# file: 71 kills (11 of them bogus — the superseded annotation entries +
+# NumberReplacer:64) and 2 no-test artifacts, 0 survivors. The source was
+# restored (git checkout) and the 73 resume items were re-measured
+# individually against a clean copy with cosmic-ray's own mutate_code and
+# the runner's exact test command (mutation-results/reverify_resume.py):
+# the 719 runner-phase outcomes were kept as-is (clean source), the 73
+# resume outcomes replaced. Corrected final numbers: total 792, killed 653,
+# surviving 139, timeout 0, error 0, pending 0, equivalent 128 (all 128
+# entries matched live survivors), unexplained 11, dormant 155 (trust +
+# policy entries, out of scope for this session), superseded 0, stale [].
+# Gate exit is 2, not 0: the 11 unexplained are exactly the no-kind
+# equivalents listed below, which need a coordinator decision first.
+# Exit 0 is impossible until they are resolved (new kind + validator, or
+# source change where one is a genuine cleanup).
+#
 # MEASUREMENT INCIDENT (read before trusting the raw counts): the first
 # runner-driven exec was killed mid-run (cosmic-ray exec exit -15,
 # SIGTERM, after 67 work items) and left one mutant on disk
