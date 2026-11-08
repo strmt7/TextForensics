@@ -469,6 +469,37 @@ class EquivalentBaselineTests(unittest.TestCase):
         (483, 90),
         # Calibration runtime position.
         (255, 47),
+        # Calibration annotation positions (30).
+        (715, 41),
+        (790, 28),
+        (791, 35),
+        (792, 46),
+        (793, 36),
+        (795, 38),
+        (796, 45),
+        (797, 40),
+        (798, 35),
+        (799, 26),
+        (800, 33),
+        (801, 24),
+        (845, 59),
+        (848, 79),
+        (861, 37),
+        (915, 15),
+        (932, 27),
+        (939, 37),
+        (1009, 49),
+        (1013, 40),
+        (1025, 71),
+        (1186, 26),
+        (1279, 19),
+        (1282, 34),
+        (1341, 26),
+        (1342, 19),
+        (1410, 38),
+        (1444, 21),
+        (1461, 26),
+        (1462, 25),
     }
 
     @classmethod
@@ -534,8 +565,8 @@ class EquivalentBaselineTests(unittest.TestCase):
         finally:
             Path(temp_path).unlink(missing_ok=True)
 
-    def test_baseline_file_loads_with_454_entries(self):
-        """The baseline has exactly the 454 verified equivalent mutants.
+    def test_baseline_file_loads_with_784_entries(self):
+        """The baseline has exactly the 784 verified equivalent mutants.
 
         69 annotation BitOr mutants + 4 unreachable-condition
         NumberReplacer mutants for trust (see the baseline file's header
@@ -547,9 +578,9 @@ class EquivalentBaselineTests(unittest.TestCase):
         plus 121 annotation BitOr mutants + 7 runtime mutants (6
         unobservable-value, 1 unreachable-condition) for consensus
         (mutation-survivors wave, full run on 8e6ffd1).
-        plus 2 unobservable-value NumberReplacer mutants for
-        calibration (prefix-200 wave: the discarded beta `c` default
-        in CalibrationCurve._validate_parameters).
+        plus 2 unobservable-value NumberReplacer mutants and 330
+        annotation BitOr mutants for calibration (prefix-200 wave and
+        full-session remainder wave).
         Match keys include occurrence: two entries share the
         (module, operator, start_pos, end_pos) of L553:76 and differ
         only by occurrence (44 vs 45).
@@ -558,8 +589,8 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(self.baseline["source_run"], "42393966895")
         self.assertEqual(self.baseline["source_commit"], "153b5ab")
         entries = self.baseline["entries"]
-        self.assertEqual(len(entries), 454)
-        self.assertEqual(len({e["id"] for e in entries}), 454, "entry ids must be unique")
+        self.assertEqual(len(entries), 784)
+        self.assertEqual(len({e["id"] for e in entries}), 784, "entry ids must be unique")
         keys = {
             (
                 e["module"],
@@ -570,23 +601,23 @@ class EquivalentBaselineTests(unittest.TestCase):
             )
             for e in entries
         }
-        self.assertEqual(len(keys), 454, "match keys must be unique")
+        self.assertEqual(len(keys), 784, "match keys must be unique")
         from collections import Counter
 
         self.assertEqual(
             Counter(e["operator"] for e in entries),
             {
-                "core/ReplaceBinaryOperator_BitOr_Add": 50,
-                "core/ReplaceBinaryOperator_BitOr_BitAnd": 50,
-                "core/ReplaceBinaryOperator_BitOr_BitXor": 50,
-                "core/ReplaceBinaryOperator_BitOr_Div": 50,
-                "core/ReplaceBinaryOperator_BitOr_FloorDiv": 44,
-                "core/ReplaceBinaryOperator_BitOr_LShift": 35,
-                "core/ReplaceBinaryOperator_BitOr_Mod": 35,
-                "core/ReplaceBinaryOperator_BitOr_Mul": 35,
-                "core/ReplaceBinaryOperator_BitOr_Pow": 32,
-                "core/ReplaceBinaryOperator_BitOr_RShift": 26,
-                "core/ReplaceBinaryOperator_BitOr_Sub": 26,
+                "core/ReplaceBinaryOperator_BitOr_Add": 80,
+                "core/ReplaceBinaryOperator_BitOr_BitAnd": 80,
+                "core/ReplaceBinaryOperator_BitOr_BitXor": 80,
+                "core/ReplaceBinaryOperator_BitOr_Div": 80,
+                "core/ReplaceBinaryOperator_BitOr_FloorDiv": 74,
+                "core/ReplaceBinaryOperator_BitOr_LShift": 65,
+                "core/ReplaceBinaryOperator_BitOr_Mod": 65,
+                "core/ReplaceBinaryOperator_BitOr_Mul": 65,
+                "core/ReplaceBinaryOperator_BitOr_Pow": 62,
+                "core/ReplaceBinaryOperator_BitOr_RShift": 56,
+                "core/ReplaceBinaryOperator_BitOr_Sub": 56,
                 "core/NumberReplacer": 18,
                 "core/ReplaceFalseWithTrue": 3,
             },
@@ -843,10 +874,10 @@ class EquivalentBaselineTests(unittest.TestCase):
             "baseline_entries",
         ):
             self.assertIn(key, summary, f"summary is missing {key}")
-        self.assertEqual(summary["baseline_entries"], 454)
+        self.assertEqual(summary["baseline_entries"], 784)
         self.assertEqual(summary["equivalent"], 2)
-        # The other 452 entries matched no live survivor in this run.
-        self.assertEqual(summary["equivalent_dormant"], 452)
+        # The other 782 entries matched no live survivor in this run.
+        self.assertEqual(summary["equivalent_dormant"], 782)
         self.assertEqual(summary["equivalent_superseded"], 0)
         self.assertEqual(summary["stale_baseline_entries"], [])
         # Raw counts are never relabelled: the survivors stay in `surviving`.
@@ -865,7 +896,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(summary["equivalent_mutants"], [entries[0]["id"]])
         self.assertEqual(summary["equivalent_superseded"], 1)
         self.assertEqual(summary["equivalent_superseded_ids"], [entries[1]["id"]])
-        self.assertEqual(summary["equivalent_dormant"], 452)
+        self.assertEqual(summary["equivalent_dormant"], 782)
         self.assertEqual(summary["unexplained_surviving"], 0)
         result = self._check_summary(summary)
         self.assertEqual(result.returncode, 0, result.stdout)
