@@ -264,19 +264,20 @@
 # equivalent); such mutants have different occurrences, match no entry,
 # and fail the gate as unexplained until verified — by design.
 #
-# BENCHMARK ENTRIES (169: 165 annotation + 4 unobservable-value, 2026-11-08)
+# BENCHMARK ENTRIES (196: 165 annotation + 4 unobservable-value + 27 domain-equivalent, 2026-11-08)
 # -------------------------------------------------------------------
 # Source: local full run on branch fix/mutation-benchmark at 8e6ffd1,
 # `scripts/run_mutation.py --mode full --modules textforensics.benchmark
 # --budget 0`: session 909 work items, executed 909, killed 237,
 # surviving 672, timeout/error 0. The 105 kill tests in
 # tests/test_benchmark.py (class BenchmarkMutationKillTests) kill 476
-# of the survivors; the remaining 196 are the entries below (169) plus
-# 27 genuinely-equivalent mutants that fit NO existing kind and are
-# NOT baselined — they are reported to the coordinator, not entered
-# (see NOT IN THIS BASELINE below). Proof run 1 (before the round-2
-# tests) measured killed 699 / surviving 210 / equivalent 169 /
-# unexplained 41; the 8 round-2 tests close 14 of the 41 (see below).
+# of the survivors; the remaining 196 are the entries below: 169
+# (annotation + unobservable-value) plus 27 domain-equivalent mutants
+# baselined 2026-11-08 in the kind wave, once the new kind landed with
+# its own validator (see PROOF — BENCHMARK KIND "domain-equivalent"
+# below). Proof run 1 (before the round-2 tests) measured killed 699 /
+# surviving 210 / equivalent 169 / unexplained 41; the 8 round-2 tests
+# close 14 of the 41 (see below).
 # NOTE: the first proof run also caught an error in my own reasoning:
 # the Add_Mul guard mutants (occ 2/4/6, L100-102) looked equivalent
 # on paper (sum vs product truthiness) but the differential probe
@@ -335,21 +336,25 @@
 # entry pins its proof with source_text + the enclosing function's
 # fingerprint, exactly like the policy entries.
 #
-# KNOWN BENCHMARK MUTANTS *NOT* IN THIS BASELINE (do not add without
-# a new kind + its own validator — see below)
-# ------------------------------------------------------------
+# PROOF — BENCHMARK KIND "domain-equivalent" (27 entries, 2026-11-08)
+# ---------------------------------------------------------------
 # Thirteen survivors are genuinely equivalent but fit NEITHER
 # existing kind (annotation / unreachable-condition /
 # unobservable-value, whose documented scope is NumberReplacer), so
-# they are NOT baselined and the gate will report them unexplained
-# until a new kind exists. Each was verified by hand-applying the
-# mutant to a scratch copy and comparing behaviour across a fixed
-# battery (13/13 byte-identical, including 240 KB / ~2 MB files,
-# diverse texts, 3 calibration fixtures x 6 targets, and
+# they were NOT baselined when the benchmark wave ran and the gate
+# reported them unexplained until a new kind existed. Each was verified
+# by hand-applying the mutant to a scratch copy and comparing behaviour
+# across a fixed battery (13/13 byte-identical, including 240 KB /
+# ~2 MB files, diverse texts, 3 calibration fixtures x 6 targets, and
 # verify_fingerprint error cases). A SECOND probe round (2026-11-08,
 # after proof run 1) found 14 more, verified over the full
 # _metrics counter grid (every tp/fp/tn/fn combination in 0..3, 256
-# cases) plus calibrate over 5 targets (14/14 byte-identical):
+# cases) plus calibrate over 5 targets (14/14 byte-identical). On
+# 2026-11-08 the kind wave landed the "domain-equivalent" kind with
+# its own validator in scripts/run_mutation.py (BASELINE_RUNTIME_KINDS,
+# mirroring "unobservable-value"), and all 27 were baselined as
+# domain-equivalent below; each entry's reason names its proof shape
+# plus this documented proof. The per-mutant notes:
 # - [620] ReplaceFalseWithTrue occ 0, L74, `include_robustness=False`
 #   -> `True` in _load_scores. `analyze_text` computes `.score` in
 #   `_base_score` before the flag is consulted (engine.py:73); the
@@ -405,10 +410,10 @@
 #   rejects any label outside {"human", "ai"}; on that domain both
 #   replacements coincide with `==` ("human" <= "ai" is False;
 #   "ai" >= "human" is False). 5-target calibrate battery: 0 diffs.
-# Do NOT baseline these 27 by stretching "unobservable-value" — the
+# These 27 were NOT baselined by stretching "unobservable-value" — the
 # kind's documented scope is NumberReplacer, and silently widening it
-# would be the blanket-rule rot this mechanism exists to prevent. A
-# new kind needs its own validator first (see run_mutation.py).
+# would be the blanket-rule rot this mechanism exists to prevent. The
+# new kind has its own validator (see run_mutation.py).
 #
 # HOW TO ADD AN ENTRY
 # -------------------
@@ -4528,6 +4533,331 @@ kind = "unobservable-value"
 source_text = "1024"
 source_fingerprint = "ca04db735eb70c1cdb2ba1466aba3c4ca4beecb50a5cd009d8eb7b177658634c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "Unobservable-value mutant (dataset_sha256): `1024` -> `1023` in `handle.read(1024 * 1024)` (second factor). The chunk size only controls how the file is read; the SHA-256 digest over the stream is independent of chunk size for any file content and any chunk size >= 1, so no input distinguishes the mutant."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceFalseWithTrue:0"
+module = "textforensics.benchmark"
+operator = "core/ReplaceFalseWithTrue"
+occurrence = 0
+start_pos = [74, 58]
+end_pos = [74, 63]
+function = "_load_scores"
+kind = "domain-equivalent"
+source_text = "False"
+source_fingerprint = "52990f2d1445874030c2e2d3fc6ec77e7ea39c47d1acd929374c036eaa89521e"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_load_scores): `include_robustness=False` -> `True` in the `analyze_text(...)` call. `_load_scores` reads only `.score`, and `.score` is computed in `engine._base_score` before `include_robustness` is consulted (engine.py); the flag only affects stability / diagnostic_reliability / warnings, which `_load_scores` never reads, so `.score` is identical for every input. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the differential battery (256-case _metrics grid, 20 calibrate cases, _load_scores rows, sha incl. empty / 1-byte / 240 KB / ~2 MB files, content/sample hashes, fingerprint verify)."
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_Mul_Add:0"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_Mul_Add"
+occurrence = 0
+start_pos = [35, 51]
+end_pos = [35, 52]
+function = "dataset_sha256"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "ca04db735eb70c1cdb2ba1466aba3c4ca4beecb50a5cd009d8eb7b177658634c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (dataset_sha256): `1024 * 1024` -> `+` (chunk size 2048). The chunk size only controls how the file is read; the SHA-256 digest over the stream is independent of chunk size for any file content and any chunk size >= 1, so no input distinguishes the mutant. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the differential battery (256-case _metrics grid, 20 calibrate cases, _load_scores rows, sha incl. empty / 1-byte / 240 KB / ~2 MB files, content/sample hashes, fingerprint verify). (The other Mul replacements at this position are killed, not equivalent: `-` / `%` / `>>` / `^` give chunk size 0 and an empty digest; `/` gives a float chunk size and TypeError; `**` / `<<` overflow Py_ssize_t.)"
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_Mul_BitAnd:0"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_Mul_BitAnd"
+occurrence = 0
+start_pos = [35, 51]
+end_pos = [35, 52]
+function = "dataset_sha256"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "ca04db735eb70c1cdb2ba1466aba3c4ca4beecb50a5cd009d8eb7b177658634c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (dataset_sha256): `1024 * 1024` -> `&` (chunk size 1024). The chunk size only controls how the file is read; the SHA-256 digest over the stream is independent of chunk size for any file content and any chunk size >= 1, so no input distinguishes the mutant. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the differential battery (256-case _metrics grid, 20 calibrate cases, _load_scores rows, sha incl. empty / 1-byte / 240 KB / ~2 MB files, content/sample hashes, fingerprint verify). (The other Mul replacements at this position are killed, not equivalent: `-` / `%` / `>>` / `^` give chunk size 0 and an empty digest; `/` gives a float chunk size and TypeError; `**` / `<<` overflow Py_ssize_t.)"
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_Mul_BitOr:0"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_Mul_BitOr"
+occurrence = 0
+start_pos = [35, 51]
+end_pos = [35, 52]
+function = "dataset_sha256"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "ca04db735eb70c1cdb2ba1466aba3c4ca4beecb50a5cd009d8eb7b177658634c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (dataset_sha256): `1024 * 1024` -> `|` (chunk size 1024). The chunk size only controls how the file is read; the SHA-256 digest over the stream is independent of chunk size for any file content and any chunk size >= 1, so no input distinguishes the mutant. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the differential battery (256-case _metrics grid, 20 calibrate cases, _load_scores rows, sha incl. empty / 1-byte / 240 KB / ~2 MB files, content/sample hashes, fingerprint verify). (The other Mul replacements at this position are killed, not equivalent: `-` / `%` / `>>` / `^` give chunk size 0 and an empty digest; `/` gives a float chunk size and TypeError; `**` / `<<` overflow Py_ssize_t.)"
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_Mul_FloorDiv:0"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_Mul_FloorDiv"
+occurrence = 0
+start_pos = [35, 51]
+end_pos = [35, 52]
+function = "dataset_sha256"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "ca04db735eb70c1cdb2ba1466aba3c4ca4beecb50a5cd009d8eb7b177658634c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (dataset_sha256): `1024 * 1024` -> `//` (chunk size 1). The chunk size only controls how the file is read; the SHA-256 digest over the stream is independent of chunk size for any file content and any chunk size >= 1, so no input distinguishes the mutant. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the differential battery (256-case _metrics grid, 20 calibrate cases, _load_scores rows, sha incl. empty / 1-byte / 240 KB / ~2 MB files, content/sample hashes, fingerprint verify). (The other Mul replacements at this position are killed, not equivalent: `-` / `%` / `>>` / `^` give chunk size 0 and an empty digest; `/` gives a float chunk size and TypeError; `**` / `<<` overflow Py_ssize_t.)"
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceTrueWithFalse:6"
+module = "textforensics.benchmark"
+operator = "core/ReplaceTrueWithFalse"
+occurrence = 6
+start_pos = [361, 18]
+end_pos = [361, 22]
+function = "_compute_content_hash"
+kind = "domain-equivalent"
+source_text = "True"
+source_fingerprint = "20204d25f64ef1153a4070e67f5ee4a88f8d7ceb2279c787972baf869126001a"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant in `_compute_content_hash`: single-key `{\"text\": ...}`: `sort_keys=True` -> `False` in a `json.dumps` call whose dict keys are already in sorted order, so the serialised form \u2014 and therefore the hash \u2014 is identical for every input. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the differential battery (256-case _metrics grid, 20 calibrate cases, _load_scores rows, sha incl. empty / 1-byte / 240 KB / ~2 MB files, content/sample hashes, fingerprint verify)."
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceTrueWithFalse:8"
+module = "textforensics.benchmark"
+operator = "core/ReplaceTrueWithFalse"
+occurrence = 8
+start_pos = [420, 30]
+end_pos = [420, 34]
+function = "_compute_sample_hashes"
+kind = "domain-equivalent"
+source_text = "True"
+source_fingerprint = "3440a483bf4228f0ea94f55db3c2a7d12d0f2e44f72528c3d89a6e42283ea21a"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant in `_compute_sample_hashes`: `{\"label\": ..., \"text\": ...}` (\"label\" < \"text\"): `sort_keys=True` -> `False` in a `json.dumps` call whose dict keys are already in sorted order, so the serialised form \u2014 and therefore the hash \u2014 is identical for every input. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the differential battery (256-case _metrics grid, 20 calibrate cases, _load_scores rows, sha incl. empty / 1-byte / 240 KB / ~2 MB files, content/sample hashes, fingerprint verify)."
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceTrueWithFalse:9"
+module = "textforensics.benchmark"
+operator = "core/ReplaceTrueWithFalse"
+occurrence = 9
+start_pos = [428, 30]
+end_pos = [428, 34]
+function = "_compute_sample_hashes"
+kind = "domain-equivalent"
+source_text = "True"
+source_fingerprint = "3440a483bf4228f0ea94f55db3c2a7d12d0f2e44f72528c3d89a6e42283ea21a"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant in `_compute_sample_hashes`: single-key `{\"text\": ...}`: `sort_keys=True` -> `False` in a `json.dumps` call whose dict keys are already in sorted order, so the serialised form \u2014 and therefore the hash \u2014 is identical for every input. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the differential battery (256-case _metrics grid, 20 calibrate cases, _load_scores rows, sha incl. empty / 1-byte / 240 KB / ~2 MB files, content/sample hashes, fingerprint verify)."
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceUnaryOperator_Delete_USub:1"
+module = "textforensics.benchmark"
+operator = "core/ReplaceUnaryOperator_Delete_USub"
+occurrence = 1
+start_pos = [175, 36]
+end_pos = [175, 37]
+function = "calibrate_threshold_jsonl"
+kind = "domain-equivalent"
+source_text = "-"
+source_fingerprint = "5b6ba1cd99ccb3f23cdd15c72ca32f0bf94635c26112e53d8fd33f047de9132d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (calibrate_threshold_jsonl): `-threshold` -> `threshold` (the `-` is deleted) in the calibration candidate tuple `(tpr, -fpr, -threshold)`. The third element never decides the maximum: distinct candidate thresholds always give distinct (tpr, -fpr) pairs (moving past a threshold drops at least the rows scoring exactly at it, so tp or fp strictly decreases), so the tiebreak is dead. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the differential battery (256-case _metrics grid, 20 calibrate cases, _load_scores rows, sha incl. empty / 1-byte / 240 KB / ~2 MB files, content/sample hashes, fingerprint verify). Distinctness re-checked over 2000 random score sets: 0 violations. (The fourth unary operator at this position, USub_Invert `~threshold`, raises TypeError and is killed, not equivalent.)"
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceUnaryOperator_USub_Not:1"
+module = "textforensics.benchmark"
+operator = "core/ReplaceUnaryOperator_USub_Not"
+occurrence = 1
+start_pos = [175, 36]
+end_pos = [175, 37]
+function = "calibrate_threshold_jsonl"
+kind = "domain-equivalent"
+source_text = "-"
+source_fingerprint = "5b6ba1cd99ccb3f23cdd15c72ca32f0bf94635c26112e53d8fd33f047de9132d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (calibrate_threshold_jsonl): `-threshold` -> `not threshold` in the calibration candidate tuple `(tpr, -fpr, -threshold)`. The third element never decides the maximum: distinct candidate thresholds always give distinct (tpr, -fpr) pairs (moving past a threshold drops at least the rows scoring exactly at it, so tp or fp strictly decreases), so the tiebreak is dead. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the differential battery (256-case _metrics grid, 20 calibrate cases, _load_scores rows, sha incl. empty / 1-byte / 240 KB / ~2 MB files, content/sample hashes, fingerprint verify). Distinctness re-checked over 2000 random score sets: 0 violations. (The fourth unary operator at this position, USub_Invert `~threshold`, raises TypeError and is killed, not equivalent.)"
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceUnaryOperator_USub_UAdd:1"
+module = "textforensics.benchmark"
+operator = "core/ReplaceUnaryOperator_USub_UAdd"
+occurrence = 1
+start_pos = [175, 36]
+end_pos = [175, 37]
+function = "calibrate_threshold_jsonl"
+kind = "domain-equivalent"
+source_text = "-"
+source_fingerprint = "5b6ba1cd99ccb3f23cdd15c72ca32f0bf94635c26112e53d8fd33f047de9132d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (calibrate_threshold_jsonl): `-threshold` -> `+threshold` in the calibration candidate tuple `(tpr, -fpr, -threshold)`. The third element never decides the maximum: distinct candidate thresholds always give distinct (tpr, -fpr) pairs (moving past a threshold drops at least the rows scoring exactly at it, so tp or fp strictly decreases), so the tiebreak is dead. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the differential battery (256-case _metrics grid, 20 calibrate cases, _load_scores rows, sha incl. empty / 1-byte / 240 KB / ~2 MB files, content/sample hashes, fingerprint verify). Distinctness re-checked over 2000 random score sets: 0 violations. (The fourth unary operator at this position, USub_Invert `~threshold`, raises TypeError and is killed, not equivalent.)"
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceComparisonOperator_Gt_GtE:0"
+module = "textforensics.benchmark"
+operator = "core/ReplaceComparisonOperator_Gt_GtE"
+occurrence = 0
+start_pos = [176, 41]
+end_pos = [176, 42]
+function = "calibrate_threshold_jsonl"
+kind = "domain-equivalent"
+source_text = ">"
+source_fingerprint = "5b6ba1cd99ccb3f23cdd15c72ca32f0bf94635c26112e53d8fd33f047de9132d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (calibrate_threshold_jsonl): `candidate > best[0]` -> `>=`. Same distinctness proof as the tiebreak mutants: candidate tuples are never equal, so `>=` never differs from `>`. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the differential battery (256-case _metrics grid, 20 calibrate cases, _load_scores rows, sha incl. empty / 1-byte / 240 KB / ~2 MB files, content/sample hashes, fingerprint verify). Distinctness re-checked over 2000 random score sets: 0 violations."
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceComparisonOperator_Eq_LtE:7"
+module = "textforensics.benchmark"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 7
+start_pos = [538, 44]
+end_pos = [538, 46]
+function = "verify_fingerprint"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "1e3dd5d28e3e1aa192df94efd72e61b8b0d77fc869b036c55a0bbc27fc6e5f88"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (verify_fingerprint): `len(result[\"errors\"]) == 0` -> `<= 0`. Lengths are always >= 0, so the two coincide for every input. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the differential battery (256-case _metrics grid, 20 calibrate cases, _load_scores rows, sha incl. empty / 1-byte / 240 KB / ~2 MB files, content/sample hashes, fingerprint verify)."
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_Add_LShift:2"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_Add_LShift"
+occurrence = 2
+start_pos = [100, 32]
+end_pos = [100, 33]
+function = "_metrics"
+kind = "domain-equivalent"
+source_text = "+"
+source_fingerprint = "30246aa921f301f01ff6c7639f7b75e632433a0adcd97e6c5c11ddbf3f22ff08"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_metrics): `+` -> `<<` in the denominator guard of fpr (`fp + tn`). For non-negative counters `a << b` is 0 iff `a` is 0 (b >= 0); the guard differs from the sum only when the numerator is 0, in which case the rate is 0.0 either way. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs over the full 256-combination _metrics grid (every tp/fp/tn/fn in 0..3) plus the rest of the battery."
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_Add_LShift:4"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_Add_LShift"
+occurrence = 4
+start_pos = [101, 32]
+end_pos = [101, 33]
+function = "_metrics"
+kind = "domain-equivalent"
+source_text = "+"
+source_fingerprint = "30246aa921f301f01ff6c7639f7b75e632433a0adcd97e6c5c11ddbf3f22ff08"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_metrics): `+` -> `<<` in the denominator guard of fnr (`fn + tp`). For non-negative counters `a << b` is 0 iff `a` is 0 (b >= 0); the guard differs from the sum only when the numerator is 0, in which case the rate is 0.0 either way. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs over the full 256-combination _metrics grid (every tp/fp/tn/fn in 0..3) plus the rest of the battery."
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_Add_LShift:6"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_Add_LShift"
+occurrence = 6
+start_pos = [102, 32]
+end_pos = [102, 33]
+function = "_metrics"
+kind = "domain-equivalent"
+source_text = "+"
+source_fingerprint = "30246aa921f301f01ff6c7639f7b75e632433a0adcd97e6c5c11ddbf3f22ff08"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_metrics): `+` -> `<<` in the denominator guard of tpr (`tp + fn`). For non-negative counters `a << b` is 0 iff `a` is 0 (b >= 0); the guard differs from the sum only when the numerator is 0, in which case the rate is 0.0 either way. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs over the full 256-combination _metrics grid (every tp/fp/tn/fn in 0..3) plus the rest of the battery."
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_Add_LShift:8"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_Add_LShift"
+occurrence = 8
+start_pos = [103, 40]
+end_pos = [103, 41]
+function = "_metrics"
+kind = "domain-equivalent"
+source_text = "+"
+source_fingerprint = "30246aa921f301f01ff6c7639f7b75e632433a0adcd97e6c5c11ddbf3f22ff08"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_metrics): `+` -> `<<` in the denominator guard of specificity (`tn + fp`). For non-negative counters `a << b` is 0 iff `a` is 0 (b >= 0); the guard differs from the sum only when the numerator is 0, in which case the rate is 0.0 either way. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs over the full 256-combination _metrics grid (every tp/fp/tn/fn in 0..3) plus the rest of the battery."
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_Add_LShift:10"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_Add_LShift"
+occurrence = 10
+start_pos = [104, 38]
+end_pos = [104, 39]
+function = "_metrics"
+kind = "domain-equivalent"
+source_text = "+"
+source_fingerprint = "30246aa921f301f01ff6c7639f7b75e632433a0adcd97e6c5c11ddbf3f22ff08"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_metrics): `+` -> `<<` in the denominator guard of precision (`tp + fp`). For non-negative counters `a << b` is 0 iff `a` is 0 (b >= 0); the guard differs from the sum only when the numerator is 0, in which case the rate is 0.0 either way. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs over the full 256-combination _metrics grid (every tp/fp/tn/fn in 0..3) plus the rest of the battery."
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_Add_BitOr:2"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_Add_BitOr"
+occurrence = 2
+start_pos = [100, 32]
+end_pos = [100, 33]
+function = "_metrics"
+kind = "domain-equivalent"
+source_text = "+"
+source_fingerprint = "30246aa921f301f01ff6c7639f7b75e632433a0adcd97e6c5c11ddbf3f22ff08"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_metrics): `+` -> `|` in the denominator guard of fpr (`fp + tn`). For non-negative counters `a | b` is 0 iff both are 0, exactly like `a + b`, so the guard's truth value is identical for every input. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs over the full 256-combination _metrics grid (every tp/fp/tn/fn in 0..3) plus the rest of the battery."
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_Add_BitOr:4"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_Add_BitOr"
+occurrence = 4
+start_pos = [101, 32]
+end_pos = [101, 33]
+function = "_metrics"
+kind = "domain-equivalent"
+source_text = "+"
+source_fingerprint = "30246aa921f301f01ff6c7639f7b75e632433a0adcd97e6c5c11ddbf3f22ff08"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_metrics): `+` -> `|` in the denominator guard of fnr (`fn + tp`). For non-negative counters `a | b` is 0 iff both are 0, exactly like `a + b`, so the guard's truth value is identical for every input. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs over the full 256-combination _metrics grid (every tp/fp/tn/fn in 0..3) plus the rest of the battery."
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_Add_BitOr:6"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_Add_BitOr"
+occurrence = 6
+start_pos = [102, 32]
+end_pos = [102, 33]
+function = "_metrics"
+kind = "domain-equivalent"
+source_text = "+"
+source_fingerprint = "30246aa921f301f01ff6c7639f7b75e632433a0adcd97e6c5c11ddbf3f22ff08"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_metrics): `+` -> `|` in the denominator guard of tpr (`tp + fn`). For non-negative counters `a | b` is 0 iff both are 0, exactly like `a + b`, so the guard's truth value is identical for every input. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs over the full 256-combination _metrics grid (every tp/fp/tn/fn in 0..3) plus the rest of the battery."
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_Add_BitOr:8"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_Add_BitOr"
+occurrence = 8
+start_pos = [103, 40]
+end_pos = [103, 41]
+function = "_metrics"
+kind = "domain-equivalent"
+source_text = "+"
+source_fingerprint = "30246aa921f301f01ff6c7639f7b75e632433a0adcd97e6c5c11ddbf3f22ff08"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_metrics): `+` -> `|` in the denominator guard of specificity (`tn + fp`). For non-negative counters `a | b` is 0 iff both are 0, exactly like `a + b`, so the guard's truth value is identical for every input. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs over the full 256-combination _metrics grid (every tp/fp/tn/fn in 0..3) plus the rest of the battery."
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_Add_BitOr:10"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_Add_BitOr"
+occurrence = 10
+start_pos = [104, 38]
+end_pos = [104, 39]
+function = "_metrics"
+kind = "domain-equivalent"
+source_text = "+"
+source_fingerprint = "30246aa921f301f01ff6c7639f7b75e632433a0adcd97e6c5c11ddbf3f22ff08"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_metrics): `+` -> `|` in the denominator guard of precision (`tp + fp`). For non-negative counters `a | b` is 0 iff both are 0, exactly like `a + b`, so the guard's truth value is identical for every input. Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs over the full 256-combination _metrics grid (every tp/fp/tn/fn in 0..3) plus the rest of the battery."
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceComparisonOperator_Eq_LtE:1"
+module = "textforensics.benchmark"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 1
+start_pos = [89, 34]
+end_pos = [89, 36]
+function = "_metrics"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "30246aa921f301f01ff6c7639f7b75e632433a0adcd97e6c5c11ddbf3f22ff08"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_metrics): `pred == \"ai\"` -> `<=`. `pred` is computed inside _metrics as `\"ai\" if score >= threshold else \"human\"`, so its domain is exactly {\"ai\", \"human\"} and `<=` coincides with `==` on it (\"ai\" <= \"ai\" is True; \"human\" <= \"ai\" is False). Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs over the full 256-combination _metrics grid (every tp/fp/tn/fn in 0..3) plus the rest of the battery."
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceComparisonOperator_Eq_LtE:3"
+module = "textforensics.benchmark"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 3
+start_pos = [93, 18]
+end_pos = [93, 20]
+function = "_metrics"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "30246aa921f301f01ff6c7639f7b75e632433a0adcd97e6c5c11ddbf3f22ff08"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_metrics): `pred == \"ai\"` -> `<=`. `pred` is computed inside _metrics as `\"ai\" if score >= threshold else \"human\"`, so its domain is exactly {\"ai\", \"human\"} and `<=` coincides with `==` on it (\"ai\" <= \"ai\" is True; \"human\" <= \"ai\" is False). Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs over the full 256-combination _metrics grid (every tp/fp/tn/fn in 0..3) plus the rest of the battery."
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceComparisonOperator_Eq_LtE:5"
+module = "textforensics.benchmark"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 5
+start_pos = [156, 51]
+end_pos = [156, 53]
+function = "calibrate_threshold_jsonl"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "5b6ba1cd99ccb3f23cdd15c72ca32f0bf94635c26112e53d8fd33f047de9132d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (calibrate_threshold_jsonl): `label == \"ai\"` -> `<=` (ais comprehension). Rows come from _load_scores, which rejects any label outside {\"human\", \"ai\"}; on that domain the replacement coincides with `==` (\"human\" <= \"ai\" is False). Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the differential battery (256-case _metrics grid, 20 calibrate cases, _load_scores rows, sha incl. empty / 1-byte / 240 KB / ~2 MB files, content/sample hashes, fingerprint verify)."
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceComparisonOperator_Eq_GtE:4"
+module = "textforensics.benchmark"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 4
+start_pos = [155, 54]
+end_pos = [155, 56]
+function = "calibrate_threshold_jsonl"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "5b6ba1cd99ccb3f23cdd15c72ca32f0bf94635c26112e53d8fd33f047de9132d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (calibrate_threshold_jsonl): `label == \"human\"` -> `>=` (humans comprehension). Rows come from _load_scores, which rejects any label outside {\"human\", \"ai\"}; on that domain the replacement coincides with `==` (\"ai\" >= \"human\" is False). Re-verified 2026-11-08 against main 884f590: hand-applied mutant, 0 diffs across the differential battery (256-case _metrics grid, 20 calibrate cases, _load_scores rows, sha incl. empty / 1-byte / 240 KB / ~2 MB files, content/sample hashes, fingerprint verify)."
 # CONSENSUS ENTRIES (128: 121 annotation + 7 runtime, 2026-11-08)
 # -------------------------------------------------------------------
 # Source: local FULL run on branch fix/mutation-consensus at 8e6ffd1
