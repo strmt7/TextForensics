@@ -17,24 +17,35 @@ import json
 import math
 import os
 import tempfile
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
+from textforensics.benchmark import dataset_sha256
 from textforensics.calibration import (
     MIN_CALIBRATION_SAMPLES,
+    THRESHOLD_SELECTION_SCHEMA,
     CalibrationArtifact,
     CalibrationCurve,
     CalibrationError,
     CalibrationManager,
     CalibrationResult,
     DatasetReference,
+    ThresholdSelectionResult,
     _coerce_label,
+    _parse_iso8601,
     _probability_metrics,
+    _sigmoid,
     create_calibration_manager,
+    evaluate_threshold,
     load_calibration_artifact,
+    load_threshold_artifact,
+    run_calibration_evaluation,
     save_calibration_artifact,
+    select_threshold,
     validate_calibration_artifact,
+    validate_no_contamination,
 )
 
 
@@ -1277,6 +1288,455 @@ class TestConvenienceFunctions:
             path.write_text("[]", encoding="utf-8")
             with pytest.raises(CalibrationError, match="JSON object"):
                 load_calibration_artifact(path)
+
+
+# ---------------------------------------------------------------------------
+# Mutation kill tests (Phase 5, calibration prefix-200 batch)
+# ---------------------------------------------------------------------------
+
+#: Texts whose builtin-heuristic scores are separable: the "human" text
+#: scores ~0.216 and the "AI" text ~0.663, so a threshold between them has
+#: FPR 0 and TPR 1. Distinct suffixes keep calibration/evaluation rows
+#: disjoint for the contamination checks.
+_HUMAN_TEXT = (
+    "I ran this test yesterday. The first result looked odd, "
+    "so I changed one cable and wrote down the second result."
+)
+_AI_TEXT = (
+    "Furthermore, it is important to note that this robust solution "
+    "seamlessly unlocks the potential of an ever-evolving landscape."
+)
+
+
+def _write_scored_rows(path: Path, human_suffix: str, ai_suffix: str) -> None:
+    """Write 4 human + 4 AI rows (label + text) to a JSONL file."""
+    rows = [
+        {"label": "human", "text": f"{_HUMAN_TEXT} {human_suffix} {index}"}
+        for index in range(4)
+    ] + [
+        {"label": "ai", "text": f"{_AI_TEXT} {ai_suffix} {index}"}
+        for index in range(4)
+    ]
+    path.write_text(
+        "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+    )
+
+
+class TestCalibrationMutationKillTests:
+    """Behaviour tests that distinguish the original calibration.py from
+    each surviving cosmic-ray mutant in the Phase 5 prefix-200 batch
+    (indices [8], [114]-[128], [131], [132], [143], [144], [153],
+    [161]-[163], [166], [167], [179], [181], [182], [186] of the
+    classification table). Each test asserts real, observable behaviour
+    — a value, a raised error, or a validation issue — never merely
+    that a call succeeds.
+
+    NOT covered here (genuinely equivalent, reported to the
+    coordinator — no existing baseline kind fits them):
+    [130] ExceptionReplacer on the ``except CalibrationError`` in
+    ``CalibrationArtifact.validation_issues`` (dead handler:
+    ``__post_init__`` validates ``created_at`` first, so no live
+    instance can reach it); [147]/[148] NumberReplacer on the
+    ``_sigmoid`` branch threshold (the two branches are algebraically
+    identical; hand-applied mutants differ by at most 2 ulps over a
+    40,000-point sweep of [-20, 20]).
+    """
+
+    # -- _parse_iso8601 ([8], [161], [162]) ------------------------------
+
+    def test_parse_iso8601_keeps_explicit_offset(self):
+        # Mutant [8] negates `if parsed.tzinfo is None:`: an explicit
+        # +05:00 offset would be overwritten with UTC.
+        parsed = _parse_iso8601("2024-01-01T00:00:00+05:00", "created_at")
+        assert parsed.utcoffset() == timedelta(hours=5)
+
+    def test_parse_iso8601_zulu_suffix(self):
+        # Mutants [161] (1 -> 2) and [162] (1 -> 0) in `text[:-1]`
+        # corrupt the "Z" strip, so parsing a Zulu timestamp raises.
+        parsed = _parse_iso8601("2024-01-01T00:00:00Z", "created_at")
+        assert parsed == datetime(2024, 1, 1, 0, 0, tzinfo=UTC)
+
+    # -- _sigmoid ([153]) -------------------------------------------------
+
+    def test_sigmoid_negative_branch_value(self):
+        # Mutant [153] (1.0 -> 2.0) in `z / (1.0 + z)`: Platt with
+        # A=1, B=-1 at score 0 evaluates _sigmoid(-1) = 1 / (1 + e).
+        curve = CalibrationCurve(
+            method="platt", parameters={"A": 1.0, "B": -1.0}
+        )
+        assert curve.calibrate(0.0) == pytest.approx(0.2689414213699951)
+
+    # -- CalibrationCurve defaults ([163], [166], [167]) ------------------
+
+    def test_curve_default_sample_count_is_zero(self):
+        # Mutant [163] (0 -> 1): the default sample_count would be 1.
+        curve = CalibrationCurve(
+            method="platt", parameters={"A": 1.0, "B": 0.0}
+        )
+        assert curve.sample_count == 0
+
+    def test_curve_default_score_range(self):
+        # Mutants [166] (0.0 -> -1.0) and [167] (1.0 -> 2.0): the
+        # default score_range would be (-1.0, 1.0) or (0.0, 2.0).
+        curve = CalibrationCurve(
+            method="platt", parameters={"A": 1.0, "B": 0.0}
+        )
+        assert curve.score_range == (0.0, 1.0)
+
+    # -- Curve parameter validation ([179], [181], [182], [186]) ----------
+
+    def test_temperature_fractional_value_accepted(self):
+        # Mutant [179] (0.0 -> 1.0) in `temperature <= 0.0`: T=0.5
+        # would be rejected as non-positive.
+        curve = CalibrationCurve(
+            method="temperature", parameters={"T": 0.5}
+        )
+        # calibrate(0.5) = sigmoid(0.5 / 0.5) = sigmoid(1.0).
+        assert curve.calibrate(0.5) == pytest.approx(0.7310585786300049)
+
+    def test_temperature_zero_rejected(self):
+        with pytest.raises(CalibrationError, match="positive"):
+            CalibrationCurve(method="temperature", parameters={"T": 0.0})
+
+    def test_beta_default_c_is_zero(self):
+        # Mutants [181] (0.0 -> 1.0) and [182] (0.0 -> -1.0) in the
+        # default for `parameters.get("c", 0.0)`: with a=b=1 and no
+        # "c", calibrate(0.5) is sigmoid(0) = 0.5 exactly.
+        curve = CalibrationCurve(
+            method="beta", parameters={"a": 1.0, "b": 1.0}
+        )
+        assert curve.calibrate(0.5) == pytest.approx(0.5)
+
+    def test_beta_negative_b_rejected(self):
+        # Mutant [186] (0.0 -> -1.0) in `b < 0.0`: b=-0.5 would be
+        # accepted as non-negative.
+        with pytest.raises(CalibrationError, match="non-negative"):
+            CalibrationCurve(
+                method="beta", parameters={"a": 1.0, "b": -0.5, "c": 0.0}
+            )
+
+    # -- ThresholdSelectionResult.to_dict ([114]) -------------------------
+
+    def test_threshold_result_to_dict_default_warning(self):
+        # Mutant [114] negates `if self.warning:`: with warning=None
+        # the record would carry None instead of the default text.
+        result = ThresholdSelectionResult(
+            threshold=0.5,
+            observed_fpr=0.0,
+            observed_tpr=1.0,
+            target_fpr=0.01,
+            human_samples=4,
+            ai_samples=4,
+            detector_id="det1",
+            detector_version="1.0",
+            calibration_dataset_hash=hex64(9),
+        )
+        record = result.to_dict()
+        assert record["warning"].startswith("This artifact is fitted")
+
+    def test_threshold_result_to_dict_custom_warning(self):
+        # Same mutant, other direction: a custom warning would be
+        # dropped in favour of the default text.
+        result = ThresholdSelectionResult(
+            threshold=0.5,
+            observed_fpr=0.0,
+            observed_tpr=1.0,
+            target_fpr=0.01,
+            human_samples=4,
+            ai_samples=4,
+            detector_id="det1",
+            detector_version="1.0",
+            calibration_dataset_hash=hex64(9),
+            warning="custom warning",
+        )
+        assert result.to_dict()["warning"] == "custom warning"
+
+    # -- select_threshold ([115]-[119]) -----------------------------------
+
+    def test_select_threshold_valid_call_succeeds(self):
+        # Mutants [115] (valid target_fpr raises), [116] (both classes
+        # present raises), [118] (best never updated -> RuntimeError)
+        # and [119] (RuntimeError when a threshold was found) all turn
+        # this successful selection into an exception.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "calibration.jsonl"
+            _write_scored_rows(path, "observation", "sample")
+            result = select_threshold(path, target_fpr=0.01)
+            assert result.threshold is not None
+
+    def test_select_threshold_result_respects_target_fpr(self):
+        # Mutant [117] negates `if fpr <= target_fpr:`: it only
+        # accepts thresholds with FPR *above* the target, so its
+        # result has observed_fpr 1.0 on this separable data.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "calibration.jsonl"
+            _write_scored_rows(path, "observation", "sample")
+            result = select_threshold(path, target_fpr=0.01)
+            assert result.observed_fpr <= result.target_fpr
+            assert result.observed_tpr == pytest.approx(1.0)
+
+    def test_select_threshold_invalid_target_fpr_rejected(self):
+        # Mutant [115], other direction: target_fpr=1.5 would be
+        # accepted instead of raising.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "calibration.jsonl"
+            _write_scored_rows(path, "observation", "sample")
+            with pytest.raises(ValueError, match="between 0 and 1"):
+                select_threshold(path, target_fpr=1.5)
+
+    def test_select_threshold_single_class_rejected(self):
+        # Mutant [116], other direction: a human-only file would
+        # proceed (and die with ZeroDivisionError) instead of raising
+        # ValueError.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "calibration.jsonl"
+            rows = [
+                {"label": "human", "text": f"{_HUMAN_TEXT} only {i}"}
+                for i in range(4)
+            ]
+            path.write_text(
+                "".join(json.dumps(row) + "\n" for row in rows),
+                encoding="utf-8",
+            )
+            with pytest.raises(ValueError, match="at least one human"):
+                select_threshold(path, target_fpr=0.01)
+
+    # -- evaluate_threshold ([120]) ---------------------------------------
+
+    def test_evaluate_threshold_same_dataset_rejected(self):
+        # Mutant [120] negates the same-dataset guard: evaluating on
+        # the calibration dataset itself would proceed.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "data.jsonl"
+            _write_scored_rows(path, "observation", "sample")
+            with pytest.raises(ValueError, match="matches the calibration"):
+                evaluate_threshold(
+                    path,
+                    0.5,
+                    calibration_dataset_hash=dataset_sha256(path),
+                )
+
+    def test_evaluate_threshold_different_dataset_accepted(self):
+        # Same mutant, other direction: a genuinely different dataset
+        # would be rejected as if it were the calibration set.
+        with tempfile.TemporaryDirectory() as tmp:
+            cal_path = Path(tmp) / "calibration.jsonl"
+            eval_path = Path(tmp) / "evaluation.jsonl"
+            _write_scored_rows(cal_path, "observation", "sample")
+            _write_scored_rows(eval_path, "eval", "check")
+            result = evaluate_threshold(
+                eval_path,
+                0.5,
+                calibration_dataset_hash=dataset_sha256(cal_path),
+            )
+            assert result.evaluated == 8
+
+    # -- validate_no_contamination ([121], [122]) -------------------------
+
+    def test_no_contamination_identical_files_flagged(self):
+        # Mutant [121] negates `if cal_hash == test_hash:`: identical
+        # files would take the sample-overlap path and report
+        # shared_samples = 8 instead of -1 with the identical-file
+        # warning.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "data.jsonl"
+            _write_scored_rows(path, "observation", "sample")
+            result = validate_no_contamination(path, path)
+            assert result["contamination_detected"] is True
+            assert result["shared_samples"] == -1
+            assert "identical" in result["warning"]
+
+    def test_no_contamination_shared_sample_detected(self):
+        # Mutant [122] negates `if shared:`: a real one-sample overlap
+        # would be reported as valid.
+        with tempfile.TemporaryDirectory() as tmp:
+            cal_path = Path(tmp) / "calibration.jsonl"
+            eval_path = Path(tmp) / "evaluation.jsonl"
+            shared = {"label": "human", "text": f"{_HUMAN_TEXT} shared"}
+            cal_rows = [shared] + [
+                {"label": "ai", "text": f"{_AI_TEXT} cal {i}"}
+                for i in range(3)
+            ]
+            eval_rows = [shared] + [
+                {"label": "ai", "text": f"{_AI_TEXT} eval {i}"}
+                for i in range(3)
+            ]
+            cal_path.write_text(
+                "".join(json.dumps(row) + "\n" for row in cal_rows),
+                encoding="utf-8",
+            )
+            eval_path.write_text(
+                "".join(json.dumps(row) + "\n" for row in eval_rows),
+                encoding="utf-8",
+            )
+            result = validate_no_contamination(cal_path, eval_path)
+            assert result["contamination_detected"] is True
+            assert result["shared_samples"] == 1
+            assert result["valid"] is False
+
+    def test_no_contamination_disjoint_files_valid(self):
+        # Mutants [121]/[122], other direction: disjoint files would
+        # be flagged as contaminated.
+        with tempfile.TemporaryDirectory() as tmp:
+            cal_path = Path(tmp) / "calibration.jsonl"
+            eval_path = Path(tmp) / "evaluation.jsonl"
+            _write_scored_rows(cal_path, "observation", "sample")
+            _write_scored_rows(eval_path, "eval", "check")
+            result = validate_no_contamination(cal_path, eval_path)
+            assert result["contamination_detected"] is False
+            assert result["shared_samples"] == 0
+            assert result["valid"] is True
+
+    # -- load_threshold_artifact ([123]-[127]) ----------------------------
+
+    def _valid_threshold_record(self) -> dict:
+        return {
+            "schema": THRESHOLD_SELECTION_SCHEMA,
+            "threshold": 0.5,
+            "calibration_dataset_hash": hex64(9),
+        }
+
+    def test_load_threshold_artifact_valid_round_trip(self):
+        # Mutants [123] (a dict raises), [124] (valid schema flagged),
+        # [125] (present threshold flagged missing), [126] (present
+        # hash flagged missing) and [127] (raise when there are no
+        # errors) all reject this valid artifact.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "artifact.json"
+            path.write_text(
+                json.dumps(self._valid_threshold_record()), encoding="utf-8"
+            )
+            assert load_threshold_artifact(path) == self._valid_threshold_record()
+
+    def test_load_threshold_artifact_non_object_rejected(self):
+        # Mutant [123], other direction: a JSON list would proceed
+        # (and die with AttributeError) instead of raising ValueError.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "artifact.json"
+            path.write_text("[]", encoding="utf-8")
+            with pytest.raises(ValueError, match="JSON object"):
+                load_threshold_artifact(path)
+
+    def test_load_threshold_artifact_bad_schema_rejected(self):
+        # Mutant [124], other direction: an unsupported schema would
+        # be accepted.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "artifact.json"
+            record = self._valid_threshold_record()
+            record["schema"] = "textforensics.nope/v9"
+            path.write_text(json.dumps(record), encoding="utf-8")
+            with pytest.raises(ValueError, match="Unsupported schema"):
+                load_threshold_artifact(path)
+
+    def test_load_threshold_artifact_missing_threshold_rejected(self):
+        # Mutant [125], other direction: a record without "threshold"
+        # would be accepted.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "artifact.json"
+            record = self._valid_threshold_record()
+            del record["threshold"]
+            path.write_text(json.dumps(record), encoding="utf-8")
+            with pytest.raises(ValueError, match="Missing required field: threshold"):
+                load_threshold_artifact(path)
+
+    def test_load_threshold_artifact_missing_hash_rejected(self):
+        # Mutant [126], other direction: a record without
+        # "calibration_dataset_hash" would be accepted.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "artifact.json"
+            record = self._valid_threshold_record()
+            del record["calibration_dataset_hash"]
+            path.write_text(json.dumps(record), encoding="utf-8")
+            with pytest.raises(
+                ValueError, match="Missing required field: calibration_dataset_hash"
+            ):
+                load_threshold_artifact(path)
+
+    # -- run_calibration_evaluation ([128]) -------------------------------
+
+    def test_run_calibration_evaluation_disjoint_pipeline(self):
+        # Mutant [128] negates `if validation["contamination_detected"]:`:
+        # a clean pipeline would raise instead of returning results.
+        with tempfile.TemporaryDirectory() as tmp:
+            cal_path = Path(tmp) / "calibration.jsonl"
+            eval_path = Path(tmp) / "evaluation.jsonl"
+            _write_scored_rows(cal_path, "observation", "sample")
+            _write_scored_rows(eval_path, "eval", "check")
+            result = run_calibration_evaluation(cal_path, eval_path, target_fpr=0.01)
+            assert result["validation"]["contamination_detected"] is False
+            assert result["evaluation_result"]["evaluated"] == 8
+            assert result["calibration_result"]["observed_false_positive_rate"] <= 0.01
+
+    # -- validation_issues except handlers ([131], [132]) -----------------
+
+    def test_validation_issues_bad_manifest_hash_reported(self):
+        # Mutant [131] replaces the `except CalibrationError` in
+        # _disjointness_declaration_issues: an invalid manifest hash
+        # would propagate out of validation_issues instead of being
+        # reported as an issue.
+        kwargs = eligible_artifact_kwargs()
+        kwargs["disjointness"] = {
+            "strategy": "disjoint_sample_ids",
+            "evidence": "ids differ",
+            "sample_id_manifest_sha256": "not-a-sha256-hash",
+        }
+        artifact = CalibrationArtifact(
+            artifact_id="det1:cal1",
+            detector_id="det1",
+            detector_version="1.0",
+            curve=platt_curve(),
+            calibration_id="cal1",
+            created_at="2024-01-01T00:00:00+00:00",
+            **kwargs,
+        )
+        issues = artifact.validation_issues()
+        assert any("sample_id_manifest_sha256" in issue for issue in issues)
+
+    def test_validation_issues_non_numeric_metric_reported(self):
+        # Mutant [132] replaces the `except CalibrationError` in
+        # _metric_issues: a non-numeric metric would propagate out of
+        # validation_issues instead of being reported as an issue.
+        kwargs = eligible_artifact_kwargs()
+        kwargs["metrics"] = {"brier": "not-a-number", "ece": 0.05, "log_loss": 0.30}
+        artifact = CalibrationArtifact(
+            artifact_id="det1:cal1",
+            detector_id="det1",
+            detector_version="1.0",
+            curve=platt_curve(),
+            calibration_id="cal1",
+            created_at="2024-01-01T00:00:00+00:00",
+            **kwargs,
+        )
+        issues = artifact.validation_issues()
+        assert any("metrics.brier" in issue for issue in issues)
+
+    # -- validate_no_contamination except handlers ([143], [144]) ---------
+
+    def test_no_contamination_unreadable_calibration_samples(self):
+        # Mutant [143] replaces the `except Exception` around the
+        # calibration-side _compute_sample_hashes: a file whose bytes
+        # are not valid UTF-8 (dataset_sha256 still hashes it fine)
+        # would propagate UnicodeDecodeError instead of returning
+        # valid=False with a warning.
+        with tempfile.TemporaryDirectory() as tmp:
+            cal_path = Path(tmp) / "calibration.jsonl"
+            eval_path = Path(tmp) / "evaluation.jsonl"
+            cal_path.write_bytes(b"\xff\xfe\x00not valid utf-8\n")
+            _write_scored_rows(eval_path, "eval", "check")
+            result = validate_no_contamination(cal_path, eval_path)
+            assert result["valid"] is False
+            assert "warning" in result
+
+    def test_no_contamination_unreadable_test_samples(self):
+        # Mutant [144]: same, test side.
+        with tempfile.TemporaryDirectory() as tmp:
+            cal_path = Path(tmp) / "calibration.jsonl"
+            eval_path = Path(tmp) / "evaluation.jsonl"
+            _write_scored_rows(cal_path, "observation", "sample")
+            eval_path.write_bytes(b"\xff\xfe\x00not valid utf-8\n")
+            result = validate_no_contamination(cal_path, eval_path)
+            assert result["valid"] is False
+            assert "warning" in result
 
 
 if __name__ == "__main__":
