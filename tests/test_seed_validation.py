@@ -763,3 +763,261 @@ class TestSeededRegistry:
                 record.record_id + record.data.dataset_name for record in registry.records
             ).lower()
         )
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 RAID humans-100: re-seed overrides + the supported gate
+# ---------------------------------------------------------------------------
+
+
+def _passing_triples():
+    """100 human + 100 machine triples that pass all 8 support conditions.
+
+    Human scores stay below machine scores (AUROC 1.0), no human row
+    verdicts ai_like (native FPR 0/100), and abstentions are spread
+    evenly so no metric is degenerate.
+    """
+    triples = []
+    for i in range(100):
+        score = round(0.15 + 0.002 * i, 4)
+        verdict = "abstain" if i % 10 == 0 else "human_like"
+        triples.append((0, score, verdict))
+    for i in range(100):
+        score = round(0.55 + 0.002 * i, 4)
+        verdict = "abstain" if i % 10 == 0 else "ai_like"
+        triples.append((1, score, verdict))
+    return triples
+
+
+def _high_fpr_triples():
+    """100 human + 100 machine triples with native FPR 0.10 (10/100)."""
+    triples = []
+    for i in range(100):
+        score = round(0.15 + 0.002 * i, 4)
+        verdict = "ai_like" if i < 10 else "human_like"
+        triples.append((0, score, verdict))
+    for i in range(100):
+        score = round(0.55 + 0.002 * i, 4)
+        verdict = "ai_like"
+        triples.append((1, score, verdict))
+    return triples
+
+
+def _synthetic_artifact_20261108():
+    artifact = _synthetic_artifact()
+    artifact["run_id"] = "EV-20261108-synthetic-test"
+    artifact["run_artifact"] = "docs/evidence/runs/EV-20261108-synthetic-test.json"
+    artifact["run_date"] = "2026-11-08"
+    return artifact
+
+
+class TestReseedOverrides:
+    def test_bootstrap_seed_override_changes_method_strings(self, seed):
+        record, _measurements = seed.record_from_triples(
+            "raid",
+            _synthetic_triples(),
+            word_counts=[100] * 80,
+            domains=["synthetic-domain"],
+            generators=["synthetic-generator"],
+            artifact=_synthetic_artifact_20261108(),
+            cache_file_sha256="c" * 64,
+            bootstrap_seed=20261108,
+        )
+        assert record.metrics[0].auroc.method == "bootstrap, 1000 resamples, seed 20261108"
+        assert record.run.seeds["bootstrap_seed"] == 20261108
+        assert record.run.reporting_rules.endswith("seed 20261108")
+        assert record.status == "partial"
+
+    def test_record_id_and_supersedes_overrides(self, seed):
+        record, _measurements = seed.record_from_triples(
+            "raid",
+            _synthetic_triples(),
+            word_counts=[100] * 80,
+            domains=["synthetic-domain"],
+            generators=["synthetic-generator"],
+            artifact=_synthetic_artifact_20261108(),
+            cache_file_sha256="c" * 64,
+            record_id="evr-20261108-raid-builtin-heuristic",
+            supersedes="evr-20261106-raid-builtin-heuristic",
+        )
+        assert record.record_id == "evr-20261108-raid-builtin-heuristic"
+        assert record.supersedes == "evr-20261106-raid-builtin-heuristic"
+        assert verify_signature(record.to_dict())
+
+    def test_text_overrides_replace_the_config_texts(self, seed):
+        record, _measurements = seed.record_from_triples(
+            "raid",
+            _synthetic_triples(),
+            word_counts=[100] * 80,
+            domains=["synthetic-domain"],
+            generators=["synthetic-generator"],
+            artifact=_synthetic_artifact_20261108(),
+            cache_file_sha256="c" * 64,
+            known_failure_modes=["custom failure mode"],
+            limitations_extra=["custom limitation"],
+            appeal_note="custom appeal note",
+        )
+        assert list(record.limits.known_failure_modes) == ["custom failure mode"]
+        assert "custom limitation" in record.limits.limitations
+        assert record.limits.appeal_note == "custom appeal note"
+
+
+class TestSupportedGate:
+    def test_allow_supported_with_passing_triples_yields_supported(self, seed):
+        record, measurements = seed.record_from_triples(
+            "raid",
+            _passing_triples(),
+            word_counts=[100] * 200,
+            domains=["synthetic-domain"],
+            generators=["synthetic-generator"],
+            artifact=_synthetic_artifact_20261108(),
+            cache_file_sha256="c" * 64,
+            bootstrap_seed=20261108,
+            record_id="evr-20261108-raid-builtin-heuristic",
+            supersedes="evr-20261106-raid-builtin-heuristic",
+            allow_supported=True,
+        )
+        assert record.status == "supported"
+        assert measurements["support_blockers"] == []
+        assert effective_status(record, detector_version="0.1.0", now="2026-11-08") == "supported"
+        assert validate_evidence_record(record.to_dict()) == []
+        assert validate_record(record.to_dict()) == []
+        assert verify_signature(record.to_dict())
+        assert record.limits.next_revalidation_due == "2027-02-06"
+        assert record.metrics[0].fpr_native.value == 0.0
+        assert record.metrics[0].fpr_native.ci_upper == 0.0
+
+    def test_allow_supported_with_thin_human_slice_stays_partial(self, seed):
+        _record, measurements = seed.record_from_triples(
+            "raid",
+            _synthetic_triples(),
+            word_counts=[100] * 80,
+            domains=["synthetic-domain"],
+            generators=["synthetic-generator"],
+            artifact=_synthetic_artifact_20261108(),
+            cache_file_sha256="c" * 64,
+            allow_supported=True,
+        )
+        assert _record.status == "partial"
+        assert any("n_human=40" in blocker for blocker in measurements["support_blockers"])
+
+    def test_allow_supported_with_high_fpr_stays_partial(self, seed):
+        _record, measurements = seed.record_from_triples(
+            "raid",
+            _high_fpr_triples(),
+            word_counts=[100] * 200,
+            domains=["synthetic-domain"],
+            generators=["synthetic-generator"],
+            artifact=_synthetic_artifact_20261108(),
+            cache_file_sha256="c" * 64,
+            allow_supported=True,
+        )
+        assert _record.status == "partial"
+        assert any("ceiling" in blocker for blocker in measurements["support_blockers"])
+
+    def test_supported_gate_defaults_off(self, seed):
+        record, _measurements = seed.record_from_triples(
+            "raid",
+            _passing_triples(),
+            word_counts=[100] * 200,
+            domains=["synthetic-domain"],
+            generators=["synthetic-generator"],
+            artifact=_synthetic_artifact_20261108(),
+            cache_file_sha256="c" * 64,
+            bootstrap_seed=20261108,
+        )
+        assert record.status == "partial"
+        assert "support_blockers" not in _measurements
+
+
+class TestVerifyArtifactRegistryHold:
+    def test_verify_run_artifact_without_registry_entry(self, seed):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = _write_fake_u7_repo(Path(tmpdir), key="raid", run_date="20261108")
+            # The registry hold: the artifact exists but no entry pins it yet.
+            (repo / "docs" / "evidence" / "registry.json").write_text(
+                json.dumps({"schema": "textforensics.evidence-registry/v1", "records": []})
+            )
+            with pytest.raises(ValueError, match="no entry"):
+                seed.verify_run_artifact("raid", repo_root=repo, run_date="20261108")
+            proven = seed.verify_run_artifact(
+                "raid", repo_root=repo, run_date="20261108", require_registry_entry=False
+            )
+            assert proven["run_id"] == "EV-20261108-dataset-raid"
+            assert proven["run_date"] == "2026-11-08"
+            assert len(proven["run_artifact_sha256"]) == 64
+
+
+def _write_synthetic_raid_cache(tmp: Path) -> Path:
+    """Write a small synthetic RAID cache as a second sample file."""
+    cache_dir = tmp / "cache"
+    spec = get_spec("raid")
+    human_text = " ".join(["The committee reviewed the annual report and noted the findings."] * 12)
+    machine_text = " ".join(
+        ["Moreover the systematic analysis demonstrates significant outcomes."] * 12
+    )
+    rows = [
+        NormalizedRow(
+            text=human_text,
+            label=0,
+            dataset="raid",
+            config="raid",
+            split="train",
+            source_id=f"synthetic-human-{i}",
+            regime="raid",
+            meta={"domain": "news", "model": "human"},
+        )
+        for i in range(12)
+    ] + [
+        NormalizedRow(
+            text=machine_text,
+            label=1,
+            dataset="raid",
+            config="raid",
+            split="train",
+            source_id=f"synthetic-machine-{i}",
+            regime="raid",
+            meta={"domain": "news", "model": "gpt4"},
+        )
+        for i in range(12)
+    ]
+    write_sample_cache(
+        spec, "raid", "train", rows, cache_dir=cache_dir, filename="train-6000.jsonl"
+    )
+    return cache_dir
+
+
+class TestBuildRecordReseed:
+    def test_build_record_with_cache_filename_and_registry_hold(self, seed):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            repo = _write_fake_u7_repo(tmp / "repo", key="raid", run_date="20261108")
+            (repo / "docs" / "evidence" / "registry.json").write_text(
+                json.dumps({"schema": "textforensics.evidence-registry/v1", "records": []})
+            )
+            cache_dir = _write_synthetic_raid_cache(tmp)
+            record, measurements = seed.build_record(
+                "raid",
+                cache_dir=cache_dir,
+                repo_root=repo,
+                run_date="20261108",
+                cache_filename="train-6000.jsonl",
+                bootstrap_seed=20261108,
+                record_id="evr-20261108-raid-builtin-heuristic",
+                supersedes="evr-20261106-raid-builtin-heuristic",
+                allow_supported=True,
+                require_registry_entry=False,
+            )
+            assert record.record_id == "evr-20261108-raid-builtin-heuristic"
+            assert record.supersedes == "evr-20261106-raid-builtin-heuristic"
+            assert record.run.run_id == "EV-20261108-dataset-raid"
+            assert record.run.seeds["bootstrap_seed"] == 20261108
+            assert record.limits.next_revalidation_due == "2027-02-06"
+            assert record.metrics[0].n_human == 12
+            assert record.metrics[0].n_ai == 12
+            # 12 humans cannot support: the gate keeps it partial and says why.
+            assert record.status == "partial"
+            assert any("n_human=12" in blocker for blocker in measurements["support_blockers"])
+            assert validate_evidence_record(record.to_dict()) == []
+            assert validate_record(record.to_dict()) == []
+            assert verify_signature(record.to_dict())

@@ -73,7 +73,12 @@ from textforensics.datasets import (  # noqa: E402
     read_sample_cache,
 )
 from textforensics.detectors import BuiltinHeuristicDetector  # noqa: E402
-from textforensics.evidence import MetricEstimate  # noqa: E402
+from textforensics.evidence import (  # noqa: E402
+    DEFAULT_FPR_CEILING,
+    MIN_AI_SAMPLES,
+    MIN_HUMAN_SAMPLES,
+    MetricEstimate,
+)
 from textforensics.schema import load_schema, validate_evidence_record  # noqa: E402
 from textforensics.validation import (  # noqa: E402
     DropItem,
@@ -88,6 +93,7 @@ from textforensics.validation import (  # noqa: E402
     ValidationRecord,
     ValidationRegistry,
     compute_signature,
+    contamination_label,
     default_next_revalidation_due,
     effective_status,
     validate_record,
@@ -444,7 +450,9 @@ def bootstrap_ci(
     return lower, upper
 
 
-def metric_with_ci(value: float, n: int, ci: tuple[float, float]) -> MetricEstimate:
+def metric_with_ci(
+    value: float, n: int, ci: tuple[float, float], *, method: str | None = None
+) -> MetricEstimate:
     """Build a MetricEstimate, rounding to 4 decimals.
 
     A percentile bootstrap CI can exclude the point estimate on a
@@ -452,6 +460,8 @@ def metric_with_ci(value: float, n: int, ci: tuple[float, float]) -> MetricEstim
     bounds are then widened to include it, because MetricEstimate
     requires the value to lie inside its CI. The widening is the
     minimal change that keeps the interval honest about the point.
+    ``method`` defaults to the module CI_METHOD (seed 20261106); a
+    re-seed passes its own method string verbatim.
     """
     rounded_value = round(float(value), 4)
     lower = min(round(float(ci[0]), 4), rounded_value)
@@ -459,18 +469,36 @@ def metric_with_ci(value: float, n: int, ci: tuple[float, float]) -> MetricEstim
     lower = max(0.0, lower)
     upper = min(1.0, upper)
     return MetricEstimate(
-        value=rounded_value, n=n, ci_lower=lower, ci_upper=upper, method=CI_METHOD
+        value=rounded_value, n=n, ci_lower=lower, ci_upper=upper, method=method or CI_METHOD
     )
 
 
-def measure_triples(triples: list[tuple[int, float, str]]) -> dict:
+def ci_method_for_seed(seed: int) -> str:
+    """The verbatim CI method string for a bootstrap seed (seed = run date)."""
+    if seed == BOOTSTRAP_SEED:
+        return CI_METHOD
+    return f"bootstrap, 1000 resamples, seed {seed}"
+
+
+def reporting_rules_for_seed(seed: int) -> str:
+    """The verbatim reporting-rules string for a bootstrap seed."""
+    if seed == BOOTSTRAP_SEED:
+        return REPORTING_RULES
+    return REPORTING_RULES.replace("seed 20261106", f"seed {seed}")
+
+
+def measure_triples(
+    triples: list[tuple[int, float, str]], *, bootstrap_seed: int = BOOTSTRAP_SEED
+) -> dict:
     """Compute per-slice metrics with bootstrap CIs from (label, score, verdict) triples.
 
     ``triples`` are (label 1 = machine / 0 = human, detector score,
     detector verdict). AUROC and TPR@FPR reuse the implementations in
     ``scripts/measure_datasets.py``. Returns MetricEstimates for auroc,
     tpr_at_fpr_0_01, tpr_at_fpr_0_05, fpr_native and tpr_native, plus
-    abstention_rate / coverage floats and the class counts.
+    abstention_rate / coverage floats and the class counts. The
+    bootstrap seed is the run date (U1 used 20261106); a re-seed passes
+    its own seed and the method string records it verbatim.
     """
     labels = [label for label, _, _ in triples]
     scores = [score for _, score, _ in triples]
@@ -485,16 +513,19 @@ def measure_triples(triples: list[tuple[int, float, str]]) -> dict:
     auroc_ci = bootstrap_ci(
         lambda sample: auroc([lab for lab, _ in sample], [s for _, s in sample]),
         [(lab, s) for lab, s in pairs],
+        seed=bootstrap_seed,
     )
     tpr_01_value = tpr_at_fpr(labels, scores, 0.01)
     tpr_01_ci = bootstrap_ci(
         lambda sample: tpr_at_fpr([lab for lab, _ in sample], [s for _, s in sample], 0.01),
         [(lab, s) for lab, s in pairs],
+        seed=bootstrap_seed,
     )
     tpr_05_value = tpr_at_fpr(labels, scores, 0.05)
     tpr_05_ci = bootstrap_ci(
         lambda sample: tpr_at_fpr([lab for lab, _ in sample], [s for _, s in sample], 0.05),
         [(lab, s) for lab, s in pairs],
+        seed=bootstrap_seed,
     )
 
     human_verdicts = [v for lab, v in zip(labels, verdicts, strict=True) if lab == 0]
@@ -503,25 +534,29 @@ def measure_triples(triples: list[tuple[int, float, str]]) -> dict:
     fpr_ci = bootstrap_ci(
         lambda sample: sum(1 for v in sample if v == "ai_like") / len(sample),
         human_verdicts,
+        seed=bootstrap_seed,
     )
     tpr_native_value = sum(1 for v in machine_verdicts if v == "ai_like") / n_ai
     tpr_native_ci = bootstrap_ci(
         lambda sample: sum(1 for v in sample if v == "ai_like") / len(sample),
         machine_verdicts,
+        seed=bootstrap_seed,
     )
     abstentions = sum(1 for v in verdicts if v == "abstain")
     abstention_rate = abstentions / len(triples)
     abstention_ci = bootstrap_ci(
         lambda sample: sum(1 for v in sample if v == "abstain") / len(sample),
         verdicts,
+        seed=bootstrap_seed,
     )
 
+    ci_method = ci_method_for_seed(bootstrap_seed)
     return {
-        "auroc": metric_with_ci(auroc_value, len(triples), auroc_ci),
-        "tpr_at_fpr_0_01": metric_with_ci(tpr_01_value, n_ai, tpr_01_ci),
-        "tpr_at_fpr_0_05": metric_with_ci(tpr_05_value, n_ai, tpr_05_ci),
-        "fpr_native": metric_with_ci(fpr_value, n_human, fpr_ci),
-        "tpr_native": metric_with_ci(tpr_native_value, n_ai, tpr_native_ci),
+        "auroc": metric_with_ci(auroc_value, len(triples), auroc_ci, method=ci_method),
+        "tpr_at_fpr_0_01": metric_with_ci(tpr_01_value, n_ai, tpr_01_ci, method=ci_method),
+        "tpr_at_fpr_0_05": metric_with_ci(tpr_05_value, n_ai, tpr_05_ci, method=ci_method),
+        "fpr_native": metric_with_ci(fpr_value, n_human, fpr_ci, method=ci_method),
+        "tpr_native": metric_with_ci(tpr_native_value, n_ai, tpr_native_ci, method=ci_method),
         "abstention_rate": round(abstention_rate, 4),
         "abstention_ci": (round(abstention_ci[0], 4), round(abstention_ci[1], 4)),
         "coverage": round(1.0 - abstention_rate, 4),
@@ -624,7 +659,13 @@ def aggregate_scope(key: str, labelled_rows) -> dict[str, list[str]]:
 # ---------------------------------------------------------------------------
 
 
-def verify_run_artifact(key: str, *, repo_root: Path, run_date: str | None = None) -> dict:
+def verify_run_artifact(
+    key: str,
+    *,
+    repo_root: Path,
+    run_date: str | None = None,
+    require_registry_entry: bool = True,
+) -> dict:
     """Verify a dataset's U7 run artifact against the U7 registry.
 
     ``run_date`` is the ``YYYYMMDD`` stamp in the artifact filename
@@ -636,6 +677,17 @@ def verify_run_artifact(key: str, *, repo_root: Path, run_date: str | None = Non
     when the U7 registry has no entry for it, or when the registry's
     ``run_artifact_sha256`` differs from the recomputed SHA-256 of
     the artifact file.
+
+    ``require_registry_entry=False`` skips the registry cross-check
+    and trusts only the recomputed SHA-256 of the artifact file. It
+    exists for the registry-hold workflow (Phase 5 RAID humans-100):
+    the new run artifact is written as a standalone file and its
+    registry record is delivered as a patch file for the parent to
+    apply, so no registry entry exists yet at build time. The parent's
+    apply step rebuilds the evidence registry, which then pins the
+    artifact SHA-256; the record's ``run_artifact_sha256`` is the
+    recomputed file hash either way, so later tampering is still
+    caught by the evidence registry and the claims gate.
     """
     runs_dir = repo_root / "docs" / "evidence" / "runs"
     slug = key.replace("_", "-")
@@ -653,6 +705,15 @@ def verify_run_artifact(key: str, *, repo_root: Path, run_date: str | None = Non
         raise ValueError(f"U7 run artifact missing: {artifact_path}")
     artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
     actual_sha = _sha256_file(artifact_path)
+    if not require_registry_entry:
+        return {
+            "run_id": str(artifact["evidence_record_id"]),
+            "run_artifact": f"docs/evidence/runs/{artifact_name}",
+            "run_artifact_sha256": actual_sha,
+            "run_date": str(artifact["run_date"]),
+            "code_version": str(artifact["code_version"]),
+            "drops": list(artifact.get("drops", [])),
+        }
     registry_path = repo_root / "docs" / "evidence" / "registry.json"
     registry = json.loads(registry_path.read_text(encoding="utf-8"))
     entry = next(
@@ -686,6 +747,57 @@ def verify_run_artifact(key: str, *, repo_root: Path, run_date: str | None = Non
 # ---------------------------------------------------------------------------
 
 
+def support_gate_blockers(record: ValidationRecord, measurements: dict) -> list[str]:
+    """Reasons a record cannot hold ``supported`` status (empty when it can).
+
+    The EIGHT conditions for ``supported``, verified from the code:
+
+    1. stored status is ``supported`` (the candidate is built that way);
+    2. no missing mandatory-for-supported fields
+       (``validation._MANDATORY_FOR_SUPPORTED``, 39 fields);
+    3. detector version matches the version the status is evaluated at;
+    4. ``limits.demoted_by`` is unset;
+    5. ``now`` is not past ``limits.next_revalidation_due`` (run date + 90 days);
+       conditions 1–5 are exactly what ``effective_status`` computes —
+       a stored ``supported`` that fails any of them comes back ``partial``
+       (missing fields) or ``stale`` (version / demotion / due date);
+    6. ``n_human >= 100`` AND ``n_ai >= 100`` (``evidence.MIN_HUMAN_SAMPLES`` /
+       ``MIN_AI_SAMPLES`` — the ``_support_blockers`` sample check);
+    7. ``contamination_flag == "no"`` (``contamination_label`` is None);
+    8. ``fpr_native`` carries a CI with ``ci_upper <= 0.05``
+       (``evidence.DEFAULT_FPR_CEILING`` — the ``_fpr_blockers`` check for
+       the human_false_positive_evidence dimension).
+
+    The temporal_version_stability longitudinal blocker (U3 clean runs)
+    is NOT a record-level condition: it caps only that one Trust Map
+    dimension, never the record's effective status.
+    """
+    blockers: list[str] = []
+    effective = effective_status(
+        record, detector_version=record.detector_version, now=record.run.run_date
+    )
+    if effective != "supported":
+        blockers.append(f"effective record status is {effective!r}")
+    if record.data.n_human < MIN_HUMAN_SAMPLES or record.data.n_ai < MIN_AI_SAMPLES:
+        blockers.append(
+            f"sample counts are thin (n_human={record.data.n_human}, "
+            f"n_ai={record.data.n_ai}; at least {MIN_HUMAN_SAMPLES} each "
+            "are required)"
+        )
+    label = contamination_label(record)
+    if label is not None:
+        blockers.append(label)
+    fpr_native = measurements["fpr_native"]
+    if not fpr_native.has_ci:
+        blockers.append("no fpr_native metric carries a confidence interval")
+    elif fpr_native.ci_upper is not None and fpr_native.ci_upper > DEFAULT_FPR_CEILING:
+        blockers.append(
+            f"fpr_native ci_upper is {fpr_native.ci_upper}, which exceeds "
+            f"the ceiling {DEFAULT_FPR_CEILING}"
+        )
+    return blockers
+
+
 def record_from_triples(
     key: str,
     triples: list[tuple[int, float, str]],
@@ -702,17 +814,41 @@ def record_from_triples(
     command: str | None = None,
     runner: str | None = None,
     length_floor: int = 80,
+    bootstrap_seed: int | None = None,
+    record_id: str | None = None,
+    supersedes: str | None = None,
+    allow_supported: bool = False,
+    known_failure_modes: list[str] | tuple[str, ...] | None = None,
+    limitations_extra: list[str] | tuple[str, ...] | None = None,
+    appeal_note: str | None = None,
 ) -> tuple[ValidationRecord, dict]:
     """Build (and dual-validate) one seed ValidationRecord from measured triples.
 
     ``artifact`` is the verified run provenance from
-    :func:`verify_run_artifact`. The record is stored as ``partial``:
-    no reviewer has assessed it, the samples are preliminary strided
-    subsets, and (for RAID) the human slice is below 100 rows. The
-    record is signed, then checked against BOTH the JSON schema and
-    the Python validator; any issue raises ValueError. Returns the
-    record and the full measurements dict (which also carries native
-    TPR — a value the record schema has no slot for).
+    :func:`verify_run_artifact`. By default the record is stored as
+    ``partial``: no reviewer has assessed it, the samples are
+    preliminary strided subsets, and (for RAID) the human slice is
+    below 100 rows. With ``allow_supported=True`` the stored status is
+    ``supported`` ONLY when every condition in
+    :func:`support_gate_blockers` holds (all eight: stored supported,
+    no missing mandatory fields, version match, not demoted, due date
+    not passed, n_human/n_ai >= 100, contamination ``no``, fpr_native
+    CI upper <= 0.05); any failing condition keeps the record
+    ``partial`` and the failing conditions are reported in
+    ``measurements["support_blockers"]``. The record is signed, then
+    checked against BOTH the JSON schema and the Python validator; any
+    issue raises ValueError. Returns the record and the full
+    measurements dict (which also carries native TPR — a value the
+    record schema has no slot for).
+
+    ``bootstrap_seed`` is the run date as a YYYYMMDD stamp (U1 used
+    20261106); it is recorded verbatim in every metric method string,
+    ``run.seeds.bootstrap_seed`` and the reporting rules. The
+    ``record_id`` / ``supersedes`` / ``known_failure_modes`` /
+    ``limitations_extra`` / ``appeal_note`` overrides exist for a
+    re-seed that supersedes an earlier record (Phase 5 RAID humans-100)
+    without rewriting the original seed config — the original config
+    still reproduces the original record.
 
     The ``spec_key`` / ``slice_id`` / ``split`` / ``command`` /
     ``runner`` / ``length_floor`` overrides exist for the U4 segment
@@ -727,7 +863,8 @@ def record_from_triples(
         raise ValueError(f"no seed config for dataset {key!r}")
     config = SEED_CONFIGS[key]
     spec = get_spec(spec_key or key)
-    measurements = measure_triples(triples)
+    seed = BOOTSTRAP_SEED if bootstrap_seed is None else bootstrap_seed
+    measurements = measure_triples(triples, bootstrap_seed=seed)
     if not word_counts:
         raise ValueError(f"{key}: no labelled rows to measure length statistics.")
     ordered_counts = sorted(word_counts)
@@ -767,106 +904,126 @@ def record_from_triples(
             )
         )
 
-    record = ValidationRecord(
-        record_id=config["record_id"],
-        detector_id=BuiltinHeuristicDetector.detector_id,
-        detector_version=BuiltinHeuristicDetector.detector_version,
-        detector_family=BuiltinHeuristicDetector.detector_family,
-        calibration_id=None,
-        status="partial",
-        supersedes=None,
-        regime=Regime(
-            language=config.get("language", "en"),
-            script=config.get("script", "Latn"),
-            language_variety=config.get("language_variety"),
-            length_bucket=LengthBucket(
-                min_words=length_floor,
-                max_words=None,
-                floor_words=length_floor,
-                measured_min_words=measured_min,
-                measured_median_words=measured_median,
-                measured_max_words=measured_max,
+    failure_modes = tuple(
+        known_failure_modes if known_failure_modes is not None else config["known_failure_modes"]
+    )
+    extra_limitations = tuple(
+        limitations_extra if limitations_extra is not None else config["limitations_extra"]
+    )
+    note = appeal_note if appeal_note is not None else config["appeal_note"]
+    new_record_id = record_id or config["record_id"]
+    new_supersedes = supersedes if supersedes is not None else config.get("supersedes")
+
+    def assemble(stored_status: str) -> ValidationRecord:
+        record = ValidationRecord(
+            record_id=new_record_id,
+            detector_id=BuiltinHeuristicDetector.detector_id,
+            detector_version=BuiltinHeuristicDetector.detector_version,
+            detector_family=BuiltinHeuristicDetector.detector_family,
+            calibration_id=None,
+            status=stored_status,
+            supersedes=new_supersedes,
+            regime=Regime(
+                language=config.get("language", "en"),
+                script=config.get("script", "Latn"),
+                language_variety=config.get("language_variety"),
+                length_bucket=LengthBucket(
+                    min_words=length_floor,
+                    max_words=None,
+                    floor_words=length_floor,
+                    measured_min_words=measured_min,
+                    measured_median_words=measured_median,
+                    measured_max_words=measured_max,
+                ),
+                domain=tuple(domains),
+                genre=config["genre"],
+                generator=GeneratorInfo(
+                    families=tuple(generators),
+                    vintage=config["vintage"],
+                    current_as_of=run_date,
+                ),
+                editing_regime=config["editing_regime"],
+                human_population=HumanPopulation(
+                    populations=tuple(config["populations"]),
+                    determined_how=config["determined_how"],
+                ),
+                attack_slice=None,
             ),
-            domain=tuple(domains),
-            genre=config["genre"],
-            generator=GeneratorInfo(
-                families=tuple(generators),
-                vintage=config["vintage"],
-                current_as_of=run_date,
-            ),
-            editing_regime=config["editing_regime"],
-            human_population=HumanPopulation(
-                populations=tuple(config["populations"]),
-                determined_how=config["determined_how"],
-            ),
-            attack_slice=None,
-        ),
-        data=RecordData(
-            dataset_name=config["dataset_name"],
-            dataset_version=f"{spec.hf_id} snapshot {run_date} (no versioned release)",
-            file_sha256=cache_file_sha256,
-            row_hash_method=ROW_HASH_METHOD,
-            split=split or SAMPLE_PLAN[key]["split"],
-            split_role="test",
-            n_human=measurements["n_human"],
-            n_ai=measurements["n_ai"],
-            licence=str(spec.licence),
-            licence_reference=spec.source_url,
-            contamination_flag="no",
-            near_duplicate_rate=None,
-            near_duplicate_method=None,
-        ),
-        run=RunInfo(
-            run_id=artifact["run_id"],
-            run_artifact=artifact["run_artifact"],
-            run_artifact_sha256=artifact["run_artifact_sha256"],
-            run_date=run_date,
-            runner=runner or "U1 seed (scripts/seed_validation.py)",
-            code_version=artifact["code_version"],
-            dependency_lock_sha=None,
-            hardware=f"{platform.machine()} ({platform.system()} {platform.release()})",
-            runtime=f"CPython {platform.python_version()} on {sys.platform}",
-            seeds={"bootstrap_seed": BOOTSTRAP_SEED},
-            command=command or f"python scripts/seed_validation.py --only {key}",
-            drops_manifest=tuple(drops),
-            reporting_rules=REPORTING_RULES,
-        ),
-        metrics=(
-            SliceMetrics(
-                slice_id=slice_id or f"{key}-builtin-heuristic",
+            data=RecordData(
+                dataset_name=config["dataset_name"],
+                dataset_version=f"{spec.hf_id} snapshot {run_date} (no versioned release)",
+                file_sha256=cache_file_sha256,
+                row_hash_method=ROW_HASH_METHOD,
+                split=split or SAMPLE_PLAN[key]["split"],
+                split_role="test",
                 n_human=measurements["n_human"],
                 n_ai=measurements["n_ai"],
-                auroc=measurements["auroc"],
-                tpr_at_fpr_0_01=measurements["tpr_at_fpr_0_01"],
-                tpr_at_fpr_0_05=measurements["tpr_at_fpr_0_05"],
-                fpr_native=measurements["fpr_native"],
-                tpr_native=measurements["tpr_native"],
-                coverage=measurements["coverage"],
-                abstention_rate=measurements["abstention_rate"],
-                worst_slice=True,
-                fpr_operating_point=NATIVE_OPERATING_POINT,
+                licence=str(spec.licence),
+                licence_reference=spec.source_url,
+                contamination_flag="no",
+                near_duplicate_rate=None,
+                near_duplicate_method=None,
             ),
-        ),
-        limits=RecordLimits(
-            known_failure_modes=tuple(config["known_failure_modes"]),
-            limitations=tuple(BASE_LIMITATIONS + config["limitations_extra"]),
-            next_revalidation_due=default_next_revalidation_due(run_date),
-            appeal_note=config["appeal_note"],
-            reviewer=None,
-            review_date=None,
-            demoted_by=None,
-        ),
-        signature="0" * 64,
-    )
-    signed = dataclasses.replace(record, signature=compute_signature(record))
-    payload = signed.to_dict()
-    schema_issues = validate_evidence_record(payload)
-    if schema_issues:
-        raise ValueError(f"{key}: record fails JSON schema: {schema_issues}")
-    python_issues = validate_record(payload)
-    if python_issues:
-        raise ValueError(f"{key}: record fails Python validator: {python_issues}")
-    return signed, measurements
+            run=RunInfo(
+                run_id=artifact["run_id"],
+                run_artifact=artifact["run_artifact"],
+                run_artifact_sha256=artifact["run_artifact_sha256"],
+                run_date=run_date,
+                runner=runner or "U1 seed (scripts/seed_validation.py)",
+                code_version=artifact["code_version"],
+                dependency_lock_sha=None,
+                hardware=f"{platform.machine()} ({platform.system()} {platform.release()})",
+                runtime=f"CPython {platform.python_version()} on {sys.platform}",
+                seeds={"bootstrap_seed": seed},
+                command=command or f"python scripts/seed_validation.py --only {key}",
+                drops_manifest=tuple(drops),
+                reporting_rules=reporting_rules_for_seed(seed),
+            ),
+            metrics=(
+                SliceMetrics(
+                    slice_id=slice_id or f"{key}-builtin-heuristic",
+                    n_human=measurements["n_human"],
+                    n_ai=measurements["n_ai"],
+                    auroc=measurements["auroc"],
+                    tpr_at_fpr_0_01=measurements["tpr_at_fpr_0_01"],
+                    tpr_at_fpr_0_05=measurements["tpr_at_fpr_0_05"],
+                    fpr_native=measurements["fpr_native"],
+                    tpr_native=measurements["tpr_native"],
+                    coverage=measurements["coverage"],
+                    abstention_rate=measurements["abstention_rate"],
+                    worst_slice=True,
+                    fpr_operating_point=NATIVE_OPERATING_POINT,
+                ),
+            ),
+            limits=RecordLimits(
+                known_failure_modes=failure_modes,
+                limitations=tuple(BASE_LIMITATIONS + list(extra_limitations)),
+                next_revalidation_due=default_next_revalidation_due(run_date),
+                appeal_note=note,
+                reviewer=None,
+                review_date=None,
+                demoted_by=None,
+            ),
+            signature="0" * 64,
+        )
+        signed = dataclasses.replace(record, signature=compute_signature(record))
+        payload = signed.to_dict()
+        schema_issues = validate_evidence_record(payload)
+        if schema_issues:
+            raise ValueError(f"{key}: record fails JSON schema: {schema_issues}")
+        python_issues = validate_record(payload)
+        if python_issues:
+            raise ValueError(f"{key}: record fails Python validator: {python_issues}")
+        return signed
+
+    if not allow_supported:
+        return assemble("partial"), measurements
+    candidate = assemble("supported")
+    blockers = support_gate_blockers(candidate, measurements)
+    measurements["support_blockers"] = blockers
+    if blockers:
+        return assemble("partial"), measurements
+    return candidate, measurements
 
 
 def build_record(
@@ -875,6 +1032,17 @@ def build_record(
     cache_dir: Path | None = None,
     repo_root: Path = REPO_ROOT,
     run_date: str | None = None,
+    cache_filename: str | None = None,
+    bootstrap_seed: int | None = None,
+    record_id: str | None = None,
+    supersedes: str | None = None,
+    allow_supported: bool = False,
+    known_failure_modes: list[str] | tuple[str, ...] | None = None,
+    limitations_extra: list[str] | tuple[str, ...] | None = None,
+    appeal_note: str | None = None,
+    command: str | None = None,
+    runner: str | None = None,
+    require_registry_entry: bool = True,
 ) -> tuple[ValidationRecord, dict]:
     """Build one seed record from the cached sample (no network).
 
@@ -883,18 +1051,30 @@ def build_record(
     U7 artifact hash against the U7 registry, then builds the record.
     Returns the record and the full measurements dict (native TPR
     included — the record schema has no slot for it).
+
+    ``cache_filename`` reads a coexisting second sample of the same
+    config/split (e.g. the Phase 5 RAID ``train-6000.jsonl`` next to
+    the U1 ``train.jsonl``) instead of the default cache file; its
+    manifest is the matching ``.manifest.json``. The remaining
+    overrides are passed through to :func:`record_from_triples` (a
+    re-seed with its own bootstrap seed / record id / supersedes, and
+    the ``supported`` gate); ``require_registry_entry=False`` is the
+    registry-hold path, see :func:`verify_run_artifact`.
     """
     if key not in SEED_CONFIGS:
         raise ValueError(f"no seed config for dataset {key!r} (MixSet has no record: no licence)")
     spec = get_spec(key)
     plan = SAMPLE_PLAN[key]
-    rows = read_sample_cache(spec, plan["config"], plan["split"], cache_dir=cache_dir)
-    cache_file = cache_path(spec.key, plan["config"], plan["split"], cache_dir=cache_dir)
-    manifest = json.loads(
-        manifest_path(spec.key, plan["config"], plan["split"], cache_dir=cache_dir).read_text(
-            encoding="utf-8"
-        )
+    rows = read_sample_cache(
+        spec, plan["config"], plan["split"], cache_dir=cache_dir, filename=cache_filename
     )
+    cache_file = cache_path(spec.key, plan["config"], plan["split"], cache_dir=cache_dir)
+    if cache_filename is not None:
+        cache_file = cache_file.with_name(cache_filename)
+        manifest_file = cache_file.with_suffix(".manifest.json")
+    else:
+        manifest_file = manifest_path(spec.key, plan["config"], plan["split"], cache_dir=cache_dir)
+    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
     cache_sha = _sha256_file(cache_file)
     if manifest["file_sha256"] != cache_sha:
         raise ValueError(
@@ -911,7 +1091,9 @@ def build_record(
         triples.append((int(row.label), float(prediction.score), str(prediction.verdict)))
         word_counts.append(len(row.text.split()))
     scope = aggregate_scope(key, labelled)
-    artifact = verify_run_artifact(key, repo_root=repo_root, run_date=run_date)
+    artifact = verify_run_artifact(
+        key, repo_root=repo_root, run_date=run_date, require_registry_entry=require_registry_entry
+    )
     return record_from_triples(
         key,
         triples,
@@ -921,6 +1103,15 @@ def build_record(
         artifact=artifact,
         n_partial=n_partial,
         cache_file_sha256=cache_sha,
+        bootstrap_seed=bootstrap_seed,
+        record_id=record_id,
+        supersedes=supersedes,
+        allow_supported=allow_supported,
+        known_failure_modes=known_failure_modes,
+        limitations_extra=limitations_extra,
+        appeal_note=appeal_note,
+        command=command,
+        runner=runner,
     )
 
 

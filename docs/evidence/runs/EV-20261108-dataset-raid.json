@@ -1,0 +1,93 @@
+{
+  "badge": "available",
+  "code_version": "884f590a5e9444ac0bb7508f3380aa60ccc09f01",
+  "command": "python scripts/measure_raid_humans.py",
+  "drops": [
+    {
+      "item": "full-corpus evaluation",
+      "reason": "preliminary sample only (n=6000 normalised rows from 2270000 split rows)"
+    },
+    {
+      "item": "Python 3.11, 3.13, 3.14, 3.15",
+      "reason": "measured on the local interpreter only; CI covers the matrix"
+    },
+    {
+      "item": "train/test threshold selection",
+      "reason": "no threshold was fitted on this sample; AUROC/TPR@FPR are threshold-free"
+    }
+  ],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261108-dataset-raid",
+  "kind": "command",
+  "results": {
+    "auroc": 0.5958,
+    "cache_file": "train-6000.jsonl",
+    "cache_file_sha256": "59cf57c4db6778dad065cc78c4b4f92c54544d57652aa30606c307c3f81d44d3",
+    "config": "raid",
+    "dataset": "raid",
+    "detector": "textforensics/builtin-heuristic",
+    "detector_abstentions": 3023,
+    "detector_evaluated_rows": 6000,
+    "detector_version": "0.1.0",
+    "disjointness": {
+      "against": "raid_test/test (n=50)",
+      "checked": true,
+      "disjoint": true,
+      "errors": [],
+      "shared_samples": 0,
+      "verified": true
+    },
+    "disjointness_vs_previous_sample": {
+      "against": "raid/train U1 sample (n=3000)",
+      "checked": true,
+      "disjoint": true,
+      "errors": [],
+      "shared_samples": 0,
+      "verified": true
+    },
+    "hf_id": "liamdugan/raid",
+    "label_counts": {
+      "0": 171,
+      "1": 5829
+    },
+    "licence": "MIT",
+    "mean_score_by_kind": {
+      "raid": 0.332
+    },
+    "phase_shift": 189,
+    "preliminary": true,
+    "rows_by_kind": {
+      "raid": 6000
+    },
+    "rows_fetched": 6000,
+    "rows_normalised": 6000,
+    "sampling": "strided",
+    "sampling_note": "strided offsets i*2270000//6000+189: the 6000-grid shifted by half its step so the sample is disjoint from the U1 3000-row strided sample by row index (verified by content hash below); never contiguous \u2014 RAID train is blocked-ordered (first ~200 rows all human)",
+    "score_by_label": {
+      "human": {
+        "max": 0.6159,
+        "mean": 0.2853,
+        "median": 0.2757,
+        "min": 0.0758,
+        "n": 171
+      },
+      "machine": {
+        "max": 0.8545,
+        "mean": 0.3333,
+        "median": 0.3192,
+        "min": 0.0,
+        "n": 5829
+      }
+    },
+    "split": "train",
+    "split_rows_total": 2270000,
+    "tpr_at_1pct_fpr": 0.0571,
+    "tpr_at_5pct_fpr": 0.1414
+  },
+  "run_date": "2026-11-08",
+  "schema": "textforensics.run-artifact/v1"
+}

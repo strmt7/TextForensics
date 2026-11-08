@@ -1,0 +1,177 @@
+{
+  "schema": "textforensics.evidence-record/v1",
+  "record_id": "evr-20261108-raid-builtin-heuristic",
+  "detector_id": "textforensics/builtin-heuristic",
+  "detector_version": "0.1.0",
+  "detector_family": "stylometric-heuristic",
+  "calibration_id": null,
+  "status": "supported",
+  "supersedes": "evr-20261106-raid-builtin-heuristic",
+  "regime": {
+    "language": "en",
+    "script": "Latn",
+    "language_variety": null,
+    "length_bucket": {
+      "min_words": 80,
+      "max_words": null,
+      "floor_words": 80,
+      "measured_min_words": 1,
+      "measured_median_words": 229,
+      "measured_max_words": 4373
+    },
+    "domain": [
+      "abstracts",
+      "books",
+      "news",
+      "poetry"
+    ],
+    "genre": "multi-domain benchmark sample (abstracts, books, news, poetry)",
+    "generator": {
+      "families": [
+        "chatgpt",
+        "cohere",
+        "cohere-chat",
+        "gpt2",
+        "gpt3",
+        "gpt4",
+        "llama-chat",
+        "mistral",
+        "mistral-chat",
+        "mpt",
+        "mpt-chat"
+      ],
+      "vintage": "2022-2023 (generators in the RAID release; Dugan et al. 2024)",
+      "current_as_of": "2026-11-08"
+    },
+    "editing_regime": "raw",
+    "human_population": {
+      "populations": [
+        "general human authors"
+      ],
+      "determined_how": "Dataset documentation (RAID paper, Dugan et al. 2024): human texts sourced from arXiv abstracts, books, news, poetry and other upstream corpora; no per-author demographics recorded"
+    },
+    "attack_slice": null
+  },
+  "data": {
+    "dataset_name": "RAID",
+    "dataset_version": "liamdugan/raid snapshot 2026-11-08 (no versioned release)",
+    "file_sha256": "59cf57c4db6778dad065cc78c4b4f92c54544d57652aa30606c307c3f81d44d3",
+    "row_hash_method": "sha256 of normalised text (benchmark fingerprint)",
+    "split": "train",
+    "split_role": "test",
+    "n_human": 171,
+    "n_ai": 5829,
+    "licence": "MIT",
+    "licence_reference": "https://huggingface.co/datasets/liamdugan/raid",
+    "contamination_flag": "no",
+    "near_duplicate_rate": null,
+    "near_duplicate_method": null
+  },
+  "run": {
+    "run_id": "EV-20261108-dataset-raid",
+    "run_artifact": "docs/evidence/runs/EV-20261108-dataset-raid.json",
+    "run_artifact_sha256": "e4ec0aa2fa69440ac17ee58a1775b1186d877f371e648f19316b601d4e3fd39e",
+    "run_date": "2026-11-08",
+    "runner": "Phase 5 release-gate (scripts/build_raid_humans_patch.py)",
+    "code_version": "884f590a5e9444ac0bb7508f3380aa60ccc09f01",
+    "dependency_lock_sha": null,
+    "hardware": "x86_64 (Linux 7.0.0-43-generic)",
+    "runtime": "CPython 3.12.3 on linux",
+    "seeds": {
+      "bootstrap_seed": 20261108
+    },
+    "command": "python scripts/build_raid_humans_patch.py",
+    "drops_manifest": [
+      {
+        "item": "full-corpus evaluation",
+        "reason": "preliminary sample only (n=6000 normalised rows from 2270000 split rows)"
+      },
+      {
+        "item": "Python 3.11, 3.13, 3.14, 3.15",
+        "reason": "measured on the local interpreter only; CI covers the matrix"
+      },
+      {
+        "item": "train/test threshold selection",
+        "reason": "no threshold was fitted on this sample; AUROC/TPR@FPR are threshold-free"
+      },
+      {
+        "item": "per-slice breakdowns (per-domain / per-generator / per-attack)",
+        "reason": "this seed record reports one pooled slice per dataset; finer slices are wave-2 work"
+      }
+    ],
+    "reporting_rules": "Labelled rows only; abstentions counted separately from AUROC/TPR (abstained rows still contribute their score); no score threshold fitted — AUROC and TPR@FPR are threshold-free; native FPR/TPR at the detector's native categorical verdict; bootstrap 95% CIs, 1000 resamples, seed 20261108"
+  },
+  "metrics": [
+    {
+      "slice_id": "raid-builtin-heuristic",
+      "n_human": 171,
+      "n_ai": 5829,
+      "auroc": {
+        "value": 0.5958,
+        "n": 6000,
+        "ci_lower": 0.5621,
+        "ci_upper": 0.6314,
+        "method": "bootstrap, 1000 resamples, seed 20261108"
+      },
+      "tpr_at_fpr_0_01": {
+        "value": 0.0571,
+        "n": 5829,
+        "ci_lower": 0.0425,
+        "ci_upper": 0.1375,
+        "method": "bootstrap, 1000 resamples, seed 20261108"
+      },
+      "tpr_at_fpr_0_05": {
+        "value": 0.1414,
+        "n": 5829,
+        "ci_lower": 0.106,
+        "ci_upper": 0.261,
+        "method": "bootstrap, 1000 resamples, seed 20261108"
+      },
+      "fpr_native": {
+        "value": 0.0,
+        "n": 171,
+        "ci_lower": 0.0,
+        "ci_upper": 0.0,
+        "method": "bootstrap, 1000 resamples, seed 20261108",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold"
+      },
+      "coverage": 0.4962,
+      "abstention_rate": 0.5038,
+      "worst_slice": true,
+      "tpr_native": {
+        "value": 0.022,
+        "n": 5829,
+        "ci_lower": 0.0184,
+        "ci_upper": 0.0257,
+        "method": "bootstrap, 1000 resamples, seed 20261108"
+      }
+    }
+  ],
+  "limits": {
+    "known_failure_modes": [
+      "heuristic score distributions for human and machine text overlap heavily (AUROC 0.5958 on this sample)",
+      "adversarial attack variants (whitespace, case, paragraph insertion, article deletion) are pooled into this slice and not reported separately"
+    ],
+    "limitations": [
+      "not validated for non-English text",
+      "not validated for texts below 80 words (the detector's minimum)",
+      "not validated for generators newer than the record's declared vintage",
+      "not validated for human populations outside the record's declared population",
+      "no reviewer has assessed this record; it is a preliminary seed, not a reviewed validation",
+      "the sample is a strided subset of the split, not a full-corpus evaluation",
+      "near-duplicate rate was not measured for this sample",
+      "contamination_flag is 'no' because the builtin detector is a hand-written stylometric heuristic with no training: it was not trained on this dataset or on any other text corpus, so it cannot have memorised evaluation rows",
+      "attack slices are not reported separately in this record (wave-2 concern)",
+      "the strided sample covers only the domains observed in the cache (abstracts, books, news, poetry); other RAID domains are not represented in this sample",
+      "this sample supersedes the U1 3000-row sample (evr-20261106-raid-builtin-heuristic); the U1 cache is preserved and the two samples are disjoint by content hash",
+      "phase-shifted strided sample (n=6000, +189 rows; human density 0.0285)",
+      "native false-positive rate is 0.0 on this sample (0 of 171 human rows verdict ai_like at the native operating point)"
+    ],
+    "next_revalidation_due": "2027-02-06",
+    "appeal_note": "A reviewed assessment and per-attack reporting would change this record",
+    "reviewer": null,
+    "review_date": null,
+    "demoted_by": null
+  },
+  "signature": "c6963fac4d68ce5ab6dd3b44ac85cf01c5a1795258daf5419f06c952a4bc1673"
+}
