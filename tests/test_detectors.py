@@ -532,41 +532,31 @@ class DetectorsMutationKillTests(unittest.TestCase):
 
     def test_source_embedded_32_chars_raises(self):
         source = "y" * 32
-        _, failure = execute_detector(
-            _WarningDetector(["prefix " + source + " suffix"]), source
-        )
+        _, failure = execute_detector(_WarningDetector(["prefix " + source + " suffix"]), source)
         self.assertIsNotNone(failure)
         self.assertEqual(failure.error_type, "DetectorContractError")
 
     def test_source_embedded_33_chars_raises(self):
         source = "y" * 33
-        _, failure = execute_detector(
-            _WarningDetector(["prefix " + source + " suffix"]), source
-        )
+        _, failure = execute_detector(_WarningDetector(["prefix " + source + " suffix"]), source)
         self.assertIsNotNone(failure)
         self.assertEqual(failure.error_type, "DetectorContractError")
 
     def test_short_source_inside_warning_passes(self):
         source = "short"
-        result, failure = execute_detector(
-            _WarningDetector(["xx short yy"]), source
-        )
+        result, failure = execute_detector(_WarningDetector(["xx short yy"]), source)
         self.assertIsNotNone(result)
         self.assertIsNone(failure)
 
     def test_evidence_string_echo_raises(self):
         source = "This is a forty character long source text!"
-        _, failure = execute_detector(
-            _EvidenceDetector([{"note": source}]), source
-        )
+        _, failure = execute_detector(_EvidenceDetector([{"note": source}]), source)
         self.assertIsNotNone(failure)
         self.assertEqual(failure.error_type, "DetectorContractError")
 
     def test_evidence_list_string_echo_raises(self):
         source = "This is a forty character long source text!"
-        _, failure = execute_detector(
-            _EvidenceDetector([{"notes": [source]}]), source
-        )
+        _, failure = execute_detector(_EvidenceDetector([{"notes": [source]}]), source)
         self.assertIsNotNone(failure)
         self.assertEqual(failure.error_type, "DetectorContractError")
 
@@ -580,9 +570,7 @@ class DetectorsMutationKillTests(unittest.TestCase):
 
     def test_v2_prediction_distinct_object_validates(self):
         result = prediction()
-        result.schema = _fresh_string(
-            "textforensics.detector-result/", "v2"
-        )
+        result.schema = _fresh_string("textforensics.detector-result/", "v2")
         validate_prediction(result)
         self.assertEqual(result.schema, DETECTOR_SCHEMA_V2)
 
@@ -633,9 +621,7 @@ class DetectorsMutationKillTests(unittest.TestCase):
         result.supported_length = {"min_words": 80, "max_words": 500}
         result.min_words = 80
         normalize_prediction(result)
-        self.assertEqual(
-            result.supported_length, {"min_words": 80, "max_words": 500}
-        )
+        self.assertEqual(result.supported_length, {"min_words": 80, "max_words": 500})
 
     def test_normalize_derives_supported_length(self):
         result = prediction()
@@ -643,9 +629,7 @@ class DetectorsMutationKillTests(unittest.TestCase):
         result.supported_length = None
         result.min_words = 80
         normalize_prediction(result)
-        self.assertEqual(
-            result.supported_length, {"min_words": 80, "max_words": None}
-        )
+        self.assertEqual(result.supported_length, {"min_words": 80, "max_words": None})
 
     def test_normalize_supported_length_without_min_words(self):
         result = prediction()
@@ -653,9 +637,7 @@ class DetectorsMutationKillTests(unittest.TestCase):
         result.supported_length = {"min_words": 80, "max_words": 500}
         result.min_words = None
         normalize_prediction(result)
-        self.assertEqual(
-            result.supported_length, {"min_words": 80, "max_words": 500}
-        )
+        self.assertEqual(result.supported_length, {"min_words": 80, "max_words": 500})
 
     def test_normalize_keeps_runtime(self):
         result = prediction()
@@ -946,9 +928,7 @@ class DetectorsMutationKillTests(unittest.TestCase):
         return result
 
     def test_calibration_valid(self):
-        validate_prediction(
-            self._calibrated({"calibration_id": "c1", "method": "platt"})
-        )
+        validate_prediction(self._calibrated({"calibration_id": "c1", "method": "platt"}))
 
     def test_calibration_string_rejected(self):
         result = prediction()
@@ -958,14 +938,10 @@ class DetectorsMutationKillTests(unittest.TestCase):
 
     def test_calibration_bad_method_rejected(self):
         with self.assertRaises(DetectorContractError):
-            validate_prediction(
-                self._calibrated({"calibration_id": "c1", "method": "bogus"})
-            )
+            validate_prediction(self._calibrated({"calibration_id": "c1", "method": "bogus"}))
 
     def test_calibration_no_fingerprint_valid(self):
-        validate_prediction(
-            self._calibrated({"calibration_id": "c1", "method": "platt"})
-        )
+        validate_prediction(self._calibrated({"calibration_id": "c1", "method": "platt"}))
 
     def test_calibration_fingerprint_63_rejected(self):
         with self.assertRaises(DetectorContractError):
@@ -1051,9 +1027,7 @@ class DetectorsMutationKillTests(unittest.TestCase):
         validate_prediction(result)
 
     def test_calibration_id_match_distinct_objects_valid(self):
-        result = prediction(
-            probability=0.5, calibration_id=_fresh_string("c", "1")
-        )
+        result = prediction(probability=0.5, calibration_id=_fresh_string("c", "1"))
         result.calibration = {
             "calibration_id": _fresh_string("c", "1"),
             "method": "platt",
@@ -1141,9 +1115,7 @@ class DetectorsMutationKillTests(unittest.TestCase):
 
     def test_evidence_schema_match_distinct_objects_valid(self):
         result = prediction()
-        result.evidence_schema = _fresh_string(
-            "textforensics.detector-evidence/", "v1"
-        )
+        result.evidence_schema = _fresh_string("textforensics.detector-evidence/", "v1")
         validate_prediction(result)
         self.assertEqual(result.evidence_schema, DETECTOR_EVIDENCE_SCHEMA)
 
@@ -1174,9 +1146,7 @@ class DetectorsMutationKillTests(unittest.TestCase):
 
     def test_probability_negative_rejected(self):
         with self.assertRaises(DetectorContractError):
-            validate_prediction(
-                prediction(probability=-0.5, calibration_id="c1")
-            )
+            validate_prediction(prediction(probability=-0.5, calibration_id="c1"))
 
     def test_probability_zero_valid(self):
         validate_prediction(prediction(probability=0.0, calibration_id="c1"))
@@ -1189,9 +1159,7 @@ class DetectorsMutationKillTests(unittest.TestCase):
 
     def test_probability_above_one_rejected(self):
         with self.assertRaises(DetectorContractError):
-            validate_prediction(
-                prediction(probability=1.5, calibration_id="c1")
-            )
+            validate_prediction(prediction(probability=1.5, calibration_id="c1"))
 
     def test_reliability_negative_rejected(self):
         result = prediction()
@@ -1399,9 +1367,7 @@ class DetectorsMutationKillTests(unittest.TestCase):
             result = BuiltinHeuristicDetector().detect("some text")
         self.assertEqual(result.min_words, 80)
         self.assertEqual(result.score_range, [0.0, 1.0])
-        self.assertEqual(
-            result.supported_length, {"min_words": 80, "max_words": None}
-        )
+        self.assertEqual(result.supported_length, {"min_words": 80, "max_words": None})
 
     def test_builtin_runtime_ms_measured(self):
         with (
@@ -1482,9 +1448,7 @@ class DetectorsMutationKillTests(unittest.TestCase):
 
     def test_registry_contains_builtin(self):
         registry = discover_detector_registry()
-        self.assertIn(
-            "textforensics/builtin-heuristic", registry.detectors
-        )
+        self.assertIn("textforensics/builtin-heuristic", registry.detectors)
 
     def test_registry_registers_valid_plugin(self):
         with patch(
@@ -1493,11 +1457,7 @@ class DetectorsMutationKillTests(unittest.TestCase):
         ):
             registry = discover_detector_registry()
         self.assertIn("fake/detector", registry.detectors)
-        health = [
-            item
-            for item in registry.plugin_health
-            if item.entry_point == "fake-ep"
-        ][0]
+        health = [item for item in registry.plugin_health if item.entry_point == "fake-ep"][0]
         self.assertEqual(health.status, "ok")
 
     def test_registry_rejects_duplicate_plugin(self):
@@ -1506,11 +1466,7 @@ class DetectorsMutationKillTests(unittest.TestCase):
             return_value=[_FakeEntryPoint("dup-ep", _DuplicateIdDetector)],
         ):
             registry = discover_detector_registry()
-        health = [
-            item
-            for item in registry.plugin_health
-            if item.entry_point == "dup-ep"
-        ][0]
+        health = [item for item in registry.plugin_health if item.entry_point == "dup-ep"][0]
         self.assertEqual(health.status, "error")
 
     def test_registry_rejects_empty_id_plugin(self):
@@ -1519,11 +1475,7 @@ class DetectorsMutationKillTests(unittest.TestCase):
             return_value=[_FakeEntryPoint("empty-ep", _EmptyIdDetector)],
         ):
             registry = discover_detector_registry()
-        health = [
-            item
-            for item in registry.plugin_health
-            if item.entry_point == "empty-ep"
-        ][0]
+        health = [item for item in registry.plugin_health if item.entry_point == "empty-ep"][0]
         self.assertEqual(health.status, "error")
 
     def test_registry_rejects_non_detector_plugin(self):
@@ -1532,32 +1484,22 @@ class DetectorsMutationKillTests(unittest.TestCase):
             return_value=[_FakeEntryPoint("bad-ep", _NotADetector)],
         ):
             registry = discover_detector_registry()
-        health = [
-            item
-            for item in registry.plugin_health
-            if item.entry_point == "bad-ep"
-        ][0]
+        health = [item for item in registry.plugin_health if item.entry_point == "bad-ep"][0]
         self.assertEqual(health.status, "error")
 
     def test_discover_detectors_lists_builtin(self):
-        self.assertIn(
-            "textforensics/builtin-heuristic", discover_detectors()
-        )
+        self.assertIn("textforensics/builtin-heuristic", discover_detectors())
 
     def test_list_detector_metadata_lists_builtin(self):
         rows = list_detector_metadata()
         self.assertEqual(len(rows), 1)
-        self.assertEqual(
-            rows[0]["detector_id"], "textforensics/builtin-heuristic"
-        )
+        self.assertEqual(rows[0]["detector_id"], "textforensics/builtin-heuristic")
 
     def test_list_detector_health_lists_builtin_ok(self):
         rows = list_detector_health()
-        builtin = [
-            row
-            for row in rows
-            if row["detector_id"] == "textforensics/builtin-heuristic"
-        ][0]
+        builtin = [row for row in rows if row["detector_id"] == "textforensics/builtin-heuristic"][
+            0
+        ]
         self.assertEqual(builtin["status"], "ok")
 
     # -- run_all_detectors -------------------------------------------------------
@@ -1565,9 +1507,7 @@ class DetectorsMutationKillTests(unittest.TestCase):
     def test_run_all_detectors_returns_builtin_row(self):
         rows = run_all_detectors("Some ordinary English prose. " * 10)
         self.assertEqual(len(rows), 1)
-        self.assertEqual(
-            rows[0]["detector_id"], "textforensics/builtin-heuristic"
-        )
+        self.assertEqual(rows[0]["detector_id"], "textforensics/builtin-heuristic")
         self.assertEqual(rows[0]["determinism"], "deterministic")
         self.assertNotIn("failed", rows[0])
 
