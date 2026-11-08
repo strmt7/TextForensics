@@ -467,6 +467,8 @@ class EquivalentBaselineTests(unittest.TestCase):
         (337, 41),
         (411, 17),
         (483, 90),
+        # Calibration runtime position.
+        (255, 47),
     }
 
     @classmethod
@@ -532,8 +534,8 @@ class EquivalentBaselineTests(unittest.TestCase):
         finally:
             Path(temp_path).unlink(missing_ok=True)
 
-    def test_baseline_file_loads_with_452_entries(self):
-        """The baseline has exactly the 452 verified equivalent mutants.
+    def test_baseline_file_loads_with_454_entries(self):
+        """The baseline has exactly the 454 verified equivalent mutants.
 
         69 annotation BitOr mutants + 4 unreachable-condition
         NumberReplacer mutants for trust (see the baseline file's header
@@ -545,6 +547,9 @@ class EquivalentBaselineTests(unittest.TestCase):
         plus 121 annotation BitOr mutants + 7 runtime mutants (6
         unobservable-value, 1 unreachable-condition) for consensus
         (mutation-survivors wave, full run on 8e6ffd1).
+        plus 2 unobservable-value NumberReplacer mutants for
+        calibration (prefix-200 wave: the discarded beta `c` default
+        in CalibrationCurve._validate_parameters).
         Match keys include occurrence: two entries share the
         (module, operator, start_pos, end_pos) of L553:76 and differ
         only by occurrence (44 vs 45).
@@ -553,8 +558,8 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(self.baseline["source_run"], "42393966895")
         self.assertEqual(self.baseline["source_commit"], "153b5ab")
         entries = self.baseline["entries"]
-        self.assertEqual(len(entries), 452)
-        self.assertEqual(len({e["id"] for e in entries}), 452, "entry ids must be unique")
+        self.assertEqual(len(entries), 454)
+        self.assertEqual(len({e["id"] for e in entries}), 454, "entry ids must be unique")
         keys = {
             (
                 e["module"],
@@ -565,7 +570,7 @@ class EquivalentBaselineTests(unittest.TestCase):
             )
             for e in entries
         }
-        self.assertEqual(len(keys), 452, "match keys must be unique")
+        self.assertEqual(len(keys), 454, "match keys must be unique")
         from collections import Counter
 
         self.assertEqual(
@@ -582,7 +587,7 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "core/ReplaceBinaryOperator_BitOr_Pow": 32,
                 "core/ReplaceBinaryOperator_BitOr_RShift": 26,
                 "core/ReplaceBinaryOperator_BitOr_Sub": 26,
-                "core/NumberReplacer": 16,
+                "core/NumberReplacer": 18,
                 "core/ReplaceFalseWithTrue": 3,
             },
         )
@@ -595,6 +600,7 @@ class EquivalentBaselineTests(unittest.TestCase):
                     "textforensics.policy",
                     "textforensics.benchmark",
                     "textforensics.consensus",
+                    "textforensics.calibration",
                 },
             )
             self.assertTrue(entry["reason"], f"entry {entry['id']} needs a reason")
@@ -610,11 +616,11 @@ class EquivalentBaselineTests(unittest.TestCase):
                 self.assertEqual(len(entry["source_fingerprint"]), 64)
 
     def test_runtime_entries(self):
-        """The 19 runtime entries carry their equivalence proofs."""
+        """The 21 runtime entries carry their equivalence proofs."""
         runtime = [
             e for e in self.baseline["entries"] if e["kind"] in self.runner.BASELINE_RUNTIME_KINDS
         ]
-        self.assertEqual(len(runtime), 19)
+        self.assertEqual(len(runtime), 21)
         unreachable = [e for e in runtime if e["kind"] == "unreachable-condition"]
         self.assertEqual(len(unreachable), 5)
         by_id = {e["id"]: e for e in runtime}
@@ -637,11 +643,11 @@ class EquivalentBaselineTests(unittest.TestCase):
         )
         self.assertEqual(by_id["textforensics.trust:core/NumberReplacer:39"]["source_text"], "0")
         unobservable = [e for e in runtime if e["kind"] == "unobservable-value"]
-        self.assertEqual(len(unobservable), 14)
+        self.assertEqual(len(unobservable), 16)
         self.assertEqual(
             {e["occurrence"] for e in unobservable},
-            {0, 1, 2, 3, 4, 8, 22, 23, 64, 65},
-            "occurrences must match the policy budget-200 dump + the benchmark and consensus full-session dumps",
+            {0, 1, 2, 3, 4, 8, 22, 23, 36, 37, 64, 65},
+            "occurrences must match the policy budget-200 dump + the benchmark, consensus and calibration-prefix full-session dumps",
         )
         self.assertEqual(
             {e["function"] for e in unobservable},
@@ -652,7 +658,7 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "_family_vote",
                 "cohens_kappa",
                 "percent_agreement",
-                "build_agreement_matrix",
+                "build_agreement_matrix",                "CalibrationCurve._validate_parameters",
             },
         )
         self.assertEqual(
@@ -694,6 +700,12 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "textforensics.consensus:core/ReplaceFalseWithTrue:2",
             },
         )
+        # The two calibration entries share one position and function.
+        at_255_47 = [e for e in unobservable if tuple(e["start_pos"]) == (255, 47)]
+        self.assertEqual(len(at_255_47), 2)
+        self.assertEqual({e["occurrence"] for e in at_255_47}, {36, 37})
+        self.assertEqual({e["source_text"] for e in at_255_47}, {"0.0"})
+        self.assertEqual(len({e["source_fingerprint"] for e in at_255_47}), 1)
         for entry in runtime:
             with self.subTest(entry=entry["id"]):
                 ok, reason = self.runner.validate_baseline_entry(entry, self.project_root)
@@ -830,10 +842,10 @@ class EquivalentBaselineTests(unittest.TestCase):
             "baseline_entries",
         ):
             self.assertIn(key, summary, f"summary is missing {key}")
-        self.assertEqual(summary["baseline_entries"], 452)
+        self.assertEqual(summary["baseline_entries"], 454)
         self.assertEqual(summary["equivalent"], 2)
-        # The other 450 entries matched no live survivor in this run.
-        self.assertEqual(summary["equivalent_dormant"], 450)
+        # The other 452 entries matched no live survivor in this run.
+        self.assertEqual(summary["equivalent_dormant"], 452)
         self.assertEqual(summary["equivalent_superseded"], 0)
         self.assertEqual(summary["stale_baseline_entries"], [])
         # Raw counts are never relabelled: the survivors stay in `surviving`.
@@ -852,7 +864,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(summary["equivalent_mutants"], [entries[0]["id"]])
         self.assertEqual(summary["equivalent_superseded"], 1)
         self.assertEqual(summary["equivalent_superseded_ids"], [entries[1]["id"]])
-        self.assertEqual(summary["equivalent_dormant"], 450)
+        self.assertEqual(summary["equivalent_dormant"], 452)
         self.assertEqual(summary["unexplained_surviving"], 0)
         result = self._check_summary(summary)
         self.assertEqual(result.returncode, 0, result.stdout)
@@ -911,7 +923,7 @@ class EquivalentBaselineTests(unittest.TestCase):
     def test_unobservable_value_mutants_accepted(self):
         """Survivors matching re-validated unobservable-value entries are accepted (exit 0)."""
         runtime = [e for e in self.baseline["entries"] if e["kind"] == "unobservable-value"]
-        self.assertEqual(len(runtime), 14)
+        self.assertEqual(len(runtime), 16)
         module_paths = {
             "textforensics.policy": str(self.project_root / "src" / "textforensics" / "policy.py"),
             "textforensics.benchmark": str(
@@ -919,6 +931,9 @@ class EquivalentBaselineTests(unittest.TestCase):
             ),
             "textforensics.consensus": str(
                 self.project_root / "src" / "textforensics" / "consensus.py"
+            ),
+            "textforensics.calibration": str(
+                self.project_root / "src" / "textforensics" / "calibration.py"
             ),
         }
         records = [
@@ -933,9 +948,9 @@ class EquivalentBaselineTests(unittest.TestCase):
             for e in runtime
         ]
         summary = self.runner.parse_results(records, self.baseline, self.project_root)
-        self.assertEqual(summary["total"], 14)
-        self.assertEqual(summary["surviving"], 14)
-        self.assertEqual(summary["equivalent"], 14)
+        self.assertEqual(summary["total"], 16)
+        self.assertEqual(summary["surviving"], 16)
+        self.assertEqual(summary["equivalent"], 16)
         self.assertEqual(summary["unexplained_surviving"], 0)
         self.assertEqual(summary["equivalent_mutants"], [e["id"] for e in runtime])
         result = self._check_summary(summary)

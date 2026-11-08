@@ -441,6 +441,67 @@
 # L542:54, `1` -> `2` is equivalent while `1` -> `0` is killable (see
 # PROOF above). The annotation text / source text + function are
 # re-validated against the current source on every run.
+#
+# CALIBRATION ENTRIES (2: 2 unobservable-value, 2026-11-08)
+# -------------------------------------------------------------------
+# Source: local budget-200 run on branch fix/mutation-calibration at
+# 8e6ffd1, `scripts/run_mutation.py --mode full --modules
+# textforensics.calibration --budget 200`: session 1937 work items,
+# executed 200, killed 166, surviving 33 (16 AddNot, 5
+# ExceptionReplacer, 12 NumberReplacer), 1 error (a cosmic-ray
+# ExceptionReplacer crash, see below). The 30 killable survivors were
+# killed with tests in tests/test_calibration.py (class
+# TestCalibrationMutationKillTests); the proof re-run gives killed 194,
+# surviving 5. Of the 5, 2 are the entries below.
+#
+# PROOF — CALIBRATION "unobservable-value" (2 entries)
+# ----------------------------------------------------
+# [occ 36/37] CalibrationCurve._validate_parameters L255:47,
+# `0.0` -> `1.0` / `0.0` -> `-1.0` in
+# `_finite_number(parameters.get("c", 0.0), "parameters.c")` (beta
+# branch). The return value of that _finite_number call is discarded
+# — the validated default is never stored or used; _calibrate_beta
+# re-reads `parameters.get("c", 0.0)` from its own literal at L323.
+# The call's only observable effect is raising for a non-finite
+# argument, and both replacements (1.0, -1.0) are finite, so for every
+# input the behaviour is identical. Verified by a 148-case
+# differential battery (original vs hand-applied mutant: 144 beta
+# parameter combinations — a/b in {0, 0.5, 1, 2} x c absent / 0 /
+# 0.5 / -1 / 1 / "x" / None / inf / nan — plus platt, temperature,
+# isotonic and identity curves): byte-identical outputs, 148/148 for
+# both mutants. Each entry pins source_text + the enclosing
+# function's fingerprint, exactly like the policy entries.
+#
+# CALIBRATION SURVIVORS *NOT* IN THIS BASELINE (do not add without a
+# new kind + its validator — the loader rejects unknown kinds)
+# ------------------------------------------------------------------
+# - [occ 1] ExceptionReplacer at L596 in
+#   CalibrationArtifact.validation_issues (`except CalibrationError`
+#   around `_parse_iso8601(self.created_at, ...)`): the handler is
+#   provably dead — `__post_init__` validates `created_at` with the
+#   same call first, so no instance constructible through any public
+#   constructor (including from_dict) can reach it — but no existing
+#   kind covers an ExceptionReplacer on a dead handler.
+# - [occ 2/3] NumberReplacer at L105 in `_sigmoid`
+#   (`0.0` -> `1.0` / `0.0` -> `-1.0` in `if value >= 0.0:`): the two
+#   branches are algebraically identical (1/(1+e^-x) == e^x/(1+e^x)),
+#   so moving the switch point changes the output by at most 2 ulps
+#   (40,000-point sweep of [-20, 20]: max 2 ulps, extremes identical)
+#   — equivalent up to float rounding, but the difference IS observable
+#   via bit-exact `==`, so "unobservable-value" (which requires NO
+#   observable difference for any input) does not apply, and pinning a
+#   1-ulp kill test would assert which algebraically-identical branch
+#   ran rather than a behavioural contract.
+# - The remaining 1737 work items of the 1937-item session were never
+#   executed under budget 200 (same rule: verify, then add). NOTE: the
+#   error in the prefix run is a cosmic-ray 8.7.0 operator crash, not
+#   a code failure: ExceptionReplacer occurrence 5 at L727
+#   (`except (OSError, ...)` in `_load_all`) dies inside
+#   `exception_replacer.py:25` (`'PythonNode' object has no attribute
+#   'value'`) before any mutant code exists, so there is no behaviour
+#   to kill or baseline; the runner counts it as error=1, which makes
+#   `check_results` exit 1 even when every survivor is explained.
+#   That needs a runner/coordinator decision, not a baseline entry.
 
 version = 1
 source_run = "42393966895"
@@ -6068,3 +6129,29 @@ kind = "unobservable-value"
 source_text = "False"
 source_fingerprint = "d1b3928b0db23d899a0b2076f235a1f63700a6486edaca13c5574bd61200b0c2"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "Unobservable-value mutant (build_agreement_matrix): the `False` is the `strict` argument of the zip that transposes the per-detector verdict sequences into per-text rows; the length check above it raises ValueError unless every sequence has length n_texts, so strict=True observes exactly the same rows as strict=False for every input that reaches the zip."
+
+[[equivalent]]
+id = "textforensics.calibration:core/NumberReplacer:36"
+module = "textforensics.calibration"
+operator = "core/NumberReplacer"
+occurrence = 36
+start_pos = [255, 47]
+end_pos = [255, 50]
+function = "CalibrationCurve._validate_parameters"
+kind = "unobservable-value"
+source_text = "0.0"
+source_fingerprint = "bfe199cab007ad6de13fa10feb98a10530fe3bb74d703de0b380c3291fae4d9d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable-value mutant (CalibrationCurve._validate_parameters): `0.0` -> `1.0` in `_finite_number(parameters.get(\"c\", 0.0), \"parameters.c\")` (beta branch). The return value of that _finite_number call is discarded — the validated default is never stored or used; _calibrate_beta re-reads `parameters.get(\"c\", 0.0)` from its own literal. The call's only observable effect is raising for a non-finite argument, and 1.0 is finite, so for every input (c absent, present, or invalid) the behaviour is identical. Verified by a 148-case differential battery (original vs hand-applied mutant): byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/NumberReplacer:37"
+module = "textforensics.calibration"
+operator = "core/NumberReplacer"
+occurrence = 37
+start_pos = [255, 47]
+end_pos = [255, 50]
+function = "CalibrationCurve._validate_parameters"
+kind = "unobservable-value"
+source_text = "0.0"
+source_fingerprint = "bfe199cab007ad6de13fa10feb98a10530fe3bb74d703de0b380c3291fae4d9d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable-value mutant (CalibrationCurve._validate_parameters): `0.0` -> `-1.0` in `_finite_number(parameters.get(\"c\", 0.0), \"parameters.c\")` (beta branch). The return value of that _finite_number call is discarded — the validated default is never stored or used; _calibrate_beta re-reads `parameters.get(\"c\", 0.0)` from its own literal. The call's only observable effect is raising for a non-finite argument, and -1.0 is finite, so for every input (c absent, present, or invalid) the behaviour is identical. Verified by a 148-case differential battery (original vs hand-applied mutant): byte-identical outputs."
