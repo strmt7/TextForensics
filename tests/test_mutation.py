@@ -581,6 +581,13 @@ class EquivalentBaselineTests(unittest.TestCase):
         (34, 13),
         (41, 13),
         (43, 13),
+        # Engine runtime positions (5: 4 unobservable-value + 1
+        # domain-equivalent, full 322-item session at dd8bd83).
+        (22, 22),
+        (84, 16),
+        (93, 8),
+        (94, 12),
+        (17, 81),
     }
 
     @classmethod
@@ -646,8 +653,8 @@ class EquivalentBaselineTests(unittest.TestCase):
         finally:
             Path(temp_path).unlink(missing_ok=True)
 
-    def test_baseline_file_loads_with_958_entries(self):
-        """The baseline has exactly the 958 verified equivalent mutants.
+    def test_baseline_file_loads_with_963_entries(self):
+        """The baseline has exactly the 963 verified equivalent mutants.
 
         69 annotation BitOr mutants + 4 unreachable-condition
         NumberReplacer mutants for trust (see the baseline file's header
@@ -677,6 +684,10 @@ class EquivalentBaselineTests(unittest.TestCase):
         plus 4 domain-equivalent mutants for analyzers (Phase 5
         mutation-survivors wave 2, full 516-item session at dd8bd83;
         the 4 baselined 2026-11-08 on fix/mutation-p2-analyzers).
+        plus 4 unobservable-value NumberReplacer mutants + 1
+        domain-equivalent ReplaceFalseWithTrue mutant for engine
+        (Phase 5 survivors wave 2, full 322-item session at dd8bd83;
+        the 5 baselined 2026-11-08 in the kind wave).
         Match keys include occurrence: two entries share the
         (module, operator, start_pos, end_pos) of L553:76 and differ
         only by occurrence (44 vs 45).
@@ -685,8 +696,8 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(self.baseline["source_run"], "42393966895")
         self.assertEqual(self.baseline["source_commit"], "153b5ab")
         entries = self.baseline["entries"]
-        self.assertEqual(len(entries), 958)
-        self.assertEqual(len({e["id"] for e in entries}), 958, "entry ids must be unique")
+        self.assertEqual(len(entries), 963)
+        self.assertEqual(len({e["id"] for e in entries}), 963, "entry ids must be unique")
         keys = {
             (
                 e["module"],
@@ -697,14 +708,14 @@ class EquivalentBaselineTests(unittest.TestCase):
             )
             for e in entries
         }
-        self.assertEqual(len(keys), 958, "match keys must be unique")
+        self.assertEqual(len(keys), 963, "match keys must be unique")
         from collections import Counter
 
         self.assertEqual(
             Counter(e["operator"] for e in entries),
             {
                 "core/ExceptionReplacer": 1,
-                "core/NumberReplacer": 24,
+                "core/NumberReplacer": 28,
                 "core/ReplaceBinaryOperator_BitOr_Add": 86,
                 "core/ReplaceBinaryOperator_BitOr_BitAnd": 87,
                 "core/ReplaceBinaryOperator_BitOr_BitXor": 86,
@@ -761,7 +772,7 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "core/ReplaceComparisonOperator_Lt_NotEq": 1,
                 "core/ReplaceComparisonOperator_NotEq_IsNot": 2,
                 "core/ReplaceContinueWithBreak": 1,
-                "core/ReplaceFalseWithTrue": 6,
+                "core/ReplaceFalseWithTrue": 7,
                 "core/ReplaceOrWithAnd": 1,
                 "core/ReplaceTrueWithFalse": 7,
                 "core/ReplaceUnaryOperator_Delete_USub": 1,
@@ -781,6 +792,7 @@ class EquivalentBaselineTests(unittest.TestCase):
                     "textforensics.calibration",
                     "textforensics.detectors",
                     "textforensics.analyzers",
+                    "textforensics.engine",
                 },
             )
             self.assertTrue(entry["reason"], f"entry {entry['id']} needs a reason")
@@ -828,11 +840,11 @@ class EquivalentBaselineTests(unittest.TestCase):
         )
         self.assertEqual(by_id["textforensics.trust:core/NumberReplacer:39"]["source_text"], "0")
         unobservable = [e for e in runtime if e["kind"] == "unobservable-value"]
-        self.assertEqual(len(unobservable), 19)
+        self.assertEqual(len(unobservable), 23)
         self.assertEqual(
             {e["occurrence"] for e in unobservable},
-            {0, 1, 2, 3, 4, 8, 9, 22, 23, 36, 37, 64, 65, 95, 118},
-            "occurrences must match the policy budget-200 dump + the benchmark, consensus, calibration-prefix and calibration-remainder full-session dumps",
+            {0, 1, 2, 3, 4, 8, 9, 19, 22, 23, 36, 37, 38, 64, 65, 95, 118},
+            "occurrences must match the policy budget-200 dump + the benchmark, consensus, calibration-prefix, calibration-remainder and engine full-session dumps",
         )
         self.assertEqual(
             {e["function"] for e in unobservable},
@@ -847,11 +859,13 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "CalibrationCurve._validate_parameters",
                 "DatasetReference.from_dict",
                 "_coerce_label",
+                "_disagreement",
+                "_analyze_text_internal",
             },
         )
         self.assertEqual(
             {e["source_text"] for e in unobservable},
-            {"2", "1", "4", "1024", "0", "0.0", "False"},
+            {"2", "1", "4", "1024", "0", "0.0", "1.0", "False"},
         )
         # The two lru_cache entries share one position and function.
         at_540_19 = [e for e in unobservable if tuple(e["start_pos"]) == (540, 19)]
@@ -917,12 +931,30 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual({e["occurrence"] for e in coerce}, {9, 118})
         self.assertEqual({e["source_text"] for e in coerce}, {"0", "False"})
         self.assertEqual(len({e["source_fingerprint"] for e in coerce}), 1)
-        # The 99 domain-equivalent entries (kind wave, 2026-11-08):
+        # The four engine entries (full 322-item session at dd8bd83):
+        # occ 3 in _disagreement, occ 19/37/38 in _analyze_text_internal.
+        engine_unobs = [e for e in unobservable if e["module"] == "textforensics.engine"]
+        self.assertEqual(len(engine_unobs), 4)
+        self.assertEqual({e["occurrence"] for e in engine_unobs}, {3, 19, 37, 38})
+        self.assertEqual(
+            {e["function"] for e in engine_unobs},
+            {"_disagreement", "_analyze_text_internal"},
+        )
+        self.assertEqual(
+            {tuple(e["start_pos"]) for e in engine_unobs},
+            {(22, 22), (84, 16), (93, 8), (94, 12)},
+        )
+        self.assertEqual({e["source_text"] for e in engine_unobs}, {"2", "0.0", "1.0"})
+        # Two functions, hence two fingerprints (the three
+        # _analyze_text_internal entries share one).
+        self.assertEqual(len({e["source_fingerprint"] for e in engine_unobs}), 2)
+        # The 100 domain-equivalent entries (kind wave, 2026-11-08):
         # 27 in textforensics.benchmark + 11 in textforensics.consensus
         # + 56 in textforensics.calibration + 1 in textforensics.detectors
-        # + 4 in textforensics.analyzers (Phase 2, 2026-11-08).
+        # + 4 in textforensics.analyzers + 1 in textforensics.engine
+        # (Phase 2, 2026-11-08).
         domain = [e for e in runtime if e["kind"] == "domain-equivalent"]
-        self.assertEqual(len(domain), 99)
+        self.assertEqual(len(domain), 100)
         self.assertEqual(
             {e["module"] for e in domain},
             {
@@ -931,6 +963,7 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "textforensics.calibration",
                 "textforensics.detectors",
                 "textforensics.analyzers",
+                "textforensics.engine",
             },
         )
         self.assertTrue(all("ulp_bound_ulps" not in e for e in domain))
@@ -1108,6 +1141,18 @@ class EquivalentBaselineTests(unittest.TestCase):
         # The two entries in each helper share one function (and hence
         # one fingerprint).
         self.assertEqual(len({e["source_fingerprint"] for e in analyzers_domain}), 2)
+        # Engine's 1: the zip strict=False entry in _weighted_score
+        # (full 322-item session at dd8bd83).
+        engine_domain = [e for e in domain if e["module"] == "textforensics.engine"]
+        self.assertEqual(len(engine_domain), 1)
+        self.assertEqual({e["occurrence"] for e in engine_domain}, {0})
+        self.assertEqual({e["function"] for e in engine_domain}, {"_weighted_score"})
+        self.assertEqual({tuple(e["start_pos"]) for e in engine_domain}, {(17, 81)})
+        self.assertEqual({e["source_text"] for e in engine_domain}, {"False"})
+        self.assertEqual(
+            {e["operator"] for e in engine_domain},
+            {"core/ReplaceFalseWithTrue"},
+        )
         # The 6 ulp-equivalent entries (kind wave, calibration only).
         ulp = [e for e in runtime if e["kind"] == "ulp-equivalent"]
         self.assertEqual(len(ulp), 6)
@@ -1262,10 +1307,10 @@ class EquivalentBaselineTests(unittest.TestCase):
             "baseline_entries",
         ):
             self.assertIn(key, summary, f"summary is missing {key}")
-        self.assertEqual(summary["baseline_entries"], 958)
+        self.assertEqual(summary["baseline_entries"], 963)
         self.assertEqual(summary["equivalent"], 2)
-        # The other 956 entries matched no live survivor in this run.
-        self.assertEqual(summary["equivalent_dormant"], 956)
+        # The other 961 entries matched no live survivor in this run.
+        self.assertEqual(summary["equivalent_dormant"], 961)
         self.assertEqual(summary["equivalent_superseded"], 0)
         self.assertEqual(summary["stale_baseline_entries"], [])
         # Raw counts are never relabelled: the survivors stay in `surviving`.
@@ -1284,7 +1329,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(summary["equivalent_mutants"], [entries[0]["id"]])
         self.assertEqual(summary["equivalent_superseded"], 1)
         self.assertEqual(summary["equivalent_superseded_ids"], [entries[1]["id"]])
-        self.assertEqual(summary["equivalent_dormant"], 956)
+        self.assertEqual(summary["equivalent_dormant"], 961)
         self.assertEqual(summary["unexplained_surviving"], 0)
         result = self._check_summary(summary)
         self.assertEqual(result.returncode, 0, result.stdout)
@@ -1331,8 +1376,8 @@ class EquivalentBaselineTests(unittest.TestCase):
         Regression test for the Core 3.11 CI stall (test 2562 exceeded
         10 minutes on CPython 3.11.18): ``validate_baseline_entry``
         used to re-read, re-parse and re-walk the module for every one
-        of the 958 entries. The per-module context cache must parse
-        each of the 7 modules once, and a second full classify must
+        of the 963 entries. The per-module context cache must parse
+        each of the 8 modules once, and a second full classify must
         parse nothing.
         """
         runner = self.runner
@@ -1347,14 +1392,14 @@ class EquivalentBaselineTests(unittest.TestCase):
         try:
             runner.ast.parse = counting_parse
             summary = runner.classify_baseline([], self.baseline, self.project_root)
-            self.assertEqual(summary["baseline_entries"], 958)
+            self.assertEqual(summary["baseline_entries"], 963)
             self.assertEqual(len(summary["stale_baseline_entries"]), 0)
-            self.assertEqual(calls["n"], 7, "one parse per distinct module")
+            self.assertEqual(calls["n"], 8, "one parse per distinct module")
             # A second full classify hits the cache: no further parses,
             # and the result is identical.
             summary2 = runner.classify_baseline([], self.baseline, self.project_root)
             self.assertEqual(summary2, summary)
-            self.assertEqual(calls["n"], 7, "second classify must parse nothing")
+            self.assertEqual(calls["n"], 8, "second classify must parse nothing")
         finally:
             runner.ast.parse = real_parse
             runner._clear_module_context_cache()
@@ -1434,7 +1479,7 @@ class EquivalentBaselineTests(unittest.TestCase):
     def test_domain_equivalent_mutants_accepted(self):
         """Survivors matching re-validated domain-equivalent entries are accepted (exit 0)."""
         runtime = [e for e in self.baseline["entries"] if e["kind"] == "domain-equivalent"]
-        self.assertEqual(len(runtime), 99)
+        self.assertEqual(len(runtime), 100)
         self.assertEqual(
             {e["module"] for e in runtime},
             {
@@ -1443,13 +1488,14 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "textforensics.calibration",
                 "textforensics.detectors",
                 "textforensics.analyzers",
+                "textforensics.engine",
             },
         )
         records = [self._record_for_entry(e, "survived") for e in runtime]
         summary = self.runner.parse_results(records, self.baseline, self.project_root)
-        self.assertEqual(summary["total"], 99)
-        self.assertEqual(summary["surviving"], 99)
-        self.assertEqual(summary["equivalent"], 99)
+        self.assertEqual(summary["total"], 100)
+        self.assertEqual(summary["surviving"], 100)
+        self.assertEqual(summary["equivalent"], 100)
         self.assertEqual(summary["unexplained_surviving"], 0)
         self.assertEqual(summary["equivalent_mutants"], [e["id"] for e in runtime])
         result = self._check_summary(summary)
@@ -1459,7 +1505,7 @@ class EquivalentBaselineTests(unittest.TestCase):
     def test_unobservable_value_mutants_accepted(self):
         """Survivors matching re-validated unobservable-value entries are accepted (exit 0)."""
         runtime = [e for e in self.baseline["entries"] if e["kind"] == "unobservable-value"]
-        self.assertEqual(len(runtime), 19)
+        self.assertEqual(len(runtime), 23)
         module_paths = {
             "textforensics.policy": str(self.project_root / "src" / "textforensics" / "policy.py"),
             "textforensics.benchmark": str(
@@ -1471,6 +1517,7 @@ class EquivalentBaselineTests(unittest.TestCase):
             "textforensics.calibration": str(
                 self.project_root / "src" / "textforensics" / "calibration.py"
             ),
+            "textforensics.engine": str(self.project_root / "src" / "textforensics" / "engine.py"),
         }
         records = [
             self._record(
@@ -1484,9 +1531,9 @@ class EquivalentBaselineTests(unittest.TestCase):
             for e in runtime
         ]
         summary = self.runner.parse_results(records, self.baseline, self.project_root)
-        self.assertEqual(summary["total"], 19)
-        self.assertEqual(summary["surviving"], 19)
-        self.assertEqual(summary["equivalent"], 19)
+        self.assertEqual(summary["total"], 23)
+        self.assertEqual(summary["surviving"], 23)
+        self.assertEqual(summary["equivalent"], 23)
         self.assertEqual(summary["unexplained_surviving"], 0)
         self.assertEqual(summary["equivalent_mutants"], [e["id"] for e in runtime])
         result = self._check_summary(summary)

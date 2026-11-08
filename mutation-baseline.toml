@@ -12580,3 +12580,67 @@ kind = "domain-equivalent"
 source_text = ">="
 source_fingerprint = "f5e8872913ff9a3486241b455c128f7079c1ff40aac36b9374bb16060b078f00"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "Domain-equivalent mutant (_high_when_high): `value >= high` -> `value > high`. At value == high the fall-through interpolation returns (high - low) / (high - low) = 1.0, exactly the branch value, so the two coincide for every input — provided low < high (else division by zero); all 9 production call sites have low < high (0.22/0.65, 0.18/0.80, 0.05/0.30, 0.25/2.0, 0.10/1.20, 0.01/0.10, 0.34/0.58, 0.42/0.72, 2.0/6.0). Verified 2026-11-08 against main dd8bd83: full 516-item session, 512 killed / 4 surviving / 0 unexplained; hand-applied mutant via cosmic-ray mutate_code, 0 diffs across the differential battery (9 (low, high) pairs x 14 values incl. +/-1e-12 and +/-1e-9 around both boundaries, full-analyzer sweeps at exact boundaries) and all 15 tests/test_analyzers.py tests pass under the mutant."
+[[equivalent]]
+id = "textforensics.engine:core/NumberReplacer:3"
+module = "textforensics.engine"
+operator = "core/NumberReplacer"
+occurrence = 3
+start_pos = [22, 22]
+end_pos = [22, 23]
+function = "_disagreement"
+kind = "unobservable-value"
+source_text = "2"
+source_fingerprint = "591b149d22c8252fefbc9af16f6949a1349b6f7ce06b43ea14bcebf2cacac8c2"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable-value mutant (_disagreement): `2` -> `1` in `if len(results) < 2: return 0.0`. The only input whose path changes is len(results) == 1, and there statistics.pstdev of a single value is exactly 0.0, so min(1.0, 0.0 * 2.0) == 0.0, identical to the early return; len(results) == 0 returns 0.0 under both. Verified by differential probe (mutation-results/differential_engine.py) on main dd8bd83: hand-applied mutant, 240 mocked runs + 17 direct cases, identical SHA-256 d71a7a01f240f0568f3e7900f79e1e77daffe130e9f0f6d04d632b12c11970ea; module tests 46/46 under both versions."
+
+[[equivalent]]
+id = "textforensics.engine:core/NumberReplacer:19"
+module = "textforensics.engine"
+operator = "core/NumberReplacer"
+occurrence = 19
+start_pos = [84, 16]
+end_pos = [84, 19]
+function = "_analyze_text_internal"
+kind = "unobservable-value"
+source_text = "0.0"
+source_fingerprint = "5ba0ba50ae5fe0ab248991617c71d12635b67ea8a83718248f83b18b23972646"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable-value mutant (_analyze_text_internal): `0.0` -> `-1.0` in `stability = max(0.0, 1.0 - (max(variant_scores) - min(variant_scores)))`. Variant scores are weighted averages of _clamp'ed [0, 1] analyzer scores, so each variant score is in [0, 1], the spread is at most 1, and 1.0 - spread >= 0; max(0.0, x) == max(-1.0, x) for every x >= 0. Verified by differential probe (mutation-results/differential_engine.py) on main dd8bd83: hand-applied mutant, 240 mocked runs + 17 direct cases, identical SHA-256 d71a7a01f240f0568f3e7900f79e1e77daffe130e9f0f6d04d632b12c11970ea; module tests 46/46 under both versions."
+
+[[equivalent]]
+id = "textforensics.engine:core/NumberReplacer:37"
+module = "textforensics.engine"
+operator = "core/NumberReplacer"
+occurrence = 37
+start_pos = [93, 8]
+end_pos = [93, 11]
+function = "_analyze_text_internal"
+kind = "unobservable-value"
+source_text = "0.0"
+source_fingerprint = "5ba0ba50ae5fe0ab248991617c71d12635b67ea8a83718248f83b18b23972646"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable-value mutant (_analyze_text_internal): `0.0` -> `-1.0` in `diagnostic_reliability = max(0.0, min(1.0, diagnostic_reliability))`. diagnostic_reliability is a product of factors each in [0, 1] by construction (length_reliability in [0, 1]; 0.65 + 0.35 * (1.0 - disagreement) in [0.65, 1.0] since disagreement is min(1.0, pstdev * 2.0) in [0, 1]; 0.7 + 0.3 * stability in [0.7, 1.0] since stability is in [0, 1]), so the inner min(1.0, x) is in [0, 1] and max(0.0, y) == max(-1.0, y). Verified by differential probe (mutation-results/differential_engine.py) on main dd8bd83: hand-applied mutant, 240 mocked runs + 17 direct cases, identical SHA-256 d71a7a01f240f0568f3e7900f79e1e77daffe130e9f0f6d04d632b12c11970ea; module tests 46/46 under both versions."
+
+[[equivalent]]
+id = "textforensics.engine:core/NumberReplacer:38"
+module = "textforensics.engine"
+operator = "core/NumberReplacer"
+occurrence = 38
+start_pos = [94, 12]
+end_pos = [94, 15]
+function = "_analyze_text_internal"
+kind = "unobservable-value"
+source_text = "1.0"
+source_fingerprint = "5ba0ba50ae5fe0ab248991617c71d12635b67ea8a83718248f83b18b23972646"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable-value mutant (_analyze_text_internal): `1.0` -> `2.0` in `min(1.0, diagnostic_reliability)`. diagnostic_reliability is a product of factors each in [0, 1] by construction (see the occurrence-37 entry in the same function), so its value is already at most 1.0 and min(1.0, v) == min(2.0, v) for every input. Verified by differential probe (mutation-results/differential_engine.py) on main dd8bd83: hand-applied mutant, 240 mocked runs + 17 direct cases, identical SHA-256 d71a7a01f240f0568f3e7900f79e1e77daffe130e9f0f6d04d632b12c11970ea; module tests 46/46 under both versions."
+
+[[equivalent]]
+id = "textforensics.engine:core/ReplaceFalseWithTrue:0"
+module = "textforensics.engine"
+operator = "core/ReplaceFalseWithTrue"
+occurrence = 0
+start_pos = [17, 81]
+end_pos = [17, 86]
+function = "_weighted_score"
+kind = "domain-equivalent"
+source_text = "False"
+source_fingerprint = "ca1c15ef0edc55db41de86d3f548f13b572bafa336b100fd14495fa5ee24c76b"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_weighted_score): `strict=False` -> `strict=True` in `zip(results, weights, strict=False)`. `weights` is built from `results` (`[max(0.05, result.reliability) for result in results]`), so the two iterables are always equal length and strict=True never raises; the zips iterate identically for every input. Verified by differential probe (mutation-results/differential_engine.py) on main dd8bd83: hand-applied mutant, 240 mocked runs + 17 direct cases, identical SHA-256 d71a7a01f240f0568f3e7900f79e1e77daffe130e9f0f6d04d632b12c11970ea; module tests 46/46 under both versions."
