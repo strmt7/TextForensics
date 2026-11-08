@@ -2497,3 +2497,50 @@ exact verified commits, in the order spec → changelog-claims →
 readme-security → roadmap-verification. Two workers left their
 changes uncommitted (C, D); the parent reviewed the diffs, ran the
 gates, and committed them.
+
+## Verification record — Phase 5, follow-up wave: bandit B310 + core.local_first (2026-11-08)
+
+Detail: `hidden_files/phase5-followup-bandit-localfirst.md`.
+
+- **Bandit:** the 3 MEDIUM B310 `urlopen` findings got a real fix,
+  not a suppression — a shared `_require_https_or_loopback_http()`
+  validator (https anywhere, http only on loopback) now guards
+  `download_large_file`, the HF client constructor, and
+  `_require_https_tsa_url()` guards `request_timestamp`, which
+  previously took a user-supplied `--timestamp-url` with zero
+  validation. Each site also carries a narrow `# nosec B310` with a
+  written justification, because scheme validation alone does not
+  clear the static rule (proved empirically). New counts: **0
+  MEDIUM / 0 HIGH / 26 Low** (was 3 / 0 / 26). Evidence:
+  `EV-20261108-bandit` (sha256 `23cac071…`, seeded with
+  `TZ=Europe/Berlin` so the seeder's date-derived record ID did not
+  overwrite the pre-fix `EV-20261107-bandit` record); registry
+  29 → 30. Claim `security.bandit_no_medium_high` restated to
+  0/0/26. Honest residual: urllib follows redirects, so an https URL
+  could redirect to http (curl pins `--proto-redir =https`); bounded
+  by SHA-256 verification on downloads and cryptographic verification
+  on TSA tokens.
+- **core.local_first:** restated, not moved. The statement is still
+  true in substance; the notes/values were stale. The AST scan now
+  lists all three network-importing files with per-file
+  justification: datasets.py (licence-gated fetch path, downloads
+  only, never uploads text), ollama.py (opt-in adapter; the scan
+  also counts its real `aiohttp` import, line 36), timestamp.py
+  (TSA POST of a hash digest only, behind `--seal`). The
+  `EV-20261107-code-audit` record already existed un-cited and was
+  `--force` re-seeded (code_version `264344e` → `910db75`). The
+  claim's statement is unchanged; only notes/values describe the
+  actual 3-file surface. Neither claim was weakened.
+
+Parent verification on merged main `7f349c1`: bandit branch gates
+re-run by the parent (claims 33/33, pre-commit 13/13, datasets +
+timestamp tests 119 passed); local-first branch rebased onto the
+bandit merge with zero conflicts — the registry union (30 records)
+landed cleanly, and the parent re-verified all 30 sha256s against
+the files on disk (0 mismatches) plus claims 33/33 and pre-commit
+13/13. The coordinator's predicted line shifts were wrong
+(datasets.py urlopen at :551/:1246, not :548/:1240); the parent
+fixed the four stale citations from the actual tree
+(:517→:551, :1204→:1246, :379→:410, cli.py :1790-1791→:1791-1792)
+before merging. Full extras suite on the merged tree: **3026
+passed / 0 failed** (1 deselected flake; +10 new tests).
