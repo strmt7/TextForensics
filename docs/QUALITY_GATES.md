@@ -111,3 +111,15 @@ TextForensics can be misread as an authorship authority, so its quality gates ar
 88. Reproducibility-critical versions are pinned.
 89. Changelog documents score/schema semantic changes.
 90. Reproduction instructions work outside the original development path.
+
+## Dependency audit
+91. pip-audit runs as a failing gate: any finding not matched by a
+    per-finding entry in `pip-audit-baseline.toml` fails CI
+    (`scripts/check_pip_audit.py`, exit 2).
+92. Baseline entries are per finding (package, vulnerability id,
+    affected version) with a reason and a review date; no blanket
+    ignores, no `--ignore` flags, no severity downgrades.
+93. A baseline entry past its review date fails the gate (exit 1)
+    while the finding is still present; an entry whose finding is
+    fixed is reported as dormant and removed by a human, never left
+    to rot silently.

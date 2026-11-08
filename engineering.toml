@@ -270,7 +270,7 @@ description = "Benchmark contamination prevention"
 [[standards]]
 id = "S06"
 applicable = true
-reason = "Pinned dependency versions in pyproject.toml; pytest --locked equivalent via dev extras pinning; reproducible build via setuptools<80."
+reason = "Pinned dependency versions in pyproject.toml; pytest --locked equivalent via dev extras pinning; reproducible build via setuptools<85."
 command_ids = ["test-fast", "audit"]
 description = "Reproducible builds and pinned toolchain"
 

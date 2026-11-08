@@ -1,8 +1,29 @@
 name: Supply-chain security
 
+# pip-audit ownership: this workflow is the single owner of the
+# pip-audit gate. The former duplicate zero-tolerance jobs
+# (`advisories` / `dependencies`, `pip-audit --path . || exit 1`)
+# and the never-failing `dependency-audit.yml` job (audit output
+# uploaded, exit code ignored) are replaced by one gate job below
+# running scripts/check_pip_audit.py against the checked-in
+# pip-audit-baseline.toml. dependency-audit.yml is deleted.
+# enterprise-deep-verification.yml keeps its own weekly
+# zero-tolerance audit of the frozen requirements file; that file
+# comes from `pip freeze`, which excludes pip itself, so it does not
+# conflict with the baselined pip-24.0 installer findings.
+
 on:
   push:
     branches: [main]
+  pull_request:
+    paths:
+      - "pyproject.toml"
+      - "requirements*.txt"
+      - "setup.py"
+      - "setup.cfg"
+      - "pip-audit-baseline.toml"
+      - "scripts/check_pip_audit.py"
+      - ".github/workflows/supply-chain.yml"
   schedule:
     - cron: "23 4 * * 1"
   workflow_dispatch:
@@ -15,34 +36,35 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  advisories:
-    name: Security advisories (OSV/GHSAs)
+  pip-audit-gate:
+    name: pip-audit gate (baseline, fail on new findings)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install pip-audit
-        run: python -m pip install pip-audit --break-system-packages
-      - name: Security audit
-        run: |
-          pip-audit --path . || exit 1
-
-  dependencies:
-    name: Dependency policy
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          persist-credentials: false
-      - name: Install pip-audit
-        run: python -m pip install pip-audit --break-system-packages
-      - name: Dependency policy check
-        run: pip-audit --path . || exit 1
+          python-version: "3.12"
+          cache: pip
+      - name: Install pinned requirements (project + pip-audit)
+        run: python -m pip install -r requirements-pinned.txt
+      - name: pip-audit gate
+        # Fails (exit 2) on any finding not in pip-audit-baseline.toml
+        # and (exit 1) on an expired baseline entry. See
+        # scripts/check_pip_audit.py and pip-audit-baseline.toml.
+        run: python scripts/check_pip_audit.py --report pip-audit-gate.json
+      - name: Upload gate report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pip-audit-gate-${{ github.sha }}
+          path: pip-audit-gate.json
+          if-no-files-found: error
+          retention-days: 30
 
   secrets:
     name: Full-history secret scan

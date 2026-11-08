@@ -94,10 +94,66 @@ python -m bandit -r src/ -lll   # exit 0 (no medium/high findings)
 ## Dependency audit
 
 ```bash
-python -m pip_audit --format json --desc=on   # exit 1: findings present
+python scripts/check_pip_audit.py   # exit 0: no new findings
 ```
 
-**25 findings in 3 packages** (all have a fixed version available):
+pip-audit is a **failing gate**, not a report-only scan
+(Phase 5 pip-audit gate wave, 2026-11-08). The gate script
+`scripts/check_pip_audit.py` runs pip-audit against the installed
+environment **and** `requirements-pinned.txt`, deduplicates repeat
+reports of the same vulnerability, and compares every finding
+against the checked-in `pip-audit-baseline.toml` — one entry per
+accepted finding (package, vulnerability id, affected version,
+reason, review date). Exit 0: every finding baselined. Exit 2: a
+new finding (new package, new vulnerability id, or new affected
+version). Exit 1: configuration error, or a still-present finding
+whose baseline entry is past its review date. There are no blanket
+ignores and no `--ignore` flags. The gate is owned by
+`.github/workflows/supply-chain.yml` (single `pip-audit-gate` job:
+push to `main`, PRs touching dependency files, weekly Monday
+04:23 UTC); the former duplicate zero-tolerance jobs
+(`pip-audit --path . || exit 1`) and the never-failing
+`dependency-audit.yml` job are deleted.
+`enterprise-deep-verification.yml` keeps its own weekly
+zero-tolerance audit of the frozen requirements file, which
+`pip freeze` builds without pip itself, so it does not conflict
+with the baselined installer findings.
+
+**Current state (2026-11-08, re-seeded record
+`EV-20261108-pip-audit`): 12 findings in 1 package, all baselined.**
+
+| Package | Installed | Findings | Fixed in |
+|---------|-----------|---------:|----------|
+| pip | 24.0 | 12 (6 unique ids, each reported twice) | 25.3 – 26.2 |
+
+- `pip` 24.0 is the virtualenv's own installer, not a shipped
+  project dependency; the project pins no pip version. The six
+  unique ids are PYSEC-2026-1795 (fix 25.3), PYSEC-2026-1796
+  (fix 26.0), PYSEC-2026-2875 (fix 26.1), PYSEC-2026-2876
+  (fix 26.1), PYSEC-2026-196 (fix 26.1.2), PYSEC-2026-3721
+  (fix 26.2). Every other installed package reports 0 findings.
+  A rebuilt venv with pip >= 26.2 clears all six; review date
+  2027-02-06.
+- `cryptography` 0 findings (cap `>=42.0.8,<51` since Dependabot
+  #27, Phase 4); `pytest` 0 findings.
+- The pinned-requirements audit reports **0 findings** after the
+  `setuptools` cap was widened `<80` → `<85` in this wave: the
+  `<80` cap forced the vulnerable 79.x line, and the pinned audit
+  had reported 3 findings in setuptools 79.0.1
+  (PYSEC-2026-3447 ×2, fixed in 83.0.0; GHSA-xmj3-9gf7-h52w,
+  fixed in 84.1.0). The cap was widened instead of baselining a
+  fixable build-backend vulnerability — the same call as
+  Dependabot #27 for cryptography.
+
+Gate proven both ways live (2026-11-08, worktree venv, pip 24.0):
+clean run exits 0 (12 raw / 6 unique findings, all baselined,
+pinned audit 0 findings); a planted new finding (temporary
+requirements file pinning `cryptography==42.0.8`, never a real
+pin) exits 2. Comparison logic is unit-tested in
+`tests/test_pip_audit_gate.py`.
+
+**25 findings in 3 packages** (2026-11-06 measurement, kept as a
+dated record):
 
 | Package | Installed | Findings | Fixed in |
 |---------|-----------|---------:|----------|

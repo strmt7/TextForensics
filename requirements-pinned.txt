@@ -11,7 +11,7 @@
 -e .[dev,enterprise,api,mcp,cli-rich,ollama,diagnostics]
 
 # Build & packaging
-setuptools>=75,<80
+setuptools>=75,<85
 wheel>=0.45
 build>=1.2,<2
 twine>=4,<8  # twine 7 requires rich>=14.3.3; satisfied by rich<16, see pyproject.toml

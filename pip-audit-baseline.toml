@@ -1,0 +1,130 @@
+# pip-audit-baseline.toml — accepted pip-audit findings for TextForensics.
+#
+# WHAT THIS IS
+# ------------
+# One entry per ACCEPTED vulnerability finding. This file is the pip-audit
+# analogue of mutation-baseline.toml: it does NOT weaken the gate.
+# scripts/check_pip_audit.py runs pip-audit against the installed
+# environment AND requirements-pinned.txt, and fails (exit 2) on any
+# finding that is not matched by an entry here. There are no blanket
+# ignores, no `--ignore` flags, and no severity downgrades anywhere:
+# a finding is either matched by a per-finding entry below, or the run
+# fails and a human must add an entry (with a reason and a review date)
+# or fix the dependency.
+#
+# THE BAR
+# -------
+# Zero NEW findings. The only accepted findings are the six below, all in
+# pip 24.0 — the virtualenv's own installer, not a shipped dependency:
+# TextForensics pins no pip version, ships no pip, and no shipped or
+# dev dependency is affected. Every other package must report 0
+# findings in both the installed-environment audit and the
+# pinned-requirements audit. A finding in a new package, a new
+# vulnerability id, or a new affected version is a NEW finding and fails
+# the gate even if the package or the vulnerability id is already listed.
+#
+# WHY pip 24.0 IS BASELINED INSTEAD OF UPGRADED
+# ----------------------------------------------
+# pip 24.0 is the installer baked into the dev virtualenv when it was
+# created. Upgrading it is a local-environment action (`pip install
+# --upgrade pip` inside the venv), not a code change, and every fix
+# version for the six findings below is >= 25.3 — so a rebuilt venv
+# clears all of them at once. CI venvs are built with a current pip,
+# so these entries are DORMANT there (reported, not failed): the gate
+# reports dormant entries on every run instead of passing silently,
+# and a human removes an entry once the finding is gone everywhere it
+# is measured. The exposure is bounded: pip only installs packages the
+# developer or CI explicitly requests from configured indexes, and on
+# Python >= 3.12 (PEP 706) the PYSEC-2026-1795 fallback path is not
+# even used.
+#
+# ENTRY FIELDS
+# ------------
+# - package: distribution name as reported by pip-audit.
+# - vuln_id: the primary vulnerability id (PYSEC-... as reported).
+# - aliases: CVE / GHSA ids for the same vulnerability. Matching uses
+#   the reported id OR any reported alias, so a future pip-audit that
+#   reports the same vulnerability under a GHSA id still matches.
+# - affected_versions: exact installed versions this entry covers.
+#   A different version with the same vuln id is a NEW finding: the
+#   entry must be extended deliberately, never silently.
+# - fixed_in: first version with a fix (lowest fix version reported).
+# - reason: why the finding is accepted instead of fixed in code.
+# - review_by: date (YYYY-MM-DD) by which a human must re-check this
+#   entry. A finding still present after its review date fails the
+#   gate with exit 1 (expired baseline entry), so an accepted finding
+#   can never rot into a permanent ignore. Dormant entries do not
+#   expire: the finding is already gone, the entry only awaits removal.
+#
+# PROOF (measured 2026-11-08, dev venv, pip 24.0, pip-audit 2.10.1)
+# ------------------------------------------------------------------
+# `.venv/bin/python -m pip_audit --format json --desc=on` reports 12
+# raw findings: the 6 unique ids below, each emitted twice by
+# pip-audit (two advisory sources; PYSEC-2026-3721 is reported once
+# with fix 26.2 and once with fix 26.2.0 — the same version). The
+# gate deduplicates on (package, version, vuln id) before matching,
+# so 12 raw findings collapse to the 6 entries below. Per-package
+# counts: pip 12, every other installed package 0 (evidence record
+# EV-20261108-pip-audit). The pinned-requirements audit
+# (`pip-audit -r requirements-pinned.txt`) reports 0 findings after
+# the setuptools cap was widened <80 -> <85 (see below); before that
+# change it reported 3 findings in setuptools 79.0.1
+# (PYSEC-2026-3447 x2, fix 83.0.0; GHSA-xmj3-9gf7-h52w, fix 84.1.0)
+# because the <80 cap forced the vulnerable 79.x line — the same
+# class of defect Dependabot #27 fixed for cryptography in Phase 4.
+# The cap was widened instead of baselining a fixable build-backend
+# vulnerability.
+
+[[finding]]
+package = "pip"
+vuln_id = "PYSEC-2026-1795"
+aliases = ["CVE-2025-8869", "GHSA-4xh5-x5gv-qwph"]
+affected_versions = ["24.0"]
+fixed_in = "25.3"
+reason = "pip 24.0 is the dev virtualenv's own installer, not a shipped dependency; no pip version is pinned by the project. Tar-extraction symlink check missing in pip's fallback for Python without PEP 706; on Python >= 3.12 (PEP 706) the vulnerable fallback is not used. Cleared by rebuilding the venv with pip >= 25.3."
+review_by = "2027-02-06"
+
+[[finding]]
+package = "pip"
+vuln_id = "PYSEC-2026-1796"
+aliases = ["CVE-2026-1703", "GHSA-6vgw-5pg2-w6jp"]
+affected_versions = ["24.0"]
+fixed_in = "26.0"
+reason = "pip 24.0 is the dev virtualenv's own installer, not a shipped dependency; no pip version is pinned by the project. Maliciously crafted wheel archive can extract files outside the installation directory (limited to prefixes of it). Cleared by rebuilding the venv with pip >= 26.0."
+review_by = "2027-02-06"
+
+[[finding]]
+package = "pip"
+vuln_id = "PYSEC-2026-2875"
+aliases = ["GHSA-58qw-9mgm-455v", "CVE-2026-3219"]
+affected_versions = ["24.0"]
+fixed_in = "26.1"
+reason = "pip 24.0 is the dev virtualenv's own installer, not a shipped dependency; no pip version is pinned by the project. Concatenated tar/ZIP files handled as ZIP regardless of filename, confusing installation behaviour. Cleared by rebuilding the venv with pip >= 26.1."
+review_by = "2027-02-06"
+
+[[finding]]
+package = "pip"
+vuln_id = "PYSEC-2026-2876"
+aliases = ["GHSA-jp4c-xjxw-mgf9", "CVE-2026-6357"]
+affected_versions = ["24.0"]
+fixed_in = "26.1"
+reason = "pip 24.0 is the dev virtualenv's own installer, not a shipped dependency; no pip version is pinned by the project. Self-update check ran after installing wheels, importing newly-installed module names. Cleared by rebuilding the venv with pip >= 26.1."
+review_by = "2027-02-06"
+
+[[finding]]
+package = "pip"
+vuln_id = "PYSEC-2026-196"
+aliases = ["GHSA-wf93-45jw-7689", "CVE-2026-8643"]
+affected_versions = ["24.0"]
+fixed_in = "26.1.2"
+reason = "pip 24.0 is the dev virtualenv's own installer, not a shipped dependency; no pip version is pinned by the project. console_scripts / gui_scripts treated as paths instead of file names, installing entry points outside the installation directory. Cleared by rebuilding the venv with pip >= 26.1.2."
+review_by = "2027-02-06"
+
+[[finding]]
+package = "pip"
+vuln_id = "PYSEC-2026-3721"
+aliases = ["CVE-2026-13346", "GHSA-qwm4-qh6w-59xr"]
+affected_versions = ["24.0"]
+fixed_in = "26.2"
+reason = "pip 24.0 is the dev virtualenv's own installer, not a shipped dependency; no pip version is pinned by the project. Doubly-encoded package URLs from indexes could install files to arbitrary locations; requires a malicious index (and materially impacts only `pip download --only-binary`). Cleared by rebuilding the venv with pip >= 26.2."
+review_by = "2027-02-06"

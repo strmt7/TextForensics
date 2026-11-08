@@ -30,6 +30,23 @@ Include:
 
 Do not include third-party secrets or unrelated private documents in a report. Use minimal synthetic reproductions wherever possible.
 
+## Dependency audit gate
+
+`pip-audit` runs as a failing CI gate, not a report-only scan. The
+gate script is `scripts/check_pip_audit.py` and the accepted
+findings are listed per finding in `pip-audit-baseline.toml`
+(package, vulnerability id, affected version, reason, review date);
+it is owned by `.github/workflows/supply-chain.yml` and runs on
+push to `main`, on pull requests touching dependency files, and
+weekly. Any finding not matched by a baseline entry fails the run,
+and a baseline entry past its review date fails while the finding
+is still present. There are no blanket ignores.
+
+The only accepted findings are in pip 24.0, the dev virtualenv's
+own installer — not a shipped dependency and not pinned by the
+project. A rebuilt venv with pip >= 26.2 clears all of them. The
+pinned-requirements audit reports 0 findings.
+
 ## Security boundaries
 
 ### Core

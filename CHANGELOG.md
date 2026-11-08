@@ -26,8 +26,17 @@ The project is pre-1.0. Public schemas and detector/calibration semantics are tr
 - Linux/macOS/Windows smoke CI;
 - Python 3.11–3.15 test matrix;
 - wheel build/install validation;
-- CodeQL, dependency-review, dependency-audit, Dependabot and release-build workflows;
+- CodeQL, dependency-review, Dependabot and release-build workflows
+  (the separate `dependency-audit.yml` workflow is removed in the
+  Phase 5 pip-audit gate wave; the gate lives in `supply-chain.yml`);
 - installation, operations, support and commercial-readiness documentation.
+- pip-audit failing gate (`scripts/check_pip_audit.py` +
+  `pip-audit-baseline.toml`, owned by `supply-chain.yml`): any
+  pip-audit finding not matched by a per-finding baseline entry
+  (package, vulnerability id, affected version, reason, review date)
+  fails CI; the 12 known findings in pip 24.0 (dev-venv installer,
+  not a shipped dependency) are baselined, and the pinned audit
+  reports 0 findings.
 
 ### Changed
 - Python 3.10 is no longer supported after its upstream end-of-life; CI now covers Python 3.11–3.15.
@@ -37,6 +46,10 @@ The project is pre-1.0. Public schemas and detector/calibration semantics are tr
 - consensus no longer averages detector-local probabilities into an ensemble probability;
 - non-loopback network binding requires explicit opt-in;
 - corrupted provenance ledgers cannot be appended to silently.
+- the `setuptools` cap is widened from `<80` to `<85`: the `<80` cap
+  forced the vulnerable 79.x line (PYSEC-2026-3447, fixed in 83.0.0;
+  GHSA-xmj3-9gf7-h52w, fixed in 84.1.0), found by the pinned
+  pip-audit run; the pinned audit now reports 0 findings.
 
 ### Security
 - detector/plugin exceptions are redacted before inclusion in reports;
