@@ -1,0 +1,101 @@
+=== F1: {} (missing text field) ===
+HTTP/1.1 422 Unprocessable Entity
+date: Sun, 08 Nov 2026 09:32:49 GMT
+server: uvicorn
+content-length: 87
+content-type: application/json
+cache-control: no-store
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+x-textforensics-version: 0.2.0
+
+{"detail":[{"type":"missing","loc":["body","text"],"msg":"Field required","input":{}}]}
+=== F2: {"text": ""} (empty text) ===
+HTTP/1.1 422 Unprocessable Entity
+date: Sun, 08 Nov 2026 09:32:49 GMT
+server: uvicorn
+content-length: 32
+content-type: application/json
+cache-control: no-store
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+x-textforensics-version: 0.2.0
+
+{"detail":"Invalid text input."}
+=== F3: empty body (no data) ===
+HTTP/1.1 411 Length Required
+date: Sun, 08 Nov 2026 09:32:49 GMT
+server: uvicorn
+content-length: 40
+content-type: application/json
+cache-control: no-store
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+x-textforensics-version: 0.2.0
+
+{"detail":"Content-Length is required."}
+=== F4: malformed JSON ===
+HTTP/1.1 422 Unprocessable Entity
+date: Sun, 08 Nov 2026 09:32:49 GMT
+server: uvicorn
+content-length: 140
+content-type: application/json
+cache-control: no-store
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+x-textforensics-version: 0.2.0
+
+{"detail":[{"type":"json_invalid","loc":["body",9],"msg":"JSON decode error","input":{},"ctx":{"error":"Unterminated string starting at"}}]}
+=== F5: text 2,000,001 bytes (> MAX_INPUT_BYTES) ===
+HTTP 413 bytes 32 time 0.197293s
+HTTP/1.1 100 Continue
+
+HTTP/1.1 413 Request Entity Too Large
+date: Sun, 08 Nov 2026 09:32:50 GMT
+server: uvicorn
+content-length: 32
+content-type: application/json
+cache-control: no-store
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+x-textforensics-version: 0.2.0
+
+{"detail
+=== F6: body 4,100,0xx bytes (> middleware cap 4,065,536) ===
+HTTP 413 bytes 39 time 0.005416s
+HTTP/1.1 413 Request Entity Too Large
+date: Sun, 08 Nov 2026 09:32:50 GMT
+server: uvicorn
+content-length: 39
+content-type: application/json
+cache-control: no-store
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+x-textforensics-version: 0.2.0
+
+{"detail":"Request body is too la
+=== F7: wrong content-type (text/plain JSON body) ===
+HTTP/1.1 422 Unprocessable Entity
+date: Sun, 08 Nov 2026 09:32:50 GMT
+server: uvicorn
+content-length: 607
+content-type: application/json
+cache-control: no-store
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+x-textforensics-version: 0.2.0
+
+{"detail":[{"type":"model_attributes_type","loc":["body"],"msg":"Input should be a valid dictionary or object to extract fields from","input":"{\"text\": \"I spent last Tuesday afternoon trying to fix the squeaky hinge on the back door, which mostly meant standing in the hallway with a can of WD-40 and a screwdriver, wondering why the previous owner had used three different screw heads on the same hinge. My neighbour came over halfway through, offered advice I didn't ask for, and left with my spare screws. The door still squeaks, but only when it rains now, which feels like progress of a sort.\"}"}]}
+=== F8: GET /v1/analyze (method not allowed) ===
+HTTP/1.1 405 Method Not Allowed
+date: Sun, 08 Nov 2026 09:32:50 GMT
+server: uvicorn
+allow: POST
+content-length: 31
+content-type: application/json
+cache-control: no-store
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+x-textforensics-version: 0.2.0
+
+{"detail":"Method Not Allowed"}

@@ -1,0 +1,1604 @@
+........................................................................ [  2%]
+........................................................................ [  4%]
+........................................................................ [  6%]
+........................................................................ [  8%]
+........................................................................ [ 10%]
+........................................................................ [ 12%]
+........................................................................ [ 14%]
+........................................................................ [ 17%]
+........................................................................ [ 19%]
+........................................................................ [ 21%]
+........................................................................ [ 23%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 29%]
+........................................................................ [ 32%]
+........................................................................ [ 34%]
+........................................................................ [ 36%]
+........................................................... [ 38%]
+............................................................. [ 39%]
+..............................................----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 33414)
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/usr/lib/python3.12/socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/usr/lib/python3.12/socketserver.py", line 761, in __init__
+    self.handle()
+  File "/usr/lib/python3.12/http/server.py", line 436, in handle
+    self.handle_one_request()
+  File "/usr/lib/python3.12/http/server.py", line 424, in handle_one_request
+    method()
+  File "/home/hatch/workspace/TextForensics-lh-api/tests/test_datasets.py", line 887, in do_GET
+    self._send(status, start, payload, payload)
+  File "/home/hatch/workspace/TextForensics-lh-api/tests/test_datasets.py", line 904, in _send
+    self.wfile.write(chunk)
+  File "/usr/lib/python3.12/socketserver.py", line 840, in write
+    self._sock.sendall(b)
+BrokenPipeError: [Errno 32] Broken pipe
+----------------------------------------
+F.................... [ 41%]
+................................................................. [ 43%]
+........................................................................ [ 45%]
+........................................................................ [ 48%]
+........................................................................ [ 50%]
+........................................................................ [ 52%]
+........................................................................ [ 54%]
+........................................................................ [ 56%]
+........................................................................ [ 58%]
+........................................................................ [ 60%]
+........................................................................ [ 63%]
+........................................................................ [ 65%]
+........................................................................ [ 67%]
+..........................................................................................F............. [ 70%]
+................................................................EEEE.EEE [ 72%]
+EEEEE...................EEE..........................................EEE [ 74%]
+........EEEEEEEEEEEEE................................................... [ 76%]
+........................................................................ [ 79%]
+..............E......................................................... [ 81%]
+................................................. [ 82%]
+................................................................ [ 84%]
+........................................................................ [ 86%]
+........................................................................ [ 88%]
+........................................................................ [ 90%]
+................................................................... [ 92%]
+........................................................................ [ 95%]
+.E........EE............................................................ [ 97%]
+........................................................................ [ 99%]
+......................                                                   [100%]
+==================================== ERRORS ====================================
+________ ERROR at setup of TestValidateSchemas.test_valid_schema_passes ________
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_valid_schema_passes9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_valid_schema_passes9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_valid_schema_passes>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+________ ERROR at setup of TestValidateSchemas.test_invalid_json_fails _________
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_invalid_json_fails9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_invalid_json_fails9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_invalid_json_fails>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+____ ERROR at setup of TestValidateSchemas.test_missing_schema_field_fails _____
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_missing_schema_field_fail9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_missing_schema_field_fail9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_missing_schema_field_fails>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+_______ ERROR at setup of TestValidateSchemas.test_invalid_schema_fails ________
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_invalid_schema_fails9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_invalid_schema_fails9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_invalid_schema_fails>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+_______ ERROR at setup of TestValidateAgentsRules.test_no_claims_passes ________
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_no_claims_passes9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_no_claims_passes9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_no_claims_passes>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+__ ERROR at setup of TestValidateAgentsRules.test_percentage_claims_detected ___
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_percentage_claims_detecte9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_percentage_claims_detecte9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_percentage_claims_detected>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+_____ ERROR at setup of TestValidateAgentsRules.test_auroc_claims_detected _____
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_auroc_claims_detected9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_auroc_claims_detected9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_auroc_claims_detected>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+__ ERROR at setup of TestValidateAgentsRules.test_performance_claims_detected __
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_performance_claims_detect9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_performance_claims_detect9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_performance_claims_detected>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+______ ERROR at setup of TestValidateAgentsRules.test_f1_claims_detected _______
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_f1_claims_detected9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_f1_claims_detected9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_f1_claims_detected>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+__ ERROR at setup of TestValidatePyprojectDeps.test_sorted_dependencies_pass ___
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_sorted_dependencies_pass9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_sorted_dependencies_pass9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_sorted_dependencies_pass>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+_ ERROR at setup of TestValidatePyprojectDeps.test_unsorted_dependencies_fail __
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_unsorted_dependencies_fai9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_unsorted_dependencies_fai9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_unsorted_dependencies_fail>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+__ ERROR at setup of TestValidatePyprojectDeps.test_case_insensitive_sorting ___
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_case_insensitive_sorting9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_case_insensitive_sorting9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_case_insensitive_sorting>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+____________ ERROR at setup of test_corpus_files_verify_exact_match ____________
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_corpus_files_verify_exact9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_corpus_files_verify_exact9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_corpus_files_verify_exact_match>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+_______ ERROR at setup of test_holdback_labels_are_separate_from_corpus ________
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_holdback_labels_are_separ9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_holdback_labels_are_separ9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_holdback_labels_are_separate_from_corpus>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+________ ERROR at setup of test_rebuild_from_manifest_reproduces_hashes ________
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_rebuild_from_manifest_rep9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_rebuild_from_manifest_rep9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_rebuild_from_manifest_reproduces_hashes>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+________________ ERROR at setup of test_run_manifest_round_trip ________________
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_run_manifest_round_trip9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_run_manifest_round_trip9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_run_manifest_round_trip>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+____________ ERROR at setup of test_run_history_orders_oldest_first ____________
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_run_history_orders_oldest9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_run_history_orders_oldest9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_run_history_orders_oldest_first>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+_________________ ERROR at setup of test_run_history_empty_dir _________________
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_run_history_empty_dir9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_run_history_empty_dir9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_run_history_empty_dir>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+_______ ERROR at setup of test_apply_demotions_sets_demoted_by_and_stale _______
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_apply_demotions_sets_demo9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_apply_demotions_sets_demo9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_apply_demotions_sets_demoted_by_and_stale>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+___________ ERROR at setup of test_apply_demotions_no_tier1_is_noop ____________
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_apply_demotions_no_tier1_9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_apply_demotions_no_tier1_9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_apply_demotions_no_tier1_is_noop>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+___________ ERROR at setup of test_apply_demotions_no_records_is_gap ___________
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_apply_demotions_no_record9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_apply_demotions_no_record9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_apply_demotions_no_records_is_gap>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+___________ ERROR at setup of test_clear_demotions_after_clean_rerun ___________
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_clear_demotions_after_cle9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_clear_demotions_after_cle9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_clear_demotions_after_clean_rerun>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+____ ERROR at setup of test_clear_demotions_leaves_foreign_demotions_alone _____
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_clear_demotions_leaves_fo9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_clear_demotions_leaves_fo9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_clear_demotions_leaves_foreign_demotions_alone>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+____________ ERROR at setup of test_first_run_is_baseline_and_clean ____________
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_first_run_is_baseline_and9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_first_run_is_baseline_and9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_first_run_is_baseline_and_clean>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+__ ERROR at setup of test_two_clean_runs_give_two_consecutive_clean_full_runs __
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_two_clean_runs_give_two_c9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_two_clean_runs_give_two_c9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_two_clean_runs_give_two_consecutive_clean_full_runs>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+______ ERROR at setup of test_drift_tier3_then_tier2_on_consecutive_runs _______
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_drift_tier3_then_tier2_on9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_drift_tier3_then_tier2_on9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_drift_tier3_then_tier2_on_consecutive_runs>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+________ ERROR at setup of test_tier1_fpr_demotes_and_clean_run_clears _________
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_tier1_fpr_demotes_and_cle9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_tier1_fpr_demotes_and_cle9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_tier1_fpr_demotes_and_clean_run_clears>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+________ ERROR at setup of test_holdback_loader_runs_only_after_scoring ________
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_holdback_loader_runs_only9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_holdback_loader_runs_only9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_holdback_loader_runs_only_after_scoring>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+________________ ERROR at setup of test_dry_run_writes_nothing _________________
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_dry_run_writes_nothing9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_dry_run_writes_nothing9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_dry_run_writes_nothing>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+_ ERROR at setup of test_monthly_scope_scores_only_attacked_slices_and_is_not_a_baseline _
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_monthly_scope_scores_only9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_monthly_scope_scores_only9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_monthly_scope_scores_only_attacked_slices_and_is_not_a_baseline>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+__________ ERROR at setup of test_perform_probe_run_rejects_bad_scope __________
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_perform_probe_run_rejects9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_perform_probe_run_rejects9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_perform_probe_run_rejects_bad_scope>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+________ ERROR at setup of TestResultCodec.test_encode_file_decode_file ________
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_encode_file_decode_file9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_encode_file_decode_file9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_encode_file_decode_file>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+____ ERROR at setup of TestCombinedVerifier.test_path_variant_never_raises _____
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_path_variant_never_raises9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_path_variant_never_raises9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_path_variant_never_raises>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+_____ ERROR at setup of TestCliAgreement.test_case_verify_and_verify_agree _____
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_case_verify_and_verify_ag9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_case_verify_and_verify_ag9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_case_verify_and_verify_agree>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+_ ERROR at setup of TestCliAgreement.test_case_verify_malformed_file_is_downgraded_not_crash _
+
+self = PosixPath('/tmp/pytest-of-root/pytest-0/test_case_verify_malformed_fil9')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0/test_case_verify_malformed_fil9'
+
+/usr/lib/python3.12/pathlib.py:1313: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_case_verify_malformed_file_is_downgraded_not_crash>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        if (
+            fixturedef.argname == "event_loop_policy"
+            and fixturedef.func.__module__ != __name__
+        ):
+            warnings.warn(
+                PytestDeprecationWarning(_EVENT_LOOP_POLICY_FIXTURE_DEPRECATION_WARNING),
+            )
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-0'
+
+../TextForensics-rewrite/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:925: FileNotFoundError
+=================================== FAILURES ===================================
+________ DownloadStallServerTests.test_mid_body_drop_resumes_with_range ________
+
+self = <tests.test_datasets.DownloadStallServerTests testMethod=test_mid_body_drop_resumes_with_range>
+
+    def test_mid_body_drop_resumes_with_range(self) -> None:
+        _StallHandler.drop_after = 50
+        result = download_large_file(
+            self.url,
+            self.dest,
+            stall_timeout_s=5,
+            connect_timeout_s=5,
+            chunk_size=10,
+            retries=2,
+            use_curl_fallback=False,
+        )
+        self.assertEqual(result, self.dest)
+        self.assertEqual(self.dest.read_bytes(), self.BODY)
+>       self.assertEqual(_StallHandler.requests_seen, 2)
+E       AssertionError: 1 != 2
+
+tests/test_datasets.py:974: AssertionError
+----------------------------- Captured stderr call -----------------------------
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 33408)
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/usr/lib/python3.12/socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/usr/lib/python3.12/socketserver.py", line 761, in __init__
+    self.handle()
+  File "/usr/lib/python3.12/http/server.py", line 436, in handle
+    self.handle_one_request()
+  File "/usr/lib/python3.12/http/server.py", line 424, in handle_one_request
+    method()
+  File "/home/hatch/workspace/TextForensics-lh-api/tests/test_datasets.py", line 884, in do_GET
+    self._send(status, start, payload, payload[: type(self).drop_after])
+  File "/home/hatch/workspace/TextForensics-lh-api/tests/test_datasets.py", line 904, in _send
+    self.wfile.write(chunk)
+  File "/usr/lib/python3.12/socketserver.py", line 840, in write
+    self._sock.sendall(b)
+BrokenPipeError: [Errno 32] Broken pipe
+----------------------------------------
+________ EquivalentBaselineTests.test_stale_runtime_entry_fails_loudly _________
+
+self = <tests.test_mutation.EquivalentBaselineTests testMethod=test_stale_runtime_entry_fails_loudly>
+
+    def test_stale_runtime_entry_fails_loudly(self):
+        """A runtime entry whose function changed fails re-validation (exit 1)."""
+        import copy
+    
+        runtime = [e for e in self.baseline["entries"] if e["kind"] == "unreachable-condition"]
+        cases = {
+            "changed fingerprint": (
+                "source_fingerprint",
+                "0" * 64,
+                "fingerprint mismatch",
+            ),
+            "changed source text": ("source_text", "9", "no longer holds"),
+            "changed function": (
+                "function",
+                "assess_trust_map",
+                "enclosing function changed",
+            ),
+        }
+        for name, (field, value, fragment) in cases.items():
+            with self.subTest(case=name):
+                entry = copy.deepcopy(runtime[0])
+                entry[field] = value
+                ok, reason = self.runner.validate_baseline_entry(entry, self.project_root)
+                self.assertFalse(ok, f"{name} must not validate")
+                self.assertIn(fragment, reason)
+    
+        entry = copy.deepcopy(runtime[0])
+        entry["source_fingerprint"] = "0" * 64
+        tampered = copy.deepcopy(self.baseline)
+        tampered["entries"] = [entry] + [
+            e for e in self.baseline["entries"] if e["id"] != entry["id"]
+        ]
+        records = [self._record_for_entry(entry, "survived")]
+        summary = self.runner.parse_results(records, tampered, self.project_root)
+        self.assertEqual(len(summary["stale_baseline_entries"]), 1)
+        self.assertEqual(summary["stale_baseline_entries"][0]["id"], entry["id"])
+        self.assertEqual(summary["unexplained_surviving"], 1)
+        self.assertEqual(summary["equivalent"], 0)
+>       result = self._check_summary(summary)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_mutation.py:1095: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_mutation.py:555: in _check_summary
+    json.dump(summary, f)
+/usr/lib/python3.12/json/__init__.py:180: in dump
+    fp.write(chunk)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = (', "textforensics.policy:core/ReplaceBinaryOperator_BitOr_LShift:4"',)
+kwargs = {}
+
+    @_functools.wraps(func)
+    def func_wrapper(*args, **kwargs):
+>       return func(*args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^
+E       OSError: [Errno 28] No space left on device
+
+/usr/lib/python3.12/tempfile.py:638: OSError
+----------------------------- Captured stdout call -----------------------------
+uuu
+
+------------------------------------------------------------------------------------------------ benchmark: 12 tests ------------------------------------------------------------------------------------------------
+Name (time in ms)                       Min                   Max                  Mean                StdDev                Median                   IQR            Outliers       OPS            Rounds  Iterations
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+test_scan_100_words                  2.3421 (1.0)         71.1937 (1.0)          8.5927 (1.0)         16.8624 (1.0)          2.7023 (1.0)          2.5876 (1.0)         12;15  116.3779 (1.0)         136           1
+test_detector_100_words              2.5142 (1.07)       147.1449 (2.07)        15.7206 (1.83)        25.1991 (1.49)         3.7703 (1.40)        11.0547 (4.27)        15;15   63.6107 (0.55)        100           1
+test_scan_1000_words                16.9621 (7.24)       186.1854 (2.62)        68.0385 (7.92)        39.9355 (2.37)        81.0003 (29.97)       66.7326 (25.79)        22;0   14.6976 (0.13)         54           1
+test_detector_1000_words            16.9949 (7.26)       186.4780 (2.62)        88.5148 (10.30)       51.5753 (3.06)        94.0114 (34.79)       75.3072 (29.10)        23;0   11.2976 (0.10)         55           1
+test_report_100_words               24.4157 (10.42)      205.4513 (2.89)       101.1356 (11.77)       58.8827 (3.49)        91.6863 (33.93)       25.7231 (9.94)          2;2    9.8877 (0.08)          6           1
+test_case_export_100_words          30.6301 (13.08)      280.9479 (3.95)       117.9641 (13.73)       84.9385 (5.04)        95.4377 (35.32)       27.8009 (10.74)         2;2    8.4772 (0.07)          6           1
+test_report_1000_words             212.2354 (90.62)      274.3476 (3.85)       240.0238 (27.93)       30.3427 (1.80)       224.1753 (82.96)       55.7474 (21.54)         2;0    4.1663 (0.04)          5           1
+test_case_export_1000_words        293.1561 (125.17)     693.4565 (9.74)       377.2032 (43.90)      176.8667 (10.49)      300.6988 (111.28)     109.1263 (42.17)         1;1    2.6511 (0.02)          5           1
+test_scan_10000_words              474.6784 (202.67)     989.8902 (13.90)      637.5543 (74.20)      207.0011 (12.28)      608.9686 (225.35)     217.3612 (84.00)         1;0    1.5685 (0.01)          5           1
+test_detector_10000_words          476.2488 (203.34)   1,103.1471 (15.50)      723.4030 (84.19)      243.2249 (14.42)      640.9116 (237.17)     318.5679 (123.11)        2;0    1.3824 (0.01)          5           1
+test_report_10000_words          2,189.7450 (934.94)   4,788.0046 (67.25)    3,875.7444 (451.05)   1,088.7678 (64.57)    4,290.9355 (>1000.0)  1,615.9808 (624.50)        1;0    0.2580 (0.00)          5           1
+test_case_export_10000_words     2,763.0448 (>1000.0)  6,199.1986 (87.08)    4,377.0751 (509.39)   1,543.6361 (91.54)    3,758.4530 (>1000.0)  2,738.2521 (>1000.0)       2;0    0.2285 (0.00)          5           1
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Legend:
+  Outliers: 1 Standard Deviation from Mean; 1.5 IQR (InterQuartile Range) from 1st Quartile and 3rd Quartile.
+  OPS: Operations Per Second, computed as 1 / Mean
+=========================== short test summary info ============================
+ERROR tests/test_precommit.py::TestValidateSchemas::test_valid_schema_passes
+ERROR tests/test_precommit.py::TestValidateSchemas::test_invalid_json_fails
+ERROR tests/test_precommit.py::TestValidateSchemas::test_missing_schema_field_fails
+ERROR tests/test_precommit.py::TestValidateSchemas::test_invalid_schema_fails
+ERROR tests/test_precommit.py::TestValidateAgentsRules::test_no_claims_passes
+ERROR tests/test_precommit.py::TestValidateAgentsRules::test_percentage_claims_detected
+ERROR tests/test_precommit.py::TestValidateAgentsRules::test_auroc_claims_detected
+ERROR tests/test_precommit.py::TestValidateAgentsRules::test_performance_claims_detected
+ERROR tests/test_precommit.py::TestValidateAgentsRules::test_f1_claims_detected
+ERROR tests/test_precommit.py::TestValidatePyprojectDeps::test_sorted_dependencies_pass
+ERROR tests/test_precommit.py::TestValidatePyprojectDeps::test_unsorted_dependencies_fail
+ERROR tests/test_precommit.py::TestValidatePyprojectDeps::test_case_insensitive_sorting
+ERROR tests/test_probe_corpus.py::test_corpus_files_verify_exact_match - File...
+ERROR tests/test_probe_corpus.py::test_holdback_labels_are_separate_from_corpus
+ERROR tests/test_probe_corpus.py::test_rebuild_from_manifest_reproduces_hashes
+ERROR tests/test_probe_runs.py::test_run_manifest_round_trip - FileNotFoundEr...
+ERROR tests/test_probe_runs.py::test_run_history_orders_oldest_first - FileNo...
+ERROR tests/test_probe_runs.py::test_run_history_empty_dir - FileNotFoundErro...
+ERROR tests/test_probe_runs.py::test_apply_demotions_sets_demoted_by_and_stale
+ERROR tests/test_probe_runs.py::test_apply_demotions_no_tier1_is_noop - FileN...
+ERROR tests/test_probe_runs.py::test_apply_demotions_no_records_is_gap - File...
+ERROR tests/test_probe_runs.py::test_clear_demotions_after_clean_rerun - File...
+ERROR tests/test_probe_runs.py::test_clear_demotions_leaves_foreign_demotions_alone
+ERROR tests/test_probe_runs_e2e.py::test_first_run_is_baseline_and_clean - Fi...
+ERROR tests/test_probe_runs_e2e.py::test_two_clean_runs_give_two_consecutive_clean_full_runs
+ERROR tests/test_probe_runs_e2e.py::test_drift_tier3_then_tier2_on_consecutive_runs
+ERROR tests/test_probe_runs_e2e.py::test_tier1_fpr_demotes_and_clean_run_clears
+ERROR tests/test_probe_runs_e2e.py::test_holdback_loader_runs_only_after_scoring
+ERROR tests/test_probe_runs_e2e.py::test_dry_run_writes_nothing - FileNotFoun...
+ERROR tests/test_probe_runs_e2e.py::test_monthly_scope_scores_only_attacked_slices_and_is_not_a_baseline
+ERROR tests/test_probe_runs_e2e.py::test_perform_probe_run_rejects_bad_scope
+ERROR tests/test_result_codec.py::TestResultCodec::test_encode_file_decode_file
+ERROR tests/test_verify_consolidation.py::TestCombinedVerifier::test_path_variant_never_raises
+ERROR tests/test_verify_consolidation.py::TestCliAgreement::test_case_verify_and_verify_agree
+ERROR tests/test_verify_consolidation.py::TestCliAgreement::test_case_verify_malformed_file_is_downgraded_not_crash
+FAILED tests/test_datasets.py::DownloadStallServerTests::test_mid_body_drop_resumes_with_range
+FAILED tests/test_mutation.py::EquivalentBaselineTests::test_stale_runtime_entry_fails_loudly
+2 failed, 3329 passed, 35 errors, 904 subtests passed in 7881.19s (2:11:21)

@@ -1,0 +1,60 @@
+=== GET /healthz ===
+HTTP/1.1 200 OK
+date: Sun, 08 Nov 2026 09:32:13 GMT
+server: uvicorn
+content-length: 15
+content-type: application/json
+cache-control: no-store
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+x-textforensics-version: 0.2.0
+
+{"status":"ok"}
+=== GET /readyz ===
+HTTP/1.1 200 OK
+date: Sun, 08 Nov 2026 09:32:13 GMT
+server: uvicorn
+content-length: 18
+content-type: application/json
+cache-control: no-store
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+x-textforensics-version: 0.2.0
+
+{"status":"ready"}
+=== GET /version ===
+HTTP/1.1 200 OK
+date: Sun, 08 Nov 2026 09:32:13 GMT
+server: uvicorn
+content-length: 42
+content-type: application/json
+cache-control: no-store
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+x-textforensics-version: 0.2.0
+
+{"name":"TextForensics","version":"0.2.0"}
+=== GET /v1/detectors ===
+HTTP/1.1 200 OK
+date: Sun, 08 Nov 2026 09:32:13 GMT
+server: uvicorn
+content-length: 273
+content-type: application/json
+cache-control: no-store
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+x-textforensics-version: 0.2.0
+
+{"detectors":[{"detector_id":"textforensics/builtin-heuristic","detector_version":"0.1.0","detector_family":"stylometric-heuristic"}],"plugin_health":[{"entry_point":"builtin","status":"ok","detector_id":"textforensics/builtin-heuristic","error_type":null,"message":null}]}
+=== GET / (expect 404) ===
+HTTP/1.1 404 Not Found
+date: Sun, 08 Nov 2026 09:32:13 GMT
+server: uvicorn
+content-length: 22
+content-type: application/json
+cache-control: no-store
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+x-textforensics-version: 0.2.0
+
+{"detail":"Not Found"}

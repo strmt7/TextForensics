@@ -1,0 +1,12 @@
+=== POST /v1/report (human) ===
+HTTP 200 bytes 9487
+keys: ['consensus', 'content_sha256', 'detector_failures', 'detector_protocols', 'detector_results', 'evidence_registry', 'generated_at_utc', 'input', 'input_conditions', 'legacy', 'limitations', 'plugin_health', 'provenance', 'robustness', 'schema', 'trust_map']
+=== POST /v1/audit (human) ===
+HTTP 200 bytes 180
+[{"issue":"no_obvious_formulaic_pattern","suggestion":"No strong rule-based naturalness issue was found. Preserve the author's voice rather than changing text just to change it."}]
+=== POST /v1/compare (human vs machine) ===
+HTTP 200 bytes 216
+{"similarity":0.051,"before_score":0.1875,"after_score":0.646,"score_delta":0.4585,"before_verdict":"human_like_patterns","after_verdict":"insufficient_evidence","words_added_estimate":72,"words_removed_estimate":77}
+=== POST /v1/case (human) ===
+HTTP 200 bytes 16619
+{"schema":"textforensics.case-file/v4","tool":{"name":"TextForensics","version":"0.2.0","git_sha":null},"created_at_utc":"2026-11-08T09:32:39.749868+00:00","raw_text_included":false,"forensic_bundle":{"schema":"textforensics.forensic-bundle/v2","generated_at_utc":"2026-11-08T09:32:39.747164+00:00","content_sha256":"bf05f82026cfc8fda7698f3490427f85020d51ae5d6d3cea0c4a8f62a40ebf81","input":{"word_co

@@ -1,0 +1,13 @@
+HTTP/1.1 100 Continue
+
+HTTP/1.1 413 Request Entity Too Large
+date: Sun, 08 Nov 2026 09:32:50 GMT
+server: uvicorn
+content-length: 32
+content-type: application/json
+cache-control: no-store
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+x-textforensics-version: 0.2.0
+
+{"detail":"Invalid text input."}
