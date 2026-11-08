@@ -70,6 +70,12 @@ Then check:
 http://127.0.0.1:8765/healthz
 ```
 
+The image runs `textforensics serve` (see `Dockerfile`: `CMD
+["serve"]`), so it serves the JSON API only — the browser UI is not
+available from the container (`GET /` returns 404; the API has no
+root route). To run the browser UI, use `textforensics web` on a
+bare server (see below) instead of the container image.
+
 The image:
 - runs as an unprivileged numeric UID/GID;
 - contains only the API runtime, not build tools;
@@ -123,6 +129,23 @@ textforensics serve --host 0.0.0.0 --allow-remote
 ```
 
 This guard reduces accidental exposure; it is not authentication.
+
+## Browser UI (bare server / VM)
+
+`textforensics serve` is API-only: it serves no HTML at `/` (that
+route returns 404). The browser UI is a separate command,
+`textforensics web` (equivalently `textforensics web-fastapi` or the
+`textforensics-web` console script), which serves the FastAPI UI
+(including its `/api/*` endpoints) as its own process:
+
+```bash
+textforensics web --host 127.0.0.1
+```
+
+It binds `127.0.0.1:8765` by default and opens the browser
+automatically; pass `--no-browser` to skip that. The same
+non-loopback guard applies: `--host 0.0.0.0` without
+`--allow-remote` is refused (exit 3).
 
 ## Kubernetes / Nomad / ECS / other schedulers
 
