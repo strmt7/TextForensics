@@ -609,8 +609,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(
             {e["occurrence"] for e in unobservable},
             {0, 1, 2, 3, 4, 8, 22, 23},
-            "occurrences must match the policy budget-200 dump + the "
-            "benchmark full-session dump",
+            "occurrences must match the policy budget-200 dump + the benchmark full-session dump",
         )
         self.assertEqual(
             {e["function"] for e in unobservable},

@@ -288,7 +288,9 @@ class BenchmarkMutationKillTests(unittest.TestCase):
     def test_load_scores_non_dict_row_strict_raises(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "bad.jsonl"
-            path.write_text('[1, 2]\n{"label": "human", "text": "' + HUMAN + '"}\n', encoding="utf-8")
+            path.write_text(
+                '[1, 2]\n{"label": "human", "text": "' + HUMAN + '"}\n', encoding="utf-8"
+            )
             with self.assertRaisesRegex(DatasetFormatError, r"Line 1 must be a JSON object\."):
                 _load_scores(path)
 
@@ -308,9 +310,7 @@ class BenchmarkMutationKillTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "bad.jsonl"
             path.write_text('{"label": "other", "text": "' + HUMAN + '"}\n', encoding="utf-8")
-            with self.assertRaisesRegex(
-                DatasetFormatError, r"Line 1 requires label 'human'/'ai'"
-            ):
+            with self.assertRaisesRegex(DatasetFormatError, r"Line 1 requires label 'human'/'ai'"):
                 _load_scores(path)
 
     def test_load_scores_bad_label_non_strict_skips_mid_file(self):
@@ -509,7 +509,9 @@ class BenchmarkMutationKillTests(unittest.TestCase):
     def test_calibrate_strict_default_rejects_bad_json(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "bad.jsonl"
-            path.write_text('{"label": "human", "text": "' + HUMAN + '"}\nnot json\n', encoding="utf-8")
+            path.write_text(
+                '{"label": "human", "text": "' + HUMAN + '"}\nnot json\n', encoding="utf-8"
+            )
             with self.assertRaises(DatasetFormatError):
                 calibrate_threshold_jsonl(path)
 
@@ -620,9 +622,8 @@ class BenchmarkMutationKillTests(unittest.TestCase):
             self.assertEqual(loaded, artifact)
 
     def test_load_calibration_artifact_missing_file_raises(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaises(FileNotFoundError):
-                load_calibration_artifact(Path(tmp) / "nope.json")
+        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(FileNotFoundError):
+            load_calibration_artifact(Path(tmp) / "nope.json")
 
     # -- benchmark_with_calibration_jsonl ([505], [534], [638]) ----------
 
@@ -679,16 +680,24 @@ class BenchmarkMutationKillTests(unittest.TestCase):
 
     def test_fingerprint_post_init_preserves_explicit_timestamp(self):
         fp = DatasetFingerprint(
-            name="RAID", version="1.0", split="test", dataset_hash="x" * 64,
+            name="RAID",
+            version="1.0",
+            split="test",
+            dataset_hash="x" * 64,
             created_at="2026-01-02T03:04:05+00:00",
         )
         self.assertEqual(fp.created_at, "2026-01-02T03:04:05+00:00")
 
     def test_fingerprint_to_dict_exact(self):
         fp = DatasetFingerprint(
-            name="RAID", version="1.0", split="test", dataset_hash="a" * 64,
-            filters={"domain": "news"}, sample_count=2,
-            content_hashes=("h1", "h2"), created_at="2026-01-02T03:04:05+00:00",
+            name="RAID",
+            version="1.0",
+            split="test",
+            dataset_hash="a" * 64,
+            filters={"domain": "news"},
+            sample_count=2,
+            content_hashes=("h1", "h2"),
+            created_at="2026-01-02T03:04:05+00:00",
         )
         self.assertEqual(
             fp.to_dict(),
@@ -712,7 +721,10 @@ class BenchmarkMutationKillTests(unittest.TestCase):
 
     def test_fingerprint_from_dict_missing_each_field(self):
         full = {
-            "name": "RAID", "version": "1.0", "split": "test", "dataset_hash": "a" * 64,
+            "name": "RAID",
+            "version": "1.0",
+            "split": "test",
+            "dataset_hash": "a" * 64,
         }
         for field in ("name", "version", "split", "dataset_hash"):
             data = dict(full)
@@ -733,9 +745,14 @@ class BenchmarkMutationKillTests(unittest.TestCase):
 
     def test_fingerprint_from_dict_round_trip(self):
         fp = DatasetFingerprint(
-            name="RAID", version="2.0", split="calibration", dataset_hash="b" * 64,
-            filters={"lang": "en"}, sample_count=7,
-            content_hashes=("h1", "h2"), created_at="2026-01-02T03:04:05+00:00",
+            name="RAID",
+            version="2.0",
+            split="calibration",
+            dataset_hash="b" * 64,
+            filters={"lang": "en"},
+            sample_count=7,
+            content_hashes=("h1", "h2"),
+            created_at="2026-01-02T03:04:05+00:00",
         )
         restored = DatasetFingerprint.from_dict(fp.to_dict())
         self.assertEqual(restored, fp)
@@ -760,9 +777,7 @@ class BenchmarkMutationKillTests(unittest.TestCase):
         ascii_hash = _compute_content_hash("hello")
         non_ascii_hash = _compute_content_hash("caf\u00e9")
         self.assertNotEqual(ascii_hash, non_ascii_hash)
-        expected = hashlib.sha256(
-            '{"text":"caf\u00e9"}'.encode("utf-8")
-        ).hexdigest()
+        expected = hashlib.sha256('{"text":"caf\u00e9"}'.encode("utf-8")).hexdigest()
         self.assertEqual(non_ascii_hash, expected)
 
     def test_iter_jsonl_samples_yields_rows_and_skips_blanks(self):
@@ -803,7 +818,9 @@ class BenchmarkMutationKillTests(unittest.TestCase):
             expected = hashlib.sha256(
                 json.dumps(
                     {"label": "human", "text": HUMAN},
-                    sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
                 ).encode("utf-8")
             ).hexdigest()
             self.assertIn(expected, hashes)
@@ -817,7 +834,9 @@ class BenchmarkMutationKillTests(unittest.TestCase):
             expected = hashlib.sha256(
                 json.dumps(
                     {"label": "human", "text": "caf\u00e9 \u2603"},
-                    sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
                 ).encode("utf-8")
             ).hexdigest()
             self.assertEqual(hashes, [expected])
@@ -855,7 +874,9 @@ class BenchmarkMutationKillTests(unittest.TestCase):
     def test_compute_sample_hashes_strict_invalid_json_raises(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "bad.jsonl"
-            path.write_text('{"label": "human", "text": "' + HUMAN + '"}\n{oops}\n', encoding="utf-8")
+            path.write_text(
+                '{"label": "human", "text": "' + HUMAN + '"}\n{oops}\n', encoding="utf-8"
+            )
             with self.assertRaisesRegex(ValueError, r"Line 2 is not valid JSON"):
                 _compute_sample_hashes(path)
 
@@ -874,7 +895,7 @@ class BenchmarkMutationKillTests(unittest.TestCase):
     def test_compute_sample_hashes_non_dict_strict_raises(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "bad.jsonl"
-            path.write_text('[1, 2]\n', encoding="utf-8")
+            path.write_text("[1, 2]\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, r"Line 1 must be a JSON object"):
                 _compute_sample_hashes(path)
 
@@ -914,9 +935,7 @@ class BenchmarkMutationKillTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "data.jsonl"
             write_dataset(path)
-            fp = fingerprint_dataset(
-                path, "RAID", "1.0.0", "test", filters={"domain": "news"}
-            )
+            fp = fingerprint_dataset(path, "RAID", "1.0.0", "test", filters={"domain": "news"})
             self.assertEqual(fp.name, "RAID")
             self.assertEqual(fp.version, "1.0.0")
             self.assertEqual(fp.split, "test")
@@ -927,9 +946,8 @@ class BenchmarkMutationKillTests(unittest.TestCase):
             self.assertEqual(fp.dataset_hash, dataset_sha256(path))
 
     def test_fingerprint_dataset_missing_file_raises(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaises(FileNotFoundError):
-                fingerprint_dataset(Path(tmp) / "nope.jsonl", "RAID")
+        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(FileNotFoundError):
+            fingerprint_dataset(Path(tmp) / "nope.jsonl", "RAID")
 
     def test_fingerprint_dataset_filters_default_is_empty_dict(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -951,7 +969,9 @@ class BenchmarkMutationKillTests(unittest.TestCase):
     def test_fingerprint_dataset_strict_default_rejects_bad_json(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "bad.jsonl"
-            path.write_text('{"label": "human", "text": "' + HUMAN + '"}\n{oops}\n', encoding="utf-8")
+            path.write_text(
+                '{"label": "human", "text": "' + HUMAN + '"}\n{oops}\n', encoding="utf-8"
+            )
             with self.assertRaises(ValueError):
                 fingerprint_dataset(path, "RAID")
 
@@ -1012,19 +1032,20 @@ class BenchmarkMutationKillTests(unittest.TestCase):
             write_dataset(path)
             fp = fingerprint_dataset(path, "RAID")
             wrong = fp.__class__(
-                name=fp.name, version=fp.version, split=fp.split,
-                filters=fp.filters, sample_count=fp.sample_count,
-                content_hashes=fp.content_hashes, dataset_hash="f" * 64,
+                name=fp.name,
+                version=fp.version,
+                split=fp.split,
+                filters=fp.filters,
+                sample_count=fp.sample_count,
+                content_hashes=fp.content_hashes,
+                dataset_hash="f" * 64,
                 created_at=fp.created_at,
             )
             result = verify_fingerprint(path, wrong)
             self.assertFalse(result["valid"])
             self.assertEqual(
                 result["errors"],
-                [
-                    f"File hash mismatch. Expected: {'f' * 16}..., "
-                    f"Got: {fp.dataset_hash[:16]}..."
-                ],
+                [f"File hash mismatch. Expected: {'f' * 16}..., Got: {fp.dataset_hash[:16]}..."],
             )
 
     def test_verify_fingerprint_count_mismatch_only(self):
@@ -1034,9 +1055,13 @@ class BenchmarkMutationKillTests(unittest.TestCase):
             fp = fingerprint_dataset(path, "RAID")
             for wrong_count in (3, 5):
                 wrong = fp.__class__(
-                    name=fp.name, version=fp.version, split=fp.split,
-                    filters=fp.filters, sample_count=wrong_count,
-                    content_hashes=fp.content_hashes, dataset_hash=fp.dataset_hash,
+                    name=fp.name,
+                    version=fp.version,
+                    split=fp.split,
+                    filters=fp.filters,
+                    sample_count=wrong_count,
+                    content_hashes=fp.content_hashes,
+                    dataset_hash=fp.dataset_hash,
                     created_at=fp.created_at,
                 )
                 result = verify_fingerprint(path, wrong)
@@ -1056,9 +1081,13 @@ class BenchmarkMutationKillTests(unittest.TestCase):
             fp = fingerprint_dataset(path, "RAID")
             for wrong_hash in ("0" * 64, "f" * 64):
                 wrong = fp.__class__(
-                    name=fp.name, version=fp.version, split=fp.split,
-                    filters=fp.filters, sample_count=fp.sample_count,
-                    content_hashes=fp.content_hashes, dataset_hash=wrong_hash,
+                    name=fp.name,
+                    version=fp.version,
+                    split=fp.split,
+                    filters=fp.filters,
+                    sample_count=fp.sample_count,
+                    content_hashes=fp.content_hashes,
+                    dataset_hash=wrong_hash,
                     created_at=fp.created_at,
                 )
                 result = verify_fingerprint(path, wrong)
@@ -1068,7 +1097,9 @@ class BenchmarkMutationKillTests(unittest.TestCase):
     def test_verify_fingerprint_invalid_json_reports_count_failure(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "bad.jsonl"
-            path.write_text('{"label": "human", "text": "' + HUMAN + '"}\n{oops}\n', encoding="utf-8")
+            path.write_text(
+                '{"label": "human", "text": "' + HUMAN + '"}\n{oops}\n', encoding="utf-8"
+            )
             fp = fingerprint_dataset(path, "RAID", strict=False)
             result = verify_fingerprint(path, fp)
             self.assertFalse(result["valid"])
@@ -1142,7 +1173,9 @@ class BenchmarkMutationKillTests(unittest.TestCase):
             result = check_disjointness(path1, fp1, path2, fp2)
             self.assertFalse(result["disjoint"])
             self.assertEqual(result["shared_samples"], 1)
-            self.assertEqual(result["shared_hashes"], sorted(set(fp1.content_hashes) & set(fp2.content_hashes)))
+            self.assertEqual(
+                result["shared_hashes"], sorted(set(fp1.content_hashes) & set(fp2.content_hashes))
+            )
             self.assertTrue(result["verified"])
 
     def test_disjointness_with_itself_is_fully_shared(self):
@@ -1183,7 +1216,9 @@ class BenchmarkMutationKillTests(unittest.TestCase):
     def test_disjointness_bad_json_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
             path1 = Path(tmp) / "a.jsonl"
-            path1.write_text('{"label": "human", "text": "' + HUMAN + '"}\n{oops}\n', encoding="utf-8")
+            path1.write_text(
+                '{"label": "human", "text": "' + HUMAN + '"}\n{oops}\n', encoding="utf-8"
+            )
             path2 = Path(tmp) / "b.jsonl"
             write_dataset(path2)
             fp2 = fingerprint_dataset(path2, "B")
@@ -1221,7 +1256,9 @@ class BenchmarkMutationKillTests(unittest.TestCase):
             write_dataset(path2)
             fp1 = fingerprint_dataset(path1, "A")
             fp2 = fingerprint_dataset(path2, "B")
-            with self.assertRaisesRegex(ValueError, r"Benchmark contamination detected: 4 overlapping"):
+            with self.assertRaisesRegex(
+                ValueError, r"Benchmark contamination detected: 4 overlapping"
+            ):
                 validate_disjointness(path1, fp1, path2, fp2)
 
     def test_validate_disjointness_raises_when_unverifiable(self):
@@ -1256,9 +1293,14 @@ class BenchmarkMutationKillTests(unittest.TestCase):
     def test_save_fingerprint_exact_file_text(self):
         with tempfile.TemporaryDirectory() as tmp:
             fp = DatasetFingerprint(
-                name="RAID", version="1.0", split="test", dataset_hash="a" * 64,
-                filters={"domain": "news"}, sample_count=2,
-                content_hashes=("h1", "h2"), created_at="2026-01-02T03:04:05+00:00",
+                name="RAID",
+                version="1.0",
+                split="test",
+                dataset_hash="a" * 64,
+                filters={"domain": "news"},
+                sample_count=2,
+                content_hashes=("h1", "h2"),
+                created_at="2026-01-02T03:04:05+00:00",
             )
             saved = save_fingerprint(fp, Path(tmp) / "fp.json")
             self.assertEqual(
@@ -1269,7 +1311,10 @@ class BenchmarkMutationKillTests(unittest.TestCase):
     def test_save_fingerprint_non_ascii_is_not_escaped(self):
         with tempfile.TemporaryDirectory() as tmp:
             fp = DatasetFingerprint(
-                name="caf\u00e9", version="1.0", split="test", dataset_hash="a" * 64,
+                name="caf\u00e9",
+                version="1.0",
+                split="test",
+                dataset_hash="a" * 64,
                 created_at="2026-01-02T03:04:05+00:00",
             )
             saved = save_fingerprint(fp, Path(tmp) / "fp.json")
@@ -1377,7 +1422,9 @@ class BenchmarkMutationKillTests(unittest.TestCase):
             expected = hashlib.sha256(
                 json.dumps(
                     {"text": "caf\u00e9 \u2603"},
-                    sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
                 ).encode("utf-8")
             ).hexdigest()
             self.assertEqual(hashes, [expected])
