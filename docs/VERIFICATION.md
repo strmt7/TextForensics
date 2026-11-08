@@ -2658,3 +2658,29 @@ merge, no release, no tag (parent merges).
 - **Claims gate:** 33/33, unchanged — no live round-trip is claimed,
   `qualified` stays `"unknown"`. No evidence artifact was produced
   (nothing succeeded to record).
+
+## Verification record — Phase 5, U2-leftovers merged (2026-11-08)
+
+Both U2 release-gate gaps are closed as far as this VM can close
+them. Detail: `hidden_files/phase5-u2-leftovers.md`.
+
+- **not_reproducible (merged `a384ec1`):** case-file v4 is the
+  default seal; per-observation determinism is declared at seal
+  time and a mismatch on a declared non-deterministic detector
+  reports `not_reproducible` (inconclusive, exit 2) instead of
+  failing as tampering; deterministic/unknown mismatches still fail
+  closed. Parent-verified on the branch: claims 33/33, pre-commit
+  13/13, casefile tests 106 passed (incl. all 29 new v4 tests).
+- **Live-TSA interop (merged `bc2190b`):** still blocked from this
+  VM — freetsa and DigiCert `/tsr` POSTs time out on read at 10 s
+  while homepage GETs succeed, the same pattern as U2. The client
+  path is proven against a stdlib mock TSA (4 new tests), and the
+  exact unrestricted-host re-attempt procedure is in
+  `docs/TSA_INTEROP.md`. Parent-verified on the rebased branch:
+  claims 33/33, pre-commit 13/13 (exit 0; an earlier "12" count was
+  a grep artifact of the schema-validator hook's verbose output),
+  mock+timestamp+schema tests 49 passed. The rebase conflicted only
+  on this file (both branches appended a section); the parent kept
+  both sections, in order.
+- Full extras suite on the merged tree: **3060 passed / 0 failed**
+  (1 deselected flake; 3026 + 30 v4 tests + 4 mock-TSA tests).
