@@ -561,8 +561,10 @@ Model Context Protocol integration for AI tooling:
 Local browser-based interface (FastAPI + WebSocket), started with
 `textforensics web` (or `textforensics web-fastapi`, or the
 `textforensics-web` console script):
-- Runs on same loopback server as API (binds to `127.0.0.1` by
-  default; `--allow-remote` for a network-visible bind)
+- Runs as its own process, separate from the API server: `textforensics web`
+  serves the UI (binds to `127.0.0.1` by default; `--allow-remote` for a
+  network-visible bind), while `textforensics serve` serves the API only.
+  The container image runs `serve`, so it serves no UI.
 - Renders forensic bundles as structured reports, with Trust Map
   evidence coverage leading instead of a giant certainty percentage
 - Sessions/collaboration, analysis history, JSON/CSV/HTML export,
