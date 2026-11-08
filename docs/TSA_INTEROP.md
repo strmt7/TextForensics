@@ -97,7 +97,9 @@ for url in ("https://freetsa.org/tsr", "https://timestamp.digicert.com"):
     print(f"OK valid={report['valid']}", flush=True)
     print(f"  gen_time={report['gen_time']} gen_time_utc={report['gen_time_utc']}", flush=True)
     print(f"  policy={report['policy']} serial={report['serial_number']}", flush=True)
-    print(f"  nonce={report['nonce']} signature_algorithm={report['signature_algorithm']}", flush=True)
+    print(
+        f"  nonce={report['nonce']} signature_algorithm={report['signature_algorithm']}", flush=True
+    )
     print(f"  signer_cert_fingerprint={report['signer_cert_fingerprint']}", flush=True)
     print(f"  certificate_count={report['certificate_count']}", flush=True)
     print(f"  qualified={report['qualified']} label={report['qualification_label']}", flush=True)
