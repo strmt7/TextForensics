@@ -2958,4 +2958,3 @@ reviewable in the diff and lets the gate fail on every push.
   several parallel suites plus a live cosmic-ray run; the suite stalls
   longest in `test_mutation.py`'s 787-entry baseline validation, which
   this change does not touch.)
-

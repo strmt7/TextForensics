@@ -212,4 +212,3 @@ Known flags (not fixed here — other owners):
   but no `requirements.txt` exists at the repo root; the step ends in
   `|| true`, so it silently produces nothing. Pre-existing defect, flagged
   for its owner.
-
