@@ -11,7 +11,16 @@ jobs:
   core:
     name: Core Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Raised 15 -> 30 on 2026-11-08: the full suite (pre-commit,
+    # compileall, ruff, pytest under coverage, golden-file verification,
+    # pip check, CLI smoke, coverage) outgrew the 15-minute cap — all
+    # five Core jobs were cancelled at ~15m16s on run 42485688136
+    # (head 2e28466), with the same deterioration all day
+    # (09:15: 3.13/3.14 only; 12:02: 3.15 only; 12:40: 3.12 only).
+    # Not a code failure: every other job on that head was green.
+    # If Core still exceeds 30 minutes, the always-uploaded test log
+    # (below) will show whether it is the suite or pre-commit/install.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -59,7 +68,9 @@ jobs:
           name: textforensics
           fail_ci_if_error: true
       - name: Upload test log on failure
-        if: failure()
+        # always(): cancelled (timeout) jobs previously uploaded no log,
+        # so the slow step inside the Core job could not be diagnosed.
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: unittest-log-py${{ matrix.python-version }}
