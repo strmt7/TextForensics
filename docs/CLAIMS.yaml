@@ -369,16 +369,16 @@ claims:
       bandit_low: 26
 
   - id: "security.pip_audit_tracked"
-    statement: "pip-audit reports 12 known findings in 1 package (pip 24.0: 12); every finding has a fixed version and the cryptography cap was widened by Dependabot #27 in Phase 4 (cryptography is now >=42.0.8,<51, 0 findings; pytest 0 findings)"
+    statement: "pip-audit is a failing gate (scripts/check_pip_audit.py + pip-audit-baseline.toml, owned by supply-chain.yml): zero new findings allowed. 12 known findings in 1 package (pip 24.0: 12), all baselined with reason and review date; pip 24.0 is the dev-venv installer, not a shipped dependency. The setuptools <80 cap was widened to <85, clearing 3 pinned-audit findings (setuptools 79.0.1); cryptography is >=42.0.8,<51, 0 findings; pytest 0 findings"
     category: "security"
     status: "verified"
     evidence_type: "doc"
     evidence_path: "docs/VERIFICATION.md"
     owner: "security"
-    last_verified: "2026-11-07"
-    notes: "Replaces the old 'no critical vulnerabilities' claim, whose own note admitted 108 vulns. pip 24.0 is the venv installer, not a shipped dependency; pytest is dev-only. Re-seeded 2026-11-07: Dependabot #27 (Phase 4, commit ac030c7) widened the cryptography cap from <43 to <51, clearing all 11 cryptography findings (installed 50.0.2, 0 findings); pytest is now 9.2.0 with 0 findings."
-    evidence_record_id: "EV-20261107-pip-audit"
-    run_artifact_sha256: "2f59b2619c9d76b195b673cf069fde969d7ebbef323f432309fd0ef7dd4dfc4c"
+    last_verified: "2026-11-08"
+    notes: "Replaces the old 'no critical vulnerabilities' claim, whose own note admitted 108 vulns. pip 24.0 is the venv installer, not a shipped dependency; pytest is dev-only. Re-seeded 2026-11-08 (Phase 5 pip-audit gate wave): the gate now fails CI on any finding not in pip-audit-baseline.toml (6 pip 24.0 entries, review_by 2027-02-06); the pinned-requirements audit reports 0 findings after the setuptools cap widening <80 -> <85 (79.0.1 had PYSEC-2026-3447 x2 + GHSA-xmj3-9gf7-h52w). Dependabot #27 (Phase 4, commit ac030c7) widened the cryptography cap from <43 to <51, clearing all 11 cryptography findings (installed 50.0.2, 0 findings); pytest is now 9.2.0 with 0 findings."
+    evidence_record_id: "EV-20261108-pip-audit"
+    run_artifact_sha256: "537fbdaa4fc6e63fbaa229ba8433a0cf016f906ea7299548622a6362ca5223f6"
     values:
       findings_total: 12
       packages.cryptography: 0

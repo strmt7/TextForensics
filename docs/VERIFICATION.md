@@ -2767,3 +2767,106 @@ them. Detail: `hidden_files/phase5-u2-leftovers.md`.
   20261108 `supported`, rest `partial`). Verified on the applied tree:
   claims 33/33, pre-commit 13/13, schemas OK, validation/RAID/FPR tests
   115/115.
+
+## Verification record — Phase 5, pip-audit failing gate (2026-11-08)
+
+pip-audit is now a failing gate with an explicit per-finding
+baseline, modelled on the mutation gate. `supply-chain.yml` is the
+single owner (one `pip-audit-gate` job: push to `main`, PRs touching
+dependency files, weekly Monday 04:23 UTC); the two duplicate
+zero-tolerance jobs (`pip-audit --path . || exit 1`) and the
+never-failing `dependency-audit.yml` job are deleted.
+`enterprise-deep-verification.yml` keeps its own weekly
+zero-tolerance audit of the frozen requirements file, which
+`pip freeze` builds without pip itself, so it does not conflict
+with the baselined installer findings.
+
+- **Gate (`scripts/check_pip_audit.py`, stdlib + pip-audit only):**
+  runs pip-audit against the installed environment **and**
+  `requirements-pinned.txt`, deduplicates repeat reports of the
+  same vulnerability on (package, version, vuln id), and matches
+  every finding against `pip-audit-baseline.toml`. Exit 0: every
+  finding baselined. Exit 2: a new finding (new package, new
+  vulnerability id, or new affected version — a different version
+  of a known vuln is new). Exit 1: configuration error, or a
+  still-present finding past its baseline `review_by` date.
+  Dormant entries (finding fixed) are reported, not failed.
+  No blanket ignores, no `--ignore` flags, no severity
+  downgrades. A `--report` JSON summary is uploaded as a CI
+  artifact.
+- **Baseline (`pip-audit-baseline.toml`):** 6 entries, all pip
+  24.0 — the dev-venv installer, not a shipped dependency — each
+  with aliases (id-or-alias matching, so a future report under a
+  GHSA id still matches), exact affected versions, fix version,
+  reason, and review date 2027-02-06.
+- **setuptools cap widened `<80` → `<85`** (`pyproject.toml`,
+  `requirements-pinned.txt`, `engineering.toml` S06): the `<80`
+  cap forced the vulnerable 79.x line. The pinned audit had
+  reported 3 findings in setuptools 79.0.1 (PYSEC-2026-3447 ×2,
+  fixed in 83.0.0; GHSA-xmj3-9gf7-h52w, fixed in 84.1.0). The
+  cap was widened instead of baselining a fixable build-backend
+  vulnerability — the same call as Dependabot #27 for
+  cryptography. The installed setuptools is already 84.2.1.
+- **Live proofs (worktree venv, pip 24.0, pip-audit 2.10.1):**
+  clean run exits 0 — installed env 12 raw / 6 unique findings,
+  all baselined; pinned audit 0 findings. Planted new finding
+  (temporary requirements file pinning `cryptography==42.0.8`,
+  never a real pin) exits 2 with 7 unique new findings.
+  Comparison logic is unit-tested in
+  `tests/test_pip_audit_gate.py` (13 tests: dedupe, alias
+  matching, new-version-is-new, dormant, expiry, baseline
+  validation, CLI exit codes, report).
+- **Claim:** `security.pip_audit_tracked` restated for the gate
+  and re-seeded from a real run (`EV-20261108-pip-audit`,
+  run_date 2026-11-08, code_version `51c7d26`, sha256
+  `537fbdaa4fc6…`; registry rebuilt, 31 records): 12 findings,
+  pip 12, cryptography 0, pytest 0. The new record's installed
+  package set differs from the old venv's by 5 packages with 0
+  findings each (absent now: opentelemetry-sdk /
+  opentelemetry-exporter-prometheus /
+  opentelemetry-semantic-conventions / prometheus-client /
+  py-cpuinfo; present now: atheris, wheel) — venv-build drift,
+  not a finding change.
+- **Pre-commit blind spot found by this wave:** `pre-commit run
+  --all-files` silently skips untracked files — it reported
+  13/13 while the new gate script carried an F541 f-string error
+  and two files were unformatted; only the claims gate's
+  `ruff check src/ tests/ scripts/` caught it. New files must be
+  covered (`git add -N` the new paths, or run ruff check +
+  format `--check` on the paths directly) before claiming
+  pre-commit green. Fixed here: F541 removed, both files
+  formatted, pre-commit re-run 13/13 with the new files
+  intent-to-add staged.
+
+### Full verification (this branch, before commit)
+- Claims gate: **33 passed / 0 failed** (`scripts/check_claims.py`,
+  exit 0; report card regenerated to 33/33, including the restated
+  `security.pip_audit_tracked` against `EV-20261108-pip-audit`).
+- Schemas: **12 OK** (`scripts/validate_schemas.py`, exit 0).
+- Pre-commit: **13/13** (`pre-commit run --all-files`, exit 0) —
+  after the blind-spot fix (new files intent-to-add staged so the
+  hooks actually cover them) and the direct `ruff check` +
+  `ruff format --check` runs on the new files.
+- Gate proofs re-run on the final tree: clean run exit 0
+  (installed env 12 raw / 6 unique, all baselined; pinned audit 0);
+  planted `cryptography==42.0.8` exit 2 with 7 new unique findings.
+- Full suite: **3243 passed, 5 failed, 1 deselected, 904
+  subtests passed** in 2:09:57 (single invocation, `pytest
+  tests/ -q -p no:cacheprovider`, test_memory_check deselected
+  as the known flake, `tests/fuzz` ignored). The 5 failures are
+  all one self-inflicted invocation artifact, not a code
+  defect: the `SchemaCLITests` invoke the `textforensics`
+  console script as a subprocess, and this run was started via
+  `.venv/bin/python` without the venv `bin/` dir on `PATH`, so
+  the executable was not found (`FileNotFoundError`). Re-run of
+  exactly those 5 tests with `PATH=$PWD/.venv/bin:$PATH`:
+  **5 passed in 19.97 s** — so effectively 3248 passed / 0
+  failed. Lesson (same class as the pre-commit blind spot
+  above): always export the venv `bin/` dir onto `PATH` before
+  running pytest, as the sibling waves do. The first full-suite
+  attempt (run 1) was killed by a VM reboot at ~11:50 UTC after
+  100 min (68%, 1 failure: a test_datasets.py stall-server
+  timing flake under full sibling load, passing 100/100
+  standalone); run 2 above is the complete run and the datasets
+  flake did not recur.
+

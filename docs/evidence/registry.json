@@ -154,6 +154,11 @@
       "evidence_record_id": "EV-20261108-dataset-raid",
       "run_artifact": "docs/evidence/runs/EV-20261108-dataset-raid.json",
       "run_artifact_sha256": "e4ec0aa2fa69440ac17ee58a1775b1186d877f371e648f19316b601d4e3fd39e"
+    },
+    {
+      "evidence_record_id": "EV-20261108-pip-audit",
+      "run_artifact": "docs/evidence/runs/EV-20261108-pip-audit.json",
+      "run_artifact_sha256": "537fbdaa4fc6e63fbaa229ba8433a0cf016f906ea7299548622a6362ca5223f6"
     }
   ],
   "schema": "textforensics.evidence-registry/v1"
