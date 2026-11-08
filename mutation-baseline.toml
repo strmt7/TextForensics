@@ -264,6 +264,115 @@
 # equivalent); such mutants have different occurrences, match no entry,
 # and fail the gate as unexplained until verified — by design.
 #
+# BENCHMARK ENTRIES (169: 165 annotation + 4 unobservable-value, 2026-11-08)
+# -------------------------------------------------------------------
+# Source: local full run on branch fix/mutation-benchmark at 8e6ffd1,
+# `scripts/run_mutation.py --mode full --modules textforensics.benchmark
+# --budget 0`: session 909 work items, executed 909, killed 237,
+# surviving 672, timeout/error 0. The 97 kill tests in
+# tests/test_benchmark.py (class BenchmarkMutationKillTests) kill 490
+# of the survivors; the remaining 182 are the entries below (169) plus
+# 13 genuinely-equivalent mutants that fit NO existing kind and are
+# NOT baselined — they are reported to the coordinator, not entered
+# (see NOT IN THIS BASELINE below).
+#
+# PROOF — BENCHMARK ANNOTATION MUTANTS (165 entries)
+# --------------------------------------------------
+# The 165 are all 11 ReplaceBinaryOperator_BitOr_* operators at 15
+# positions, and the 15 positions are exactly the `|` operators inside
+# function argument annotations in benchmark.py (verified: mutant
+# positions == function-annotation `|` positions, AST + the runner's
+# own `_annotation_spans`). Per-mutant verification, as for trust:
+# for each, the diff replaces exactly the `|` at the recorded start
+# position; the position lies inside a function arg annotation (AST);
+# the enclosing function matches. Why the change cannot affect
+# behaviour:
+#   1. benchmark.py has `from __future__ import annotations` (line
+#      17), so under PEP 563 every annotation in the module is a
+#      string, stored unevaluated.
+#   2. Nothing evaluates these annotations: no `get_type_hints`,
+#      `__annotations__`, `eval_str`, `get_annotations`, `ForwardRef`
+#      or `TypeAdapter` anywhere in src/, tests/ or scripts/ (grep,
+#      2026-11-08; the only matches are the guard test itself in
+#      tests/test_mutation.py). Guarded by
+#      tests/test_mutation.py (test_no_annotation_evaluation_in_repo).
+#   3. Dataclasses never evaluate string annotations: the
+#      DatasetFingerprint field types stay strings, and `__init__` /
+#      `__post_init__` / `asdict` use field names and values only.
+#   4. Empirical check: all 165 mutants were applied to a copy of
+#      benchmark.py and probed with a fixed behavioural battery
+#      (dataset_sha256, _load_scores strict/non-strict, _metrics,
+#      benchmark_jsonl, calibrate_threshold_jsonl, validation,
+#      fingerprint round-trip, sample hashes incl. non-ASCII,
+#      verify_fingerprint, check_disjointness, save/load); all 165
+#      produced byte-identical behaviour (identical SHA-256 of the
+#      canonical probe output). 165/165.
+# One further `|` exists in a local variable annotation
+# (`best: tuple[...] | None`, L168) but cosmic-ray 8.7.0 never
+# generates mutants for it (parso `annassign` exclusion) — nothing to
+# baseline.
+#
+# PROOF — BENCHMARK KIND "unobservable-value" (4 entries, 2026-11-08)
+# ---------------------------------------------------------------
+# [occ 0/1] dataset_sha256 L35:46, `1024` -> `1025` / `1023` (first
+# factor of `handle.read(1024 * 1024)`). [occ 2/3] same line L35:53,
+# `1024` -> `1025` / `1023` (second factor). The chunk size only
+# controls how the file is read in 1 MiB blocks; the SHA-256 digest
+# over the stream is independent of chunk size for any file content
+# and any chunk size >= 1, so no input distinguishes either mutant.
+# Verified by the differential probe (240 KB and ~2 MB files hashed
+# identically under every variant, including the 1-byte-chunk
+# `1024 // 1024` variant below) plus the source reasoning above. Each
+# entry pins its proof with source_text + the enclosing function's
+# fingerprint, exactly like the policy entries.
+#
+# KNOWN BENCHMARK MUTANTS *NOT* IN THIS BASELINE (do not add without
+# a new kind + its own validator — see below)
+# ------------------------------------------------------------
+# Thirteen survivors are genuinely equivalent but fit NEITHER
+# existing kind (annotation / unreachable-condition /
+# unobservable-value, whose documented scope is NumberReplacer), so
+# they are NOT baselined and the gate will report them unexplained
+# until a new kind exists. Each was verified by hand-applying the
+# mutant to a scratch copy and comparing behaviour across a fixed
+# battery (13/13 byte-identical, including 240 KB / ~2 MB files,
+# diverse texts, 3 calibration fixtures x 6 targets, and
+# verify_fingerprint error cases):
+# - [620] ReplaceFalseWithTrue occ 0, L74, `include_robustness=False`
+#   -> `True` in _load_scores. `analyze_text` computes `.score` in
+#   `_base_score` before the flag is consulted (engine.py:73); the
+#   flag only affects stability / diagnostic_reliability / warnings,
+#   which _load_scores never reads. `.score` is identical for every
+#   input.
+# - [501/502/503/510] ReplaceBinaryOperator_Mul_* occ 0, L35,
+#   `1024 * 1024` -> `+` (2048) / `&` (1024) / `|` (1024) / `//` (1).
+#   Same chunk-size reasoning as the four baselined NumberReplacer
+#   entries above, but these are binary-operator replacements, not
+#   NumberReplacer, so the "unobservable-value" kind does not cover
+#   them as documented.
+# - [642/644/645] ReplaceTrueWithFalse occ 6/8/9, L361/L420/L428,
+#   `sort_keys=True` -> `False` in json.dumps calls whose dict keys
+#   are already in sorted order (single-key `{"text": ...}` at L361
+#   and L428; `{"label": ..., "text": ...}` — "label" < "text" — at
+#   L420), so the serialised form is identical. Not NumberReplacer.
+# - [664/666/668] ReplaceUnaryOperator_* occ 1, L175, `-threshold`
+#   -> `threshold` / `not threshold` / `+threshold` in the
+#   calibration candidate tuple `(tpr, -fpr, -threshold)`. The third
+#   element never decides the maximum: distinct candidate thresholds
+#   always give distinct (tpr, -fpr) pairs (moving past a threshold
+#   drops at least the rows scoring exactly at it, so tp or fp
+#   strictly decreases), so the tiebreak is dead. Not NumberReplacer.
+# - [575] ReplaceComparisonOperator_Gt_GtE occ 0, L176, `candidate >
+#   best[0]` -> `>=`. Same distinctness proof: candidate tuples are
+#   never equal, so `>=` never differs from `>`.
+# - [548] ReplaceComparisonOperator_Eq_LtE occ 7, L538,
+#   `len(result["errors"]) == 0` -> `<= 0`. Lengths are always >= 0,
+#   so the two are identical for every input.
+# Do NOT baseline these 13 by stretching "unobservable-value" — the
+# kind's documented scope is NumberReplacer, and silently widening it
+# would be the blanket-rule rot this mechanism exists to prevent. A
+# new kind needs its own validator first (see run_mutation.py).
+#
 # HOW TO ADD AN ENTRY
 # -------------------
 # 1. Verify the mutant per the PROOF above (diff + AST position +
@@ -2169,3 +2278,2035 @@ function = "EnterprisePolicyEngine.__init__"
 kind = "arg"
 annotation = "PolicyRevisionFloor | None"
 reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Add:0"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 0
+start_pos = [32, 29]
+end_pos = [32, 30]
+function = "dataset_sha256"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of dataset_sha256): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Add:1"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 1
+start_pos = [41, 14]
+end_pos = [41, 15]
+function = "_load_scores"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of _load_scores): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Add:2"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 2
+start_pos = [123, 14]
+end_pos = [123, 15]
+function = "benchmark_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Add:3"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 3
+start_pos = [146, 14]
+end_pos = [146, 15]
+function = "calibrate_threshold_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of calibrate_threshold_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Add:4"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 4
+start_pos = [242, 14]
+end_pos = [242, 15]
+function = "benchmark_with_calibration_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_with_calibration_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Add:5"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 5
+start_pos = [272, 40]
+end_pos = [272, 41]
+function = "load_calibration_artifact"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_calibration_artifact): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Add:6"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 6
+start_pos = [442, 14]
+end_pos = [442, 15]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Add:7"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 7
+start_pos = [446, 28]
+end_pos = [446, 29]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Add:8"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 8
+start_pos = [490, 14]
+end_pos = [490, 15]
+function = "verify_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of verify_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Add:9"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 9
+start_pos = [543, 15]
+end_pos = [543, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Add:10"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 10
+start_pos = [545, 15]
+end_pos = [545, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Add:11"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 11
+start_pos = [619, 31]
+end_pos = [619, 32]
+function = "load_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Add:12"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 12
+start_pos = [630, 14]
+end_pos = [630, 15]
+function = "save_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of save_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Add:13"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 13
+start_pos = [643, 26]
+end_pos = [643, 27]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Add:14"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 14
+start_pos = [645, 25]
+end_pos = [645, 26]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitAnd:0"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 0
+start_pos = [32, 29]
+end_pos = [32, 30]
+function = "dataset_sha256"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of dataset_sha256): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitAnd:1"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 1
+start_pos = [41, 14]
+end_pos = [41, 15]
+function = "_load_scores"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of _load_scores): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitAnd:2"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 2
+start_pos = [123, 14]
+end_pos = [123, 15]
+function = "benchmark_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitAnd:3"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 3
+start_pos = [146, 14]
+end_pos = [146, 15]
+function = "calibrate_threshold_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of calibrate_threshold_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitAnd:4"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 4
+start_pos = [242, 14]
+end_pos = [242, 15]
+function = "benchmark_with_calibration_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_with_calibration_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitAnd:5"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 5
+start_pos = [272, 40]
+end_pos = [272, 41]
+function = "load_calibration_artifact"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_calibration_artifact): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitAnd:6"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 6
+start_pos = [442, 14]
+end_pos = [442, 15]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitAnd:7"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 7
+start_pos = [446, 28]
+end_pos = [446, 29]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitAnd:8"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 8
+start_pos = [490, 14]
+end_pos = [490, 15]
+function = "verify_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of verify_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitAnd:9"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 9
+start_pos = [543, 15]
+end_pos = [543, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitAnd:10"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 10
+start_pos = [545, 15]
+end_pos = [545, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitAnd:11"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 11
+start_pos = [619, 31]
+end_pos = [619, 32]
+function = "load_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitAnd:12"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 12
+start_pos = [630, 14]
+end_pos = [630, 15]
+function = "save_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of save_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitAnd:13"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 13
+start_pos = [643, 26]
+end_pos = [643, 27]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitAnd:14"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 14
+start_pos = [645, 25]
+end_pos = [645, 26]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitXor:0"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 0
+start_pos = [32, 29]
+end_pos = [32, 30]
+function = "dataset_sha256"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of dataset_sha256): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitXor:1"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 1
+start_pos = [41, 14]
+end_pos = [41, 15]
+function = "_load_scores"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of _load_scores): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitXor:2"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 2
+start_pos = [123, 14]
+end_pos = [123, 15]
+function = "benchmark_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitXor:3"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 3
+start_pos = [146, 14]
+end_pos = [146, 15]
+function = "calibrate_threshold_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of calibrate_threshold_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitXor:4"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 4
+start_pos = [242, 14]
+end_pos = [242, 15]
+function = "benchmark_with_calibration_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_with_calibration_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitXor:5"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 5
+start_pos = [272, 40]
+end_pos = [272, 41]
+function = "load_calibration_artifact"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_calibration_artifact): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitXor:6"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 6
+start_pos = [442, 14]
+end_pos = [442, 15]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitXor:7"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 7
+start_pos = [446, 28]
+end_pos = [446, 29]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitXor:8"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 8
+start_pos = [490, 14]
+end_pos = [490, 15]
+function = "verify_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of verify_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitXor:9"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 9
+start_pos = [543, 15]
+end_pos = [543, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitXor:10"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 10
+start_pos = [545, 15]
+end_pos = [545, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitXor:11"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 11
+start_pos = [619, 31]
+end_pos = [619, 32]
+function = "load_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitXor:12"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 12
+start_pos = [630, 14]
+end_pos = [630, 15]
+function = "save_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of save_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitXor:13"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 13
+start_pos = [643, 26]
+end_pos = [643, 27]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_BitXor:14"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 14
+start_pos = [645, 25]
+end_pos = [645, 26]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Div:0"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 0
+start_pos = [32, 29]
+end_pos = [32, 30]
+function = "dataset_sha256"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of dataset_sha256): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Div:1"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 1
+start_pos = [41, 14]
+end_pos = [41, 15]
+function = "_load_scores"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of _load_scores): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Div:2"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 2
+start_pos = [123, 14]
+end_pos = [123, 15]
+function = "benchmark_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Div:3"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 3
+start_pos = [146, 14]
+end_pos = [146, 15]
+function = "calibrate_threshold_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of calibrate_threshold_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Div:4"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 4
+start_pos = [242, 14]
+end_pos = [242, 15]
+function = "benchmark_with_calibration_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_with_calibration_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Div:5"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 5
+start_pos = [272, 40]
+end_pos = [272, 41]
+function = "load_calibration_artifact"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_calibration_artifact): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Div:6"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 6
+start_pos = [442, 14]
+end_pos = [442, 15]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Div:7"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 7
+start_pos = [446, 28]
+end_pos = [446, 29]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Div:8"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 8
+start_pos = [490, 14]
+end_pos = [490, 15]
+function = "verify_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of verify_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Div:9"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 9
+start_pos = [543, 15]
+end_pos = [543, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Div:10"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 10
+start_pos = [545, 15]
+end_pos = [545, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Div:11"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 11
+start_pos = [619, 31]
+end_pos = [619, 32]
+function = "load_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Div:12"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 12
+start_pos = [630, 14]
+end_pos = [630, 15]
+function = "save_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of save_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Div:13"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 13
+start_pos = [643, 26]
+end_pos = [643, 27]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Div:14"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 14
+start_pos = [645, 25]
+end_pos = [645, 26]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_FloorDiv:0"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 0
+start_pos = [32, 29]
+end_pos = [32, 30]
+function = "dataset_sha256"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of dataset_sha256): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_FloorDiv:1"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 1
+start_pos = [41, 14]
+end_pos = [41, 15]
+function = "_load_scores"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of _load_scores): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_FloorDiv:2"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 2
+start_pos = [123, 14]
+end_pos = [123, 15]
+function = "benchmark_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_FloorDiv:3"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 3
+start_pos = [146, 14]
+end_pos = [146, 15]
+function = "calibrate_threshold_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of calibrate_threshold_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_FloorDiv:4"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 4
+start_pos = [242, 14]
+end_pos = [242, 15]
+function = "benchmark_with_calibration_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_with_calibration_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_FloorDiv:5"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 5
+start_pos = [272, 40]
+end_pos = [272, 41]
+function = "load_calibration_artifact"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_calibration_artifact): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_FloorDiv:6"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 6
+start_pos = [442, 14]
+end_pos = [442, 15]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_FloorDiv:7"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 7
+start_pos = [446, 28]
+end_pos = [446, 29]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_FloorDiv:8"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 8
+start_pos = [490, 14]
+end_pos = [490, 15]
+function = "verify_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of verify_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_FloorDiv:9"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 9
+start_pos = [543, 15]
+end_pos = [543, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_FloorDiv:10"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 10
+start_pos = [545, 15]
+end_pos = [545, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_FloorDiv:11"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 11
+start_pos = [619, 31]
+end_pos = [619, 32]
+function = "load_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_FloorDiv:12"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 12
+start_pos = [630, 14]
+end_pos = [630, 15]
+function = "save_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of save_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_FloorDiv:13"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 13
+start_pos = [643, 26]
+end_pos = [643, 27]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_FloorDiv:14"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 14
+start_pos = [645, 25]
+end_pos = [645, 26]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_LShift:0"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 0
+start_pos = [32, 29]
+end_pos = [32, 30]
+function = "dataset_sha256"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of dataset_sha256): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_LShift:1"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 1
+start_pos = [41, 14]
+end_pos = [41, 15]
+function = "_load_scores"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of _load_scores): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_LShift:2"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 2
+start_pos = [123, 14]
+end_pos = [123, 15]
+function = "benchmark_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_LShift:3"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 3
+start_pos = [146, 14]
+end_pos = [146, 15]
+function = "calibrate_threshold_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of calibrate_threshold_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_LShift:4"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 4
+start_pos = [242, 14]
+end_pos = [242, 15]
+function = "benchmark_with_calibration_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_with_calibration_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_LShift:5"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 5
+start_pos = [272, 40]
+end_pos = [272, 41]
+function = "load_calibration_artifact"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_calibration_artifact): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_LShift:6"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 6
+start_pos = [442, 14]
+end_pos = [442, 15]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_LShift:7"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 7
+start_pos = [446, 28]
+end_pos = [446, 29]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_LShift:8"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 8
+start_pos = [490, 14]
+end_pos = [490, 15]
+function = "verify_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of verify_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_LShift:9"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 9
+start_pos = [543, 15]
+end_pos = [543, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_LShift:10"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 10
+start_pos = [545, 15]
+end_pos = [545, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_LShift:11"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 11
+start_pos = [619, 31]
+end_pos = [619, 32]
+function = "load_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_LShift:12"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 12
+start_pos = [630, 14]
+end_pos = [630, 15]
+function = "save_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of save_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_LShift:13"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 13
+start_pos = [643, 26]
+end_pos = [643, 27]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_LShift:14"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 14
+start_pos = [645, 25]
+end_pos = [645, 26]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mod:0"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 0
+start_pos = [32, 29]
+end_pos = [32, 30]
+function = "dataset_sha256"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of dataset_sha256): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mod:1"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 1
+start_pos = [41, 14]
+end_pos = [41, 15]
+function = "_load_scores"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of _load_scores): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mod:2"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 2
+start_pos = [123, 14]
+end_pos = [123, 15]
+function = "benchmark_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mod:3"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 3
+start_pos = [146, 14]
+end_pos = [146, 15]
+function = "calibrate_threshold_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of calibrate_threshold_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mod:4"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 4
+start_pos = [242, 14]
+end_pos = [242, 15]
+function = "benchmark_with_calibration_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_with_calibration_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mod:5"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 5
+start_pos = [272, 40]
+end_pos = [272, 41]
+function = "load_calibration_artifact"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_calibration_artifact): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mod:6"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 6
+start_pos = [442, 14]
+end_pos = [442, 15]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mod:7"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 7
+start_pos = [446, 28]
+end_pos = [446, 29]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mod:8"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 8
+start_pos = [490, 14]
+end_pos = [490, 15]
+function = "verify_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of verify_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mod:9"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 9
+start_pos = [543, 15]
+end_pos = [543, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mod:10"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 10
+start_pos = [545, 15]
+end_pos = [545, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mod:11"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 11
+start_pos = [619, 31]
+end_pos = [619, 32]
+function = "load_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mod:12"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 12
+start_pos = [630, 14]
+end_pos = [630, 15]
+function = "save_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of save_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mod:13"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 13
+start_pos = [643, 26]
+end_pos = [643, 27]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mod:14"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 14
+start_pos = [645, 25]
+end_pos = [645, 26]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mul:0"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 0
+start_pos = [32, 29]
+end_pos = [32, 30]
+function = "dataset_sha256"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of dataset_sha256): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mul:1"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 1
+start_pos = [41, 14]
+end_pos = [41, 15]
+function = "_load_scores"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of _load_scores): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mul:2"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 2
+start_pos = [123, 14]
+end_pos = [123, 15]
+function = "benchmark_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mul:3"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 3
+start_pos = [146, 14]
+end_pos = [146, 15]
+function = "calibrate_threshold_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of calibrate_threshold_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mul:4"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 4
+start_pos = [242, 14]
+end_pos = [242, 15]
+function = "benchmark_with_calibration_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_with_calibration_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mul:5"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 5
+start_pos = [272, 40]
+end_pos = [272, 41]
+function = "load_calibration_artifact"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_calibration_artifact): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mul:6"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 6
+start_pos = [442, 14]
+end_pos = [442, 15]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mul:7"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 7
+start_pos = [446, 28]
+end_pos = [446, 29]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mul:8"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 8
+start_pos = [490, 14]
+end_pos = [490, 15]
+function = "verify_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of verify_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mul:9"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 9
+start_pos = [543, 15]
+end_pos = [543, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mul:10"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 10
+start_pos = [545, 15]
+end_pos = [545, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mul:11"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 11
+start_pos = [619, 31]
+end_pos = [619, 32]
+function = "load_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mul:12"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 12
+start_pos = [630, 14]
+end_pos = [630, 15]
+function = "save_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of save_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mul:13"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 13
+start_pos = [643, 26]
+end_pos = [643, 27]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Mul:14"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 14
+start_pos = [645, 25]
+end_pos = [645, 26]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Pow:0"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 0
+start_pos = [32, 29]
+end_pos = [32, 30]
+function = "dataset_sha256"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of dataset_sha256): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Pow:1"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 1
+start_pos = [41, 14]
+end_pos = [41, 15]
+function = "_load_scores"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of _load_scores): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Pow:2"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 2
+start_pos = [123, 14]
+end_pos = [123, 15]
+function = "benchmark_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Pow:3"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 3
+start_pos = [146, 14]
+end_pos = [146, 15]
+function = "calibrate_threshold_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of calibrate_threshold_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Pow:4"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 4
+start_pos = [242, 14]
+end_pos = [242, 15]
+function = "benchmark_with_calibration_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_with_calibration_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Pow:5"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 5
+start_pos = [272, 40]
+end_pos = [272, 41]
+function = "load_calibration_artifact"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_calibration_artifact): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Pow:6"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 6
+start_pos = [442, 14]
+end_pos = [442, 15]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Pow:7"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 7
+start_pos = [446, 28]
+end_pos = [446, 29]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Pow:8"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 8
+start_pos = [490, 14]
+end_pos = [490, 15]
+function = "verify_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of verify_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Pow:9"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 9
+start_pos = [543, 15]
+end_pos = [543, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Pow:10"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 10
+start_pos = [545, 15]
+end_pos = [545, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Pow:11"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 11
+start_pos = [619, 31]
+end_pos = [619, 32]
+function = "load_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Pow:12"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 12
+start_pos = [630, 14]
+end_pos = [630, 15]
+function = "save_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of save_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Pow:13"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 13
+start_pos = [643, 26]
+end_pos = [643, 27]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Pow:14"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 14
+start_pos = [645, 25]
+end_pos = [645, 26]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_RShift:0"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 0
+start_pos = [32, 29]
+end_pos = [32, 30]
+function = "dataset_sha256"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of dataset_sha256): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_RShift:1"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 1
+start_pos = [41, 14]
+end_pos = [41, 15]
+function = "_load_scores"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of _load_scores): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_RShift:2"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 2
+start_pos = [123, 14]
+end_pos = [123, 15]
+function = "benchmark_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_RShift:3"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 3
+start_pos = [146, 14]
+end_pos = [146, 15]
+function = "calibrate_threshold_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of calibrate_threshold_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_RShift:4"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 4
+start_pos = [242, 14]
+end_pos = [242, 15]
+function = "benchmark_with_calibration_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_with_calibration_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_RShift:5"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 5
+start_pos = [272, 40]
+end_pos = [272, 41]
+function = "load_calibration_artifact"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_calibration_artifact): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_RShift:6"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 6
+start_pos = [442, 14]
+end_pos = [442, 15]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_RShift:7"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 7
+start_pos = [446, 28]
+end_pos = [446, 29]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_RShift:8"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 8
+start_pos = [490, 14]
+end_pos = [490, 15]
+function = "verify_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of verify_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_RShift:9"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 9
+start_pos = [543, 15]
+end_pos = [543, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_RShift:10"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 10
+start_pos = [545, 15]
+end_pos = [545, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_RShift:11"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 11
+start_pos = [619, 31]
+end_pos = [619, 32]
+function = "load_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_RShift:12"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 12
+start_pos = [630, 14]
+end_pos = [630, 15]
+function = "save_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of save_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_RShift:13"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 13
+start_pos = [643, 26]
+end_pos = [643, 27]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_RShift:14"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 14
+start_pos = [645, 25]
+end_pos = [645, 26]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Sub:0"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 0
+start_pos = [32, 29]
+end_pos = [32, 30]
+function = "dataset_sha256"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of dataset_sha256): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Sub:1"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 1
+start_pos = [41, 14]
+end_pos = [41, 15]
+function = "_load_scores"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of _load_scores): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Sub:2"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 2
+start_pos = [123, 14]
+end_pos = [123, 15]
+function = "benchmark_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Sub:3"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 3
+start_pos = [146, 14]
+end_pos = [146, 15]
+function = "calibrate_threshold_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of calibrate_threshold_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Sub:4"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 4
+start_pos = [242, 14]
+end_pos = [242, 15]
+function = "benchmark_with_calibration_jsonl"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of benchmark_with_calibration_jsonl): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Sub:5"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 5
+start_pos = [272, 40]
+end_pos = [272, 41]
+function = "load_calibration_artifact"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_calibration_artifact): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Sub:6"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 6
+start_pos = [442, 14]
+end_pos = [442, 15]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Sub:7"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 7
+start_pos = [446, 28]
+end_pos = [446, 29]
+function = "fingerprint_dataset"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (arg of fingerprint_dataset): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Sub:8"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 8
+start_pos = [490, 14]
+end_pos = [490, 15]
+function = "verify_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of verify_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Sub:9"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 9
+start_pos = [543, 15]
+end_pos = [543, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Sub:10"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 10
+start_pos = [545, 15]
+end_pos = [545, 16]
+function = "check_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of check_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Sub:11"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 11
+start_pos = [619, 31]
+end_pos = [619, 32]
+function = "load_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of load_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Sub:12"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 12
+start_pos = [630, 14]
+end_pos = [630, 15]
+function = "save_fingerprint"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of save_fingerprint): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Sub:13"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 13
+start_pos = [643, 26]
+end_pos = [643, 27]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Sub:14"
+module = "textforensics.benchmark"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 14
+start_pos = [645, 25]
+end_pos = [645, 26]
+function = "validate_disjointness"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (arg of validate_disjointness): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/NumberReplacer:0"
+module = "textforensics.benchmark"
+operator = "core/NumberReplacer"
+occurrence = 0
+start_pos = [35, 46]
+end_pos = [35, 50]
+function = "dataset_sha256"
+kind = "unobservable-value"
+source_text = "1024"
+source_fingerprint = "ca04db735eb70c1cdb2ba1466aba3c4ca4beecb50a5cd009d8eb7b177658634c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable-value mutant (dataset_sha256): `1024` -> `1025` in `handle.read(1024 * 1024)` (first factor). The chunk size only controls how the file is read; the SHA-256 digest over the stream is independent of chunk size for any file content and any chunk size >= 1, so no input distinguishes the mutant."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/NumberReplacer:1"
+module = "textforensics.benchmark"
+operator = "core/NumberReplacer"
+occurrence = 1
+start_pos = [35, 46]
+end_pos = [35, 50]
+function = "dataset_sha256"
+kind = "unobservable-value"
+source_text = "1024"
+source_fingerprint = "ca04db735eb70c1cdb2ba1466aba3c4ca4beecb50a5cd009d8eb7b177658634c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable-value mutant (dataset_sha256): `1024` -> `1023` in `handle.read(1024 * 1024)` (first factor). The chunk size only controls how the file is read; the SHA-256 digest over the stream is independent of chunk size for any file content and any chunk size >= 1, so no input distinguishes the mutant."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/NumberReplacer:2"
+module = "textforensics.benchmark"
+operator = "core/NumberReplacer"
+occurrence = 2
+start_pos = [35, 53]
+end_pos = [35, 57]
+function = "dataset_sha256"
+kind = "unobservable-value"
+source_text = "1024"
+source_fingerprint = "ca04db735eb70c1cdb2ba1466aba3c4ca4beecb50a5cd009d8eb7b177658634c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable-value mutant (dataset_sha256): `1024` -> `1025` in `handle.read(1024 * 1024)` (second factor). The chunk size only controls how the file is read; the SHA-256 digest over the stream is independent of chunk size for any file content and any chunk size >= 1, so no input distinguishes the mutant."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/NumberReplacer:3"
+module = "textforensics.benchmark"
+operator = "core/NumberReplacer"
+occurrence = 3
+start_pos = [35, 53]
+end_pos = [35, 57]
+function = "dataset_sha256"
+kind = "unobservable-value"
+source_text = "1024"
+source_fingerprint = "ca04db735eb70c1cdb2ba1466aba3c4ca4beecb50a5cd009d8eb7b177658634c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable-value mutant (dataset_sha256): `1024` -> `1023` in `handle.read(1024 * 1024)` (second factor). The chunk size only controls how the file is read; the SHA-256 digest over the stream is independent of chunk size for any file content and any chunk size >= 1, so no input distinguishes the mutant."
