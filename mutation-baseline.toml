@@ -686,7 +686,53 @@
 #      (48bef759770f61e3e3d1aeb421c36c7eb9df2780fa0f3d0a2f63584f2fa02eec).
 #      330/330. A negative control (changing `1.0` to `2.0` in
 #      _sigmoid) changes the hash, so the probe is sensitive.
-
+#
+# PROOF — DETECTORS (67 entries: 66 annotation + 1 domain-equivalent,
+# 2026-11-08, branch fix/mutation-p2-detectors)
+# -------------------------------------------------------------------
+# Source: local full-session proof run on main dd8bd83
+# (`scripts/run_mutation.py --mode full --modules
+# textforensics.detectors --budget 0`, dump cosmic-ray-full.json +
+# mutation-results/summary.json): total 606, killed 539, surviving
+# 67, equivalent 67, unexplained 0, error 0, incompetent 0,
+# pending 0. The survivor set reproduces the Phase 1 list exactly
+# (66 annotation BitOr + 1 domain-equivalent, verified
+# position-for-position from the dump before baselining anything).
+#
+# Annotation entries (66: 6 positions x 11 operators): the 6 `|`
+# positions inside function arg/return/annassign annotations in
+# detectors.py — DetectorPrediction L69:36 (annassign,
+# `supported_length`), DetectorPrediction.validate L79:45 (arg),
+# detector_determinism L150:58 (return), validate_prediction
+# L369:23 (arg), execute_detector L641:30 + L641:54 (return, two
+# `|` in one annotation). detectors.py has `from __future__ import
+# annotations` (line 1), so under PEP 563 every annotation is a
+# string, stored unevaluated; nothing in src/, tests/ or scripts/
+# evaluates annotations (guarded by
+# tests/test_mutation.py::test_no_annotation_evaluation_in_repo).
+# Note the second `|` in the L69 annotation (`dict[str, int | None]
+# | None`, col 45) generates no mutant at all — the 606-item
+# session total accounts for every generated work item, and only
+# L69:36 survives; it is not a missing survivor.
+#
+# Domain-equivalent entry (1): ReplaceComparisonOperator_IsNot_Is
+# occ 0 at L260:75 (`normalize_prediction`), `is not` -> `is` in
+# `if prediction.native_score_direction == "unknown" and
+# prediction.score is not None:`. The first conjunct requires the
+# direction to be "unknown", so whenever the body runs the field is
+# already "unknown" and the assignment is a no-op; both versions
+# require that conjunct, so the statement's effect is identical.
+# Verified by differential probe (original vs hand-applied mutant):
+# 60-case normalize_prediction grid (direction x score x
+# min_words/runtime) byte-identical, SHA-256
+# 64091ea63cb9ae298cdf7cfde6490c30bf7ec4036cd5838f6f9ea63b8c28eabb
+# under both, and tests/test_detectors.py 181 passed under both;
+# negative control (body assignment changed to
+# "higher_is_more_ai") changes the probe hash, so the probe is
+# sensitive. Fingerprint is the SHA-256 of the whitespace-
+# normalised enclosing function, computed with the runner's own
+# _enclosing_function/_function_fingerprint.
+#
 version = 1
 source_run = "42393966895"
 source_commit = "153b5ab"
@@ -11640,3 +11686,809 @@ kind = "domain-equivalent"
 source_text = "True"
 source_fingerprint = "415cb30d99e774cc038a26fbe678defb96c7a21b58e2ee29919a4a67e62d504c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "Domain-equivalent mutant (_probability_metrics): `zip(..., strict=True)` -> `strict=False`. The preceding `if len(values) != len(targets) or not values: raise` guarantees equal non-empty lengths, so strict=True never raises and the zips iterate identically. Verified by differential battery (original vs hand-applied mutant, cosmic-ray mutate_code): 14 _probability_metrics cases byte-identical, and mismatched lengths raise CalibrationError under both."
+
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Add:0"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 0
+start_pos = [69, 36]
+end_pos = [69, 37]
+function = "DetectorPrediction"
+kind = "annassign"
+annotation = "dict[str, int | None] | None"
+reason = "Postponed-evaluation annotation (annassign of DetectorPrediction): the `|` in `dict[str, int | None] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Add:1"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 1
+start_pos = [79, 45]
+end_pos = [79, 46]
+function = "DetectorPrediction.validate"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of DetectorPrediction.validate): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Add:2"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 2
+start_pos = [150, 58]
+end_pos = [150, 59]
+function = "detector_determinism"
+kind = "return"
+annotation = "tuple[str, str | None]"
+reason = "Postponed-evaluation annotation (return of detector_determinism): the `|` in `tuple[str, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Add:3"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 3
+start_pos = [369, 23]
+end_pos = [369, 24]
+function = "validate_prediction"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of validate_prediction): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Add:4"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 4
+start_pos = [641, 30]
+end_pos = [641, 31]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Add:5"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 5
+start_pos = [641, 54]
+end_pos = [641, 55]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_BitAnd:0"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 0
+start_pos = [69, 36]
+end_pos = [69, 37]
+function = "DetectorPrediction"
+kind = "annassign"
+annotation = "dict[str, int | None] | None"
+reason = "Postponed-evaluation annotation (annassign of DetectorPrediction): the `|` in `dict[str, int | None] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_BitAnd:1"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 1
+start_pos = [79, 45]
+end_pos = [79, 46]
+function = "DetectorPrediction.validate"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of DetectorPrediction.validate): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_BitAnd:2"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 2
+start_pos = [150, 58]
+end_pos = [150, 59]
+function = "detector_determinism"
+kind = "return"
+annotation = "tuple[str, str | None]"
+reason = "Postponed-evaluation annotation (return of detector_determinism): the `|` in `tuple[str, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_BitAnd:3"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 3
+start_pos = [369, 23]
+end_pos = [369, 24]
+function = "validate_prediction"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of validate_prediction): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_BitAnd:4"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 4
+start_pos = [641, 30]
+end_pos = [641, 31]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_BitAnd:5"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 5
+start_pos = [641, 54]
+end_pos = [641, 55]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_BitXor:0"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 0
+start_pos = [69, 36]
+end_pos = [69, 37]
+function = "DetectorPrediction"
+kind = "annassign"
+annotation = "dict[str, int | None] | None"
+reason = "Postponed-evaluation annotation (annassign of DetectorPrediction): the `|` in `dict[str, int | None] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_BitXor:1"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 1
+start_pos = [79, 45]
+end_pos = [79, 46]
+function = "DetectorPrediction.validate"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of DetectorPrediction.validate): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_BitXor:2"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 2
+start_pos = [150, 58]
+end_pos = [150, 59]
+function = "detector_determinism"
+kind = "return"
+annotation = "tuple[str, str | None]"
+reason = "Postponed-evaluation annotation (return of detector_determinism): the `|` in `tuple[str, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_BitXor:3"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 3
+start_pos = [369, 23]
+end_pos = [369, 24]
+function = "validate_prediction"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of validate_prediction): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_BitXor:4"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 4
+start_pos = [641, 30]
+end_pos = [641, 31]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_BitXor:5"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 5
+start_pos = [641, 54]
+end_pos = [641, 55]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Div:0"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 0
+start_pos = [69, 36]
+end_pos = [69, 37]
+function = "DetectorPrediction"
+kind = "annassign"
+annotation = "dict[str, int | None] | None"
+reason = "Postponed-evaluation annotation (annassign of DetectorPrediction): the `|` in `dict[str, int | None] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Div:1"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 1
+start_pos = [79, 45]
+end_pos = [79, 46]
+function = "DetectorPrediction.validate"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of DetectorPrediction.validate): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Div:2"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 2
+start_pos = [150, 58]
+end_pos = [150, 59]
+function = "detector_determinism"
+kind = "return"
+annotation = "tuple[str, str | None]"
+reason = "Postponed-evaluation annotation (return of detector_determinism): the `|` in `tuple[str, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Div:3"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 3
+start_pos = [369, 23]
+end_pos = [369, 24]
+function = "validate_prediction"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of validate_prediction): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Div:4"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 4
+start_pos = [641, 30]
+end_pos = [641, 31]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Div:5"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 5
+start_pos = [641, 54]
+end_pos = [641, 55]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_FloorDiv:0"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 0
+start_pos = [69, 36]
+end_pos = [69, 37]
+function = "DetectorPrediction"
+kind = "annassign"
+annotation = "dict[str, int | None] | None"
+reason = "Postponed-evaluation annotation (annassign of DetectorPrediction): the `|` in `dict[str, int | None] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_FloorDiv:1"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 1
+start_pos = [79, 45]
+end_pos = [79, 46]
+function = "DetectorPrediction.validate"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of DetectorPrediction.validate): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_FloorDiv:2"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 2
+start_pos = [150, 58]
+end_pos = [150, 59]
+function = "detector_determinism"
+kind = "return"
+annotation = "tuple[str, str | None]"
+reason = "Postponed-evaluation annotation (return of detector_determinism): the `|` in `tuple[str, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_FloorDiv:3"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 3
+start_pos = [369, 23]
+end_pos = [369, 24]
+function = "validate_prediction"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of validate_prediction): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_FloorDiv:4"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 4
+start_pos = [641, 30]
+end_pos = [641, 31]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_FloorDiv:5"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 5
+start_pos = [641, 54]
+end_pos = [641, 55]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_LShift:0"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 0
+start_pos = [69, 36]
+end_pos = [69, 37]
+function = "DetectorPrediction"
+kind = "annassign"
+annotation = "dict[str, int | None] | None"
+reason = "Postponed-evaluation annotation (annassign of DetectorPrediction): the `|` in `dict[str, int | None] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_LShift:1"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 1
+start_pos = [79, 45]
+end_pos = [79, 46]
+function = "DetectorPrediction.validate"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of DetectorPrediction.validate): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_LShift:2"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 2
+start_pos = [150, 58]
+end_pos = [150, 59]
+function = "detector_determinism"
+kind = "return"
+annotation = "tuple[str, str | None]"
+reason = "Postponed-evaluation annotation (return of detector_determinism): the `|` in `tuple[str, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_LShift:3"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 3
+start_pos = [369, 23]
+end_pos = [369, 24]
+function = "validate_prediction"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of validate_prediction): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_LShift:4"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 4
+start_pos = [641, 30]
+end_pos = [641, 31]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_LShift:5"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 5
+start_pos = [641, 54]
+end_pos = [641, 55]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Mod:0"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 0
+start_pos = [69, 36]
+end_pos = [69, 37]
+function = "DetectorPrediction"
+kind = "annassign"
+annotation = "dict[str, int | None] | None"
+reason = "Postponed-evaluation annotation (annassign of DetectorPrediction): the `|` in `dict[str, int | None] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Mod:1"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 1
+start_pos = [79, 45]
+end_pos = [79, 46]
+function = "DetectorPrediction.validate"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of DetectorPrediction.validate): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Mod:2"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 2
+start_pos = [150, 58]
+end_pos = [150, 59]
+function = "detector_determinism"
+kind = "return"
+annotation = "tuple[str, str | None]"
+reason = "Postponed-evaluation annotation (return of detector_determinism): the `|` in `tuple[str, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Mod:3"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 3
+start_pos = [369, 23]
+end_pos = [369, 24]
+function = "validate_prediction"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of validate_prediction): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Mod:4"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 4
+start_pos = [641, 30]
+end_pos = [641, 31]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Mod:5"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 5
+start_pos = [641, 54]
+end_pos = [641, 55]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Mul:0"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 0
+start_pos = [69, 36]
+end_pos = [69, 37]
+function = "DetectorPrediction"
+kind = "annassign"
+annotation = "dict[str, int | None] | None"
+reason = "Postponed-evaluation annotation (annassign of DetectorPrediction): the `|` in `dict[str, int | None] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Mul:1"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 1
+start_pos = [79, 45]
+end_pos = [79, 46]
+function = "DetectorPrediction.validate"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of DetectorPrediction.validate): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Mul:2"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 2
+start_pos = [150, 58]
+end_pos = [150, 59]
+function = "detector_determinism"
+kind = "return"
+annotation = "tuple[str, str | None]"
+reason = "Postponed-evaluation annotation (return of detector_determinism): the `|` in `tuple[str, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Mul:3"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 3
+start_pos = [369, 23]
+end_pos = [369, 24]
+function = "validate_prediction"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of validate_prediction): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Mul:4"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 4
+start_pos = [641, 30]
+end_pos = [641, 31]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Mul:5"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 5
+start_pos = [641, 54]
+end_pos = [641, 55]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Pow:0"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 0
+start_pos = [69, 36]
+end_pos = [69, 37]
+function = "DetectorPrediction"
+kind = "annassign"
+annotation = "dict[str, int | None] | None"
+reason = "Postponed-evaluation annotation (annassign of DetectorPrediction): the `|` in `dict[str, int | None] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Pow:1"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 1
+start_pos = [79, 45]
+end_pos = [79, 46]
+function = "DetectorPrediction.validate"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of DetectorPrediction.validate): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Pow:2"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 2
+start_pos = [150, 58]
+end_pos = [150, 59]
+function = "detector_determinism"
+kind = "return"
+annotation = "tuple[str, str | None]"
+reason = "Postponed-evaluation annotation (return of detector_determinism): the `|` in `tuple[str, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Pow:3"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 3
+start_pos = [369, 23]
+end_pos = [369, 24]
+function = "validate_prediction"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of validate_prediction): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Pow:4"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 4
+start_pos = [641, 30]
+end_pos = [641, 31]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Pow:5"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 5
+start_pos = [641, 54]
+end_pos = [641, 55]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_RShift:0"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 0
+start_pos = [69, 36]
+end_pos = [69, 37]
+function = "DetectorPrediction"
+kind = "annassign"
+annotation = "dict[str, int | None] | None"
+reason = "Postponed-evaluation annotation (annassign of DetectorPrediction): the `|` in `dict[str, int | None] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_RShift:1"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 1
+start_pos = [79, 45]
+end_pos = [79, 46]
+function = "DetectorPrediction.validate"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of DetectorPrediction.validate): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_RShift:2"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 2
+start_pos = [150, 58]
+end_pos = [150, 59]
+function = "detector_determinism"
+kind = "return"
+annotation = "tuple[str, str | None]"
+reason = "Postponed-evaluation annotation (return of detector_determinism): the `|` in `tuple[str, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_RShift:3"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 3
+start_pos = [369, 23]
+end_pos = [369, 24]
+function = "validate_prediction"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of validate_prediction): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_RShift:4"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 4
+start_pos = [641, 30]
+end_pos = [641, 31]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_RShift:5"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 5
+start_pos = [641, 54]
+end_pos = [641, 55]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Sub:0"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 0
+start_pos = [69, 36]
+end_pos = [69, 37]
+function = "DetectorPrediction"
+kind = "annassign"
+annotation = "dict[str, int | None] | None"
+reason = "Postponed-evaluation annotation (annassign of DetectorPrediction): the `|` in `dict[str, int | None] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Sub:1"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 1
+start_pos = [79, 45]
+end_pos = [79, 46]
+function = "DetectorPrediction.validate"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of DetectorPrediction.validate): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Sub:2"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 2
+start_pos = [150, 58]
+end_pos = [150, 59]
+function = "detector_determinism"
+kind = "return"
+annotation = "tuple[str, str | None]"
+reason = "Postponed-evaluation annotation (return of detector_determinism): the `|` in `tuple[str, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Sub:3"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 3
+start_pos = [369, 23]
+end_pos = [369, 24]
+function = "validate_prediction"
+kind = "arg"
+annotation = "Detector | None"
+reason = "Postponed-evaluation annotation (arg of validate_prediction): the `|` in `Detector | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Sub:4"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 4
+start_pos = [641, 30]
+end_pos = [641, 31]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceBinaryOperator_BitOr_Sub:5"
+module = "textforensics.detectors"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 5
+start_pos = [641, 54]
+end_pos = [641, 55]
+function = "execute_detector"
+kind = "return"
+annotation = "tuple[DetectorPrediction | None, DetectorFailure | None]"
+reason = "Postponed-evaluation annotation (return of execute_detector): the `|` in `tuple[DetectorPrediction | None, DetectorFailure | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.detectors:core/ReplaceComparisonOperator_IsNot_Is:0"
+module = "textforensics.detectors"
+operator = "core/ReplaceComparisonOperator_IsNot_Is"
+occurrence = 0
+start_pos = [260, 75]
+end_pos = [260, 81]
+function = "normalize_prediction"
+kind = "domain-equivalent"
+source_text = "is not"
+source_fingerprint = "f1e158d904d8e05ebf376955fca1a359053f4e67ecebe8bc4b3c04da17a61c22"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (normalize_prediction): `prediction.score is not None` -> `prediction.score is None` in the TFDP/1 direction guard. The guard's first conjunct requires native_score_direction == \"unknown\", so whenever the body runs the field is already \"unknown\" and the assignment `prediction.native_score_direction = \"unknown\"` is a no-op; both the original and the mutant conditions require that conjunct, so the statement's effect is identical in both versions. Verified by differential probe (original vs hand-applied mutant): 60-case normalize_prediction grid (direction x score x min_words/runtime) byte-identical, SHA-256 64091ea63cb9ae298cdf7cfde6490c30bf7ec4036cd5838f6f9ea63b8c28eabb under both, and tests/test_detectors.py 181 passed under both; negative control (body assignment changed to \"higher_is_more_ai\") changes the probe hash, so the probe is sensitive."
