@@ -2,6 +2,12 @@
 
 FROM python:3.12-slim AS builder
 
+# Build-time trust knob for TLS-intercepting egress proxies (empty by
+# default: pip verifies TLS normally). Behind such a proxy, pass e.g.
+#   --build-arg PIP_TRUSTED_HOST=pypi.org,files.pythonhosted.org
+# so pip accepts the proxy's re-signed certificate for PyPI hosts.
+ARG PIP_TRUSTED_HOST
+
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DEFAULT_TIMEOUT=120
@@ -13,7 +19,13 @@ COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
 
 # Build wheels for the package and its API extras
-RUN python -m pip wheel --wheel-dir /wheels ".[api]"
+# (PIP_TRUSTED_HOST is expanded by the Dockerfile parser from the ARG above;
+# the sed turns a comma list into --trusted-host flags. pip's build-isolation
+# subprocess does not honour PIP_TRUSTED_HOST from the environment, so the
+# flags must be on the command line. Empty by default: no flags, TLS verified.)
+RUN python -m pip wheel \
+    $(echo "$PIP_TRUSTED_HOST" | sed -e '/^$/d' -e 's/,/ --trusted-host /g' -e 's/^/--trusted-host /') \
+    --wheel-dir /wheels ".[api]"
 
 # ── Runtime stage ────────────────────────────────────────────────────────────
 
