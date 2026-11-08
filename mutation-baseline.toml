@@ -12492,3 +12492,91 @@ kind = "domain-equivalent"
 source_text = "is not"
 source_fingerprint = "f1e158d904d8e05ebf376955fca1a359053f4e67ecebe8bc4b3c04da17a61c22"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "Domain-equivalent mutant (normalize_prediction): `prediction.score is not None` -> `prediction.score is None` in the TFDP/1 direction guard. The guard's first conjunct requires native_score_direction == \"unknown\", so whenever the body runs the field is already \"unknown\" and the assignment `prediction.native_score_direction = \"unknown\"` is a no-op; both the original and the mutant conditions require that conjunct, so the statement's effect is identical in both versions. Verified by differential probe (original vs hand-applied mutant): 60-case normalize_prediction grid (direction x score x min_words/runtime) byte-identical, SHA-256 64091ea63cb9ae298cdf7cfde6490c30bf7ec4036cd5838f6f9ea63b8c28eabb under both, and tests/test_detectors.py 181 passed under both; negative control (body assignment changed to \"higher_is_more_ai\") changes the probe hash, so the probe is sensitive."
+# ANALYZERS ENTRIES (4: 4 domain-equivalent, 2026-11-08)
+# ------------------------------------------------------
+# Source: local FULL run on branch fix/mutation-p2-analyzers at dd8bd83
+# (Phase 5 mutation-survivors wave 2, Phase 2), `scripts/run_mutation.py
+# --mode full --modules textforensics.analyzers --budget 0`: session 516
+# work items, executed 516, killed 512, survived 4, timeout 0, error 0,
+# pending 0, incompetent 0. The 15 kill tests in tests/test_analyzers.py
+# (Phase 1, merged on main) kill everything killable; the 4 survivors
+# below are boundary equivalences in the linear interpolation helpers
+# and were verified position-for-position against the Phase 1 list.
+#
+# PROOF — KIND "domain-equivalent" (4 entries, verified 2026-11-08)
+# ---------------------------------------------------------------
+# _high_when_low: `if value <= low: return 1.0` / `if value >= high:
+# return 0.0`, else `1.0 - (value - low) / (high - low)`. At
+# value == low the fall-through returns 1.0 - 0 / (high - low) = 1.0,
+# exactly the `<=` branch value, so `<=` -> `<` (occ 0, L32) is
+# equivalent; at value == high it returns 1.0 - 1 = 0.0, exactly the
+# `>=` branch value, so `>=` -> `>` (occ 0, L34) is equivalent.
+# _high_when_high: `if value <= low: return 0.0` / `if value >= high:
+# return 1.0`, else `(value - low) / (high - low)`. At value == low the
+# fall-through returns 0 / (high - low) = 0.0 (occ 1, L41); at
+# value == high it returns (high - low) / (high - low) = 1.0 (occ 1,
+# L43). The fall-through values are exact only when low < high (else
+# division by zero): the precondition holds at ALL 9 production call
+# sites — 0.22/0.65, 0.18/0.80, 0.05/0.30, 0.25/2.0, 0.10/1.20,
+# 0.01/0.10, 0.34/0.58, 0.42/0.72, 2.0/6.0 — verified from source.
+# Each entry pins its proof with source_text + the enclosing function's
+# fingerprint (SHA-256 of the whitespace-normalised function, computed
+# with the runner's own _enclosing_function/_function_fingerprint).
+# Empirical check: each mutant hand-applied with cosmic-ray's own
+# mutate_code (diff touches exactly the one comparison), then a
+# differential battery — 9 (low, high) pairs x 14 values incl.
+# +/-1e-12 and +/-1e-9 around both boundaries, plus full-analyzer
+# sweeps at exact boundaries — 0 diffs for all 4, and all 15
+# tests/test_analyzers.py tests pass under each mutant (they survive).
+
+[[equivalent]]
+id = "textforensics.analyzers:core/ReplaceComparisonOperator_LtE_Lt:0"
+module = "textforensics.analyzers"
+operator = "core/ReplaceComparisonOperator_LtE_Lt"
+occurrence = 0
+start_pos = [32, 13]
+end_pos = [32, 15]
+function = "_high_when_low"
+kind = "domain-equivalent"
+source_text = "<="
+source_fingerprint = "3dec0e2d9f65e5b802456af3439b6b056122d9e5e2e9afa28d14d9621cd17943"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_high_when_low): `value <= low` -> `value < low`. At value == low the fall-through interpolation returns 1.0 - (low - low) / (high - low) = 1.0, exactly the branch value, so the two coincide for every input — provided low < high (else division by zero); all 9 production call sites have low < high (0.22/0.65, 0.18/0.80, 0.05/0.30, 0.25/2.0, 0.10/1.20, 0.01/0.10, 0.34/0.58, 0.42/0.72, 2.0/6.0). Verified 2026-11-08 against main dd8bd83: full 516-item session, 512 killed / 4 surviving / 0 unexplained; hand-applied mutant via cosmic-ray mutate_code, 0 diffs across the differential battery (9 (low, high) pairs x 14 values incl. +/-1e-12 and +/-1e-9 around both boundaries, full-analyzer sweeps at exact boundaries) and all 15 tests/test_analyzers.py tests pass under the mutant."
+
+[[equivalent]]
+id = "textforensics.analyzers:core/ReplaceComparisonOperator_GtE_Gt:0"
+module = "textforensics.analyzers"
+operator = "core/ReplaceComparisonOperator_GtE_Gt"
+occurrence = 0
+start_pos = [34, 13]
+end_pos = [34, 15]
+function = "_high_when_low"
+kind = "domain-equivalent"
+source_text = ">="
+source_fingerprint = "3dec0e2d9f65e5b802456af3439b6b056122d9e5e2e9afa28d14d9621cd17943"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_high_when_low): `value >= high` -> `value > high`. At value == high the fall-through interpolation returns 1.0 - (high - low) / (high - low) = 0.0, exactly the branch value, so the two coincide for every input — provided low < high (else division by zero); all 9 production call sites have low < high (0.22/0.65, 0.18/0.80, 0.05/0.30, 0.25/2.0, 0.10/1.20, 0.01/0.10, 0.34/0.58, 0.42/0.72, 2.0/6.0). Verified 2026-11-08 against main dd8bd83: full 516-item session, 512 killed / 4 surviving / 0 unexplained; hand-applied mutant via cosmic-ray mutate_code, 0 diffs across the differential battery (9 (low, high) pairs x 14 values incl. +/-1e-12 and +/-1e-9 around both boundaries, full-analyzer sweeps at exact boundaries) and all 15 tests/test_analyzers.py tests pass under the mutant."
+
+[[equivalent]]
+id = "textforensics.analyzers:core/ReplaceComparisonOperator_LtE_Lt:1"
+module = "textforensics.analyzers"
+operator = "core/ReplaceComparisonOperator_LtE_Lt"
+occurrence = 1
+start_pos = [41, 13]
+end_pos = [41, 15]
+function = "_high_when_high"
+kind = "domain-equivalent"
+source_text = "<="
+source_fingerprint = "f5e8872913ff9a3486241b455c128f7079c1ff40aac36b9374bb16060b078f00"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_high_when_high): `value <= low` -> `value < low`. At value == low the fall-through interpolation returns (low - low) / (high - low) = 0.0, exactly the branch value, so the two coincide for every input — provided low < high (else division by zero); all 9 production call sites have low < high (0.22/0.65, 0.18/0.80, 0.05/0.30, 0.25/2.0, 0.10/1.20, 0.01/0.10, 0.34/0.58, 0.42/0.72, 2.0/6.0). Verified 2026-11-08 against main dd8bd83: full 516-item session, 512 killed / 4 surviving / 0 unexplained; hand-applied mutant via cosmic-ray mutate_code, 0 diffs across the differential battery (9 (low, high) pairs x 14 values incl. +/-1e-12 and +/-1e-9 around both boundaries, full-analyzer sweeps at exact boundaries) and all 15 tests/test_analyzers.py tests pass under the mutant."
+
+[[equivalent]]
+id = "textforensics.analyzers:core/ReplaceComparisonOperator_GtE_Gt:1"
+module = "textforensics.analyzers"
+operator = "core/ReplaceComparisonOperator_GtE_Gt"
+occurrence = 1
+start_pos = [43, 13]
+end_pos = [43, 15]
+function = "_high_when_high"
+kind = "domain-equivalent"
+source_text = ">="
+source_fingerprint = "f5e8872913ff9a3486241b455c128f7079c1ff40aac36b9374bb16060b078f00"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_high_when_high): `value >= high` -> `value > high`. At value == high the fall-through interpolation returns (high - low) / (high - low) = 1.0, exactly the branch value, so the two coincide for every input — provided low < high (else division by zero); all 9 production call sites have low < high (0.22/0.65, 0.18/0.80, 0.05/0.30, 0.25/2.0, 0.10/1.20, 0.01/0.10, 0.34/0.58, 0.42/0.72, 2.0/6.0). Verified 2026-11-08 against main dd8bd83: full 516-item session, 512 killed / 4 surviving / 0 unexplained; hand-applied mutant via cosmic-ray mutate_code, 0 diffs across the differential battery (9 (low, high) pairs x 14 values incl. +/-1e-12 and +/-1e-9 around both boundaries, full-analyzer sweeps at exact boundaries) and all 15 tests/test_analyzers.py tests pass under the mutant."
