@@ -2869,3 +2869,93 @@ with the baselined installer findings.
   timing flake under full sibling load, passing 100/100
   standalone); run 2 above is the complete run and the datasets
   flake did not recur.
+
+## Verification record — Phase 5, release gate: checked-in reproducible SBOM (2026-11-08)
+
+Decision (rescope): a checked-in SBOM is needed. The three existing SBOMs
+are all expiring CI artifacts, never compared against anything: the
+container SBOM (container.yml, CycloneDX, verified live — run 42431729810
+on main head `a384ec1`, SUCCESS, artifact
+`textforensics-sbom-0.2.0-a384ec1a225882e148b53d2a83619f72e8d7f8b0`,
+5,100 bytes, unexpired) only builds on container-path changes, weekly
+Sunday 03:00 UTC, or manual dispatch — a change to
+`requirements-pinned.txt` alone does not trigger it; the supply-chain
+SBOM is syft JSON, not an interchange format; the release SBOM exists
+only on a manual release. The checked-in SBOM makes dependency changes
+reviewable in the diff and lets the gate fail on every push.
+
+- **Generator:** `scripts/generate_sbom.py` (stdlib only, no new
+  dependency), CycloneDX 1.6 JSON at `sbom/textforensics.cdx.json`:
+  123 components — the resolved dependency closure of
+  `requirements-pinned.txt` as installed (`pip install -r
+  requirements-pinned.txt`). `pip` is a genuine transitive dependency
+  (`pip-audit` → `pip-api` → `pip`); `setuptools`/`wheel` are direct
+  pins. No `metadata.timestamp` (optional in CycloneDX) and no embedded
+  source-commit field (it would make every commit stale by construction);
+  provenance is the git history of the SBOM file. `serialNumber` is a
+  deterministic UUIDv5 of the content hash.
+  `cyclonedx-python-lib` 11.12.0 is used only as a cross-check in tests
+  (`Bom.from_json(...).validate()`), not as a generation input.
+- **Reproducibility proof:** generator run twice from the same install,
+  `diff sbom/textforensics.cdx.json /tmp/sbom-run2.cdx.json` → identical.
+- **Staleness proof:** `--check` exits 0 when fresh; after deliberately
+  changing one component version in the committed file it exits 1 and
+  prints a unified diff; restoring the file returns exit 0.
+- **CI:** new `sbom` job in `ci.yml` (installs `-r
+  requirements-pinned.txt`, runs `python scripts/generate_sbom.py
+  --check`); `release.yml`, `supply-chain.yml` and `container.yml`
+  untouched. `anchore/sbom-action@v0` remains UNPINNED in those three
+  workflows — pinning belongs to the cosign worker, flagged in
+  `docs/QUALITY_GATES.md`, not changed here.
+- **Wheel/sdist:** a built wheel and sdist contain no `sbom/` entry
+  (the only substring match is `tests/test_generate_sbom.py` in the
+  sdist), so the SBOM stays out of the shipped artifacts.
+- **Docs:** `docs/QUALITY_GATES.md` gained gate item 91 plus a full
+  SBOM section (four-SBOM table: format, scope, home, retention, and
+  what "stale" means for each). Also flagged there, pre-existing:
+  `enterprise-deep-verification.yml` runs `cyclonedx-bom -r
+  requirements.txt`, but no `requirements.txt` exists and the step ends
+  in `|| true`, so it silently produces nothing.
+- **Tests:** 11 new tests in `tests/test_generate_sbom.py`, all passing
+  (synthetic-repo determinism, serial-number sensitivity, unresolved
+  handling, `--check` pass/fail, cyclonedx-lib validation, real-repo
+  generation).
+- **Claims gate:** 33/33 ("All claims verified", exit 0). First run was
+  32/33: `ruff_lint_clean` failed on SIM401 in the new script
+  (`metadata["Name"] if "Name" in metadata else None` → `.get`), which
+  the pre-commit run had missed because `pre-commit run --all-files`
+  only covers tracked files and the new files were still untracked —
+  fixed the line, applied `ruff format`, re-ran the gate green. The
+  first pre-commit run also failed its local hooks with "Executable
+  `python` not found" until `.venv/bin` was put on PATH; after `git add`
+  the re-run covers the new files (see below).
+- **Schemas:** 12 OK.
+- **Pre-commit:** 13/13 passed on the final staged tree (re-run after
+  `git add`, so the new files are covered). Two things the first run
+  taught: (a) `pre-commit run --all-files` only covers tracked files,
+  so new files must be staged first — the unstaged run missed a SIM401
+  in the new script that the claims gate then caught; (b) the SBOM's two
+  SHA-256 property values are flagged by `detect-secrets` as Hex High
+  Entropy Strings — they are recorded as audited false positives in
+  `.secrets.baseline` (surgical +16-line addition only; a blanket
+  `detect-secrets scan --baseline` was tried and reverted because it
+  rewrote the whole baseline, +91/−226 lines). A first `git add` +
+  pre-commit run failed only on detect-secrets; after the baseline
+  entries were added it passed 13/13 with no file modifications. The
+  local hooks also need `.venv/bin` on PATH (`python` is otherwise not
+  found).
+- **Full suite:** **3364 passed, 904 subtests passed, 6 failed** in
+  7872.37 s (2:11:12) — full log `~/workspace/fullsuite-sbom.log`.
+  All 6 failures are explained, none is caused by this change:
+  `test_memory_check` is the known flake (passes in isolation,
+  re-verified: 1 passed in 2.46 s); the 5 `SchemaCLITests` failures
+  were `FileNotFoundError` because the suite was run without
+  `.venv/bin` on PATH, so the `textforensics` console script they
+  shell out to was not found — re-run with the correct PATH: **5
+  passed in 17.74 s**. (The first full-suite attempt was killed by a
+  VM reboot at ~17.5 CPU-min with no surviving output; the rerun above
+  is the recorded one. The run is slow because the box is shared with
+  several parallel suites plus a live cosmic-ray run; the suite stalls
+  longest in `test_mutation.py`'s 787-entry baseline validation, which
+  this change does not touch.)
+

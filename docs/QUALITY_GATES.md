@@ -123,3 +123,93 @@ TextForensics can be misread as an authorship authority, so its quality gates ar
     while the finding is still present; an entry whose finding is
     fixed is reported as dormant and removed by a human, never left
     to rot silently.
+
+91. The checked-in SBOM is regenerated and diffed in CI; a stale SBOM fails the gate.
+
+## Software Bill of Materials (SBOM)
+
+TextForensics has four SBOMs. They are not four copies of the same data:
+they differ in scope, format, home and retention, and only one of them is
+checked in and staleness-checked.
+
+| SBOM | Generator | Scope | Format | Home | Retention / trigger |
+|---|---|---|---|---|---|
+| Checked-in SBOM (this section) | `scripts/generate_sbom.py` (stdlib only; see below) | Resolved dependency closure of `requirements-pinned.txt` as installed (123 components at introduction) | CycloneDX 1.6 JSON | `sbom/textforensics.cdx.json` (in the repo; out of the import path and out of the wheel/sdist — verified by inspecting a built wheel and sdist, which contain no `sbom/` entry) | Committed; regenerated + diffed on every push by the `sbom` job in `ci.yml` |
+| Release SBOM | `anchore/sbom-action@v0` (syft) in `release.yml` | Built artifacts in `./dist` (wheel, sdist, source tarball) | CycloneDX JSON + SPDX JSON | Release artifacts, cosign-signed (`dist/textforensics-sbom.cdx.json`, `dist/textforensics-sbom.spdx.json`) | Attached to the GitHub Release; manual `workflow_dispatch` only (requires typing `RELEASE`) |
+| Supply-chain SBOM | `anchore/sbom-action@v0` (syft) in `supply-chain.yml` (`sbom` job) | Project directory (`.`) | syft JSON (not CycloneDX/SPDX) | CI artifact `textforensics-sbom-<sha>` | 30 days; every push to `main` + weekly Monday 04:23 UTC |
+| Container SBOM | `anchore/sbom-action@v0` (syft) in `container.yml` | Project directory (`.`) at image build | CycloneDX JSON | CI artifact `textforensics-sbom-<version>-<sha>` | Default artifact retention; only on container-path changes (`Dockerfile`, `pyproject.toml`, `src/**`, …), weekly Sunday 03:00 UTC, or manual dispatch. Verified live 2026-11-08: run 42431729810 on main (head `a384ec1`) succeeded and its `textforensics-sbom-0.2.0-a384ec1…` artifact (5,100 bytes) was present and unexpired. |
+
+Why a checked-in SBOM exists at all, given the three CI ones: the
+container SBOM only exists after a container build (not on every push —
+a change to `requirements-pinned.txt` alone does not even trigger
+`container.yml`), the supply-chain SBOM is syft JSON rather than an
+interchange format, and all three are expiring workflow artifacts that
+cannot be reviewed in a diff and are never compared against anything.
+The checked-in SBOM makes dependency changes reviewable in the diff and
+lets the gate fail on every push when the declared dependencies and the
+recorded SBOM disagree.
+
+Generation (one canonical path for the checked-in SBOM):
+
+    python -m pip install -r requirements-pinned.txt
+    python scripts/generate_sbom.py [--check]
+
+The generator is stdlib-only (no new dependency). It reads the extras
+from the `-e .[...]` line of `requirements-pinned.txt` plus every package
+named directly in that file, resolves exact versions from the installed
+environment (the file contains version *ranges*, so a live install is
+required for resolution — the canonical install is the command above),
+walks the transitive `Requires-Dist` closure, and emits CycloneDX 1.6
+JSON. `cyclonedx-python-lib` (already in the dev/audit environment) is
+not a generation input: its CLI embeds wall-clock timestamps and it
+cannot resolve range-only requirements either. It is used only as an
+independent cross-check in `tests/test_generate_sbom.py`
+(`Bom.from_json(...).validate()`).
+
+Reproducibility guarantee: same inputs produce byte-identical output.
+Components and `dependsOn` lists are sorted by PEP 503 normalized name;
+`metadata.timestamp` is omitted (CycloneDX leaves it optional — a
+wall-clock value would change the output on every run); no source-commit
+field is embedded (it would make every commit stale by construction —
+provenance is the git history of the SBOM file itself); and
+`serialNumber` is a deterministic UUIDv5 of the SHA-256 of the canonical
+BOM content, so it changes exactly when the content changes. The inputs
+are pinned in `metadata.properties` as `requirementsPinnedSha256` and
+`pyprojectSha256`. Proven by running the generator twice from the same
+install and diffing the outputs (identical), and by the test suite.
+
+What "stale" means, per SBOM:
+
+* Checked-in SBOM: `python scripts/generate_sbom.py --check` (the `sbom`
+  CI job) exits 1 and prints a unified diff when regeneration from a
+  fresh `requirements-pinned.txt` install differs. Regenerate and commit
+  the result. Note the ranges in `requirements-pinned.txt` can resolve
+  to a newer release upstream with no repo change; that is a real
+  staleness event, not CI flakiness — regenerate, review the diff, commit.
+  Regenerating in a partial environment (e.g. only `.[dev]` installed)
+  lists the missing declared packages in `metadata.properties` as
+  `unresolvedDependencies` instead of silently omitting them; that output
+  will not match the committed file, by design. Regenerating also changes
+  the two SHA-256 property values in the SBOM, which `detect-secrets`
+  flags as Hex High Entropy Strings: the two hashes are recorded as
+  audited false positives in `.secrets.baseline`, so a regeneration
+  commit must update those two baseline entries in the same commit or
+  pre-commit fails. Do NOT run a blanket `detect-secrets scan --baseline`
+  for this — it rewrites the whole baseline (observed: +91/−226 lines,
+  pruning unrelated entries and adding test-file entries the hook
+  deliberately excludes); add only the two SBOM entries.
+* Release / supply-chain / container SBOMs: "stale" has no check — they
+  are generated fresh at the moment they run and are never compared.
+  Their freshness is bounded by their triggers and retention in the table
+  above, which is why the release gate relies on the checked-in SBOM.
+
+Known flags (not fixed here — other owners):
+
+* `anchore/sbom-action@v0` is an UNPINNED major tag in `release.yml`,
+  `supply-chain.yml` and `container.yml`. Action-pinning decisions belong
+  to the cosign worker; this wave does not change any `uses:` ref.
+* `enterprise-deep-verification.yml` runs `cyclonedx-bom -r requirements.txt`,
+  but no `requirements.txt` exists at the repo root; the step ends in
+  `|| true`, so it silently produces nothing. Pre-existing defect, flagged
+  for its owner.
+
