@@ -900,11 +900,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(len(domain), 94)
         self.assertEqual(
             {e["module"] for e in domain},
-            {
-                "textforensics.benchmark",
-                "textforensics.consensus",
-                "textforensics.calibration",
-            },
+            {"textforensics.benchmark", "textforensics.consensus"},
         )
         self.assertTrue(all("ulp_bound_ulps" not in e for e in domain))
         # Benchmark's 27 (13 round-1 + 14 round-2 genuinely-equivalent
@@ -1243,6 +1239,97 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertFalse(ok, "changed annotation text must not validate")
         self.assertIn("annotation text changed", reason)
 
+    def test_classify_baseline_parses_each_module_once(self):
+        """Full-baseline re-validation parses each module exactly once.
+
+        Regression test for the Core 3.11 CI stall (test 2562 exceeded
+        10 minutes on CPython 3.11.18): ``validate_baseline_entry``
+        used to re-read, re-parse and re-walk the module for every one
+        of the 887 entries. The per-module context cache must parse
+        each of the 5 modules once, and a second full classify must
+        parse nothing.
+        """
+        runner = self.runner
+        real_parse = runner.ast.parse
+        calls = {"n": 0}
+
+        def counting_parse(source, *args, **kwargs):
+            calls["n"] += 1
+            return real_parse(source, *args, **kwargs)
+
+        runner._clear_module_context_cache()
+        try:
+            runner.ast.parse = counting_parse
+            summary = runner.classify_baseline([], self.baseline, self.project_root)
+            self.assertEqual(summary["baseline_entries"], 887)
+            self.assertEqual(len(summary["stale_baseline_entries"]), 0)
+            self.assertEqual(calls["n"], 5, "one parse per distinct module")
+            # A second full classify hits the cache: no further parses,
+            # and the result is identical.
+            summary2 = runner.classify_baseline([], self.baseline, self.project_root)
+            self.assertEqual(summary2, summary)
+            self.assertEqual(calls["n"], 5, "second classify must parse nothing")
+        finally:
+            runner.ast.parse = real_parse
+            runner._clear_module_context_cache()
+
+    def test_module_context_cache_returns_same_object(self):
+        """Two loads of the same unchanged module return one context."""
+        runner = self.runner
+        path = self.project_root / "src" / "textforensics" / "trust.py"
+        runner._clear_module_context_cache()
+        try:
+            first, err1 = runner._load_module_context(path)
+            second, err2 = runner._load_module_context(path)
+            self.assertIsNone(err1)
+            self.assertIsNone(err2)
+            self.assertIs(first, second, "same file must return the cached context")
+            self.assertEqual(len(runner._MODULE_CONTEXT_CACHE), 1)
+        finally:
+            runner._clear_module_context_cache()
+
+    def test_module_context_cache_invalidated_on_source_change(self):
+        """Editing a module re-parses it instead of serving a stale tree."""
+        import tempfile
+
+        runner = self.runner
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "src" / "textforensics"
+            src.mkdir(parents=True)
+            module = src / "synthetic.py"
+            module.write_text(
+                "from __future__ import annotations\n\n\n"
+                "def f(x: float | None) -> float | None:\n"
+                "    return x\n"
+            )
+            entry = {
+                "id": "textforensics.synthetic:core/ReplaceBinaryOperator_BitOr_Add:0",
+                "module": "textforensics.synthetic",
+                "operator": "core/ReplaceBinaryOperator_BitOr_Add",
+                "occurrence": 0,
+                "start_pos": [4, 15],
+                "end_pos": [4, 16],
+                "function": "f",
+                "kind": "arg",
+                "annotation": "float | None",
+                "reason": "synthetic",
+            }
+            ok, reason = runner.validate_baseline_entry(entry, root)
+            self.assertTrue(ok, reason)
+            # Change the annotation so the entry no longer matches: the
+            # cache must notice the edit (mtime/size) and re-parse, not
+            # serve the stale tree that still validates.
+            module.write_text(
+                "from __future__ import annotations\n\n\n"
+                "def f(x: float | int) -> float | int:\n"
+                "    return x\n"
+            )
+            ok, reason = runner.validate_baseline_entry(entry, root)
+            self.assertFalse(ok, "edited module must re-validate against the new source")
+            self.assertIn("annotation text changed", reason)
+        runner._clear_module_context_cache()
+
     def test_unreachable_condition_mutants_accepted(self):
         """Survivors matching re-validated runtime entries are accepted (exit 0)."""
         runtime = [e for e in self.baseline["entries"] if e["kind"] == "unreachable-condition"]
@@ -1264,7 +1351,11 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(len(runtime), 38)
         self.assertEqual(
             {e["module"] for e in runtime},
-            {"textforensics.benchmark", "textforensics.consensus"},
+            {
+                "textforensics.benchmark",
+                "textforensics.consensus",
+                "textforensics.calibration",
+            },
         )
         records = [self._record_for_entry(e, "survived") for e in runtime]
         summary = self.runner.parse_results(records, self.baseline, self.project_root)

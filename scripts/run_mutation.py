@@ -610,6 +610,142 @@ def _validate_ulp_fields(entry: dict[str, Any]) -> tuple[bool, str]:
     return True, "ok"
 
 
+class _ModuleContext:
+    """Parsed source + derived tables for one module file.
+
+    Built once per (path, mtime, size) and reused across every baseline
+    entry of that module, so :func:`classify_baseline` no longer re-reads,
+    re-parses and re-walks the same module once per entry (887 entries
+    over 5 modules). The annotation-span walk is the expensive part:
+    :func:`_annotation_spans` calls ``ast.get_source_segment`` for every
+    annotation, and each call re-splits the whole source — on CPython
+    3.11 a single ``parse_results`` over the full baseline exceeds 10
+    minutes without this cache (test 2562, measured 2026-11-08).
+    """
+
+    __slots__ = (
+        "source",
+        "lines",
+        "tree",
+        "spans",
+        "postponed",
+        "functions",
+        "fingerprints",
+    )
+
+    def __init__(self, source: str, tree: ast.AST) -> None:
+        self.source = source
+        self.lines = source.splitlines()
+        self.tree = tree
+        self.spans = _annotation_spans(tree, source)
+        self.postponed = _has_postponed_evaluation(tree)
+        self.functions = _function_table(tree)
+        self.fingerprints: dict[tuple[int, int], str] = {}
+
+    def enclosing_function(self, line: int, col: int) -> tuple[str | None, ast.AST | None]:
+        """Innermost function containing ``(line, col)``.
+
+        Same semantics as :func:`_enclosing_function`: the table is in
+        its walk order (parents before children), so the last containing
+        function is the innermost one.
+        """
+        found: tuple[str, ast.AST] | None = None
+        for name, node, start, end in self.functions:
+            if start <= (line, col) < end:
+                found = (name, node)
+        return found if found is not None else (None, None)
+
+    def fingerprint(self, node: ast.AST) -> str:
+        """Cached :func:`_function_fingerprint` for one function node.
+
+        Keyed by the node's start position, which is unique within the
+        module; the source is fixed for the life of this context, so the
+        fingerprint cannot change underneath it.
+        """
+        key = (node.lineno, node.col_offset)
+        fp = self.fingerprints.get(key)
+        if fp is None:
+            fp = _function_fingerprint(self.source, node)
+            self.fingerprints[key] = fp
+        return fp
+
+
+def _function_table(tree: ast.AST) -> list[tuple[str, ast.AST, tuple[int, int], tuple[int, int]]]:
+    """``(name, node, start, end)`` for every function in ``tree``.
+
+    Same walk as :func:`_enclosing_function` (parents before children,
+    classes contribute their name to the owner, a decorated function's
+    span starts at its first decorator line), so
+    :meth:`_ModuleContext.enclosing_function` matches it exactly.
+    """
+    table: list[tuple[str, ast.AST, tuple[int, int], tuple[int, int]]] = []
+
+    def walk(node: ast.AST, owner: str) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                child_owner = f"{owner}.{child.name}" if owner else child.name
+                if child.decorator_list:
+                    first = child.decorator_list[0]
+                    start = (first.lineno, 0)
+                else:
+                    start = (child.lineno, child.col_offset)
+                end = (child.end_lineno or child.lineno, child.end_col_offset or 0)
+                table.append((child_owner, child, start, end))
+                walk(child, child_owner)
+            elif isinstance(child, ast.ClassDef):
+                walk(child, f"{owner}.{child.name}" if owner else child.name)
+            else:
+                walk(child, owner)
+
+    walk(tree, "")
+    return table
+
+
+#: Cached module contexts, keyed by (path, mtime_ns, size). The suite
+#: touches 5 modules; the cap is generous and only bounds a long-lived
+#: process that validates many different files.
+_MODULE_CONTEXT_CACHE: dict[tuple[str, int, int], _ModuleContext] = {}
+_MODULE_CONTEXT_CACHE_MAX = 32
+
+
+def _load_module_context(source_path: Path) -> tuple[_ModuleContext | None, str | None]:
+    """``(context, error)`` for a module file, cached by (path, mtime, size).
+
+    An edited file is re-parsed on the next call instead of serving a
+    stale tree — the baseline is position-keyed, so a changed source
+    makes its entries stale anyway; the cache only avoids re-doing the
+    same work for an unchanged file. ``error`` is the same reason string
+    :func:`validate_baseline_entry` used to produce inline, so behaviour
+    (including the exact messages) is unchanged.
+    """
+    try:
+        stat = source_path.stat()
+    except OSError as exc:
+        return None, f"module source unreadable: {exc}"
+    key = (str(source_path), stat.st_mtime_ns, stat.st_size)
+    context = _MODULE_CONTEXT_CACHE.get(key)
+    if context is not None:
+        return context, None
+    try:
+        source = source_path.read_text()
+    except OSError as exc:
+        return None, f"module source unreadable: {exc}"
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as exc:
+        return None, f"module does not parse: {exc}"
+    context = _ModuleContext(source, tree)
+    if len(_MODULE_CONTEXT_CACHE) >= _MODULE_CONTEXT_CACHE_MAX:
+        _MODULE_CONTEXT_CACHE.pop(next(iter(_MODULE_CONTEXT_CACHE)))
+    _MODULE_CONTEXT_CACHE[key] = context
+    return context, None
+
+
+def _clear_module_context_cache() -> None:
+    """Drop all cached module contexts (tests; long-lived processes)."""
+    _MODULE_CONTEXT_CACHE.clear()
+
+
 def validate_baseline_entry(entry: dict[str, Any], project_root: Path) -> tuple[bool, str]:
     """Re-validate one baseline entry against the CURRENT source.
 
@@ -622,41 +758,40 @@ def validate_baseline_entry(entry: dict[str, Any], project_root: Path) -> tuple[
     non-integer/negative bound, makes the entry stale. Any failure
     returns ``(False, reason)`` — the entry is STALE and the run must
     fail loudly (exit 1), never pass silently.
+
+    The module's parse + annotation spans + function table are loaded
+    once per (path, mtime, size) via :func:`_load_module_context` and
+    shared across entries; see :class:`_ModuleContext`.
     """
     source_path = module_path(entry["module"], project_root)
     if not source_path.is_file():
         return False, f"module source not found: {source_path}"
-    try:
-        source = source_path.read_text()
-    except OSError as exc:
-        return False, f"module source unreadable: {exc}"
-    try:
-        tree = ast.parse(source)
-    except SyntaxError as exc:
-        return False, f"module does not parse: {exc}"
-    lines = source.splitlines()
+    context, error = _load_module_context(source_path)
+    if error is not None:
+        return False, error
     if entry["kind"] in BASELINE_ANNOTATION_KINDS:
-        return _validate_annotation_entry(entry, tree, source, lines)
+        return _validate_annotation_entry(entry, context)
     if entry["kind"] in BASELINE_RUNTIME_KINDS:
         if entry["kind"] == "ulp-equivalent":
             ok, reason = _validate_ulp_fields(entry)
             if not ok:
                 return False, reason
-        return _validate_runtime_entry(entry, tree, source, lines)
+        return _validate_runtime_entry(entry, context)
     return False, f"unknown baseline kind {entry['kind']!r}"
 
 
-def _validate_annotation_entry(
-    entry: dict[str, Any], tree: ast.AST, source: str, lines: list[str]
-) -> tuple[bool, str]:
+def _validate_annotation_entry(entry: dict[str, Any], context: _ModuleContext) -> tuple[bool, str]:
     """Re-validate an annotation-kind entry against the current source.
 
     Returns ``(True, "ok")`` only when every check holds: the module
     still uses postponed evaluation, the recorded position still holds
     the recorded operator inside an annotation, the enclosing function
-    still matches, and the annotation text is unchanged.
+    still matches, and the annotation text is unchanged. The annotation
+    spans and the postponed-evaluation flag come from the cached
+    :class:`_ModuleContext` — re-walking the module per entry is what
+    made ``classify_baseline`` minutes-slow.
     """
-    if not _has_postponed_evaluation(tree):
+    if not context.postponed:
         return (
             False,
             "module no longer uses postponed evaluation "
@@ -666,9 +801,9 @@ def _validate_annotation_entry(
         )
     start_line, start_col = entry["start_pos"]
     end_line, end_col = entry["end_pos"]
-    if not (1 <= start_line <= len(lines)) or start_line != end_line:
+    if not (1 <= start_line <= len(context.lines)) or start_line != end_line:
         return False, f"position {entry['start_pos']} is outside the current source"
-    line = lines[start_line - 1]
+    line = context.lines[start_line - 1]
     if not (0 <= start_col < end_col <= len(line)):
         return (
             False,
@@ -688,7 +823,7 @@ def _validate_annotation_entry(
             f"position L{start_line}:{start_col} no longer holds an operator (found {segment!r})",
         )
     span = None
-    for candidate in _annotation_spans(tree, source):
+    for candidate in context.spans:
         sl, sc, el, ec = (
             candidate["start_line"],
             candidate["start_col"],
@@ -731,9 +866,7 @@ def _validate_annotation_entry(
     return True, "ok"
 
 
-def _validate_runtime_entry(
-    entry: dict[str, Any], tree: ast.AST, source: str, lines: list[str]
-) -> tuple[bool, str]:
+def _validate_runtime_entry(entry: dict[str, Any], context: _ModuleContext) -> tuple[bool, str]:
     """Re-validate a runtime-kind entry against current source.
 
     Covers all four runtime kinds — ``"unreachable-condition"``,
@@ -754,12 +887,16 @@ def _validate_runtime_entry(
     are ever assigned, which branches are reachable, which values are
     ever compared); any edit to the function — even far from the mutant
     — makes the entry stale so a human re-verifies the proof.
+
+    The enclosing-function lookup and the function fingerprint come
+    from the cached :class:`_ModuleContext`, so a full-baseline
+    re-validation no longer walks the module tree per entry.
     """
     start_line, start_col = entry["start_pos"]
     end_line, end_col = entry["end_pos"]
-    if not (1 <= start_line <= len(lines)) or start_line != end_line:
+    if not (1 <= start_line <= len(context.lines)) or start_line != end_line:
         return False, f"position {entry['start_pos']} is outside the current source"
-    line = lines[start_line - 1]
+    line = context.lines[start_line - 1]
     if not (0 <= start_col < end_col <= len(line)):
         return (
             False,
@@ -773,7 +910,7 @@ def _validate_runtime_entry(
             f"{entry['source_text']!r} (found {segment!r}) — the code moved "
             "or changed",
         )
-    name, node = _enclosing_function(tree, start_line, start_col)
+    name, node = context.enclosing_function(start_line, start_col)
     if node is None:
         return (
             False,
@@ -785,7 +922,7 @@ def _validate_runtime_entry(
             f"enclosing function changed ({entry['function']!r} -> {name!r}) "
             "— re-verify the mutant",
         )
-    current = _function_fingerprint(source, node)
+    current = context.fingerprint(node)
     if current != entry["source_fingerprint"]:
         return (
             False,
