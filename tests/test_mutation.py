@@ -590,7 +590,12 @@ class EquivalentBaselineTests(unittest.TestCase):
         for entry in entries:
             self.assertIn(
                 entry["module"],
-                {"textforensics.trust", "textforensics.policy", "textforensics.benchmark", "textforensics.consensus"},
+                {
+                    "textforensics.trust",
+                    "textforensics.policy",
+                    "textforensics.benchmark",
+                    "textforensics.consensus",
+                },
             )
             self.assertTrue(entry["reason"], f"entry {entry['id']} needs a reason")
             self.assertIn(entry["function"], entry["reason"])
