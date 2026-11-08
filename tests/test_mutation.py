@@ -1310,28 +1310,28 @@ class EquivalentBaselineTests(unittest.TestCase):
 
         base = (
             "version = 1\n"
-            '[[equivalent]]\nid = "x"\\nmodule = "textforensics.calibration"\\n'
-            'operator = "core/ReplaceComparisonOperator_GtE_Gt"\\noccurrence = 2\\n'
-            'start_pos = [105, 16]\\nend_pos = [105, 19]\\nfunction = "_sigmoid"\\n'
-            'reason = "r"\\nsource_text = "0.0"\\nsource_fingerprint = "' + "0" * 64 + '"\\n'
+            '[[equivalent]]\nid = "x"\nmodule = "textforensics.calibration"\n'
+            'operator = "core/ReplaceComparisonOperator_GtE_Gt"\noccurrence = 2\n'
+            'start_pos = [105, 16]\nend_pos = [105, 19]\nfunction = "_sigmoid"\n'
+            'reason = "r"\nsource_text = "0.0"\nsource_fingerprint = "' + "0" * 64 + '"\n'
         )
         cases = {
             "missing ulp_bound_ulps": (
-                base + 'kind = "ulp-equivalent"\\nswept_domain = "[-20, 20]"\\n'
+                base + 'kind = "ulp-equivalent"\nswept_domain = "[-20, 20]"\n'
             ),
-            "missing swept_domain": (base + 'kind = "ulp-equivalent"\\nulp_bound_ulps = 2\\n'),
-            "non-positive bound": (
+            "missing swept_domain": (base + 'kind = "ulp-equivalent"\nulp_bound_ulps = 2\n'),
+            "negative bound": (
                 base
-                + 'kind = "ulp-equivalent"\\nulp_bound_ulps = 0\\n'
-                + 'swept_domain = "[-20, 20]"\\n'
+                + 'kind = "ulp-equivalent"\nulp_bound_ulps = -1\n'
+                + 'swept_domain = "[-20, 20]"\n'
             ),
             "non-integer bound": (
                 base
-                + 'kind = "ulp-equivalent"\\nulp_bound_ulps = "2"\\n'
-                + 'swept_domain = "[-20, 20]"\\n'
+                + 'kind = "ulp-equivalent"\nulp_bound_ulps = "2"\n'
+                + 'swept_domain = "[-20, 20]"\n'
             ),
             "empty swept_domain": (
-                base + 'kind = "ulp-equivalent"\\nulp_bound_ulps = 2\\n' + 'swept_domain = ""\\n'
+                base + 'kind = "ulp-equivalent"\nulp_bound_ulps = 2\n' + 'swept_domain = ""\n'
             ),
         }
         for name, text in cases.items():
@@ -1352,7 +1352,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         tampered_cases = {
             "missing ulp_bound_ulps": ("ulp_bound_ulps", None),
             "missing swept_domain": ("swept_domain", None),
-            "non-positive bound": ("ulp_bound_ulps", 0),
+            "negative bound": ("ulp_bound_ulps", -1),
             "non-integer bound": ("ulp_bound_ulps", "2"),
             "boolean bound": ("ulp_bound_ulps", True),
             "empty swept_domain": ("swept_domain", ""),
@@ -1367,6 +1367,43 @@ class EquivalentBaselineTests(unittest.TestCase):
                 ok, reason = self.runner.validate_baseline_entry(tampered, self.project_root)
                 self.assertFalse(ok, f"{name} must not validate")
                 self.assertIn(field, reason)
+
+    def test_ulp_equivalent_zero_bound_accepted(self):
+        """An "ulp-equivalent" entry with bound 0 loads and validates.
+
+        A bound of 0 is a measured value — no observed difference over
+        the swept domain (e.g. the `_sigmoid` `>=` -> `>` mutant, whose
+        two branches compute exactly 0.5 at value == 0.0) — not a
+        missing bound. Both at load time (no ValueError from
+        `load_baseline`) and at re-validation time
+        (`validate_baseline_entry` on a synthetic dict).
+        """
+        import tempfile
+
+        text = (
+            "version = 1\n"
+            '[[equivalent]]\nid = "x"\nmodule = "textforensics.calibration"\n'
+            'operator = "core/ReplaceComparisonOperator_GtE_Gt"\noccurrence = 2\n'
+            'start_pos = [105, 16]\nend_pos = [105, 19]\nfunction = "_sigmoid"\n'
+            'reason = "r"\nsource_text = "0.0"\nsource_fingerprint = "' + "0" * 64 + '"\n'
+            'kind = "ulp-equivalent"\nulp_bound_ulps = 0\n'
+            'swept_domain = "[-20, 20]"\n'
+        )
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(text)
+            temp_path = f.name
+        try:
+            baseline = self.runner.load_baseline(Path(temp_path))
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+        self.assertEqual(len(baseline["entries"]), 1)
+        self.assertEqual(baseline["entries"][0]["ulp_bound_ulps"], 0)
+
+        # Re-validation accepts it too.
+        entry = self._synthetic_ulp_equivalent_entry()
+        entry["ulp_bound_ulps"] = 0
+        ok, reason = self.runner.validate_baseline_entry(entry, self.project_root)
+        self.assertTrue(ok, f"bound-0 ulp-equivalent entry must validate: {reason}")
 
     def test_incompetent_with_worker_exception_is_not_an_error(self):
         """A worker exception with test_outcome "incompetent" parses as incompetent.

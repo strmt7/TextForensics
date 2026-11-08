@@ -97,7 +97,7 @@ Some mutants cannot be killed by any test. Five kinds are recognised:
     records: ``ulp_bound_ulps`` (int, the maximum ULPs observed over
     the swept domain) and ``swept_domain`` (string naming the swept
     domain). An entry missing either field, or with a non-integer or
-    non-positive bound, is rejected.
+    negative bound, is rejected.
 
 Entries are keyed by ``(module, operator, start_pos, end_pos,
 occurrence)``. ``occurrence`` is part of the key — not provenance only —
@@ -590,18 +590,20 @@ def _function_fingerprint(source: str, node: ast.AST) -> str:
 def _validate_ulp_fields(entry: dict[str, Any]) -> tuple[bool, str]:
     """Validate the extra fields of an ``"ulp-equivalent"`` entry.
 
-    Returns ``(True, "ok")`` only when ``ulp_bound_ulps`` is a positive
+    Returns ``(True, "ok")`` only when ``ulp_bound_ulps`` is a non-negative
     integer (``bool`` is not accepted — it is an ``int`` subclass but
-    not a ULP count) and ``swept_domain`` is a non-empty string. Any
+    not a ULP count) and ``swept_domain`` is a non-empty string. A bound
+    of 0 is a measured value — no observed difference over the swept
+    domain — not a missing bound. Any
     failure means the entry cannot support its equivalence claim, so
     the entry is stale/invalid and the run must fail loudly (exit 1).
     Other kinds never carry these fields and are never checked here.
     """
     bound = entry.get("ulp_bound_ulps")
     if isinstance(bound, bool) or not isinstance(bound, int):
-        return False, f"ulp_bound_ulps must be a positive integer (got {bound!r})"
-    if bound <= 0:
-        return False, f"ulp_bound_ulps must be a positive integer (got {bound!r})"
+        return False, f"ulp_bound_ulps must be a non-negative integer (got {bound!r})"
+    if bound < 0:
+        return False, f"ulp_bound_ulps must be a non-negative integer (got {bound!r})"
     domain = entry.get("swept_domain")
     if not isinstance(domain, str) or not domain.strip():
         return False, f"swept_domain must be a non-empty string (got {domain!r})"
@@ -617,7 +619,7 @@ def validate_baseline_entry(entry: dict[str, Any], project_root: Path) -> tuple[
     ``"ulp-equivalent"``) through :func:`_validate_runtime_entry`.
     ``"ulp-equivalent"`` entries are additionally checked by
     :func:`_validate_ulp_fields` first: a missing bound or domain, or a
-    non-integer/non-positive bound, makes the entry stale. Any failure
+    non-integer/negative bound, makes the entry stale. Any failure
     returns ``(False, reason)`` — the entry is STALE and the run must
     fail loudly (exit 1), never pass silently.
     """
