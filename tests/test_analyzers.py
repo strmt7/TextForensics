@@ -104,6 +104,105 @@ class AnalyzerContractTests(unittest.TestCase):
         total = sum(item.contribution for item in result.evidence)
         self.assertAlmostEqual(total, result.score, places=6)
 
+class AnalyzersMutationKillTests(unittest.TestCase):
+    """Kill tests for the Phase 5 full mutation session on textforensics.analyzers.
+
+    Session (2026-11-08, ``scripts/run_mutation.py --mode full --modules
+    textforensics.analyzers --budget 0``): 516 work items, 354 killed,
+    162 survived, 0 timeout / 0 error / 0 incompetent / 0 pending.
+    Of the 162 survivors, 158 are killed by the four tests below and 4 are
+    genuinely equivalent (no existing baseline kind fits them; see the
+    no-kind list in the wave report):
+
+    - ``LtE_Lt`` occ 0 (L32) and occ 1 (L41), ``GtE_Gt`` occ 0 (L34) and
+      occ 1 (L43): at ``value == low`` / ``value == high`` the fall-through
+      interpolation gives exactly the branch value (``0.0 / (high - low)``
+      is exactly ``0.0``; ``(high - low) / (high - low)`` is exactly
+      ``1.0``) for every ``low < high``, which holds at all call sites,
+      so the boundary branches are redundant. No test can distinguish
+      them; the boundary values are pinned by the interpolator test
+      only as documentation of the original behaviour.
+
+    Each golden test pins exact scores, reliabilities and evidence
+    contributions at a point where every component is strictly interior
+    (0 < component < 1), so every weight, threshold, divisor and
+    operator mutant in its analyzer changes at least one pinned value.
+    Expected values are literals computed from the unmutated module, not
+    recomputed from its helpers, so a mutant cannot move both sides.
+    """
+
+    def test_interpolator_values_off_midpoint(self):
+        # [15] Sub_Mul and [16] Sub_Mod at L36 coincide with the original
+        # at the midpoint (0.5) but not off it: _high_when_low(0.3, ...)
+        # is 0.75 originally, 0.25 under either mutant.
+        self.assertAlmostEqual(_high_when_low(0.3, 0.2, 0.6), 0.75)
+        self.assertAlmostEqual(_high_when_high(0.3, 0.2, 0.6), 0.25)
+
+    def test_uniformity_golden_values(self):
+        # Kills [82]/[85]/[88]/[91]/[96] (Div_* on the /12.0 reliability),
+        # [101]-[112] (all four NumberReplacer threshold mutants of each
+        # of the three interpolator calls) and [113]/[114] (12.0 -> 13.0
+        # / 11.0). Score/evidence mutants on L52/L57/L63/L69 were already
+        # killed by test_uniformity_uses_three_weighted_components.
+        result = analyze_uniformity(
+            _features(sentence_count=6, repeated_sentence_start_ratio=0.175)
+        )
+        self.assertAlmostEqual(result.score, 0.5786159039759939)
+        self.assertAlmostEqual(result.reliability, 0.5)
+        self.assertAlmostEqual(result.evidence[0].contribution, 0.3023255813953488)
+        self.assertAlmostEqual(result.evidence[1].contribution, 0.16129032258064518)
+        self.assertAlmostEqual(result.evidence[2].contribution, 0.11499999999999999)
+
+    def test_formulaic_language_golden_values(self):
+        # Kills [4]/[5]/[8] (Add_Div/Add_FloorDiv on the score),
+        # [17]-[19] (Mul_Add on the score), [20]-[22] (Mul_Add on the
+        # evidence), [29]-[31] (Mul_Sub on the evidence), [39]/[40]
+        # (Mul_Div on the score), [41]/[42] (Mul_Div on the evidence),
+        # [49]/[50] (Mul_FloorDiv on the evidence), [58]/[59] (Mul_Mod
+        # on the score), [60]/[61] (Mul_Mod on the evidence),
+        # [69]-[74] (Mul_Pow on the score and evidence), [83]/[86]/
+        # [89]/[92]/[94] (Div_* on the /180.0 reliability), [115]-[123]
+        # (all NumberReplacer threshold mutants), [124]-[126] (score
+        # weights), [127]/[128] (180.0 -> 181.0 / 179.0) and [129]-[134]
+        # (evidence weights).
+        result = analyze_formulaic_language(
+            _features(
+                transition_density=1.125,
+                cliche_density=0.65,
+                repeated_trigram_ratio=0.055,
+                word_count=90,
+            )
+        )
+        self.assertAlmostEqual(result.score, 0.5)
+        self.assertAlmostEqual(result.reliability, 0.5)
+        self.assertAlmostEqual(result.evidence[0].contribution, 0.175)
+        self.assertAlmostEqual(result.evidence[1].contribution, 0.20000000000000007)
+        self.assertAlmostEqual(result.evidence[2].contribution, 0.12499999999999999)
+
+    def test_lexical_profile_golden_values(self):
+        # Kills [0]-[3]/[6]/[7]/[9]-[14] (Add_* on the score),
+        # [23]-[28] (Mul_Add on the score and evidence), [32]-[38]
+        # (Mul_Sub on the score, evidence and the *0.75 reliability),
+        # [43]-[48] (Mul_Div), [51]-[57] (Mul_FloorDiv), [62]-[68]
+        # (Mul_Mod), [75]-[81] (Mul_Pow), [84]/[87]/[90]/[93]/[95]
+        # (Div_* on the /300.0 reliability), [135]-[146] (all
+        # NumberReplacer threshold mutants), [147]-[152] (score
+        # weights), [153]/[154] (300.0 -> 301.0 / 299.0), [155]
+        # (0.75 -> -0.25) and [156]-[161] (evidence weights).
+        result = analyze_lexical_profile(
+            _features(
+                type_token_ratio=0.46,
+                hapax_ratio=0.57,
+                punctuation_variety=4.0,
+                word_count=150,
+            )
+        )
+        self.assertAlmostEqual(result.score, 0.5)
+        self.assertAlmostEqual(result.reliability, 0.375)
+        self.assertAlmostEqual(result.evidence[0].contribution, 0.19999999999999996)
+        self.assertAlmostEqual(result.evidence[1].contribution, 0.15000000000000002)
+        self.assertAlmostEqual(result.evidence[2].contribution, 0.15)
+
 
 if __name__ == "__main__":
     unittest.main()
