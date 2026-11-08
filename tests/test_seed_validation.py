@@ -734,9 +734,9 @@ class TestAppendMode:
 
 
 class TestSeededRegistry:
-    def test_committed_registry_loads_with_seven_records_and_no_mixset(self):
+    def test_committed_registry_loads_with_eight_records_and_no_mixset(self):
         registry = ValidationRegistry.load(REPO_ROOT / "docs" / "validation" / "registry.json")
-        assert len(registry.records) == 7
+        assert len(registry.records) == 8
         assert [record.record_id for record in registry.records] == [
             "evr-20261106-beemo-builtin-heuristic",
             "evr-20261106-mage-builtin-heuristic",
@@ -749,10 +749,17 @@ class TestSeededRegistry:
             # LLM-edited), so the per-record assertions below apply
             # to it exactly as to the document records.
             "evr-20261107-opai-bench-builtin-heuristic",
+            # RAID humans-100 record (Phase 5): the first `supported`
+            # record — n=6000, 171/5829, all 8 support conditions met.
+            "evr-20261108-raid-builtin-heuristic",
         ]
         for record in registry.records:
-            assert record.status == "partial"
-            assert effective_status(record, detector_version="0.1.0") == "partial"
+            if record.record_id == "evr-20261108-raid-builtin-heuristic":
+                assert record.status == "supported"
+                assert effective_status(record, detector_version="0.1.0") == "supported"
+            else:
+                assert record.status == "partial"
+                assert effective_status(record, detector_version="0.1.0") == "partial"
             assert record.data.contamination_flag == "no"
             assert validate_evidence_record(record.to_dict()) == []
             assert validate_record(record.to_dict()) == []
