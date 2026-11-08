@@ -104,6 +104,7 @@ class AnalyzerContractTests(unittest.TestCase):
         total = sum(item.contribution for item in result.evidence)
         self.assertAlmostEqual(total, result.score, places=6)
 
+
 class AnalyzersMutationKillTests(unittest.TestCase):
     """Kill tests for the Phase 5 full mutation session on textforensics.analyzers.
 
