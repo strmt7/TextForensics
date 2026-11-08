@@ -442,7 +442,7 @@
 # PROOF above). The annotation text / source text + function are
 # re-validated against the current source on every run.
 #
-# CALIBRATION ENTRIES (2: 2 unobservable-value, 2026-11-08)
+# CALIBRATION ENTRIES (5: 5 unobservable-value, 2026-11-08)
 # -------------------------------------------------------------------
 # Source: local budget-200 run on branch fix/mutation-calibration at
 # 8e6ffd1, `scripts/run_mutation.py --mode full --modules
@@ -452,9 +452,16 @@
 # ExceptionReplacer crash, see below). The 30 killable survivors were
 # killed with tests in tests/test_calibration.py (class
 # TestCalibrationMutationKillTests); the proof re-run gives killed 194,
-# surviving 5. Of the 5, 2 are the entries below.
+# surviving 5. Of the 5, 2 are the entries below. The remainder pass
+# (items 200-1936, 1737 items, direct cosmic-ray CLI) gave killed
+# 1165, surviving 572 (330 annotation + 242 runtime). The 242 runtime
+# survivors were classified one by one: 180 killable, killed with
+# tests in tests/test_calibration.py (class
+# TestCalibrationMutationKillTestsRemainder, 88 tests); 3 of the 62
+# equivalents are the entries below; the other 59 need a new kind
+# (see the NOT-IN-THIS-BASELINE list below).
 #
-# PROOF — CALIBRATION "unobservable-value" (2 entries)
+# PROOF — CALIBRATION "unobservable-value" (5 entries)
 # ----------------------------------------------------
 # [occ 36/37] CalibrationCurve._validate_parameters L255:47,
 # `0.0` -> `1.0` / `0.0` -> `-1.0` in
@@ -471,6 +478,25 @@
 # isotonic and identity curves): byte-identical outputs, 148/148 for
 # both mutants. Each entry pins source_text + the enclosing
 # function's fingerprint, exactly like the policy entries.
+# [occ 95] DatasetReference.from_dict L411:54, `0` -> `-1` in
+# `sample_count=int(data.get("sample_count", 0))`: the default only
+# applies when sample_count is absent, and __post_init__ rejects
+# both 0 and -1 with the identical "must be positive" message.
+# [occ 118] _coerce_label L942:17, `0` -> `1` in
+# `if value in (0, False):`: the preceding `if value in (1, True):`
+# returns 1 first, so no value equal to 1 reaches this tuple.
+# [occ 9, ReplaceFalseWithTrue] _coerce_label L942:20, `False` ->
+# `True` in the same tuple: True is caught by the first check, so
+# the mutated tuple matches exactly the same values. All three
+# verified by a differential battery (original vs hand-applied
+# mutant: 22 _coerce_label inputs, 9 _probability_metrics cases,
+# from_dict with sample_count absent / 0 / 5): byte-identical
+# outputs. Two further candidates, [occ 130/138] in
+# _probability_metrics (`[0] * n_bins` -> `[1] * n_bins` and
+# `bin_counts[index] += 1` -> `+= 2`), were first classified the
+# same way but the battery showed a 1-ulp ECE difference (max
+# 1.110e-16) from float reassociation — they are ulp-equivalent
+# only, so they are NOT baselined and sit in the list below.
 #
 # CALIBRATION SURVIVORS *NOT* IN THIS BASELINE (do not add without a
 # new kind + its validator — the loader rejects unknown kinds)
@@ -492,10 +518,60 @@
 #   observable difference for any input) does not apply, and pinning a
 #   1-ulp kill test would assert which algebraically-identical branch
 #   ran rather than a behavioural contract.
-# - The remaining 1737 work items of the 1937-item session were never
-#   executed under budget 200 (same rule: verify, then add). NOTE: the
-#   error in the prefix run is a cosmic-ray 8.7.0 operator crash, not
-#   a code failure: ExceptionReplacer occurrence 5 at L727
+# - Remainder-pass equivalents needing a new kind (59), all
+#   confirmed by full-file test runs under the hand-applied mutant
+#   (the 275-test file passes unchanged under each): grouped by
+#   proof shape.
+#   * ulp (4): [1275]/[1311] `_sigmoid` `>=` -> `>` / `!=` (branches
+#     identical up to <=2 ulps); [75]/[83] `_probability_metrics`
+#     bin-count initial value / increment (count cancels in the ECE
+#     formula, 1-ulp float difference only, max 1.110e-16).
+#   * closed-domain value-identity (19): [1047], [1124] (`1 - target`
+#     -> `1 ^ target` / `1 >> target` in log-loss, target in {0,1});
+#     [1149], [1153], [1155], [1156], [1158], [1228], [1235], [1236]
+#     (method `==` -> `>=`/`<=`, closed domain {platt, temperature,
+#     isotonic, beta, identity} plus elif/early-return chain);
+#     [1163], [1242] (label `==` -> `>=`/`<=`, labels only
+#     "human"/"ai"); [1229], [1230] (`a == 0.0` / `b == 0.0` -> `<=`,
+#     preceding `a < 0.0 or b < 0.0` guard constrains a,b >= 0);
+#     [1271] (`value >= 1.0` -> `==` in `_calibrate_beta`, domain
+#     [0,1]); [1346], [1347] (`a > 0.0` / `b > 0.0` -> `!=`, a,b >= 0
+#     validated); [1385] (`value <= 0.0` -> `==`, domain [0,1]);
+#     [1419] (`value <= x_values[0]` -> `<`, bisect_right makes the
+#     boundary case coincide).
+#   * dead tiebreak / update condition (12): [1144], [1165], [1183],
+#     [1201], [1222], [1243], [1264] (the `==` in the tiebreak clause
+#     `(tpr == best.tpr and threshold < best.threshold)` — always
+#     False because later candidates have higher thresholds);
+#     [1331] (`>` -> `is` at L1261 — tpr floats are distinct objects,
+#     never True; the original also never updates after the first
+#     candidate); [1441], [1461], [1473] (tiebreak `<` -> `==`/`is`/
+#     `<=` — always False for later candidates); [1613] (inner `or`
+#     -> `and` at L1262 — the update condition never fires after the
+#     first assignment, since tpr is non-increasing in threshold and
+#     later thresholds are higher).
+#   * dead RuntimeError branch L1272 (18): [633], [647], [661], [675],
+#     [689], [703], [717], [731], [745], [759], [773] (11 Div_* in
+#     the f-string) + [1274], [1282], [1288], [1294], [1302], [1310],
+#     [1318] (7 comparison in `score >= t`). `if best is None:` is
+#     unreachable — candidates always include
+#     `math.nextafter(max_score, inf)` with fpr 0 <= target_fpr
+#     (target validated 0 <= target <= 1) — so the branch body never
+#     executes.
+#   * redundant guard (6): [1530] (`!=` -> `is not` in `_load_all`
+#     hash check — reached only with different hashes from different
+#     JSON loads, always distinct objects; the `seen_hashes` gate
+#     raises first for equal hashes); [1589]
+#     (`allow_same_dataset=False` -> True in
+#     `run_calibration_evaluation` — the preceding contamination
+#     gate raises for same-dataset inputs before the flag is
+#     consulted); [1626] (`mkdir(parents=True)` -> False in
+#     `_save_artifact` — target.parent is always the existing
+#     storage_path); [1630], [1631], [1632] (`zip(..., strict=True)`
+#     -> False in `_probability_metrics` — the preceding
+#     `len(values) != len(targets)` check guarantees equal lengths).
+# - The error in the prefix run is a cosmic-ray 8.7.0 operator crash,
+#   not a code failure: ExceptionReplacer occurrence 5 at L727
 #   (`except (OSError, ...)` in `_load_all`) dies inside
 #   `exception_replacer.py:25` (`'PythonNode' object has no attribute
 #   'value'`) before any mutant code exists, so there is no behaviour
@@ -6199,6 +6275,45 @@ kind = "unobservable-value"
 source_text = "0.0"
 source_fingerprint = "bfe199cab007ad6de13fa10feb98a10530fe3bb74d703de0b380c3291fae4d9d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "Unobservable-value mutant (CalibrationCurve._validate_parameters): `0.0` -> `-1.0` in `_finite_number(parameters.get(\"c\", 0.0), \"parameters.c\")` (beta branch). The return value of that _finite_number call is discarded — the validated default is never stored or used; _calibrate_beta re-reads `parameters.get(\"c\", 0.0)` from its own literal. The call's only observable effect is raising for a non-finite argument, and -1.0 is finite, so for every input (c absent, present, or invalid) the behaviour is identical. Verified by a 148-case differential battery (original vs hand-applied mutant): byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/NumberReplacer:95"
+module = "textforensics.calibration"
+operator = "core/NumberReplacer"
+occurrence = 95
+start_pos = [411, 54]
+end_pos = [411, 55]
+function = "DatasetReference.from_dict"
+kind = "unobservable-value"
+source_text = "0"
+source_fingerprint = "f260942afdbcd290c7736b42e89e5122da768b03763edb9136462a51f831d689"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable-value mutant (DatasetReference.from_dict): `0` -> `-1` in `sample_count=int(data.get(\"sample_count\", 0))`. The default only applies when sample_count is absent, and __post_init__ requires sample_count to be positive, so both 0 and -1 are rejected with the identical \"must be positive\" message; when sample_count is present the default is never read. Verified by a differential battery (original vs hand-applied mutant, from_dict with sample_count absent / 0 / 5): byte-identical outcomes."
+
+[[equivalent]]
+id = "textforensics.calibration:core/NumberReplacer:118"
+module = "textforensics.calibration"
+operator = "core/NumberReplacer"
+occurrence = 118
+start_pos = [942, 17]
+end_pos = [942, 18]
+function = "_coerce_label"
+kind = "unobservable-value"
+source_text = "0"
+source_fingerprint = "6d761868af3d3ce938695da9d36d1ce1e7ecd66262082ba9d0c28780b7c15687"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable-value mutant (_coerce_label): `0` -> `1` in `if value in (0, False):`. The preceding check `if value in (1, True):` returns 1 first, so no value equal to 1 can reach this tuple — the mutated tuple (1, False) matches exactly the same values as (0, False) for every input (False, 0, 0.0 all match either way; 1 and 1.0 never reach it). Verified by a 22-input differential battery (original vs hand-applied mutant): byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceFalseWithTrue:9"
+module = "textforensics.calibration"
+operator = "core/ReplaceFalseWithTrue"
+occurrence = 9
+start_pos = [942, 20]
+end_pos = [942, 25]
+function = "_coerce_label"
+kind = "unobservable-value"
+source_text = "False"
+source_fingerprint = "6d761868af3d3ce938695da9d36d1ce1e7ecd66262082ba9d0c28780b7c15687"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable-value mutant (_coerce_label): `False` -> `True` in `if value in (0, False):`. The preceding check `if value in (1, True):` returns 1 first, so no value equal to True can reach this tuple — the mutated tuple (0, True) matches exactly the same values as (0, False) for every input (True is caught earlier; False, 0, 0.0 all match either way). Verified by a 22-input differential battery (original vs hand-applied mutant): byte-identical outputs."
 
 [[equivalent]]
 id = "textforensics.calibration:core/ReplaceBinaryOperator_BitOr_Add:0"
