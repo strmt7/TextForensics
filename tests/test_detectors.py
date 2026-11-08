@@ -836,6 +836,13 @@ class DetectorsMutationKillTests(unittest.TestCase):
         with self.assertRaises(DetectorContractError):
             validate_prediction(result)
 
+    def test_supported_length_min_below_rejected(self):
+        result = prediction()
+        result.supported_length = {"min_words": 4}
+        result.min_words = 5
+        with self.assertRaises(DetectorContractError):
+            validate_prediction(result)
+
     def test_supported_length_min_match_valid(self):
         shared = int("1000")
         result = prediction()
@@ -866,6 +873,18 @@ class DetectorsMutationKillTests(unittest.TestCase):
     def test_score_range_length_three_rejected(self):
         result = prediction()
         result.score_range = [0.0, 0.5, 1.0]
+        # Score inside [0.0, 0.5] so a mutant that skips the length
+        # check would pass validation instead of raising later.
+        result.score = 0.25
+        with self.assertRaises(DetectorContractError):
+            validate_prediction(result)
+
+    def test_score_range_min_above_max_rejected(self):
+        result = prediction()
+        result.score_range = [2.0, 1.0]
+        # Score None so a mutant that skips the min>=max check would
+        # pass validation instead of raising on the empty interval.
+        result.score = None
         with self.assertRaises(DetectorContractError):
             validate_prediction(result)
 
@@ -1202,7 +1221,12 @@ class DetectorsMutationKillTests(unittest.TestCase):
             validate_prediction(result)
 
     def test_min_words_negative_rejected(self):
+        # V2 skips normalization: with a V1 schema, normalization
+        # derives supported_length {"min_words": -1}, and the
+        # supported-length check would raise first, masking the
+        # min_words < 0 mutant below.
         result = prediction()
+        result.schema = DETECTOR_SCHEMA_V2
         result.min_words = -1
         with self.assertRaises(DetectorContractError):
             validate_prediction(result)
@@ -1268,7 +1292,9 @@ class DetectorsMutationKillTests(unittest.TestCase):
             validate_prediction(result)
 
     def test_detector_identity_mismatch_low_rejected(self):
-        result = prediction(detector_id="aaa")
+        # Family and version match, so only detector_id differs: a
+        # ``>`` mutant on the ``!=`` check would pass otherwise.
+        result = prediction(detector_id="aaa", family="fake-family")
         with self.assertRaises(DetectorContractError):
             validate_prediction(result, detector=FakeDetector())
 
@@ -1342,6 +1368,16 @@ class DetectorsMutationKillTests(unittest.TestCase):
         with patch(
             "textforensics.detectors.analyze_text",
             return_value=_fake_analysis("unclear"),
+        ):
+            result = BuiltinHeuristicDetector().detect("some text")
+        self.assertEqual(result.verdict, "abstain")
+
+    def test_builtin_prefix_verdict_abstains(self):
+        # "human_like_patter" <= "human_like_patterns" but != it: kills
+        # the Eq_LtE mutant on the human-like branch.
+        with patch(
+            "textforensics.detectors.analyze_text",
+            return_value=_fake_analysis("human_like_patter"),
         ):
             result = BuiltinHeuristicDetector().detect("some text")
         self.assertEqual(result.verdict, "abstain")
