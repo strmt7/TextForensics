@@ -18,9 +18,14 @@ jobs:
     # (head 2e28466), with the same deterioration all day
     # (09:15: 3.13/3.14 only; 12:02: 3.15 only; 12:40: 3.12 only).
     # Not a code failure: every other job on that head was green.
-    # If Core still exceeds 30 minutes, the always-uploaded test log
-    # (below) will show whether it is the suite or pre-commit/install.
-    timeout-minutes: 30
+    # 3.11 is slower than the rest: on runs 42491772929 and
+    # 42496108465 the other four Pythons passed in 13–20 minutes while
+    # 3.11 alone hit the 30-minute cap (30m19s), its uploaded log
+    # ending mid-run at ~69% with no failure — the suite itself is
+    # slow on 3.11, not setup. 3.11 therefore gets 45 minutes; the
+    # rest stay at 30. If 3.11 still exceeds 45, the always-uploaded
+    # test log will show whether it is the suite or pre-commit/install.
+    timeout-minutes: ${{ matrix.python-version == '3.11' && 45 || 30 }}
     strategy:
       fail-fast: false
       matrix:
