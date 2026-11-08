@@ -4,6 +4,7 @@ import unittest
 
 from textforensics.consensus import (
     AgreementMatrix,
+    ConsensusResult,
     FamilyVote,
     PairwiseAgreement,
     _family_vote,
@@ -521,6 +522,16 @@ class ConsensusMutationKillTests(unittest.TestCase):
         fraction3, paired3 = percent_agreement(["ai_like"], ["human_like"])
         self.assertEqual((fraction3, paired3), (0.0, 1))
 
+    def test_percent_agreement_lexicographically_greater_is_not_agreement(self):
+        # Mutant `==` -> `>=` on the normalized strings: "human_like"
+        # is lexicographically greater than "ai_like", so the mutant
+        # counts the first pair as agreement.
+        fraction, paired = percent_agreement(
+            ["human_like", "ai_like"],
+            ["ai_like", "human_like"],
+        )
+        self.assertEqual((fraction, paired), (0.0, 2))
+
     # -- cohens_kappa -----------------------------------------------------
 
     def test_cohens_perfect_agreement(self):
@@ -612,6 +623,16 @@ class ConsensusMutationKillTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             cohens_kappa(["ai_like"], ["ai_like", "human_like"])
 
+    def test_cohens_length_mismatch_raises_when_first_is_longer(self):
+        # Mutant `!=` -> `<` in the length check only raises when the
+        # first sequence is shorter; a longer first sequence slips
+        # through and the mutant computes kappa on truncated pairs.
+        with self.assertRaises(ValueError):
+            cohens_kappa(
+                ["ai_like", "human_like", "ai_like"],
+                ["ai_like", "human_like"],
+            )
+
     def test_cohens_equal_long_sequences_do_not_raise(self):
         # Mutant `!=` -> `is not` (length check): 300-element sequences
         # have distinct length objects outside the small-int cache.
@@ -641,6 +662,27 @@ class ConsensusMutationKillTests(unittest.TestCase):
         # the message: row 0 has 2 raters, row 1 has 1.
         with self.assertRaisesRegex(ValueError, r"Row 1 has 1 raters, expected 2"):
             fleiss_kappa([["ai_like", "ai_like"], ["ai_like"]])
+
+    def test_fleiss_ragged_longer_row_raises(self):
+        # Mutant `!=` -> `<` in the row-length check only raises when a
+        # row is shorter than expected; a longer row slips through and
+        # the mutant computes kappa over the extra cells.
+        with self.assertRaisesRegex(ValueError, r"Row 1 has 3 raters, expected 2"):
+            fleiss_kappa([["ai_like", "ai_like"], ["ai_like", "ai_like", "human_like"]])
+
+    def test_fleiss_single_usable_item_returns_none(self):
+        # Mutant `len(usable) < 2` -> `< 1` proceeds with a single
+        # usable item: disagreeing raters give kappa -1.0, agreeing
+        # raters hit the degenerate-marginals branch; both differ from
+        # the early return (None + "fewer than 2" warning).
+        expected = (
+            None,
+            1,
+            2,
+            ["fewer than 2 usable items with >=2 non-abstaining raters"],
+        )
+        self.assertEqual(fleiss_kappa([["ai_like", "human_like"]]), expected)
+        self.assertEqual(fleiss_kappa([["ai_like", "ai_like"]]), expected)
 
     def test_fleiss_perfect_agreement(self):
         kappa, n_items, n_raters, warnings = fleiss_kappa(
@@ -809,6 +851,19 @@ class ConsensusMutationKillTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, r"Detector 'b' has 1 verdicts, expected 2"):
             build_agreement_matrix({"a": ["ai_like", "human_like"], "b": ["ai_like"]})
 
+    def test_matrix_length_mismatch_raises_when_later_detector_is_longer(self):
+        # Mutant `!=` -> `<` in the length check only raises when the
+        # detector is shorter; a longer later detector slips through
+        # and the mutant raises cohens_kappa's generic message instead
+        # of the per-detector one.
+        with self.assertRaisesRegex(ValueError, r"Detector 'b' has 3 verdicts, expected 2"):
+            build_agreement_matrix(
+                {
+                    "a": ["ai_like", "human_like"],
+                    "b": ["ai_like", "human_like", "ai_like"],
+                }
+            )
+
     def test_matrix_equal_long_sequences_do_not_raise(self):
         matrix = build_agreement_matrix({"a": ["ai_like"] * 300, "b": ["ai_like"] * 300})
         self.assertEqual(matrix.detectors, ["a", "b"])
@@ -913,6 +968,22 @@ class ConsensusMutationKillTests(unittest.TestCase):
         with self.assertRaises(AttributeError):
             vote.unexpected_attribute = 1
 
+    def test_consensus_result_slots_reject_arbitrary_attributes(self):
+        # Mutant `@dataclass(slots=True)` -> `slots=False` on
+        # ConsensusResult lets arbitrary attributes be set; the
+        # FamilyVote test above covers a different decorator.
+        result = ConsensusResult(
+            verdict="ai_like",
+            family_agreement=1.0,
+            independent_families=1,
+            voting_families=1,
+            calibrated_ai_probability=None,
+            ensemble_calibration_id=None,
+            family_votes=[],
+        )
+        with self.assertRaises(AttributeError):
+            result.unexpected_attribute = 1
+
     def test_pairwise_agreement_is_frozen_and_slotted(self):
         pair = PairwiseAgreement(
             detector_a="a",
@@ -932,6 +1003,23 @@ class ConsensusMutationKillTests(unittest.TestCase):
         with self.assertRaises((AttributeError, TypeError)):
             pair.unexpected_attribute = 1
         self.assertEqual(pair.to_dict()["kappa_interpretation"], "almost perfect")
+
+    def test_pairwise_agreement_has_no_instance_dict(self):
+        # Mutant `@dataclass(slots=True)` -> `slots=False` on
+        # PairwiseAgreement is invisible to the frozen/attribute tests
+        # above: frozen blocks every assignment either way. The slots
+        # contract is still observable — slotted instances have no
+        # __dict__.
+        pair = PairwiseAgreement(
+            detector_a="a",
+            detector_b="b",
+            paired_n=2,
+            percent_agreement=1.0,
+            cohens_kappa=1.0,
+            kappa_interpretation="almost perfect",
+            confusion={},
+        )
+        self.assertFalse(hasattr(pair, "__dict__"))
 
     def test_agreement_matrix_instantiates_and_serializes(self):
         matrix = AgreementMatrix(

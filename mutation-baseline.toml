@@ -4352,12 +4352,16 @@ reason = "Unobservable-value mutant (dataset_sha256): `1024` -> `1023` in `handl
 # Source: local FULL run on branch fix/mutation-consensus at 8e6ffd1
 # (Phase 5 mutation-survivors wave), `scripts/run_mutation.py --mode
 # full --modules textforensics.consensus --budget 0`: session 792 work
-# items, executed 792, killed 115, survived 662, no-test 15. The 66 new
+# items, executed 792, killed 115, survived 662, no-test 15. The 73 new
 # tests in tests/test_consensus.py (class ConsensusMutationKillTests)
-# kill the killable runtime survivors; the 8 survivors listed under
+# kill the killable runtime survivors; the 11 survivors listed under
 # KNOWN CONSENSUS MUTANTS *NOT* IN THIS BASELINE below are genuine
 # equivalents that fit no existing kind and are NOT baselined here —
-# they need a coordinator decision on a new kind first.
+# they need a coordinator decision on a new kind first. (The first 8
+# were found in the measurement run; the last 3 in the proof run on the
+# finished branch — the proof run also exposed 7 more killable survivors
+# the first kill tests missed, which the 7 added tests now kill; each
+# was verified to fail against its hand-applied mutant.)
 #
 # MEASUREMENT INCIDENT (read before trusting the raw counts): the first
 # runner-driven exec was killed mid-run (cosmic-ray exec exit -15,
@@ -4443,7 +4447,7 @@ reason = "Unobservable-value mutant (dataset_sha256): `1024` -> `1023` in `handl
 #
 # KNOWN CONSENSUS MUTANTS *NOT* IN THIS BASELINE (do not add without a new kind)
 # -------------------------------------------------------------------------------
-# Eight survivors are genuine equivalents that fit NO existing kind
+# Eleven survivors are genuine equivalents that fit NO existing kind
 # (they are not annotation mutants, not NumberReplacer, and neither
 # "unreachable-condition" nor "unobservable-value" as documented).
 # Each was verified equivalent by the same 78-case differential battery
@@ -4487,6 +4491,17 @@ reason = "Unobservable-value mutant (dataset_sha256): `1024` -> `1023` in `handl
 #   a zero term (the other .get() returns 0), so dropping them leaves
 #   the sum bit-identical. (The sibling `|` -> `^` / `-` DO differ —
 #   they drop the shared categories — and are killed by the tests.)
+# - family_balanced_consensus L77 ReplaceComparisonOperator_Gt_NotEq
+#   occ 1: `human > ai` -> `human != ai` in the second branch of the
+#   _family_vote verdict ternary. The first branch already established
+#   `ai > human` is False (ai <= human), so `human != ai` <=> `human > ai`.
+# - family_balanced_consensus L137 ReplaceComparisonOperator_Gt_GtE
+#   occ 2: `ai > human` -> `ai >= human` in the consensus_verdict
+#   ternary. The first branch established `ai == human` is False, so
+#   `ai >= human` <=> `ai > human`.
+# - family_balanced_consensus L139 ReplaceComparisonOperator_Lt_NotEq
+#   occ 2: `agreement < 1.0` -> `agreement != 1.0`. `agreement` is a
+#   ratio in [0, 1], so `!= 1.0` <=> `< 1.0`.
 [[equivalent]]
 id = "textforensics.consensus:core/ReplaceBinaryOperator_BitOr_Add:0"
 module = "textforensics.consensus"
