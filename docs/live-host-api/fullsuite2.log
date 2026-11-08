@@ -1484,7 +1484,7 @@ self = <tests.test_mutation.EquivalentBaselineTests testMethod=test_stale_runtim
     def test_stale_runtime_entry_fails_loudly(self):
         """A runtime entry whose function changed fails re-validation (exit 1)."""
         import copy
-    
+
         runtime = [e for e in self.baseline["entries"] if e["kind"] == "unreachable-condition"]
         cases = {
             "changed fingerprint": (
@@ -1506,7 +1506,7 @@ self = <tests.test_mutation.EquivalentBaselineTests testMethod=test_stale_runtim
                 ok, reason = self.runner.validate_baseline_entry(entry, self.project_root)
                 self.assertFalse(ok, f"{name} must not validate")
                 self.assertIn(fragment, reason)
-    
+
         entry = copy.deepcopy(runtime[0])
         entry["source_fingerprint"] = "0" * 64
         tampered = copy.deepcopy(self.baseline)
@@ -1522,13 +1522,13 @@ self = <tests.test_mutation.EquivalentBaselineTests testMethod=test_stale_runtim
 >       result = self._check_summary(summary)
                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-tests/test_mutation.py:1095: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_mutation.py:1095:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 tests/test_mutation.py:555: in _check_summary
     json.dump(summary, f)
 /usr/lib/python3.12/json/__init__.py:180: in dump
     fp.write(chunk)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 args = (', "textforensics.policy:core/ReplaceBinaryOperator_BitOr_LShift:4"',)
 kwargs = {}
