@@ -1137,13 +1137,16 @@ class EquivalentBaselineTests(unittest.TestCase):
     def test_domain_equivalent_mutants_accepted(self):
         """Survivors matching re-validated domain-equivalent entries are accepted (exit 0)."""
         runtime = [e for e in self.baseline["entries"] if e["kind"] == "domain-equivalent"]
-        self.assertEqual(len(runtime), 11)
-        self.assertEqual({e["module"] for e in runtime}, {"textforensics.consensus"})
+        self.assertEqual(len(runtime), 38)
+        self.assertEqual(
+            {e["module"] for e in runtime},
+            {"textforensics.benchmark", "textforensics.consensus"},
+        )
         records = [self._record_for_entry(e, "survived") for e in runtime]
         summary = self.runner.parse_results(records, self.baseline, self.project_root)
-        self.assertEqual(summary["total"], 11)
-        self.assertEqual(summary["surviving"], 11)
-        self.assertEqual(summary["equivalent"], 11)
+        self.assertEqual(summary["total"], 38)
+        self.assertEqual(summary["surviving"], 38)
+        self.assertEqual(summary["equivalent"], 38)
         self.assertEqual(summary["unexplained_surviving"], 0)
         self.assertEqual(summary["equivalent_mutants"], [e["id"] for e in runtime])
         result = self._check_summary(summary)
@@ -1181,36 +1184,6 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(summary["total"], 19)
         self.assertEqual(summary["surviving"], 19)
         self.assertEqual(summary["equivalent"], 19)
-        self.assertEqual(summary["unexplained_surviving"], 0)
-        self.assertEqual(summary["equivalent_mutants"], [e["id"] for e in runtime])
-        result = self._check_summary(summary)
-        self.assertEqual(result.returncode, 0, result.stdout)
-        self.assertIn("accepted as equivalent", result.stdout)
-
-    def test_domain_equivalent_mutants_accepted(self):
-        """Survivors matching re-validated domain-equivalent entries are accepted (exit 0)."""
-        runtime = [e for e in self.baseline["entries"] if e["kind"] == "domain-equivalent"]
-        self.assertEqual(len(runtime), 27)
-        module_paths = {
-            "textforensics.benchmark": str(
-                self.project_root / "src" / "textforensics" / "benchmark.py"
-            ),
-        }
-        records = [
-            self._record(
-                operator=e["operator"],
-                occurrence=e["occurrence"],
-                start_pos=e["start_pos"],
-                end_pos=e["end_pos"],
-                outcome="survived",
-                module_path=module_paths[e["module"]],
-            )
-            for e in runtime
-        ]
-        summary = self.runner.parse_results(records, self.baseline, self.project_root)
-        self.assertEqual(summary["total"], 27)
-        self.assertEqual(summary["surviving"], 27)
-        self.assertEqual(summary["equivalent"], 27)
         self.assertEqual(summary["unexplained_surviving"], 0)
         self.assertEqual(summary["equivalent_mutants"], [e["id"] for e in runtime])
         result = self._check_summary(summary)
