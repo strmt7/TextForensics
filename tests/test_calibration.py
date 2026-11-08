@@ -36,7 +36,6 @@ from textforensics.calibration import (
     _coerce_label,
     _parse_iso8601,
     _probability_metrics,
-    _sigmoid,
     create_calibration_manager,
     evaluate_threshold,
     load_calibration_artifact,
@@ -1311,15 +1310,9 @@ _AI_TEXT = (
 def _write_scored_rows(path: Path, human_suffix: str, ai_suffix: str) -> None:
     """Write 4 human + 4 AI rows (label + text) to a JSONL file."""
     rows = [
-        {"label": "human", "text": f"{_HUMAN_TEXT} {human_suffix} {index}"}
-        for index in range(4)
-    ] + [
-        {"label": "ai", "text": f"{_AI_TEXT} {ai_suffix} {index}"}
-        for index in range(4)
-    ]
-    path.write_text(
-        "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
-    )
+        {"label": "human", "text": f"{_HUMAN_TEXT} {human_suffix} {index}"} for index in range(4)
+    ] + [{"label": "ai", "text": f"{_AI_TEXT} {ai_suffix} {index}"} for index in range(4)]
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
 
 
 class TestCalibrationMutationKillTests:
@@ -1361,26 +1354,20 @@ class TestCalibrationMutationKillTests:
     def test_sigmoid_negative_branch_value(self):
         # Mutant [153] (1.0 -> 2.0) in `z / (1.0 + z)`: Platt with
         # A=1, B=-1 at score 0 evaluates _sigmoid(-1) = 1 / (1 + e).
-        curve = CalibrationCurve(
-            method="platt", parameters={"A": 1.0, "B": -1.0}
-        )
+        curve = CalibrationCurve(method="platt", parameters={"A": 1.0, "B": -1.0})
         assert curve.calibrate(0.0) == pytest.approx(0.2689414213699951)
 
     # -- CalibrationCurve defaults ([163], [166], [167]) ------------------
 
     def test_curve_default_sample_count_is_zero(self):
         # Mutant [163] (0 -> 1): the default sample_count would be 1.
-        curve = CalibrationCurve(
-            method="platt", parameters={"A": 1.0, "B": 0.0}
-        )
+        curve = CalibrationCurve(method="platt", parameters={"A": 1.0, "B": 0.0})
         assert curve.sample_count == 0
 
     def test_curve_default_score_range(self):
         # Mutants [166] (0.0 -> -1.0) and [167] (1.0 -> 2.0): the
         # default score_range would be (-1.0, 1.0) or (0.0, 2.0).
-        curve = CalibrationCurve(
-            method="platt", parameters={"A": 1.0, "B": 0.0}
-        )
+        curve = CalibrationCurve(method="platt", parameters={"A": 1.0, "B": 0.0})
         assert curve.score_range == (0.0, 1.0)
 
     # -- Curve parameter validation ([179], [181], [182], [186]) ----------
@@ -1388,9 +1375,7 @@ class TestCalibrationMutationKillTests:
     def test_temperature_fractional_value_accepted(self):
         # Mutant [179] (0.0 -> 1.0) in `temperature <= 0.0`: T=0.5
         # would be rejected as non-positive.
-        curve = CalibrationCurve(
-            method="temperature", parameters={"T": 0.5}
-        )
+        curve = CalibrationCurve(method="temperature", parameters={"T": 0.5})
         # calibrate(0.5) = sigmoid(0.5 / 0.5) = sigmoid(1.0).
         assert curve.calibrate(0.5) == pytest.approx(0.7310585786300049)
 
@@ -1402,18 +1387,14 @@ class TestCalibrationMutationKillTests:
         # Mutants [181] (0.0 -> 1.0) and [182] (0.0 -> -1.0) in the
         # default for `parameters.get("c", 0.0)`: with a=b=1 and no
         # "c", calibrate(0.5) is sigmoid(0) = 0.5 exactly.
-        curve = CalibrationCurve(
-            method="beta", parameters={"a": 1.0, "b": 1.0}
-        )
+        curve = CalibrationCurve(method="beta", parameters={"a": 1.0, "b": 1.0})
         assert curve.calibrate(0.5) == pytest.approx(0.5)
 
     def test_beta_negative_b_rejected(self):
         # Mutant [186] (0.0 -> -1.0) in `b < 0.0`: b=-0.5 would be
         # accepted as non-negative.
         with pytest.raises(CalibrationError, match="non-negative"):
-            CalibrationCurve(
-                method="beta", parameters={"a": 1.0, "b": -0.5, "c": 0.0}
-            )
+            CalibrationCurve(method="beta", parameters={"a": 1.0, "b": -0.5, "c": 0.0})
 
     # -- ThresholdSelectionResult.to_dict ([114]) -------------------------
 
@@ -1490,10 +1471,7 @@ class TestCalibrationMutationKillTests:
         # ValueError.
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "calibration.jsonl"
-            rows = [
-                {"label": "human", "text": f"{_HUMAN_TEXT} only {i}"}
-                for i in range(4)
-            ]
+            rows = [{"label": "human", "text": f"{_HUMAN_TEXT} only {i}"} for i in range(4)]
             path.write_text(
                 "".join(json.dumps(row) + "\n" for row in rows),
                 encoding="utf-8",
@@ -1553,13 +1531,9 @@ class TestCalibrationMutationKillTests:
             cal_path = Path(tmp) / "calibration.jsonl"
             eval_path = Path(tmp) / "evaluation.jsonl"
             shared = {"label": "human", "text": f"{_HUMAN_TEXT} shared"}
-            cal_rows = [shared] + [
-                {"label": "ai", "text": f"{_AI_TEXT} cal {i}"}
-                for i in range(3)
-            ]
+            cal_rows = [shared] + [{"label": "ai", "text": f"{_AI_TEXT} cal {i}"} for i in range(3)]
             eval_rows = [shared] + [
-                {"label": "ai", "text": f"{_AI_TEXT} eval {i}"}
-                for i in range(3)
+                {"label": "ai", "text": f"{_AI_TEXT} eval {i}"} for i in range(3)
             ]
             cal_path.write_text(
                 "".join(json.dumps(row) + "\n" for row in cal_rows),
@@ -1603,9 +1577,7 @@ class TestCalibrationMutationKillTests:
         # errors) all reject this valid artifact.
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "artifact.json"
-            path.write_text(
-                json.dumps(self._valid_threshold_record()), encoding="utf-8"
-            )
+            path.write_text(json.dumps(self._valid_threshold_record()), encoding="utf-8")
             assert load_threshold_artifact(path) == self._valid_threshold_record()
 
     def test_load_threshold_artifact_non_object_rejected(self):

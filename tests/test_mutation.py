@@ -658,7 +658,8 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "_family_vote",
                 "cohens_kappa",
                 "percent_agreement",
-                "build_agreement_matrix",                "CalibrationCurve._validate_parameters",
+                "build_agreement_matrix",
+                "CalibrationCurve._validate_parameters",
             },
         )
         self.assertEqual(
