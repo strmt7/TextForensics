@@ -269,12 +269,21 @@
 # Source: local full run on branch fix/mutation-benchmark at 8e6ffd1,
 # `scripts/run_mutation.py --mode full --modules textforensics.benchmark
 # --budget 0`: session 909 work items, executed 909, killed 237,
-# surviving 672, timeout/error 0. The 97 kill tests in
-# tests/test_benchmark.py (class BenchmarkMutationKillTests) kill 490
-# of the survivors; the remaining 182 are the entries below (169) plus
-# 13 genuinely-equivalent mutants that fit NO existing kind and are
+# surviving 672, timeout/error 0. The 105 kill tests in
+# tests/test_benchmark.py (class BenchmarkMutationKillTests) kill 476
+# of the survivors; the remaining 196 are the entries below (169) plus
+# 27 genuinely-equivalent mutants that fit NO existing kind and are
 # NOT baselined — they are reported to the coordinator, not entered
-# (see NOT IN THIS BASELINE below).
+# (see NOT IN THIS BASELINE below). Proof run 1 (before the round-2
+# tests) measured killed 699 / surviving 210 / equivalent 169 /
+# unexplained 41; the 8 round-2 tests close 14 of the 41 (see below).
+# NOTE: the first proof run also caught an error in my own reasoning:
+# the Add_Mul guard mutants (occ 2/4/6, L100-102) looked equivalent
+# on paper (sum vs product truthiness) but the differential probe
+# showed 48 differing cases each — a product is falsy when EITHER
+# operand is zero, a sum only when BOTH are — so they are killable
+# and are killed by the zero-denominator-component test, not
+# baselined. Every equivalence claim below was probed, not reasoned.
 #
 # PROOF — BENCHMARK ANNOTATION MUTANTS (165 entries)
 # --------------------------------------------------
@@ -337,7 +346,10 @@
 # mutant to a scratch copy and comparing behaviour across a fixed
 # battery (13/13 byte-identical, including 240 KB / ~2 MB files,
 # diverse texts, 3 calibration fixtures x 6 targets, and
-# verify_fingerprint error cases):
+# verify_fingerprint error cases). A SECOND probe round (2026-11-08,
+# after proof run 1) found 14 more, verified over the full
+# _metrics counter grid (every tp/fp/tn/fn combination in 0..3, 256
+# cases) plus calibrate over 5 targets (14/14 byte-identical):
 # - [620] ReplaceFalseWithTrue occ 0, L74, `include_robustness=False`
 #   -> `True` in _load_scores. `analyze_text` computes `.score` in
 #   `_base_score` before the flag is consulted (engine.py:73); the
@@ -368,7 +380,32 @@
 # - [548] ReplaceComparisonOperator_Eq_LtE occ 7, L538,
 #   `len(result["errors"]) == 0` -> `<= 0`. Lengths are always >= 0,
 #   so the two are identical for every input.
-# Do NOT baseline these 13 by stretching "unobservable-value" — the
+# - [round 2] ReplaceBinaryOperator_Add_LShift occ 2/4/6/8/10,
+#   L100:32/L101:32/L102:32/L103:40/L104:38, `+` -> `<<` in the
+#   denominator guards of fpr / fnr / tpr / specificity / precision.
+#   For non-negative counters `a << b` is 0 iff `a` is 0 (b >= 0);
+#   the guard differs from the sum only when the numerator is 0, in
+#   which case the rate is 0.0 either way. 256-combination battery:
+#   0 diffs.
+# - [round 2] ReplaceBinaryOperator_Add_BitOr occ 2/4/6/8/10, same
+#   five guard positions, `+` -> `|`. For non-negative counters
+#   `a | b` is 0 iff both are 0, exactly like `a + b`, so the guard's
+#   truth value is identical for every input. 256-combination
+#   battery: 0 diffs.
+# - [round 2] ReplaceComparisonOperator_Eq_LtE occ 1/3, L89:34/L93:18,
+#   `pred == "ai"` -> `<=` in _metrics. `pred` is computed inside
+#   _metrics as "ai" if score >= threshold else "human", so its
+#   domain is exactly {"ai", "human"} and `<=` coincides with `==`
+#   on it. 256-combination battery: 0 diffs.
+# - [round 2] ReplaceComparisonOperator_Eq_LtE occ 5, L156:51,
+#   `label == "ai"` -> `<=` (ais comprehension) and
+#   ReplaceComparisonOperator_Eq_GtE occ 4, L155:54, `label ==
+#   "human"` -> `>=` (humans comprehension) in
+#   calibrate_threshold_jsonl. Rows come from _load_scores, which
+#   rejects any label outside {"human", "ai"}; on that domain both
+#   replacements coincide with `==` ("human" <= "ai" is False;
+#   "ai" >= "human" is False). 5-target calibrate battery: 0 diffs.
+# Do NOT baseline these 27 by stretching "unobservable-value" — the
 # kind's documented scope is NumberReplacer, and silently widening it
 # would be the blanket-rule rot this mechanism exists to prevent. A
 # new kind needs its own validator first (see run_mutation.py).

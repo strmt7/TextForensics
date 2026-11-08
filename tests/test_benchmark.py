@@ -1297,3 +1297,119 @@ class BenchmarkMutationKillTests(unittest.TestCase):
             fp = fingerprint_dataset(path, "RAID")
             with self.assertRaises(TypeError):
                 verify_fingerprint(path, fp, False)
+
+    # -- Second-round kills (proof run 1 left 41 unexplained: 13
+    #    no-kind equivalents + 28 missed) ------------------------------
+
+    def test_metrics_accuracy_and_precision_need_four_decimals(self):
+        # tp=2, fp=1, tn=2, fn=2, total 7: accuracy 4/7 and precision
+        # 2/3 both need four decimals, killing round(..., 4) -> 5 / 3.
+        rows = [
+            ("ai", 0.9),
+            ("ai", 0.8),
+            ("ai", 0.2),
+            ("ai", 0.1),
+            ("human", 0.9),
+            ("human", 0.3),
+            ("human", 0.2),
+        ]
+        result = _metrics(rows, 0.5)
+        self.assertEqual((result["tp"], result["fp"], result["tn"], result["fn"]), (2, 1, 2, 2))
+        self.assertEqual(result["accuracy"], 0.5714)
+        self.assertEqual(result["precision"], 0.6667)
+
+    def test_metrics_non_ai_label_counts_as_human(self):
+        # _metrics treats any label other than "ai" as human. A label
+        # that sorts below "ai" ("a" < "ai") kills the `label == "ai"`
+        # -> `label <= "ai"` replacements at L89 and L91.
+        rows = [("a", 0.9), ("human", 0.2)]
+        result = _metrics(rows, 0.5)
+        self.assertEqual((result["tp"], result["fp"], result["tn"], result["fn"]), (0, 1, 1, 0))
+
+    def test_load_scores_invalid_json_non_strict_mid_file(self):
+        # The bad line sits mid-file: a continue->break mutant would
+        # drop the valid row after it.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "mixed.jsonl"
+            path.write_text(
+                '{"label": "human", "text": "' + HUMAN + '"}\nnot json\n'
+                '{"label": "ai", "text": "' + AI + '"}\n',
+                encoding="utf-8",
+            )
+            rows, skipped = _load_scores(path, strict=False)
+            self.assertEqual(len(rows), 2)
+            self.assertEqual(skipped, 1)
+
+    def test_validate_rejects_smaller_wrong_detector_version(self):
+        # "0.0.9" sorts BELOW "0.1.0": the `!=` -> `>` replacement
+        # would wrongly accept it.
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact = self._valid_artifact(Path(tmp))
+            bad = dict(artifact, detector_version="0.0.9")
+            with self.assertRaises(ValueError):
+                validate_calibration_artifact(bad)
+
+    def test_benchmark_with_calibration_strict_default_rejects_bad_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bad.jsonl"
+            write_rows(
+                path,
+                [
+                    {"label": "human", "text": HUMAN},
+                    {"label": "ai", "text": AI},
+                ],
+            )
+            artifact = calibrate_threshold_jsonl(path, target_fpr=0.0)
+            with path.open("a", encoding="utf-8") as handle:
+                handle.write("not json\n")
+            with self.assertRaises(DatasetFormatError):
+                benchmark_with_calibration_jsonl(path, artifact)
+
+    def test_compute_sample_hashes_unlabelled_non_ascii_row(self):
+        # A LABELED row with include_text=False (the default) takes the
+        # elif branch (L424): its ensure_ascii=False must hash the raw
+        # non-ASCII bytes. (An unlabelled row is skipped outright.)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "data.jsonl"
+            write_rows(path, [{"label": "human", "text": "caf\u00e9 \u2603"}])
+            hashes, count = _compute_sample_hashes(path)
+            self.assertEqual(count, 1)
+            expected = hashlib.sha256(
+                json.dumps(
+                    {"text": "caf\u00e9 \u2603"},
+                    sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+                ).encode("utf-8")
+            ).hexdigest()
+            self.assertEqual(hashes, [expected])
+
+    def test_verify_fingerprint_large_matching_dataset_is_valid(self):
+        # 300 rows: count and sample_count are both 300, above the
+        # CPython small-int cache, so the `!=` -> `is not` replacement
+        # (distinct int objects) would wrongly report a mismatch.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "big.jsonl"
+            write_rows(
+                path,
+                [
+                    {"label": "human" if i % 2 == 0 else "ai", "text": HUMAN + f" row {i}"}
+                    for i in range(300)
+                ],
+            )
+            fp = fingerprint_dataset(path, "BIG")
+            self.assertEqual(fp.sample_count, 300)
+            result = verify_fingerprint(path, fp)
+            self.assertTrue(result["valid"])
+            self.assertEqual(result["errors"], [])
+
+    def test_metrics_zero_denominator_component_gives_full_rate(self):
+        # Guard `(a + b)` -> `(a * b)` differs when exactly one operand
+        # is zero: the product is falsy while the sum is truthy.
+        # fpr guard (fp=1, tn=0): 1.0, not the else-branch 0.0.
+        result = _metrics([("human", 0.9), ("ai", 0.9)], 0.5)
+        self.assertEqual(result["false_positive_rate"], 1.0)
+        # fnr guard (fn=1, tp=0): 1.0.
+        result = _metrics([("ai", 0.1)], 0.5)
+        self.assertEqual(result["false_negative_rate"], 1.0)
+        # tpr guard (tp=1, fn=0): 1.0.
+        result = _metrics([("ai", 0.9)], 0.5)
+        self.assertEqual(result["true_positive_rate"], 1.0)
