@@ -1118,6 +1118,18 @@ class EquivalentBaselineTests(unittest.TestCase):
             "unobservable-value entry missing source_fingerprint": (
                 base + 'kind = "unobservable-value"\nsource_text = "0"\n'
             ),
+            "domain-equivalent entry missing source_text": (
+                base + 'kind = "domain-equivalent"\nsource_fingerprint = "' + "0" * 64 + '"\n'
+            ),
+            "domain-equivalent entry missing source_fingerprint": (
+                base + 'kind = "domain-equivalent"\nsource_text = "0"\n'
+            ),
+            "ulp-equivalent entry missing source_text": (
+                base
+                + 'kind = "ulp-equivalent"\nsource_fingerprint = "'
+                + "0" * 64
+                + '"\nulp_bound_ulps = 2\nswept_domain = "[-20, 20]"\n'
+            ),
             "unknown kind": base + 'kind = "magic"\nannotation = "x"\n',
             "annotation entry missing annotation": (base + 'kind = "arg"\n'),
         }
@@ -1165,6 +1177,235 @@ class EquivalentBaselineTests(unittest.TestCase):
         }
         ok, reason = self.runner.validate_baseline_entry(entry, self.project_root)
         self.assertTrue(ok, f"unobservable-value entry must validate: {reason}")
+
+    def _synthetic_domain_equivalent_entry(self):
+        """A well-formed synthetic "domain-equivalent" entry.
+
+        Built with the runner's own helpers at the real position of the
+        `2` in `"validated": 2` (CapabilityPolicyEngine.evaluate,
+        L376:33); the reason names the proof shape (closed-domain value
+        identity), as the kind requires.
+        """
+        import ast
+
+        source = (self.project_root / "src" / "textforensics" / "policy.py").read_text()
+        tree = ast.parse(source)
+        name, node = self.runner._enclosing_function(tree, 376, 33)
+        self.assertEqual(name, "CapabilityPolicyEngine.evaluate")
+        return {
+            "id": "test:domain-equivalent",
+            "module": "textforensics.policy",
+            "operator": "core/NumberReplacer",
+            # 999, not the real mutant's occurrence: the real
+            # unobservable-value entry at this position carries
+            # occurrence 4, and a synthetic entry sharing its match key
+            # would be shadowed by it in classify_baseline.
+            "occurrence": 999,
+            "start_pos": [376, 33],
+            "end_pos": [376, 34],
+            "function": name,
+            "kind": "domain-equivalent",
+            "reason": (
+                "closed-domain value identity in CapabilityPolicyEngine.evaluate: "
+                "the replacement coincides with the original on every value "
+                "the expression can take (source_text 2)"
+            ),
+            "source_text": "2",
+            "source_fingerprint": self.runner._function_fingerprint(source, node),
+        }
+
+    def _synthetic_ulp_equivalent_entry(self):
+        """A well-formed synthetic "ulp-equivalent" entry.
+
+        Built with the runner's own helpers at the real position of the
+        `0.0` in `_sigmoid`'s `if value >= 0.0:` (calibration.py,
+        L105:16), with the recorded sweep bound (2 ulps) and domain.
+        """
+        import ast
+
+        source = (self.project_root / "src" / "textforensics" / "calibration.py").read_text()
+        tree = ast.parse(source)
+        name, node = self.runner._enclosing_function(tree, 105, 16)
+        self.assertEqual(name, "_sigmoid")
+        return {
+            "id": "test:ulp-equivalent",
+            "module": "textforensics.calibration",
+            "operator": "core/ReplaceComparisonOperator_GtE_Gt",
+            # 999, as above: keep the synthetic entry's match key clear
+            # of every real baseline entry.
+            "occurrence": 999,
+            "start_pos": [105, 16],
+            "end_pos": [105, 19],
+            "function": name,
+            "kind": "ulp-equivalent",
+            "reason": ("at most 2 ulps apart in _sigmoid over the swept domain (source_text 0.0)"),
+            "source_text": "0.0",
+            "source_fingerprint": self.runner._function_fingerprint(source, node),
+            "ulp_bound_ulps": 2,
+            "swept_domain": "[-20, 20], 40,000 points",
+        }
+
+    def test_domain_equivalent_entry_validates(self):
+        """A well-formed "domain-equivalent" entry re-validates.
+
+        The kind reuses `_validate_runtime_entry` exactly (source_text
+        + enclosing-function fingerprint + function name), mirroring
+        "unobservable-value"; no new fields are required for it.
+        """
+        entry = self._synthetic_domain_equivalent_entry()
+        self.assertNotIn("ulp_bound_ulps", entry)
+        self.assertNotIn("swept_domain", entry)
+        ok, reason = self.runner.validate_baseline_entry(entry, self.project_root)
+        self.assertTrue(ok, f"domain-equivalent entry must validate: {reason}")
+
+    def test_ulp_equivalent_entry_validates(self):
+        """A well-formed "ulp-equivalent" entry re-validates.
+
+        Same runtime pinning as the other runtime kinds, plus the two
+        required per-entry fields (bound + swept domain).
+        """
+        entry = self._synthetic_ulp_equivalent_entry()
+        ok, reason = self.runner.validate_baseline_entry(entry, self.project_root)
+        self.assertTrue(ok, f"ulp-equivalent entry must validate: {reason}")
+
+    def test_stale_new_kind_entry_fails_loudly(self):
+        """A new-kind entry whose source no longer matches fails (exit 1)."""
+        import copy
+
+        for entry in (
+            self._synthetic_domain_equivalent_entry(),
+            self._synthetic_ulp_equivalent_entry(),
+        ):
+            with self.subTest(kind=entry["kind"]):
+                stale = copy.deepcopy(entry)
+                stale["source_fingerprint"] = "0" * 64
+                ok, reason = self.runner.validate_baseline_entry(stale, self.project_root)
+                self.assertFalse(ok, f"stale {entry['kind']} entry must not validate")
+                self.assertIn("fingerprint mismatch", reason)
+
+                tampered = copy.deepcopy(self.baseline)
+                tampered["entries"] = [stale] + self.baseline["entries"]
+                records = [self._record_for_entry(stale, "survived")]
+                summary = self.runner.parse_results(records, tampered, self.project_root)
+                self.assertEqual(len(summary["stale_baseline_entries"]), 1)
+                self.assertEqual(summary["stale_baseline_entries"][0]["id"], entry["id"])
+                self.assertEqual(summary["unexplained_surviving"], 1)
+                self.assertEqual(summary["equivalent"], 0)
+                result = self._check_summary(summary)
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn("stale baseline", result.stdout.lower())
+
+    def test_ulp_equivalent_fields_required(self):
+        """An "ulp-equivalent" entry without bound/domain is rejected.
+
+        Both at load time (ValueError from `load_baseline`) and at
+        re-validation time (a synthetic dict that bypasses the loader
+        still fails `validate_baseline_entry`). Other kinds must NOT
+        require these fields: a "domain-equivalent" entry without them
+        loads and validates (see
+        `test_domain_equivalent_entry_validates`).
+        """
+        import copy
+        import tempfile
+
+        base = (
+            "version = 1\n"
+            '[[equivalent]]\nid = "x"\\nmodule = "textforensics.calibration"\\n'
+            'operator = "core/ReplaceComparisonOperator_GtE_Gt"\\noccurrence = 2\\n'
+            'start_pos = [105, 16]\\nend_pos = [105, 19]\\nfunction = "_sigmoid"\\n'
+            'reason = "r"\\nsource_text = "0.0"\\nsource_fingerprint = "' + "0" * 64 + '"\\n'
+        )
+        cases = {
+            "missing ulp_bound_ulps": (
+                base + 'kind = "ulp-equivalent"\\nswept_domain = "[-20, 20]"\\n'
+            ),
+            "missing swept_domain": (base + 'kind = "ulp-equivalent"\\nulp_bound_ulps = 2\\n'),
+            "non-positive bound": (
+                base
+                + 'kind = "ulp-equivalent"\\nulp_bound_ulps = 0\\n'
+                + 'swept_domain = "[-20, 20]"\\n'
+            ),
+            "non-integer bound": (
+                base
+                + 'kind = "ulp-equivalent"\\nulp_bound_ulps = "2"\\n'
+                + 'swept_domain = "[-20, 20]"\\n'
+            ),
+            "empty swept_domain": (
+                base + 'kind = "ulp-equivalent"\\nulp_bound_ulps = 2\\n' + 'swept_domain = ""\\n'
+            ),
+        }
+        for name, text in cases.items():
+            with (
+                self.subTest(case=name),
+                tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f,
+            ):
+                f.write(text)
+                temp_path = f.name
+            try:
+                with self.assertRaises(ValueError, msg=name):
+                    self.runner.load_baseline(Path(temp_path))
+            finally:
+                Path(temp_path).unlink(missing_ok=True)
+
+        # Re-validation rejects them too, even without the loader.
+        entry = self._synthetic_ulp_equivalent_entry()
+        tampered_cases = {
+            "missing ulp_bound_ulps": ("ulp_bound_ulps", None),
+            "missing swept_domain": ("swept_domain", None),
+            "non-positive bound": ("ulp_bound_ulps", 0),
+            "non-integer bound": ("ulp_bound_ulps", "2"),
+            "boolean bound": ("ulp_bound_ulps", True),
+            "empty swept_domain": ("swept_domain", ""),
+        }
+        for name, (field, value) in tampered_cases.items():
+            with self.subTest(case=name):
+                tampered = copy.deepcopy(entry)
+                if value is None:
+                    del tampered[field]
+                else:
+                    tampered[field] = value
+                ok, reason = self.runner.validate_baseline_entry(tampered, self.project_root)
+                self.assertFalse(ok, f"{name} must not validate")
+                self.assertIn(field, reason)
+
+    def test_incompetent_with_worker_exception_is_not_an_error(self):
+        """A worker exception with test_outcome "incompetent" parses as incompetent.
+
+        Regression test for the calibration prefix error-1: cosmic-ray
+        8.7.0's ExceptionReplacer crashed inside the operator (before
+        any mutant code existed), arriving as worker_outcome="exception"
+        with test_outcome="incompetent". There is no behaviour to kill
+        or baseline, so it must not count as an error — but a worker
+        exception with any other test_outcome stays an error.
+        """
+        incompetent = self._record(
+            operator="core/ExceptionReplacer",
+            occurrence=5,
+            start_pos=(727, 10),
+            end_pos=(727, 20),
+            outcome="incompetent",
+        )
+        incompetent["result"]["worker_outcome"] = "exception"
+        summary = self.runner.parse_results([incompetent], self.baseline, self.project_root)
+        self.assertEqual(summary["total"], 1)
+        self.assertEqual(summary["incompetent"], 1)
+        self.assertEqual(summary["error"], 0)
+        self.assertEqual(summary["killed"], 0)
+        self.assertEqual(summary["surviving"], 0)
+
+        for outcome in ("killed", "survived", "timeout"):
+            with self.subTest(outcome=outcome):
+                record = self._record(
+                    operator="core/ExceptionReplacer",
+                    occurrence=5,
+                    start_pos=(727, 10),
+                    end_pos=(727, 20),
+                    outcome=outcome,
+                )
+                record["result"]["worker_outcome"] = "exception"
+                summary = self.runner.parse_results([record], self.baseline, self.project_root)
+                self.assertEqual(summary["error"], 1, f"{outcome} + exception must stay an error")
+                self.assertEqual(summary["incompetent"], 0)
 
     def test_decorator_position_entry_validates(self):
         """A runtime entry on a decorator line re-validates.

@@ -52,7 +52,7 @@ accepts that marker. "Nothing to mutate" is therefore a pass, distinct from
 
 Equivalent-mutant baseline (``mutation-baseline.toml``)
 --------------------------------------------------------
-Some mutants cannot be killed by any test. Three kinds are recognised:
+Some mutants cannot be killed by any test. Five kinds are recognised:
 
 (a) Annotation mutants: a ``|`` inside a function annotation of a module
     using ``from __future__ import annotations`` (PEP 563), where the
@@ -80,6 +80,24 @@ Some mutants cannot be killed by any test. Three kinds are recognised:
     as (b), and the proof for each entry is recorded in the baseline
     file. A new runtime kind needs its own validator first; the loader
     rejects unknown kinds loudly rather than accepting them blind.
+(d) Domain-equivalent mutants (kind ``"domain-equivalent"``): a mutant
+    whose replacement coincides with the original on every value the
+    mutated expression can take within its enclosing function —
+    restricted value domains, branch-established facts, zero-valued
+    terms, a dead tiebreak, dead code, a redundant guard, or a dead
+    ``except`` handler. The entry's ``reason`` must name the proof
+    shape. Validated exactly like (b)/(c): source text + enclosing
+    function + function fingerprint.
+(e) ULP-equivalent mutants (kind ``"ulp-equivalent"``): a mutant whose
+    replacement differs from the original only in the last few units
+    in the last place (ULPs) of a floating-point result — a difference
+    no behavioural test can meaningfully distinguish, because it is
+    below the precision of the computation's own inputs. Validated
+    like (b)/(c) plus two required per-entry fields that the bound
+    records: ``ulp_bound_ulps`` (int, the maximum ULPs observed over
+    the swept domain) and ``swept_domain`` (string naming the swept
+    domain). An entry missing either field, or with a non-integer or
+    non-positive bound, is rejected.
 
 Entries are keyed by ``(module, operator, start_pos, end_pos,
 occurrence)``. ``occurrence`` is part of the key — not provenance only —
@@ -101,7 +119,8 @@ current source (AST — for annotation entries the position must still
 hold the operator inside an annotation, the annotation text must be
 unchanged, the enclosing function must match, and the module must
 still use postponed evaluation; for runtime entries (kinds
-``"unreachable-condition"`` and ``"unobservable-value"``) the
+``"unreachable-condition"``, ``"unobservable-value"``, ``"domain-equivalent"`` and
+``"ulp-equivalent"``) the
 position must still hold the recorded source text inside the recorded
 function and the function's fingerprint must be unchanged). The summary
 reports ``equivalent`` (accepted survivors), ``unexplained_surviving``
@@ -180,13 +199,32 @@ BASELINE_ANNOTATION_KINDS = {"arg", "return", "annassign"}
 #: position. ``"unobservable-value"`` covers a NumberReplacer mutant
 #: whose replacement value is provably unobservable (the mutated
 #: expression's value never affects any observable behaviour for any
-#: input). Both kinds are validated the same way — the recorded source
+#: input). ``"domain-equivalent"`` covers a mutant whose replacement
+#: coincides with the original on every value the mutated expression can
+#: take within its enclosing function (restricted value domains,
+#: branch-established facts, zero-valued terms, a dead tiebreak, dead
+#: code, a redundant guard, or a dead ``except`` handler); the entry's
+#: ``reason`` must name the proof shape. ``"ulp-equivalent"`` covers a
+#: mutant whose replacement differs from the original only in the last
+#: few units in the last place (ULPs) of a floating-point result — a
+#: difference no behavioural test can meaningfully distinguish, because
+#: it is below the precision of the computation's own inputs. An
+#: ``"ulp-equivalent"`` entry additionally records ``ulp_bound_ulps``
+#: (int, the maximum ULPs observed, e.g. 2) and ``swept_domain``
+#: (string, the swept domain, e.g. ``"[-20, 20], 40,000 points"``);
+#: both are required and validated (see :func:`_validate_ulp_fields`).
+#: All four kinds are validated the same way — the recorded source
 #: text at the recorded position inside the recorded function, pinned
-#: by that function's fingerprint — because both proofs depend on the
-#: enclosing function's behaviour as a whole. A new runtime kind needs
-#: its own validator first; the loader rejects unknown kinds loudly
-#: rather than accepting them blind.
-BASELINE_RUNTIME_KINDS = {"unreachable-condition", "unobservable-value"}
+#: by that function's fingerprint — because all four proofs depend on
+#: the enclosing function's behaviour as a whole. A new runtime kind
+#: needs its own validator first; the loader rejects unknown kinds
+#: loudly rather than accepting them blind.
+BASELINE_RUNTIME_KINDS = {
+    "unreachable-condition",
+    "unobservable-value",
+    "domain-equivalent",
+    "ulp-equivalent",
+}
 
 #: All baseline kinds (annotation + runtime).
 BASELINE_KINDS = BASELINE_ANNOTATION_KINDS | BASELINE_RUNTIME_KINDS
@@ -213,6 +251,16 @@ BASELINE_ANNOTATION_FIELDS = {"annotation"}
 #: fingerprint of the enclosing function (see
 #: :func:`_function_fingerprint`).
 BASELINE_RUNTIME_FIELDS = {"source_text", "source_fingerprint"}
+
+#: Extra fields an ``"ulp-equivalent"`` entry must carry on top of
+#: :data:`BASELINE_RUNTIME_FIELDS`: ``ulp_bound_ulps`` (int, the maximum
+#: ULPs observed between the original and the mutant over the swept
+#: domain, e.g. 2) and ``swept_domain`` (string naming the swept domain,
+#: e.g. ``"[-20, 20], 40,000 points"``). The bound is part of the
+#: equivalence claim — without it, "differs only by a few ULPs" would be
+#: an unbounded assertion — so both fields are required and validated
+#: (see :func:`_validate_ulp_fields`); no other kind requires them.
+BASELINE_ULP_FIELDS = {"ulp_bound_ulps", "swept_domain"}
 
 
 def run_command(
@@ -432,17 +480,24 @@ def load_baseline(baseline_path: Path) -> dict[str, Any]:
                 f"Baseline entry {entry['id']!r} has unknown kind "
                 f"{entry['kind']!r} (supported: {sorted(BASELINE_KINDS)})"
             )
-        kind_fields = (
-            BASELINE_ANNOTATION_FIELDS
-            if entry["kind"] in BASELINE_ANNOTATION_KINDS
-            else BASELINE_RUNTIME_FIELDS
-        )
+        if entry["kind"] in BASELINE_ANNOTATION_KINDS:
+            kind_fields = BASELINE_ANNOTATION_FIELDS
+        elif entry["kind"] == "ulp-equivalent":
+            # An ulp-equivalent entry needs the runtime fields plus the
+            # recorded sweep bound and domain (see BASELINE_ULP_FIELDS).
+            kind_fields = BASELINE_RUNTIME_FIELDS | BASELINE_ULP_FIELDS
+        else:
+            kind_fields = BASELINE_RUNTIME_FIELDS
         missing_kind = kind_fields - set(entry)
         if missing_kind:
             raise ValueError(
                 f"Baseline entry {entry['id']!r} (kind {entry['kind']!r}) is "
                 "missing field(s): " + ", ".join(sorted(missing_kind))
             )
+        if entry["kind"] == "ulp-equivalent":
+            ok, reason = _validate_ulp_fields(entry)
+            if not ok:
+                raise ValueError(f"Baseline entry {entry['id']!r} is invalid: {reason}")
         for field in ("start_pos", "end_pos"):
             pos = entry[field]
             if (
@@ -532,13 +587,37 @@ def _function_fingerprint(source: str, node: ast.AST) -> str:
     return hashlib.sha256(" ".join(segment.split()).encode()).hexdigest()
 
 
+def _validate_ulp_fields(entry: dict[str, Any]) -> tuple[bool, str]:
+    """Validate the extra fields of an ``"ulp-equivalent"`` entry.
+
+    Returns ``(True, "ok")`` only when ``ulp_bound_ulps`` is a positive
+    integer (``bool`` is not accepted — it is an ``int`` subclass but
+    not a ULP count) and ``swept_domain`` is a non-empty string. Any
+    failure means the entry cannot support its equivalence claim, so
+    the entry is stale/invalid and the run must fail loudly (exit 1).
+    Other kinds never carry these fields and are never checked here.
+    """
+    bound = entry.get("ulp_bound_ulps")
+    if isinstance(bound, bool) or not isinstance(bound, int):
+        return False, f"ulp_bound_ulps must be a positive integer (got {bound!r})"
+    if bound <= 0:
+        return False, f"ulp_bound_ulps must be a positive integer (got {bound!r})"
+    domain = entry.get("swept_domain")
+    if not isinstance(domain, str) or not domain.strip():
+        return False, f"swept_domain must be a non-empty string (got {domain!r})"
+    return True, "ok"
+
+
 def validate_baseline_entry(entry: dict[str, Any], project_root: Path) -> tuple[bool, str]:
     """Re-validate one baseline entry against the CURRENT source.
 
     Dispatches on kind: annotation kinds go through
     :func:`_validate_annotation_entry`, runtime kinds (``"unreachable-
-    condition"`` and ``"unobservable-value"``) through
-    :func:`_validate_runtime_entry`. Any failure
+    condition"``, ``"unobservable-value"``, ``"domain-equivalent"`` and
+    ``"ulp-equivalent"``) through :func:`_validate_runtime_entry`.
+    ``"ulp-equivalent"`` entries are additionally checked by
+    :func:`_validate_ulp_fields` first: a missing bound or domain, or a
+    non-integer/non-positive bound, makes the entry stale. Any failure
     returns ``(False, reason)`` — the entry is STALE and the run must
     fail loudly (exit 1), never pass silently.
     """
@@ -557,6 +636,10 @@ def validate_baseline_entry(entry: dict[str, Any], project_root: Path) -> tuple[
     if entry["kind"] in BASELINE_ANNOTATION_KINDS:
         return _validate_annotation_entry(entry, tree, source, lines)
     if entry["kind"] in BASELINE_RUNTIME_KINDS:
+        if entry["kind"] == "ulp-equivalent":
+            ok, reason = _validate_ulp_fields(entry)
+            if not ok:
+                return False, reason
         return _validate_runtime_entry(entry, tree, source, lines)
     return False, f"unknown baseline kind {entry['kind']!r}"
 
@@ -651,10 +734,14 @@ def _validate_runtime_entry(
 ) -> tuple[bool, str]:
     """Re-validate a runtime-kind entry against current source.
 
-    Covers both ``"unreachable-condition"`` and ``"unobservable-value"``
-    entries: the two kinds differ only in their proof (a provably dead
-    branch condition vs a provably unobservable replacement value), and
-    both proofs depend on the enclosing function's behaviour as a whole.
+    Covers all four runtime kinds — ``"unreachable-condition"``,
+    ``"unobservable-value"``, ``"domain-equivalent"`` and
+    ``"ulp-equivalent"``: the kinds differ only in their proof (a
+    provably dead branch condition vs a provably unobservable
+    replacement value vs a replacement that coincides with the original
+    on every value in the enclosing function vs a replacement that
+    differs only by a few ULPs), and all four proofs depend on the
+    enclosing function's behaviour as a whole.
 
     Returns ``(True, "ok")`` only when every check holds: the recorded
     position still holds the recorded source text, it sits inside the
@@ -1065,7 +1152,18 @@ def parse_results(
         worker_outcome = str(result.get("worker_outcome", "")).lower()
         test_outcome = str(result.get("test_outcome") or "").lower()
 
-        if worker_outcome in ("exception", "abnormal", "no-test"):
+        if test_outcome == "incompetent":
+            # Mutant could not be applied / did not compile: no test
+            # signal, neither a kill nor a survival. Checked FIRST,
+            # before worker_outcome: a cosmic-ray operator crash (e.g.
+            # ExceptionReplacer dying inside the operator, before any
+            # mutant code exists) arrives as worker_outcome="exception"
+            # with test_outcome="incompetent", and there is no behaviour
+            # to kill or baseline — it must not count as an error. A
+            # worker exception with any other test_outcome stays an
+            # error (see the branch below).
+            summary["incompetent"] += 1
+        elif worker_outcome in ("exception", "abnormal", "no-test"):
             summary["error"] += 1
         elif worker_outcome == "skipped":
             summary["skipped"] += 1
@@ -1073,10 +1171,6 @@ def parse_results(
             summary["killed"] += 1
         elif test_outcome == "survived":
             summary["surviving"] += 1
-        elif test_outcome == "incompetent":
-            # Mutant could not be applied / did not compile: no test signal,
-            # neither a kill nor a survival.
-            summary["incompetent"] += 1
         else:
             summary["error"] += 1
 

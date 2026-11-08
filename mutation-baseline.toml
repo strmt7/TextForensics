@@ -4664,7 +4664,7 @@ reason = "Unobservable-value mutant (dataset_sha256): `1024` -> `1023` in `handl
 # (gate exit 2) until the coordinator decides: either a new baseline
 # kind (e.g. "domain-equivalent", validated like the runtime kinds with
 # source_text + function fingerprint) or a source change where one is a
-# genuine cleanup. All eight share one shape: the replacement is
+# genuine cleanup. All eleven share one shape: the replacement is
 # provably indistinguishable from the original given invariants of the
 # enclosing function (restricted value domains, zero-valued terms, dead
 # code, bool singletons).

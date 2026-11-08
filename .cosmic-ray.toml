@@ -32,7 +32,17 @@
 # annotation of a module using `from __future__ import annotations`), or
 # because they sit in a provably dead branch condition (kind
 # "unreachable-condition"), or because their replacement value is
-# provably unobservable (kind "unobservable-value"). Those are recorded
+# provably unobservable (kind "unobservable-value"), or because their
+# replacement coincides with the original on every value the mutated
+# expression can take within its enclosing function (kind
+# "domain-equivalent": restricted value domains, branch-established
+# facts, zero-valued terms, a dead tiebreak, dead code, a redundant
+# guard, or a dead `except` handler — the entry's reason must name the
+# proof shape), or because their replacement differs from the original
+# only in the last few ULPs of a floating-point result (kind
+# "ulp-equivalent", which additionally records `ulp_bound_ulps`, the
+# maximum ULPs observed, and `swept_domain`, the swept domain; both are
+# required and validated). Those are recorded
 # one-by-one in
 # `mutation-baseline.toml`, each with its reason and proof; the runner
 # re-validates every entry against the current source on each run, and a
@@ -42,7 +52,8 @@
 # the gate fails on any unexplained survivor. See the baseline file's
 # header for the design rationale and the proof. Adding an entry needs
 # human verification first — never add a runtime mutant to the baseline
-# except as "unreachable-condition" or "unobservable-value" with its proof.
+# except as "unreachable-condition", "unobservable-value",
+# "domain-equivalent" or "ulp-equivalent" with its proof.
 #
 # Diff-based optimisation: on push/PR only changed target modules are
 # mutated (see .github/workflows/mutation.yml and the `diff` mode of
