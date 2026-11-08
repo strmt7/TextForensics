@@ -463,8 +463,10 @@
 # survivors were classified one by one: 180 killable, killed with
 # tests in tests/test_calibration.py (class
 # TestCalibrationMutationKillTestsRemainder, 88 tests); 3 of the 62
-# equivalents are the entries below; the other 59 need a new kind
-# (see the NOT-IN-THIS-BASELINE list below).
+# equivalents are the entries below. The other 59, plus the 3 prefix
+# equivalents, are baselined in the kind wave (2026-11-08,
+# fix/mutation-kinds): 56 domain-equivalent + 6 ulp-equivalent —
+# see the KIND-WAVE BASELINING record below.
 #
 # PROOF — CALIBRATION "unobservable-value" (5 entries)
 # ----------------------------------------------------
@@ -501,36 +503,55 @@
 # `bin_counts[index] += 1` -> `+= 2`), were first classified the
 # same way but the battery showed a 1-ulp ECE difference (max
 # 1.110e-16) from float reassociation — they are ulp-equivalent
-# only, so they are NOT baselined and sit in the list below.
+# only, so they are baselined as ulp-equivalent (bounds 1 and 1)
+# in the kind wave — see the KIND-WAVE BASELINING record below.
 #
-# CALIBRATION SURVIVORS *NOT* IN THIS BASELINE (do not add without a
-# new kind + its validator — the loader rejects unknown kinds)
+# KIND-WAVE BASELINING (2026-11-08, fix/mutation-kinds) — the 62
+# survivors formerly listed here as NOT IN THIS BASELINE are now
+# baselined: 56 domain-equivalent + 6 ulp-equivalent. The loader
+# accepts both kinds (scripts/run_mutation.py
+# BASELINE_RUNTIME_KINDS); each entry pins source_text + the
+# enclosing function's fingerprint, exactly like the runtime kinds
+# above. Nothing in this section is unbaselined any more.
 # ------------------------------------------------------------------
 # - [occ 1] ExceptionReplacer at L596 in
 #   CalibrationArtifact.validation_issues (`except CalibrationError`
 #   around `_parse_iso8601(self.created_at, ...)`): the handler is
 #   provably dead — `__post_init__` validates `created_at` with the
 #   same call first, so no instance constructible through any public
-#   constructor (including from_dict) can reach it — but no existing
-#   kind covers an ExceptionReplacer on a dead handler.
+#   constructor (including from_dict) can reach it — baselined as
+#   domain-equivalent.
 # - [occ 2/3] NumberReplacer at L105 in `_sigmoid`
 #   (`0.0` -> `1.0` / `0.0` -> `-1.0` in `if value >= 0.0:`): the two
 #   branches are algebraically identical (1/(1+e^-x) == e^x/(1+e^x)),
-#   so moving the switch point changes the output by at most 2 ulps
-#   (40,000-point sweep of [-20, 20]: max 2 ulps, extremes identical)
-#   — equivalent up to float rounding, but the difference IS observable
-#   via bit-exact `==`, so "unobservable-value" (which requires NO
-#   observable difference for any input) does not apply, and pinning a
-#   1-ulp kill test would assert which algebraically-identical branch
-#   ran rather than a behavioural contract.
-# - Remainder-pass equivalents needing a new kind (59), all
-#   confirmed by full-file test runs under the hand-applied mutant
-#   (the 275-test file passes unchanged under each): grouped by
-#   proof shape.
-#   * ulp (4): [1275]/[1311] `_sigmoid` `>=` -> `>` / `!=` (branches
-#     identical up to <=2 ulps); [75]/[83] `_probability_metrics`
-#     bin-count initial value / increment (count cancels in the ECE
-#     formula, 1-ulp float difference only, max 1.110e-16).
+#   so moving the switch point changes the output only by float
+#   rounding — baselined as ulp-equivalent with the MEASURED
+#   per-entry maxima: occ 2 bound 2 ulps, occ 3 bound 3 ulps
+#   (1,110,004-point confirmation sweep: 30 points at 2 ulps for
+#   occ 2, 44 points at 3 ulps for occ 3, none at 4). CORRECTION:
+#   the earlier blanket "at most 2 ulps" for these two mutants was
+#   wrong for occ 3 — 3 ulps occur on the denser sweep. (The
+#   difference IS observable via bit-exact `==`, so
+#   "unobservable-value" — which requires NO observable difference
+#   for any input — does not apply, and pinning a 1-ulp kill test
+#   would assert which algebraically-identical branch ran rather
+#   than a behavioural contract.)
+# - Remainder-pass equivalents (59), all confirmed by full-file
+#   test runs under the hand-applied mutant (the 275-test file
+#   passes unchanged under each): grouped by proof shape; 55
+#   domain-equivalent + 4 ulp-equivalent, all baselined in the
+#   kind wave.
+#   * ulp (4): [1275] `_sigmoid` `>=` -> `>` — bit-identical on
+#     1,150,004 points, bound 0 ulps; [1311] `_sigmoid` `>=` -> `!=`
+#     — max 3 ulps (7 points at 3 on the 40,000-point sweep, 192
+#     on the 1,110,004-point confirmation sweep, none at 4),
+#     bound 3 ulps — CORRECTION: the earlier blanket "<=2 ulps"
+#     for [1275]/[1311] was wrong for [1311]; [75]/[83]
+#     `_probability_metrics` bin-count initial value / increment
+#     (count cancels in the ECE formula, at most a 1-ulp float
+#     difference, max 1.110e-16), bounds 1 ulp each ([83] was
+#     bit-identical on all 214 battery cases; bound 1 is a safe
+#     cap, not an observed max).
 #   * closed-domain value-identity (19): [1047], [1124] (`1 - target`
 #     -> `1 ^ target` / `1 >> target` in log-loss, target in {0,1});
 #     [1149], [1153], [1155], [1156], [1158], [1228], [1235], [1236]
@@ -580,9 +601,33 @@
 #   (`except (OSError, ...)` in `_load_all`) dies inside
 #   `exception_replacer.py:25` (`'PythonNode' object has no attribute
 #   'value'`) before any mutant code exists, so there is no behaviour
-#   to kill or baseline; the runner counts it as error=1, which makes
-#   `check_results` exit 1 even when every survivor is explained.
-#   That needs a runner/coordinator decision, not a baseline entry.
+#   to kill or baseline. The runner now counts it as incompetent,
+#   not error (fix/mutation-kinds: parse_results checks
+#   test_outcome first — a worker exception with test_outcome
+#   "incompetent" is incompetent, not an error), so it no longer
+#   makes `check_results` exit 1.
+#
+# PROOF — CALIBRATION "domain-equivalent" / "ulp-equivalent"
+# (62 entries, 2026-11-08)
+# ------------------------------------------------------------
+# Identity resolution (no positions hand-typed): cosmic-ray init for
+# textforensics.calibration at 884f590 (1937 work items, same total
+# as the wave-1 full session). The 3 prefix mutants are identified
+# by (operator, occurrence); the 59 remainder mutants by the wave-1
+# worker's remainder-list index N == sorted-full-list index N+200
+# (full session sorted by (operator, occurrence), sliced at item
+# 200). All 62 matched exactly one work item whose operator,
+# position and source text agree with the documented proof; zero
+# mismatches.
+# Differential verification (62/62): each mutant was applied with
+# cosmic-ray's own mutate_code and run against a proof-shape-
+# specific differential probe vs the original module — 56
+# byte-identical, 6 within their recorded ulp bound. The bounds are
+# the measured per-entry maxima (0, 1, 2 and 3 ulps — see the
+# KIND-WAVE BASELINING record above), not a blanket cap. Each entry
+# pins source_text + the enclosing function's fingerprint, exactly
+# like the runtime kinds above; the loader re-validates both on
+# every run.
 #
 # CALIBRATION ANNOTATION ENTRIES (330: 30 positions x 11 operators,
 # 2026-11-08)
@@ -10763,3 +10808,821 @@ function = "run_calibration_evaluation"
 kind = "arg"
 annotation = "str | Path"
 reason = "Postponed-evaluation annotation (arg of run_calibration_evaluation): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.calibration:core/NumberReplacer:2"
+module = "textforensics.calibration"
+operator = "core/NumberReplacer"
+occurrence = 2
+start_pos = [105, 16]
+end_pos = [105, 19]
+function = "_sigmoid"
+kind = "ulp-equivalent"
+source_text = "0.0"
+source_fingerprint = "c2caa139295d6171634da1a9f4cf0ab627f47427a9ac862f93d5912592d57078"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+ulp_bound_ulps = 2
+swept_domain = "[-20, 20], 40,000 points (wave-1 sweep, re-run) + 1,110,004-point confirmation sweep"
+reason = "Ulp-equivalent mutant (_sigmoid): `0.0` -> `1.0` in `if value >= 0.0:` moves the branch switch point from 0.0 to 1.0. The two branches are algebraically identical (1/(1+e^-x) == e^x/(1+e^x)), so the output differs only by float rounding. Verified by differential sweep (original vs hand-applied mutant): 40,000-point sweep of [-20, 20] max 1 ulp (329 points differ); 1,110,004-point confirmation sweep max 2 ulps (30 points at 2 ulps, none at 3). Recorded bound: 2 ulps."
+
+[[equivalent]]
+id = "textforensics.calibration:core/NumberReplacer:3"
+module = "textforensics.calibration"
+operator = "core/NumberReplacer"
+occurrence = 3
+start_pos = [105, 16]
+end_pos = [105, 19]
+function = "_sigmoid"
+kind = "ulp-equivalent"
+source_text = "0.0"
+source_fingerprint = "c2caa139295d6171634da1a9f4cf0ab627f47427a9ac862f93d5912592d57078"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+ulp_bound_ulps = 3
+swept_domain = "[-20, 20], 40,000 points (wave-1 sweep, re-run) + 1,110,004-point confirmation sweep"
+reason = "Ulp-equivalent mutant (_sigmoid): `0.0` -> `-1.0` in `if value >= 0.0:` moves the branch switch point from 0.0 to -1.0. The two branches are algebraically identical (1/(1+e^-x) == e^x/(1+e^x)), so the output differs only by float rounding. Verified by differential sweep (original vs hand-applied mutant): 40,000-point sweep of [-20, 20] max 2 ulps (36 points at 2 ulps); 1,110,004-point confirmation sweep max 3 ulps (44 points at 3 ulps, none at 4). Recorded bound: 3 ulps. NOTE: the wave-1 header's blanket \"<=2 ulps\" for the sigmoid mutants does not hold for this mutant on a denser sweep."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_GtE_Gt:0"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_GtE_Gt"
+occurrence = 0
+start_pos = [105, 13]
+end_pos = [105, 15]
+function = "_sigmoid"
+kind = "ulp-equivalent"
+source_text = ">="
+source_fingerprint = "c2caa139295d6171634da1a9f4cf0ab627f47427a9ac862f93d5912592d57078"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+ulp_bound_ulps = 0
+swept_domain = "[-20, 20], 40,000 points (wave-1 sweep, re-run) + 1,110,004-point confirmation sweep"
+reason = "Ulp-equivalent mutant (_sigmoid): `>=` -> `>` in `if value >= 0.0:`. The replacement differs from the original only at value == 0.0 exactly, where both branches compute exactly 0.5 via identical operations (exp(0.0) == 1.0; 1.0/(1.0+1.0)), so the outputs are bit-identical. Verified by differential sweep (original vs hand-applied mutant): 40,000-point sweep of [-20, 20] plus 1,110,004-point confirmation sweep, 0 differing points out of 1,150,004. Recorded bound: 0 ulps."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_GtE_NotEq:0"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_GtE_NotEq"
+occurrence = 0
+start_pos = [105, 13]
+end_pos = [105, 15]
+function = "_sigmoid"
+kind = "ulp-equivalent"
+source_text = ">="
+source_fingerprint = "c2caa139295d6171634da1a9f4cf0ab627f47427a9ac862f93d5912592d57078"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+ulp_bound_ulps = 3
+swept_domain = "[-20, 20], 40,000 points (wave-1 sweep, re-run) + 1,110,004-point confirmation sweep"
+reason = "Ulp-equivalent mutant (_sigmoid): `>=` -> `!=` in `if value >= 0.0:`. For negative values the mutant takes the first branch instead of the second, but the two branches are algebraically identical (1/(1+e^-x) == e^x/(1+e^x)), so the output differs only by float rounding. Verified by differential sweep (original vs hand-applied mutant): 40,000-point sweep of [-20, 20] max 3 ulps (7 points at 3 ulps, 9,318 differ); 1,110,004-point confirmation sweep max 3 ulps (192 points at 3 ulps, none at 4). Recorded bound: 3 ulps. NOTE: the wave-1 header's blanket \"<=2 ulps\" for [1275]/[1311] is wrong for this mutant \u2014 3 ulps occur on the very 40,000-point sweep it cites."
+
+[[equivalent]]
+id = "textforensics.calibration:core/NumberReplacer:130"
+module = "textforensics.calibration"
+operator = "core/NumberReplacer"
+occurrence = 130
+start_pos = [964, 18]
+end_pos = [964, 19]
+function = "_probability_metrics"
+kind = "ulp-equivalent"
+source_text = "0"
+source_fingerprint = "415cb30d99e774cc038a26fbe678defb96c7a21b58e2ee29919a4a67e62d504c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+ulp_bound_ulps = 1
+swept_domain = "ECE battery: 14 _probability_metrics cases (n=1..500, incl. empty bins, single-bin, boundary values 0.0/1.0, random seeds 0..4) + 200-case randomized battery (n=1..5000)"
+reason = "Ulp-equivalent mutant (_probability_metrics): `[0] * n_bins` -> `[1] * n_bins` for bin_counts. Every bin count is shifted by +1, so each bin average divides by (count+1) instead of count and the ECE weight shifts accordingly; the value differs only by float reassociation. Verified by differential battery (original vs hand-applied mutant): 14 _probability_metrics cases + 200-case randomized battery (n=1..5000): max abs ECE difference 1.110e-16 (1 ulp at unit magnitude; 63 differing cells in the 200-case battery). Recorded bound: 1 ulp."
+
+[[equivalent]]
+id = "textforensics.calibration:core/NumberReplacer:138"
+module = "textforensics.calibration"
+operator = "core/NumberReplacer"
+occurrence = 138
+start_pos = [969, 29]
+end_pos = [969, 30]
+function = "_probability_metrics"
+kind = "ulp-equivalent"
+source_text = "1"
+source_fingerprint = "415cb30d99e774cc038a26fbe678defb96c7a21b58e2ee29919a4a67e62d504c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+ulp_bound_ulps = 1
+swept_domain = "ECE battery: 14 _probability_metrics cases (n=1..500, incl. empty bins, single-bin, boundary values 0.0/1.0, random seeds 0..4) + 200-case randomized battery (n=1..5000)"
+reason = "Ulp-equivalent mutant (_probability_metrics): `bin_counts[index] += 1` -> `+= 2`. Every bin count is doubled, so each bin average is exactly halved and each ECE weight exactly doubled \u2014 the ECE formula is exactly scale-invariant by 2 (all rescalings are exact powers of 2), so the value differs only by float reassociation at most. Verified by differential battery (original vs hand-applied mutant): 14 _probability_metrics cases + 200-case randomized battery (n=1..5000): 0 differing cells \u2014 bit-identical on all 214 cases. Recorded bound: 1 ulp (a safe cap, not an observed max)."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ExceptionReplacer:1"
+module = "textforensics.calibration"
+operator = "core/ExceptionReplacer"
+occurrence = 1
+start_pos = [596, 15]
+end_pos = [596, 31]
+function = "CalibrationArtifact.validation_issues"
+kind = "domain-equivalent"
+source_text = "CalibrationError"
+source_fingerprint = "c043a201d569c19c9e344dd1ed8346e3830815b6ce4781c20661fa9c7d53a7ec"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CalibrationArtifact.validation_issues): `except CalibrationError` -> `except CosmicRayTestingException` (cosmic-ray's replacement) around `_parse_iso8601(self.created_at, ...)`. The handler is provably dead: `__post_init__` validates `created_at` with the same call first, and the dataclass is frozen (frozen=True, slots=True), so no instance constructible through any public constructor (including from_dict) can reach it with an invalid created_at, and the value cannot be mutated afterwards. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): invalid created_at raises CalibrationError in __post_init__ under both; a valid artifact's validation_issues() reports no created_at issue under both; attribute assignment raises FrozenInstanceError under both."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceBinaryOperator_Sub_BitXor:9"
+module = "textforensics.calibration"
+operator = "core/ReplaceBinaryOperator_Sub_BitXor"
+occurrence = 9
+start_pos = [983, 17]
+end_pos = [983, 18]
+function = "_probability_metrics"
+kind = "domain-equivalent"
+source_text = "-"
+source_fingerprint = "415cb30d99e774cc038a26fbe678defb96c7a21b58e2ee29919a4a67e62d504c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_probability_metrics): `1 - target` -> `1 ^ target` in the log-loss sum. Targets are exactly {0, 1} (the sole caller passes _coerce_label outputs, and the signature is Iterable[int]): 1^0=1, 1^1=0 and 1>>0=1, 1>>1=0, so the replacement coincides with the original on the whole closed domain. Verified by differential battery (original vs hand-applied mutant, cosmic-ray mutate_code): 14 _probability_metrics cases, byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceBinaryOperator_Sub_RShift:9"
+module = "textforensics.calibration"
+operator = "core/ReplaceBinaryOperator_Sub_RShift"
+occurrence = 9
+start_pos = [983, 17]
+end_pos = [983, 18]
+function = "_probability_metrics"
+kind = "domain-equivalent"
+source_text = "-"
+source_fingerprint = "415cb30d99e774cc038a26fbe678defb96c7a21b58e2ee29919a4a67e62d504c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_probability_metrics): `1 - target` -> `1 >> target` in the log-loss sum. Targets are exactly {0, 1} (the sole caller passes _coerce_label outputs, and the signature is Iterable[int]): 1^0=1, 1^1=0 and 1>>0=1, 1>>1=0, so the replacement coincides with the original on the whole closed domain. Verified by differential battery (original vs hand-applied mutant, cosmic-ray mutate_code): 14 _probability_metrics cases, byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_GtE:2"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 2
+start_pos = [248, 25]
+end_pos = [248, 27]
+function = "CalibrationCurve._validate_parameters"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "bfe199cab007ad6de13fa10feb98a10530fe3bb74d703de0b380c3291fae4d9d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CalibrationCurve._validate_parameters): `self.method == \"temperature\"` -> `>=` in `elif self.method == \"temperature\":` (_validate_parameters). method is restricted to SUPPORTED_METHODS = {platt, temperature, isotonic, beta, identity} by __post_init__, and the preceding `if self.method == \"platt\"` branch already excluded \"platt\"; among the remaining values only \"temperature\" satisfies `>= \"temperature\"` (\"temperature\" is the lexicographic maximum of the set), so the mutated condition matches exactly the same values. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): all 5 curve methods constructed and calibrated over a 6-point score grid, plus beta validation edges and beta/isotonic boundary grids, byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_GtE:6"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 6
+start_pos = [262, 25]
+end_pos = [262, 27]
+function = "CalibrationCurve._validate_parameters"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "bfe199cab007ad6de13fa10feb98a10530fe3bb74d703de0b380c3291fae4d9d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CalibrationCurve._validate_parameters): `self.method == \"isotonic\"` -> `>=` in `elif self.method == \"isotonic\":` (_validate_parameters). method is restricted to SUPPORTED_METHODS by __post_init__, and the preceding branches already excluded \"platt\", \"temperature\" and \"beta\"; among the remaining {isotonic, identity} only \"isotonic\" satisfies `>= \"isotonic\"` (\"identity\" < \"isotonic\"), so the mutated condition matches exactly the same values. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): all 5 curve methods constructed and calibrated over a 6-point score grid, plus beta validation edges and beta/isotonic boundary grids, byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_GtE:8"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 8
+start_pos = [294, 23]
+end_pos = [294, 25]
+function = "CalibrationCurve.calibrate"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "ab6dfa47b0688428e72732a754fa71c75613dee0f8ccad104882de52fa65e8ca"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CalibrationCurve.calibrate): `self.method == \"temperature\"` -> `>=` in `if self.method == \"temperature\":` (calibrate). method is restricted to SUPPORTED_METHODS by __post_init__, and the preceding `if self.method == \"platt\": return` already excluded \"platt\"; among the remaining values only \"temperature\" satisfies `>= \"temperature\"` (\"temperature\" is the lexicographic maximum of the set), so the mutated condition matches exactly the same values. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): all 5 curve methods constructed and calibrated over a 6-point score grid, plus beta validation edges and beta/isotonic boundary grids, byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_GtE:9"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 9
+start_pos = [296, 23]
+end_pos = [296, 25]
+function = "CalibrationCurve.calibrate"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "ab6dfa47b0688428e72732a754fa71c75613dee0f8ccad104882de52fa65e8ca"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CalibrationCurve.calibrate): `self.method == \"isotonic\"` -> `>=` in `if self.method == \"isotonic\":` (calibrate). method is restricted to SUPPORTED_METHODS by __post_init__, and the preceding returns already excluded \"platt\" and \"temperature\"; among the remaining {isotonic, beta, identity} only \"isotonic\" satisfies `>= \"isotonic\"`, so the mutated condition matches exactly the same values. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): all 5 curve methods constructed and calibrated over a 6-point score grid, plus beta validation edges and beta/isotonic boundary grids, byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_GtE:11"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 11
+start_pos = [300, 23]
+end_pos = [300, 25]
+function = "CalibrationCurve.calibrate"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "ab6dfa47b0688428e72732a754fa71c75613dee0f8ccad104882de52fa65e8ca"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CalibrationCurve.calibrate): `self.method == \"identity\"` -> `>=` in `if self.method == \"identity\":` (calibrate). method is restricted to SUPPORTED_METHODS by __post_init__, and the preceding returns already excluded \"platt\", \"temperature\", \"isotonic\" and \"beta\"; only \"identity\" can reach this check, and `>= \"identity\"` holds for it, so the mutated condition matches exactly the same values. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): all 5 curve methods constructed and calibrated over a 6-point score grid, plus beta validation edges and beta/isotonic boundary grids, byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_GtE:16"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 16
+start_pos = [1222, 54]
+end_pos = [1222, 56]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `label == \"human\"` -> `>=` in the humans list comprehension (select_threshold). labels are exactly {\"human\", \"ai\"} (_load_scores rejects any other label); only \"human\" satisfies `>= \"human\"` (\"ai\" < \"human\"), so the mutated comprehension selects exactly the same rows. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0}, byte-identical results."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_LtE:3"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 3
+start_pos = [252, 25]
+end_pos = [252, 27]
+function = "CalibrationCurve._validate_parameters"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "bfe199cab007ad6de13fa10feb98a10530fe3bb74d703de0b380c3291fae4d9d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CalibrationCurve._validate_parameters): `self.method == \"beta\"` -> `<=` in `elif self.method == \"beta\":` (_validate_parameters). method is restricted to SUPPORTED_METHODS by __post_init__, and the preceding `if self.method == \"platt\"` branch already excluded \"platt\"; among the remaining values only \"beta\" satisfies `<= \"beta\"` (\"beta\" is the lexicographic minimum of the set), so the mutated condition matches exactly the same values. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): all 5 curve methods constructed and calibrated over a 6-point score grid, plus beta validation edges and beta/isotonic boundary grids, byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_LtE:4"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 4
+start_pos = [258, 17]
+end_pos = [258, 19]
+function = "CalibrationCurve._validate_parameters"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "bfe199cab007ad6de13fa10feb98a10530fe3bb74d703de0b380c3291fae4d9d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CalibrationCurve._validate_parameters): `a == 0.0` -> `<=` in `if a == 0.0 and b == 0.0:` (_validate_parameters, beta branch). the preceding `if a < 0.0 or b < 0.0: raise` constrains a and b to be >= 0, so on the reachable domain `a == 0.0` coincides exactly with `a <= 0.0`. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): all 5 curve methods constructed and calibrated over a 6-point score grid, plus beta validation edges and beta/isotonic boundary grids, byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_LtE:5"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 5
+start_pos = [258, 30]
+end_pos = [258, 32]
+function = "CalibrationCurve._validate_parameters"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "bfe199cab007ad6de13fa10feb98a10530fe3bb74d703de0b380c3291fae4d9d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CalibrationCurve._validate_parameters): `b == 0.0` -> `<=` in `if a == 0.0 and b == 0.0:` (_validate_parameters, beta branch). the preceding `if a < 0.0 or b < 0.0: raise` constrains a and b to be >= 0, so on the reachable domain `b == 0.0` coincides exactly with `b <= 0.0`. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): all 5 curve methods constructed and calibrated over a 6-point score grid, plus beta validation edges and beta/isotonic boundary grids, byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_LtE:10"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 10
+start_pos = [298, 23]
+end_pos = [298, 25]
+function = "CalibrationCurve.calibrate"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "ab6dfa47b0688428e72732a754fa71c75613dee0f8ccad104882de52fa65e8ca"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CalibrationCurve.calibrate): `self.method == \"beta\"` -> `<=` in `if self.method == \"beta\":` (calibrate). method is restricted to SUPPORTED_METHODS by __post_init__, and the preceding returns already excluded \"platt\", \"temperature\" and \"isotonic\"; among the remaining {beta, identity} only \"beta\" satisfies `<= \"beta\"`, so the mutated condition matches exactly the same values. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): all 5 curve methods constructed and calibrated over a 6-point score grid, plus beta validation edges and beta/isotonic boundary grids, byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_LtE:11"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 11
+start_pos = [300, 23]
+end_pos = [300, 25]
+function = "CalibrationCurve.calibrate"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "ab6dfa47b0688428e72732a754fa71c75613dee0f8ccad104882de52fa65e8ca"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CalibrationCurve.calibrate): `self.method == \"identity\"` -> `<=` in `if self.method == \"identity\":` (calibrate). method is restricted to SUPPORTED_METHODS by __post_init__, and the preceding returns already excluded every other method; only \"identity\" can reach this check, and `<= \"identity\"` holds for it, so the mutated condition matches exactly the same values. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): all 5 curve methods constructed and calibrated over a 6-point score grid, plus beta validation edges and beta/isotonic boundary grids, byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_LtE:17"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 17
+start_pos = [1223, 51]
+end_pos = [1223, 53]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `label == \"ai\"` -> `<=` in the ais list comprehension (select_threshold). labels are exactly {\"human\", \"ai\"} (_load_scores rejects any other label); only \"ai\" satisfies `<= \"ai\"` (\"human\" > \"ai\"), so the mutated comprehension selects exactly the same rows. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0}, byte-identical results."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_GtE_Eq:4"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_GtE_Eq"
+occurrence = 4
+start_pos = [325, 56]
+end_pos = [325, 58]
+function = "CalibrationCurve._calibrate_beta"
+kind = "domain-equivalent"
+source_text = ">="
+source_fingerprint = "9428562895d2e56eb97ce70a9575db8f73fcb84b3085e3f3fca7a4e7288e169d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CalibrationCurve._calibrate_beta): `value >= 1.0` -> `==` in `_calibrate_beta`. value is in [0, 1] (_unit_interval in calibrate()), so on the reachable domain `value >= 1.0` coincides exactly with `value == 1.0`. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): all 5 curve methods constructed and calibrated over a 6-point score grid, plus beta validation edges and beta/isotonic boundary grids, byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Gt_NotEq:1"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Gt_NotEq"
+occurrence = 1
+start_pos = [324, 31]
+end_pos = [324, 32]
+function = "CalibrationCurve._calibrate_beta"
+kind = "domain-equivalent"
+source_text = ">"
+source_fingerprint = "9428562895d2e56eb97ce70a9575db8f73fcb84b3085e3f3fca7a4e7288e169d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CalibrationCurve._calibrate_beta): `a > 0.0` -> `!=` in `_calibrate_beta`. a >= 0 is validated in _validate_parameters (`if a < 0.0 or b < 0.0: raise`), so on the reachable domain `a > 0.0` coincides exactly with `a != 0.0`. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): all 5 curve methods constructed and calibrated over a 6-point score grid, plus beta validation edges and beta/isotonic boundary grids, byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Gt_NotEq:2"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Gt_NotEq"
+occurrence = 2
+start_pos = [325, 31]
+end_pos = [325, 32]
+function = "CalibrationCurve._calibrate_beta"
+kind = "domain-equivalent"
+source_text = ">"
+source_fingerprint = "9428562895d2e56eb97ce70a9575db8f73fcb84b3085e3f3fca7a4e7288e169d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CalibrationCurve._calibrate_beta): `b > 0.0` -> `!=` in `_calibrate_beta`. b >= 0 is validated in _validate_parameters (`if a < 0.0 or b < 0.0: raise`), so on the reachable domain `b > 0.0` coincides exactly with `b != 0.0`. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): all 5 curve methods constructed and calibrated over a 6-point score grid, plus beta validation edges and beta/isotonic boundary grids, byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_LtE_Eq:4"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_LtE_Eq"
+occurrence = 4
+start_pos = [324, 56]
+end_pos = [324, 58]
+function = "CalibrationCurve._calibrate_beta"
+kind = "domain-equivalent"
+source_text = "<="
+source_fingerprint = "9428562895d2e56eb97ce70a9575db8f73fcb84b3085e3f3fca7a4e7288e169d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CalibrationCurve._calibrate_beta): `value <= 0.0` -> `==` in `_calibrate_beta`. value is in [0, 1] (_unit_interval in calibrate()), so on the reachable domain `value <= 0.0` coincides exactly with `value == 0.0`. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): all 5 curve methods constructed and calibrated over a 6-point score grid, plus beta validation edges and beta/isotonic boundary grids, byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_LtE_Lt:3"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_LtE_Lt"
+occurrence = 3
+start_pos = [309, 17]
+end_pos = [309, 19]
+function = "CalibrationCurve._calibrate_isotonic"
+kind = "domain-equivalent"
+source_text = "<="
+source_fingerprint = "002181306eca54671448f3b9885ac97f2d5dc3113990027821ad03ae578e7cc5"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CalibrationCurve._calibrate_isotonic): `value <= x_values[0]` -> `<` in `_calibrate_isotonic`. if value == x_values[0], the mutant falls through to bisect_right, which returns the index after the equal knot (x is strictly increasing, validated in _validate_parameters), giving fraction 0 and hence y_values[0] \u2014 exactly the value the original returns directly. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): all 5 curve methods constructed and calibrated over a 6-point score grid, plus beta validation edges and beta/isotonic boundary grids, byte-identical outputs."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_Gt:18"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_Gt"
+occurrence = 18
+start_pos = [1263, 43]
+end_pos = [1263, 45]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `==` -> `>` in the tiebreak clause `(candidate.observed_tpr == best.observed_tpr and candidate.threshold < best.threshold)`. The clause is dead: candidates are processed in strictly increasing threshold order (sorted set) with non-increasing TPR, so for every candidate after the first, `threshold < best.threshold` is False \u2014 the conjunction is False under every replacement of `==`. For the first candidate the outer `best is None` short-circuits before the clause is evaluated. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0}, byte-identical results."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_GtE:18"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 18
+start_pos = [1263, 43]
+end_pos = [1263, 45]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `==` -> `>=` in the tiebreak clause `(candidate.observed_tpr == best.observed_tpr and candidate.threshold < best.threshold)`. The clause is dead: candidates are processed in strictly increasing threshold order (sorted set) with non-increasing TPR, so for every candidate after the first, `threshold < best.threshold` is False \u2014 the conjunction is False under every replacement of `==`. For the first candidate the outer `best is None` short-circuits before the clause is evaluated. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0}, byte-identical results."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_Is:15"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_Is"
+occurrence = 15
+start_pos = [1263, 43]
+end_pos = [1263, 45]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `==` -> `is` in the tiebreak clause `(candidate.observed_tpr == best.observed_tpr and candidate.threshold < best.threshold)`. The clause is dead: candidates are processed in strictly increasing threshold order (sorted set) with non-increasing TPR, so for every candidate after the first, `threshold < best.threshold` is False \u2014 the conjunction is False under every replacement of `==`. For the first candidate the outer `best is None` short-circuits before the clause is evaluated. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0}, byte-identical results."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_IsNot:15"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_IsNot"
+occurrence = 15
+start_pos = [1263, 43]
+end_pos = [1263, 45]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `==` -> `is not` in the tiebreak clause `(candidate.observed_tpr == best.observed_tpr and candidate.threshold < best.threshold)`. The clause is dead: candidates are processed in strictly increasing threshold order (sorted set) with non-increasing TPR, so for every candidate after the first, `threshold < best.threshold` is False \u2014 the conjunction is False under every replacement of `==`. For the first candidate the outer `best is None` short-circuits before the clause is evaluated. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0}, byte-identical results."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_Lt:18"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_Lt"
+occurrence = 18
+start_pos = [1263, 43]
+end_pos = [1263, 45]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `==` -> `<` in the tiebreak clause `(candidate.observed_tpr == best.observed_tpr and candidate.threshold < best.threshold)`. The clause is dead: candidates are processed in strictly increasing threshold order (sorted set) with non-increasing TPR, so for every candidate after the first, `threshold < best.threshold` is False \u2014 the conjunction is False under every replacement of `==`. For the first candidate the outer `best is None` short-circuits before the clause is evaluated. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0}, byte-identical results."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_LtE:18"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 18
+start_pos = [1263, 43]
+end_pos = [1263, 45]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `==` -> `<=` in the tiebreak clause `(candidate.observed_tpr == best.observed_tpr and candidate.threshold < best.threshold)`. The clause is dead: candidates are processed in strictly increasing threshold order (sorted set) with non-increasing TPR, so for every candidate after the first, `threshold < best.threshold` is False \u2014 the conjunction is False under every replacement of `==`. For the first candidate the outer `best is None` short-circuits before the clause is evaluated. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0}, byte-identical results."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_NotEq:18"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_NotEq"
+occurrence = 18
+start_pos = [1263, 43]
+end_pos = [1263, 45]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `==` -> `!=` in the tiebreak clause `(candidate.observed_tpr == best.observed_tpr and candidate.threshold < best.threshold)`. The clause is dead: candidates are processed in strictly increasing threshold order (sorted set) with non-increasing TPR, so for every candidate after the first, `threshold < best.threshold` is False \u2014 the conjunction is False under every replacement of `==`. For the first candidate the outer `best is None` short-circuits before the clause is evaluated. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0}, byte-identical results."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Gt_Is:2"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Gt_Is"
+occurrence = 2
+start_pos = [1261, 39]
+end_pos = [1261, 40]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = ">"
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `candidate.observed_tpr > best.observed_tpr` -> `is`. TPR is non-increasing in threshold, so `>` is never True after the first candidate (and is not evaluated for the first, short-circuited by `best is None`); separately, the two TPR floats are distinct objects (each computed fresh as tp/len(ais)), so `is` is always False. Both sides are always False, so the replacement coincides. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0}, byte-identical results."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Lt_Eq:7"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Lt_Eq"
+occurrence = 7
+start_pos = [1264, 44]
+end_pos = [1264, 45]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "<"
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `<` -> `==` in `candidate.threshold < best.threshold` (tiebreak clause). Later candidates always have strictly higher thresholds (sorted set), so `<` is always False; `==` and `is` are likewise always False (distinct threshold values and distinct float objects), and `<=` is always False too \u2014 every replacement coincides with the original. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0}, byte-identical results."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Lt_Is:3"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Lt_Is"
+occurrence = 3
+start_pos = [1264, 44]
+end_pos = [1264, 45]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "<"
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `<` -> `is` in `candidate.threshold < best.threshold` (tiebreak clause). Later candidates always have strictly higher thresholds (sorted set), so `<` is always False; `==` and `is` are likewise always False (distinct threshold values and distinct float objects), and `<=` is always False too \u2014 every replacement coincides with the original. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0}, byte-identical results."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Lt_LtE:7"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Lt_LtE"
+occurrence = 7
+start_pos = [1264, 44]
+end_pos = [1264, 45]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "<"
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `<` -> `<=` in `candidate.threshold < best.threshold` (tiebreak clause). Later candidates always have strictly higher thresholds (sorted set), so `<` is always False; `==` and `is` are likewise always False (distinct threshold values and distinct float objects), and `<=` is always False too \u2014 every replacement coincides with the original. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0}, byte-identical results."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceOrWithAnd:23"
+module = "textforensics.calibration"
+operator = "core/ReplaceOrWithAnd"
+occurrence = 23
+start_pos = [1262, 16]
+end_pos = [1262, 18]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "or"
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): inner `or` -> `and` in `candidate.observed_tpr > best.observed_tpr or (tiebreak)`. Both disjuncts are always False after the first candidate (TPR non-increasing in threshold; the tiebreak clause is dead because later thresholds are higher), so `A or B` and `A and B` are both False; for the first candidate the outer `best is None` short-circuits before the inner condition is evaluated. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0}, byte-identical results."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceBinaryOperator_Div_Add:13"
+module = "textforensics.calibration"
+operator = "core/ReplaceBinaryOperator_Div_Add"
+occurrence = 13
+start_pos = [1272, 91]
+end_pos = [1272, 92]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "/"
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `/` -> `+` in the RuntimeError f-string `{max(sum(score >= t for score in humans) / len(humans) for t in candidates):.4f}`. The branch is dead: `if best is None:` is unreachable because candidates always include `math.nextafter(max_score, inf)` with fpr 0 <= target_fpr (target validated 0 <= target <= 1), so a candidate is always selected and the f-string never evaluates. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0} (incl. target_fpr=0, where only the sentinel qualifies), byte-identical results, no RuntimeError raised."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceBinaryOperator_Div_BitAnd:13"
+module = "textforensics.calibration"
+operator = "core/ReplaceBinaryOperator_Div_BitAnd"
+occurrence = 13
+start_pos = [1272, 91]
+end_pos = [1272, 92]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "/"
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `/` -> `&` in the RuntimeError f-string `{max(sum(score >= t for score in humans) / len(humans) for t in candidates):.4f}`. The branch is dead: `if best is None:` is unreachable because candidates always include `math.nextafter(max_score, inf)` with fpr 0 <= target_fpr (target validated 0 <= target <= 1), so a candidate is always selected and the f-string never evaluates. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0} (incl. target_fpr=0, where only the sentinel qualifies), byte-identical results, no RuntimeError raised."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceBinaryOperator_Div_BitOr:13"
+module = "textforensics.calibration"
+operator = "core/ReplaceBinaryOperator_Div_BitOr"
+occurrence = 13
+start_pos = [1272, 91]
+end_pos = [1272, 92]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "/"
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `/` -> `|` in the RuntimeError f-string `{max(sum(score >= t for score in humans) / len(humans) for t in candidates):.4f}`. The branch is dead: `if best is None:` is unreachable because candidates always include `math.nextafter(max_score, inf)` with fpr 0 <= target_fpr (target validated 0 <= target <= 1), so a candidate is always selected and the f-string never evaluates. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0} (incl. target_fpr=0, where only the sentinel qualifies), byte-identical results, no RuntimeError raised."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceBinaryOperator_Div_BitXor:13"
+module = "textforensics.calibration"
+operator = "core/ReplaceBinaryOperator_Div_BitXor"
+occurrence = 13
+start_pos = [1272, 91]
+end_pos = [1272, 92]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "/"
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `/` -> `^` in the RuntimeError f-string `{max(sum(score >= t for score in humans) / len(humans) for t in candidates):.4f}`. The branch is dead: `if best is None:` is unreachable because candidates always include `math.nextafter(max_score, inf)` with fpr 0 <= target_fpr (target validated 0 <= target <= 1), so a candidate is always selected and the f-string never evaluates. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0} (incl. target_fpr=0, where only the sentinel qualifies), byte-identical results, no RuntimeError raised."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceBinaryOperator_Div_FloorDiv:13"
+module = "textforensics.calibration"
+operator = "core/ReplaceBinaryOperator_Div_FloorDiv"
+occurrence = 13
+start_pos = [1272, 91]
+end_pos = [1272, 92]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "/"
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `/` -> `//` in the RuntimeError f-string `{max(sum(score >= t for score in humans) / len(humans) for t in candidates):.4f}`. The branch is dead: `if best is None:` is unreachable because candidates always include `math.nextafter(max_score, inf)` with fpr 0 <= target_fpr (target validated 0 <= target <= 1), so a candidate is always selected and the f-string never evaluates. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0} (incl. target_fpr=0, where only the sentinel qualifies), byte-identical results, no RuntimeError raised."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceBinaryOperator_Div_LShift:13"
+module = "textforensics.calibration"
+operator = "core/ReplaceBinaryOperator_Div_LShift"
+occurrence = 13
+start_pos = [1272, 91]
+end_pos = [1272, 92]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "/"
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `/` -> `<<` in the RuntimeError f-string `{max(sum(score >= t for score in humans) / len(humans) for t in candidates):.4f}`. The branch is dead: `if best is None:` is unreachable because candidates always include `math.nextafter(max_score, inf)` with fpr 0 <= target_fpr (target validated 0 <= target <= 1), so a candidate is always selected and the f-string never evaluates. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0} (incl. target_fpr=0, where only the sentinel qualifies), byte-identical results, no RuntimeError raised."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceBinaryOperator_Div_Mod:13"
+module = "textforensics.calibration"
+operator = "core/ReplaceBinaryOperator_Div_Mod"
+occurrence = 13
+start_pos = [1272, 91]
+end_pos = [1272, 92]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "/"
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `/` -> `%` in the RuntimeError f-string `{max(sum(score >= t for score in humans) / len(humans) for t in candidates):.4f}`. The branch is dead: `if best is None:` is unreachable because candidates always include `math.nextafter(max_score, inf)` with fpr 0 <= target_fpr (target validated 0 <= target <= 1), so a candidate is always selected and the f-string never evaluates. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0} (incl. target_fpr=0, where only the sentinel qualifies), byte-identical results, no RuntimeError raised."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceBinaryOperator_Div_Mul:13"
+module = "textforensics.calibration"
+operator = "core/ReplaceBinaryOperator_Div_Mul"
+occurrence = 13
+start_pos = [1272, 91]
+end_pos = [1272, 92]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "/"
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `/` -> `*` in the RuntimeError f-string `{max(sum(score >= t for score in humans) / len(humans) for t in candidates):.4f}`. The branch is dead: `if best is None:` is unreachable because candidates always include `math.nextafter(max_score, inf)` with fpr 0 <= target_fpr (target validated 0 <= target <= 1), so a candidate is always selected and the f-string never evaluates. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0} (incl. target_fpr=0, where only the sentinel qualifies), byte-identical results, no RuntimeError raised."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceBinaryOperator_Div_Pow:13"
+module = "textforensics.calibration"
+operator = "core/ReplaceBinaryOperator_Div_Pow"
+occurrence = 13
+start_pos = [1272, 91]
+end_pos = [1272, 92]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "/"
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `/` -> `**` in the RuntimeError f-string `{max(sum(score >= t for score in humans) / len(humans) for t in candidates):.4f}`. The branch is dead: `if best is None:` is unreachable because candidates always include `math.nextafter(max_score, inf)` with fpr 0 <= target_fpr (target validated 0 <= target <= 1), so a candidate is always selected and the f-string never evaluates. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0} (incl. target_fpr=0, where only the sentinel qualifies), byte-identical results, no RuntimeError raised."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceBinaryOperator_Div_RShift:13"
+module = "textforensics.calibration"
+operator = "core/ReplaceBinaryOperator_Div_RShift"
+occurrence = 13
+start_pos = [1272, 91]
+end_pos = [1272, 92]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "/"
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `/` -> `>>` in the RuntimeError f-string `{max(sum(score >= t for score in humans) / len(humans) for t in candidates):.4f}`. The branch is dead: `if best is None:` is unreachable because candidates always include `math.nextafter(max_score, inf)` with fpr 0 <= target_fpr (target validated 0 <= target <= 1), so a candidate is always selected and the f-string never evaluates. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0} (incl. target_fpr=0, where only the sentinel qualifies), byte-identical results, no RuntimeError raised."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceBinaryOperator_Div_Sub:13"
+module = "textforensics.calibration"
+operator = "core/ReplaceBinaryOperator_Div_Sub"
+occurrence = 13
+start_pos = [1272, 91]
+end_pos = [1272, 92]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = "/"
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `/` -> `-` in the RuntimeError f-string `{max(sum(score >= t for score in humans) / len(humans) for t in candidates):.4f}`. The branch is dead: `if best is None:` is unreachable because candidates always include `math.nextafter(max_score, inf)` with fpr 0 <= target_fpr (target validated 0 <= target <= 1), so a candidate is always selected and the f-string never evaluates. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0} (incl. target_fpr=0, where only the sentinel qualifies), byte-identical results, no RuntimeError raised."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_GtE_Eq:7"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_GtE_Eq"
+occurrence = 7
+start_pos = [1272, 65]
+end_pos = [1272, 67]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = ">="
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `>=` -> `==` in `score >= t` inside the RuntimeError f-string. The branch is dead: `if best is None:` is unreachable because candidates always include `math.nextafter(max_score, inf)` with fpr 0 <= target_fpr (target validated 0 <= target <= 1), so a candidate is always selected and the f-string never evaluates. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0} (incl. target_fpr=0, where only the sentinel qualifies), byte-identical results, no RuntimeError raised."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_GtE_Gt:7"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_GtE_Gt"
+occurrence = 7
+start_pos = [1272, 65]
+end_pos = [1272, 67]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = ">="
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `>=` -> `>` in `score >= t` inside the RuntimeError f-string. The branch is dead: `if best is None:` is unreachable because candidates always include `math.nextafter(max_score, inf)` with fpr 0 <= target_fpr (target validated 0 <= target <= 1), so a candidate is always selected and the f-string never evaluates. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0} (incl. target_fpr=0, where only the sentinel qualifies), byte-identical results, no RuntimeError raised."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_GtE_Is:5"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_GtE_Is"
+occurrence = 5
+start_pos = [1272, 65]
+end_pos = [1272, 67]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = ">="
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `>=` -> `is` in `score >= t` inside the RuntimeError f-string. The branch is dead: `if best is None:` is unreachable because candidates always include `math.nextafter(max_score, inf)` with fpr 0 <= target_fpr (target validated 0 <= target <= 1), so a candidate is always selected and the f-string never evaluates. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0} (incl. target_fpr=0, where only the sentinel qualifies), byte-identical results, no RuntimeError raised."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_GtE_IsNot:5"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_GtE_IsNot"
+occurrence = 5
+start_pos = [1272, 65]
+end_pos = [1272, 67]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = ">="
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `>=` -> `is not` in `score >= t` inside the RuntimeError f-string. The branch is dead: `if best is None:` is unreachable because candidates always include `math.nextafter(max_score, inf)` with fpr 0 <= target_fpr (target validated 0 <= target <= 1), so a candidate is always selected and the f-string never evaluates. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0} (incl. target_fpr=0, where only the sentinel qualifies), byte-identical results, no RuntimeError raised."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_GtE_Lt:7"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_GtE_Lt"
+occurrence = 7
+start_pos = [1272, 65]
+end_pos = [1272, 67]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = ">="
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `>=` -> `<` in `score >= t` inside the RuntimeError f-string. The branch is dead: `if best is None:` is unreachable because candidates always include `math.nextafter(max_score, inf)` with fpr 0 <= target_fpr (target validated 0 <= target <= 1), so a candidate is always selected and the f-string never evaluates. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0} (incl. target_fpr=0, where only the sentinel qualifies), byte-identical results, no RuntimeError raised."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_GtE_LtE:7"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_GtE_LtE"
+occurrence = 7
+start_pos = [1272, 65]
+end_pos = [1272, 67]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = ">="
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `>=` -> `<=` in `score >= t` inside the RuntimeError f-string. The branch is dead: `if best is None:` is unreachable because candidates always include `math.nextafter(max_score, inf)` with fpr 0 <= target_fpr (target validated 0 <= target <= 1), so a candidate is always selected and the f-string never evaluates. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0} (incl. target_fpr=0, where only the sentinel qualifies), byte-identical results, no RuntimeError raised."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_GtE_NotEq:7"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_GtE_NotEq"
+occurrence = 7
+start_pos = [1272, 65]
+end_pos = [1272, 67]
+function = "select_threshold"
+kind = "domain-equivalent"
+source_text = ">="
+source_fingerprint = "6a734b72a3f646e8d764bbae5eaf7449c660bed5c7fd12867cd324e4a94b6e47"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (select_threshold): `>=` -> `!=` in `score >= t` inside the RuntimeError f-string. The branch is dead: `if best is None:` is unreachable because candidates always include `math.nextafter(max_score, inf)` with fpr 0 <= target_fpr (target validated 0 <= target <= 1), so a candidate is always selected and the f-string never evaluates. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): select_threshold on a 20-row fixture at target_fpr {0.0, 0.5, 1.0} (incl. target_fpr=0, where only the sentinel qualifies), byte-identical results, no RuntimeError raised."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_NotEq_IsNot:4"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_NotEq_IsNot"
+occurrence = 4
+start_pos = [739, 62]
+end_pos = [739, 64]
+function = "CalibrationManager._load_all"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "c56b1f59427e7b865d946af9e1e1749583ebda8ff7c6077063130ddc25bd42b3"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CalibrationManager._load_all): `existing.content_hash != artifact.content_hash` -> `is not`. The check is reached only after the seen_hashes gate: if the hashes are equal, the gate raises \"Duplicate calibration content hash\" first (the existing artifact's hash was added when it loaded); if they differ, the two strings come from different JSON loads and are distinct objects, so `is not` is True exactly when `!=` is True. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): duplicate content raises \"Duplicate calibration content hash\" under both; same artifact id with different content raises \"two different contents\" under both; two distinct artifacts load under both."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceFalseWithTrue:24"
+module = "textforensics.calibration"
+operator = "core/ReplaceFalseWithTrue"
+occurrence = 24
+start_pos = [1505, 27]
+end_pos = [1505, 32]
+function = "run_calibration_evaluation"
+kind = "domain-equivalent"
+source_text = "False"
+source_fingerprint = "04ff93b2418d97e8ba72b1b55e79220db5e498939feb76bc314f95b2bcc1a77a"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (run_calibration_evaluation): `allow_same_dataset=False` -> True in the evaluate_threshold call. The flag is never consulted for same-dataset inputs: validate_no_contamination runs first and raises ValueError whenever the datasets overlap (identical files, or any shared sample); for disjoint inputs the flag's same-dataset check cannot fire either way. Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): same file for both inputs raises \"Contamination detected\" under both; disjoint files give byte-identical combined results under both."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceTrueWithFalse:11"
+module = "textforensics.calibration"
+operator = "core/ReplaceTrueWithFalse"
+occurrence = 11
+start_pos = [754, 36]
+end_pos = [754, 40]
+function = "CalibrationManager._save_artifact"
+kind = "domain-equivalent"
+source_text = "True"
+source_fingerprint = "66ab4ff2e4531bd81bbd681d702c89c571113c63b89d28f95d017eeba1d370f7"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CalibrationManager._save_artifact): `target.parent.mkdir(parents=True)` -> `parents=False`. target.parent is always the existing storage_path (CalibrationManager.__init__ creates it with mkdir(parents=True, exist_ok=True)), so parents=False never changes behaviour (exist_ok=True). Verified by differential probe (original vs hand-applied mutant, cosmic-ray mutate_code): store + re-store round-trip, byte-identical file bytes under both."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceTrueWithFalse:15"
+module = "textforensics.calibration"
+operator = "core/ReplaceTrueWithFalse"
+occurrence = 15
+start_pos = [960, 83]
+end_pos = [960, 87]
+function = "_probability_metrics"
+kind = "domain-equivalent"
+source_text = "True"
+source_fingerprint = "415cb30d99e774cc038a26fbe678defb96c7a21b58e2ee29919a4a67e62d504c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_probability_metrics): `zip(..., strict=True)` -> `strict=False`. The preceding `if len(values) != len(targets) or not values: raise` guarantees equal non-empty lengths, so strict=True never raises and the zips iterate identically. Verified by differential battery (original vs hand-applied mutant, cosmic-ray mutate_code): 14 _probability_metrics cases byte-identical, and mismatched lengths raise CalibrationError under both."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceTrueWithFalse:16"
+module = "textforensics.calibration"
+operator = "core/ReplaceTrueWithFalse"
+occurrence = 16
+start_pos = [967, 53]
+end_pos = [967, 57]
+function = "_probability_metrics"
+kind = "domain-equivalent"
+source_text = "True"
+source_fingerprint = "415cb30d99e774cc038a26fbe678defb96c7a21b58e2ee29919a4a67e62d504c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_probability_metrics): `zip(..., strict=True)` -> `strict=False`. The preceding `if len(values) != len(targets) or not values: raise` guarantees equal non-empty lengths, so strict=True never raises and the zips iterate identically. Verified by differential battery (original vs hand-applied mutant, cosmic-ray mutate_code): 14 _probability_metrics cases byte-identical, and mismatched lengths raise CalibrationError under both."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceTrueWithFalse:17"
+module = "textforensics.calibration"
+operator = "core/ReplaceTrueWithFalse"
+occurrence = 17
+start_pos = [984, 61]
+end_pos = [984, 65]
+function = "_probability_metrics"
+kind = "domain-equivalent"
+source_text = "True"
+source_fingerprint = "415cb30d99e774cc038a26fbe678defb96c7a21b58e2ee29919a4a67e62d504c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_probability_metrics): `zip(..., strict=True)` -> `strict=False`. The preceding `if len(values) != len(targets) or not values: raise` guarantees equal non-empty lengths, so strict=True never raises and the zips iterate identically. Verified by differential battery (original vs hand-applied mutant, cosmic-ray mutate_code): 14 _probability_metrics cases byte-identical, and mismatched lengths raise CalibrationError under both."
