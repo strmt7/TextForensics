@@ -1,66 +1,109 @@
 # Verification record — Phase 1 (2026-11-06)
 
-## Current state (HEAD `e65fde9`, 2026-11-09)
+## Current state (HEAD `fb1e23a`, 2026-11-09)
 
 Read this first. The dated sections below are historical records;
 their numbers are the numbers as measured at the time, and some of
 their "NOT verified" items have since been superseded (marked
-inline). The current picture, measured on `e65fde9` (Python 3.12.3,
+inline). The current picture, measured on `fb1e23a` (Python 3.12.3,
 `test_memory_check` host flake deselected — see the HEAD section at
 the end of this file):
 
-- **Full suite (extras): 3893 passed, 0 failed, 1 skipped, 1
-  deselected, 1209 subtests passed in 194.80 s (3:14).** The 1 skip
+- **Full suite (extras): 3933 passed, 0 failed, 1 skipped, 1
+  deselected, 1985 subtests passed in 464.80 s (7:44).** The 1 skip
   is the SBOM full-pinned-install check (atheris/wheel not in the
   main venv); the 1 deselected is the known `test_memory_check`
-  host flake.
-  Core-only suite (fresh bare venv `~/workspace/.tfc-core-venv`,
-  `pip install -e ".[dev]"`, venv `bin/` first on PATH): **3774
-  passed, 0 failed, 121 skipped, 0 deselected, 1209 subtests passed
-  in 644.20 s, coverage 78.49%** (18,038 statements, 3,454 missed,
-  6,834 branches, 946 partial; gate 75% passed) — the 121 skips are
-  all core-only-venv environment artifacts (51 fastapi not
-  installed, 22 API dev deps, 20 web_ui, 15 MCP dev deps, 7 API deps,
-  2 uvicorn, 1 full-pinned-install check, 1 cyclonedx) — the extras
-  surface is not installed in a core-only venv by design.
+  host flake. The first attempt died at ~39% in a VM reboot; the
+  cited run is a clean full re-run, reproduced exactly by an
+  independent re-measurement (3933/1/1, 1985 subtests, 270.41 s).
+  Core-only suite (fresh bare venv, `pip install -e ".[dev]"`,
+  venv `bin/` first on PATH): **3813 passed, 0 failed, 121 skipped,
+  1 deselected in 409.00 s, coverage 78%** (18,038 statements,
+  3,455 missed, 6,834 branches, 946 partial; gate 75% passed) — the
+  121 skips are all core-only-venv environment artifacts (fastapi
+  not installed, API dev deps, web_ui module not available, MCP dev
+  deps, API deps, uvicorn, the full-pinned-install check,
+  cyclonedx) — the extras surface is not installed in a core-only
+  venv by design. Coverage correction: the original core log
+  reported 82% (2,795 missed). That figure did NOT reproduce — an
+  independent re-measurement in a fresh bare venv measured 78%
+  (3,455 missed) with identical pass/skip counts, and three clean
+  core measurements cluster at 3,454–3,456 missed. The 82% figure
+  is an unverified artifact (one file, `_standalone_verify.py`,
+  carried 658 traced lines in that one data file that no
+  reproducible run produces; how they got there was not
+  established) — see the HEAD section below. Core coverage is
+  essentially unchanged from `e65fde9` (78.49%, 3,454 missed).
 - **Claims gate: 33 passed, 0 failed.** **Schemas: 12 OK.**
   **Pre-commit: 13/13** (see the HEAD section below).
 - **U7 evidence registry: 32 records**
   (`docs/evidence/registry.json`). **Validation registry:
   8 records** (`docs/validation/registry.json` — 7 `partial` + the
   RAID humans record, the first `supported` record).
-- **Mutation baseline: 963 equivalent mutants** (arg 678, return 140,
-  annassign 11, domain-equivalent 100, unobservable-value 23,
-  unreachable-condition 5, ulp-equivalent 6; runtime 134) across 8
+- **Mutation baseline: 1697 equivalent mutants** (arg 1340, return
+  170, annassign 11, domain-equivalent 135, unobservable-value 29,
+  ulp-equivalent 6, unreachable-condition 6; runtime 176) across 9
   modules; every full-session proof exits 0 with 0 unexplained.
+  Wave 2 totals: 4068 items, 3176 killed, 892 equivalent,
+  0 unexplained.
 - **Worst-slice human FPR: unknown** (`docs/evidence/report-card.md`).
   Pooled human FPR 0.0 [0.0, 0.0298] was measured on the first U3
   live probe run, and native-verdict FPR 0.0000 on the U1 seeds —
   neither is release-gate FPR evidence. The best measured per-slice
   Wilson 95% upper is 0.0038 pooled docs (0/1002); the worst document
   slice is OpAI-Bench 0.0642 (n=56), which fails the bar.
-- **CI on HEAD `e65fde9` (run 42639520382): SUCCESS — all 19 jobs
-  green**, including Core Python 3.11 / 3.12 / 3.13 / 3.14 / 3.15,
-  the claims gate, the SBOM staleness job, and all OS smokes.
-- **Open items:** the casefile mutation proof (running under its
-  diagnostic resume, 1355/2118 at ~15:59 CET 2026-11-09), live-TSA
-  interop (never achieved from the sandbox VM), the coverage gate
-  (raised 70 → 75 in CI in the release-gate wave — but
-  `engineering.toml` still demands `--cov-fail-under=80` and
-  `enterprise-deep-verification.yml:107` still demands
-  `--fail-under=95`, both unachievable on core-only coverage), the
-  bare `pip-audit` / `bandit` step in
-  `enterprise-deep-verification.yml` (installed into `.audit-env`
-  but run bare — "command not found" on a fresh runner), and the
-  policy session's 298 unexecuted work items (being executed now;
-  unknown until a larger-budget run completes).
-- **Closed in the release-gate wave (main `e65fde9`):** the 11
-  unpinned action refs are all SHA-pinned now (0 unpinned remain);
-  the `enterprise-deep-verification.yml` SBOM step now produces a
-  valid CycloneDX 1.6 SBOM. The coverage gate is `--fail-under=75`
+- **Manual end-to-end checks (this verification):** `textforensics
+  scan` on a 35-word human-like text → score 0.3446
+  `insufficient_evidence`; on a 35-word machine-like text → 0.6686
+  `insufficient_evidence` (just below the 0.68 `ai_like` threshold),
+  sane direction. Case-file round-trip: `case keygen` creates a
+  0600 key file; `case export --seal` produces the bundle; the
+  standalone stdlib verifier in the bundle exits 2 without a public
+  key and 0 with the correct key (signature verified, key
+  fingerprint matches).
+- **CI on HEAD `fb1e23a`: no test failed.** The six workflow runs
+  concluding "failure" are a GitHub platform incident artifact
+  (incident `tp8cghg7tlc4`, "Incident with Actions and Checks API",
+  2026-11-09 18:12:37–18:59:32Z): 14 job records were lost at
+  scheduling time, and the affected runs were finalized as failure
+  even though every job that ran succeeded — 22 check-runs: 20
+  success, 2 skipped, 0 failure. CodeQL re-run (attempt 2)
+  succeeded 20:35:39Z. No repo-side fix is needed; see
+  `phase5-ci-caveat-investigation.md` in the goal hidden_files. The
+  separate 54c1e25 Core Python 3.12 failure was a single-test
+  loopback socket race (`test_mid_body_drop_resumes_with_range`,
+  requests_seen 1 != 2) — a test/fixture fragility, not a
+  `download_large_file` defect; it passes on `fb1e23a` (CI Core
+  3.12: 3814 passed, 121 skipped, 1985 subtests).
+- **CI on current main `21ff98e` (run 42694796649, completed):
+  concludes "failure" — solely the "Checked-in SBOM is not stale"
+  job** (filelock 4.2.9 → 4.2.10, typer 0.28.0 → 0.29.0 upstream
+  releases; `requirements-pinned.txt` pins typer as a range
+  `typer>=0.12,<1`, so a fresh install picks up new releases; the
+  committed SBOM needs regeneration + commit). All 5 Core jobs
+  green, claims gate green, all OS smokes green; the other 7
+  workflow runs on `21ff98e` are success.
+- **Open items:** live-TSA interop (never achieved from the sandbox
+  VM), PAN 2025 (Greg-side TIRA registration, unconfirmed), the
+  `test_mid_body_drop_resumes_with_range` socket-race hardening
+  (follow-up, not blocking), and the SBOM staleness on `21ff98e`
+  (upstream releases; regenerate + commit the SBOM).
+- **Closed since `e65fde9`:** the casefile Phase-2 proof (merged
+  `54c1e25`: 2118/2118, corrected true counts 1416 killed / 702
+  equivalent / 0 unexplained, baseline 1665) and the policy 298
+  proof (merged `fb1e23a`: 506/506, 392 killed / 114 equivalent /
+  0 unexplained, baseline 1697); the coverage numbers aligned
+  (`--fail-under=95` → 75, `--cov-fail-under=80` → 75,
+  `minimum_coverage` 80 → 75, merged `caa80ca`); the bare
+  `pip-audit` / `bandit` step fixed (run from `.audit-env/bin/` +
+  the `#egg=textforensics` grep bug, merged `caa80ca`); ROADMAP and
+  SECURITY pinning status updated (merged `1e4d333`); the three
+  action upgrades (checkout v5.1.0 → v7.0.1, gitleaks v2.3.9 →
+  v3.0.0, scorecard v2.4.1 → v2.5.0, merged `21ff98e` — after this
+  verification's HEAD). The coverage gate is `--fail-under=75`
   in CI (`ci.yml:70`) and is measured on **core-only** coverage —
-  78.49% on `e65fde9` (78.43% on `928dbc0`), a ~3.5 pp margin —
-  NOT on the extras-venv ~81% this section used to cite. The
+  78% on `fb1e23a` (78.49% on `e65fde9`), a ~3 pp margin —
+  NOT on the extras-venv 81% this section used to cite. The
   extras figure is a different measurement and must never be used
   as the gate basis.
 
@@ -3194,3 +3237,116 @@ differential probe.
   resume), live-TSA interop, the two `--fail-under` inconsistencies
   above, the bare `pip-audit` / `bandit` step, and the policy
   session's 298 unexecuted work items.
+
+## Verification record — Phase 5, full verification on HEAD `fb1e23a` (2026-11-09)
+
+- **Measured on:** `fb1e23a` (branch `fix/verification-fb1e23a`,
+  worktree `~/workspace/TextForensics-verify-fb1e23a`), Python
+  3.12.3, main venv `~/workspace/TextForensics-rewrite/.venv` for
+  the extras suite and a fresh bare core-only venv for the core
+  suite. Evidence logs in the goal hidden_files:
+  `full-verification-fb1e23a-extras.log`,
+  `full-verification-fb1e23a-core.log`,
+  `full-verification-fb1e23a-claims.log`,
+  `full-verification-fb1e23a-schemas.log`,
+  `full-verification-fb1e23a-precommit.log`,
+  `full-verification-fb1e23a-manual.txt`.
+- **Extras suite:** 3933 passed, 0 failed, 1 skipped, 1 deselected,
+  1985 subtests passed in 464.80 s (7:44), coverage 81% (18,038
+  statements, 2,903 missed, 6,834 branches, 969 partial). The 1
+  skip is the SBOM full-pinned-install check (atheris/wheel not in
+  the main venv); the 1 deselected is the known `test_memory_check`
+  host flake. The first attempt died at ~39% in a VM reboot; the
+  cited run is a clean full re-run. An independent re-measurement
+  reproduced this figure exactly (3933/1/1, 1985 subtests, 270.41 s,
+  identical per-module table).
+- **Core-only suite:** 3813 passed, 0 failed, 121 skipped, 1
+  deselected in 409.00 s, coverage 78% (18,038 statements, 3,455
+  missed, 6,834 branches, 946 partial; gate 75% passed). The 121
+  skips are all core-only-venv environment artifacts (fastapi /
+  API dev deps / web_ui / MCP dev deps / API deps / uvicorn / the
+  full-pinned-install check / cyclonedx).
+- **Coverage correction — the original core log's 82% was wrong:**
+  the original core log reported 82% (2,795 missed). That figure
+  did NOT reproduce: an independent re-measurement in a fresh bare
+  venv (`~/.tfc-core-venv-workerA`, Python 3.12.3, `pip install -e
+  ".[dev]"`, venv `bin/` first on PATH, `pytest
+  --cov=textforensics` + the same deselect) measured 3813 passed,
+  121 skipped, 1 deselected in 260.86 s with TOTAL 18,038 / 3,455
+  / 6,834 / 946 = 78%. Three independent clean core measurements
+  cluster at 3,454–3,456 missed (this re-measurement 3,455; a
+  concurrent repro 3,456; an earlier core run preserved in the main
+  repo's `.coverage` 3,455; `e65fde9` 3,454) — the 2,795 figure is
+  the lone outlier. The entire discrepancy was one file:
+  `_standalone_verify.py` showed 61% covered (354 missed) in the
+  original core data file but 0% (1,011 missed) in every
+  reproducible run; the remaining differences are the expected
+  extras-skips pattern (web_ui +394, api +84, mcp +71 missed in
+  core). How the 658 traced lines got into that one data file was
+  NOT established — the venv, the coverage entry point (`coverage
+  run` vs pytest-cov), concurrent execution, import style, and
+  tool versions were each tested and none reproduced it — so the
+  82% figure is recorded as unverified, not as evidence of
+  anything about the new kill tests' coverage. The correct figures
+  are core-only 78% and extras 81%; core does not exceed extras.
+  The original core run's slower time (409.00 s vs 260.86 s
+  sequential) is consistent with it having run concurrently with
+  the extras suite, but concurrency did not reproduce the 658-line
+  difference. Evidence:
+  `core-coverage-remeasure-workera.log`,
+  `extras-coverage-remeasure-workera.log`,
+  `core-coverage-repro-workera.log`,
+  `extras-coverage-repro-workera.log` (+ matching `.coverage-*`
+  data files) in the goal hidden_files.
+- **Gates on this branch (re-run by the coordinator):** claims
+  33/33 ("All claims verified"), schemas 12 OK, pre-commit 13/13.
+- **Manual end-to-end checks:** `textforensics scan` on a 35-word
+  human-like text → score 0.3446 `insufficient_evidence`
+  (confidence 0.1089); on a 35-word machine-like text → 0.6686
+  `insufficient_evidence` (confidence 0.1221), sane direction
+  (machine-like > human-like, both honestly abstaining below the
+  80-word minimum). Case-file round-trip: `case keygen` creates a
+  0600 JSON key file; `case export --seal --signing-key` produces
+  case.json (case-file/v4, raw_text_included false) + the sealed
+  zip with the bundled stdlib verifier; the standalone verifier
+  exits 2 without a public key (signature present, origin not
+  authenticated) and 0 with the correct key (signature verified,
+  key fingerprint matches the keyid).
+- **CI on `fb1e23a`:** the six workflow runs concluding "failure"
+  are a GitHub platform incident artifact (incident `tp8cghg7tlc4`,
+  "Incident with Actions and Checks API", 2026-11-09
+  18:12:37–18:59:32Z): 14 job records were lost at scheduling time
+  (CI lost 6 legs, Reproducibility 4 of 5, CodeQL its only job),
+  and the affected runs were finalized as failure even though every
+  job that ran succeeded — 22 check-runs: 20 success, 2 skipped
+  (Full Mutation, DeepSource), 0 failure. CodeQL re-run (attempt 2)
+  succeeded 20:35:39Z; the other five runs were not re-run (the
+  incident is established, and current main's CI is the live
+  confirmation). No repo-side fix is needed. Full investigation:
+  `phase5-ci-caveat-investigation.md` in the goal hidden_files.
+  The separate 54c1e25 Core Python 3.12 failure was a single test,
+  `test_mid_body_drop_resumes_with_range` (requests_seen 1 != 2) —
+  a BrokenPipeError loopback socket race in the test/fixture's
+  exact request-count assert, not in `download_large_file` (the
+  file was complete after a single request). It passed on all
+  other Pythons on the same commit and passes on `fb1e23a`.
+  Follow-up: harden that test against the socket race.
+- **CI on current main `21ff98e` (run 42694796649, completed):**
+  concludes "failure" — solely the "Checked-in SBOM is not stale"
+  job (filelock 4.2.9 → 4.2.10, typer 0.28.0 → 0.29.0 upstream
+  releases; `requirements-pinned.txt` pins typer as a range
+  `typer>=0.12,<1`, so a fresh install picks up new releases; the
+  committed SBOM needs regeneration + commit). All 5 Core jobs
+  green, claims gate green, all OS smokes green; the other 7
+  workflow runs on `21ff98e` are success. This is not a `fb1e23a`
+  issue (the SBOM job passed on `fb1e23a` at 18:24Z) and not an
+  incident artifact (the incident resolved 18:59:32Z; this run
+  started 20:37:52Z).
+- **Release-ready? NO — not called release-ready.** The suites,
+  gates, and proofs on `fb1e23a` are all green, but: the SBOM
+  staleness job fails on current main `21ff98e` (needs a
+  regeneration + commit); live-TSA interop was never achieved from
+  this VM; PAN 2025 registration is unconfirmed; the worst-slice
+  human FPR is still unknown. No release is created by this change.
+- **Still open:** live-TSA interop, PAN 2025, the socket-race test
+  hardening, the SBOM regeneration on main.
