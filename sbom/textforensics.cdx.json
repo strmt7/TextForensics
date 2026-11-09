@@ -281,17 +281,17 @@
       "version": "0.162.2"
     },
     {
-      "bom-ref": "filelock@4.2.9",
+      "bom-ref": "filelock@4.2.10",
       "licenses": [
         {
           "expression": "MIT"
         }
       ],
       "name": "filelock",
-      "purl": "pkg:pypi/filelock@4.2.9",
+      "purl": "pkg:pypi/filelock@4.2.10",
       "scope": "required",
       "type": "library",
-      "version": "4.2.9"
+      "version": "4.2.10"
     },
     {
       "bom-ref": "frozenlist@1.8.0",
@@ -1188,17 +1188,17 @@
       "version": "7.0.0"
     },
     {
-      "bom-ref": "typer@0.28.0",
+      "bom-ref": "typer@0.29.0",
       "licenses": [
         {
           "expression": "MIT"
         }
       ],
       "name": "typer",
-      "purl": "pkg:pypi/typer@0.28.0",
+      "purl": "pkg:pypi/typer@0.29.0",
       "scope": "required",
       "type": "library",
-      "version": "0.28.0"
+      "version": "0.29.0"
     },
     {
       "bom-ref": "typing-extensions@4.16.0",
@@ -1389,7 +1389,7 @@
     {
       "dependsOn": [
         "cachecontrol@0.14.4",
-        "filelock@4.2.9",
+        "filelock@4.2.10",
         "msgpack@1.2.4",
         "pytest-cov@7.1.0",
         "pytest@9.2.0",
@@ -1502,7 +1502,7 @@
     },
     {
       "dependsOn": [],
-      "ref": "filelock@4.2.9"
+      "ref": "filelock@4.2.10"
     },
     {
       "dependsOn": [],
@@ -1721,7 +1721,7 @@
         "rich@15.0.0",
         "sse-starlette@3.7.0",
         "starlette@1.10.0",
-        "typer@0.28.0",
+        "typer@0.29.0",
         "typing-extensions@4.16.0",
         "typing-inspection@0.4.5",
         "uvicorn@0.54.0"
@@ -1948,7 +1948,7 @@
     },
     {
       "dependsOn": [
-        "filelock@4.2.9"
+        "filelock@4.2.10"
       ],
       "ref": "python-discovery@1.9.5"
     },
@@ -2022,7 +2022,7 @@
     {
       "dependsOn": [
         "build@1.6.1",
-        "filelock@4.2.9",
+        "filelock@4.2.10",
         "jaraco-functools@4.6.0",
         "more-itertools@11.2.1",
         "packaging@26.3",
@@ -2112,7 +2112,7 @@
         "ruff@0.17.4",
         "setuptools@84.2.1",
         "twine@7.0.0",
-        "typer@0.28.0",
+        "typer@0.29.0",
         "uvicorn@0.54.0",
         "websockets@12.0",
         "wheel@0.48.0"
@@ -2152,10 +2152,11 @@
     {
       "dependsOn": [
         "annotated-doc@0.0.5",
+        "pydantic@2.14.3",
         "rich@15.0.0",
         "shellingham@1.5.4"
       ],
-      "ref": "typer@0.28.0"
+      "ref": "typer@0.29.0"
     },
     {
       "dependsOn": [],
@@ -2184,7 +2185,7 @@
     {
       "dependsOn": [
         "distlib@0.4.4",
-        "filelock@4.2.9",
+        "filelock@4.2.10",
         "packaging@26.3",
         "platformdirs@4.14.5",
         "python-discovery@1.9.5",
@@ -2256,7 +2257,7 @@
       }
     ]
   },
-  "serialNumber": "urn:uuid:b92cdda4-2039-5459-9dcd-68ff854ef2c6",
+  "serialNumber": "urn:uuid:e58434c3-db38-5131-879e-581a2c87c501",
   "specVersion": "1.6",
   "version": 1
 }
