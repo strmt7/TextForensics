@@ -238,6 +238,56 @@ def test_analyze_text_does_not_crash(self, text):
 - No unbounded memory growth over sequential analyses
 - Performance results archived in `pytest-performance.json`
 
+### 2.6 Merge verification (parent)
+
+**Scope:** the parent's final verification of a rebased branch before it is
+merged into `main`. The branch author's own runs do not count: the branch
+must be re-verified on the exact tree that will be merged.
+
+**Rule: verify on a tree whose bytecode state is known-fresh.** Do one of
+the two:
+
+1. **Preferred — fresh checkout:** create a new linked worktree from the
+   exact rebased head *after* the branch is final
+   (`git worktree add <dir> <head>`), and run the gates there. A fresh
+   checkout has no `__pycache__` at all, so no stale bytecode can exist,
+   and it contains only committed content, so a transient on-disk edit
+   cannot survive into it either.
+2. **If verifying in the same worktree:** delete every `__pycache__`
+   directory first
+   (`find . -name __pycache__ -type d -exec rm -rf {} +`)
+   and run with `PYTHONDONTWRITEBYTECODE=1`. This removes the stale-`.pyc`
+   channel entirely (no `.pyc` to be stale) regardless of runner.
+
+Then run the **full** `tests/test_mutation.py` (not just the count test)
+plus the claims gate, the schema check, and `pre-commit run --all-files`
+on that tree, and check `git status` clean afterwards.
+
+**Why:** during the policy-298 merge (2026-11-09) the coordinator's
+in-worktree runs on the rebased tree all passed, but a fresh checkout at
+`32e9bd1` failed `test_baseline_file_loads_with_1697_entries` — the test
+asserted `Eq_LtE: 19` while the union baseline has 23. Both parents had
+19, so the literal was correct for each parent and wrong only for the
+union (same-number trap), and the line was untouched context in the rebase
+diff, so nothing prompted the resolver to update it. The passing
+in-worktree run was never explained with certainty (a stale timestamp-based
+`.pyc` under a plain-import runner, or a transient on-disk 23 reverted
+without a re-run — both remain possible; default pytest 9.2.0 cannot go
+stale on the test file itself, since its assertion-rewrite `.pyc` is a
+PEP 552 checked-hash cache). The fresh-checkout rule closes the gap under
+either candidate: there is no `.pyc` to be stale, and the file on disk is
+the committed file. The fresh checkout is what caught it.
+
+**Standing lesson from the same merge:** after a union merge, diff the FULL
+computed operator Counter against the file's literal, never just the
+conflicted lines — counts both sides updated to the same value can still be
+wrong for the union.
+
+**Record the provenance:** the merge record should note where the
+verification ran (fresh-checkout worktree path + commit hash), so it is
+auditable. Save gate outputs with the command and head hash recorded in the
+log itself, not just in the filename.
+
 ---
 
 ## Benchmark Discipline
