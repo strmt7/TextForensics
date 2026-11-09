@@ -27,10 +27,10 @@ the end of this file):
   venv by design. Coverage correction: the original core log
   reported 82% (2,795 missed). That figure did NOT reproduce — an
   independent re-measurement in a fresh bare venv measured 78%
-  (3,455 missed) with identical pass/skip counts, and three clean
-  core measurements cluster at 3,454–3,456 missed. The 82% figure
+  (3,455 missed) with identical pass/skip counts, and four clean
+  core measurements give 3,454–3,456 missed. The 82% figure
   is an unverified artifact (one file, `_standalone_verify.py`,
-  carried 658 traced lines in that one data file that no
+  carried 657 traced lines in that one data file that no
   reproducible run produces; how they got there was not
   established) — see the HEAD section below. Core coverage is
   essentially unchanged from `e65fde9` (78.49%, 3,454 missed).
@@ -81,7 +81,7 @@ the end of this file):
   releases; `requirements-pinned.txt` pins typer as a range
   `typer>=0.12,<1`, so a fresh install picks up new releases; the
   committed SBOM needs regeneration + commit). All 5 Core jobs
-  green, claims gate green, all OS smokes green; the other 7
+  green, claims gate green, all OS smokes green; the other 9
   workflow runs on `21ff98e` are success.
 - **Open items:** live-TSA interop (never achieved from the sandbox
   VM), PAN 2025 (Greg-side TIRA registration, unconfirmed), the
@@ -96,13 +96,14 @@ the end of this file):
   (`--fail-under=95` → 75, `--cov-fail-under=80` → 75,
   `minimum_coverage` 80 → 75, merged `caa80ca`); the bare
   `pip-audit` / `bandit` step fixed (run from `.audit-env/bin/` +
-  the `#egg=textforensics` grep bug, merged `caa80ca`); ROADMAP and
-  SECURITY pinning status updated (merged `1e4d333`); the three
+  the `#egg=textforensics` grep bug, merged `caa80ca`); the
+  ROADMAP coverage-gate statement updated (merged `fd8d0ad`)
+  and SECURITY pinning status updated (merged `1e4d333`); the three
   action upgrades (checkout v5.1.0 → v7.0.1, gitleaks v2.3.9 →
   v3.0.0, scorecard v2.4.1 → v2.5.0, merged `21ff98e` — after this
   verification's HEAD). The coverage gate is `--fail-under=75`
   in CI (`ci.yml:70`) and is measured on **core-only** coverage —
-  78% on `fb1e23a` (78.49% on `e65fde9`), a ~3 pp margin —
+  78% on `fb1e23a` (78.49% on `e65fde9`), a ~3.5 pp margin —
   NOT on the extras-venv 81% this section used to cite. The
   extras figure is a different measurement and must never be used
   as the gate basis.
@@ -3273,16 +3274,25 @@ differential probe.
   ".[dev]"`, venv `bin/` first on PATH, `pytest
   --cov=textforensics` + the same deselect) measured 3813 passed,
   121 skipped, 1 deselected in 260.86 s with TOTAL 18,038 / 3,455
-  / 6,834 / 946 = 78%. Three independent clean core measurements
-  cluster at 3,454–3,456 missed (this re-measurement 3,455; a
-  concurrent repro 3,456; an earlier core run preserved in the main
-  repo's `.coverage` 3,455; `e65fde9` 3,454) — the 2,795 figure is
-  the lone outlier. The entire discrepancy was one file:
+  / 6,834 / 946 = 78% (78.49% at 2 dp). Four independent clean
+  core measurements give 3,454–3,456 missed (this re-measurement
+  3,455; a concurrent repro 3,456; an earlier core run preserved
+  in the main repo's `.coverage` 3,455; `e65fde9` 3,454) — the
+  2,795 figure is the lone outlier. (Provenance caveat: the main
+  repo's `.coverage` file is dated 16:29 CET, before `fb1e23a`
+  was pushed at ~19:24 CET, and records no commit — only its
+  3,455-missed count is verified, not that it measured
+  `fb1e23a`.) Nearly the entire discrepancy was one file:
   `_standalone_verify.py` showed 61% covered (354 missed) in the
   original core data file but 0% (1,011 missed) in every
-  reproducible run; the remaining differences are the expected
-  extras-skips pattern (web_ui +394, api +84, mcp +71 missed in
-  core). How the 658 traced lines got into that one data file was
+  reproducible run — 657 of the 660-line gap (2,795 → 3,455
+  missed). The other 3 lines are one-line flips in
+  `diagnostics.py` (11 → 12 missed), `evidence.py` (217 → 218),
+  and `timestamp.py` (103 → 104). (For comparison, core vs
+  extras differs by 552 missed lines, as expected for the 121
+  skipped extras tests: web_ui +394, api +84, mcp +71, cli +3,
+  evidence +2, ed25519 −2.) How the 657 traced lines got into
+  that one data file was
   NOT established — the venv, the coverage entry point (`coverage
   run` vs pytest-cov), concurrent execution, import style, and
   tool versions were each tested and none reproduced it — so the
@@ -3291,7 +3301,7 @@ differential probe.
   are core-only 78% and extras 81%; core does not exceed extras.
   The original core run's slower time (409.00 s vs 260.86 s
   sequential) is consistent with it having run concurrently with
-  the extras suite, but concurrency did not reproduce the 658-line
+  the extras suite, but concurrency did not reproduce the 657-line
   difference. Evidence:
   `core-coverage-remeasure-workera.log`,
   `extras-coverage-remeasure-workera.log`,
@@ -3337,7 +3347,7 @@ differential probe.
   releases; `requirements-pinned.txt` pins typer as a range
   `typer>=0.12,<1`, so a fresh install picks up new releases; the
   committed SBOM needs regeneration + commit). All 5 Core jobs
-  green, claims gate green, all OS smokes green; the other 7
+  green, claims gate green, all OS smokes green; the other 9
   workflow runs on `21ff98e` are success. This is not a `fb1e23a`
   issue (the SBOM job passed on `fb1e23a` at 18:24Z) and not an
   incident artifact (the incident resolved 18:59:32Z; this run
