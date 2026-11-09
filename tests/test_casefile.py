@@ -12,6 +12,7 @@ from textforensics.casefile import (
     CASE_SCHEMA_V3,
     CASE_SCHEMA_V4,
     CUSTODY_GENESIS_PREV_HASH,
+    TRUST_SCHEMA,
     _calibration_ids,
     _checklist_consistency,
     _checklist_item,
@@ -30,6 +31,7 @@ from textforensics.casefile import (
     _strip_runtime_ms_from_bundle,
     _validate_digest,
     _validate_portable_bundle,
+    _verify_case_sections,
     _verify_manifest,
     append_custody_entry,
     build_case_input,
@@ -2919,6 +2921,946 @@ class CasefileMutationKillTests(unittest.TestCase):
                 )
                 result = replay_case_file_path(path, text=TEXT, detectors=[fake])
                 self.assertEqual(result["valid"], expect_valid, diff)
+
+    # -- Phase 2 gap kill tests (casefile mutation Phase 2) ---------------
+    # One test per re-derived test gap (86). Each test pins the exact
+    # distinguishing input from hidden_files/casefile-p2-classification.md
+    # (gap list: hidden_files/casefile-p2-gap-kill-tests.md) so the mutant
+    # at the cited position changes the observable result. "p2_gap_<idx>"
+    # is the cosmic-ray work-item index of the mutant.
+
+    def _p2_disagreement_case(self, **process_overrides):
+        process = self._cons_process(**process_overrides)
+        return self._cons_case(
+            process,
+            observations=[
+                {
+                    "kind": "observed",
+                    "detector_id": "d1",
+                    "verdict": "ai_like",
+                    "disposition": "relied_on",
+                },
+                {
+                    "kind": "observed",
+                    "detector_id": "d2",
+                    "verdict": "human_like",
+                    "disposition": "considered",
+                },
+            ],
+        )
+
+    # -- D-item Eq_LtE gaps: "not_satisfied" must not fire the rule -------
+
+    def test_p2_gap_1048_d2_not_satisfied_disagreement_does_not_fire(self):
+        case = self._p2_disagreement_case(
+            items={"D2": {"status": "not_satisfied"}}, contrary_evidence=[]
+        )
+        self.assertNotIn(
+            "checklist_d2_unsupported:detector_disagreement_unaddressed",
+            _checklist_consistency(case, {}),
+        )
+
+    def test_p2_gap_1051_d4_not_satisfied_reviewer_missing_does_not_fire(self):
+        process = self._cons_process(items={"D4": {"status": "not_satisfied"}}, reviewer=None)
+        self.assertNotIn(
+            "checklist_d4_unsupported:reviewer_missing",
+            _checklist_consistency(self._cons_case(process), {}),
+        )
+
+    def test_p2_gap_1054_d6_not_satisfied_incomplete_disclosure_does_not_fire(self):
+        process = self._cons_process(items={"D6": {"status": "not_satisfied"}})
+        case = self._cons_case(
+            process, limitations={"plain_language": {}, "counterfactuals": ["c1"]}
+        )
+        self.assertNotIn(
+            "checklist_d6_unsupported:limitations_disclosure_incomplete",
+            _checklist_consistency(case, {}),
+        )
+
+    def test_p2_gap_1056_d8_not_satisfied_no_counterfactuals_does_not_fire(self):
+        process = self._cons_process(items={"D8": {"status": "not_satisfied"}})
+        case = self._cons_case(
+            process,
+            limitations={
+                "plain_language": {
+                    "score_not_probability": "s",
+                    "authorship_warning": "a",
+                    "human_fpr": "h",
+                },
+                "counterfactuals": [],
+            },
+        )
+        self.assertNotIn(
+            "checklist_d8_unsupported:no_counterfactuals",
+            _checklist_consistency(case, {}),
+        )
+
+    def test_p2_gap_1058_d10_not_satisfied_missing_policy_does_not_fire(self):
+        process = self._cons_process(
+            items={"D10": {"status": "not_satisfied"}}, policy_version=None
+        )
+        self.assertNotIn(
+            "checklist_d10_unsupported:policy_or_procedure_version_missing",
+            _checklist_consistency(self._cons_case(process), {}),
+        )
+
+    # -- _observations_match comparison gaps ------------------------------
+
+    def test_p2_gap_1061_observations_match_v3_lt_is_not_lte(self):
+        self.assertFalse(_observations_match(["a"], ["b"], version="v3"))
+
+    def test_p2_gap_1117_observations_match_v3_gt_is_not_gte(self):
+        self.assertFalse(_observations_match(["b"], ["a"], version="v3"))
+
+    def test_p2_gap_1173_observations_match_v3_is_not_identity(self):
+        sealed = [{"kind": "observed", "detector_id": "d1", "score": 0.5, "determinism": "unknown"}]
+        expected = [
+            {"kind": "observed", "detector_id": "d1", "score": 0.9, "determinism": "unknown"}
+        ]
+        self.assertFalse(_observations_match(sealed, expected, version="v3"))
+
+    def test_p2_gap_1137_d5_same_decider_by_value_not_identity(self):
+        decider = "".join(["a", "l", "i", "c", "e"])
+        appeal_decider = "".join(["a", "l", "i", "c", "e"])
+        self.assertEqual(decider, appeal_decider)
+        self.assertIsNot(decider, appeal_decider)
+        process = self._cons_process()
+        process["appeal"] = {
+            "decider": decider,
+            "appeal_decider": appeal_decider,
+            "route": "r",
+            "deadline": "d",
+        }
+        self.assertIn(
+            "checklist_d5_unsupported:same_decider_for_appeal",
+            _checklist_consistency(self._cons_case(process), {}),
+        )
+
+    # -- _replay_detectors / determinism overrides ------------------------
+
+    def test_p2_gap_87_replay_extra_detector_is_not_not_replayed(self):
+        row = self._sealed_row()
+        stranger = _FakeReplayDetector(
+            "test/stranger", version="1.0.0", score=0.1, verdict="ai_like"
+        )
+        errors, _, _ = _replay_detectors([row], [stranger], TEXT, atol=1e-9)
+        self.assertIn("unexpected_detector:test/stranger", errors)
+        self.assertIn("detector_not_replayed:textforensics/builtin-heuristic", errors)
+        self.assertNotIn("detector_not_replayed:test/stranger", errors)
+
+    def test_p2_gap_954_determinism_override_unknown_in_both_maps_raises(self):
+        bundle = self._bundle()
+        with self.assertRaises(ValueError):
+            seal_case_file(
+                bundle,
+                determinism={"unknown-detector": "non_deterministic"},
+                determinism_reasons={"unknown-detector": "sampled"},
+            )
+
+    def test_p2_gap_1865_determinism_override_skips_non_mapping_entry(self):
+        bundle = self._bundle()
+        bundle["detector_results"] = ["junk", *bundle["detector_results"]]
+        case = seal_case_file(
+            bundle, determinism={"textforensics/builtin-heuristic": "deterministic"}
+        )
+        self.assertEqual(case["detector_observations"][0]["determinism"], "deterministic")
+
+    def test_p2_gap_2002_determinism_override_applies_after_non_mapping_entry(self):
+        bundle = self._bundle()
+        bundle["detector_results"] = ["junk", *bundle["detector_results"]]
+        case = seal_case_file(
+            bundle, determinism={"textforensics/builtin-heuristic": "non_deterministic"}
+        )
+        self.assertEqual(case["detector_observations"][0]["determinism"], "non_deterministic")
+
+    def test_p2_gap_2096_invalid_determinism_value_keeps_original_message(self):
+        # The mutant empties only the validation loop, so the bogus value
+        # is written and fails later with a different message.
+        with self.assertRaisesRegex(ValueError, "Invalid determinism for"):
+            seal_case_file(
+                self._bundle(),
+                determinism={"textforensics/builtin-heuristic": "bogus"},
+            )
+
+    # -- validate_checklist gaps ------------------------------------------
+
+    def test_p2_gap_1490_validate_checklist_string_evidence_is_valid(self):
+        process = build_checklist({"D1": {"status": "satisfied", "evidence": ["e1"]}})
+        self.assertNotIn("checklist_d1_invalid_evidence", validate_checklist(process))
+
+    def test_p2_gap_1491_validate_checklist_valid_mapping_disposition_is_valid(self):
+        process = build_checklist(evidence_dispositions={"d1": {"disposition": "relied_on"}})
+        self.assertNotIn("checklist_disposition_invalid:d1", validate_checklist(process))
+
+    def test_p2_gap_1998_validate_checklist_reports_d1_and_d2(self):
+        process = build_checklist()
+        process["items"]["D1"] = "not-a-mapping"
+        process["items"]["D2"]["status"] = "bogus"
+        errors = validate_checklist(process)
+        self.assertIn("checklist_d1_missing", errors)
+        self.assertIn("checklist_d2_invalid_status", errors)
+
+    # -- D2 contrary-evidence gaps ----------------------------------------
+
+    def test_p2_gap_1519_d2_valid_contrary_entry_is_complete(self):
+        case = self._p2_disagreement_case(contrary_evidence=[{"detector_id": "d1"}])
+        self.assertNotIn(
+            "checklist_d2_unsupported:contrary_evidence_incomplete",
+            _checklist_consistency(case, {}),
+        )
+
+    def test_p2_gap_1684_d2_valid_contrary_entry_is_complete_addnot(self):
+        # Same distinguishing input as idx 1519: the two mutants coincide.
+        case = self._p2_disagreement_case(contrary_evidence=[{"detector_id": "d1"}])
+        self.assertNotIn(
+            "checklist_d2_unsupported:contrary_evidence_incomplete",
+            _checklist_consistency(case, {}),
+        )
+
+    def test_p2_gap_1993_d2_two_invalid_contrary_entries_report_once(self):
+        case = self._p2_disagreement_case(contrary_evidence=[{"note": "x"}, {"note": "y"}])
+        errors = _checklist_consistency(case, {})
+        self.assertEqual(errors.count("checklist_d2_unsupported:contrary_evidence_incomplete"), 1)
+
+    def test_p2_gap_1935_d5_route_present_deadline_missing(self):
+        process = self._cons_process(
+            appeal={"decider": "alice", "appeal_decider": "bob", "route": "r"}
+        )
+        self.assertIn(
+            "checklist_d5_unsupported:route_or_deadline_missing",
+            _checklist_consistency(self._cons_case(process), {}),
+        )
+
+    # -- build_case_input gap ----------------------------------------------
+
+    def test_p2_gap_1914_build_case_input_non_string_acquired_by_is_gap(self):
+        _, gaps = build_case_input(self._bundle(), acquired_by=123)
+        self.assertIn("input.acquired_by", [gap["field"] for gap in gaps])
+        _, gaps2 = build_case_input(self._bundle(), acquired_by="")
+        self.assertIn("input.acquired_by", [gap["field"] for gap in gaps2])
+
+    # -- build_validation_refs gaps --------------------------------------
+
+    def test_p2_gap_1222_validation_refs_passes_zh_language(self):
+        bundle = _matching_bundle()
+        conditions = dict(bundle["input_conditions"])
+        conditions["language"] = "zh"
+        conditions["language_confidence"] = "high"
+        bundle["input_conditions"] = conditions
+        registry, calls, _ = self._fake_registry()
+        build_validation_refs(bundle, registry)
+        self.assertEqual(calls[0]["language"], "zh")
+
+    def test_p2_gap_1287_validation_refs_passes_news_domain(self):
+        registry, calls, _ = self._fake_registry()
+        build_validation_refs(_matching_bundle(), registry)
+        self.assertEqual(calls[0]["domain"], "news")
+
+    def test_p2_gap_1288_validation_refs_passes_raw_editing_regime(self):
+        registry, calls, _ = self._fake_registry()
+        build_validation_refs(_matching_bundle(), registry)
+        self.assertEqual(calls[0]["editing_regime"], "raw")
+
+    def test_p2_gap_1866_validation_refs_skips_non_mapping_result_ids(self):
+        bundle = self._bundle()
+        bundle["detector_results"] = ["junk", *bundle["detector_results"]]
+        registry, _, _ = self._fake_registry()
+        refs, _ = build_validation_refs(bundle, registry)
+        self.assertEqual(len(refs), 1)
+        self.assertEqual(refs[0]["detector_id"], "textforensics/builtin-heuristic")
+
+    def test_p2_gap_1867_validation_refs_skips_non_mapping_result_rows(self):
+        # Same distinguishing input as idx 1866 (the observations
+        # comprehension is the second of the two identical guards).
+        bundle = self._bundle()
+        bundle["detector_results"] = ["junk", *bundle["detector_results"]]
+        registry, _, _ = self._fake_registry()
+        refs, _ = build_validation_refs(bundle, registry)
+        self.assertEqual(len(refs), 1)
+        self.assertEqual(refs[0]["detector_id"], "textforensics/builtin-heuristic")
+
+    def test_p2_gap_2041_validation_refs_first_metric_not_a_mapping(self):
+        _, _, FakeRecord = self._fake_registry()
+        record = FakeRecord(
+            "rec-1",
+            "supported",
+            metrics=["not-a-dict", {"fpr_native": {"value": 0.04, "n": 80}}],
+        )
+        registry, _, _ = self._fake_registry({"textforensics/builtin-heuristic": [record]})
+        refs, _ = build_validation_refs(self._bundle(), registry)
+        self.assertIsNone(refs[0]["records"][0]["fpr_native"])
+
+    def test_p2_gap_2043_validation_refs_reads_first_metric_fpr(self):
+        _, _, FakeRecord = self._fake_registry()
+        record = FakeRecord(
+            "rec-1",
+            "supported",
+            metrics=[
+                {"fpr_native": {"value": 0.04, "n": 80}},
+                {"fpr_native": {"value": 0.09, "n": 50}},
+            ],
+        )
+        registry, _, _ = self._fake_registry({"textforensics/builtin-heuristic": [record]})
+        refs, _ = build_validation_refs(self._bundle(), registry)
+        self.assertEqual(refs[0]["records"][0]["fpr_native"]["value"], 0.04)
+
+    # -- _verify_case_sections gaps ----------------------------------------
+
+    def test_p2_gap_1225_verify_sections_input_sha_greater_than_bundle(self):
+        case = self._sealed()
+        bundle_sha = case["forensic_bundle"]["content_sha256"]
+        self.assertLess(bundle_sha, "f" * 64)
+        case["input"]["content_sha256"] = "f" * 64
+        self.assertIn("v3_input_content_sha256_mismatch", verify_case_file(case)["errors"])
+
+    def test_p2_gap_1226_verify_sections_plugin_health_not_observed(self):
+        case = self._sealed()
+        case["detector_observations"].append({"kind": "plugin_health", "detector_id": "x"})
+        self.assertNotIn(
+            "v4_detector_observations_determinism_missing:x",
+            verify_case_file(case)["errors"],
+        )
+
+    def test_p2_gap_1290_verify_sections_failed_not_observed(self):
+        case = self._sealed()
+        case["detector_observations"].append({"kind": "failed", "detector_id": "y"})
+        self.assertNotIn(
+            "v4_detector_observations_determinism_missing:y",
+            verify_case_file(case)["errors"],
+        )
+
+    def test_p2_gap_1232_verify_sections_fingerprint_65_chars_invalid(self):
+        seed = bytes(range(32))
+        signer = {"identity": "strmt7", "role": "sealer"}
+        case = self._sealed(signing_seed=seed, signer=signer)
+        case["seal"]["signature"]["key_fingerprint"] = "a" * 65
+        self.assertIn("v3_seal_signature_fingerprint_invalid", verify_case_file(case)["errors"])
+
+    def test_p2_gap_1292_verify_sections_registry_sha_smaller_than_id(self):
+        case = self._sealed()
+        case["validation_refs"] = [{"registry_id": "b" * 64, "registry_sha256": "a" * 64}]
+        self.assertIn(
+            "v3_validation_ref_registry_sha256_mismatch", verify_case_file(case)["errors"]
+        )
+
+    def test_p2_gap_1294_verify_sections_custody_head_smaller_than_entry(self):
+        case = self._sealed()
+        case["seal"]["custody_head"] = "0" * 64
+        self.assertIn("v3_seal_custody_head_mismatch", verify_case_file(case)["errors"])
+
+    def test_p2_gap_1295_verify_sections_signature_algorithm_ecdsa_invalid(self):
+        seed = bytes(range(32))
+        signer = {"identity": "strmt7", "role": "sealer"}
+        case = self._sealed(signing_seed=seed, signer=signer)
+        case["seal"]["signature"]["algorithm"] = "ecdsa"
+        self.assertIn("v3_seal_signature_algorithm_invalid", verify_case_file(case)["errors"])
+
+    def test_p2_gap_1716_verify_sections_applies_evidence_dispositions(self):
+        case = seal_case_file(
+            self._bundle(),
+            process={
+                "evidence_dispositions": {
+                    "textforensics/builtin-heuristic": {
+                        "disposition": "relied_on",
+                        "reason": "r",
+                    }
+                }
+            },
+        )
+        errors = _verify_case_sections(case, case["forensic_bundle"], version="v4")
+        self.assertNotIn("v3_detector_observations_mismatch", errors)
+
+    def test_p2_gap_1941_verify_sections_process_dispositions_applied(self):
+        # The (process or {}) guard is only evaluated when process IS a
+        # Mapping (the ternary takes the else branch otherwise), so the
+        # distinguishing input is a process carrying evidence_dispositions:
+        # the original applies them when rebuilding observations, the
+        # mutant drops them and the rebuild mismatches. (The
+        # classification's "no process key" input cannot reach the `or`.)
+        case = seal_case_file(
+            self._bundle(),
+            process={
+                "evidence_dispositions": {
+                    "textforensics/builtin-heuristic": {
+                        "disposition": "relied_on",
+                        "reason": "r",
+                    }
+                }
+            },
+        )
+        errors = _verify_case_sections(case, case["forensic_bundle"], version="v4")
+        self.assertNotIn("v3_detector_observations_mismatch", errors)
+
+    def test_p2_gap_1994_verify_sections_two_invalid_gaps_report_once(self):
+        case = self._sealed()
+        case["gaps"] = [{"field": "", "reason": "r"}, {"field": "f", "reason": ""}]
+        errors = verify_case_file(case)["errors"]
+        self.assertEqual(errors.count("v3_gaps_invalid"), 1)
+
+    def test_p2_gap_2004_verify_sections_skips_non_observed_before_missing(self):
+        case = self._sealed()
+        detector_id = str(case["detector_observations"][0]["detector_id"])
+        del case["detector_observations"][0]["determinism"]
+        case["detector_observations"] = [
+            {"kind": "plugin_health", "detector_id": "x"},
+            *case["detector_observations"],
+        ]
+        self.assertIn(
+            f"v4_detector_observations_determinism_missing:{detector_id}",
+            verify_case_file(case)["errors"],
+        )
+
+    def test_p2_gap_2005_verify_sections_reports_both_bad_refs(self):
+        case = self._sealed()
+        case["validation_refs"] = [
+            "not-a-mapping",
+            {"registry_id": "bad", "registry_sha256": "bad"},
+        ]
+        errors = verify_case_file(case)["errors"]
+        self.assertIn("v3_validation_ref_invalid", errors)
+        self.assertIn("v3_validation_ref_registry_id_invalid", errors)
+
+    def test_p2_gap_2012_verify_sections_invalid_determinism_in_bundle_row(self):
+        case = self._sealed()
+        bundle = copy.deepcopy(case["forensic_bundle"])
+        bundle["detector_results"][0]["determinism"] = "bogus"
+        errors = _verify_case_sections(case, bundle, version="v4")
+        self.assertIn("v4_detector_observations_invalid", errors)
+
+    # -- verify_custody gaps -----------------------------------------------
+
+    def _p2_custody_chain(self):
+        chain: list = []
+        chain.append(
+            chain_custody_entry(
+                chain, actor="a", action="sealed", at_utc="2025-01-01T00:00:00+00:00"
+            )
+        )
+        return chain
+
+    def test_p2_gap_1220_verify_custody_prev_hash_greater_than_genesis(self):
+        chain = self._p2_custody_chain()
+        chain[0]["prev_hash"] = "f" * 64
+        self.assertEqual(verify_custody(chain), ["custody_chain_broken:0"])
+
+    def test_p2_gap_1285_verify_custody_entry_hash_smaller_than_expected(self):
+        chain = self._p2_custody_chain()
+        chain[0]["entry_hash"] = "0" * 64
+        self.assertEqual(verify_custody(chain), ["custody_entry_hash_mismatch:0"])
+
+    # -- verify_case_file gaps ----------------------------------------------
+
+    def test_p2_gap_1152_verify_roundtripped_v4_missing_determinism(self):
+        # Probe-proven: a v4 case read from disk has its schema equal by
+        # value but not identical to the constant, so it must verify as v4.
+        bundle = _matching_bundle()
+        case = seal_case_file(bundle, deterministic=True, fixed_timestamp="2026-01-01T00:00:00Z")
+        observed = [
+            item
+            for item in case["detector_observations"]
+            if isinstance(item, dict) and item.get("kind") == "observed"
+        ]
+        for item in observed:
+            item.pop("determinism", None)
+            item.pop("determinism_reason", None)
+        reloaded = json.loads(json.dumps(case))
+        self.assertEqual(reloaded["schema"], CASE_SCHEMA_V4)
+        self.assertIsNot(reloaded["schema"], CASE_SCHEMA_V4)
+        self.assertIn(
+            "v4_detector_observations_determinism_missing:textforensics/builtin-heuristic",
+            verify_case_file(reloaded)["errors"],
+        )
+        control = seal_case_file(
+            _matching_bundle(), deterministic=True, fixed_timestamp="2026-01-01T00:00:00Z"
+        )
+        self.assertTrue(verify_case_file(json.loads(json.dumps(control)))["valid"])
+
+    def test_p2_gap_1236_verify_case_sha256_65_chars_invalid(self):
+        case = self._sealed()
+        case["case_sha256"] = "a" * 65
+        self.assertIn("missing_or_invalid_case_sha256", verify_case_file(case)["errors"])
+
+    def test_p2_gap_1238_verify_tool_name_zulu_is_invalid(self):
+        case = self._sealed()
+        case["tool"]["name"] = "Zulu"
+        self.assertIn("invalid_tool_identity", verify_case_file(case)["errors"])
+
+    def test_p2_gap_1431_verify_raw_text_included_zero_is_violation(self):
+        result = verify_case_file({"schema": CASE_SCHEMA, "raw_text_included": 0})
+        self.assertIn("raw_text_policy_violation", result["errors"])
+
+    def test_p2_gap_1777_verify_tampered_manifest_is_reported(self):
+        case = self._sealed()
+        case["manifest"]["content_sha256"] = "tampered-value"
+        self.assertIn("manifest_mismatch:content_sha256", verify_case_file(case)["errors"])
+
+    # -- seal_case_file gaps ------------------------------------------------
+
+    def test_p2_gap_1234_seal_signing_seed_33_bytes_rejected(self):
+        with self.assertRaisesRegex(ValueError, "signing_seed must be 32 bytes"):
+            seal_case_file(
+                self._bundle(),
+                signing_seed=b"x" * 33,
+                signer={"identity": "a", "role": "r"},
+            )
+
+    def test_p2_gap_1298_seal_signing_seed_16_bytes_rejected(self):
+        with self.assertRaisesRegex(ValueError, "signing_seed must be 32 bytes"):
+            seal_case_file(
+                self._bundle(),
+                signing_seed=b"x" * 16,
+                signer={"identity": "a", "role": "r"},
+            )
+
+    def test_p2_gap_1969_seal_signing_seed_16_bytes_rejected_or_and(self):
+        # Same distinguishing input as idx 1298 (the `or` -> `and` mutant
+        # also lets a short bytes seed through to the signer).
+        with self.assertRaisesRegex(ValueError, "signing_seed must be 32 bytes"):
+            seal_case_file(
+                self._bundle(),
+                signing_seed=b"x" * 16,
+                signer={"identity": "a", "role": "r"},
+            )
+
+    def test_p2_gap_1569_seal_valid_input_meta_mapping_accepted(self):
+        case = seal_case_file(self._bundle(), input_meta={"acquired_by": "alice"})
+        self.assertEqual(case["input"]["acquired_by"], "alice")
+
+    def test_p2_gap_1747_seal_valid_input_meta_mapping_accepted_addnot(self):
+        # Same distinguishing input as idx 1569 (the mutants coincide).
+        case = seal_case_file(self._bundle(), input_meta={"acquired_by": "alice"})
+        self.assertEqual(case["input"]["acquired_by"], "alice")
+
+    def test_p2_gap_1886_seal_digest_publication_non_string_channel_rejected(self):
+        with self.assertRaises(ValueError):
+            seal_case_file(
+                self._bundle(),
+                digest_publication={
+                    "channel": 123,
+                    "reference": "r",
+                    "published_at_utc": "t",
+                },
+            )
+
+    def test_p2_gap_1953_seal_process_items_carried(self):
+        case = seal_case_file(
+            self._bundle(),
+            process={"items": {"D1": {"status": "satisfied", "evidence": ["e1"]}}},
+        )
+        self.assertEqual(case["process"]["items"]["D1"]["status"], "satisfied")
+
+    def test_p2_gap_1956_seal_process_reviewer_carried(self):
+        reviewer = {
+            "identity": "rev",
+            "role": "reviewer",
+            "reasoning": "r",
+            "agreed_with_tool": True,
+        }
+        case = seal_case_file(self._bundle(), process={"reviewer": reviewer})
+        self.assertEqual(case["process"]["reviewer"]["identity"], "rev")
+
+    def test_p2_gap_1957_seal_process_appeal_carried(self):
+        appeal = {"decider": "alice", "appeal_decider": "bob", "route": "r", "deadline": "d"}
+        case = seal_case_file(self._bundle(), process={"appeal": appeal})
+        self.assertEqual(case["process"]["appeal"]["decider"], "alice")
+
+    def test_p2_gap_1958_seal_process_retention_carried(self):
+        retention = {
+            "period": "p",
+            "legal_basis": "l",
+            "access": "a",
+            "disposal": "d",
+            "expungement": "e",
+        }
+        case = seal_case_file(self._bundle(), process={"retention": retention})
+        self.assertEqual(case["process"]["retention"]["period"], "p")
+
+    def test_p2_gap_1959_seal_process_contrary_evidence_carried(self):
+        case = seal_case_file(
+            self._bundle(), process={"contrary_evidence": [{"detector_id": "d1"}]}
+        )
+        self.assertEqual(case["process"]["contrary_evidence"], [{"detector_id": "d1"}])
+
+    def test_p2_gap_1960_seal_process_evidence_dispositions_carried(self):
+        dispositions = {
+            "textforensics/builtin-heuristic": {"disposition": "relied_on", "reason": "r"}
+        }
+        case = seal_case_file(self._bundle(), process={"evidence_dispositions": dispositions})
+        self.assertEqual(
+            case["process"]["evidence_dispositions"]["textforensics/builtin-heuristic"][
+                "disposition"
+            ],
+            "relied_on",
+        )
+
+    def test_p2_gap_1961_seal_process_alternative_explanations_carried(self):
+        explanations = {"short_text_limits": {"tested": "tested", "outcome": "ruled out"}}
+        case = seal_case_file(self._bundle(), process={"alternative_explanations": explanations})
+        self.assertEqual(
+            case["process"]["alternative_explanations"]["short_text_limits"]["tested"],
+            "tested",
+        )
+
+    def test_p2_gap_1962_seal_process_subject_response_carried(self):
+        response = {"opportunity_given": True, "response_attached": True}
+        case = seal_case_file(self._bundle(), process={"subject_response": response})
+        self.assertIs(case["process"]["subject_response"]["opportunity_given"], True)
+
+    # -- _compare_scores gap -------------------------------------------------
+
+    def test_p2_gap_1978_compare_scores_bool_vs_number_is_not_numeric(self):
+        self.assertFalse(self._cs(True, 0.5, atol=1.0))
+
+    # -- build_limitations gaps ----------------------------------------------
+
+    def test_p2_gap_1869_limitations_ci_lower_without_upper_uses_no_ci_text(self):
+        refs = [
+            {
+                "records": [
+                    {
+                        "record_id": "r1",
+                        "fpr_native": {"value": 0.05, "n": 100, "ci_lower": 0.01},
+                    }
+                ]
+            }
+        ]
+        section = build_limitations({}, refs)
+        self.assertIn("0.0500", section["plain_language"]["human_fpr"])
+        self.assertNotIn("CI", section["plain_language"]["human_fpr"])
+
+    def test_p2_gap_1991_limitations_first_fpr_record_wins(self):
+        refs = [
+            {
+                "records": [
+                    {"record_id": "r1", "fpr_native": {"value": 0.05, "n": 100}},
+                    {"record_id": "r2", "fpr_native": {"value": 0.09, "n": 50}},
+                ]
+            }
+        ]
+        section = build_limitations({}, refs)
+        self.assertIn("r1", section["plain_language"]["human_fpr"])
+        self.assertNotIn("r2", section["plain_language"]["human_fpr"])
+
+    def test_p2_gap_1992_limitations_first_ref_with_fpr_wins(self):
+        refs = [
+            {"records": [{"record_id": "r1", "fpr_native": {"value": 0.05, "n": 100}}]},
+            {"records": [{"record_id": "r2", "fpr_native": {"value": 0.09, "n": 50}}]},
+        ]
+        section = build_limitations({}, refs)
+        self.assertIn("r1", section["plain_language"]["human_fpr"])
+        self.assertNotIn("r2", section["plain_language"]["human_fpr"])
+
+    def test_p2_gap_2003_limitations_skips_record_without_fpr(self):
+        refs = [
+            {
+                "records": [
+                    {"record_id": "r0", "fpr_native": {"value": None}},
+                    {"record_id": "r1", "fpr_native": {"value": 0.04, "n": 80}},
+                ]
+            }
+        ]
+        section = build_limitations({}, refs)
+        self.assertIn("r1", section["plain_language"]["human_fpr"])
+
+    # -- build_detector_observations / strip / calibration gaps -------------
+
+    def test_p2_gap_1999_observations_skip_non_mapping_result_row(self):
+        bundle = {
+            "detector_results": [
+                "not-a-dict",
+                {"detector_id": "d1", "detector_version": "1.0", "score": 0.5},
+            ],
+            "detector_failures": [],
+            "plugin_health": [],
+        }
+        observations = build_detector_observations(bundle)
+        self.assertEqual(
+            [o for o in observations if o["kind"] == "observed"][0]["detector_id"], "d1"
+        )
+
+    def test_p2_gap_2000_observations_skip_non_mapping_failure_row(self):
+        bundle = {
+            "detector_results": [],
+            "detector_failures": ["not-a-dict", {"detector_id": "f1", "reason": "boom"}],
+            "plugin_health": [],
+        }
+        observations = build_detector_observations(bundle)
+        failed = [o for o in observations if o["kind"] == "failed"]
+        self.assertEqual([o["detector_id"] for o in failed], ["f1"])
+
+    def test_p2_gap_2001_observations_skip_non_mapping_health_row(self):
+        bundle = {
+            "detector_results": [],
+            "detector_failures": [],
+            "plugin_health": ["not-a-dict", {"detector_id": "p1"}],
+        }
+        observations = build_detector_observations(bundle)
+        health = [o for o in observations if o["kind"] == "plugin_health"]
+        self.assertEqual([o["detector_id"] for o in health], ["p1"])
+
+    def test_p2_gap_1995_strip_runtime_ms_after_non_dict_robustness_row(self):
+        bundle = {
+            "detector_results": [],
+            "detector_failures": [],
+            "robustness": {"detectors": ["not-a-dict", {"failures": [{"runtime_ms": 2.0}]}]},
+        }
+        result = _strip_runtime_ms_from_bundle(bundle)
+        self.assertEqual(result["robustness"]["detectors"][0], "not-a-dict")
+        self.assertNotIn("runtime_ms", result["robustness"]["detectors"][1]["failures"][0])
+
+    def test_p2_gap_1996_calibration_ids_after_non_mapping_row(self):
+        bundle = {"detector_results": ["not-a-dict", {"calibration_id": "c1"}]}
+        self.assertEqual(_calibration_ids(bundle), ["c1"])
+
+    # -- write_case_file / replay_case_file gaps ------------------------------
+
+    def test_p2_gap_2057_write_case_file_renders_two_space_indent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "case.json"
+            write_case_file(path, self._bundle())
+            text = path.read_text(encoding="utf-8")
+            self.assertTrue(
+                text.startswith('{\n  "schema": "textforensics.case-file/v4",'), text[:80]
+            )
+
+    def test_p2_gap_2070_replay_without_text_is_reproduced(self):
+        case = self._sealed()
+        result = replay_case_file(case)
+        self.assertEqual(result["replay_outcome"], "reproduced")
+
+    def test_p2_gap_2071_replay_without_text_is_reproduced_negative(self):
+        # Same distinguishing input as idx 2070 (initial count -1 is truthy).
+        case = self._sealed()
+        result = replay_case_file(case)
+        self.assertEqual(result["replay_outcome"], "reproduced")
+
+    # -- _replay_detectors second-failure gap ---------------------------------
+
+    def test_p2_gap_2006_replay_second_detector_after_first_fails(self):
+        row = self._sealed_row()
+        second_row = dict(row)
+        second_row["detector_id"] = "test/second"
+        second_row["detector_version"] = "2.0.0"
+        second_row["score"] = 0.1
+        second_row["verdict"] = "ai_like"
+        failing = _FakeReplayDetector("textforensics/builtin-heuristic", fail=True)
+        matching = _FakeReplayDetector("test/second", version="2.0.0", score=0.1, verdict="ai_like")
+        errors, _, checks = _replay_detectors(
+            [row, second_row], [failing, matching], TEXT, atol=1e-9
+        )
+        self.assertEqual(errors, ["detector_failed:textforensics/builtin-heuristic"])
+        self.assertEqual(checks["detectors"]["test/second"]["status"], "observed")
+
+    # -- Probe-proven replay / trust-map gaps -------------------------------
+    # Each test below replays the exact distinguishing input of the
+    # expect-different differential probe in
+    # ~/workspace/casefile-mut-tools/p2/probes/gap-<idx>.json.
+
+    def test_p2_gap_1072_replay_failed_kind_row_does_not_declare(self):
+        det = "textforensics/builtin-heuristic"
+        bundle = _matching_bundle()
+        row = bundle["detector_results"][0]
+        row["determinism"] = "deterministic"
+        bundle["detector_failures"] = [
+            {
+                "detector_id": det,
+                "reason": "boom",
+                "determinism": "non_deterministic",
+                "determinism_reason": "flaky",
+            }
+        ]
+        case = seal_case_file(
+            copy.deepcopy(bundle), deterministic=True, fixed_timestamp="2026-01-01T00:00:00Z"
+        )
+        kinds = [o["kind"] for o in case["detector_observations"]]
+        self.assertEqual(kinds[:2], ["observed", "failed"])
+        fake = _FakeReplayDetector(
+            det, version=row["detector_version"], score=row["score"] + 0.5, verdict=row["verdict"]
+        )
+        result = replay_case_file(case, text=_V3_TEXT, detectors=[fake])
+        self.assertEqual(result["errors"], [f"score_mismatch:{det}"])
+        self.assertEqual(result["replay_outcome"], "failed")
+        fake_ok = _FakeReplayDetector(
+            det, version=row["detector_version"], score=row["score"], verdict=row["verdict"]
+        )
+        result_ok = replay_case_file(case, text=_V3_TEXT, detectors=[fake_ok])
+        self.assertEqual(result_ok["replay_outcome"], "reproduced")
+
+    def test_p2_gap_1127_replay_tampered_trust_map_schema(self):
+        registry, bundle, _, _ = self._v3_replay_inputs()
+        case_ok = seal_case_file(
+            copy.deepcopy(bundle), deterministic=True, fixed_timestamp="2026-01-01T00:00:00Z"
+        )
+        control = replay_case_file(case_ok, validation_registry=registry)
+        self.assertEqual(control["replay_outcome"], "reproduced")
+        deleted = copy.deepcopy(case_ok)
+        del deleted["forensic_bundle"]["trust_map"]["schema"]
+        result = replay_case_file(deleted, validation_registry=registry)
+        self.assertEqual(
+            result["errors"],
+            ["case_hash_mismatch", "manifest_mismatch:schema_versions", "trust_map_state_mismatch"],
+        )
+        self.assertEqual(result["replay_outcome"], "failed")
+        wrong_schema = copy.deepcopy(case_ok)
+        wrong_schema["forensic_bundle"]["trust_map"]["schema"] = "textforensics.trust-map/v4"
+        result2 = replay_case_file(wrong_schema, validation_registry=registry)
+        self.assertEqual(
+            result2["errors"],
+            ["case_hash_mismatch", "manifest_mismatch:schema_versions", "trust_map_state_mismatch"],
+        )
+        self.assertEqual(result2["replay_outcome"], "failed")
+
+    def _p2_v3_replay_args(self):
+        registry, bundle, conditions, predictions = self._v3_replay_inputs()
+        robustness_rows = (bundle.get("robustness") or {}).get("detectors", [])
+        failure_count = len(bundle.get("detector_failures", []))
+        return registry, bundle, conditions, predictions, robustness_rows, failure_count
+
+    def test_p2_gap_1309_trust_map_v3_overall_insufficient_vs_mixed(self):
+        registry, bundle, conditions, predictions, rows, fc = self._p2_v3_replay_args()
+        _, _, control = _replay_trust_map_v3(
+            bundle, bundle["trust_map"], registry, conditions, predictions, rows, fc
+        )
+        self.assertEqual(control["trust_map"]["overall"], "mixed")
+        tampered = copy.deepcopy(bundle["trust_map"])
+        tampered["overall"] = "insufficient"
+        errors, _, checks = _replay_trust_map_v3(
+            bundle, tampered, registry, conditions, predictions, rows, fc
+        )
+        self.assertEqual(errors, ["trust_map_overall_mismatch"])
+        self.assertEqual(checks["trust_map"]["status"], "mismatch")
+
+    def test_p2_gap_1312_trust_map_v4_overall_insufficient_vs_mixed(self):
+        _, bundle, conditions, predictions = self._v3_replay_inputs()
+        row2 = copy.deepcopy(bundle["detector_results"][0])
+        row2["detector_id"] = "other/detector"
+        row2["detector_version"] = "2.0"
+        row2["detector_family"] = "other-family"
+        preds2 = predictions + [_prediction_from_dict(row2)]
+        robustness_rows = (bundle.get("robustness") or {}).get("detectors", [])
+        rederived = assess_trust_map(
+            conditions,
+            preds2,
+            registry=None,
+            robustness=robustness_rows,
+            failure_count=0,
+            generated_at_utc="",
+        ).to_dict()
+        self.assertEqual(rederived["overall"], "mixed")
+        bundle2 = copy.deepcopy(bundle)
+        bundle2["detector_results"].append(row2)
+        bundle2["trust_map"] = {
+            "schema": TRUST_SCHEMA,
+            "overall": rederived["overall"],
+            "dimensions": [
+                {"dimension": dim["dimension"], "state": dim["state"]}
+                for dim in rederived["dimensions"]
+            ],
+            "generated_at_utc": "",
+        }
+        errors, _, checks = _replay_trust_map(copy.deepcopy(bundle2), None)
+        self.assertEqual(errors, [])
+        self.assertEqual(checks["trust_map"]["status"], "rederived")
+        bundle2["trust_map"]["overall"] = "insufficient"
+        errors2, _, checks2 = _replay_trust_map(bundle2, None)
+        self.assertEqual(errors2, ["trust_map_overall_mismatch"])
+        self.assertEqual(checks2["trust_map"]["status"], "mismatch")
+
+    def test_p2_gap_1391_trust_map_v3_overall_equal_by_value_not_identity(self):
+        registry, bundle, conditions, predictions, rows, fc = self._p2_v3_replay_args()
+        _, _, control = _replay_trust_map_v3(
+            bundle, bundle["trust_map"], registry, conditions, predictions, rows, fc
+        )
+        rederived = control["trust_map"]["overall"]
+        self.assertEqual(rederived, "mixed")
+        fresh = "".join([rederived[: len(rederived) // 2], rederived[len(rederived) // 2 :]])
+        self.assertEqual(fresh, rederived)
+        self.assertIsNot(fresh, rederived)
+        tampered = copy.deepcopy(bundle["trust_map"])
+        tampered["overall"] = fresh
+        errors, _, checks = _replay_trust_map_v3(
+            bundle, tampered, registry, conditions, predictions, rows, fc
+        )
+        self.assertEqual(errors, [])
+        self.assertEqual(checks["trust_map"]["status"], "rederived")
+
+    def _p2_two_family_v3_bundle(self):
+        registry, bundle, _, _ = self._v3_replay_inputs()
+        row2 = copy.deepcopy(bundle["detector_results"][0])
+        row2["detector_id"] = "other/detector"
+        row2["detector_version"] = "2.0"
+        row2["detector_family"] = "other-family"
+        bundle["detector_results"].append(row2)
+        return registry, bundle
+
+    def test_p2_gap_1811_trust_map_two_failures_count_toward_diversity(self):
+        registry, bundle = self._p2_two_family_v3_bundle()
+        failed = copy.deepcopy(bundle)
+        failed["detector_failures"] = [
+            {"detector_id": "x", "reason": "r"},
+            {"detector_id": "y", "reason": "r"},
+        ]
+        errors, _, checks = _replay_trust_map(failed, None, validation_registry=registry)
+        self.assertEqual(errors, [])
+        self.assertEqual(checks["trust_map"]["status"], "rederived")
+
+    def test_p2_gap_2062_trust_map_non_list_failures_count_zero(self):
+        registry, bundle = self._p2_two_family_v3_bundle()
+        broken = copy.deepcopy(bundle)
+        broken["detector_failures"] = {"a": 1}
+        errors, _, checks = _replay_trust_map(broken, None, validation_registry=registry)
+        self.assertEqual(errors, ["trust_map_state_mismatch"])
+        self.assertEqual(checks["trust_map"]["status"], "mismatch")
+
+    def test_p2_gap_2063_trust_map_non_list_failures_count_minus_one(self):
+        # Same distinguishing input as idx 2062; the -1 mutant raises
+        # from derive_trust_map instead of miscounting to 1.
+        registry, bundle = self._p2_two_family_v3_bundle()
+        broken = copy.deepcopy(bundle)
+        broken["detector_failures"] = {"a": 1}
+        errors, _, checks = _replay_trust_map(broken, None, validation_registry=registry)
+        self.assertEqual(errors, ["trust_map_state_mismatch"])
+        self.assertEqual(checks["trust_map"]["status"], "mismatch")
+
+    def test_p2_gap_2007_trust_map_v3_missing_record_id_skipped(self):
+        registry, bundle, conditions, predictions, rows, fc = self._p2_v3_replay_args()
+        sealed = copy.deepcopy(bundle["trust_map"])
+
+        def _record_ids(trust):
+            found: set = set()
+            for item in trust.get("dimensions", []):
+                if isinstance(item, dict):
+                    for ref in item.get("evidence_refs", []) or []:
+                        if isinstance(ref, str):
+                            found.add(ref)
+            return found
+
+        # Find a missing record id that the record-id set iterates
+        # BEFORE every present id in this process (string hashing is
+        # seed-dependent, so the fixture adapts; the search rebuilds
+        # the exact set _replay_trust_map_v3 builds).
+        missing = None
+        for n in range(500):
+            candidate = f"missing-record-{n}"
+            tampered_probe = copy.deepcopy(sealed)
+            for item in tampered_probe["dimensions"]:
+                if isinstance(item, dict) and item.get("evidence_refs"):
+                    item["evidence_refs"] = [candidate, *item["evidence_refs"]]
+                    break
+            if next(iter(_record_ids(tampered_probe))) == candidate:
+                missing = candidate
+                break
+        self.assertIsNotNone(missing)
+        tampered = copy.deepcopy(sealed)
+        for item in tampered["dimensions"]:
+            if isinstance(item, dict) and item.get("evidence_refs"):
+                item["evidence_refs"] = [missing, *item["evidence_refs"]]
+                break
+        errors, _, checks = _replay_trust_map_v3(
+            bundle, tampered, registry, conditions, predictions, rows, fc
+        )
+        self.assertEqual(errors, [])
+        self.assertEqual(checks["trust_map"]["status"], "rederived")
 
 
 if __name__ == "__main__":
