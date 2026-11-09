@@ -61,7 +61,13 @@ jobs:
       - name: CLI smoke
         run: textforensics --version
       - name: Coverage report
-        run: coverage report --fail-under=70
+        # Gate 75%: measured core-only (`.[dev]`, no extras) coverage is
+        # 78.43% on 928dbc0 (Python 3.12, 3753 passed, 121 skipped) and
+        # was 76.95% on a1e7857 — the gate must be supportable by the
+        # Core job's own run, NOT the ~81% extras-venv figure, which
+        # this job never measures. 75% leaves ~3.4pp margin for
+        # cross-version variance (3.11–3.15) and tree growth.
+        run: coverage report --fail-under=75
       - name: Coverage XML
         run: coverage xml -o coverage.xml
       - name: Upload coverage to Codecov
