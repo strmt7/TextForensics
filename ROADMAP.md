@@ -158,8 +158,10 @@ Detail lives in `~/workspace/goals/textforensics-complete-revamp/hidden_files/`
   `pip-audit` as a failing gate for runtime extras, SBOM in the
   release workflow, live-TSA interop (never achieved from the
   sandbox VM), the seal-time `not_reproducible` declaration for
-  non-deterministic detectors, and the coverage gate (still
-  `--fail-under=70` in CI, not yet raised to the measured ~83%).
+  non-deterministic detectors, and the coverage gate (now
+  `--fail-under=75` in CI Core, measured on core-only coverage:
+  78.43% on 928dbc0, 78.49% on e65fde9, 76.95% on a1e7857 — the
+  ~81% extras-venv figure is not what CI Core measures).
   No release is created without Greg's explicit say-so.
 
 ## v1.0 target
