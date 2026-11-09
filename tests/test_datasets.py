@@ -1134,7 +1134,21 @@ class _StallHandler(http.server.BaseHTTPRequestHandler):
     Class attributes configure the fault for the next test:
     ``delay_s`` (header delay), ``trickle_s`` (seconds between 10-byte
     body chunks), ``drop_after`` (body bytes sent before the connection
-    is dropped mid-body, once). ``requests_seen`` counts GETs.
+    is dropped mid-body, once). ``requests_seen`` counts GETs and
+    ``ranges_seen`` records each request's ``Range`` header (``None``
+    when absent).
+
+    Each test gets its OWN subclass (created in ``setUp``) instead of
+    sharing this class's mutable state. ``ThreadingHTTPServer`` spawns
+    daemon handler threads that are not tracked or joined on
+    ``server_close``; a handler thread that is still sleeping in
+    ``do_GET`` when its test ends can wake after the next test has
+    started. With shared class state that stale thread reads the NEW
+    test's attributes (e.g. it could consume the one-shot ``drop_after``
+    against its dead connection, so the new test's first request gets
+    the full body and ``requests_seen`` stays 1 — CI run 42664159420,
+    Core Python 3.12). With a per-test subclass a stale thread can
+    only mutate the OLD class's attributes, never the new test's.
     """
 
     protocol_version = "HTTP/1.1"
@@ -1143,6 +1157,7 @@ class _StallHandler(http.server.BaseHTTPRequestHandler):
     trickle_s = 0.0
     drop_after: int | None = None
     requests_seen = 0
+    ranges_seen: list[str | None] = []
     _dropped = False
 
     def log_message(self, *args: object) -> None:
@@ -1152,6 +1167,7 @@ class _StallHandler(http.server.BaseHTTPRequestHandler):
         type(self).requests_seen += 1
         time.sleep(type(self).delay_s)
         range_header = self.headers.get("Range")
+        type(self).ranges_seen.append(range_header)
         start = 0
         status = 200
         if range_header and range_header.startswith("bytes="):
@@ -1198,12 +1214,22 @@ class DownloadStallServerTests(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.dest = Path(self._tmp.name) / "file.bin"
-        _StallHandler.delay_s = 0.0
-        _StallHandler.trickle_s = 0.0
-        _StallHandler.drop_after = None
-        _StallHandler.requests_seen = 0
-        _StallHandler._dropped = False
-        self._server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _StallHandler)
+        # Fresh handler subclass per test: stale daemon handler threads
+        # from a previous test can only mutate the OLD class's state
+        # (see _StallHandler docstring), never this test's counters.
+        self._handler = type(
+            "_StallHandlerForTest",
+            (_StallHandler,),
+            {
+                "delay_s": 0.0,
+                "trickle_s": 0.0,
+                "drop_after": None,
+                "requests_seen": 0,
+                "ranges_seen": [],
+                "_dropped": False,
+            },
+        )
+        self._server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), self._handler)
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
         self.addCleanup(self._server.shutdown)
@@ -1212,7 +1238,7 @@ class DownloadStallServerTests(unittest.TestCase):
         self.url = f"http://127.0.0.1:{port}/file.bin"
 
     def test_delayed_headers_trip_stall_timeout(self) -> None:
-        _StallHandler.delay_s = 2.0
+        self._handler.delay_s = 2.0
         with self.assertRaises(DownloadError):
             download_large_file(
                 self.url,
@@ -1223,17 +1249,17 @@ class DownloadStallServerTests(unittest.TestCase):
                 use_curl_fallback=False,
             )
         # Both attempts hit the 0.5 s stall budget, not the 5 s connect budget.
-        self.assertEqual(_StallHandler.requests_seen, 2)
+        self.assertEqual(self._handler.requests_seen, 2)
         self.assertFalse(self.dest.exists())
 
     def test_delay_within_stall_budget_succeeds(self) -> None:
-        _StallHandler.delay_s = 1.0
+        self._handler.delay_s = 1.0
         result = download_large_file(self.url, self.dest, stall_timeout_s=5, connect_timeout_s=5)
         self.assertEqual(result, self.dest)
         self.assertEqual(self.dest.read_bytes(), self.BODY)
 
     def test_trickle_body_does_not_trip_stall(self) -> None:
-        _StallHandler.trickle_s = 0.2
+        self._handler.trickle_s = 0.2
         result = download_large_file(
             self.url, self.dest, stall_timeout_s=1, connect_timeout_s=5, chunk_size=10
         )
@@ -1241,7 +1267,7 @@ class DownloadStallServerTests(unittest.TestCase):
         self.assertEqual(self.dest.read_bytes(), self.BODY)
 
     def test_mid_body_drop_resumes_with_range(self) -> None:
-        _StallHandler.drop_after = 50
+        self._handler.drop_after = 50
         result = download_large_file(
             self.url,
             self.dest,
@@ -1253,7 +1279,11 @@ class DownloadStallServerTests(unittest.TestCase):
         )
         self.assertEqual(result, self.dest)
         self.assertEqual(self.dest.read_bytes(), self.BODY)
-        self.assertEqual(_StallHandler.requests_seen, 2)
+        self.assertEqual(self._handler.requests_seen, 2)
+        # The second request must be the resume, not a from-scratch
+        # re-fetch: it carries Range: bytes=50- for the 50 bytes the
+        # dropped first response delivered.
+        self.assertEqual(self._handler.ranges_seen, [None, "bytes=50-"])
 
 
 class FetchSampleTests(unittest.TestCase):
