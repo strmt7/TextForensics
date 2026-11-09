@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import sys
+from dataclasses import FrozenInstanceError
 
 import pytest
 from cryptography.fernet import Fernet
@@ -1830,3 +1831,535 @@ class TestPolicyMutationKills:
         engine = EnterprisePolicyEngine(floor=floor)
         assert engine.floor is floor
         assert engine.policy is None
+
+
+# ---------------------------------------------------------------------------
+# Mutation-kill tests (Phase 5 policy-298 full session)
+# ---------------------------------------------------------------------------
+# The full 506-item session on main 928dbc0 (total 506, killed 352,
+# surviving 154) left 40 killable survivors in this file's scope; these
+# tests kill them. Each test names the mutant it kills as (operator,
+# occurrence) in the session, with the exact killing input from
+# hidden_files/policy-298-classification.md §8 (G1–G40). The other 114
+# survivors are equivalent and live in mutation-baseline.toml (99
+# annotation + 4 unobservable-value + 10 domain-equivalent + 1
+# unreachable-condition). The 3 Pow annotation mutants at L919/L927/L934
+# (occurrences 6/7/8) are baselined, not killed: the only distinguishing
+# observation is evaluating the annotation string, which the repo forbids
+# (tests/test_mutation.py::test_no_annotation_evaluation_in_repo).
+
+
+def _enterprise_engine(rules, revision=1):
+    policy = EnterprisePolicy(revision=revision, digest="a" * 64, settings={}, rules=rules)
+    return EnterprisePolicyEngine(policy=policy)
+
+
+def _enterprise_rule(rule_id, scope, action="log"):
+    return {
+        "id": rule_id,
+        "description": f"rule {rule_id}",
+        "action": action,
+        "scope": scope,
+    }
+
+
+def _floor_with(policy, temp_state_dir):
+    floor = PolicyRevisionFloor(
+        state_path=temp_state_dir / "state.enc",
+        key_path=temp_state_dir / "key.key",
+    )
+    floor.advance_floor(policy)
+    return floor
+
+
+class TestPolicyMutationKills298:
+    # -- CapabilityLedger.get (G1–G2) --------------------------------------
+
+    def test_get_first_matching_capability_not_first_ge(self):
+        # Kills ReplaceComparisonOperator_Eq_GtE occ 0 (get: `==` ->
+        # `>=`; the mutant returns the first claim whose capability
+        # sorts at or after the requested one).
+        first = _make_claim(capability="b")
+        second = _make_claim(capability="a")
+        ledger = CapabilityLedger()
+        ledger.register(first)
+        ledger.register(second)
+        assert ledger.get("det-a", "a") is second
+
+    def test_get_runtime_built_capability_string(self):
+        # Kills ReplaceComparisonOperator_Eq_Is occ 0 (get: `==` ->
+        # `is`; a runtime-built string is equal but not identical).
+        claim = _make_claim(capability="cap.alpha")
+        ledger = _ledger_with_claim(claim)
+        assert ledger.get("det-a", "".join(["cap", ".", "alpha"])) is claim
+
+    # -- CapabilityPolicyEngine._matches_pattern (G3–G6) -------------------
+
+    def test_matches_pattern_runtime_built_detector_id(self):
+        # Kills ReplaceComparisonOperator_Eq_Is occ 7
+        # (_matches_pattern: `==` -> `is`; distinct-but-equal strings).
+        engine = CapabilityPolicyEngine()
+        assert engine._matches_pattern("".join(["d", "e", "t"]), "det") is True
+
+    @pytest.mark.parametrize("pattern", ["!x", " x", "#x", "(x"])
+    def test_matches_pattern_first_char_before_star(self, pattern):
+        # Kills ReplaceComparisonOperator_Eq_Lt occ 8 and
+        # ReplaceComparisonOperator_Eq_LtE occ 8 (_matches_pattern:
+        # `pattern == "*"` -> `<` / `<=`; any pattern whose first char
+        # sorts before "*" is then taken as the wildcard).
+        engine = CapabilityPolicyEngine()
+        assert engine._matches_pattern("det", pattern) is False
+
+    def test_matches_pattern_interior_star_returns_false(self):
+        # Kills ReplaceFalseWithTrue occ 0 (_matches_pattern: the final
+        # `return False` for an interior-`*` pattern becomes True).
+        engine = CapabilityPolicyEngine()
+        assert engine._matches_pattern("axb", "a*b") is False
+
+    # -- ledger_to_trust_dimension (G7–G8) ---------------------------------
+
+    def test_readable_only_reason_not_tool_backed(self):
+        # Kills ReplaceComparisonOperator_Eq_IsNot occ 5 and
+        # ReplaceComparisonOperator_Eq_NotEq occ 5
+        # (ledger_to_trust_dimension: `c.tier == TOOL_BACKED` -> `is
+        # not` / `!=`; a READABLE-only claim is then reported as
+        # TOOL_BACKED).
+        ledger = _ledger_with_claim(_make_claim(capability="cap", tier=EvidenceTier.READABLE))
+        dimension = ledger_to_trust_dimension(ledger, "det-a", "cap")
+        assert dimension.state == "partial"
+        assert "only READABLE" in dimension.reason
+
+    # -- CapabilityPolicyEngine.evaluate tier checks / loops (G9–G12) ------
+
+    def test_evaluate_validated_claim_passes_readable_requirement(self):
+        # Kills ReplaceComparisonOperator_Lt_IsNot occ 0 and
+        # ReplaceComparisonOperator_Lt_NotEq occ 0 (evaluate: the tier
+        # comparison `<` -> `is not` / `!=`; a VALIDATED claim then
+        # fails a readable requirement it exceeds).
+        ledger = _ledger_with_claim(_make_claim(tier=EvidenceTier.VALIDATED))
+        engine = _engine_requiring("language_coverage", "readable")
+        (result,) = engine.evaluate(ledger, "det-a")
+        assert result.passed is True
+        assert result.evidence_gaps == []
+
+    def test_evaluate_nonmatching_pattern_then_matching(self):
+        # Kills ReplaceContinueWithBreak occ 0 (evaluate: the
+        # `continue` for a non-matching pattern becomes `break`, so
+        # the loop stops and the matching policy is never evaluated).
+        engine = CapabilityPolicyEngine()
+        engine.add_policy(
+            CapabilityPolicy(
+                rule_id="other-only",
+                description="other detector",
+                required_capabilities=[("language_coverage", "validated")],
+                detector_pattern="other*",
+                action_on_failure="reject",
+            )
+        )
+        engine.add_policy(
+            CapabilityPolicy(
+                rule_id="det-rule",
+                description="detector rule",
+                required_capabilities=[("language_coverage", "validated")],
+                detector_pattern="det*",
+                action_on_failure="reject",
+            )
+        )
+        ledger = _ledger_with_claim(_make_claim(detector="det1", tier=EvidenceTier.READABLE))
+        results = engine.evaluate(ledger, "det1")
+        assert len(results) == 1
+        assert results[0].rule_id == "det-rule"
+        assert results[0].passed is False
+        assert len(results[0].evidence_gaps) == 1
+
+    def test_evaluate_two_missing_claims_both_reported(self):
+        # Kills ReplaceContinueWithBreak occ 1 (evaluate: the
+        # `continue` after a missing claim becomes `break`, so only
+        # the first missing capability is reported).
+        engine = CapabilityPolicyEngine()
+        engine.add_policy(
+            CapabilityPolicy(
+                rule_id="two-missing",
+                description="two missing",
+                required_capabilities=[
+                    ("c1", "readable"),
+                    ("c2", "readable"),
+                ],
+                detector_pattern="*",
+                action_on_failure="reject",
+            )
+        )
+        (result,) = engine.evaluate(CapabilityLedger(), "det-a")
+        assert result.passed is False
+        assert result.missing_claims == [
+            "c1 (required: readable+)",
+            "c2 (required: readable+)",
+        ]
+
+    # -- compute_policy_digest (G13–G14) -----------------------------------
+
+    def test_digest_sorts_keys(self):
+        # Kills ReplaceTrueWithFalse occ 5 (compute_policy_digest:
+        # `sort_keys=True` -> False; the blob key order becomes
+        # revision/settings/rules instead of revision/rules/settings).
+        policy = EnterprisePolicy(
+            revision=1,
+            digest="",
+            settings={"z": 1, "a": 2},
+            rules=[
+                {
+                    "id": "r1",
+                    "description": "d",
+                    "action": "log",
+                    "scope": "all",
+                }
+            ],
+        )
+        expected = hashlib.sha256(
+            json.dumps(
+                {
+                    "revision": policy.revision,
+                    "settings": policy.settings,
+                    "rules": [
+                        {
+                            "id": r["id"],
+                            "description": r["description"],
+                            "action": r["action"],
+                            "scope": r["scope"],
+                        }
+                        for r in policy.rules
+                    ],
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=True,
+            ).encode("utf-8")
+        ).hexdigest()
+        assert compute_policy_digest(policy) == expected
+
+    def test_digest_escapes_non_ascii(self):
+        # Kills ReplaceTrueWithFalse occ 6 (compute_policy_digest:
+        # `ensure_ascii=True` -> False; non-ASCII content is then
+        # hashed as raw UTF-8 instead of \uXXXX escapes). Pure-ASCII
+        # policies do NOT kill this mutant.
+        policy = EnterprisePolicy(
+            revision=1,
+            digest="",
+            settings={"note": "café"},
+            rules=[
+                {
+                    "id": "r1",
+                    "description": "café ☃",
+                    "action": "log",
+                    "scope": "all",
+                }
+            ],
+        )
+        expected = hashlib.sha256(
+            json.dumps(
+                {
+                    "revision": policy.revision,
+                    "settings": policy.settings,
+                    "rules": [
+                        {
+                            "id": r["id"],
+                            "description": r["description"],
+                            "action": r["action"],
+                            "scope": r["scope"],
+                        }
+                        for r in policy.rules
+                    ],
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=True,
+            ).encode("utf-8")
+        ).hexdigest()
+        assert compute_policy_digest(policy) == expected
+
+    # -- Dataclass slots / frozen contracts (G15–G19) ----------------------
+    # These pin the decorator contracts directly: slots=True means no
+    # __dict__, frozen=True means assignment raises FrozenInstanceError.
+
+    def test_evidence_ref_has_no_dict(self):
+        # Kills ReplaceTrueWithFalse occ 0 (EvidenceRef: `slots=True`
+        # -> False).
+        ref = EvidenceRef(
+            label=EvidenceLabel.REPORTED,
+            tier=EvidenceTier.READABLE,
+            artifact="doc-1",
+        )
+        assert hasattr(ref, "__dict__") is False
+
+    def test_capability_claim_has_no_dict(self):
+        # Kills ReplaceTrueWithFalse occ 1 (CapabilityClaim: `slots=True`
+        # -> False).
+        assert hasattr(_make_claim(), "__dict__") is False
+
+    def test_capability_policy_is_frozen(self):
+        # Kills ReplaceTrueWithFalse occ 2 (CapabilityPolicy:
+        # `frozen=True` -> False; assignment then succeeds).
+        policy = CapabilityPolicy(
+            rule_id="r",
+            description="d",
+            required_capabilities=[],
+            detector_pattern="*",
+            action_on_failure="reject",
+        )
+        with pytest.raises(FrozenInstanceError):
+            policy.rule_id = "x"
+
+    def test_capability_policy_has_no_dict(self):
+        # Kills ReplaceTrueWithFalse occ 3 (CapabilityPolicy: `slots=True`
+        # -> False).
+        policy = CapabilityPolicy(
+            rule_id="r",
+            description="d",
+            required_capabilities=[],
+            detector_pattern="*",
+            action_on_failure="reject",
+        )
+        assert hasattr(policy, "__dict__") is False
+
+    def test_enterprise_policy_has_no_dict(self):
+        # Kills ReplaceTrueWithFalse occ 8 (EnterprisePolicy: `slots=True`
+        # -> False).
+        policy = EnterprisePolicy(revision=1, digest="a" * 64, settings={}, rules=[])
+        assert hasattr(policy, "__dict__") is False
+
+    # -- EnterprisePolicy.__post_init__ (G20) ------------------------------
+
+    def test_digest_longer_than_64_rejected(self):
+        # Kills ReplaceComparisonOperator_NotEq_Lt occ 0
+        # (__post_init__: `len(digest) != 64` -> `< 64`; a 65-char
+        # digest is then accepted). Lengths <= 64 do not kill.
+        with pytest.raises(ValueError, match="64-character"):
+            EnterprisePolicy(revision=1, digest="a" * 65, settings={}, rules=[])
+
+    # -- Atomic writes / state persistence (G21–G22) -----------------------
+
+    def test_atomic_write_creates_missing_parents(self, tmp_path):
+        # Kills ReplaceTrueWithFalse occ 9 (_atomic_write_bytes:
+        # `parents=True` -> False; writing under missing parents
+        # then raises FileNotFoundError).
+        target = tmp_path / "nested" / "a" / "b" / "file.bin"
+        PolicyRevisionFloor._atomic_write_bytes(target, b"hello")
+        assert target.read_bytes() == b"hello"
+
+    def test_save_state_creates_missing_parents(self, temp_state_dir):
+        # Kills ReplaceTrueWithFalse occ 12 (save_state:
+        # `parents=True` -> False; saving under a repointed nested
+        # missing path then raises FileNotFoundError).
+        floor = PolicyRevisionFloor(
+            state_path=temp_state_dir / "state.enc",
+            key_path=temp_state_dir / "key.key",
+        )
+        floor._state_path = temp_state_dir / "new" / "deep" / "state.enc"
+        floor.save_state()
+        assert (temp_state_dir / "new" / "deep" / "state.enc").exists()
+
+    # -- Revision floor: check_policy / advance_floor (G23–G28) ------------
+
+    def test_check_policy_same_revision_distinct_int_objects(self, temp_state_dir):
+        # Kills ReplaceComparisonOperator_Eq_Is occ 8 (check_policy:
+        # `policy.revision == floor_revision` -> `is`; distinct int
+        # objects at revision 1000 are then treated as different
+        # revisions and the drift check is skipped). Small revisions
+        # (<= 256) do NOT kill — CPython caches small ints, so `is`
+        # holds.
+        floor = _floor_with(
+            EnterprisePolicy(revision=int("1000"), digest="f" * 64, settings={}, rules=[]),
+            temp_state_dir,
+        )
+        drifted = EnterprisePolicy(revision=int("1000"), digest="a" * 64, settings={}, rules=[])
+        (rejection,) = floor.check_policy(drifted)
+        assert "DRIFT" in rejection
+
+    def test_check_policy_smaller_digest_is_drift(self, temp_state_dir):
+        # Kills ReplaceComparisonOperator_NotEq_Gt occ 1 (check_policy:
+        # `policy.digest != expected_digest` -> `>`; a digest sorting
+        # below the expected one is then accepted).
+        floor = _floor_with(
+            EnterprisePolicy(revision=5, digest="f" * 64, settings={}, rules=[]),
+            temp_state_dir,
+        )
+        drifted = EnterprisePolicy(revision=5, digest="a" * 64, settings={}, rules=[])
+        (rejection,) = floor.check_policy(drifted)
+        assert "DRIFT" in rejection
+
+    def test_check_policy_equal_digests_distinct_objects_accepted(self, temp_state_dir):
+        # Kills ReplaceComparisonOperator_NotEq_IsNot occ 0
+        # (check_policy: `policy.digest != expected_digest` -> `is
+        # not`; two equal digests built as distinct objects are then
+        # reported as drift). The test MUST use distinct objects — the
+        # same object does not kill.
+        floor = _floor_with(
+            EnterprisePolicy(
+                revision=5,
+                digest="".join(["a"] * 64),
+                settings={},
+                rules=[],
+            ),
+            temp_state_dir,
+        )
+        same_digest = EnterprisePolicy(
+            revision=5,
+            digest="".join(["a"] * 64),
+            settings={},
+            rules=[],
+        )
+        assert floor.check_policy(same_digest) == []
+
+    def test_advance_floor_empty_digest_does_not_lower_floor(self, temp_state_dir):
+        # Kills ReplaceComparisonOperator_Eq_GtE occ 12 (advance_floor:
+        # `floor_revision == 0` -> `>= 0` in the initialize branch;
+        # advancing a lower revision then lowers the floor).
+        floor = _floor_with(
+            EnterprisePolicy(revision=5, digest="", settings={}, rules=[]),
+            temp_state_dir,
+        )
+        floor.advance_floor(EnterprisePolicy(revision=3, digest="c" * 64, settings={}, rules=[]))
+        assert floor.floor_revision == 5
+        assert len(floor.state.history) == 1
+
+    def test_advance_floor_lower_revision_is_noop(self, temp_state_dir):
+        # Kills ReplaceComparisonOperator_Gt_IsNot occ 0 and
+        # ReplaceComparisonOperator_Gt_NotEq occ 0 (advance_floor:
+        # `policy.revision > floor_revision` -> `is not` / `!=`; a
+        # lower revision then advances (lowers) the floor).
+        floor = _floor_with(
+            EnterprisePolicy(revision=5, digest="a" * 64, settings={}, rules=[]),
+            temp_state_dir,
+        )
+        floor.advance_floor(EnterprisePolicy(revision=3, digest="b" * 64, settings={}, rules=[]))
+        assert floor.floor_revision == 5
+        assert floor.floor_digest == "a" * 64
+        assert len(floor.state.history) == 1
+
+    # -- EnterprisePolicyEngine.load_policy (G29–G32) -----------------------
+
+    def test_load_policy_accepts_keyword_argument(self, policy_data):
+        # Kills ReplaceBinaryOperator_Mul_Div occ 0 (load_policy: `*,`
+        # -> `/,` makes policy_data positional-only, so a keyword call
+        # raises TypeError).
+        engine = EnterprisePolicyEngine()
+        assert engine.load_policy(policy_data=policy_data) == []
+
+    def test_load_policy_low_digest_is_mismatch(self, policy_data):
+        # Kills ReplaceComparisonOperator_NotEq_Gt occ 2 (load_policy:
+        # `policy_data["digest"] != computed_digest` -> `>`; a stored
+        # digest sorting below the computed one is then loaded).
+        engine = EnterprisePolicyEngine()
+        policy_data["digest"] = "0" * 64
+        errors = engine.load_policy(policy_data)
+        assert len(errors) == 1
+        assert "Digest mismatch" in errors[0]
+
+    def test_load_policy_correct_digest_loads(self, policy_data):
+        # Kills ReplaceComparisonOperator_NotEq_GtE occ 2 (load_policy:
+        # `policy_data["digest"] != computed_digest` -> `>=`; a
+        # correct (equal) digest is then reported as a mismatch).
+        engine = EnterprisePolicyEngine()
+        policy_data["digest"] = compute_policy_digest(
+            EnterprisePolicy(
+                revision=int(policy_data["revision"]),
+                digest="",
+                settings=dict(policy_data.get("settings", {})),
+                rules=[dict(r) for r in policy_data.get("rules", [])],
+            )
+        )
+        assert engine.load_policy(policy_data) == []
+
+    def test_load_policy_correct_digest_distinct_object_loads(self, policy_data):
+        # Kills ReplaceComparisonOperator_NotEq_IsNot occ 1
+        # (load_policy: `policy_data["digest"] != computed_digest` ->
+        # `is not`; the computed digest is a fresh hashlib hexdigest,
+        # always a distinct object from the stored one, so a correct
+        # digest is then reported as a mismatch).
+        engine = EnterprisePolicyEngine()
+        policy_data["digest"] = compute_policy_digest(
+            EnterprisePolicy(
+                revision=int(policy_data["revision"]),
+                digest="",
+                settings=dict(policy_data.get("settings", {})),
+                rules=[dict(r) for r in policy_data.get("rules", [])],
+            )
+        )
+        assert engine.load_policy(policy_data) == []
+
+    # -- EnterprisePolicyEngine.evaluate scopes / actions (G33–G40) --------
+
+    def test_evaluate_scope_before_all_not_applied(self):
+        # Kills ReplaceComparisonOperator_NotEq_Gt occ 3 (evaluate:
+        # `rule_scope != "all"` -> `>`; a rule scope sorting before
+        # "all" is then wrongly applied to other scopes).
+        engine = _enterprise_engine([_enterprise_rule("r-aaa", "aaa")])
+        result = engine.evaluate("other")
+        assert result["rules_checked"] == 0
+
+    def test_evaluate_scope_after_rule_scope_not_applied(self):
+        # Kills ReplaceComparisonOperator_NotEq_Gt occ 4 (evaluate:
+        # `rule_scope != scope` -> `>`; a rule scope sorting before
+        # the evaluated scope is then wrongly applied).
+        engine = _enterprise_engine([_enterprise_rule("r-det", "detector-x")])
+        result = engine.evaluate("zzz")
+        assert result["rules_checked"] == 0
+
+    def test_evaluate_runtime_built_scope_matches(self):
+        # Kills ReplaceComparisonOperator_NotEq_IsNot occ 3 (evaluate:
+        # `rule_scope != scope` -> `is not`; a runtime-built scope
+        # string equal to the rule scope is then wrongly skipped).
+        engine = _enterprise_engine([_enterprise_rule("r-an", "analysis")])
+        result = engine.evaluate("".join(["ana", "lysis"]))
+        assert result["rules_checked"] == 1
+
+    def test_evaluate_nonmatching_scope_then_matching(self):
+        # Kills ReplaceContinueWithBreak occ 2 (evaluate: the
+        # `continue` for a non-matching rule scope becomes `break`,
+        # so the matching rule is never evaluated).
+        engine = _enterprise_engine(
+            [
+                _enterprise_rule("r-other", "other"),
+                _enterprise_rule("r-m", "analysis"),
+            ]
+        )
+        result = engine.evaluate("analysis")
+        assert result["rules_checked"] == 1
+        assert [entry["rule_id"] for entry in result["logs"]] == ["r-m"]
+
+    def test_evaluate_unknown_action_is_not_warn(self):
+        # Kills ReplaceComparisonOperator_Eq_GtE occ 14 (evaluate:
+        # `action == "warn"` -> `>=`; an unknown action sorting at or
+        # after "warn" is then recorded as a warning).
+        engine = _enterprise_engine([_enterprise_rule("r-z", "all", "zzz")])
+        result = engine.evaluate("analysis")
+        assert result["status"] == "ok"
+        assert result["warnings"] == []
+
+    def test_evaluate_unknown_action_is_not_log(self):
+        # Kills ReplaceComparisonOperator_Eq_GtE occ 15 (evaluate:
+        # `action == "log"` -> `>=`; an unknown action sorting at or
+        # after "log" is then recorded as a log entry).
+        engine = _enterprise_engine([_enterprise_rule("r-z", "all", "zzz")])
+        result = engine.evaluate("analysis")
+        assert result["status"] == "ok"
+        assert result["logs"] == []
+
+    def test_evaluate_unknown_action_is_not_disable(self):
+        # Kills ReplaceComparisonOperator_Eq_GtE occ 16 (evaluate:
+        # `action == "disable"` -> `>=`; an unknown action sorting at
+        # or after "disable" is then recorded as disabling the scope).
+        engine = _enterprise_engine([_enterprise_rule("r-z", "all", "zzz")])
+        result = engine.evaluate("analysis")
+        assert result["status"] == "ok"
+        assert result["disabled"] == []
+
+    def test_evaluate_low_action_is_not_disable(self):
+        # Kills ReplaceComparisonOperator_Eq_LtE occ 16 (evaluate:
+        # `action == "disable"` -> `<=`; an unknown action sorting at
+        # or before "disable" is then recorded as disabling the
+        # scope).
+        engine = _enterprise_engine([_enterprise_rule("r-a", "all", "audit")])
+        result = engine.evaluate("analysis")
+        assert result["status"] == "ok"
+        assert result["disabled"] == []

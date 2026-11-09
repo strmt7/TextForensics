@@ -112,7 +112,7 @@
 #   to this file except as "unreachable-condition" or "unobservable-value",
 #   with its proof.
 #
-# POLICY ENTRIES (82: 78 annotation + 4 unobservable-value, 2026-11-07)
+# POLICY ENTRIES (114: 99 annotation + 4 unobservable-value + 10 domain-equivalent + 1 unreachable-condition, 2026-11-07 + 2026-11-09)
 # -------------------------------------------------------------------
 # Source: local budget-200 repro run on branch fix/w4-policy-mutation
 # at 6159552 (Phase 5 wave 4E), `scripts/run_mutation.py --mode diff
@@ -126,19 +126,31 @@
 # killed with tests in tests/test_enterprise_policy.py (each verified
 # individually by hand-applying its diff: 70/70 killed). The remaining
 # 82 are the entries below.
+# Plus 32 entries added 2026-11-09 from the full 506-item session
+# (branch fix/mutation-policy-298, main 928dbc0; see POLICY-298
+# ADDITIONS below): 21 annotation (3 Pow + 9 RShift + 9 Sub), 10
+# domain-equivalent, 1 unreachable-condition. The 40 killable
+# survivors of that session are killed with tests in
+# tests/test_enterprise_policy.py (class TestPolicyMutationKills298;
+# each verified individually by hand-applying its diff: 40/40 killed
+# standalone and in the full-file run).
 #
-# PROOF — POLICY ANNOTATION MUTANTS (78 entries)
+# PROOF — POLICY ANNOTATION MUTANTS (99 entries)
 # ---------------------------------------------
-# The 78 are all 9 ReplaceBinaryOperator_BitOr_* operators at 9
-# positions, except the 3 ReplaceBinaryOperator_BitOr_Pow mutants at
-# L914/L922/L929, which fall outside the budget-200 prefix (never
-# executed — see NOT IN THIS BASELINE below). Per-mutant verification,
-# as for trust: for each, the diff replaces exactly the `|` at the
-# recorded start position; the position lies inside a function arg or
-# return annotation (AST); the enclosing function matches. The 9
-# positions are exactly the `|` operators inside function annotations
-# in policy.py (verified: mutant positions == function-annotation `|`
-# positions). Why the change cannot affect behaviour:
+# The 99 are all 11 ReplaceBinaryOperator_BitOr_* operators at 9
+# positions: the 78 from the budget-200 run, plus 21 added 2026-11-09
+# from the full 506-item session — the 3 ReplaceBinaryOperator_BitOr_Pow
+# mutants at L919/L927/L934 (L914/L922/L929 before the +5 shift of
+# 284b118, which added a 5-line usage example to the
+# EnterprisePolicyEngine docstring), plus all 9 RShift and all 9 Sub
+# mutants, which sort after the budget-200 trim cut. Per-mutant
+# verification, as for trust: for each, the diff replaces exactly the
+# `|` at the recorded start position; the position lies inside a
+# function arg or return annotation (AST); the enclosing function
+# matches. The 9 positions are exactly the `|` operators inside
+# function annotations in policy.py (verified: mutant positions ==
+# function-annotation `|` positions). Why the change cannot affect
+# behaviour:
 #   1. policy.py has `from __future__ import annotations` (line 30),
 #      so under PEP 563 every annotation in the module is a string,
 #      stored unevaluated.
@@ -158,7 +170,11 @@
 #      validation, floor advance/check/rollback/drift, engine
 #      load/evaluate/status/export, state roundtrip); all 85 produced
 #      byte-identical behaviour (identical SHA-256 of the canonical
-#      probe output). 85/85.
+#      probe output). 85/85. The 18 RShift/Sub mutants added 2026-11-09
+#      were probed the same way a second time: each applied to a copy
+#      of policy.py with the full tests/test_enterprise_policy.py run
+#      (168 tests, incl. the 40 new kill tests); all 18 pass the full
+#      file unchanged (168/168 under every mutant). 18/18.
 # Two further `|` operators exist in dataclass field annotations
 # (EvidenceRef.detail L92, CapabilityClaim.valid_until L103) but
 # cosmic-ray 8.7.0 never generates mutants for them (parso `annassign`
@@ -203,17 +219,77 @@
 #      cover decorator lines: the mutant sits on the decorator line,
 #      above the `def` line.)
 #
-# KNOWN POLICY MUTANTS *NOT* IN THIS BASELINE (do not add without verification)
-# -----------------------------------------------------------------------------
-# - ReplaceBinaryOperator_BitOr_Pow at L914, L922, L929: same 9
-#   positions, same proof (they are in the 85/85 empirical check), but
-#   they were never executed in the budget-200 run — the trim cut the
-#   session at 200 work items and Pow sorts last at those positions.
-#   If a future run with a larger budget executes them and they
-#   survive, the gate fails (exit 2) until a human adds verified
-#   entries. That is by design.
-# - The remaining 298 work items of the 498-item session were never
-#   executed under budget 200 (same rule: verify, then add).
+# POLICY-298 ADDITIONS (32 entries, 2026-11-09)
+# -----------------------------------------------
+# Source: full 506-item session on branch fix/mutation-policy-298
+# (main 928dbc0, branch fast-forwarded to 1e4d333 with no policy.py
+# change): total 506, killed 352, surviving 154, timeout/error 0.
+# The dump (mutation-results/cosmic-ray-full.jsonl, 506 records) is
+# the proof artifact; classification in
+# hidden_files/policy-298-classification.md. The 154 survivors break
+# down as 99 annotation (78 already baselined + 21 new), 4
+# unobservable-value (already baselined), 10 domain-equivalent (new),
+# 1 unreachable-condition (new), 40 test gaps (killed with tests in
+# tests/test_enterprise_policy.py, class TestPolicyMutationKills298).
+# The two bullets this section replaces are now closed: the 3 Pow
+# mutants at L914/L922/L929 (now L919/L927/L934 after the +5 shift of
+# 284b118) were executed in the 506-item session, survived, and ARE
+# baselined above; and there are no unexecuted policy work items left
+# — the 506-item session executed every item (the old 498-item
+# session's 298 unexecuted items are a subset of these 506).
+#
+# PROOF — POLICY-298 KIND "domain-equivalent" (10 entries)
+# --------------------------------------------------------
+# Each was verified by hand-applying the mutant to a scratch copy and
+# comparing behaviour across a fixed differential battery (probe.py /
+# probe2.py, ~600 cases: ledger/validate/trust sweeps, pattern
+# matching, tier grid, digest variants, floor/check/advance grid incl.
+# revision 1000, load_policy digest cases, evaluate scope/action
+# sweeps, dataclass flags, atomic-write/save-state paths); 10/10
+# byte-identical, 0 diffs. The per-mutant proofs:
+# - [Eq_Is 1] is_validated L137:48, `claim.tier == VALIDATED` -> `is`:
+#   Enum.__eq__ IS identity comparison, so `==` coincides with `is`
+#   for enum members; for non-enum tiers (str/None) both are False.
+# - [Eq_Is 2] validate_claim L209:18, same argument for
+#   `claim.tier == VALIDATED`. [Eq_Is 3] validate_claim L210:35,
+#   same for `e.label == EXECUTED`. [Eq_Is 4]
+#   ledger_to_trust_dimension L242:31, same for `c.tier == VALIDATED`.
+#   [Eq_Is 5] ledger_to_trust_dimension L243:33, same for
+#   `c.tier == TOOL_BACKED`.
+# - [Eq_LtE 6] CapabilityPolicyEngine.evaluate L384:34,
+#   `len(missing) == 0` -> `<= 0`; [Eq_LtE 7] L384:53, same for
+#   `len(gaps)`: len() is never negative, so the two coincide.
+# - [Eq_LtE 11] PolicyRevisionFloor.check_policy L848:29,
+#   `revision == floor` -> `<=` in the elif: the elif is reached only
+#   when NOT (revision < floor), i.e. revision >= floor, so on that
+#   domain `<=` coincides with `==`.
+# - [Eq_LtE 12] PolicyRevisionFloor.advance_floor L876:40,
+#   `floor_revision == 0` -> `<= 0` in the initialize elif:
+#   `<= 0` coincides with `== 0` for floor_revision >= 0, and for
+#   floor_revision < 0 the elif is unreachable (any policy revision
+#   >= 0, enforced by EnterprisePolicy.__post_init__, takes the
+#   `revision > floor` first branch).
+# - [USub_Invert 1] CapabilityPolicyEngine.evaluate L381:77, default
+#   `-1` -> `~1` = `-2` in `tier_order.get(min_tier, -1)`: the
+#   claim-tier value is always in {-1, 0, 1, 2}, so `a < -1` and
+#   `a < -2` are both always False; when min_tier is known the
+#   default is unused.
+# Each entry pins source_text + the enclosing function's fingerprint,
+# exactly like the runtime kinds above.
+#
+# PROOF — POLICY-298 KIND "unreachable-condition" (1 entry)
+# ---------------------------------------------------------
+# [ReplaceTrueWithFalse 11] PolicyRevisionFloor._atomic_write_bytes
+# L731:39, `missing_ok=True` -> `False` in the except handler's
+# `tmp_path.unlink(missing_ok=True)`. The try block (fdopen/write/
+# flush/fsync/os.replace) never removes tmp_path, and os.replace moves
+# it only on success — so the temp file is always present when the
+# handler runs. The distinguishing state (temp file already absent)
+# requires external deletion mid-call and is not producible by any
+# deterministic test input. A test that monkeypatches tempfile.mkstemp
+# / os.fdopen to fabricate an absent tmp file could distinguish it,
+# but that fabricates a state the code cannot reach on its own. The
+# entry pins source_text + the enclosing function's fingerprint.
 #
 # PROOF — KIND "unreachable-condition" (4 entries, verified 2026-11-07)
 # ------------------------------------------------------------------
@@ -1672,6 +1748,149 @@ source_fingerprint = "c16ebdbadc811a8bc97f8babb6b098fd0e59e26f3582b680882055867b
 reason = "Unobservable-value mutant (_load_enterprise_policy_schema): `4` -> `3` in `@lru_cache(maxsize=4)`. The function takes no arguments, so its cache can hold at most one entry and maxsize 3/4/5 never triggers eviction; the cached value and call behaviour are identical. No input distinguishes the mutant."
 
 [[equivalent]]
+id = "textforensics.policy:core/ReplaceComparisonOperator_Eq_Is:1"
+module = "textforensics.policy"
+operator = "core/ReplaceComparisonOperator_Eq_Is"
+occurrence = 1
+start_pos = [137, 48]
+end_pos = [137, 50]
+function = "CapabilityLedger.is_validated"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "8bf65be0cc90962e45e1b740b78cb79b2dfac05e9241b2278b6076db1ee9e4b0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CapabilityLedger.is_validated): `claim.tier == EvidenceTier.VALIDATED` -> `is`. `Enum.__eq__` is identity comparison, so `==` coincides with `is` for enum members; for non-enum tiers (str/None) both are False. Re-verified 2026-11-09 against main 1e4d333: hand-applied mutant, 0 diffs across the differential battery (tier sweep {VALIDATED, TOOL_BACKED, READABLE, \"validated\", \"bogus\", None})."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceComparisonOperator_Eq_Is:2"
+module = "textforensics.policy"
+operator = "core/ReplaceComparisonOperator_Eq_Is"
+occurrence = 2
+start_pos = [209, 18]
+end_pos = [209, 20]
+function = "validate_claim"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "978740735a6916281e457483e59e767c139ab6b7c0b6c7681ac251503f3f1c54"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (validate_claim): `claim.tier == EvidenceTier.VALIDATED` -> `is`. `Enum.__eq__` is identity comparison, so `==` coincides with `is` for enum members; for non-enum tiers (str/None) both are False. Re-verified 2026-11-09 against main 1e4d333: hand-applied mutant, 0 diffs across the differential battery (tier x evidence-label sweep)."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceComparisonOperator_Eq_Is:3"
+module = "textforensics.policy"
+operator = "core/ReplaceComparisonOperator_Eq_Is"
+occurrence = 3
+start_pos = [210, 35]
+end_pos = [210, 37]
+function = "validate_claim"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "978740735a6916281e457483e59e767c139ab6b7c0b6c7681ac251503f3f1c54"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (validate_claim): `e.label == EvidenceLabel.EXECUTED` -> `is`. `Enum.__eq__` is identity comparison, so `==` coincides with `is` for enum members; for non-enum labels both are False. Re-verified 2026-11-09 against main 1e4d333: hand-applied mutant, 0 diffs across the differential battery (tier x evidence-label sweep)."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceComparisonOperator_Eq_Is:4"
+module = "textforensics.policy"
+operator = "core/ReplaceComparisonOperator_Eq_Is"
+occurrence = 4
+start_pos = [242, 31]
+end_pos = [242, 33]
+function = "ledger_to_trust_dimension"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "bfa836fbb6b4bca4b18affc41875ad7ed06df16d72f845c2adaa81e11d376471"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (ledger_to_trust_dimension): `c.tier == EvidenceTier.VALIDATED` -> `is`. `Enum.__eq__` is identity comparison, so `==` coincides with `is` for enum members; for non-enum tiers (str/None) both are False. Re-verified 2026-11-09 against main 1e4d333: hand-applied mutant, 0 diffs across the differential battery (tier-set sweep)."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceComparisonOperator_Eq_Is:5"
+module = "textforensics.policy"
+operator = "core/ReplaceComparisonOperator_Eq_Is"
+occurrence = 5
+start_pos = [243, 33]
+end_pos = [243, 35]
+function = "ledger_to_trust_dimension"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "bfa836fbb6b4bca4b18affc41875ad7ed06df16d72f845c2adaa81e11d376471"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (ledger_to_trust_dimension): `c.tier == EvidenceTier.TOOL_BACKED` -> `is`. `Enum.__eq__` is identity comparison, so `==` coincides with `is` for enum members; for non-enum tiers (str/None) both are False. Re-verified 2026-11-09 against main 1e4d333: hand-applied mutant, 0 diffs across the differential battery (tier-set sweep)."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceComparisonOperator_Eq_LtE:6"
+module = "textforensics.policy"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 6
+start_pos = [384, 34]
+end_pos = [384, 36]
+function = "CapabilityPolicyEngine.evaluate"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "7bd5e37984df20fc1b5dd1c3a339c44539cd8b3ec47baea64350eea94d756b5b"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CapabilityPolicyEngine.evaluate): `len(missing) == 0` -> `<= 0` in `passed = len(missing) == 0 and len(gaps) == 0`. `len()` is never negative, so `== 0` and `<= 0` coincide for every input. Re-verified 2026-11-09 against main 1e4d333: hand-applied mutant, 0 diffs across the differential battery (missing/gaps counts 0/1/2)."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceComparisonOperator_Eq_LtE:7"
+module = "textforensics.policy"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 7
+start_pos = [384, 53]
+end_pos = [384, 55]
+function = "CapabilityPolicyEngine.evaluate"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "7bd5e37984df20fc1b5dd1c3a339c44539cd8b3ec47baea64350eea94d756b5b"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CapabilityPolicyEngine.evaluate): `len(gaps) == 0` -> `<= 0` in `passed = len(missing) == 0 and len(gaps) == 0`. `len()` is never negative, so `== 0` and `<= 0` coincide for every input. Re-verified 2026-11-09 against main 1e4d333: hand-applied mutant, 0 diffs across the differential battery (missing/gaps counts 0/1/2)."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceComparisonOperator_Eq_LtE:11"
+module = "textforensics.policy"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 11
+start_pos = [848, 29]
+end_pos = [848, 31]
+function = "PolicyRevisionFloor.check_policy"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "d2ff0e6556707858aae0e8a983b4354e8bb60f5b9f0438bac969b4e14ba63059"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (PolicyRevisionFloor.check_policy): `policy.revision == floor_revision` -> `<=` in the `elif`. The `elif` is reached only when NOT (`revision < floor`), i.e. `revision >= floor`; on that domain `revision <= floor` coincides with `revision == floor`. Re-verified 2026-11-09 against main 1e4d333: hand-applied mutant, 0 diffs across the differential battery (252 floor/policy/digest combinations)."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceComparisonOperator_Eq_LtE:12"
+module = "textforensics.policy"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 12
+start_pos = [876, 40]
+end_pos = [876, 42]
+function = "PolicyRevisionFloor.advance_floor"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "a21efb672224a75fab7cdfb2c689440eebc19f7d5a9c3436ec66f95a30c77e23"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (PolicyRevisionFloor.advance_floor): `floor_revision == 0` -> `<= 0` in the `elif ... and not floor_digest` initialize branch. `floor_revision <= 0` coincides with `== 0` for `floor_revision >= 0`; for `floor_revision < 0` the `elif` is unreachable — any policy revision (>= 0, enforced by `EnterprisePolicy.__post_init__`) takes the `revision > floor` first branch. Re-verified 2026-11-09 against main 1e4d333: hand-applied mutant, 0 diffs across the differential battery (floor/policy grid incl. crafted negative floor)."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceUnaryOperator_USub_Invert:1"
+module = "textforensics.policy"
+operator = "core/ReplaceUnaryOperator_USub_Invert"
+occurrence = 1
+start_pos = [381, 77]
+end_pos = [381, 78]
+function = "CapabilityPolicyEngine.evaluate"
+kind = "domain-equivalent"
+source_text = "-"
+source_fingerprint = "7bd5e37984df20fc1b5dd1c3a339c44539cd8b3ec47baea64350eea94d756b5b"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (CapabilityPolicyEngine.evaluate): default `-1` -> `~1` (= `-2`) in `tier_order.get(min_tier, -1)`. The claim-tier value is always in {-1, 0, 1, 2}, so `a < -1` and `a < -2` are both always False; when `min_tier` is known the default is unused. Re-verified 2026-11-09 against main 1e4d333: hand-applied mutant, 0 diffs across the differential battery (5x5 tier sweep)."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceTrueWithFalse:11"
+module = "textforensics.policy"
+operator = "core/ReplaceTrueWithFalse"
+occurrence = 11
+start_pos = [731, 39]
+end_pos = [731, 43]
+function = "PolicyRevisionFloor._atomic_write_bytes"
+kind = "unreachable-condition"
+source_text = "True"
+source_fingerprint = "d7ef0ce80801e67be2625a2e2a76b263a3df50cd4c4d60e77e5cdd206fc30fae"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unreachable-condition mutant (PolicyRevisionFloor._atomic_write_bytes): `missing_ok=True` -> `False` in the `except` handler's `tmp_path.unlink(missing_ok=True)`. The `try` block (fdopen/write/flush/fsync/os.replace) never removes `tmp_path`, and `os.replace` moves it only on success — so the temp file is always present when the handler runs. The distinguishing state (temp file already absent) requires external deletion mid-call and is not producible by any deterministic test input. Re-verified 2026-11-09 against main 1e4d333: hand-applied mutant, identical behaviour (replace-onto-a-non-empty-directory raises IsADirectoryError identically in both copies with no tmp leftovers; normal write identical)."
+
+[[equivalent]]
 id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Add:0"
 module = "textforensics.policy"
 operator = "core/ReplaceBinaryOperator_BitOr_Add"
@@ -2606,6 +2825,258 @@ function = "EnterprisePolicyEngine.__init__"
 kind = "arg"
 annotation = "PolicyRevisionFloor | None"
 reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Pow:6"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 6
+start_pos = [919, 41]
+end_pos = [919, 42]
+function = "EnterprisePolicyEngine.policy"
+kind = "return"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.policy): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Pow:7"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 7
+start_pos = [927, 43]
+end_pos = [927, 44]
+function = "EnterprisePolicyEngine.floor"
+kind = "return"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.floor): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Pow:8"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 8
+start_pos = [934, 35]
+end_pos = [934, 36]
+function = "EnterprisePolicyEngine.load_policy"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.load_policy): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_RShift:0"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 0
+start_pos = [126, 72]
+end_pos = [126, 73]
+function = "CapabilityLedger.get"
+kind = "return"
+annotation = "CapabilityClaim | None"
+reason = "Postponed-evaluation annotation (return of CapabilityLedger.get): the `|` in `CapabilityClaim | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_RShift:1"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 1
+start_pos = [670, 25]
+end_pos = [670, 26]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_RShift:2"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 2
+start_pos = [671, 19]
+end_pos = [671, 20]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_RShift:3"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 3
+start_pos = [672, 23]
+end_pos = [672, 24]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_RShift:4"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 4
+start_pos = [912, 33]
+end_pos = [912, 34]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_RShift:5"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 5
+start_pos = [913, 35]
+end_pos = [913, 36]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_RShift:6"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 6
+start_pos = [919, 41]
+end_pos = [919, 42]
+function = "EnterprisePolicyEngine.policy"
+kind = "return"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.policy): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_RShift:7"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 7
+start_pos = [927, 43]
+end_pos = [927, 44]
+function = "EnterprisePolicyEngine.floor"
+kind = "return"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.floor): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_RShift:8"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 8
+start_pos = [934, 35]
+end_pos = [934, 36]
+function = "EnterprisePolicyEngine.load_policy"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.load_policy): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Sub:0"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 0
+start_pos = [126, 72]
+end_pos = [126, 73]
+function = "CapabilityLedger.get"
+kind = "return"
+annotation = "CapabilityClaim | None"
+reason = "Postponed-evaluation annotation (return of CapabilityLedger.get): the `|` in `CapabilityClaim | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Sub:1"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 1
+start_pos = [670, 25]
+end_pos = [670, 26]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Sub:2"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 2
+start_pos = [671, 19]
+end_pos = [671, 20]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Sub:3"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 3
+start_pos = [672, 23]
+end_pos = [672, 24]
+function = "PolicyRevisionFloor.__init__"
+kind = "arg"
+annotation = "Path | None"
+reason = "Postponed-evaluation annotation (arg of PolicyRevisionFloor.__init__): the `|` in `Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Sub:4"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 4
+start_pos = [912, 33]
+end_pos = [912, 34]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Sub:5"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 5
+start_pos = [913, 35]
+end_pos = [913, 36]
+function = "EnterprisePolicyEngine.__init__"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.__init__): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Sub:6"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 6
+start_pos = [919, 41]
+end_pos = [919, 42]
+function = "EnterprisePolicyEngine.policy"
+kind = "return"
+annotation = "EnterprisePolicy | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.policy): the `|` in `EnterprisePolicy | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Sub:7"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 7
+start_pos = [927, 43]
+end_pos = [927, 44]
+function = "EnterprisePolicyEngine.floor"
+kind = "return"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (return of EnterprisePolicyEngine.floor): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.policy:core/ReplaceBinaryOperator_BitOr_Sub:8"
+module = "textforensics.policy"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 8
+start_pos = [934, 35]
+end_pos = [934, 36]
+function = "EnterprisePolicyEngine.load_policy"
+kind = "arg"
+annotation = "PolicyRevisionFloor | None"
+reason = "Postponed-evaluation annotation (arg of EnterprisePolicyEngine.load_policy): the `|` in `PolicyRevisionFloor | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
 
 [[equivalent]]
 id = "textforensics.benchmark:core/ReplaceBinaryOperator_BitOr_Add:0"
