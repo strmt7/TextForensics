@@ -60,7 +60,21 @@ class _MockTSAHandler(BaseHTTPRequestHandler):
             "content_type": self.headers.get("Content-Type"),
             "body": body,
         }
+        self.server.requests_seen.append(("POST", self.path))
         mode = self.server.mode
+        if mode == "redirect-off-loopback":
+            self.send_response(302)
+            self.send_header("Location", "http://example.invalid/tsa")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        if mode == "redirect-same-loopback":
+            port = self.server.server_address[1]
+            self.send_response(302)
+            self.send_header("Location", f"http://127.0.0.1:{port}/tsr")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         if mode == "http-500":
             payload = b"mock TSA failure"
             self.send_response(500)
@@ -80,6 +94,14 @@ class _MockTSAHandler(BaseHTTPRequestHandler):
             token = build_token_for_digest(digest, nonce=nonce)
         self._send_token_response(_response_for_token(token))
 
+    def do_GET(self):  # noqa: N802 - stdlib handler name
+        # A POST redirected with 301/302/303 arrives here as a GET
+        # (urllib drops the body): serve the token for the fixture
+        # digest/nonce so a same-loopback redirect can complete.
+        self.server.requests_seen.append(("GET", self.path))
+        token = build_token_for_digest(DIGEST, nonce=NONCE)
+        self._send_token_response(_response_for_token(token))
+
     def _send_token_response(self, payload):
         self.send_response(200)
         self.send_header("Content-Type", "application/timestamp-reply")
@@ -95,6 +117,7 @@ class MockTSAClientTests(unittest.TestCase):
         cls.server.daemon_threads = True
         cls.server.mode = "ok"
         cls.server.last_request = {}
+        cls.server.requests_seen = []
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
         cls.url = f"http://127.0.0.1:{cls.server.server_address[1]}/tsr"
@@ -142,6 +165,30 @@ class MockTSAClientTests(unittest.TestCase):
         with self.assertRaises(TimestampError) as ctx:
             request_timestamp(DIGEST, self.url, nonce=NONCE, timeout=10.0)
         self.assertIn("did not grant", str(ctx.exception))
+
+    def test_redirect_off_loopback_is_refused(self):
+        # No-downgrade redirect guard: the loopback TSA redirecting
+        # to plain http off-loopback must fail before any request to
+        # the target is made.
+        self.server.mode = "redirect-off-loopback"
+        self.server.requests_seen = []
+        with self.assertRaises(TimestampError) as ctx:
+            request_timestamp(DIGEST, self.url, nonce=NONCE, timeout=10.0)
+        self.assertIn("loopback http only", str(ctx.exception))
+        # The TSA saw exactly the one initial POST: the redirect was
+        # never followed (no request to example.invalid).
+        self.assertEqual(self.server.requests_seen, [("POST", "/tsr")])
+
+    def test_redirect_same_loopback_succeeds(self):
+        # Same-scheme redirect (loopback http to loopback http) still
+        # works: urllib turns the redirected POST into a GET, which
+        # the mock answers with the fixture token.
+        self.server.mode = "redirect-same-loopback"
+        self.server.requests_seen = []
+        report = request_timestamp(DIGEST, self.url, nonce=NONCE, timeout=10.0)
+        self.assertTrue(report["valid"], report["errors"])
+        self.assertEqual(report["nonce"], NONCE)
+        self.assertEqual(self.server.requests_seen, [("POST", "/tsr"), ("GET", "/tsr")])
 
 
 if __name__ == "__main__":

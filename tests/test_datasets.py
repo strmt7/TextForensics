@@ -5,19 +5,29 @@ covered by the smoke tests in the measurement script, which are skipped
 without network/cache.
 """
 
+import datetime
 import http.client
 import http.server
 import io
+import ipaddress
 import json
 import os
+import ssl
 import subprocess
 import tempfile
 import threading
 import time
 import unittest
 import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from unittest import mock
+
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 
 from textforensics.datasets import (
     DETECTRL_X_BYTES,
@@ -34,6 +44,7 @@ from textforensics.datasets import (
     _map_detectrl,
     _map_m4,
     _map_m4gt_bench,
+    _NoDowngradeRedirectHandler,
     _SplitTimeoutHTTPHandler,
     _SplitTimeoutHTTPSHandler,
     cache_path,
@@ -301,7 +312,9 @@ class CacheDirTests(unittest.TestCase):
 class ClientTests(unittest.TestCase):
     def test_rows_parses_payload(self) -> None:
         payload = {"rows": [{"row_idx": 0, "row": {"text": "a", "label": 1}}]}
-        with mock.patch("urllib.request.urlopen", return_value=_fake_response(payload)):
+        with mock.patch(
+            "textforensics.datasets._guarded_urlopen", return_value=_fake_response(payload)
+        ):
             client = DatasetsServerClient(retries=0)
             self.assertEqual(
                 client.rows("yaful/MAGE", "default", "train"), [{"text": "a", "label": 1}]
@@ -317,11 +330,15 @@ class ClientTests(unittest.TestCase):
             "splits": [{"dataset": "yaful/MAGE", "config": "default", "split": "train"}]
         }
         size_payload = {"size": {"dataset": {"dataset": "yaful/MAGE", "num_rows": 436606}}}
-        with mock.patch("urllib.request.urlopen", return_value=_fake_response(splits_payload)):
+        with mock.patch(
+            "textforensics.datasets._guarded_urlopen", return_value=_fake_response(splits_payload)
+        ):
             self.assertEqual(
                 DatasetsServerClient(retries=0).splits("yaful/MAGE"), splits_payload["splits"]
             )
-        with mock.patch("urllib.request.urlopen", return_value=_fake_response(size_payload)):
+        with mock.patch(
+            "textforensics.datasets._guarded_urlopen", return_value=_fake_response(size_payload)
+        ):
             self.assertEqual(
                 DatasetsServerClient(retries=0).size("yaful/MAGE")["dataset"]["num_rows"], 436606
             )
@@ -329,7 +346,7 @@ class ClientTests(unittest.TestCase):
     def test_retries_then_raises(self) -> None:
         with (
             mock.patch(
-                "urllib.request.urlopen", side_effect=urllib.error.URLError("down")
+                "textforensics.datasets._guarded_urlopen", side_effect=urllib.error.URLError("down")
             ) as urlopen,
             self.assertRaises(DatasetFetchError),
         ):
@@ -350,7 +367,7 @@ class ClientTests(unittest.TestCase):
                 raise http.client.RemoteDisconnected("Remote end closed connection")
             return _fake_response({"rows": [{"row": {"a": 1}}]})
 
-        with mock.patch("urllib.request.urlopen", side_effect=_flaky):
+        with mock.patch("textforensics.datasets._guarded_urlopen", side_effect=_flaky):
             payload = DatasetsServerClient(retries=3, timeout_s=1)._get_json(
                 "/rows", {"dataset": "x"}
             )
@@ -407,7 +424,7 @@ class DownloadTests(unittest.TestCase):
         data = b"hello world, resumable download"
         expected = hashlib.sha256(data).hexdigest()
         with mock.patch(
-            "urllib.request.urlopen",
+            "textforensics.datasets._guarded_urlopen",
             return_value=self._fake_download_response(data),
         ):
             result = download_large_file(
@@ -420,7 +437,7 @@ class DownloadTests(unittest.TestCase):
     def test_hash_mismatch_raises_and_leaves_no_valid_file(self) -> None:
         with (
             mock.patch(
-                "urllib.request.urlopen",
+                "textforensics.datasets._guarded_urlopen",
                 return_value=self._fake_download_response(b"corrupt"),
             ),
             self.assertRaises(DownloadError),
@@ -443,7 +460,7 @@ class DownloadTests(unittest.TestCase):
             seen["range"] = request.get_header("Range")
             return self._fake_download_response(b"world", status=206)
 
-        with mock.patch("urllib.request.urlopen", side_effect=_urlopen):
+        with mock.patch("textforensics.datasets._guarded_urlopen", side_effect=_urlopen):
             download_large_file("https://example.invalid/file.bin", self.dest)
         self.assertEqual(seen["range"], "bytes=6-")
         self.assertEqual(self.dest.read_bytes(), b"hello world")
@@ -452,7 +469,7 @@ class DownloadTests(unittest.TestCase):
         part = Path(str(self.dest) + ".part")
         part.write_bytes(b"stale partial")
         with mock.patch(
-            "urllib.request.urlopen",
+            "textforensics.datasets._guarded_urlopen",
             return_value=self._fake_download_response(b"full file", status=200),
         ):
             download_large_file("https://example.invalid/file.bin", self.dest)
@@ -469,7 +486,7 @@ class DownloadTests(unittest.TestCase):
                 raise http.client.RemoteDisconnected("Remote end closed connection")
             return self._fake_download_response(b"data")
 
-        with mock.patch("urllib.request.urlopen", side_effect=_flaky):
+        with mock.patch("textforensics.datasets._guarded_urlopen", side_effect=_flaky):
             download_large_file("https://example.invalid/file.bin", self.dest, retries=2)
         self.assertEqual(self.dest.read_bytes(), b"data")
         self.assertEqual(calls["n"], 2)
@@ -477,7 +494,7 @@ class DownloadTests(unittest.TestCase):
     def test_404_fails_immediately_without_retry(self) -> None:
         with (
             mock.patch(
-                "urllib.request.urlopen",
+                "textforensics.datasets._guarded_urlopen",
                 side_effect=urllib.error.HTTPError(
                     "https://example.invalid/missing", 404, "Not Found", {}, None
                 ),
@@ -494,7 +511,7 @@ class DownloadTests(unittest.TestCase):
         data = b"already here"
         self.dest.write_bytes(data)
         expected = hashlib.sha256(data).hexdigest()
-        with mock.patch("urllib.request.urlopen") as urlopen:
+        with mock.patch("textforensics.datasets._guarded_urlopen") as urlopen:
             result = download_large_file(
                 "https://example.invalid/file.bin", self.dest, expected_sha256=expected
             )
@@ -504,7 +521,7 @@ class DownloadTests(unittest.TestCase):
     def test_expected_byte_count_mismatch_raises(self) -> None:
         with (
             mock.patch(
-                "urllib.request.urlopen",
+                "textforensics.datasets._guarded_urlopen",
                 return_value=self._fake_download_response(b"short"),
             ),
             self.assertRaises(DownloadError),
@@ -523,7 +540,9 @@ class DownloadTests(unittest.TestCase):
             return response
 
         with (
-            mock.patch("urllib.request.urlopen", side_effect=_truncated) as urlopen,
+            mock.patch(
+                "textforensics.datasets._guarded_urlopen", side_effect=_truncated
+            ) as urlopen,
             self.assertRaises(DownloadError),
         ):
             download_large_file(
@@ -536,10 +555,11 @@ class DownloadTests(unittest.TestCase):
         self.assertFalse(self.dest.exists())
         self.assertTrue(Path(str(self.dest) + ".part").exists())
 
-    def test_urlopen_receives_stall_budget_when_budgets_equal(self) -> None:
-        # Equal connect/stall budgets use plain urlopen with the stall budget.
+    def test_guarded_urlopen_receives_stall_budget_when_budgets_equal(self) -> None:
+        # Equal connect/stall budgets use the guarded plain opener with
+        # the stall budget (the urlopen call it replaced).
         with mock.patch(
-            "urllib.request.urlopen",
+            "textforensics.datasets._guarded_urlopen",
             return_value=self._fake_download_response(b"data"),
         ) as urlopen:
             download_large_file("https://example.invalid/file.bin", self.dest)
@@ -547,7 +567,7 @@ class DownloadTests(unittest.TestCase):
 
         dest2 = Path(self._tmp.name) / "file2.bin"
         with mock.patch(
-            "urllib.request.urlopen",
+            "textforensics.datasets._guarded_urlopen",
             return_value=self._fake_download_response(b"data"),
         ) as urlopen:
             download_large_file(
@@ -569,9 +589,10 @@ class DownloadTests(unittest.TestCase):
                 connect_timeout_s=30,
             )
         handlers = build_opener.call_args.args
-        self.assertEqual(len(handlers), 2)
+        self.assertEqual(len(handlers), 3)
         self.assertIsInstance(handlers[0], _SplitTimeoutHTTPHandler)
         self.assertIsInstance(handlers[1], _SplitTimeoutHTTPSHandler)
+        self.assertIsInstance(handlers[2], _NoDowngradeRedirectHandler)
         self.assertEqual(handlers[0]._stall_timeout_s, 300)
         self.assertEqual(handlers[1]._stall_timeout_s, 300)
         self.assertEqual(fake_opener.open.call_args.kwargs["timeout"], 30)
@@ -589,7 +610,7 @@ class DownloadTests(unittest.TestCase):
             mock.patch("textforensics.datasets.random.uniform", side_effect=_uniform),
             mock.patch("textforensics.datasets.time.sleep", side_effect=sleeps.append),
             mock.patch(
-                "urllib.request.urlopen",
+                "textforensics.datasets._guarded_urlopen",
                 side_effect=http.client.RemoteDisconnected("Remote end closed connection"),
             ),
             self.assertRaises(DownloadError),
@@ -623,7 +644,7 @@ class DownloadTests(unittest.TestCase):
 
         with (
             mock.patch(
-                "urllib.request.urlopen",
+                "textforensics.datasets._guarded_urlopen",
                 side_effect=http.client.RemoteDisconnected("Remote end closed connection"),
             ),
             mock.patch("textforensics.datasets.shutil.which", return_value="/usr/bin/curl"),
@@ -681,7 +702,7 @@ class DownloadTests(unittest.TestCase):
 
         with (
             mock.patch(
-                "urllib.request.urlopen",
+                "textforensics.datasets._guarded_urlopen",
                 side_effect=http.client.RemoteDisconnected("Remote end closed connection"),
             ),
             mock.patch("textforensics.datasets.shutil.which", return_value="/usr/bin/curl"),
@@ -697,7 +718,7 @@ class DownloadTests(unittest.TestCase):
     def test_curl_absent_raises_download_error_with_urllib_context(self) -> None:
         with (
             mock.patch(
-                "urllib.request.urlopen",
+                "textforensics.datasets._guarded_urlopen",
                 side_effect=http.client.RemoteDisconnected("Remote end closed connection"),
             ),
             mock.patch("textforensics.datasets.shutil.which", return_value=None),
@@ -713,7 +734,7 @@ class DownloadTests(unittest.TestCase):
         part.write_bytes(b"partial")
         with (
             mock.patch(
-                "urllib.request.urlopen",
+                "textforensics.datasets._guarded_urlopen",
                 side_effect=http.client.RemoteDisconnected("Remote end closed connection"),
             ),
             mock.patch("textforensics.datasets.shutil.which", return_value="/usr/bin/curl"),
@@ -733,7 +754,7 @@ class DownloadTests(unittest.TestCase):
     def test_curl_refuses_non_loopback_http(self) -> None:
         with (
             mock.patch(
-                "urllib.request.urlopen",
+                "textforensics.datasets._guarded_urlopen",
                 side_effect=http.client.RemoteDisconnected("Remote end closed connection"),
             ),
             mock.patch("textforensics.datasets.shutil.which", return_value="/usr/bin/curl"),
@@ -752,7 +773,7 @@ class DownloadTests(unittest.TestCase):
             return subprocess.CompletedProcess(argv, 0)
 
         with (
-            mock.patch("urllib.request.urlopen") as urlopen,
+            mock.patch("textforensics.datasets._guarded_urlopen") as urlopen,
             mock.patch("textforensics.datasets.shutil.which", return_value="/usr/bin/curl"),
             mock.patch("textforensics.datasets.subprocess.run", side_effect=_run),
         ):
@@ -767,7 +788,7 @@ class DownloadTests(unittest.TestCase):
             seen["range"] = request.get_header("Range")
             return self._fake_download_response(b"0123456789" * 10)
 
-        with mock.patch("urllib.request.urlopen", side_effect=_urlopen):
+        with mock.patch("textforensics.datasets._guarded_urlopen", side_effect=_urlopen):
             download_large_file(
                 "https://example.invalid/file.bin",
                 self.dest,
@@ -788,7 +809,7 @@ class DownloadTests(unittest.TestCase):
 
         with (
             mock.patch(
-                "urllib.request.urlopen",
+                "textforensics.datasets._guarded_urlopen",
                 side_effect=http.client.RemoteDisconnected("Remote end closed connection"),
             ),
             mock.patch("textforensics.datasets.shutil.which", return_value="/usr/bin/curl"),
@@ -819,7 +840,7 @@ class DownloadUrlValidationTests(unittest.TestCase):
 
     def test_refuses_plain_http_url(self) -> None:
         with (
-            mock.patch("urllib.request.urlopen") as urlopen,
+            mock.patch("textforensics.datasets._guarded_urlopen") as urlopen,
             self.assertRaises(DownloadError) as ctx,
         ):
             download_large_file("http://example.invalid/file.bin", self.dest, retries=0)
@@ -831,7 +852,7 @@ class DownloadUrlValidationTests(unittest.TestCase):
         # urllib would read a local file into the download — the
         # file-exfiltration shape B310 exists to catch.
         with (
-            mock.patch("urllib.request.urlopen") as urlopen,
+            mock.patch("textforensics.datasets._guarded_urlopen") as urlopen,
             self.assertRaises(DownloadError),
         ):
             download_large_file("file:///etc/passwd", self.dest, retries=0)
@@ -839,11 +860,272 @@ class DownloadUrlValidationTests(unittest.TestCase):
 
     def test_refuses_ftp_url(self) -> None:
         with (
-            mock.patch("urllib.request.urlopen") as urlopen,
+            mock.patch("textforensics.datasets._guarded_urlopen") as urlopen,
             self.assertRaises(DownloadError),
         ):
             download_large_file("ftp://example.invalid/file.bin", self.dest, retries=0)
         urlopen.assert_not_called()
+
+
+def _write_localhost_cert(directory: str) -> tuple[str, str]:
+    """Self-signed localhost cert (test fixture, generated in-process).
+
+    ``cryptography`` is a declared dependency; no key material is
+    committed and the cert lives one day. Lets the redirect tests run
+    a real TLS loopback server, so an https→http downgrade is
+    exercised end to end instead of only at the handler unit level.
+    """
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
+    now = datetime.datetime.now(datetime.UTC)
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - datetime.timedelta(minutes=5))
+        .not_valid_after(now + datetime.timedelta(days=1))
+        .add_extension(
+            x509.SubjectAlternativeName(
+                [
+                    x509.DNSName("localhost"),
+                    x509.IPAddress(ipaddress.IPv4Address("127.0.0.1")),
+                ]
+            ),
+            critical=False,
+        )
+        .sign(key, hashes.SHA256())
+    )
+    cert_path = os.path.join(directory, "localhost.crt")
+    key_path = os.path.join(directory, "localhost.key")
+    Path(cert_path).write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    Path(key_path).write_bytes(
+        key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.TraditionalOpenSSL,
+            serialization.NoEncryption(),
+        )
+    )
+    return cert_path, key_path
+
+
+class _RedirectHandler(http.server.BaseHTTPRequestHandler):
+    """Loopback fixture serving payloads or absolute-URL redirects.
+
+    Per-server routing lives on the server instance: ``payloads``
+    maps a path to bytes, ``redirects`` maps a path to the absolute
+    ``Location`` URL, and ``requests_seen`` records every path in
+    receipt order, so a test can prove a refused redirect was never
+    followed (no request to the target, no bytes written).
+    """
+
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, *args: object) -> None:
+        pass
+
+    def do_GET(self) -> None:  # noqa: N802 - stdlib handler name
+        path = urllib.parse.urlparse(self.path).path
+        self.server.requests_seen.append(path)
+        target = self.server.redirects.get(path)
+        if target is not None:
+            self.send_response(302)
+            self.send_header("Location", target)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        payload = self.server.payloads.get(path)
+        if payload is None:
+            self.send_response(404)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+
+def _start_redirect_server(
+    *, tls: tuple[str, str] | None
+) -> tuple[http.server.ThreadingHTTPServer, threading.Thread]:
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _RedirectHandler)
+    server.daemon_threads = True
+    server.payloads = {}
+    server.redirects = {}
+    server.requests_seen = []
+    if tls is not None:
+        cert_path, key_path = tls
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(cert_path, key_path)
+        server.socket = context.wrap_socket(server.socket, server_side=True)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server, thread
+
+
+class RedirectGuardTests(unittest.TestCase):
+    """No-downgrade redirect guard (urllib redirect residual).
+
+    No egress: one plain and two TLS loopback servers serve a small
+    payload behind redirects. The client trusts the self-signed test
+    cert only because the class temporarily installs
+    ``ssl._create_unverified_context`` as the default HTTPS context —
+    loopback-only test scaffolding, restored in tearDownClass, never
+    production behaviour.
+    """
+
+    PAYLOAD = b"redirect-guard payload"
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls._tmp = tempfile.TemporaryDirectory()
+        cert = _write_localhost_cert(cls._tmp.name)
+        cls._plain, cls._plain_thread = _start_redirect_server(tls=None)
+        cls._tls_a, cls._tls_a_thread = _start_redirect_server(tls=cert)
+        cls._tls_b, cls._tls_b_thread = _start_redirect_server(tls=cert)
+        cls._orig_default_context = ssl._create_default_https_context
+        ssl._create_default_https_context = ssl._create_unverified_context
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        ssl._create_default_https_context = cls._orig_default_context
+        for server, thread in (
+            (cls._plain, cls._plain_thread),
+            (cls._tls_a, cls._tls_a_thread),
+            (cls._tls_b, cls._tls_b_thread),
+        ):
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=10)
+        cls._tmp.cleanup()
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.dest = Path(self._tmp.name) / "file.bin"
+        for server in (self._plain, self._tls_a, self._tls_b):
+            server.payloads.clear()
+            server.redirects.clear()
+            server.requests_seen.clear()
+        self.plain_url = f"http://127.0.0.1:{self._plain.server_address[1]}"
+        self.tls_a_url = f"https://127.0.0.1:{self._tls_a.server_address[1]}"
+        self.tls_b_url = f"https://127.0.0.1:{self._tls_b.server_address[1]}"
+        self._plain.payloads["/payload"] = self.PAYLOAD
+        self._tls_b.payloads["/payload"] = self.PAYLOAD
+
+    def test_https_to_http_redirect_is_refused(self) -> None:
+        self._tls_a.redirects["/start"] = f"{self.plain_url}/payload"
+        with self.assertRaises(DownloadError) as ctx:
+            download_large_file(
+                f"{self.tls_a_url}/start", self.dest, retries=0, use_curl_fallback=False
+            )
+        self.assertIn("refuses", str(ctx.exception))
+        self.assertFalse(self.dest.exists())
+        self.assertFalse(Path(str(self.dest) + ".part").exists())
+        # No HTTP request was ever made to the downgrade target.
+        self.assertEqual(self._plain.requests_seen, [])
+        self.assertEqual(self._tls_a.requests_seen, ["/start"])
+
+    def test_https_to_https_redirect_succeeds(self) -> None:
+        self._tls_a.redirects["/start"] = f"{self.tls_b_url}/payload"
+        result = download_large_file(f"{self.tls_a_url}/start", self.dest)
+        self.assertEqual(result, self.dest)
+        self.assertEqual(self.dest.read_bytes(), self.PAYLOAD)
+        self.assertEqual(self._tls_a.requests_seen, ["/start"])
+        self.assertEqual(self._tls_b.requests_seen, ["/payload"])
+
+    def test_http_loopback_to_http_loopback_redirect_succeeds(self) -> None:
+        self._plain.redirects["/start"] = f"{self.plain_url}/payload"
+        result = download_large_file(f"{self.plain_url}/start", self.dest)
+        self.assertEqual(result, self.dest)
+        self.assertEqual(self.dest.read_bytes(), self.PAYLOAD)
+        self.assertEqual(self._plain.requests_seen, ["/start", "/payload"])
+
+    def test_http_loopback_to_non_loopback_http_redirect_is_refused(self) -> None:
+        self._plain.redirects["/start"] = "http://example.invalid/payload"
+        with self.assertRaises(DownloadError) as ctx:
+            download_large_file(
+                f"{self.plain_url}/start", self.dest, retries=0, use_curl_fallback=False
+            )
+        self.assertIn("refuses", str(ctx.exception))
+        self.assertFalse(self.dest.exists())
+        self.assertFalse(Path(str(self.dest) + ".part").exists())
+        # The origin saw exactly the one initial request: the redirect
+        # was never followed (no DNS, no request to example.invalid).
+        self.assertEqual(self._plain.requests_seen, ["/start"])
+
+    def test_downgrade_refused_on_split_timeout_path(self) -> None:
+        # Same downgrade, but through _split_timeout_opener (unequal
+        # connect/stall budgets) instead of the plain path.
+        self._tls_a.redirects["/start"] = f"{self.plain_url}/payload"
+        with self.assertRaises(DownloadError) as ctx:
+            download_large_file(
+                f"{self.tls_a_url}/start",
+                self.dest,
+                stall_timeout_s=5,
+                connect_timeout_s=30,
+                retries=0,
+                use_curl_fallback=False,
+            )
+        self.assertIn("refuses", str(ctx.exception))
+        self.assertEqual(self._plain.requests_seen, [])
+
+    def test_redirect_handler_refuses_downgrade(self) -> None:
+        handler = _NoDowngradeRedirectHandler()
+        request = urllib.request.Request("https://example.invalid/start")
+        with self.assertRaises(DownloadError) as ctx:
+            handler.redirect_request(
+                request, None, 302, "Found", {}, "http://example.invalid/payload"
+            )
+        self.assertIn("refuses", str(ctx.exception))
+
+    def test_redirect_handler_refuses_downgrade_to_loopback(self) -> None:
+        # The case that caught the first implementation: a downgrade
+        # is refused even when the http target is loopback (the
+        # target alone would pass the scheme policy).
+        handler = _NoDowngradeRedirectHandler()
+        request = urllib.request.Request("https://example.invalid/start")
+        with self.assertRaises(DownloadError) as ctx:
+            handler.redirect_request(request, None, 302, "Found", {}, "http://127.0.0.1:9/payload")
+        self.assertIn("refuses", str(ctx.exception))
+
+    def test_redirect_handler_refuses_non_http_scheme(self) -> None:
+        handler = _NoDowngradeRedirectHandler()
+        request = urllib.request.Request("https://example.invalid/start")
+        with self.assertRaises(DownloadError):
+            handler.redirect_request(request, None, 302, "Found", {}, "file:///etc/passwd")
+
+    def test_redirect_handler_allows_same_scheme(self) -> None:
+        handler = _NoDowngradeRedirectHandler()
+        https_request = urllib.request.Request("https://example.invalid/start")
+        new = handler.redirect_request(
+            https_request, None, 302, "Found", {}, "https://example.invalid/other"
+        )
+        assert new is not None
+        self.assertEqual(new.full_url, "https://example.invalid/other")
+        http_request = urllib.request.Request("http://127.0.0.1:9/start")
+        new = handler.redirect_request(
+            http_request, None, 302, "Found", {}, "http://127.0.0.1:9/other"
+        )
+        assert new is not None
+        self.assertEqual(new.full_url, "http://127.0.0.1:9/other")
+
+    def test_client_get_json_follows_loopback_redirect(self) -> None:
+        self._plain.payloads["/splits-real"] = json.dumps({"splits": []}).encode("utf-8")
+        self._plain.redirects["/splits"] = f"{self.plain_url}/splits-real"
+        client = DatasetsServerClient(self.plain_url, retries=0)
+        self.assertEqual(client.splits("x"), [])
+        self.assertEqual(self._plain.requests_seen, ["/splits", "/splits-real"])
+
+    def test_client_get_json_refuses_redirect_off_loopback(self) -> None:
+        self._plain.redirects["/splits"] = "http://example.invalid/splits"
+        client = DatasetsServerClient(self.plain_url, retries=0)
+        with self.assertRaises(DownloadError) as ctx:
+            client.splits("x")
+        self.assertIn("refuses", str(ctx.exception))
+        self.assertEqual(self._plain.requests_seen, ["/splits"])
 
 
 class _StallHandler(http.server.BaseHTTPRequestHandler):

@@ -131,6 +131,54 @@ def _require_https_or_loopback_http(url: str) -> None:
     )
 
 
+class _NoDowngradeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """HTTPRedirectHandler that refuses any redirect the scheme policy refuses.
+
+    ``urllib`` follows redirects silently, so an https URL could
+    redirect to http and the bytes would travel in the clear — bounded
+    only by the SHA-256/size verification afterwards (curl's fallback
+    already pins ``--proto-redir =https``; the urllib path had no
+    equivalent). Two checks run on every hop, so the two transports
+    cannot drift apart again:
+
+    1. the target must pass :func:`_require_https_or_loopback_http`,
+       the same rule the original URL already passed (so a redirect
+       to ``file://`` or to http off-loopback is refused); and
+    2. a hop from https to http is refused even when the target is
+       loopback — a downgrade is a downgrade, and curl's
+       ``--proto-redir =https`` refuses it too. Only an origin that
+       was itself http on loopback may stay on http loopback.
+    The refusal raises :class:`DownloadError` before any request to
+    the target is made (``http_error_302`` resolves a relative
+    ``Location`` against the request URL first, so the target seen
+    here is always absolute). The hop-by-hop comparison uses the
+    request being redirected, so a chained https→https→http redirect
+    is refused at the downgrading hop.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _require_https_or_loopback_http(newurl)
+        target = urllib.parse.urlparse(newurl)
+        if urllib.parse.urlparse(req.full_url).scheme == "https" and target.scheme == "http":
+            raise DownloadError(
+                f"refuses https-to-http redirect downgrade: http://{target.hostname or '?'}"
+            )
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _guarded_urlopen(request: urllib.request.Request, *, timeout: float) -> Any:
+    """``urllib.request.urlopen`` through an opener carrying the redirect guard.
+
+    Same call shape as ``urlopen`` (request + timeout) so the
+    downloader and the datasets-server client keep one transport
+    seam. The opener is the default one ``build_opener`` assembles
+    (proxy support included) with the default redirect handler
+    replaced by :class:`_NoDowngradeRedirectHandler` — ``build_opener``
+    drops the default handler when a subclass instance is passed.
+    """
+    return urllib.request.build_opener(_NoDowngradeRedirectHandler()).open(request, timeout=timeout)
+
+
 # TextForensics label convention: 1 = machine-generated / machine-involved,
 # 0 = human. Mirrors PAN subtask 1 (class 1 = machine, 0 = human).
 LABEL_MACHINE = 1
@@ -328,11 +376,15 @@ def _split_timeout_opener(stall_timeout_s: float) -> urllib.request.OpenerDirect
     these subclasses replace; each redirect hop re-enters the handler,
     so every hop gets the same split. The ``timeout=`` passed to
     ``opener.open`` is the connect budget; the stall budget travels
-    inside the handler.
+    inside the handler. The redirect guard
+    (:class:`_NoDowngradeRedirectHandler`) rides along, so a redirect
+    on this path can no more downgrade https to http than on the
+    plain path.
     """
     return urllib.request.build_opener(
         _SplitTimeoutHTTPHandler(stall_timeout_s),
         _SplitTimeoutHTTPSHandler(stall_timeout_s),
+        _NoDowngradeRedirectHandler(),
     )
 
 
@@ -547,8 +599,10 @@ def download_large_file(
                 if stall == connect_timeout_s:
                     # B310 reviewed: url scheme validated at the top of
                     # download_large_file by _require_https_or_loopback_http
-                    # (https, or http on loopback only).
-                    response_cm = urllib.request.urlopen(request, timeout=stall)  # nosec B310
+                    # (https, or http on loopback only); redirects go
+                    # through _guarded_urlopen, which refuses any hop the
+                    # scheme policy refuses (no https→http downgrade).
+                    response_cm = _guarded_urlopen(request, timeout=stall)
                 else:
                     opener = _split_timeout_opener(stall)
                     response_cm = opener.open(request, timeout=connect_timeout_s)
@@ -1243,7 +1297,8 @@ class DatasetsServerClient:
                 # B310 reviewed: base_url validated in __init__ by
                 # _require_https_or_loopback_http (https, or http on
                 # loopback only); path is a fixed literal, params urlencoded.
-                with urllib.request.urlopen(request, timeout=self.timeout_s) as response:  # nosec B310
+                # Redirects go through _guarded_urlopen (no downgrade).
+                with _guarded_urlopen(request, timeout=self.timeout_s) as response:
                     return json.loads(response.read().decode("utf-8"))
             except (
                 urllib.error.URLError,

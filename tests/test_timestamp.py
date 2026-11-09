@@ -238,7 +238,7 @@ class TimestampRequestTests(unittest.TestCase):
         # B310 fix: a plain-http TSA would let a network attacker
         # substitute the token endpoint. Fails before any network use.
         with (
-            mock.patch("urllib.request.urlopen") as urlopen,
+            mock.patch("textforensics.timestamp._guarded_urlopen") as urlopen,
             self.assertRaises(TimestampError) as ctx,
         ):
             request_timestamp(DIGEST, "http://example.invalid/tsa")
@@ -247,7 +247,7 @@ class TimestampRequestTests(unittest.TestCase):
 
     def test_request_timestamp_refuses_file_url(self):
         with (
-            mock.patch("urllib.request.urlopen") as urlopen,
+            mock.patch("textforensics.timestamp._guarded_urlopen") as urlopen,
             self.assertRaises(TimestampError),
         ):
             request_timestamp(DIGEST, "file:///tmp/tsa")
@@ -258,7 +258,7 @@ class TimestampRequestTests(unittest.TestCase):
         # transport failure surfaces as "unreachable", not a refusal.
         with (
             mock.patch(
-                "urllib.request.urlopen",
+                "textforensics.timestamp._guarded_urlopen",
                 side_effect=urllib.error.URLError("down"),
             ),
             self.assertRaises(TimestampError) as ctx,
@@ -270,7 +270,7 @@ class TimestampRequestTests(unittest.TestCase):
         # Local TSA fixtures on loopback stay usable.
         with (
             mock.patch(
-                "urllib.request.urlopen",
+                "textforensics.timestamp._guarded_urlopen",
                 side_effect=urllib.error.URLError("down"),
             ),
             self.assertRaises(TimestampError) as ctx,

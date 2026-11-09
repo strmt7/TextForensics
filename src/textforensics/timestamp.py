@@ -374,6 +374,45 @@ def _require_https_tsa_url(tsa_url: str) -> None:
     )
 
 
+class _NoDowngradeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """HTTPRedirectHandler that refuses any redirect the TSA scheme policy refuses.
+
+    ``urllib`` follows redirects silently, so an https TSA URL could
+    redirect to http and the request (and the token) would travel in
+    the clear — bounded only by the token's cryptographic verification
+    afterwards. Two checks run on every hop: the target must pass
+    :func:`_require_https_tsa_url`, the same rule the original URL
+    already passed, and a hop from https to http is refused even
+    when the target is loopback (a downgrade is a downgrade). Only
+    an origin that was itself http on loopback may stay on http
+    loopback. The refusal raises :class:`TimestampError` before any
+    request to the target is made.
+    (The dataset downloader enforces the same rule with its own
+    handler; the two modules keep separate validators and error
+    types, so the handler lives here too.)
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _require_https_tsa_url(newurl)
+        target = urllib.parse.urlparse(newurl)
+        if urllib.parse.urlparse(req.full_url).scheme == "https" and target.scheme == "http":
+            raise TimestampError(
+                "refuses https-to-http redirect downgrade for TSA URL: "
+                f"http://{target.hostname or '?'}"
+            )
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _guarded_urlopen(request: urllib.request.Request, *, timeout: float) -> Any:
+    """``urllib.request.urlopen`` through an opener carrying the redirect guard.
+
+    Same call shape as ``urlopen`` (request + timeout); the opener is
+    the default one ``build_opener`` assembles with the default
+    redirect handler replaced by :class:`_NoDowngradeRedirectHandler`.
+    """
+    return urllib.request.build_opener(_NoDowngradeRedirectHandler()).open(request, timeout=timeout)
+
+
 def request_timestamp(
     digest: bytes,
     tsa_url: str,
@@ -407,7 +446,9 @@ def request_timestamp(
         # by _require_https_tsa_url (https, or http on loopback only);
         # the body is only a hash digest, the response is size-capped
         # and the token is cryptographically verified before use.
-        with urllib.request.urlopen(http_request, timeout=timeout) as response:  # nosec B310
+        # Redirects go through _guarded_urlopen, which refuses any hop
+        # the TSA scheme policy refuses (no https→http downgrade).
+        with _guarded_urlopen(http_request, timeout=timeout) as response:
             raw = response.read(MAX_TIMESTAMP_RESPONSE_BYTES + 1)
     except urllib.error.HTTPError as exc:
         raise TimestampError(f"TSA HTTP error: {exc.code} {exc.reason}.") from exc
