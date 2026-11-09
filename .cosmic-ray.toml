@@ -15,6 +15,13 @@
 #   exist in 8.x.
 # - 8.x has no `--max-mutations`. `scripts/run_mutation.py --budget` enforces
 #   a cap by trimming the session after `init` (see its docstring).
+# - A budget-0 (full) session has NO wall-clock exec cap in the runner (a
+#   full session takes ~20 h); `--exec-timeout` chunks a run deliberately
+#   and `--resume <session>.sqlite` resumes it. Every run persists its
+#   generated config as `mutation-results/<session>.toml` for the resume.
+#   Full resume procedure: CONTRIBUTING.md §2.3 (restore the source with
+#   `git checkout -- <module file>` before resuming — a killed exec leaves
+#   its mutant baked into the file).
 #
 # `test-command` here runs the full suite: this file must stay directly
 # usable with `cosmic-ray init/exec`. `scripts/run_mutation.py` scopes the

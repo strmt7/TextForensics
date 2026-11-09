@@ -276,6 +276,147 @@ class CosmicRayIntegrationTests(unittest.TestCase):
         finally:
             Path(temp_path).unlink(missing_ok=True)
 
+    def test_exec_timeout_for_budget_zero_has_no_cap(self):
+        """A budget-0 (full) session has no wall-clock exec cap.
+
+        The old hard 3600 s kill died mid-mutant on a ~20 h full session,
+        left a mutant baked into the source, and produced no dump and no
+        summary. Budget 0 must return None (no subprocess timeout).
+        """
+        self.assertIsNone(self.runner.exec_timeout_for(0, 30))
+        self.assertIsNone(self.runner.exec_timeout_for(0, 30, None))
+
+    def test_exec_timeout_for_budget_scales(self):
+        """A budgeted run keeps the old scaled cap."""
+        self.assertEqual(self.runner.exec_timeout_for(200, 30), 200 * 45)
+        self.assertEqual(self.runner.exec_timeout_for(10, 10), 10 * 25)
+
+    def test_exec_timeout_for_explicit_overrides(self):
+        """An explicit --exec-timeout wins; 0 means no cap; negative fails."""
+        self.assertEqual(self.runner.exec_timeout_for(0, 30, 120), 120)
+        self.assertEqual(self.runner.exec_timeout_for(200, 30, 120), 120)
+        self.assertIsNone(self.runner.exec_timeout_for(200, 30, 0))
+        with self.assertRaises(ValueError):
+            self.runner.exec_timeout_for(200, 30, -5)
+
+    def test_check_results_partial_run_with_pending_fails(self):
+        """A summary with pending work items must never pass.
+
+        Even when every completed mutant was killed, unexecuted items are
+        not kills: gating on the partial summary would be a vacuous pass.
+        The operator must resume the session and gate on the finished run.
+        """
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(
+                {
+                    "total": 10,
+                    "killed": 10,
+                    "surviving": 0,
+                    "timeout": 0,
+                    "error": 0,
+                    "skipped": 0,
+                    "pending": 5,
+                },
+                f,
+            )
+            temp_path = f.name
+
+        try:
+            result = subprocess.run(
+                [sys.executable, str(self.runner_path), "--check-results", temp_path],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 1, "Partial run must fail")
+            self.assertIn("never executed", result.stdout)
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+
+    def test_runner_help_documents_resume(self):
+        """--help documents the resume procedure (fix/runner-timeout-resume)."""
+        result = subprocess.run(
+            [sys.executable, str(self.runner_path), "--help"],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("--resume", result.stdout)
+        self.assertIn("--exec-timeout", result.stdout)
+        self.assertIn("git checkout", result.stdout)
+        self.assertIn("index.lock", result.stdout)
+        self.assertIn("no wall-clock cap", result.stdout.lower())
+
+    def test_exec_session_timeout_dumps_partial_and_returns_error(self):
+        """On exec timeout the partial session is dumped, not lost.
+
+        The old path let subprocess.TimeoutExpired propagate as a
+        traceback: no dump, no summary, exit by exception. The new path
+        dumps the partial session (completed items kept, rest pending),
+        appends an exec_timeout error record so the gate fails loudly,
+        and returns exit 1.
+        """
+        from unittest import mock
+
+        killed = {
+            "work_item": {"job_id": "a", "mutations": []},
+            "result": {"worker_outcome": "normal", "test_outcome": "killed"},
+        }
+        pending = {"work_item": {"job_id": "b", "mutations": []}, "result": None}
+        # Dump JSONL is [work_item, work_result] pairs, not records.
+        dump_stdout = (
+            json.dumps([killed["work_item"], killed["result"]])
+            + "\n"
+            + json.dumps([pending["work_item"], None])
+            + "\n"
+        )
+
+        def fake_run_command(cmd, cwd=None, timeout=None):
+            if cmd[1] == "exec":
+                raise subprocess.TimeoutExpired(cmd, timeout)
+            if cmd[1] == "dump":
+                return subprocess.CompletedProcess(cmd, 0, stdout=dump_stdout, stderr="")
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dump_path = Path(tmpdir) / "sess.json"
+            with mock.patch.object(self.runner, "run_command", side_effect=fake_run_command):
+                exit_code, records = self.runner._exec_session(
+                    Path("cfg.toml"),
+                    Path("sess.sqlite"),
+                    dump_path,
+                    5,
+                    "sess",
+                    Path("mutation-results/sess.toml"),
+                )
+            self.assertEqual(exit_code, 1)
+            self.assertTrue(dump_path.is_file(), "partial dump must be written")
+            self.assertEqual(records[-1].get("error"), "exec_timeout")
+            summary = self.runner.parse_results(records)
+            self.assertEqual(summary["total"], 1)
+            self.assertEqual(summary["killed"], 1)
+            self.assertEqual(summary["pending"], 1)
+            self.assertEqual(summary["error"], 1)
+
+    def test_dirty_target_modules_parses_porcelain(self):
+        """The resume dirty-source guard reads git porcelain correctly.
+
+        A modified tracked module blocks the resume; untracked files and
+        files outside src/textforensics/ do not.
+        """
+        from unittest import mock
+
+        porcelain = (
+            " M src/textforensics/trust.py\n"
+            "?? src/textforensics/new.py\n"
+            " M README.md\n"
+            "D  src/textforensics/old.py\n"
+        )
+        fake = subprocess.CompletedProcess(["git", "status"], 0, stdout=porcelain, stderr="")
+        with mock.patch.object(self.runner, "run_command", return_value=fake):
+            dirty, error = self.runner._dirty_target_modules(self.project_root)
+        self.assertIsNone(error)
+        self.assertEqual(dirty, ["src/textforensics/trust.py", "src/textforensics/old.py"])
+
     def test_parse_dump_records(self):
         """Verify 8.x dump JSONL records parse into killed/survived/pending."""
         records = [

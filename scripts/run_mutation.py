@@ -50,6 +50,62 @@ No-op case: a diff run with no relevant module changed writes a summary with
 accepts that marker. "Nothing to mutate" is therefore a pass, distinct from
 "mutation failed" (exit 1) and "surviving mutants" (exit 2).
 
+Exec timeout and resume (``--budget 0`` / full sessions)
+--------------------------------------------------------
+A full session takes ~20 h, so a budget-0 run has NO wall-clock cap: the
+old 3600 s exec timeout killed the run mid-mutant, left a mutant baked
+into the source file, and produced no dump and no summary — the session
+could only be recovered by hand. :func:`exec_timeout_for` returns ``None``
+(no ``subprocess`` timeout) for budget 0 unless the operator passes an
+explicit ``--exec-timeout``. A budgeted run keeps the old scaled cap
+(``budget * (per-test timeout + 15)``, floored at 600 s).
+
+When an exec IS interrupted — an explicit ``--exec-timeout`` expiring, or
+the operator killing the process — the run fails loudly (exit 1) but
+cleanly: :func:`_exec_session` dumps the partial session first, so
+completed work items are kept and the rest stay ``pending`` in the
+sqlite session, and the summary is still written. A partial summary
+never passes: :func:`check_results` fails (exit 1) while ``pending > 0``.
+
+Every run persists its generated config as the resume TOML,
+``mutation-results/<session>.toml`` (next to ``<session>.sqlite`` and
+``<session>.json`` in the repo root), before exec starts. Resume with
+the runner (preferred — it refuses to exec against a dirty target
+module, dumps, and gates on the result exactly like a fresh run)::
+
+    python scripts/run_mutation.py --resume cosmic-ray-full.sqlite
+
+or, when the runner itself is unavailable, directly with cosmic-ray
+from the repo root (after restoring the source — step 1 below)::
+
+    cosmic-ray exec mutation-results/cosmic-ray-full.toml cosmic-ray-full.sqlite
+
+Resume procedure (also in CONTRIBUTING.md §2.3 — read it before resuming):
+
+1. Restore the source: a killed exec leaves the mutant it was running
+   baked into the module file. ``git status -- src/textforensics/``
+   shows it; restore it with ``git checkout -- <module file>`` and
+   re-check that the tree is clean before resuming — resuming against
+   a contaminated file shifts occurrence numbering and produces bogus
+   kills / ``no-test`` records (measured twice, 2026-11-08).
+2. Remove a stale git lock only when no git process is running:
+   ``rm .git/index.lock`` (a lock left by a killed git is the usual
+   cause of ``fatal: Unable to create '.git/index.lock': File exists``).
+3. Resume (runner form above, or the direct ``cosmic-ray exec`` form).
+   ``cosmic-ray exec`` only runs the session's remaining work items:
+   completed items are neither lost nor re-run.
+4. After the resumed exec finishes, confirm no mutant is left behind
+   (``git status -- src/textforensics/`` clean) and gate on the fresh
+   summary (the runner writes ``mutation-results/summary.json`` and
+   exits 0/1/2/3 as usual; a direct ``cosmic-ray exec`` resume writes
+   no summary, so run ``python scripts/run_mutation.py --resume
+   <session>.sqlite`` once afterwards — with nothing pending it just
+   dumps and gates).
+
+Sessions started before this fix have no persisted resume TOML; resume
+those with ``--resume-toml .cosmic-ray.toml`` (checked-in config: same
+per-mutant timeout, full-suite test command — correct, just slower).
+
 Equivalent-mutant baseline (``mutation-baseline.toml``)
 --------------------------------------------------------
 Some mutants cannot be killed by any test. Five kinds are recognised:
@@ -272,6 +328,258 @@ def run_command(
     except subprocess.TimeoutExpired:
         print(f"Command timed out: {' '.join(cmd)}", file=sys.stderr)
         raise
+
+
+def exec_timeout_for(
+    budget: int, per_test_timeout: float, exec_timeout: int | None = None
+) -> int | None:
+    """Wall-clock cap (seconds) for the ``cosmic-ray exec`` step, or None.
+
+    - An explicit ``--exec-timeout`` wins: a positive value is the cap,
+      ``0`` means no cap. A negative value is rejected (``ValueError``).
+    - Otherwise a budgeted run scales with the budget, as before:
+      ``budget * (per-test timeout + 15)``.
+    - Otherwise (``budget == 0``, a full session) there is NO cap: a
+      full session takes ~20 h, and the old hard 3600 s kill died
+      mid-mutant, left a mutant baked into the source, and produced no
+      dump and no summary. The outer bound for a full run is the
+      operator's own session (terminal / CI job), and an interrupted
+      run is resumed with ``--resume`` (see the module docstring).
+    """
+    if exec_timeout is not None:
+        if exec_timeout < 0:
+            raise ValueError(f"--exec-timeout must be >= 0 (got {exec_timeout})")
+        return int(exec_timeout) if exec_timeout > 0 else None
+    if budget > 0:
+        return int(budget * (per_test_timeout + 15))
+    return None
+
+
+def _resume_instructions(session_name: str, resume_toml: Path, session_path: Path) -> str:
+    """Resume instructions printed when an exec is interrupted.
+
+    Paths are relative to the repo root, exactly as the operator types
+    them. The runner form is preferred (it guards against resuming
+    with a contaminated source); the direct form is the fallback when
+    the runner itself cannot run.
+    """
+    try:
+        resume_toml_display = str(resume_toml.relative_to(Path.cwd()))
+    except ValueError:
+        resume_toml_display = str(resume_toml)
+    return (
+        "Mutation exec interrupted before the session finished.\n"
+        "Completed work items are kept in the session; the rest stay pending.\n"
+        "1. Restore the source first — a killed exec leaves the mutant it was\n"
+        "   running baked into the module file. Check with:\n"
+        "       git status -- src/textforensics/\n"
+        "   and restore any modified module with:\n"
+        "       git checkout -- <module file>\n"
+        "   Do NOT resume against a modified source: it shifts occurrence\n"
+        "   numbering and produces bogus kills / no-test records.\n"
+        "   If git itself reports a stale lock (no git process is running):\n"
+        "       rm .git/index.lock\n"
+        "2. Resume with the runner (preferred):\n"
+        f"       python scripts/run_mutation.py --resume {session_path.name}\n"
+        "   or directly with cosmic-ray:\n"
+        f"       cosmic-ray exec {resume_toml_display} {session_path.name}\n"
+        "3. After the resumed exec finishes, confirm the tree is clean\n"
+        "   (git status -- src/textforensics/) and gate on the fresh summary."
+    )
+
+
+def _dump_session(
+    session_path: Path, dump_path: Path, timeout: int = 300
+) -> tuple[list[dict[str, Any]], str | None]:
+    """Dump a session sqlite to JSONL records.
+
+    Returns ``(records, error)``; ``error`` is None on success. Each
+    record is ``{"work_item": ..., "result": ... | None}`` with
+    ``result`` None for pending (unexecuted) work items. The dump file
+    is written even for a partial (interrupted) session, so completed
+    work is never lost to an interruption.
+    """
+    result = run_command(["cosmic-ray", "dump", str(session_path)], timeout=timeout)
+    if result.returncode != 0:
+        return [], f"Dump failed: {result.stderr or result.stdout}"
+    dump_path.write_text(result.stdout)
+    print(f"Dump written to {dump_path}")
+    records: list[dict[str, Any]] = []
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            work_item, work_result = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            print(f"Skipping unparsable dump line: {line[:200]}", file=sys.stderr)
+            continue
+        records.append({"work_item": work_item, "result": work_result})
+    return records, None
+
+
+def _exec_session(
+    config_path: Path,
+    session_path: Path,
+    dump_path: Path,
+    exec_timeout: int | None,
+    session_name: str,
+    resume_toml: Path,
+) -> tuple[int, list[dict[str, Any]]]:
+    """Run ``cosmic-ray exec`` for a session and dump the result.
+
+    Returns ``(exit_code, dump_records)``. Exit 0 only when exec itself
+    succeeded and the dump parsed. On a timeout (explicit
+    ``--exec-timeout``) or keyboard interrupt, exec is stopped, the
+    partial session is dumped, the resume instructions are printed,
+    and exit 1 is returned with an ``exec_timeout`` / ``exec_interrupted``
+    error record appended — so the summary still records the completed
+    work, the gate fails loudly instead of passing on a partial run,
+    and the operator can resume with ``--resume``. The gate exit
+    semantics are unchanged: this path never returns 0, 2 or 3.
+    """
+    print("Running mutation testing...")
+    try:
+        result = run_command(
+            ["cosmic-ray", "exec", str(config_path), str(session_path)],
+            timeout=exec_timeout,
+        )
+    except subprocess.TimeoutExpired:
+        print(
+            f"Mutation exec timed out after {exec_timeout}s (explicit --exec-timeout).",
+            file=sys.stderr,
+        )
+        print(_resume_instructions(session_name, resume_toml, session_path))
+        records, dump_error = _dump_session(session_path, dump_path)
+        if dump_error is not None:
+            print(dump_error, file=sys.stderr)
+            return 1, [{"error": "exec_timeout", "detail": dump_error}]
+        records.append({"error": "exec_timeout"})
+        return 1, records
+    except KeyboardInterrupt:
+        print("Mutation exec interrupted.", file=sys.stderr)
+        print(_resume_instructions(session_name, resume_toml, session_path))
+        records, dump_error = _dump_session(session_path, dump_path)
+        if dump_error is not None:
+            print(dump_error, file=sys.stderr)
+            return 1, [{"error": "exec_interrupted", "detail": dump_error}]
+        records.append({"error": "exec_interrupted"})
+        return 1, records
+    if result.returncode != 0:
+        print(
+            f"Mutation execution failed (exit {result.returncode}): "
+            f"{result.stderr or result.stdout}",
+            file=sys.stderr,
+        )
+        # The session may still hold completed work items (e.g. the
+        # unexplained cosmic-ray exit 120 seen in the calibration full
+        # session); dump them so the summary records what did run.
+        records, dump_error = _dump_session(session_path, dump_path)
+        if dump_error is not None:
+            return 1, [{"error": "exec_failed", "stderr": result.stderr}]
+        records.append({"error": "exec_failed", "stderr": result.stderr})
+        return 1, records
+    records, dump_error = _dump_session(session_path, dump_path)
+    if dump_error is not None:
+        print(dump_error, file=sys.stderr)
+        return 1, [{"error": "dump_failed", "stderr": dump_error}]
+    return 0, records
+
+
+def _dirty_target_modules(project_root: Path) -> tuple[list[str], str | None]:
+    """Tracked ``src/textforensics/*.py`` files modified in the worktree.
+
+    Returns ``(paths, error)``; ``error`` is set when ``git status``
+    itself fails (e.g. a stale ``.git/index.lock`` — see the module
+    docstring). Only tracked modifications count: a leftover mutant
+    from a killed exec shows up here, an untracked file does not
+    affect occurrence numbering. A resume must refuse on a non-empty
+    list: resuming against a modified source shifts occurrence
+    numbering and contaminates the results.
+    """
+    result = run_command(
+        ["git", "status", "--porcelain", "--", "src/textforensics/"],
+        cwd=project_root,
+    )
+    if result.returncode != 0:
+        return [], (
+            "git status failed: "
+            f"{result.stderr.strip() or result.stdout.strip() or 'unknown error'} — "
+            "if it reports a stale lock and no git process is running, "
+            "remove it with `rm .git/index.lock` and retry"
+        )
+    dirty: list[str] = []
+    for line in result.stdout.splitlines():
+        if len(line) < 4:
+            continue
+        status, path = line[:2], line[3:]
+        if status.strip() == "??" or not path.endswith(".py"):
+            continue
+        dirty.append(path)
+    return dirty, None
+
+
+def resume_cosmic_ray(
+    session_path: Path,
+    resume_toml: Path,
+    exec_timeout: int | None = None,
+    project_root: Path | None = None,
+) -> tuple[int, list[dict[str, Any]]]:
+    """Resume an interrupted cosmic-ray session (``--resume`` mode).
+
+    The session sqlite already holds the completed work items;
+    ``cosmic-ray exec`` only runs the remaining ones. Before exec,
+    the target modules must be clean — a leftover mutant from the
+    killed run shows up as a modified file and the resume refuses
+    (exit 1) with the exact restore command, instead of running
+    against contaminated source. When nothing is pending, exec is
+    skipped and the session is dumped and gated as-is. Returns
+    ``(exit_code, dump_records)`` with the same meaning as
+    :func:`run_cosmic_ray`.
+    """
+    root = project_root or Path.cwd()
+    session_path = session_path.resolve()
+    dump_path = root / f"{session_path.stem}.json"
+    if not session_path.is_file():
+        print(f"Resume session not found: {session_path}", file=sys.stderr)
+        return 1, [{"error": "resume_session_not_found"}]
+    if not resume_toml.is_file():
+        print(f"Resume config not found: {resume_toml}", file=sys.stderr)
+        return 1, [{"error": "resume_config_not_found"}]
+    dirty, error = _dirty_target_modules(root)
+    if error is not None:
+        print(error, file=sys.stderr)
+        return 1, [{"error": "resume_git_status_failed", "detail": error}]
+    if dirty:
+        print(
+            "Refusing to resume: target module(s) modified in the worktree "
+            "— a killed exec leaves its mutant baked into the source, and "
+            "resuming against it shifts occurrence numbering and produces "
+            "bogus kills / no-test records. Restore the source first:",
+            file=sys.stderr,
+        )
+        for path in dirty:
+            print(f"  git checkout -- {path}", file=sys.stderr)
+        print("Then re-run the resume.", file=sys.stderr)
+        return 1, [{"error": "resume_dirty_source", "files": dirty}]
+    records, dump_error = _dump_session(session_path, dump_path)
+    if dump_error is not None:
+        print(dump_error, file=sys.stderr)
+        return 1, [{"error": "dump_failed", "stderr": dump_error}]
+    pending = sum(1 for record in records if record.get("result") is None)
+    completed = len(records) - pending
+    print(f"Resume session: {completed} completed, {pending} pending work item(s).")
+    if pending == 0:
+        print("Nothing pending — dumping and gating the finished session.")
+        return 0, records
+    return _exec_session(
+        resume_toml,
+        session_path,
+        dump_path,
+        exec_timeout,
+        session_path.stem,
+        resume_toml,
+    )
 
 
 def module_path(module: str, project_root: Path) -> Path:
@@ -1126,6 +1434,7 @@ def run_cosmic_ray(
     timeout: int = DEFAULT_TIMEOUT,
     budget: int = DEFAULT_BUDGET,
     project_root: Path | None = None,
+    exec_timeout: int | None = None,
 ) -> tuple[int, list[dict[str, Any]]]:
     """Run cosmic-ray 8.x (baseline → init → exec → dump).
 
@@ -1133,6 +1442,14 @@ def run_cosmic_ray(
     ``{"work_item": ..., "result": ... | None}`` dict parsed from
     ``cosmic-ray dump`` JSONL output. ``result`` is ``None`` for pending
     (unexecuted) work items.
+
+    The generated per-run config is persisted before exec as the resume
+    TOML, ``mutation-results/<session_name>.toml`` (next to
+    ``<session_name>.sqlite``), so an interrupted run can be resumed
+    with ``--resume`` or directly with ``cosmic-ray exec``. The exec
+    wall-clock cap comes from :func:`exec_timeout_for`: a budget-0
+    (full) session has no cap unless an explicit ``--exec-timeout`` is
+    given; a budgeted run keeps the scaled cap, floored at 600 s.
     """
     root = project_root or Path.cwd()
     base = load_base_config(config_path)
@@ -1144,10 +1461,18 @@ def run_cosmic_ray(
     with tempfile.TemporaryDirectory(prefix="cosmic-ray-") as tmpdir:
         tmp = Path(tmpdir)
         run_config = tmp / "cosmic-ray.toml"
-        run_config.write_text(build_toml_config(modules, root, effective_timeout, excluded))
+        toml_text = build_toml_config(modules, root, effective_timeout, excluded)
+        run_config.write_text(toml_text)
         session_path = (root / f"{session_name}.sqlite").resolve()
         baseline_session = tmp / "baseline.sqlite"
         dump_path = root / f"{session_name}.json"
+        # Persist the exact per-run config before exec starts: the
+        # tempdir config is deleted on exit, and a resume needs the
+        # same test-command / timeout the session was started with.
+        resume_toml = root / "mutation-results" / f"{session_name}.toml"
+        resume_toml.parent.mkdir(parents=True, exist_ok=True)
+        resume_toml.write_text(toml_text)
+        print(f"Resume config written to {resume_toml}")
 
         # 1. Baseline: the unmutated test command must pass.
         print(f"Running baseline tests for {len(modules)} module(s)...")
@@ -1192,43 +1517,25 @@ def run_cosmic_ray(
                 print(f"Session initialised with {db.num_work_items} work item(s); no budget cap.")
 
         # 4. Exec: run the pending work items with the local distributor.
-        # Wall-clock bound scales with the budget and the per-test timeout;
-        # the CI job timeout is the outer bound.
-        exec_timeout = int(budget * (effective_timeout + 15)) if budget > 0 else 3600
-        print("Running mutation testing...")
-        result = run_command(
-            ["cosmic-ray", "exec", str(run_config), str(session_path)],
-            timeout=max(exec_timeout, 600),
+        # Wall-clock bound from exec_timeout_for: a budget-0 (full)
+        # session has NO cap (a full session takes ~20 h — the old 3600 s
+        # kill died mid-mutant and lost the dump); a budgeted run scales
+        # with the budget, floored at 600 s. An explicit --exec-timeout
+        # overrides both and is honoured exactly (no floor): it is the
+        # operator's deliberate chunk size for a resumable run, and
+        # _exec_session dumps the partial session and prints the resume
+        # procedure instead of dying with a traceback. The CI job
+        # timeout is the outer bound.
+        try:
+            exec_timeout_s = exec_timeout_for(budget, effective_timeout, exec_timeout)
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1, [{"error": "invalid_exec_timeout", "detail": str(exc)}]
+        if exec_timeout is None and exec_timeout_s is not None:
+            exec_timeout_s = max(exec_timeout_s, 600)
+        return _exec_session(
+            run_config, session_path, dump_path, exec_timeout_s, session_name, resume_toml
         )
-        if result.returncode != 0:
-            print(
-                f"Mutation execution failed (exit {result.returncode}): "
-                f"{result.stderr or result.stdout}",
-                file=sys.stderr,
-            )
-            return 1, [{"error": "exec_failed", "stderr": result.stderr}]
-
-        # 5. Dump: JSONL, one [work_item, work_result | null] per line.
-        result = run_command(["cosmic-ray", "dump", str(session_path)], timeout=300)
-        if result.returncode != 0:
-            print(f"Dump failed: {result.stderr or result.stdout}", file=sys.stderr)
-            return 1, [{"error": "dump_failed", "stderr": result.stderr}]
-
-        dump_path.write_text(result.stdout)
-        print(f"Dump written to {dump_path}")
-
-        records: list[dict[str, Any]] = []
-        for line in result.stdout.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                work_item, work_result = json.loads(line)
-            except (json.JSONDecodeError, ValueError):
-                print(f"Skipping unparsable dump line: {line[:200]}", file=sys.stderr)
-                continue
-            records.append({"work_item": work_item, "result": work_result})
-        return 0, records
 
 
 def parse_results(
@@ -1364,6 +1671,20 @@ def check_results(summary_path: Path) -> int:
             print(f"  - {entry.get('id', '?')}: {entry.get('reason', '?')}")
         return 1
 
+    # A partial run must never pass: unexecuted work items are not
+    # kills, and an interrupted exec's summary would otherwise read as
+    # a clean pass when every completed mutant happened to be killed.
+    # Resume the session (see the runner docstring / CONTRIBUTING.md
+    # §2.3) and gate on the finished run instead.
+    pending = summary.get("pending", 0) or 0
+    if pending > 0:
+        print(
+            f"[ERROR] {pending} work item(s) never executed — this is a "
+            "partial run, not a pass. Resume the session and gate on the "
+            "finished run."
+        )
+        return 1
+
     unexplained = summary.get("unexplained_surviving", summary.get("surviving", 0))
     if unexplained > 0:
         print(
@@ -1421,7 +1742,25 @@ def _no_op_summary() -> dict[str, Any]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run mutation testing for TextForensics")
+    parser = argparse.ArgumentParser(
+        description="Run mutation testing for TextForensics",
+        epilog=(
+            "Exec timeout and resume: a budget-0 (full) session has NO wall-clock "
+            "cap — a full session takes ~20 h and the old 3600 s kill died "
+            "mid-mutant. Pass --exec-timeout SECONDS only to chunk a run "
+            "deliberately (0 = no cap); on expiry the partial session is dumped "
+            "and the run exits 1 with resume instructions. Resume with "
+            "--resume <session>.sqlite (the runner refuses to exec against a "
+            "modified target module — restore it first with "
+            "`git checkout -- <module file>` — and removes nothing itself). "
+            "Sessions started before the resume TOML existed use "
+            "--resume-toml .cosmic-ray.toml. Manual fallback, from the repo root "
+            "after restoring the source: "
+            "`cosmic-ray exec mutation-results/<session>.toml <session>.sqlite`. "
+            "If git reports a stale lock and no git process is running: "
+            "`rm .git/index.lock`. Full procedure: CONTRIBUTING.md §2.3."
+        ),
+    )
     parser.add_argument(
         "--mode", choices=["diff", "full", "safety-critical"], default="diff", help="Mutation mode"
     )
@@ -1430,6 +1769,37 @@ def main() -> int:
         "--config", default=".cosmic-ray.toml", help="Path to cosmic-ray TOML config"
     )
     parser.add_argument("--check-results", help="Check results from summary.json file")
+    parser.add_argument(
+        "--resume",
+        default=None,
+        metavar="SESSION.sqlite",
+        help="Resume an interrupted session instead of starting a new one: "
+        "runs only the session's remaining work items, dumps, and gates on "
+        "the result exactly like a fresh run. Refuses when a target module "
+        "is modified (leftover mutant — restore with "
+        "`git checkout -- <module file>` first). The resume config defaults "
+        "to mutation-results/<session>.toml written by the run that created "
+        "the session; override with --resume-toml.",
+    )
+    parser.add_argument(
+        "--resume-toml",
+        default=None,
+        metavar="CONFIG.toml",
+        help="Config for --resume (default: mutation-results/<session>.toml; "
+        "use .cosmic-ray.toml for sessions started before the resume TOML "
+        "was persisted).",
+    )
+    parser.add_argument(
+        "--exec-timeout",
+        type=int,
+        default=None,
+        metavar="SECONDS",
+        help="Wall-clock cap for the cosmic-ray exec step. Default: a budgeted "
+        "run scales with the budget (budget * (per-test timeout + 15), "
+        "floored at 600 s); a budget-0 (full) session has NO cap. 0 = no cap. "
+        "On expiry the partial session is dumped, the run exits 1, and the "
+        "resume procedure is printed — the session is resumed with --resume.",
+    )
     parser.add_argument(
         "--timeout", type=int, default=DEFAULT_TIMEOUT, help="Timeout per test run (seconds)"
     )
@@ -1460,6 +1830,10 @@ def main() -> int:
     # Handle check-results mode
     if args.check_results:
         return check_results(Path(args.check_results))
+
+    if args.exec_timeout is not None and args.exec_timeout < 0:
+        print(f"--exec-timeout must be >= 0 (got {args.exec_timeout})", file=sys.stderr)
+        return 1
 
     config_path = Path(args.config)
     project_root = Path.cwd()
@@ -1492,6 +1866,34 @@ def main() -> int:
             f"entr(y/ies) (source run {baseline.get('source_run')}, "
             f"commit {baseline.get('source_commit')})"
         )
+
+    # Handle resume mode: run only the session's remaining work items.
+    # --mode / --modules do not apply — the session already fixes them.
+    if args.resume:
+        session_path = Path(args.resume)
+        if args.resume_toml:
+            resume_toml = Path(args.resume_toml)
+        else:
+            resume_toml = project_root / "mutation-results" / f"{session_path.stem}.toml"
+            if not resume_toml.is_file() and (project_root / ".cosmic-ray.toml").is_file():
+                print(
+                    "No persisted resume TOML for this session (it was started "
+                    "before the runner wrote one); falling back to the checked-in "
+                    ".cosmic-ray.toml — same per-mutant timeout, full-suite test "
+                    "command, so the resume is correct but slower."
+                )
+                resume_toml = project_root / ".cosmic-ray.toml"
+        exit_code, records = resume_cosmic_ray(
+            session_path=session_path,
+            resume_toml=resume_toml,
+            exec_timeout=args.exec_timeout,
+            project_root=project_root,
+        )
+        summary = parse_results(records, baseline=baseline, project_root=project_root)
+        write_summary(summary, Path("mutation-results"))
+        if exit_code == 0:
+            return check_results(Path("mutation-results/summary.json"))
+        return 1
 
     if args.modules:
         modules = [m.strip() for m in args.modules.split(",") if m.strip()]
@@ -1531,6 +1933,7 @@ def main() -> int:
         timeout=args.timeout,
         budget=args.budget,
         project_root=project_root,
+        exec_timeout=args.exec_timeout,
     )
 
     # Parse and write results
