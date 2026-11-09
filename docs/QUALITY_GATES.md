@@ -208,7 +208,3 @@ Known flags (not fixed here — other owners):
 * `anchore/sbom-action@v0` is an UNPINNED major tag in `release.yml`,
   `supply-chain.yml` and `container.yml`. Action-pinning decisions belong
   to the cosign worker; this wave does not change any `uses:` ref.
-* `enterprise-deep-verification.yml` runs `cyclonedx-bom -r requirements.txt`,
-  but no `requirements.txt` exists at the repo root; the step ends in
-  `|| true`, so it silently produces nothing. Pre-existing defect, flagged
-  for its owner.
