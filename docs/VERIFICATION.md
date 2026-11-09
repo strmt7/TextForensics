@@ -1,22 +1,28 @@
 # Verification record — Phase 1 (2026-11-06)
 
-## Current state (HEAD `a1e7857`, 2026-11-09)
+## Current state (HEAD `e65fde9`, 2026-11-09)
 
 Read this first. The dated sections below are historical records;
 their numbers are the numbers as measured at the time, and some of
 their "NOT verified" items have since been superseded (marked
-inline). The current picture, measured on `a1e7857` (Python 3.12.3,
+inline). The current picture, measured on `e65fde9` (Python 3.12.3,
 `test_memory_check` host flake deselected — see the HEAD section at
 the end of this file):
 
-- **Full suite (extras): 3633 passed, 0 failed, 1 skipped, 1
-  deselected, 1209 subtests passed in 347.69 s, 81% line coverage**
-  (18,020 statements, 2,936 missed, 6,830 branches, 1,073 partial).
+- **Full suite (extras): 3893 passed, 0 failed, 1 skipped, 1
+  deselected, 1209 subtests passed in 194.80 s (3:14).** The 1 skip
+  is the SBOM full-pinned-install check (atheris/wheel not in the
+  main venv); the 1 deselected is the known `test_memory_check`
+  host flake.
   Core-only suite (fresh bare venv `~/workspace/.tfc-core-venv`,
-  `pip install -e ".[dev]"`): **3513 passed, 121 skipped, 1
-  deselected, 1209 subtests passed in 291.25 s, coverage 76.95%** —
-  the 121 skips are all core-only-venv environment artifacts
-  (fastapi/uvicorn/MCP/web_ui not installed by design).
+  `pip install -e ".[dev]"`, venv `bin/` first on PATH): **3774
+  passed, 0 failed, 121 skipped, 1 deselected, 1209 subtests passed
+  in 644.20 s, coverage 78.49%** (18,038 statements, 3,454 missed,
+  6,834 branches, 946 partial; gate 75% passed) — the 121 skips are
+  all core-only-venv environment artifacts (51 fastapi not
+  installed, 22 API dev deps, 20 web_ui, 15 MCP dev deps, 7 API deps,
+  2 uvicorn, 1 full-pinned-install check, 1 cyclonedx) — the extras
+  surface is not installed in a core-only venv by design.
 - **Claims gate: 33 passed, 0 failed.** **Schemas: 12 OK.**
   **Pre-commit: 13/13** (see the HEAD section below).
 - **U7 evidence registry: 32 records**
@@ -33,17 +39,30 @@ the end of this file):
   neither is release-gate FPR evidence. The best measured per-slice
   Wilson 95% upper is 0.0038 pooled docs (0/1002); the worst document
   slice is OpAI-Bench 0.0642 (n=56), which fails the bar.
-- **CI on HEAD `a1e7857` (run 42533532099): SUCCESS — all 19 jobs
+- **CI on HEAD `e65fde9` (run 42639520382): SUCCESS — all 19 jobs
   green**, including Core Python 3.11 / 3.12 / 3.13 / 3.14 / 3.15,
   the claims gate, the SBOM staleness job, and all OS smokes.
 - **Open items:** the casefile mutation proof (running under its
-  monitor cron, 1605/2118 at 00:23 CET 2026-11-09), live-TSA
+  diagnostic resume, 1355/2118 at ~15:59 CET 2026-11-09), live-TSA
   interop (never achieved from the sandbox VM), the coverage gate
-  (still `--fail-under=70` in CI, not yet raised to the measured
-  ~81%), the 11 remaining unpinned action refs surveyed in
-  SECURITY.md, the `enterprise-deep-verification.yml` SBOM step that
-  silently produces nothing, and the policy session's 298 unexecuted
-  work items (unknown until a larger-budget run).
+  (raised 70 → 75 in CI in the release-gate wave — but
+  `engineering.toml` still demands `--cov-fail-under=80` and
+  `enterprise-deep-verification.yml:107` still demands
+  `--fail-under=95`, both unachievable on core-only coverage), the
+  bare `pip-audit` / `bandit` step in
+  `enterprise-deep-verification.yml` (installed into `.audit-env`
+  but run bare — "command not found" on a fresh runner), and the
+  policy session's 298 unexecuted work items (being executed now;
+  unknown until a larger-budget run completes).
+- **Closed in the release-gate wave (main `e65fde9`):** the 11
+  unpinned action refs are all SHA-pinned now (0 unpinned remain);
+  the `enterprise-deep-verification.yml` SBOM step now produces a
+  valid CycloneDX 1.6 SBOM. The coverage gate is `--fail-under=75`
+  in CI (`ci.yml:70`) and is measured on **core-only** coverage —
+  78.49% on `e65fde9` (78.43% on `928dbc0`), a ~3.5 pp margin —
+  NOT on the extras-venv ~81% this section used to cite. The
+  extras figure is a different measurement and must never be used
+  as the gate basis.
 
 Every number in this file was measured on 2026-11-06 by running the
 stated command in the stated environment. Nothing here is copied from
@@ -3126,3 +3145,49 @@ differential probe.
 - **Still open (wave 2):** casefile only. Its full session (2118
   items) is running under the monitor cron; 1408/2118 at resume
   00:08 CET 2026-11-09, integrity ok.
+
+## Verification record — Phase 5, release-gate follow-ups: VERIFICATION.md coverage-gate correction (2026-11-09)
+
+- **What was wrong:** the "Current state" header still referenced
+  HEAD `a1e7857`, and its open-items list said the coverage gate was
+  "still `--fail-under=70` in CI, not yet raised to the measured
+  ~81%". Both halves were wrong after the release-gate wave (main
+  `e65fde9`): the gate is `--fail-under=75` (`ci.yml:70`), and the
+  ~81% is the extras-venv coverage — CI installs `.[dev]` only and
+  measures core-only coverage. The same list also still carried the
+  11 unpinned action refs and the silent SBOM step (both fixed in
+  the wave) and a stale casefile count (1605/2118 at 00:23 CET,
+  contradicted by the verified counts).
+- **Correction (this change):** "Current state" now references HEAD
+  `e65fde9`; the full-suite line is the parent-measured extras run
+  on `e65fde9` (3893 passed, 1 skipped, 1 deselected, 1209 subtests
+  in 194.80 s); the open-items list drops the pinned refs and the
+  fixed SBOM step, adds the two remaining gate inconsistencies
+  (`engineering.toml` `--cov-fail-under=80`,
+  `enterprise-deep-verification.yml:107` `--fail-under=95`) and the
+  bare `pip-audit` / `bandit` step, and gives the casefile proof as
+  1355/2118 at ~15:59 CET 2026-11-09 under its diagnostic resume.
+- **Core-only re-measurement on `e65fde9` (2026-11-09, bare
+  core-only venv `~/workspace/.tfc-core-venv`, Python 3.12.3, `pip
+  install -e ".[dev]"`, venv `bin/` first on PATH,
+  `PYTHONPATH=<worktree>/src`): 3774 passed, 0 failed, 121 skipped,
+  1 deselected (the known `test_memory_check` host flake), 1209
+  subtests passed in 644.20 s, coverage 78.49%** (18,038 statements,
+  3,454 missed, 6,834 branches, 946 partial; gate 75% passed). The
+  121 skips break down exactly as on `a1e7857` (51 fastapi, 22 API
+  dev deps, 20 web_ui, 15 MCP dev deps, 7 API deps, 2 uvicorn, 1
+  full-pinned-install check, 1 cyclonedx). A first attempt without
+  the venv `bin/` on PATH failed 5 `test_schema.py` CLI tests with
+  `FileNotFoundError: 'textforensics'` (the console script was not
+  resolvable) and measured 78.47% — a harness artifact, not a repo
+  regression; the clean re-run with `bin/` first on PATH is
+  0-failed and is the cited measurement. CI on `e65fde9` (run
+  42639520382) is SUCCESS, all 19 jobs green.
+- **Gates on this branch:** claims 33/33, schemas 12 OK,
+  pre-commit 13/13 (run with the main venv `bin/` first on PATH;
+  without it the hooks fail with "Executable `python` not found",
+  since this machine has `python3` only).
+- **Still open:** casefile Phase-2 proof (1355/2118, diagnostic
+  resume), live-TSA interop, the two `--fail-under` inconsistencies
+  above, the bare `pip-audit` / `bandit` step, and the policy
+  session's 298 unexecuted work items.
