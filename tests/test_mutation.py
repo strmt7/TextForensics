@@ -1034,7 +1034,7 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "core/ReplaceComparisonOperator_Eq_Is": 6,
                 "core/ReplaceComparisonOperator_Eq_IsNot": 1,
                 "core/ReplaceComparisonOperator_Eq_Lt": 1,
-                "core/ReplaceComparisonOperator_Eq_LtE": 19,
+                "core/ReplaceComparisonOperator_Eq_LtE": 23,
                 "core/ReplaceComparisonOperator_Eq_NotEq": 1,
                 "core/ReplaceComparisonOperator_GtE_Eq": 2,
                 "core/ReplaceComparisonOperator_GtE_Gt": 4,
