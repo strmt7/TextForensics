@@ -216,7 +216,7 @@ jobs:
 
       - name: Resolve runtime dependencies
         run: |
-          .audit-env/bin/python -m pip freeze | grep -viE '^textforensics([= @]|$)' > audit-requirements.txt
+          .audit-env/bin/python -m pip freeze | grep -viE '(^textforensics([= @]|$)|#egg=textforensics)' > audit-requirements.txt
 
       - name: Run pip-audit with zero tolerance
         run: |
@@ -224,10 +224,10 @@ jobs:
           .audit-env/bin/python -m pip install bandit>=1.7,<2
 
           # Strict dependency audit - fail on any vulnerability
-          pip-audit --strict --no-deps -r audit-requirements.txt
+          .audit-env/bin/pip-audit --strict --no-deps -r audit-requirements.txt
 
           # Bandit security scan
-          bandit -r src -ll -ii
+          .audit-env/bin/bandit -r src -ll -ii
 
       - name: Generate SBOM for audit
         run: |
