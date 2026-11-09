@@ -16,7 +16,7 @@ the end of this file):
   host flake.
   Core-only suite (fresh bare venv `~/workspace/.tfc-core-venv`,
   `pip install -e ".[dev]"`, venv `bin/` first on PATH): **3774
-  passed, 0 failed, 121 skipped, 1 deselected, 1209 subtests passed
+  passed, 0 failed, 121 skipped, 0 deselected, 1209 subtests passed
   in 644.20 s, coverage 78.49%** (18,038 statements, 3,454 missed,
   6,834 branches, 946 partial; gate 75% passed) — the 121 skips are
   all core-only-venv environment artifacts (51 fastapi not
@@ -3171,12 +3171,15 @@ differential probe.
   core-only venv `~/workspace/.tfc-core-venv`, Python 3.12.3, `pip
   install -e ".[dev]"`, venv `bin/` first on PATH,
   `PYTHONPATH=<worktree>/src`): 3774 passed, 0 failed, 121 skipped,
-  1 deselected (the known `test_memory_check` host flake), 1209
+  0 deselected, 1209
   subtests passed in 644.20 s, coverage 78.49%** (18,038 statements,
   3,454 missed, 6,834 branches, 946 partial; gate 75% passed). The
   121 skips break down exactly as on `a1e7857` (51 fastapi, 22 API
   dev deps, 20 web_ui, 15 MCP dev deps, 7 API deps, 2 uvicorn, 1
-  full-pinned-install check, 1 cyclonedx). A first attempt without
+  full-pinned-install check, 1 cyclonedx). The `test_memory_check`
+  host-flake test ran and passed in this run (0 deselected — the
+  deselect string used, `TestDiagnostics::test_memory_check`,
+  matched nothing; the correct class is `TestDiagnosticsEngine`). A first attempt without
   the venv `bin/` on PATH failed 5 `test_schema.py` CLI tests with
   `FileNotFoundError: 'textforensics'` (the console script was not
   resolvable) and measured 78.47% — a harness artifact, not a repo
