@@ -199,27 +199,18 @@ what was pinned and why.
 | `sigstore/cosign-installer@main` | `.github/workflows/repository-integrity.yml:28` | `756fe2d284c7292c4e9b62c8a28f1e5629c59532` (v4.1.3) | Pinned — the only `@main` ref in the repo; invisible to Dependabot; same installer version as the release workflow. |
 | `anchore/sbom-action@v0` | `release.yml:121,130`, `supply-chain.yml:94`, `container.yml:93`, `enterprise-deep-verification.yml:287` | `e22c389904149dbc22b58101806040fa8d37a610` | Pinned — SBOMs feed signed release artifacts, so a moving `@v0` can change SBOM output between runs. Note: this is the current `@v0` tip (2026-03-19, Syft v1.42.3), which floats past the latest release v0.24.3 (`66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c`). |
 | `anchore/sbom-action@v0.24.3` | `repository-integrity.yml:49` | `66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c` | Pinned — same action as above; a release tag is still a movable ref. |
-| `gitleaks/gitleaks-action@v2` | `supply-chain.yml:80` | `ff98106e4c7b2bc287b24eaf42907196329070c7` | Pinned — secret scanning runs on every push; freeze the scanner version. Do not jump to v3.0.0 (`e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e`, 2026-05-30) in the same change; that is a major bump to evaluate separately (still open, see below). |
-| `ossf/scorecard-action@v2.4.1` | `scorecard.yml:32` | `f49aabe0b5af0936a0987cfb85d86b75731b0186` | Pinned — freeze the scored behavior. v2.5.0 (`46dc3187a971a9febf3aeb7f94ccde489f7bb46a`, 2026-10-12) is available; pin to its SHA when taking that bump (still open, see below). |
+| `gitleaks/gitleaks-action@v2` | `supply-chain.yml:80` | `e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e` | Upgraded to v3.0.0 (2026-05-30) — Node 20→24 runtime migration only; src/ byte-identical to v2.3.9; default gitleaks binary unchanged at 8.24.3. |
+| `ossf/scorecard-action@v2.4.1` | `scorecard.yml:32` | `fa7117db83c52d787ae5a89f350999701505d78e` | Upgraded to v2.5.0 (2026-10-12). Correction: SECURITY.md previously recorded `46dc3187a971a9febf3aeb7f94ccde489f7bb46a` for v2.5.0, but that is the annotated tag object, not the commit; the pin uses the commit SHA `fa7117db83c52d787ae5a89f350999701505d78e`. |
 | `docker/setup-buildx-action@v4` | `container.yml:53` | `f87e5991a6d7451dcb8d9637bfbc97413f497069` | Pinned — container publishing path. Currently equals latest patch v4.4.1, so pinning is behavior-preserving. |
 | `docker/login-action@v4` | `container.yml:60` | `8aa5831fb8d48d8f76594c7ddde61ae58019f550` | Pinned — same; currently equals latest patch v4.8.0. |
 | `docker/metadata-action@v6` | `container.yml:68` | `dc802804100637a589fabce1cb79ff13a1411302` | Pinned — same; currently equals latest patch v6.2.0. |
 | `docker/build-push-action@v7` | `container.yml:80` | `c3c9e263c25d99ce0380d002d59b67737d91b0dc` | Pinned — same; currently equals latest patch v7.4.0. |
 | `actions/attest-build-provenance@v4` | `container.yml:102` | `4d101475d8b20a2381f78447822ac1eab6504dd8` | Pinned — same SHA already pinned in `release.yml` as v4.2.2; use it here too for consistency. |
-| `actions/checkout@v5` | `container.yml:42` | `fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09` | Pinned to v5.1.0 — every other checkout in the repo is SHA-pinned to v7.0.1. Upgrading this one to v7.0.1 was deliberately **not** taken here (pinning only, no behavior change); it is still open, see below. |
+| `actions/checkout@v5` | `container.yml:42` | `3d3c42e5aac5ba805825da76410c181273ba90b1` | Upgraded to v7.0.1 — now matches the other checkout pins in the repo. |
 
 ### Still open
 
-- **Checkout v5.1.0 → v7.0.1 in `container.yml:42`.** The ref is
-  SHA-pinned to v5.1.0 (`fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09`),
-  but v5 is two majors behind every other checkout in the repo.
-  Upgrade to the v7.0.1 SHA
-  (`3d3c42e5aac5ba805825da76410c181273ba90b1`) as a separate,
-  reviewed change — a major bump, not a pin.
-- **Gitleaks v3.0.0 major bump** (`supply-chain.yml:80`, pinned to
-  v2.3.9). Evaluate v3.0.0
-  (`e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e`, 2026-05-30)
-  separately before taking it.
-- **Scorecard v2.5.0 bump** (`scorecard.yml:32`, pinned to v2.4.1).
-  v2.5.0 (`46dc3187a971a9febf3aeb7f94ccde489f7bb46a`, 2026-10-12)
-  is available; pin to its SHA when taking that bump.
+All three items previously listed here (checkout v5.1.0 → v7.0.1 in
+`container.yml:42`, gitleaks v3.0.0 major bump in `supply-chain.yml:80`,
+scorecard v2.5.0 bump in `scorecard.yml:32`) were taken by the
+2026-11-09 action upgrades; nothing remains open in this section.
