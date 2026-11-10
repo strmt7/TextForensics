@@ -476,6 +476,44 @@ class StandaloneTimestampTests(unittest.TestCase):
             "fail",
         )
 
+    def test_ec_curve_generators_are_on_curve_with_correct_order(self):
+        # The standalone copy of the table is a separate literal (it
+        # does not share timestamp.py's table), and it shipped with the
+        # same wrong P-384 gy and n. Pin it the same way: each
+        # generator on its curve, order below p, n*G the point at
+        # infinity. Arithmetic is local to the test.
+        def add(p1, p2, p, a):
+            if p1 is None:
+                return p2
+            if p2 is None:
+                return p1
+            if p1[0] == p2[0] and (p1[1] + p2[1]) % p == 0:
+                return None
+            if p1 == p2:
+                lam = (3 * p1[0] * p1[0] + a) * pow(2 * p1[1], -1, p) % p
+            else:
+                lam = (p2[1] - p1[1]) * pow(p2[0] - p1[0], -1, p) % p
+            x3 = (lam * lam - p1[0] - p2[0]) % p
+            return (x3, (lam * (p1[0] - x3) - p1[1]) % p)
+
+        def mult(k, point, p, a):
+            result = None
+            addend = point
+            while k:
+                if k & 1:
+                    result = add(result, addend, p, a)
+                addend = add(addend, addend, p, a)
+                k >>= 1
+            return result
+
+        for name in ("P-256", "P-384"):
+            curve = self.mod._EC_CURVES[name]
+            p, a, b, n = curve["p"], curve["a"], curve["b"], curve["n"]
+            gx, gy = curve["gx"], curve["gy"]
+            self.assertEqual((gy * gy) % p, (gx * gx * gx + a * gx + b) % p, f"{name} G on curve")
+            self.assertLess(n, p, f"{name} order below p")
+            self.assertIsNone(mult(n, (gx, gy), p, a), f"{name} n*G is infinity")
+
 
 if __name__ == "__main__":
     unittest.main()

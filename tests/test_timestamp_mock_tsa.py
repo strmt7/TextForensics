@@ -12,6 +12,7 @@ recorded in ``docs/TSA_INTEROP.md``, not a CI test.
 
 import hashlib
 import threading
+import time
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -87,6 +88,11 @@ class _MockTSAHandler(BaseHTTPRequestHandler):
             payload = _der_sequence(_der_sequence(_der_integer(2)))
             self._send_token_response(payload)
             return
+        if mode == "slow":
+            # Answer far too slowly for a short client timeout, then
+            # serve the normal fixture token (the client must give up
+            # first — a live TSA that hangs is the common failure).
+            time.sleep(2)
         digest, nonce = _parse_request(body)
         if mode == "wrong-digest":
             token = build_token_for_digest(WRONG_DIGEST, nonce=nonce)
@@ -165,6 +171,15 @@ class MockTSAClientTests(unittest.TestCase):
         with self.assertRaises(TimestampError) as ctx:
             request_timestamp(DIGEST, self.url, nonce=NONCE, timeout=10.0)
         self.assertIn("did not grant", str(ctx.exception))
+
+    def test_slow_response_times_out(self):
+        # A TSA that answers too slowly must surface as TimestampError
+        # (the documented failure type), not a raw TimeoutError
+        # escaping request_timestamp.
+        self.server.mode = "slow"
+        with self.assertRaises(TimestampError) as ctx:
+            request_timestamp(DIGEST, self.url, nonce=NONCE, timeout=0.5)
+        self.assertIn("timed out", str(ctx.exception))
 
     def test_redirect_off_loopback_is_refused(self):
         # No-downgrade redirect guard: the loopback TSA redirecting
