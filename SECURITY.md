@@ -251,8 +251,9 @@ direct/transitive distinction is preserved one level up, in
 (no `import typer` in `src/`, `tests/` or `scripts/`; the Typer CLI
 was deleted in Phase 2 and its commands ported to the `argparse`
 `cli.py`; the only other requirer, `mcp`, needs it solely under its
-uninstalled `cli` extra). Removing it drops `typer` and its sole
-dependent `shellingham` from the SBOM (122 → 120 components).
+uninstalled `cli` extra). Removing it drops `typer` and `shellingham`
+(typer's dependency, required by nothing else in the closure) from the
+SBOM (122 → 120 components).
 `filelock` is pinned as an ordinary transitive lock line
 (`filelock==4.2.10`); it needed no special mechanism once the whole
 closure is locked, but it is the package that proved a transitive pin
