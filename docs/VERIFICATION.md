@@ -3353,6 +3353,31 @@ differential probe.
   `core-coverage-repro-workera.log`,
   `extras-coverage-repro-workera.log` (+ matching `.coverage-*`
   data files) in the goal hidden_files.
+- **Coverage correction, mechanism established (2026-11-10):** the
+  657 traced lines are now explained. Executing the
+  standalone-verifier tests through a normal import of
+  `textforensics._standalone_verify` (instead of the suite's
+  `importlib.spec_from_file_location` + `exec_module` loader),
+  plus the v4 tampered-observations tests, reproduces the 61% /
+  354-missed row exactly — the missing-lines list is byte-identical
+  (1,120 chars) to the original core log line 167. Merging those
+  arcs into a clean core run (`coverage combine`) reproduces TOTAL
+  18,038 / 2,796 / 1,077 / 82.12%, one line off the original 2,795 /
+  1,076 (the `diagnostics.py:418` live-memory flip); the
+  `--cov-append` merge channel was also proven to work. The suite's
+  own importlib path records zero arcs in every configuration
+  tested, and no repo code normally imports the module. What remains
+  unrecoverable is which exact command in the original 2026-11-09
+  session produced the traced arcs — the original data file was
+  never preserved and the log records no command or environment.
+  The 82% figure is therefore explained as merged traced arcs, but
+  it was never a valid core-only measurement and stays recorded as
+  unverified as a core figure. Correct core coverage is 78.49%
+  (3,455 missed at `fb1e23a`); five independent clean core
+  measurements now cluster at 3,453–3,456 missed (78.48–78.50%).
+  Evidence: `coverage-artifact-a.md`, `coverage-artifact-b.md`,
+  `coverage-artifact-c.md` (+ `.coverage` data files and logs) in
+  the goal hidden_files.
 - **Gates on this branch (re-run by the coordinator):** claims
   33/33 ("All claims verified"), schemas 12 OK, pre-commit 13/13.
 - **Manual end-to-end checks:** `textforensics scan` on a 35-word
