@@ -78,6 +78,7 @@ module-path = [
   "src/textforensics/engine.py",
   "src/textforensics/policy.py",
   "src/textforensics/casefile.py",
+  "src/textforensics/execution_policy.py",
 ]
 
 # Modules explicitly excluded from mutation (not on `module-path`, so the

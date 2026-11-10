@@ -220,6 +220,9 @@ TARGET_MODULES = [
     "textforensics.engine",
     "textforensics.policy",
     "textforensics.casefile",
+    # W1: the shared execution-policy channel (stop gate, consent,
+    # redacting error contract) is safety-relevant decision logic.
+    "textforensics.execution_policy",
 ]
 
 # Safety-critical modules (subset for deep mutation).
@@ -624,9 +627,37 @@ def test_command_for(modules: list[str], project_root: Path) -> str:
 
 
 # Modules whose tests do not follow the ``tests/test_<stem>.py`` convention.
+# W1 regression tests live in shared files: the expiry/consent/stop tests
+# for policy + execution_policy are in tests/test_execution_policy.py and
+# tests/test_w1_consent_stop.py; the detector-gating tests are in
+# tests/test_w1_consent_stop.py; the trust/casefile W1 tests (CORE-07,
+# C03/C06/C12, replay) are in tests/test_w1_worker_d.py. A mutant in one
+# of these modules is only killable by the tests that cover its new
+# behaviour, so the per-mutant command must include those files — the
+# dedicated file alone would report live kills as unexplained survivors.
 _MODULE_TEST_FILES: dict[str, list[str]] = {
-    # Policy tests live in test_enterprise_policy.py, not test_policy.py.
-    "textforensics.policy": ["tests/test_enterprise_policy.py"],
+    # Policy tests live in test_enterprise_policy.py, not test_policy.py;
+    # the capability-expiry tests live in test_execution_policy.py.
+    "textforensics.policy": [
+        "tests/test_enterprise_policy.py",
+        "tests/test_execution_policy.py",
+    ],
+    # Execution-policy tests are split across test_execution_policy.py
+    # (contract) and test_w1_consent_stop.py (consent/stop behaviour).
+    "textforensics.execution_policy": [
+        "tests/test_execution_policy.py",
+        "tests/test_w1_consent_stop.py",
+    ],
+    # Detector-gating (execute_detector / run_all_detectors policy + stop)
+    # is covered by test_w1_consent_stop.py.
+    "textforensics.detectors": [
+        "tests/test_detectors.py",
+        "tests/test_w1_consent_stop.py",
+    ],
+    # CORE-07 trust-gate tests live in test_w1_worker_d.py.
+    "textforensics.trust": ["tests/test_trust.py", "tests/test_w1_worker_d.py"],
+    # C03/C06/C12 + replay tests live in test_w1_worker_d.py.
+    "textforensics.casefile": ["tests/test_casefile.py", "tests/test_w1_worker_d.py"],
 }
 
 

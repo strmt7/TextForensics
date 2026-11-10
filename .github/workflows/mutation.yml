@@ -69,7 +69,7 @@ jobs:
             BASE_SHA="HEAD~1"
           fi
           echo "base_sha=$BASE_SHA" >> $GITHUB_OUTPUT
-          CHANGED=$(git diff --name-only "$BASE_SHA...HEAD" -- '*.py' | grep -E '^src/textforensics/(benchmark|trust|consensus|calibration|detectors|analyzers|engine|policy|casefile)\.py$' || true)
+          CHANGED=$(git diff --name-only "$BASE_SHA...HEAD" -- '*.py' | grep -E '^src/textforensics/(benchmark|trust|consensus|calibration|detectors|analyzers|engine|policy|casefile|execution_policy)\.py$' || true)
           {
             echo "changed_files<<EOF"
             echo "$CHANGED"
