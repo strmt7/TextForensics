@@ -177,6 +177,41 @@ def test_mutation_job_status_cancelled_maps_to_fail_not_error():
     assert '("fail", 0, "mutation job was cancelled")' in cancelled
 
 
+def test_artifact_action_pins_are_verified_upstream_shas():
+    """Every artifact-action pin must be a SHA verified against upstream.
+
+    Incident: the download-artifact v8.0.2 SHA (9000827...) was pasted
+    into an upload-artifact pin in mutation.yml. That SHA is a real commit
+    only in actions/download-artifact; it does not exist in
+    actions/upload-artifact, so the Mutation Report Summary job failed at
+    "Prepare all required actions" with "unable to find version". The two
+    actions share no commits, so their pins must be locked separately.
+    """
+    import re
+
+    # Verified upstream (gh api repos/actions/<repo>/commits/<sha> -> 200):
+    # upload-artifact v7.0.2 is the latest upload-artifact release.
+    upload_shas = {"cf430e030ddbb5b0abf93d22962f4752f3646cd9"}
+    # download-artifact v7.0.0 and v8.0.2.
+    download_shas = {
+        "37930b1c2abaa49bbe596cd826c3c89aef350131",
+        "9000827ccba6bdab643e8b6fd33ac0654aef8333",
+    }
+    pattern = re.compile(r"uses:\s*actions/(upload|download)-artifact@([0-9a-f]{40})")
+    found = {"upload": set(), "download": set()}
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        for match in pattern.finditer(path.read_text(encoding="utf-8")):
+            found[match.group(1)].add(match.group(2))
+    assert found["upload"], "no upload-artifact pin found"
+    assert found["download"], "no download-artifact pin found"
+    assert found["upload"] <= upload_shas, (
+        f"unverified upload-artifact pin(s): {sorted(found['upload'] - upload_shas)}"
+    )
+    assert found["download"] <= download_shas, (
+        f"unverified download-artifact pin(s): {sorted(found['download'] - download_shas)}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # ENG-07(3) companion: fuzz.yml must not swallow run_fuzz.py's exit code
 # ---------------------------------------------------------------------------
