@@ -31,8 +31,10 @@ returned no entries on branch `audit-w0-a`.
 - OS: Linux, kernel 7.0.0-44-generic, x86_64, glibc 2.39
   (`Linux-7.0.0-44-generic-x86_64-with-glibc2.39`).
 - Interpreter: Python 3.12.3 (`/usr/bin/python3.12`).
-- Canonical venv: `/home/hatch/workspace/TextForensics-rewrite/.venv/bin/python`,
-  Python 3.12.3, pip 24.0.
+- Canonical venv: the canonical TextForensics-rewrite venv
+  interpreter, Python 3.12.3, pip 24.0. Its absolute path is omitted
+  here because the same string occurs among the classified privacy
+  occurrences (see `docs/audits/2026-11-10/privacy-disposition-w0.md`).
 - Exact dependency closure: `requirements-pinned.txt`, SHA-256
   `3d34ffc35e1b0e9942f18d2e3d1e755221ae8222900655d5a326b69a156793c0`,
   git blob `6c444f6691b25d9fa6405fe6edaf3df2e5ff072a`

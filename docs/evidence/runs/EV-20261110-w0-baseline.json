@@ -1,1 +1,385 @@
-{"audit_baseline":{"committed_at":"2026-11-10T10:51:46+01:00","role":"The audited baseline. All 91 audit findings are stated against this commit. It is preserved as history; nothing in this wave re-writes it.","sha":"5ea804c3bcfeaa333ae7d346ee6400ea434e5fdb","short_sha":"5ea804c","subject":"docs: record proven mechanism behind the 82% core-coverage artifact"},"audit_commit":{"committed_at":"2026-11-10T19:34:51+01:00","deletions":0,"files_changed":14,"insertions":18208,"relationship_to_baseline":"Docs-only descendant of the audit baseline: 5ea804c is an ancestor of 3ff3650 (`git merge-base --is-ancestor 5ea804c 3ff3650`). The diff 5ea804c..3ff3650 touches only AGENTS.md, CHANGELOG.md, docs/HANDOVER.md, docs/RELEASE_READINESS_PLAN.md and docs/audits/2026-11-10/*; the diff is EMPTY for src/, scripts/, .github/, tests/, pyproject.toml and setup.py. Code is therefore identical to the audited baseline; only documentation was added.","sha":"3ff365031faf48bc0d14212d81d147ac11c7b232","short_sha":"3ff3650","subject":"docs: audit repository and plan stable release hardening"},"canonical_verification_command":{"note":"The repository currently has no trustworthy single command proving all release criteria (plan W0). Worker B owns the implementation of `scripts/verify_release.py`. This baseline record enumerates the gates that command must mirror; it does not invent one.","status":"does_not_exist_yet"},"dirty_status_at_wave_start":{"clean":true,"note":"`git status --porcelain=v1` returned no entries when this record was taken on branch audit-w0-a.","porcelain_entries":0},"environment":{"canonical_venv_pip":"pip 24.0","canonical_venv_python":"/home/hatch/workspace/TextForensics-rewrite/.venv/bin/python","glibc":"2.39","interpreter":"Python 3.12.3","interpreter_path":"/usr/bin/python3.12","kernel":"7.0.0-44-generic","machine":"x86_64","note":"The canonical venv is the pre-existing TextForensics-rewrite venv (Python 3.12.3, pip 24.0). A full `pip freeze` is not embedded here because it is too long for this record; the exact resolved dependency closure is identified by the lockfile entry below instead.","os":"Linux","platform":"Linux-7.0.0-44-generic-x86_64-with-glibc2.39","system_pip":"pip 24.0"},"gates":[{"command":"pre-commit run --all-files","id":"pre-commit","notes":"13 hooks (ruff lint+format, check-yaml/json/toml, merge-conflict, end-of-file, trailing-whitespace, mixed-line-ending LF, detect-secrets, validate_schemas, agents-md-rule-validation, validate-pyproject-deps). See .pre-commit-config.yaml.","trigger":"push, pull_request","workflow":".github/workflows/ci.yml (job: core)"},{"command":"python -m compileall -q src tests","id":"compileall","notes":"Byte-compile check of sources and tests.","trigger":"push, pull_request","workflow":".github/workflows/ci.yml (job: core)"},{"command":"ruff check src tests","id":"ruff","notes":"Lint only in CI; formatting is enforced by the pre-commit ruff-format hook.","trigger":"push, pull_request; release dispatch","workflow":".github/workflows/ci.yml (job: core); .github/workflows/release.yml (lint step)"},{"command":"coverage run --source=textforensics -m pytest tests -q --tb=short","id":"pytest-core","matrix":"Python 3.11, 3.12, 3.13, 3.14, 3.15 on ubuntu-latest; coverage gate 75% (coverage report --fail-under=75)","notes":"Core-only venv (.[dev], no extras). The ~81% extras-venv coverage figure is NOT measured by this job.","trigger":"push, pull_request","workflow":".github/workflows/ci.yml (job: core)"},{"command":"pytest tests --forked -v --tb=short --strict-markers -W error --ignore=tests/test_docs.py","id":"pytest-extras","matrix":"Python 3.11, 3.12, 3.13, 3.14, 3.15 on ubuntu-latest","notes":"KNOWN DEFECT (audit ENG-07): the command requests --forked but the dev extra does not declare pytest-forked; the retained older run log shows `ERROR: unrecognized arguments: --forked`. This gate is not trustworthy until W7 repairs it. Recorded here as-is; not re-measured by W0.","trigger":"weekly schedule (Mon 02:00 UTC), workflow_dispatch","workflow":".github/workflows/enterprise-deep-verification.yml (job: test-suite-all-features)"},{"command":"python -m coverage run --source=textforensics -m pytest tests -q --tb=short --timeout=180 --junitxml=<disposable-output>/junit.xml","id":"pytest-extras-windows-baseline","notes":"Audit baseline result: 3961 passed, 21 failed, 4 errors, 1 skipped, 1985 subtests passed in 198.64s, exit 1 (RED). Recorded as the audited state; the Windows extras suite is red at the audit baseline.","trigger":"audit observation 2026-11-10 (Windows, Python 3.12.10, extras constrained to applicable pinned versions, Linux-only atheris absent)","workflow":"none (audit evidence, not a CI gate)"},{"command":"python scripts/verify_golden.py","id":"golden","notes":"Golden-file verification (scripts/generate_golden.py is the generator).","trigger":"push, pull_request","workflow":".github/workflows/ci.yml (job: core)"},{"command":"python -m pip check","id":"pip-check","notes":"Dependency consistency check after install.","trigger":"push, pull_request","workflow":".github/workflows/ci.yml (jobs: core, pinned)"},{"command":"textforensics --version","id":"cli-smoke","notes":"Minimal smoke only. The deep-verification CLI smoke additionally exercises `scan --json`, `report --json`, `compare --help` and `--config default`.","trigger":"push, pull_request; weekly schedule","workflow":".github/workflows/ci.yml (jobs: core, pinned); .github/workflows/enterprise-deep-verification.yml (job: cli-smoke-tests)"},{"command":"python scripts/check_claims.py","id":"claims","matrix":"Python 3.12, install .[dev,api,mcp,security]","notes":"U7 claims-to-evidence gate (33 claims). Followed by `git diff --exit-code -- docs/evidence/report-card.md` (report card must be up to date). Audit state at baseline: 33/33 on canonical bytes, 0/33 in an autocrlf Windows checkout (ENG-08).","trigger":"push, pull_request","workflow":".github/workflows/ci.yml (job: claims-gate)"},{"command":"python -m pip install -r requirements-pinned.txt","id":"pinned-install","matrix":"Python 3.12, ubuntu-latest only","notes":"The canonical lock is Python 3.12 / Ubuntu-specific (SECURITY.md); it is not a portable installer.","trigger":"push, pull_request","workflow":".github/workflows/ci.yml (job: pinned)"},{"command":"python scripts/generate_sbom.py --check","id":"sbom-check","matrix":"Python 3.12, install from requirements-pinned.txt","notes":"Fails if the checked-in SBOM is stale. Audit ENG-12: the closure algorithm hides missing mandatory transitives and invents spurious test-extra edges; byte-stability is not edge-correctness.","trigger":"push, pull_request","workflow":".github/workflows/ci.yml (job: sbom)"},{"command":"python scripts/validate_schemas.py","id":"schemas","notes":"Validates every packaged schema in src/textforensics/schemas/ against the JSON Schema Draft 2020-12 meta-schema. The deep-verification job additionally validates schema instances (installs jsonschema only; ENG-07 notes it imports textforensics/a nonexistent CaseFile symbol without installing the project).","trigger":"weekly schedule (Mon 02:00 UTC), workflow_dispatch; pre-commit on changes under src/textforensics/schemas/","workflow":".github/workflows/enterprise-deep-verification.yml (job: schema-validation); pre-commit local hook json-schema-validator"},{"command":"printf 'I tested this yesterday and wrote down what happened.' | textforensics scan --json > output.json; python -c \"import json; json.load(open('output.json', encoding='utf-8'))\"","id":"os-smoke","matrix":"ubuntu-latest, windows-latest, macos-latest x Python 3.11, 3.15; install .[enterprise]","notes":"Two shallow CLI operations only. Audit ENG-09: this does NOT constitute supported-workflow qualification on Windows/macOS; the real Windows extras suite is red at the audit baseline.","trigger":"push, pull_request","workflow":".github/workflows/ci.yml (job: os-smoke)"},{"command":"python -m build && python -m twine check dist/* && python -m pip install --force-reinstall dist/*.whl && python -m pip check && textforensics --version","id":"package","matrix":"Python 3.12, ubuntu-latest","notes":"Builds wheel+sdist, checks wheel contents for three schemas + LICENSE, installs the wheel, verifies packaged schemas load. Audit ENG-01: the installed web entry point cannot start from a normal wheel install (templates/static absent); this gate does not exercise the installed web application.","trigger":"push, pull_request","workflow":".github/workflows/ci.yml (job: package)"},{"command":"python -m unittest tests.test_api -v; python -c \"from textforensics.api import create_app; assert create_app() is not None\"","id":"api-surface","matrix":"Python 3.11, 3.15; install .[dev,api]","notes":"Optional API surface check.","trigger":"push, pull_request","workflow":".github/workflows/ci.yml (job: api)"},{"command":"python -c \"from textforensics.mcp_server import _server; assert _server() is not None\"","id":"mcp-surface","matrix":"Python 3.11, 3.15; install .[mcp]","notes":"Optional MCP surface check: server constructs. Does not exercise tool dispatch.","trigger":"push, pull_request","workflow":".github/workflows/ci.yml (job: mcp)"},{"command":"python scripts/check_pip_audit.py --report pip-audit-gate.json","id":"pip-audit-gate","matrix":"Python 3.12, install from requirements-pinned.txt","notes":"Baseline-aware gate (pip-audit-baseline.toml): fails on new findings beyond the six baselined pip-24.0 findings. Audit ENG-11: skipped/private/editable/unresolvable packages are not counted as audited coverage; a zero-new-finding count does not imply a complete audit.","trigger":"push, pull_request, weekly schedule","workflow":".github/workflows/supply-chain.yml (job: pip-audit-gate)"},{"command":".audit-env/bin/pip-audit --strict --no-deps -r audit-requirements.txt; .audit-env/bin/bandit -r src -ll -ii","id":"pip-audit-strict-and-bandit","notes":"Zero-tolerance audit in an isolated venv. KNOWN DEFECT (audit ENG-07): the install step writes unquoted `pip-audit>=2,<3` and `bandit>=1.7,<2` range tokens that the shell parses as redirections. Audit baseline bandit state (evidence.json /bandit): exit_code 1, 0 MEDIUM, 0 HIGH, 26 Low.","trigger":"weekly schedule (Mon 02:00 UTC), workflow_dispatch","workflow":".github/workflows/enterprise-deep-verification.yml (job: vulnerability-audit)"},{"command":"gitleaks (full repository history)","id":"secrets-scan","notes":"Secret scan over complete history.","trigger":"push, pull_request, weekly schedule","workflow":".github/workflows/supply-chain.yml (job: secrets)"},{"command":"anchore/sbom-action (syft) over the source tree","id":"sbom-supply-chain","notes":"Audit ENG-14: the container SBOM scans `path: .` (the source tree), not the built image digest, so it does not establish the runtime image inventory.","trigger":"push, pull_request, weekly schedule; container builds","workflow":".github/workflows/supply-chain.yml (job: sbom); .github/workflows/container.yml (Generate SBOM step)"},{"command":"python scripts/check_semver.py","id":"semver","notes":"Version-format check.","trigger":"push, workflow_dispatch","workflow":".github/workflows/semver.yml"},{"command":"SOURCE_DATE_EPOCH=1704067200 PYTHONHASHSEED=0 python -m build --no-isolation --wheel --outdir dist_first; <repeat to dist_second>; compare sha256","id":"reproducibility-wheel","notes":"KNOWN DEFECT (audit ENG-03): the compare step is explicitly NON-GATING (prints a note on mismatch). The downloaded exact-SHA wheels from run 42794427815 demonstrably differ (different _build_info.json / RECORD). A green reproducibility summary does not establish byte-identical builds. Also uses setuptools==79.0.1, a version the project's own security evidence rejected (ENG-10).","trigger":"push, weekly schedule, workflow_dispatch","workflow":".github/workflows/reproducibility.yml (job: build-reproducibility)"},{"command":"python -m textforensics.cli scan --file testdata/sample.txt --json (x5, filtered); python -m textforensics.cli case export --deterministic (x2, case_sha256 compare); python -m textforensics.cli report --deterministic (x5, filtered)","id":"reproducibility-cli-case-detector","notes":"Determinism checks with non-deterministic fields filtered out (runtime_ms, timestamps) via jq.","trigger":"push, weekly schedule, workflow_dispatch","workflow":".github/workflows/reproducibility.yml (jobs: cli-determinism, case-file-determinism, detector-determinism)"},{"command":"python scripts/benchmark.py --iterations <n> --output benchmark-results.json; python -m pytest tests/test_performance.py --benchmark-only --benchmark-min-rounds=5; python -m pytest tests/test_benchmarks.py --benchmark-only","id":"benchmark","notes":"KNOWN DEFECT (audit ENG-13): the baseline-download step pins actions/download-artifact to the upload-artifact commit cf430e030ddbb5b0abf93d22962f4752f3646cd9 (HTTP 422, no such commit); comparison is off by default on push/schedule; the comparison helper accepts wholly disjoint benchmark names and reports 'No significant changes detected'.","trigger":"weekly schedule (Sun 06:00 UTC), workflow_dispatch","workflow":".github/workflows/benchmark.yml"},{"command":"python scripts/run_mutation.py --mode diff --base-sha <base>; python scripts/run_mutation.py --check-results mutation-results/summary.json","id":"mutation-diff","matrix":"Python 3.11","notes":"Diff-based mutation on changed safety-critical modules. A no-relevant-changes run writes a summary with skipped_reason=no-relevant-changes, which --check-results accepts (exit 0). Tracked baseline: 1697 entries.","trigger":"push, pull_request","workflow":".github/workflows/mutation.yml (job: mutation-diff)"},{"command":"python scripts/run_mutation.py --mode full; python scripts/run_mutation.py --mode safety-critical; python scripts/run_mutation.py --check-results mutation-results/summary.json","id":"mutation-full","matrix":"Python 3.11","notes":"Full + safety-critical mutation. Audit ENG-07: the full job is skipped on push events, so a green push check does not imply a full mutation campaign ran. The tracked baseline and its rationale do not imply all mutants were executed in a given push check.","trigger":"weekly schedule (Sun 02:00 UTC), workflow_dispatch","workflow":".github/workflows/mutation.yml (job: mutation-full)"},{"command":"python -m pytest tests/fuzz/test_fuzz_pytest.py -v --tb=short; python scripts/run_fuzz.py --method direct --duration 5 --regression || true","id":"fuzz-regression","matrix":"Python 3.11, 3.12, 3.13; install .[dev,fuzzing]","notes":"KNOWN DEFECT (audit ENG-07): the direct-atheris step ends in `|| true`, and run_fuzz.py records an arbitrary nonzero child status as informational with error=null when no crash artifact is created, so a failed fuzz start can look clean. atheris is Linux-only (manylinux wheels); the workflow falls back to pytest mode when atheris is unavailable.","trigger":"push, weekly schedule (Sat 03:00 UTC), workflow_dispatch","workflow":".github/workflows/fuzz.yml (job: fuzz-regression)"},{"command":"python tests/fuzz/generate_corpus.py --output-dir tests/fuzz/corpus || true; python scripts/run_fuzz.py --method <method> --duration <minutes> || true","id":"fuzz-extended","matrix":"Python 3.12","notes":"Extended corpus exploration. Same `|| true` suppression caveat as fuzz-regression.","trigger":"weekly schedule (Sat 03:00 UTC), workflow_dispatch","workflow":".github/workflows/fuzz.yml (job: fuzz-weekly)"},{"command":"python -m pytest tests/test_probe_runs.py tests/test_probe_runs_e2e.py tests/test_u3_trustmap.py tests/test_cli_drift_u3.py tests/test_validation.py tests/test_validation_trustmap.py -q; textforensics drift status --detector-id textforensics/builtin-heuristic --runs-dir <empty>","id":"observatory-smoke","matrix":"Python 3.12","notes":"U3 drift-observatory machinery smoke.","trigger":"push, pull_request","workflow":".github/workflows/observatory.yml (job: machinery-smoke)"},{"command":"textforensics drift run --manifest <corpus>/manifest.json --texts <corpus>/corpus.jsonl --holdback <corpus>/holdback.jsonl --scope <monthly-attacked|monthly-current-generator|full> --runs-dir <dir> --fail-on-tier1","id":"observatory-scheduled-probe","matrix":"Python 3.12","notes":"Scheduled probe runs over the frozen probe corpus (400 items). Skipped when the corpus cache is absent on the runner.","trigger":"monthly/quarterly schedule, workflow_dispatch","workflow":".github/workflows/observatory.yml (job: scheduled-probe-run)"},{"command":"echo \"Verifying release signatures...\"; echo \"Verifying SLSA attestations...\"","id":"integrity-placeholders","notes":"KNOWN DEFECT (audit ENG-07): both verification steps are echo-only placeholders explicitly labelled as such. They perform no signature or attestation verification yet succeed. This gate MUST NOT be read as 'integrity verified'.","trigger":"push, weekly schedule, workflow_dispatch","workflow":".github/workflows/repository-integrity.yml (job: sigstore)"},{"command":"sphinx-build -b html docs docs/_build/html || true; schema documentation check via jsonschema","id":"deep-verification-docs","notes":"KNOWN DEFECT (audit ENG-07): Sphinx build failures are ignored with `|| true`.","trigger":"weekly schedule (Mon 02:00 UTC), workflow_dispatch","workflow":".github/workflows/enterprise-deep-verification.yml (job: documentation-verification)"},{"command":"python -c \"from textforensics.api import create_app; app = create_app(); assert app is not None\"; FastAPI TestClient endpoint-contract probe","id":"deep-verification-api-contract","notes":"Installs `httpx>=0.27,<1` unquoted (ENG-07 shell-redirection defect) in the install step.","trigger":"weekly schedule (Mon 02:00 UTC), workflow_dispatch","workflow":".github/workflows/enterprise-deep-verification.yml (job: api-contract-testing)"},{"command":"python - <<'PY' (Engine timing harness writing benchmark-results.json)","id":"deep-verification-performance","notes":"Inline performance harness; results uploaded as artifacts, not compared to a baseline here.","trigger":"weekly schedule (Mon 02:00 UTC), workflow_dispatch","workflow":".github/workflows/enterprise-deep-verification.yml (job: performance-benchmarks)"},{"command":"python -m pip install -e \".[dev]\"; textforensics --version","id":"deep-verification-cross-platform","notes":"Version-print only on each OS. Audit ENG-09: this is not workflow qualification.","trigger":"weekly schedule (Mon 02:00 UTC), workflow_dispatch","workflow":".github/workflows/enterprise-deep-verification.yml (jobs: cross-platform-verification, cross-platform-windows, cross-platform-macos)"},{"command":"CodeQL analyze (GitHub-managed)","id":"codeql","notes":"Audit state at baseline: 3 open CodeQL observations (py/polynomial-redos, py/overly-permissive-file, py/insecure-protocol); all 3 are observations requiring source review, not confirmed exploits.","trigger":"push, pull_request, weekly schedule (Tue 03:37 UTC), workflow_dispatch","workflow":".github/workflows/codeql.yml"},{"command":"OpenSSF Scorecard (GitHub-managed)","id":"scorecard","notes":"Audit state at baseline: 86 open Scorecard observations (59 PinnedDependencies, 22 TokenPermissions, 5 other); these are governance/pinning observations, not CVEs.","trigger":"push, weekly schedule, workflow_dispatch","workflow":".github/workflows/scorecard.yml"},{"command":"Dependency review action (GitHub-managed, PR only)","id":"dependency-review","notes":"PR-scoped dependency review.","trigger":"pull_request","workflow":".github/workflows/dependency-review.yml"},{"command":"actionlint -color -shellcheck=''","id":"workflow-lint","notes":"Workflow linting (actionlint v1.7.12).","trigger":"push, pull_request, weekly schedule, workflow_dispatch","workflow":".github/workflows/workflow-lint.yml"},{"command":"python scripts/download_prefix_probe.py [--force-curl]","id":"download-prefix-probe","notes":"Dataset-download prefix probe (DetectRL-X); full download only on manual dispatch with mode=full.","trigger":"weekly schedule (Sat 04:30 UTC), workflow_dispatch","workflow":".github/workflows/download-prefix-probe.yml"},{"command":"docker buildx build --platforms linux/amd64,linux/arm64 --push (ghcr.io)","id":"container-build","notes":"NOT A GATE: this is a publication path. Audit ENG-14: a qualifying main push builds and immediately pushes multi-arch images with `latest`, version and short-SHA tags, with no dependency on test/claims/security/package/reproducibility jobs and no post-build running-image acceptance step. It must not be read as release acceptance.","trigger":"push to main (qualifying), weekly schedule (Sun 03:00 UTC), workflow_dispatch","workflow":".github/workflows/container.yml"},{"command":"python scripts/publish_release.py upload --notes release-notes.md --dist-dir dist --provenance-dir provenance --tag <tag> --version <version>","id":"release-publish","notes":"NOT A GATE: this is the publication path. Audit ENG-04/05/06: it does not require successful exact-SHA checks from the other workflows, runs unittest discovery instead of the canonical pytest collection, accepts an unset/empty RELEASE_CONFIRMATION in the helper, and never attaches the SBOM JSON payloads it signs. W0 puts publication behind an explicit candidate-promotion boundary; W10 rehearses it without publication.","trigger":"workflow_dispatch with confirmation input exactly 'RELEASE'","workflow":".github/workflows/release.yml"}],"head":{"branch":"audit-w0-a","committed_at":"2026-11-10T19:34:51+01:00","sha":"3ff365031faf48bc0d14212d81d147ac11c7b232","short_sha":"3ff3650","subject":"docs: audit repository and plan stable release hardening"},"lockfile":{"description":"Exact-pin lockfile for the full resolved closure (120 packages, Python 3.12 / Ubuntu). Digests are computed over persisted file bytes (UTF-8, LF).","git_blob_sha":"6c444f6691b25d9fa6405fe6edaf3df2e5ff072a","path":"requirements-pinned.txt","sha256":"3d34ffc35e1b0e9942f18d2e3d1e755221ae8222900655d5a326b69a156793c0"},"recorded_at_utc":"2026-11-10T19:17:39Z","recorded_by":"audit-w0-a worker (Worker A, W0 items 1-3 and 7)","sbom":{"components":120,"description":"Checked-in CycloneDX SBOM for the locked closure. Digest is computed over persisted file bytes.","git_blob_sha":"08602a4c50933e959485da978cf563346a6e156b","path":"sbom/textforensics.cdx.json","sha256":"a00906a70e46d75ceec9705891bf425d87f30fadace8d95c5617deb831b0d8a5"},"schema":"textforensics.w0-baseline/v1","scope_of_this_record":"This record freezes the starting point of wave W0 only. It records commands, identities and digests; it does NOT re-run any gate and it does NOT claim any gate passes. Gate verdicts belong to the evidence manifest (textforensics.evidence-manifest/v1) once scripts/verify_release.py exists. Known-broken states quoted above are audit-stated (docs/audits/2026-11-10/ENGINEERING.md, findings ENG-03/07/09/11/12/13/14), not re-measured by W0.","wave":"W0"}
+{
+  "audit_baseline": {
+    "committed_at": "2026-11-10T10:51:46+01:00",
+    "role": "The audited baseline. All 91 audit findings are stated against this commit. It is preserved as history; nothing in this wave re-writes it.",
+    "sha": "5ea804c3bcfeaa333ae7d346ee6400ea434e5fdb",
+    "short_sha": "5ea804c",
+    "subject": "docs: record proven mechanism behind the 82% core-coverage artifact"
+  },
+  "audit_commit": {
+    "committed_at": "2026-11-10T19:34:51+01:00",
+    "deletions": 0,
+    "files_changed": 14,
+    "insertions": 18208,
+    "relationship_to_baseline": "Docs-only descendant of the audit baseline: 5ea804c is an ancestor of 3ff3650 (`git merge-base --is-ancestor 5ea804c 3ff3650`). The diff 5ea804c..3ff3650 touches only AGENTS.md, CHANGELOG.md, docs/HANDOVER.md, docs/RELEASE_READINESS_PLAN.md and docs/audits/2026-11-10/*; the diff is EMPTY for src/, scripts/, .github/, tests/, pyproject.toml and setup.py. Code is therefore identical to the audited baseline; only documentation was added.",
+    "sha": "3ff365031faf48bc0d14212d81d147ac11c7b232",
+    "short_sha": "3ff3650",
+    "subject": "docs: audit repository and plan stable release hardening"
+  },
+  "canonical_verification_command": {
+    "note": "The repository currently has no trustworthy single command proving all release criteria (plan W0). Worker B owns the implementation of `scripts/verify_release.py`. This baseline record enumerates the gates that command must mirror; it does not invent one.",
+    "status": "does_not_exist_yet"
+  },
+  "dirty_status_at_wave_start": {
+    "clean": true,
+    "note": "`git status --porcelain=v1` returned no entries when this record was taken on branch audit-w0-a.",
+    "porcelain_entries": 0
+  },
+  "environment": {
+    "canonical_venv_pip": "pip 24.0",
+    "canonical_venv_python": "canonical TextForensics-rewrite venv interpreter (Python 3.12.3, pip 24.0); absolute path omitted here because the same string occurs among the classified privacy occurrences (see docs/audits/2026-11-10/privacy-disposition-w0.md)",
+    "glibc": "2.39",
+    "interpreter": "Python 3.12.3",
+    "interpreter_path": "/usr/bin/python3.12",
+    "kernel": "7.0.0-44-generic",
+    "machine": "x86_64",
+    "note": "The canonical venv is the pre-existing TextForensics-rewrite venv (Python 3.12.3, pip 24.0). A full `pip freeze` is not embedded here because it is too long for this record; the exact resolved dependency closure is identified by the lockfile entry below instead.",
+    "os": "Linux",
+    "platform": "Linux-7.0.0-44-generic-x86_64-with-glibc2.39",
+    "system_pip": "pip 24.0"
+  },
+  "gates": [
+    {
+      "command": "pre-commit run --all-files",
+      "id": "pre-commit",
+      "notes": "13 hooks (ruff lint+format, check-yaml/json/toml, merge-conflict, end-of-file, trailing-whitespace, mixed-line-ending LF, detect-secrets, validate_schemas, agents-md-rule-validation, validate-pyproject-deps). See .pre-commit-config.yaml.",
+      "trigger": "push, pull_request",
+      "workflow": ".github/workflows/ci.yml (job: core)"
+    },
+    {
+      "command": "python -m compileall -q src tests",
+      "id": "compileall",
+      "notes": "Byte-compile check of sources and tests.",
+      "trigger": "push, pull_request",
+      "workflow": ".github/workflows/ci.yml (job: core)"
+    },
+    {
+      "command": "ruff check src tests",
+      "id": "ruff",
+      "notes": "Lint only in CI; formatting is enforced by the pre-commit ruff-format hook.",
+      "trigger": "push, pull_request; release dispatch",
+      "workflow": ".github/workflows/ci.yml (job: core); .github/workflows/release.yml (lint step)"
+    },
+    {
+      "command": "coverage run --source=textforensics -m pytest tests -q --tb=short",
+      "id": "pytest-core",
+      "matrix": "Python 3.11, 3.12, 3.13, 3.14, 3.15 on ubuntu-latest; coverage gate 75% (coverage report --fail-under=75)",
+      "notes": "Core-only venv (.[dev], no extras). The ~81% extras-venv coverage figure is NOT measured by this job.",
+      "trigger": "push, pull_request",
+      "workflow": ".github/workflows/ci.yml (job: core)"
+    },
+    {
+      "command": "pytest tests --forked -v --tb=short --strict-markers -W error --ignore=tests/test_docs.py",
+      "id": "pytest-extras",
+      "matrix": "Python 3.11, 3.12, 3.13, 3.14, 3.15 on ubuntu-latest",
+      "notes": "KNOWN DEFECT (audit ENG-07): the command requests --forked but the dev extra does not declare pytest-forked; the retained older run log shows `ERROR: unrecognized arguments: --forked`. This gate is not trustworthy until W7 repairs it. Recorded here as-is; not re-measured by W0.",
+      "trigger": "weekly schedule (Mon 02:00 UTC), workflow_dispatch",
+      "workflow": ".github/workflows/enterprise-deep-verification.yml (job: test-suite-all-features)"
+    },
+    {
+      "command": "python -m coverage run --source=textforensics -m pytest tests -q --tb=short --timeout=180 --junitxml=<disposable-output>/junit.xml",
+      "id": "pytest-extras-windows-baseline",
+      "notes": "Audit baseline result: 3961 passed, 21 failed, 4 errors, 1 skipped, 1985 subtests passed in 198.64s, exit 1 (RED). Recorded as the audited state; the Windows extras suite is red at the audit baseline.",
+      "trigger": "audit observation 2026-11-10 (Windows, Python 3.12.10, extras constrained to applicable pinned versions, Linux-only atheris absent)",
+      "workflow": "none (audit evidence, not a CI gate)"
+    },
+    {
+      "command": "python scripts/verify_golden.py",
+      "id": "golden",
+      "notes": "Golden-file verification (scripts/generate_golden.py is the generator).",
+      "trigger": "push, pull_request",
+      "workflow": ".github/workflows/ci.yml (job: core)"
+    },
+    {
+      "command": "python -m pip check",
+      "id": "pip-check",
+      "notes": "Dependency consistency check after install.",
+      "trigger": "push, pull_request",
+      "workflow": ".github/workflows/ci.yml (jobs: core, pinned)"
+    },
+    {
+      "command": "textforensics --version",
+      "id": "cli-smoke",
+      "notes": "Minimal smoke only. The deep-verification CLI smoke additionally exercises `scan --json`, `report --json`, `compare --help` and `--config default`.",
+      "trigger": "push, pull_request; weekly schedule",
+      "workflow": ".github/workflows/ci.yml (jobs: core, pinned); .github/workflows/enterprise-deep-verification.yml (job: cli-smoke-tests)"
+    },
+    {
+      "command": "python scripts/check_claims.py",
+      "id": "claims",
+      "matrix": "Python 3.12, install .[dev,api,mcp,security]",
+      "notes": "U7 claims-to-evidence gate (33 claims). Followed by `git diff --exit-code -- docs/evidence/report-card.md` (report card must be up to date). Audit state at baseline: 33/33 on canonical bytes, 0/33 in an autocrlf Windows checkout (ENG-08).",
+      "trigger": "push, pull_request",
+      "workflow": ".github/workflows/ci.yml (job: claims-gate)"
+    },
+    {
+      "command": "python -m pip install -r requirements-pinned.txt",
+      "id": "pinned-install",
+      "matrix": "Python 3.12, ubuntu-latest only",
+      "notes": "The canonical lock is Python 3.12 / Ubuntu-specific (SECURITY.md); it is not a portable installer.",
+      "trigger": "push, pull_request",
+      "workflow": ".github/workflows/ci.yml (job: pinned)"
+    },
+    {
+      "command": "python scripts/generate_sbom.py --check",
+      "id": "sbom-check",
+      "matrix": "Python 3.12, install from requirements-pinned.txt",
+      "notes": "Fails if the checked-in SBOM is stale. Audit ENG-12: the closure algorithm hides missing mandatory transitives and invents spurious test-extra edges; byte-stability is not edge-correctness.",
+      "trigger": "push, pull_request",
+      "workflow": ".github/workflows/ci.yml (job: sbom)"
+    },
+    {
+      "command": "python scripts/validate_schemas.py",
+      "id": "schemas",
+      "notes": "Validates every packaged schema in src/textforensics/schemas/ against the JSON Schema Draft 2020-12 meta-schema. The deep-verification job additionally validates schema instances (installs jsonschema only; ENG-07 notes it imports textforensics/a nonexistent CaseFile symbol without installing the project).",
+      "trigger": "weekly schedule (Mon 02:00 UTC), workflow_dispatch; pre-commit on changes under src/textforensics/schemas/",
+      "workflow": ".github/workflows/enterprise-deep-verification.yml (job: schema-validation); pre-commit local hook json-schema-validator"
+    },
+    {
+      "command": "printf 'I tested this yesterday and wrote down what happened.' | textforensics scan --json > output.json; python -c \"import json; json.load(open('output.json', encoding='utf-8'))\"",
+      "id": "os-smoke",
+      "matrix": "ubuntu-latest, windows-latest, macos-latest x Python 3.11, 3.15; install .[enterprise]",
+      "notes": "Two shallow CLI operations only. Audit ENG-09: this does NOT constitute supported-workflow qualification on Windows/macOS; the real Windows extras suite is red at the audit baseline.",
+      "trigger": "push, pull_request",
+      "workflow": ".github/workflows/ci.yml (job: os-smoke)"
+    },
+    {
+      "command": "python -m build && python -m twine check dist/* && python -m pip install --force-reinstall dist/*.whl && python -m pip check && textforensics --version",
+      "id": "package",
+      "matrix": "Python 3.12, ubuntu-latest",
+      "notes": "Builds wheel+sdist, checks wheel contents for three schemas + LICENSE, installs the wheel, verifies packaged schemas load. Audit ENG-01: the installed web entry point cannot start from a normal wheel install (templates/static absent); this gate does not exercise the installed web application.",
+      "trigger": "push, pull_request",
+      "workflow": ".github/workflows/ci.yml (job: package)"
+    },
+    {
+      "command": "python -m unittest tests.test_api -v; python -c \"from textforensics.api import create_app; assert create_app() is not None\"",
+      "id": "api-surface",
+      "matrix": "Python 3.11, 3.15; install .[dev,api]",
+      "notes": "Optional API surface check.",
+      "trigger": "push, pull_request",
+      "workflow": ".github/workflows/ci.yml (job: api)"
+    },
+    {
+      "command": "python -c \"from textforensics.mcp_server import _server; assert _server() is not None\"",
+      "id": "mcp-surface",
+      "matrix": "Python 3.11, 3.15; install .[mcp]",
+      "notes": "Optional MCP surface check: server constructs. Does not exercise tool dispatch.",
+      "trigger": "push, pull_request",
+      "workflow": ".github/workflows/ci.yml (job: mcp)"
+    },
+    {
+      "command": "python scripts/check_pip_audit.py --report pip-audit-gate.json",
+      "id": "pip-audit-gate",
+      "matrix": "Python 3.12, install from requirements-pinned.txt",
+      "notes": "Baseline-aware gate (pip-audit-baseline.toml): fails on new findings beyond the six baselined pip-24.0 findings. Audit ENG-11: skipped/private/editable/unresolvable packages are not counted as audited coverage; a zero-new-finding count does not imply a complete audit.",
+      "trigger": "push, pull_request, weekly schedule",
+      "workflow": ".github/workflows/supply-chain.yml (job: pip-audit-gate)"
+    },
+    {
+      "command": ".audit-env/bin/pip-audit --strict --no-deps -r audit-requirements.txt; .audit-env/bin/bandit -r src -ll -ii",
+      "id": "pip-audit-strict-and-bandit",
+      "notes": "Zero-tolerance audit in an isolated venv. KNOWN DEFECT (audit ENG-07): the install step writes unquoted `pip-audit>=2,<3` and `bandit>=1.7,<2` range tokens that the shell parses as redirections. Audit baseline bandit state (evidence.json /bandit): exit_code 1, 0 MEDIUM, 0 HIGH, 26 Low.",
+      "trigger": "weekly schedule (Mon 02:00 UTC), workflow_dispatch",
+      "workflow": ".github/workflows/enterprise-deep-verification.yml (job: vulnerability-audit)"
+    },
+    {
+      "command": "gitleaks (full repository history)",
+      "id": "secrets-scan",
+      "notes": "Secret scan over complete history.",
+      "trigger": "push, pull_request, weekly schedule",
+      "workflow": ".github/workflows/supply-chain.yml (job: secrets)"
+    },
+    {
+      "command": "anchore/sbom-action (syft) over the source tree",
+      "id": "sbom-supply-chain",
+      "notes": "Audit ENG-14: the container SBOM scans `path: .` (the source tree), not the built image digest, so it does not establish the runtime image inventory.",
+      "trigger": "push, pull_request, weekly schedule; container builds",
+      "workflow": ".github/workflows/supply-chain.yml (job: sbom); .github/workflows/container.yml (Generate SBOM step)"
+    },
+    {
+      "command": "python scripts/check_semver.py",
+      "id": "semver",
+      "notes": "Version-format check.",
+      "trigger": "push, workflow_dispatch",
+      "workflow": ".github/workflows/semver.yml"
+    },
+    {
+      "command": "SOURCE_DATE_EPOCH=1704067200 PYTHONHASHSEED=0 python -m build --no-isolation --wheel --outdir dist_first; <repeat to dist_second>; compare sha256",
+      "id": "reproducibility-wheel",
+      "notes": "KNOWN DEFECT (audit ENG-03): the compare step is explicitly NON-GATING (prints a note on mismatch). The downloaded exact-SHA wheels from run 42794427815 demonstrably differ (different _build_info.json / RECORD). A green reproducibility summary does not establish byte-identical builds. Also uses setuptools==79.0.1, a version the project's own security evidence rejected (ENG-10).",
+      "trigger": "push, weekly schedule, workflow_dispatch",
+      "workflow": ".github/workflows/reproducibility.yml (job: build-reproducibility)"
+    },
+    {
+      "command": "python -m textforensics.cli scan --file testdata/sample.txt --json (x5, filtered); python -m textforensics.cli case export --deterministic (x2, case_sha256 compare); python -m textforensics.cli report --deterministic (x5, filtered)",
+      "id": "reproducibility-cli-case-detector",
+      "notes": "Determinism checks with non-deterministic fields filtered out (runtime_ms, timestamps) via jq.",
+      "trigger": "push, weekly schedule, workflow_dispatch",
+      "workflow": ".github/workflows/reproducibility.yml (jobs: cli-determinism, case-file-determinism, detector-determinism)"
+    },
+    {
+      "command": "python scripts/benchmark.py --iterations <n> --output benchmark-results.json; python -m pytest tests/test_performance.py --benchmark-only --benchmark-min-rounds=5; python -m pytest tests/test_benchmarks.py --benchmark-only",
+      "id": "benchmark",
+      "notes": "KNOWN DEFECT (audit ENG-13): the baseline-download step pins actions/download-artifact to the upload-artifact commit cf430e030ddbb5b0abf93d22962f4752f3646cd9 (HTTP 422, no such commit); comparison is off by default on push/schedule; the comparison helper accepts wholly disjoint benchmark names and reports 'No significant changes detected'.",
+      "trigger": "weekly schedule (Sun 06:00 UTC), workflow_dispatch",
+      "workflow": ".github/workflows/benchmark.yml"
+    },
+    {
+      "command": "python scripts/run_mutation.py --mode diff --base-sha <base>; python scripts/run_mutation.py --check-results mutation-results/summary.json",
+      "id": "mutation-diff",
+      "matrix": "Python 3.11",
+      "notes": "Diff-based mutation on changed safety-critical modules. A no-relevant-changes run writes a summary with skipped_reason=no-relevant-changes, which --check-results accepts (exit 0). Tracked baseline: 1697 entries.",
+      "trigger": "push, pull_request",
+      "workflow": ".github/workflows/mutation.yml (job: mutation-diff)"
+    },
+    {
+      "command": "python scripts/run_mutation.py --mode full; python scripts/run_mutation.py --mode safety-critical; python scripts/run_mutation.py --check-results mutation-results/summary.json",
+      "id": "mutation-full",
+      "matrix": "Python 3.11",
+      "notes": "Full + safety-critical mutation. Audit ENG-07: the full job is skipped on push events, so a green push check does not imply a full mutation campaign ran. The tracked baseline and its rationale do not imply all mutants were executed in a given push check.",
+      "trigger": "weekly schedule (Sun 02:00 UTC), workflow_dispatch",
+      "workflow": ".github/workflows/mutation.yml (job: mutation-full)"
+    },
+    {
+      "command": "python -m pytest tests/fuzz/test_fuzz_pytest.py -v --tb=short; python scripts/run_fuzz.py --method direct --duration 5 --regression || true",
+      "id": "fuzz-regression",
+      "matrix": "Python 3.11, 3.12, 3.13; install .[dev,fuzzing]",
+      "notes": "KNOWN DEFECT (audit ENG-07): the direct-atheris step ends in `|| true`, and run_fuzz.py records an arbitrary nonzero child status as informational with error=null when no crash artifact is created, so a failed fuzz start can look clean. atheris is Linux-only (manylinux wheels); the workflow falls back to pytest mode when atheris is unavailable.",
+      "trigger": "push, weekly schedule (Sat 03:00 UTC), workflow_dispatch",
+      "workflow": ".github/workflows/fuzz.yml (job: fuzz-regression)"
+    },
+    {
+      "command": "python tests/fuzz/generate_corpus.py --output-dir tests/fuzz/corpus || true; python scripts/run_fuzz.py --method <method> --duration <minutes> || true",
+      "id": "fuzz-extended",
+      "matrix": "Python 3.12",
+      "notes": "Extended corpus exploration. Same `|| true` suppression caveat as fuzz-regression.",
+      "trigger": "weekly schedule (Sat 03:00 UTC), workflow_dispatch",
+      "workflow": ".github/workflows/fuzz.yml (job: fuzz-weekly)"
+    },
+    {
+      "command": "python -m pytest tests/test_probe_runs.py tests/test_probe_runs_e2e.py tests/test_u3_trustmap.py tests/test_cli_drift_u3.py tests/test_validation.py tests/test_validation_trustmap.py -q; textforensics drift status --detector-id textforensics/builtin-heuristic --runs-dir <empty>",
+      "id": "observatory-smoke",
+      "matrix": "Python 3.12",
+      "notes": "U3 drift-observatory machinery smoke.",
+      "trigger": "push, pull_request",
+      "workflow": ".github/workflows/observatory.yml (job: machinery-smoke)"
+    },
+    {
+      "command": "textforensics drift run --manifest <corpus>/manifest.json --texts <corpus>/corpus.jsonl --holdback <corpus>/holdback.jsonl --scope <monthly-attacked|monthly-current-generator|full> --runs-dir <dir> --fail-on-tier1",
+      "id": "observatory-scheduled-probe",
+      "matrix": "Python 3.12",
+      "notes": "Scheduled probe runs over the frozen probe corpus (400 items). Skipped when the corpus cache is absent on the runner.",
+      "trigger": "monthly/quarterly schedule, workflow_dispatch",
+      "workflow": ".github/workflows/observatory.yml (job: scheduled-probe-run)"
+    },
+    {
+      "command": "echo \"Verifying release signatures...\"; echo \"Verifying SLSA attestations...\"",
+      "id": "integrity-placeholders",
+      "notes": "KNOWN DEFECT (audit ENG-07): both verification steps are echo-only placeholders explicitly labelled as such. They perform no signature or attestation verification yet succeed. This gate MUST NOT be read as 'integrity verified'.",
+      "trigger": "push, weekly schedule, workflow_dispatch",
+      "workflow": ".github/workflows/repository-integrity.yml (job: sigstore)"
+    },
+    {
+      "command": "sphinx-build -b html docs docs/_build/html || true; schema documentation check via jsonschema",
+      "id": "deep-verification-docs",
+      "notes": "KNOWN DEFECT (audit ENG-07): Sphinx build failures are ignored with `|| true`.",
+      "trigger": "weekly schedule (Mon 02:00 UTC), workflow_dispatch",
+      "workflow": ".github/workflows/enterprise-deep-verification.yml (job: documentation-verification)"
+    },
+    {
+      "command": "python -c \"from textforensics.api import create_app; app = create_app(); assert app is not None\"; FastAPI TestClient endpoint-contract probe",
+      "id": "deep-verification-api-contract",
+      "notes": "Installs `httpx>=0.27,<1` unquoted (ENG-07 shell-redirection defect) in the install step.",
+      "trigger": "weekly schedule (Mon 02:00 UTC), workflow_dispatch",
+      "workflow": ".github/workflows/enterprise-deep-verification.yml (job: api-contract-testing)"
+    },
+    {
+      "command": "python - <<'PY' (Engine timing harness writing benchmark-results.json)",
+      "id": "deep-verification-performance",
+      "notes": "Inline performance harness; results uploaded as artifacts, not compared to a baseline here.",
+      "trigger": "weekly schedule (Mon 02:00 UTC), workflow_dispatch",
+      "workflow": ".github/workflows/enterprise-deep-verification.yml (job: performance-benchmarks)"
+    },
+    {
+      "command": "python -m pip install -e \".[dev]\"; textforensics --version",
+      "id": "deep-verification-cross-platform",
+      "notes": "Version-print only on each OS. Audit ENG-09: this is not workflow qualification.",
+      "trigger": "weekly schedule (Mon 02:00 UTC), workflow_dispatch",
+      "workflow": ".github/workflows/enterprise-deep-verification.yml (jobs: cross-platform-verification, cross-platform-windows, cross-platform-macos)"
+    },
+    {
+      "command": "CodeQL analyze (GitHub-managed)",
+      "id": "codeql",
+      "notes": "Audit state at baseline: 3 open CodeQL observations (py/polynomial-redos, py/overly-permissive-file, py/insecure-protocol); all 3 are observations requiring source review, not confirmed exploits.",
+      "trigger": "push, pull_request, weekly schedule (Tue 03:37 UTC), workflow_dispatch",
+      "workflow": ".github/workflows/codeql.yml"
+    },
+    {
+      "command": "OpenSSF Scorecard (GitHub-managed)",
+      "id": "scorecard",
+      "notes": "Audit state at baseline: 86 open Scorecard observations (59 PinnedDependencies, 22 TokenPermissions, 5 other); these are governance/pinning observations, not CVEs.",
+      "trigger": "push, weekly schedule, workflow_dispatch",
+      "workflow": ".github/workflows/scorecard.yml"
+    },
+    {
+      "command": "Dependency review action (GitHub-managed, PR only)",
+      "id": "dependency-review",
+      "notes": "PR-scoped dependency review.",
+      "trigger": "pull_request",
+      "workflow": ".github/workflows/dependency-review.yml"
+    },
+    {
+      "command": "actionlint -color -shellcheck=''",
+      "id": "workflow-lint",
+      "notes": "Workflow linting (actionlint v1.7.12).",
+      "trigger": "push, pull_request, weekly schedule, workflow_dispatch",
+      "workflow": ".github/workflows/workflow-lint.yml"
+    },
+    {
+      "command": "python scripts/download_prefix_probe.py [--force-curl]",
+      "id": "download-prefix-probe",
+      "notes": "Dataset-download prefix probe (DetectRL-X); full download only on manual dispatch with mode=full.",
+      "trigger": "weekly schedule (Sat 04:30 UTC), workflow_dispatch",
+      "workflow": ".github/workflows/download-prefix-probe.yml"
+    },
+    {
+      "command": "docker buildx build --platforms linux/amd64,linux/arm64 --push (ghcr.io)",
+      "id": "container-build",
+      "notes": "NOT A GATE: this is a publication path. Audit ENG-14: a qualifying main push builds and immediately pushes multi-arch images with `latest`, version and short-SHA tags, with no dependency on test/claims/security/package/reproducibility jobs and no post-build running-image acceptance step. It must not be read as release acceptance.",
+      "trigger": "push to main (qualifying), weekly schedule (Sun 03:00 UTC), workflow_dispatch",
+      "workflow": ".github/workflows/container.yml"
+    },
+    {
+      "command": "python scripts/publish_release.py upload --notes release-notes.md --dist-dir dist --provenance-dir provenance --tag <tag> --version <version>",
+      "id": "release-publish",
+      "notes": "NOT A GATE: this is the publication path. Audit ENG-04/05/06: it does not require successful exact-SHA checks from the other workflows, runs unittest discovery instead of the canonical pytest collection, accepts an unset/empty RELEASE_CONFIRMATION in the helper, and never attaches the SBOM JSON payloads it signs. W0 puts publication behind an explicit candidate-promotion boundary; W10 rehearses it without publication.",
+      "trigger": "workflow_dispatch with confirmation input exactly 'RELEASE'",
+      "workflow": ".github/workflows/release.yml"
+    }
+  ],
+  "head": {
+    "branch": "audit-w0-a",
+    "committed_at": "2026-11-10T19:34:51+01:00",
+    "sha": "3ff365031faf48bc0d14212d81d147ac11c7b232",
+    "short_sha": "3ff3650",
+    "subject": "docs: audit repository and plan stable release hardening"
+  },
+  "lockfile": {
+    "description": "Exact-pin lockfile for the full resolved closure (120 packages, Python 3.12 / Ubuntu). Digests are computed over persisted file bytes (UTF-8, LF).",
+    "git_blob_sha": "6c444f6691b25d9fa6405fe6edaf3df2e5ff072a",
+    "path": "requirements-pinned.txt",
+    "sha256": "3d34ffc35e1b0e9942f18d2e3d1e755221ae8222900655d5a326b69a156793c0"
+  },
+  "recorded_at_utc": "2026-11-10T19:17:39Z",
+  "recorded_by": "audit-w0-a worker (Worker A, W0 items 1-3 and 7)",
+  "sbom": {
+    "components": 120,
+    "description": "Checked-in CycloneDX SBOM for the locked closure. Digest is computed over persisted file bytes.",
+    "git_blob_sha": "08602a4c50933e959485da978cf563346a6e156b",
+    "path": "sbom/textforensics.cdx.json",
+    "sha256": "a00906a70e46d75ceec9705891bf425d87f30fadace8d95c5617deb831b0d8a5"
+  },
+  "schema": "textforensics.w0-baseline/v1",
+  "scope_of_this_record": "This record freezes the starting point of wave W0 only. It records commands, identities and digests; it does NOT re-run any gate and it does NOT claim any gate passes. Gate verdicts belong to the evidence manifest (textforensics.evidence-manifest/v1) once scripts/verify_release.py exists. Known-broken states quoted above are audit-stated (docs/audits/2026-11-10/ENGINEERING.md, findings ENG-03/07/09/11/12/13/14), not re-measured by W0.",
+  "wave": "W0"
+}

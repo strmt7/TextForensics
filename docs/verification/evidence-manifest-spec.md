@@ -106,7 +106,7 @@ are SHA-256 over the persisted file bytes, exactly as recorded.
 {
   "schema": "textforensics.evidence-manifest/v1",
   "manifest_version": "1",
-  "candidate_source_sha": "3ff365031faf48bc0d14212d81d147ac11c7b232",
+  "candidate_source_sha": "0000000000000000000000000000000000000000",
   "source_tree_digest": {"method": "git-tree", "value": "0000000000000000000000000000000000000000"},
   "package_inputs": [
     {"name": "textforensics", "version": "0.2.0",
@@ -127,8 +127,7 @@ are SHA-256 over the persisted file bytes, exactly as recorded.
 }
 ```
 
-(The zero digests above are placeholders for shape only; a real
-manifest binds real digests. Do not use this example as a candidate.)
+(The zero digests and the sequential placeholder SHA above are placeholders for shape only; a real manifest binds real digests. Do not use this example as a candidate.)
 
 ## Tests
 
