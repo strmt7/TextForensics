@@ -92,8 +92,7 @@ class TestComposeOpaiTexts:
         assert "1554 partial (mixed-origin) rows" in joined_limits
         assert "evr-20261106-opai-bench-builtin-heuristic" in joined_limits
         assert (
-            "native false-positive rate is 0.0 on this sample (0 of 224 human rows"
-            in joined_limits
+            "native false-positive rate is 0.0 on this sample (0 of 224 human rows" in joined_limits
         )
         assert "Wilson 95% CI [0.0000, 0.0169]" in joined_limits
         assert "reviewed assessment" in texts["appeal_note"]
@@ -145,3 +144,30 @@ class TestComposeOpaiTexts:
         )
         joined_modes = " ".join(texts["known_failure_modes"])
         assert "both TPR@1% and TPR@5% FPR are 0.0" not in joined_modes
+
+    def test_excluded_u1_duplicates_are_stated_in_limitations(self, patch):
+        texts = patch.compose_opai_texts(
+            _measurements(n_human=218, n_ai=223),
+            ["abstracts", "news"],
+            n_partial=1555,
+            wilson_lo=0.0,
+            wilson_hi=0.0169,
+            n_excluded=4,
+        )
+        joined_limits = " ".join(texts["limitations_extra"])
+        assert (
+            "n=2000 rows fetched, 4 excluded as U1 duplicates by content hash, n=1996 kept"
+            in joined_limits
+        )
+
+    def test_no_exclusion_keeps_the_plain_sampling_note(self, patch):
+        texts = patch.compose_opai_texts(
+            _measurements(),
+            ["news"],
+            n_partial=1554,
+            wilson_lo=0.0,
+            wilson_hi=0.0169,
+        )
+        joined_limits = " ".join(texts["limitations_extra"])
+        assert "n=2000 rows fetched, +49 rows" in joined_limits
+        assert "excluded as U1 duplicates" not in joined_limits

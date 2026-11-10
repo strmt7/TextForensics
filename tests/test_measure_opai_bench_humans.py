@@ -64,6 +64,62 @@ class TestPhaseShiftedOffsets:
         assert old <= unshifted
 
 
+class TestContentHashAndExclusion:
+    def test_content_hash_matches_the_benchmark_construction(self, measure):
+        import hashlib
+        import json
+
+        expected = hashlib.sha256(
+            json.dumps(
+                {"text": "hello world"},
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            ).encode("utf-8")
+        ).hexdigest()
+        assert measure.content_hash("hello world") == expected
+
+    def test_exclude_duplicate_rows_drops_only_the_colliding_rows(self, measure):
+        from types import SimpleNamespace
+
+        rows = [
+            SimpleNamespace(text="aaa", label=0),
+            SimpleNamespace(text="bbb", label=1),
+            SimpleNamespace(text="ccc", label=None),
+            SimpleNamespace(text="ddd", label=0),
+        ]
+        offsets = [101, 202, 303, 404]
+        dupes = {measure.content_hash("bbb"), measure.content_hash("ddd")}
+        kept, kept_offsets, excluded = measure.exclude_duplicate_rows(rows, offsets, dupes)
+        assert [r.text for r in kept] == ["aaa", "ccc"]
+        assert kept_offsets == [101, 303]
+        assert excluded == [
+            {"offset": 202, "content_hash": measure.content_hash("bbb"), "label": 1},
+            {"offset": 404, "content_hash": measure.content_hash("ddd"), "label": 0},
+        ]
+
+    def test_exclude_duplicate_rows_keeps_everything_when_nothing_collides(self, measure):
+        from types import SimpleNamespace
+
+        rows = [SimpleNamespace(text="aaa", label=0)]
+        kept, kept_offsets, excluded = measure.exclude_duplicate_rows(rows, [7], set())
+        assert kept == rows
+        assert kept_offsets == [7]
+        assert excluded == []
+
+    def test_exclude_duplicate_rows_raises_on_an_internal_duplicate(self, measure):
+        from types import SimpleNamespace
+
+        import pytest
+
+        rows = [
+            SimpleNamespace(text="aaa", label=0),
+            SimpleNamespace(text="aaa", label=1),
+        ]
+        with pytest.raises(ValueError, match="duplicate content hash inside the new sample"):
+            measure.exclude_duplicate_rows(rows, [7, 8], set())
+
+
 class TestServerTotalCheck:
     def test_fetch_refuses_on_a_changed_server_total(self, measure, tmp_path):
         class StubClient:

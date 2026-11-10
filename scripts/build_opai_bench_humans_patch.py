@@ -10,6 +10,12 @@ superseding ``evr-20261106-opai-bench-builtin-heuristic``) via
 writes the full record JSON to
 ``docs/evidence/EV-20261110-opai-bench-registry-patch.json``.
 
+The sample file holds the kept rows only: 2000 rows were fetched and
+4 were excluded by ``measure_opai_bench_humans.py`` as U1 duplicates
+by content hash (OpAI-Bench repeats each pure-human v0 document once
+per generator), so the cache holds 1996 rows and the exclusion is
+stated in the record's limitations.
+
 REGISTRY HOLD: this script writes the patch file ONLY. It does NOT
 edit ``docs/validation/registry.json`` and does NOT edit
 ``docs/evidence/registry.json`` — the parent applies the patch. It
@@ -67,6 +73,7 @@ RUN_DATE = "20261110"
 RUN_DATE_ISO = "2026-11-10"
 BOOTSTRAP_SEED = 20261110
 NEW_FILENAME = "train-2000.jsonl"
+FETCHED_ROWS = 2000  # rows fetched by the measure script; the cache holds the kept rows only
 RECORD_ID = "evr-20261110-opai-bench-builtin-heuristic"
 SUPERSEDES = "evr-20261106-opai-bench-builtin-heuristic"
 PATCH_FILENAME = "EV-20261110-opai-bench-registry-patch.json"
@@ -82,6 +89,7 @@ def compose_opai_texts(
     n_partial: int,
     wilson_lo: float,
     wilson_hi: float,
+    n_excluded: int = 0,
 ) -> dict:
     """Compose the new record's failure modes / limitations / appeal note.
 
@@ -142,8 +150,15 @@ def compose_opai_texts(
         "this sample supersedes the U1 500-row sample "
         f"({SUPERSEDES}); the U1 cache is preserved and the two samples "
         "are disjoint by content hash",
-        f"phase-shifted strided sample (n={n_total + n_partial} rows fetched, "
-        f"+49 rows; endpoint density {n_total / (n_total + n_partial):.4f})",
+        (
+            f"phase-shifted strided sample (n={n_total + n_partial + n_excluded} "
+            f"rows fetched, {n_excluded} excluded as U1 duplicates by content "
+            f"hash, n={n_total + n_partial} kept; +49 rows; endpoint density "
+            f"{n_total / (n_total + n_partial):.4f})"
+            if n_excluded
+            else f"phase-shifted strided sample (n={n_total + n_partial} rows fetched, "
+            f"+49 rows; endpoint density {n_total / (n_total + n_partial):.4f})"
+        ),
     ]
     if fpr.value == 0:
         limitations_extra.append(
@@ -191,8 +206,18 @@ def build_patch(*, cache_dir: Path | None = None, repo_root: Path = REPO_ROOT) -
     k_fp = sum(1 for lab, _, verdict in triples if lab == 0 and verdict == "ai_like")
     wilson_lo, wilson_hi = wilson_ci(k_fp, n_human)
     scope = aggregate_scope("opai_bench", labelled)
+    # Rows fetched (2000) minus rows kept in the cache: the difference
+    # is the U1-duplicate exclusion performed by the measure script.
+    n_excluded = FETCHED_ROWS - len(rows)
+    if n_excluded < 0:
+        raise ValueError(f"cache holds {len(rows)} rows, more than the {FETCHED_ROWS} fetched")
     texts = compose_opai_texts(
-        measurements, scope["domains"], n_partial=n_partial, wilson_lo=wilson_lo, wilson_hi=wilson_hi
+        measurements,
+        scope["domains"],
+        n_partial=n_partial,
+        wilson_lo=wilson_lo,
+        wilson_hi=wilson_hi,
+        n_excluded=n_excluded,
     )
     print(
         f"[opai] phase-A measurement: n_human={measurements['n_human']} "

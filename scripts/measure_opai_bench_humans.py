@@ -68,6 +68,23 @@ numbers; nothing is re-sampled and no threshold is changed.
 
 Usage:
     python scripts/measure_opai_bench_humans.py [--force]
+
+Corpus duplication (found 2026-11-10, Worker A2)
+-------------------------------------------------
+Offset-disjointness is NOT sufficient: the OpAI-Bench train split
+repeats each pure-human v0 document once per generator (the same
+``document_hash_id``, the same byte-identical text, a different
+``record_id`` and ``generator``). The first full fetch of the shifted
+grid therefore shared 4 content hashes with the U1 cache — all four
+human (v0) rows, lengths 1417–4057 chars, texts exactly equal. The
+script drops exactly those rows (by content hash against the U1
+cache) before writing the normalised cache, so the kept sample is
+disjoint from U1 by content hash (0 shared, proven by the
+``check_disjointness`` step below) while staying the shifted strided
+grid minus 4 documented exclusions. The exclusion is by identity,
+not by detector score: no row is dropped for how it scores, nothing
+is re-sampled to avoid a false positive, and the excluded offsets,
+hashes and labels are recorded in the run artifact.
 """
 
 from __future__ import annotations
@@ -135,6 +152,43 @@ FETCH_ROUND_PAUSE_S = 30
 # worker, and rows are reassembled in offset order — the sample is
 # identical to a sequential fetch of the same offsets.
 DEFAULT_WORKERS = 4
+
+
+def content_hash(text: str) -> str:
+    """Content hash of one normalised text.
+
+    Same construction as ``textforensics.benchmark._compute_sample_hashes``
+    (SHA-256 of ``{"text": text}`` as compact sorted JSON), so hashes
+    computed here are directly comparable to fingerprint hashes.
+    """
+    content = json.dumps({"text": text}, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+def exclude_duplicate_rows(rows, offsets, duplicate_hashes):
+    """Drop rows whose content hash is in ``duplicate_hashes``.
+
+    Returns ``(kept_rows, kept_offsets, excluded)`` where each excluded
+    entry is ``{"offset": int, "content_hash": str, "label": int | None}``.
+    Order is preserved. Raises if the kept rows contain an internal
+    content duplicate (fail closed: a duplicated document inside the
+    new sample would double-count one text).
+    """
+    kept_rows: list = []
+    kept_offsets: list[int] = []
+    excluded: list[dict] = []
+    seen: set[str] = set()
+    for row, offset in zip(rows, offsets, strict=True):
+        digest = content_hash(row.text)
+        if digest in duplicate_hashes:
+            excluded.append({"offset": offset, "content_hash": digest, "label": row.label})
+            continue
+        if digest in seen:
+            raise ValueError(f"duplicate content hash inside the new sample at offset {offset}")
+        seen.add(digest)
+        kept_rows.append(row)
+        kept_offsets.append(offset)
+    return kept_rows, kept_offsets, excluded
 
 
 def opai_bench_humans_offsets(
@@ -375,6 +429,28 @@ def measure_new_sample(force: bool, workers: int = DEFAULT_WORKERS) -> dict:
     normalized = []
     for row in raw:
         normalized.extend(map_row("opai_bench", row, CONFIG, SPLIT))
+    if len(normalized) != N_ROWS:
+        raise ValueError(f"mapped {len(normalized)} normalised rows, expected {N_ROWS}")
+    # Corpus duplication: OpAI-Bench repeats each pure-human v0
+    # document once per generator, so offset-disjoint rows can still
+    # duplicate U1 documents by content. Drop exactly those rows
+    # (by content hash vs the U1 cache) before writing the cache, so
+    # the kept sample is disjoint from U1 by content hash. Exclusion
+    # is by identity, never by detector score.
+    root = default_cache_dir()
+    old_cache = root / "opai_bench" / CONFIG / "train.jsonl"
+    old_hashes = set(fingerprint_dataset(old_cache, "opai_bench", split="train").content_hashes)
+    normalized, _kept_offsets, excluded = exclude_duplicate_rows(normalized, _offsets, old_hashes)
+    if excluded:
+        print(
+            f"[opai] !!! EXCLUDED {len(excluded)} rows duplicating U1 documents "
+            "by content hash (same document_hash_id, different record_id/generator):"
+        )
+        for entry in excluded:
+            print(
+                f"[opai]   excluded offset {entry['offset']} "
+                f"label={entry['label']} hash={entry['content_hash'][:12]}..."
+            )
     cache_path, manifest_path = write_sample_cache(
         spec, CONFIG, SPLIT, normalized, filename=NEW_FILENAME
     )
@@ -385,8 +461,11 @@ def measure_new_sample(force: bool, workers: int = DEFAULT_WORKERS) -> dict:
             f"new cache manifest file_sha256 {manifest['file_sha256']} != "
             f"recomputed SHA-256 {cache_sha} of {cache_path}"
         )
-    if len(normalized) != N_ROWS:
-        raise ValueError(f"mapped {len(normalized)} normalised rows, expected {N_ROWS}")
+    if len(normalized) + len(excluded) != N_ROWS:
+        raise ValueError(
+            f"kept {len(normalized)} normalised rows + {len(excluded)} excluded, "
+            f"expected {N_ROWS} fetched"
+        )
     counts = Counter(r.label for r in normalized)
     n_human = counts.get(0, 0)
     n_ai = counts.get(1, 0)
@@ -419,7 +498,9 @@ def measure_new_sample(force: bool, workers: int = DEFAULT_WORKERS) -> dict:
     dev_cache = root / "opai_bench" / DISJOINT_CONFIG / "dev.jsonl"
     if not dev_cache.exists():
         print("[opai] default/dev cache missing; fetching the 50 strided dev rows ...")
-        raw2 = fetch_strided_sample(spec, DISJOINT_CONFIG, DISJOINT_SPLIT, DISJOINT_N, DISJOINT_TOTAL)
+        raw2 = fetch_strided_sample(
+            spec, DISJOINT_CONFIG, DISJOINT_SPLIT, DISJOINT_N, DISJOINT_TOTAL
+        )
         normalized2 = []
         for row in raw2:
             normalized2.extend(map_row("opai_bench", row, DISJOINT_CONFIG, DISJOINT_SPLIT))
@@ -477,10 +558,18 @@ def measure_new_sample(force: bool, workers: int = DEFAULT_WORKERS) -> dict:
             f"{N_ROWS}-grid shifted by half its step so the sample is "
             f"disjoint from the U1 {OLD_N_ROWS}-row strided sample by row "
             "index (verified by content hash below); never contiguous"
+            + (
+                f"; {len(excluded)} rows excluded as U1 duplicates by content hash "
+                "(the same human document repeated once per generator)"
+                if excluded
+                else ""
+            )
         ),
         "split_rows_total": SPLIT_TOTAL,
         "rows_fetched": N_ROWS,
         "rows_normalised": len(normalized),
+        "rows_excluded_as_u1_duplicates": len(excluded),
+        "excluded_u1_duplicates": excluded,
         "label_counts": {str(k): counts[k] for k in (0, 1, None) if k in counts},
         "cache_file": NEW_FILENAME,
         "cache_file_sha256": cache_sha,
@@ -572,6 +661,20 @@ def measure_new_sample(force: bool, workers: int = DEFAULT_WORKERS) -> dict:
             ),
         },
     ]
+    if excluded:
+        drops.append(
+            {
+                "item": f"{len(excluded)} rows duplicating U1 human documents",
+                "reason": (
+                    "the OpAI-Bench train split repeats each pure-human v0 "
+                    "document once per generator; these rows are byte-identical "
+                    "to U1 rows (same document_hash_id, different record_id and "
+                    "generator) and are excluded so the sample is disjoint from "
+                    "U1 by content hash. Exclusion is by identity, never by "
+                    "detector score."
+                ),
+            }
+        )
     record = _base_record(RUN_ID, "command", "python scripts/measure_opai_bench_humans.py")
     record["results"] = results
     record["drops"] = drops
