@@ -734,9 +734,9 @@ class TestAppendMode:
 
 
 class TestSeededRegistry:
-    def test_committed_registry_loads_with_eight_records_and_no_mixset(self):
+    def test_committed_registry_loads_with_nine_records_and_no_mixset(self):
         registry = ValidationRegistry.load(REPO_ROOT / "docs" / "validation" / "registry.json")
-        assert len(registry.records) == 8
+        assert len(registry.records) == 9
         assert [record.record_id for record in registry.records] == [
             "evr-20261106-beemo-builtin-heuristic",
             "evr-20261106-mage-builtin-heuristic",
@@ -752,9 +752,16 @@ class TestSeededRegistry:
             # RAID humans-100 record (Phase 5): the first `supported`
             # record — n=6000, 171/5829, all 8 support conditions met.
             "evr-20261108-raid-builtin-heuristic",
+            # OpAI-Bench worst-slice record (Phase 5): the second
+            # `supported` record — n=1996 kept, 218 human / 223 AI,
+            # Wilson 95% FPR upper 0.0173, all 8 support conditions met.
+            "evr-20261110-opai-bench-builtin-heuristic",
         ]
         for record in registry.records:
-            if record.record_id == "evr-20261108-raid-builtin-heuristic":
+            if record.record_id in {
+                "evr-20261108-raid-builtin-heuristic",
+                "evr-20261110-opai-bench-builtin-heuristic",
+            }:
                 assert record.status == "supported"
                 assert effective_status(record, detector_version="0.1.0") == "supported"
             else:

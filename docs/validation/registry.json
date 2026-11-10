@@ -1,6 +1,6 @@
 {
   "schema": "textforensics.validation-registry/v1",
-  "registry_id": "e3497d33cc39caaa69d4eb7a4f249caa4a155172ca976f5da30ee59e1e999c00",
+  "registry_id": "6c65c24b614d5673d88e2e003039419ed4d8596c612d93c4501d90743d0cf9e7",
   "created_at_utc": "2026-11-06T23:24:11.755599+00:00",
   "records": [
     {
@@ -1472,6 +1472,188 @@
         "demoted_by": null
       },
       "signature": "60ebc4d331179f8a1493873a66591e9b2268d568f9b7c093c48337a204425bbb"
+    },
+    {
+      "schema": "textforensics.evidence-record/v1",
+      "record_id": "evr-20261110-opai-bench-builtin-heuristic",
+      "detector_id": "textforensics/builtin-heuristic",
+      "detector_version": "0.1.0",
+      "detector_family": "stylometric-heuristic",
+      "calibration_id": null,
+      "status": "supported",
+      "supersedes": "evr-20261106-opai-bench-builtin-heuristic",
+      "regime": {
+        "language": "en",
+        "script": "Latn",
+        "language_variety": null,
+        "length_bucket": {
+          "min_words": 80,
+          "max_words": null,
+          "floor_words": 80,
+          "measured_min_words": 132,
+          "measured_median_words": 371,
+          "measured_max_words": 1412
+        },
+        "domain": [
+          "abstracts",
+          "essays",
+          "news",
+          "reports"
+        ],
+        "genre": "progressively edited benchmark, endpoint slice only (v0/v8)",
+        "generator": {
+          "families": [
+            "gemini-2.5-flash",
+            "gpt-5.4",
+            "gpt-5.4-nano"
+          ],
+          "vintage": "2026 (gemini-2.5-flash, gpt-5.4 family; Bsharat et al. 2026)",
+          "current_as_of": "2026-11-10"
+        },
+        "editing_regime": "raw",
+        "human_population": {
+          "populations": [
+            "general human authors"
+          ],
+          "determined_how": "Dataset documentation (OpAI-Bench card, Bsharat et al. 2026): human documents from news, essays, reports and abstracts; no per-author demographics recorded"
+        },
+        "attack_slice": null
+      },
+      "data": {
+        "dataset_name": "OpAI-Bench",
+        "dataset_version": "OpAI-Bench1/OpAI-Bench snapshot 2026-11-10 (no versioned release)",
+        "file_sha256": "d013ce6f42aa39768b9dee92c06f22dd6f63848c9bc04650bdccf468c11ee4cc",
+        "row_hash_method": "sha256 of normalised text (benchmark fingerprint)",
+        "split": "train",
+        "split_role": "test",
+        "n_human": 218,
+        "n_ai": 223,
+        "licence": "Apache-2.0",
+        "licence_reference": "https://huggingface.co/datasets/OpAI-Bench1/OpAI-Bench",
+        "contamination_flag": "no",
+        "near_duplicate_rate": null,
+        "near_duplicate_method": null
+      },
+      "run": {
+        "run_id": "EV-20261110-dataset-opai-bench",
+        "run_artifact": "docs/evidence/runs/EV-20261110-dataset-opai-bench.json",
+        "run_artifact_sha256": "7849f829ac384edfd821b3c8fdd0ff4b7742f172f0705d7dd5700cc2e2f01bdf",
+        "run_date": "2026-11-10",
+        "runner": "Phase 5 release-gate (scripts/build_opai_bench_humans_patch.py)",
+        "code_version": "add9b48f90ae85da21702014cfdaa764ffa3c98b",
+        "dependency_lock_sha": null,
+        "hardware": "x86_64 (Linux 7.0.0-44-generic)",
+        "runtime": "CPython 3.12.3 on linux",
+        "seeds": {
+          "bootstrap_seed": 20261110
+        },
+        "command": "python scripts/build_opai_bench_humans_patch.py",
+        "drops_manifest": [
+          {
+            "item": "full-corpus evaluation",
+            "reason": "preliminary sample only (n=1996 normalised rows from 196029 split rows)"
+          },
+          {
+            "item": "Python 3.11, 3.13, 3.14, 3.15",
+            "reason": "measured on the local interpreter only; CI covers the matrix"
+          },
+          {
+            "item": "train/test threshold selection",
+            "reason": "no threshold was fitted on this sample; AUROC/TPR@FPR are threshold-free"
+          },
+          {
+            "item": "1555 partial (mixed-origin) rows",
+            "reason": "rows with 0 < ai_sentence_ratio < 1 carry no binary label; they are the U4 spine, not U1 evidence"
+          },
+          {
+            "item": "4 rows duplicating U1 human documents",
+            "reason": "the OpAI-Bench train split repeats each pure-human v0 document once per generator; these rows are byte-identical to U1 rows (same document_hash_id, different record_id and generator) and are excluded so the sample is disjoint from U1 by content hash. Exclusion is by identity, never by detector score."
+          },
+          {
+            "item": "per-slice breakdowns (per-domain / per-generator / per-attack)",
+            "reason": "this seed record reports one pooled slice per dataset; finer slices are wave-2 work"
+          },
+          {
+            "item": "1555 partial (mixed-origin) rows",
+            "reason": "rows with 0 < ai_sentence_ratio < 1 carry no binary label; they are the U4 spine, not U1 evidence"
+          }
+        ],
+        "reporting_rules": "Labelled rows only; abstentions counted separately from AUROC/TPR (abstained rows still contribute their score); no score threshold fitted — AUROC and TPR@FPR are threshold-free; native FPR/TPR at the detector's native categorical verdict; bootstrap 95% CIs, 1000 resamples, seed 20261110"
+      },
+      "metrics": [
+        {
+          "slice_id": "opai_bench-builtin-heuristic",
+          "n_human": 218,
+          "n_ai": 223,
+          "auroc": {
+            "value": 0.4234,
+            "n": 441,
+            "ci_lower": 0.3712,
+            "ci_upper": 0.4732,
+            "method": "bootstrap, 1000 resamples, seed 20261110"
+          },
+          "tpr_at_fpr_0_01": {
+            "value": 0.0045,
+            "n": 223,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0175,
+            "method": "bootstrap, 1000 resamples, seed 20261110"
+          },
+          "tpr_at_fpr_0_05": {
+            "value": 0.0179,
+            "n": 223,
+            "ci_lower": 0.0041,
+            "ci_upper": 0.0367,
+            "method": "bootstrap, 1000 resamples, seed 20261110"
+          },
+          "fpr_native": {
+            "value": 0.0,
+            "n": 218,
+            "ci_lower": 0.0,
+            "ci_upper": 0.017317,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold"
+          },
+          "coverage": 0.5646,
+          "abstention_rate": 0.4354,
+          "worst_slice": true,
+          "tpr_native": {
+            "value": 0.0,
+            "n": 223,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "bootstrap, 1000 resamples, seed 20261110"
+          }
+        }
+      ],
+      "limits": {
+        "known_failure_modes": [
+          "fully machine text (v8) scores lower than pure human text (v0) on this slice: AUROC 0.4234 on this sample — the endpoint comparison inverts the baseline",
+          "only the v0/v8 endpoint rows carry binary labels; the partial rows are excluded from this record"
+        ],
+        "limitations": [
+          "not validated for non-English text",
+          "not validated for texts below 80 words (the detector's minimum)",
+          "not validated for generators newer than the record's declared vintage",
+          "not validated for human populations outside the record's declared population",
+          "no reviewer has assessed this record; it is a preliminary seed, not a reviewed validation",
+          "the sample is a strided subset of the split, not a full-corpus evaluation",
+          "near-duplicate rate was not measured for this sample",
+          "89 document_hash_ids are shared between the U1 (20261106) sample and this sample under different versions/generators - document-level overlap (the same document appearing under different version/generator rows), not duplicate rows; the two samples are disjoint by content hash.",
+          "contamination_flag is 'no' because the builtin detector is a hand-written stylometric heuristic with no training: it was not trained on this dataset or on any other text corpus, so it cannot have memorised evaluation rows",
+          "the 1555 partial (mixed-origin) rows in this sample are the U4 spine, not U1 evidence, and are excluded from this record",
+          "per-version and per-operation detector curves are not reported in this record (wave-2 concern)",
+          "this sample supersedes the U1 500-row sample (evr-20261106-opai-bench-builtin-heuristic); the U1 cache is preserved and the two samples are disjoint by content hash",
+          "phase-shifted strided sample (n=2000 rows fetched, 4 excluded as U1 duplicates by content hash, n=1996 kept; +49 rows; endpoint density 0.2209)",
+          "native false-positive rate is 0.0 on this sample (0 of 218 human rows verdict ai_like at the native operating point; Wilson 95% CI [0.0000, 0.0173])"
+        ],
+        "next_revalidation_due": "2027-02-08",
+        "appeal_note": "A reviewed assessment and per-version reporting would change this record",
+        "reviewer": null,
+        "review_date": null,
+        "demoted_by": null
+      },
+      "signature": "a125c2e9cd783348e584a0c67c1d42f39120754cc425ee8c0dd783785294b53b"
     }
   ]
 }

@@ -159,6 +159,16 @@
       "evidence_record_id": "EV-20261108-pip-audit",
       "run_artifact": "docs/evidence/runs/EV-20261108-pip-audit.json",
       "run_artifact_sha256": "537fbdaa4fc6e63fbaa229ba8433a0cf016f906ea7299548622a6362ca5223f6"
+    },
+    {
+      "evidence_record_id": "EV-20261110-dataset-opai-bench",
+      "run_artifact": "docs/evidence/runs/EV-20261110-dataset-opai-bench.json",
+      "run_artifact_sha256": "7849f829ac384edfd821b3c8fdd0ff4b7742f172f0705d7dd5700cc2e2f01bdf"
+    },
+    {
+      "evidence_record_id": "EV-20261110-human-fpr",
+      "run_artifact": "docs/evidence/runs/EV-20261110-human-fpr.json",
+      "run_artifact_sha256": "ceaa44f7da1c2ae38435494963433899bd1b93c767376dbe41ebf0ba2c8781a3"
     }
   ],
   "schema": "textforensics.evidence-registry/v1"
