@@ -212,7 +212,7 @@ class TestSharedStopCheck:
 
 class _TextInModel(_PydanticBaseModel):
     """Body model for the validation-echo test, defined at module level
-    so FastAPI's ``get_type_hints`` can resolve it: the file uses
+    so FastAPI's type-hint resolution can find it: the file uses
     ``from __future__ import annotations``, so a method-local model
     annotation degrades to an unresolvable string and FastAPI treats
     the parameter as a query param (the test then passed vacuously)."""
