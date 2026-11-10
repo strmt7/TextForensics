@@ -89,6 +89,7 @@ class TestValidateSchemas:
             "case-file.schema.json",
             "detector-result.schema.json",
             "enterprise-policy.schema.json",
+            "evidence-manifest.schema.json",
             "evidence-record.schema.json",
             "evidence-registry.schema.json",
             "forensic-bundle.schema.json",
