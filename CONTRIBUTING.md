@@ -170,8 +170,8 @@ def test_prediction_requires_calibration_id_with_probability(self):
 def test_full_analysis_pipeline(self):
     text = "This is a sufficiently long sample text for analysis..." * 20
     bundle = build_forensic_bundle(text)
-    self.assertEqual(bundle.schema, "textforensics.forensic-bundle/v1")
-    self.assertIn(bundle.overall, {"strong", "mixed", "insufficient"})
+    self.assertEqual(bundle.schema, "textforensics.forensic-bundle/v2")
+    self.assertIn(bundle.trust_map["overall"], {"strong", "mixed", "insufficient"})
     self.assertFalse(bundle.input["raw_text_included"])
 ```
 

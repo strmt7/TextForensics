@@ -75,7 +75,7 @@ No numeric Trust Map percentage unless later validated.
 - [x] verdict-flip reports (Phase 3, U3: directional flips with Wilson CI)
 - [x] human-slice FPR regression checks (Phase 3, U3: verdict-based human FPR, 0.05 cap, Tier-1 demotion on breach)
 - [x] provider/model-version change tracking (Phase 3, U3: provider metadata diff; version change goes stale after 7 days without a probe run)
-- [x] case-file v2 schema (v3 is now the default seal, Phase 3 U2; v2/v1 still verify)
+- [x] case-file v2 schema (v4 is now the default seal, Phase 5 U2 leftovers; v3/v2/v1 still verify)
 - [x] raw-text-free case export by default
 - [x] deterministic bundle canonicalization/hash (MPL sealed bundle, Phase 3 U2)
 - [x] case verification command (`case verify`)
@@ -153,15 +153,25 @@ Detail lives in `~/workspace/goals/textforensics-complete-revamp/hidden_files/`
   SECURITY / RELEASE / SPEC / CLAIMS / VERIFICATION consistency
   against current main.
 - **Remaining release-gate items:** human-FPR evidence (worst-slice
-  human FPR still unknown — see `docs/evidence/report-card.md`),
-  live-host verification (Docker + API + web UI on a live host),
-  `pip-audit` as a failing gate for runtime extras, SBOM in the
-  release workflow, live-TSA interop (never achieved from the
-  sandbox VM), the seal-time `not_reproducible` declaration for
-  non-deterministic detectors, and the coverage gate (now
+  human FPR still unknown — see `docs/evidence/report-card.md`;
+  worst document slice is OpAI-Bench, Wilson 95% upper 0.0642,
+  n=56), live-TSA interop (never achieved from the sandbox VM),
+  plain `docker run` of the container on this VM (still blocked by
+  the host netns bind-mount EPERM — the container run itself was
+  proven via crun-direct, 15/15 checks — and in-container
+  HEALTHCHECK execution is unverified), and the coverage gate (now
   `--fail-under=75` in CI Core, measured on core-only coverage:
   78.43% on 928dbc0, 78.49% on e65fde9, 76.95% on a1e7857 — the
   ~81% extras-venv figure is not what CI Core measures).
+  Closed since this list was written: the `pip-audit` failing gate
+  (`.github/workflows/supply-chain.yml`, baseline 6 pip findings,
+  review 2027-02-06), SBOM in the release workflow
+  (`.github/workflows/release.yml`, CycloneDX + SPDX) and the
+  checked-in SBOM (122 components, regenerated `96f3032`), the
+  seal-time `not_reproducible` declaration (case-file v4, merged
+  `a384ec1`), and bare-server API + web-UI live verification
+  (`docs/live-host-api-verification.md`,
+  `docs/LIVE_HOST_UI_20261108.md`).
   No release is created without Greg's explicit say-so.
 
 ## v1.0 target

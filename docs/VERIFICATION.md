@@ -1,6 +1,6 @@
 # Verification record — Phase 1 (2026-11-06)
 
-## Current state (HEAD `fb1e23a`, 2026-11-09)
+## Current state (HEAD `8c8a1cf`, 2026-11-10)
 
 Read this first. The dated sections below are historical records;
 their numbers are the numbers as measured at the time, and some of
@@ -9,6 +9,16 @@ inline). The current picture, measured on `fb1e23a` (Python 3.12.3,
 `test_memory_check` host flake deselected — see the HEAD section at
 the end of this file):
 
+- **Since `fb1e23a` (merges to `8c8a1cf`):** action upgrades
+  (`21ff98e`: checkout v7.0.1, gitleaks v3.0.0, scorecard v2.5.0),
+  the `fb1e23a` verification record and its figure fixes
+  (`245056c`/`ad6446d`), SBOM regeneration (`96f3032`/`bfb2097`:
+  filelock 4.2.10, typer 0.29.0, 122 components), the §2.6
+  fresh-checkout verification rule (`b52db9b`), and the
+  mid-body-drop test hardening (`8c8a1cf`).
+  No full suite was re-run on `8c8a1cf`; the suite numbers below
+  are the `fb1e23a` measurements and stand as the latest full
+  measurements.
 - **Full suite (extras): 3933 passed, 0 failed, 1 skipped, 1
   deselected, 1985 subtests passed in 464.80 s (7:44).** The 1 skip
   is the SBOM full-pinned-install check (atheris/wheel not in the
@@ -75,19 +85,18 @@ the end of this file):
   requests_seen 1 != 2) — a test/fixture fragility, not a
   `download_large_file` defect; it passes on `fb1e23a` (CI Core
   3.12: 3814 passed, 121 skipped, 1985 subtests).
-- **CI on current main `21ff98e` (run 42694796649, completed):
-  concludes "failure" — solely the "Checked-in SBOM is not stale"
-  job** (filelock 4.2.9 → 4.2.10, typer 0.28.0 → 0.29.0 upstream
-  releases; `requirements-pinned.txt` pins typer as a range
-  `typer>=0.12,<1`, so a fresh install picks up new releases; the
-  committed SBOM needs regeneration + commit). All 5 Core jobs
-  green, claims gate green, all OS smokes green; the other 9
-  workflow runs on `21ff98e` are success.
+- **CI on current main `8c8a1cf`: all 8 workflow runs completed
+  SUCCESS** (CI, CodeQL, Mutation Testing, Supply-chain security,
+  Repository Integrity, Reproducibility, Scorecard, Semver; created
+  2026-11-09 22:36:44Z) — 36 check-runs: 34 success, 2 skipped,
+  0 failed. This supersedes the `21ff98e` SBOM-staleness failure
+  (recorded in the `fb1e23a` section below): the SBOM was
+  regenerated (`96f3032`/`bfb2097`) and the staleness job passes.
 - **Open items:** live-TSA interop (never achieved from the sandbox
-  VM), PAN 2025 (Greg-side TIRA registration, unconfirmed), the
-  `test_mid_body_drop_resumes_with_range` socket-race hardening
-  (follow-up, not blocking), and the SBOM staleness on `21ff98e`
-  (upstream releases; regenerate + commit the SBOM).
+  VM) and PAN 2025 (Greg-side TIRA registration, unconfirmed).
+  Closed since `fb1e23a`: the `test_mid_body_drop_resumes_with_range`
+  socket-race hardening (merged `8c8a1cf`) and the SBOM staleness on
+  `21ff98e` (SBOM regenerated `96f3032`/`bfb2097`).
 - **Closed since `e65fde9`:** the casefile Phase-2 proof (merged
   `54c1e25`: 2118/2118, corrected true counts 1416 killed / 702
   equivalent / 0 unexplained, baseline 1665) and the policy 298
@@ -100,8 +109,8 @@ the end of this file):
   ROADMAP coverage-gate statement updated (merged `fd8d0ad`)
   and SECURITY pinning status updated (merged `1e4d333`); the three
   action upgrades (checkout v5.1.0 → v7.0.1, gitleaks v2.3.9 →
-  v3.0.0, scorecard v2.4.1 → v2.5.0, merged `21ff98e` — after this
-  verification's HEAD). The coverage gate is `--fail-under=75`
+  v3.0.0, scorecard v2.4.1 → v2.5.0, merged `21ff98e` — after
+  `fb1e23a`). The coverage gate is `--fail-under=75`
   in CI (`ci.yml:70`) and is measured on **core-only** coverage —
   78% on `fb1e23a` (78.49% on `e65fde9`), a ~3.5 pp margin —
   NOT on the extras-venv 81% this section used to cite. The
@@ -3358,5 +3367,10 @@ differential probe.
   regeneration + commit); live-TSA interop was never achieved from
   this VM; PAN 2025 registration is unconfirmed; the worst-slice
   human FPR is still unknown. No release is created by this change.
+  [Superseded in part: the SBOM was regenerated
+  (`96f3032`/`bfb2097`) and the staleness job passes on current main
+  `8c8a1cf` — see Current state.]
 - **Still open:** live-TSA interop, PAN 2025, the socket-race test
-  hardening, the SBOM regeneration on main.
+  hardening, the SBOM regeneration on main. [Superseded in part:
+  the hardening merged `8c8a1cf` and the SBOM was regenerated
+  (`96f3032`/`bfb2097`) — see Current state.]

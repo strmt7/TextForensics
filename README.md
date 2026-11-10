@@ -32,7 +32,7 @@ A detector score is not automatically a probability. Agreement is not independen
 
 ## Current capabilities
 
-### TFDP/1 detector protocol
+### TFDP/2 detector protocol
 
 Detector adapters expose explicit fields for:
 - detector/model identity and version;
@@ -81,7 +81,7 @@ The overall state is `strong`, `mixed`, or `insufficient`.
 Two registries keep claims tied to measured evidence:
 
 - **Claim-to-evidence gate (U7).** Every documented claim in `docs/CLAIMS.yaml` (33 claims) is linked to a run artifact in the evidence registry (`docs/evidence/`), and `scripts/check_claims.py` re-verifies the linkage in CI — re-hashing artifacts, comparing recorded values, and checking staleness. See the [evidence report card](docs/evidence/report-card.md).
-- **Validation-evidence registry (U1).** `docs/validation/registry.json` holds 7 validation records (all `partial`), each a held-out benchmark measurement of the built-in heuristic on a licensed dataset, with a SHA-256 hash seal. Trust Map v3 dimensions derive from these records.
+- **Validation-evidence registry (U1).** `docs/validation/registry.json` holds 8 validation records (7 `partial` + 1 `supported` — the RAID humans record), each a held-out benchmark measurement of the built-in heuristic on a licensed dataset, with a SHA-256 hash seal. Trust Map v3 dimensions derive from these records.
 - **Datasets measured (preliminary).** RAID, MAGE, Beemo, OpAI-Bench, GhostWriter, and DetectRL-X have been measured with the built-in heuristic; the measurements are preliminary and no new claims were made from them. MixSet, DetectRL, M4, and M4GT-Bench are licence-blocked — their loaders refuse to fetch until a licence is resolved — and PAN 2025 is pending registration. Worst-slice human false-positive rate is **unknown** (see the report card); no FPR is claimed anywhere in this repository.
 
 ### Safe consensus semantics
