@@ -25,15 +25,29 @@ Design principles:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import ipaddress
 import json
+import logging
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import aiohttp
+
+from .execution_policy import diagnostic_record, new_request_id, public_error_body
+
+logger = logging.getLogger(__name__)
+
+# Redirect statuses that carry a Location (RFC 9110 §15.4). 307/308 preserve
+# the method and body; 301/302/303 may convert POST to GET.
+_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+
+# Separate, smaller cap for provider error bodies (IF-09): error bodies are
+# drained under this budget and then discarded, never echoed.
+_DEFAULT_ERROR_BODY_BYTES = 4096
 
 __all__ = [
     "OllamaConfig",
@@ -50,9 +64,17 @@ __all__ = [
 
 
 class OllamaError(Exception):
-    """Base exception for Ollama-related errors."""
+    """Base exception for Ollama-related errors.
 
-    pass
+    Provider errors never echo prompt/response text or provider bodies:
+    the message is a stable generic string plus an opaque ``request_id``
+    for correlation with the text-free private diagnostic record (see
+    :func:`textforensics.execution_policy.diagnostic_record`). ``status_code``
+    is the provider HTTP status when one was received, else ``None``.
+    """
+
+    request_id: str | None = None
+    status_code: int | None = None
 
 
 class OllamaConnectionError(OllamaError):
@@ -105,16 +127,126 @@ def _validate_base_url(base_url: str, *, allow_remote_host: bool) -> None:
         )
 
 
+def _close_response(response: Any) -> None:
+    """Best-effort synchronous close of a response (no-op for fakes)."""
+    close = getattr(response, "close", None)
+    if callable(close):
+        with contextlib.suppress(Exception):  # close is idempotent
+            close()
+
+
+async def _consume_capped(response: Any, *, max_bytes: int) -> bytes | None:
+    """Read a response incrementally under a cumulative byte cap.
+
+    Counts decompressed bytes (``aiohttp`` yields decompressed chunks from
+    ``response.content``), so a gzip body is budgeted on its real size.
+    Returns the full body when it fits, else closes the response
+    immediately and returns ``None`` — the caller must not retain more
+    than the cap plus one chunk. Sets ``response._body`` on success so
+    later ``response.json()`` / ``response.text()`` calls reuse the
+    already-read bytes instead of re-reading an exhausted stream.
+    """
+    content = getattr(response, "content", None)
+    iter_chunked = getattr(content, "iter_chunked", None)
+    if iter_chunked is None:  # pragma: no cover - non-aiohttp fakes only
+        body = await response.read()
+        if len(body) > max_bytes:
+            _close_response(response)
+            return None
+        return body
+    buf = bytearray()
+    async for chunk in iter_chunked(8192):
+        if not chunk:
+            continue
+        buf += chunk
+        if len(buf) > max_bytes:
+            _close_response(response)
+            return None
+    body = bytes(buf)
+    with contextlib.suppress(Exception):  # pragma: no cover - defensive
+        response._body = body
+    return body
+
+
+async def _read_capped(response: Any, *, max_bytes: int) -> bytes:
+    """Read a whole response under a cumulative byte cap, or raise.
+
+    The shared reader for all ordinary (non-streaming) operations: on
+    overflow the response is closed immediately — before the sender has
+    finished — and the retained buffer is bounded to the cap plus one
+    chunk. The raised error carries no body text.
+    """
+    body = await _consume_capped(response, max_bytes=max_bytes)
+    if body is None:
+        raise OllamaError(f"Ollama response exceeds {max_bytes} bytes")
+    return body
+
+
 async def _iter_capped_lines(
     response: aiohttp.ClientResponse, *, max_bytes: int
 ) -> AsyncIterator[bytes]:
-    """Yield streamed response lines, enforcing a total size cap."""
+    """Yield streamed response lines, enforcing a total size cap.
+
+    The shared reader for all streaming operations: the same cumulative
+    byte cap as :func:`_read_capped`, counting decompressed bytes. On
+    overflow — or when the consumer stops early — the response is closed
+    deterministically in the ``finally`` block, so a paced sender
+    observes the close before completing an over-budget body.
+    """
     total = 0
-    async for line in response.content:
-        total += len(line)
-        if total > max_bytes:
-            raise OllamaError(f"Ollama response exceeds {max_bytes} bytes")
-        yield line
+    try:
+        async for line in response.content:
+            total += len(line)
+            if total > max_bytes:
+                raise OllamaError(f"Ollama response exceeds {max_bytes} bytes")
+            yield line
+    finally:
+        _close_response(response)
+
+
+def _validate_redirect_destination(url: str, *, allow_remote_host: bool) -> None:
+    """Reject a redirect destination that violates the host policy.
+
+    Every hop is validated against the same policy as the initial URL
+    (loopback-only unless ``allow_remote_host`` was explicitly opted
+    in) *before* any request body is forwarded to it. The raised error
+    never contains the destination URL.
+    """
+    parsed = urlparse(url)
+    host = parsed.hostname
+    if parsed.scheme not in {"http", "https"} or not host:
+        raise OllamaError("Ollama redirect refused: destination is not a valid http(s) URL.")
+    if not allow_remote_host and not _is_loopback_host(host):
+        logger.debug("Redirect destination refused for host: %s", host)
+        raise OllamaError(
+            "Ollama redirect refused: destination is not permitted by the Ollama host policy."
+        )
+
+
+def _redirect_refused(request_id: str, *, reason: str) -> OllamaError:
+    """Build the (URL-free, body-free) error for a refused redirect."""
+    exc = OllamaError(f"Ollama redirect refused: {reason} (request_id={request_id})")
+    exc.request_id = request_id
+    return exc
+
+
+def _raise_provider_error(status: int, *, request_id: str) -> None:
+    """Raise the redacted provider error for an HTTP error status.
+
+    Uses the shared redaction contract
+    (:func:`textforensics.execution_policy.public_error_body`): the
+    message is a stable generic string plus the opaque request ID. The
+    provider error body is never included — it may echo the submitted
+    prompt. The private diagnostic record is text-free (error type +
+    request ID only) and is logged, not returned.
+    """
+    body = public_error_body(status, request_id=request_id)
+    message = f"{body['detail']} (request_id={request_id})"
+    exc: OllamaError = OllamaModelNotFoundError(message) if status == 404 else OllamaError(message)
+    exc.request_id = request_id
+    exc.status_code = status
+    logger.debug("Ollama provider error: %s", diagnostic_record(exc, request_id=request_id))
+    raise exc
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,6 +263,15 @@ class OllamaConfig:
     default_model: str | None = None
     allow_remote_host: bool = False
     max_response_bytes: int = 10_000_000  # 10 MB cap on any single response
+    max_error_body_bytes: int = _DEFAULT_ERROR_BODY_BYTES
+    # Redirects are disabled by default (IF-02): a redirecting endpoint
+    # could otherwise forward the submitted prompt to a host the
+    # loopback-only policy never approved. Opt in with
+    # ``allow_redirects=True``; every hop is then validated against the
+    # same host policy before any body is forwarded, and the chain is
+    # bounded by ``max_redirects`` and recorded on the client.
+    allow_redirects: bool = False
+    max_redirects: int = 5
     preferred_models: list[str] = field(
         default_factory=lambda: [
             "llama3.1:8b",
@@ -146,6 +287,10 @@ class OllamaConfig:
     def __post_init__(self) -> None:
         if self.max_response_bytes <= 0:
             raise ValueError("max_response_bytes must be positive")
+        if self.max_error_body_bytes <= 0:
+            raise ValueError("max_error_body_bytes must be positive")
+        if self.max_redirects < 0:
+            raise ValueError("max_redirects must be zero or positive")
         _validate_base_url(self.base_url, allow_remote_host=self.allow_remote_host)
         if not self.base_url.endswith("/"):
             object.__setattr__(self, "base_url", self.base_url + "/")
@@ -386,6 +531,20 @@ class OllamaClient:
         self._model_cache: dict[str, OllamaModel] = {}
         self._cache_timestamp: float = 0
         self._cache_ttl = 300  # 5 minutes
+        # Redirect hops followed by the most recent request, as
+        # (status, destination host) pairs — bounded, auditable, and
+        # free of URLs, query strings and request bodies.
+        self._last_redirect_chain: tuple[tuple[int, str], ...] = ()
+
+    @property
+    def last_redirect_chain(self) -> tuple[tuple[int, str], ...]:
+        """Redirect hops followed by the most recent request.
+
+        Each entry is ``(status, destination host)``. Empty when the
+        last request followed no redirect (the default: redirects are
+        refused, not followed).
+        """
+        return self._last_redirect_chain
 
     async def __aenter__(self) -> OllamaClient:
         await self._ensure_session()
@@ -425,7 +584,14 @@ class OllamaClient:
         json_data: dict | None = None,
         stream: bool = False,
     ) -> aiohttp.ClientResponse:
-        """Make HTTP request with retry logic."""
+        """Make an HTTP request with retry logic.
+
+        Retries cover transient transport failures only
+        (``TimeoutError`` / ``aiohttp.ClientError``). Redirect refusals,
+        response-cap overflows and provider errors raise immediately and
+        are never retried: retrying a refused redirect or an over-budget
+        body would re-send the prompt or re-read the body.
+        """
         await self._ensure_session()
 
         url = f"{self.config.base_url}{endpoint}"
@@ -433,29 +599,7 @@ class OllamaClient:
 
         for attempt in range(self.config.max_retries + 1):
             try:
-                response = await self._session.request(
-                    method,
-                    url,
-                    json=json_data,
-                    headers={"Content-Type": "application/json"},
-                )
-
-                status = int(getattr(response, "status", 200))
-                if status >= 400:
-                    error_text = await response.text()
-                    if status == 404:
-                        raise OllamaModelNotFoundError(f"Model not found: {error_text[:500]}")
-                    raise OllamaError(f"HTTP {status}: {error_text[:500]}")
-
-                if not stream:
-                    body = await response.read()
-                    if len(body) > self.config.max_response_bytes:
-                        raise OllamaError(
-                            f"Ollama response exceeds {self.config.max_response_bytes} bytes"
-                        )
-
-                return response
-
+                return await self._request_once(method, url, json_data, stream=stream)
             except TimeoutError:
                 last_exception = OllamaTimeoutError(
                     f"Request timed out after {self.config.timeout_seconds}s"
@@ -468,6 +612,82 @@ class OllamaClient:
                 await asyncio.sleep(delay)
 
         raise last_exception or OllamaError("Max retries exceeded")
+
+    async def _request_once(
+        self,
+        method: str,
+        url: str,
+        json_data: dict | None,
+        *,
+        stream: bool,
+    ) -> aiohttp.ClientResponse:
+        """One request attempt: bounded redirect loop, then capped read.
+
+        Redirects are handled manually (``allow_redirects=False`` on the
+        wire) so every destination is validated against the host policy
+        before any request body is forwarded (IF-02). Error bodies are
+        drained under a separate smaller cap and discarded, never echoed
+        (IF-07). Non-streaming bodies are read incrementally under the
+        response cap (IF-09); streaming responses are returned unread
+        for the shared capped line reader.
+        """
+        request_id = new_request_id()
+        current_method, current_json, current_url = method, json_data, url
+        chain: list[tuple[int, str]] = []
+        for hop in range(self.config.max_redirects + 1):
+            response = await self._session.request(  # type: ignore[union-attr]
+                current_method,
+                current_url,
+                json=current_json,
+                headers={"Content-Type": "application/json"},
+                allow_redirects=False,
+            )
+            status = int(getattr(response, "status", 200))
+            headers = getattr(response, "headers", None)
+            location = headers.get("Location") if headers is not None else None
+            if status in _REDIRECT_STATUSES and location:
+                _close_response(response)
+                if not self.config.allow_redirects:
+                    self._last_redirect_chain = tuple(chain)
+                    raise _redirect_refused(request_id, reason="redirects are disabled")
+                destination = urljoin(current_url, location)
+                _validate_redirect_destination(
+                    destination, allow_remote_host=self.config.allow_remote_host
+                )
+                if hop >= self.config.max_redirects:
+                    self._last_redirect_chain = tuple(chain)
+                    raise _redirect_refused(
+                        request_id,
+                        reason=f"redirect limit of {self.config.max_redirects} exceeded",
+                    )
+                dest_host = urlparse(destination).hostname or ""
+                chain.append((status, dest_host))
+                logger.debug(
+                    "Ollama redirect hop: %s -> host %s (request_id=%s)",
+                    status,
+                    dest_host,
+                    request_id,
+                )
+                if status == 303 or (status in (301, 302) and current_method == "POST"):
+                    # 303 always, and 301/302 for POST, convert to GET
+                    # and drop the body: the prompt must not be
+                    # re-sent as a GET body to the new destination.
+                    current_method, current_json = "GET", None
+                current_url = destination
+                continue
+            break
+        self._last_redirect_chain = tuple(chain)
+
+        if status >= 400:
+            error_cap = min(self.config.max_error_body_bytes, self.config.max_response_bytes)
+            await _consume_capped(response, max_bytes=error_cap)
+            _close_response(response)
+            _raise_provider_error(status, request_id=request_id)
+
+        if not stream:
+            await _read_capped(response, max_bytes=self.config.max_response_bytes)
+
+        return response
 
     async def list_models(self, force_refresh: bool = False) -> list[OllamaModel]:
         """List available models."""
@@ -547,17 +767,27 @@ class OllamaClient:
         model: str,
         data: dict,
     ) -> AsyncIterator[GenerationResponse]:
-        """Stream generation response."""
-        async with self._session.post(
-            f"{self.config.base_url}api/generate",
-            json=data,
-        ) as response:
+        """Stream generation response.
+
+        Routed through :meth:`_request` (``stream=True``) so streaming
+        gets the same redirect validation, error classification and
+        capped reader as ordinary requests (IF-02/IF-09); the response
+        is closed deterministically when iteration ends, errors, or is
+        abandoned. NOTE (W5 / IF-15): the ``stream`` argument of
+        :meth:`generate` is deliberately NOT reconciled with the wire
+        body here — that reconciliation, and the fresh-client
+        session-setup contract, belong to W5.
+        """
+        response = await self._request("POST", "api/generate", data, stream=True)
+        try:
             async for line in _iter_capped_lines(
                 response, max_bytes=self.config.max_response_bytes
             ):
                 if line:
                     data = json.loads(line)
                     yield GenerationResponse.from_dict(data)
+        finally:
+            _close_response(response)
 
     async def chat(
         self,
@@ -583,15 +813,23 @@ class OllamaClient:
             return await response.json()
 
     async def _chat_stream(self, model: str, data: dict) -> AsyncIterator[dict]:
-        async with self._session.post(
-            f"{self.config.base_url}api/chat",
-            json=data,
-        ) as response:
+        """Stream chat responses through the shared request lifecycle.
+
+        Same redirect / error / capped-reader protections as
+        :meth:`_generate_stream` (IF-02/IF-09); response closed
+        deterministically on end, error, or abandonment. The IF-15
+        stream-flag reconciliation is W5-owned (see
+        :meth:`_generate_stream`).
+        """
+        response = await self._request("POST", "api/chat", data, stream=True)
+        try:
             async for line in _iter_capped_lines(
                 response, max_bytes=self.config.max_response_bytes
             ):
                 if line:
                     yield json.loads(line)
+        finally:
+            _close_response(response)
 
     async def embeddings(self, request: EmbeddingRequest) -> EmbeddingResponse:
         """Generate embeddings for input text."""
