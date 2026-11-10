@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 
 import pytest
@@ -296,6 +297,13 @@ class TestSegmentAttribution:
         assert d["segment_index"] == 0
         assert d["direction"] == "pushes_human"
         assert d["delta"] == pytest.approx(0.2)
+        # Default serialization is redacted: no segment text, but the
+        # index, hash and length stay useful (W1: IF-11).
+        assert "segment_text" not in d
+        assert d["segment_sha256"] == hashlib.sha256(b"Test segment.").hexdigest()
+        assert d["segment_length"] == len("Test segment.")
+        # Explicit opt-in preserves the exact text.
+        assert attr.to_dict(include_raw_text=True)["segment_text"] == "Test segment."
 
 
 class TestExplanationReport:
@@ -352,9 +360,20 @@ class TestExplainabilityInvariants:
         # text_sha256 is present; the *full* raw text must not be a top-level key
         assert "text" not in d
         assert "raw_text" not in d
-        # But individual segment texts ARE present (user's own input, needed for review)
-        segment_texts = [s["segment_text"] for s in d["segment_attribution"]]
-        assert any("SENSITIVE-CONTENT-XYZ" in st for st in segment_texts)
+        # Default serialization is redacted (W1: IF-11): segment texts
+        # are NOT present; indices/hashes stay useful instead.
+        assert d["raw_text_included"] is False
+        segment_texts = [s.get("segment_text") for s in d["segment_attribution"]]
+        assert all(st is None for st in segment_texts)
+        assert "SENSITIVE-CONTENT-XYZ" not in json.dumps(d)
+        # The in-memory report still carries the text for local review,
+        # and an explicit opt-in preserves it exactly.
+        assert any("SENSITIVE-CONTENT-XYZ" in a.segment_text for a in report.segment_attribution)
+        opt_in = report.to_dict(include_raw_text=True)
+        assert opt_in["raw_text_included"] is True
+        assert any(
+            "SENSITIVE-CONTENT-XYZ" in s["segment_text"] for s in opt_in["segment_attribution"]
+        )
 
     def test_attribution_sums_sensible(self):
         """Attribution deltas should be bounded within [-1, 1] for [0,1] scores."""
