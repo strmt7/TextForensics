@@ -640,12 +640,12 @@ function renderHistory() {
             <div class="history-preview">
                 <div class="history-text">${escapeHtml(item.preview)}</div>
                 <div class="history-meta">
-                    <span>${item.wordCount} words</span>
+                    <span>${escapeHtml(String(item.wordCount ?? 0))} words</span>
                     <span>${formatTime(item.timestamp)}</span>
                 </div>
             </div>
             <div class="history-verdict">
-                <span class="verdict-badge ${item.verdict}">${formatVerdict(item.verdict)}</span>
+                <span class="verdict-badge ${verdictClass(item.verdict)}">${escapeHtml(formatVerdict(item.verdict))}</span>
                 ${item.aiProbability !== null && item.aiProbability !== undefined ?
                     `<span style="font-size: 12px; color: var(--muted);">${(item.aiProbability * 100).toFixed(0)}%</span>` : ''}
             </div>
@@ -707,6 +707,27 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// Escape a value for safe inclusion in a double-quoted HTML attribute.
+// escapeHtml() is text-context only: a browser does not escape quotes
+// when serializing a text node, so attribute values need their own
+// escaping (IF-05 history sink).
+function escapeAttr(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// Map a verdict to an allowlisted CSS class fragment. Unknown or
+// forged verdicts fall back to "unknown", so imported text can never
+// become a class name or markup in the history sink (IF-05).
+function verdictClass(verdict) {
+    const known = ['ai_like', 'human_like', 'abstain', 'insufficient_evidence', 'mixed'];
+    return known.includes(verdict) ? verdict : 'unknown';
 }
 
 function formatDate(isoString) {
@@ -938,16 +959,16 @@ function renderServerHistory() {
     }
 
     container.innerHTML = state.serverHistory.map((item, index) => `
-        <div class="history-item ${index === 0 ? 'active' : ''}" data-index="${index}" data-id="${item.id}">
+        <div class="history-item ${index === 0 ? 'active' : ''}" data-index="${index}" data-id="${escapeAttr(item.id)}">
             <div class="history-preview">
                 <div class="history-text">${escapeHtml(item.content_sha256)}</div>
                 <div class="history-meta">
-                    <span>${item.word_count || 0} words</span>
+                    <span>${escapeHtml(String(item.word_count ?? 0))} words</span>
                     <span>${formatTime(item.stored_at)}</span>
                 </div>
             </div>
             <div class="history-verdict">
-                <span class="verdict-badge ${item.verdict}">${formatVerdict(item.verdict)}</span>
+                <span class="verdict-badge ${verdictClass(item.verdict)}">${escapeHtml(formatVerdict(item.verdict))}</span>
                 ${item.ai_probability !== null ?
                     `<span style="font-size: 12px; color: var(--muted);">${(item.ai_probability * 100).toFixed(0)}%</span>` : ''}
             </div>

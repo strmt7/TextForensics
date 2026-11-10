@@ -5,6 +5,7 @@ import csv
 import html
 import io
 import json
+import math
 import os
 import threading
 import uuid
@@ -29,7 +30,19 @@ from ..config import (
     validate_text_input,
 )
 from ..detectors import list_detector_health, list_detector_metadata
-from ..execution_policy import ExecutionPolicy, assert_execution_allowed
+from ..emergency_stop import EmergencyStopError
+from ..execution_policy import (
+    ExecutionCancelled,
+    ExecutionPolicy,
+    ExecutionPolicyError,
+    assert_execution_allowed,
+    error_status_for_exception,
+    is_execution_stopped,
+    new_request_id,
+    public_error_body,
+    public_message_for_status,
+    register_redacting_handlers,
+)
 from ..report import build_forensic_bundle
 
 
@@ -38,6 +51,182 @@ def _escape(value: object) -> str:
     if value is None:
         return ""
     return html.escape(str(value))
+
+
+# ── WebSocket trust boundary (IF-05) ─────────────────────────────────
+#
+# The web console is local-only by default (see
+# docs/verification/deployment-policy.md): it serves the loopback
+# interface, and a browser can only reach it from a same-origin page.
+# A raw WebSocket client can forge any header, so these checks are a
+# browser-origin (CSWSH / DNS-rebinding) boundary, not authentication
+# for non-browser clients: a request with no Origin header (curl, a
+# test harness, a non-browser client) is allowed, while a request
+# carrying an Origin or Host outside the configured set is refused at
+# the handshake, before accept. Binding a token/authenticated session
+# to mutating operations is a human-only decision (deployment policy);
+# it is NOT invented here.
+
+# Known verdict enums (IF-05): shared bundles are validated against
+# these before they may enter retained history. A verdict that is not
+# in the enum -- markup, padding, an invented label -- is rejected.
+_CONSENSUS_VERDICTS = frozenset(
+    {"ai_like", "human_like", "abstain", "insufficient_evidence", "mixed"}
+)
+_DETECTOR_VERDICTS = frozenset({"ai_like", "human_like", "abstain"})
+
+# Retained-history quotas (IF-05): separate from the input byte cap.
+# A server-generated bundle is ~10 KiB regardless of input length
+# (raw text is excluded by default), so 64 KiB per entry has ample
+# headroom while the audit's 65,573-byte forged verdict is refused.
+_MAX_HISTORY_ENTRY_BYTES = 65_536
+# Extra bytes a WebSocket frame may carry over the configured input
+# cap (JSON envelope around the text); mirrors the HTTP body cap.
+_WS_FRAME_OVERHEAD_BYTES = 65_536
+# Caller-supplied display/session strings carried in WS messages.
+_MAX_WS_ID_CHARS = 64
+_MAX_WS_DISPLAY_NAME_CHARS = 128
+_MAX_BUNDLE_STRING_CHARS = 256
+
+# "testserver" is the Starlette TestClient harness host (the default
+# base_url of every in-repo TestClient). It is not a routable
+# production hostname; it is allowed here only so the test harness
+# can exercise the handshake. Production requests carry the
+# configured host or a loopback host.
+_TEST_HARNESS_HOSTS = frozenset({"testserver"})
+_TEST_HARNESS_ORIGINS = frozenset({"http://testserver", "https://testserver"})
+
+
+def _allowed_ws_origins(settings: Settings) -> frozenset[str]:
+    """Exact origins the WebSocket handshake accepts.
+
+    One origin per configured/loopback host, per scheme, at the
+    configured port -- plus the test-harness origin. Matching is
+    exact: no suffix, prefix or port-less match is accepted.
+    """
+    origins = set(_TEST_HARNESS_ORIGINS)
+    for host in {settings.host, "127.0.0.1", "localhost", "::1"}:
+        host_part = f"[{host}]" if ":" in host else host
+        for scheme in ("http", "https"):
+            origins.add(f"{scheme}://{host_part}:{settings.port}")
+    return frozenset(origins)
+
+
+def _allowed_ws_hosts(settings: Settings) -> frozenset[str]:
+    """Host values (without port) the WebSocket handshake accepts."""
+    hosts = {settings.host.lower(), "127.0.0.1", "localhost", "::1", "[::1]"}
+    hosts.update(_TEST_HARNESS_HOSTS)
+    return frozenset(hosts)
+
+
+def _host_part(header_value: str) -> str:
+    """Return the host part of a Host header value (no port)."""
+    value = header_value.strip().lower()
+    if value.startswith("["):
+        end = value.find("]")
+        return value[: end + 1] if end != -1 else value
+    return value.split(":", 1)[0]
+
+
+def _is_allowed_ws_handshake(websocket: WebSocket, settings: Settings) -> bool:
+    """Check the WebSocket handshake Host/Origin boundary (IF-05).
+
+    A present Origin must match an allowed origin exactly; a present
+    Host must name an allowed host. Absent headers are allowed (a
+    non-browser client sends no Origin). Returns False when the
+    handshake must be refused before accept.
+    """
+    origin = websocket.headers.get("origin")
+    if origin is not None and origin.strip().lower() not in _allowed_ws_origins(settings):
+        return False
+    host = websocket.headers.get("host")
+    return not (host is not None and _host_part(host) not in _allowed_ws_hosts(settings))
+
+
+def _validate_shared_bundle(data: Any) -> None:
+    """Validate a caller-supplied bundle before it may enter history.
+
+    Raises ValueError on any violation. The object is never trusted:
+    it must be a mapping with a consensus verdict in the known enum,
+    detector verdicts in the known enum, finite in-range probabilities
+    and scores, short identifier strings, and a serialized size within
+    the retained-history entry quota. A forged verdict (markup or
+    oversized padding) fails the enum/size checks and is never
+    retained or broadcast.
+    """
+    if not isinstance(data, dict):
+        raise ValueError("Shared bundle must be a mapping.")
+    try:
+        entry_bytes = len(json.dumps(data, ensure_ascii=False).encode("utf-8"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Shared bundle is not serializable.") from exc
+    if entry_bytes > _MAX_HISTORY_ENTRY_BYTES:
+        raise ValueError("Shared bundle exceeds the retained-history entry quota.")
+    consensus = data.get("consensus")
+    if not isinstance(consensus, dict):
+        raise ValueError("Shared bundle requires a consensus mapping.")
+    verdict = consensus.get("verdict")
+    if not isinstance(verdict, str) or verdict not in _CONSENSUS_VERDICTS:
+        raise ValueError("Shared bundle consensus verdict is not a known verdict.")
+    ai_probability = consensus.get("ai_probability")
+    if ai_probability is not None and (
+        isinstance(ai_probability, bool)
+        or not isinstance(ai_probability, (int, float))
+        or not 0.0 <= float(ai_probability) <= 1.0
+    ):
+        raise ValueError("Shared bundle AI probability is out of range.")
+    detector_results = data.get("detector_results", [])
+    if not isinstance(detector_results, list):
+        raise ValueError("Shared bundle detector results must be a list.")
+    for row in detector_results:
+        if not isinstance(row, dict):
+            raise ValueError("Shared bundle detector results must be mappings.")
+        row_verdict = row.get("verdict")
+        if row_verdict is not None and (
+            not isinstance(row_verdict, str) or row_verdict not in _DETECTOR_VERDICTS
+        ):
+            raise ValueError("Shared bundle detector verdict is not a known verdict.")
+        for key in ("detector_id", "detector_version", "detector_family"):
+            value = row.get(key)
+            if value is not None and (
+                not isinstance(value, str) or len(value) > _MAX_BUNDLE_STRING_CHARS
+            ):
+                raise ValueError("Shared bundle detector field is not a short string.")
+        score = row.get("score")
+        if score is not None and (
+            isinstance(score, bool)
+            or not isinstance(score, (int, float))
+            or not math.isfinite(float(score))
+        ):
+            raise ValueError("Shared bundle detector score is not finite.")
+        calibrated = row.get("calibrated_ai_probability")
+        if calibrated is not None and (
+            isinstance(calibrated, bool)
+            or not isinstance(calibrated, (int, float))
+            or not 0.0 <= float(calibrated) <= 1.0
+        ):
+            raise ValueError("Shared bundle calibrated probability is out of range.")
+    content_sha256 = data.get("content_sha256")
+    if content_sha256 is not None and (
+        not isinstance(content_sha256, str) or len(content_sha256) > _MAX_BUNDLE_STRING_CHARS
+    ):
+        raise ValueError("Shared bundle content hash is not a short string.")
+
+
+def _ws_error_body(status: int) -> dict[str, Any]:
+    """Build a WebSocket error message from the shared contract (IF-07).
+
+    Only a stable generic message, a stable error code and a request
+    ID -- never exception text, rejected input, tracebacks or paths.
+    """
+    request_id = new_request_id()
+    body = public_error_body(status, request_id=request_id)
+    return {
+        "type": "error",
+        "message": body["detail"],
+        "error_code": body["error_code"],
+        "request_id": request_id,
+    }
 
 
 # ── Session Manager for real-time collaboration ──────────────────────
@@ -199,6 +388,14 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.textforensics_settings = active_settings
 
+    # Shared redacting error handlers (IF-07): validation errors are
+    # sanitized (loc/msg/type only), HTTPException status/detail are
+    # preserved verbatim, unexpected errors are a generic 500. Never
+    # raise HTTPException with a detail built from caller input or a
+    # caught exception -- every string detail raised below is a
+    # server-constructed constant.
+    register_redacting_handlers(app)
+
     # Mount static files
     static_dir = os.path.join(os.path.dirname(__file__), "static")
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
@@ -224,19 +421,40 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
 
     # ── Server-side history ring buffer ──────────────────────────────
     max_history = int(os.environ.get("TEXTFORENSICS_HISTORY_MAX", "100"))
+    # Total retained-history byte quota: count quota x per-entry quota.
+    max_history_bytes = max_history * _MAX_HISTORY_ENTRY_BYTES
     history_buffer: OrderedDict[str, dict[str, Any]] = OrderedDict()
 
-    def store_analysis(data: dict[str, Any]) -> str:
-        """Insert or update an analysis result in the ring buffer. Returns its ID."""
+    def _history_entry_bytes(entry: dict[str, Any]) -> int:
+        try:
+            return len(json.dumps(entry, ensure_ascii=False).encode("utf-8"))
+        except (TypeError, ValueError):
+            return _MAX_HISTORY_ENTRY_BYTES + 1
+
+    def store_analysis(data: dict[str, Any]) -> str | None:
+        """Insert or update an analysis result in the ring buffer.
+
+        Returns its server-side ID, or None when the entry exceeds the
+        per-entry byte quota and is refused (never retained). The
+        count quota (``max_history``) and the total byte quota evict
+        the oldest entries first.
+        """
         analysis_id = str(uuid.uuid4())
         entry = {
             "id": analysis_id,
             "stored_at": datetime.now(UTC).isoformat(),
             "data": data,
         }
+        if _history_entry_bytes(entry) > _MAX_HISTORY_ENTRY_BYTES:
+            return None
         history_buffer[analysis_id] = entry
-        # Evict oldest entries beyond max_history
+        # Evict oldest entries beyond the count / total-byte quotas.
         while len(history_buffer) > max_history:
+            history_buffer.popitem(last=False)
+        while (
+            history_buffer
+            and sum(_history_entry_bytes(e) for e in history_buffer.values()) > max_history_bytes
+        ):
             history_buffer.popitem(last=False)
         return analysis_id
 
@@ -415,7 +633,9 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
         """Get session info including connected users."""
         info = session_manager.session_info(session_id)
         if info is None:
-            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+            # Constant detail: the caller-supplied identifier is never
+            # reflected in an error (IF-07).
+            raise HTTPException(status_code=404, detail="Session not found")
         return info
 
     @app.get("/api/session/{session_id}/users")
@@ -431,13 +651,19 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/api/analyze", response_model=AnalyzeResponse)
     def analyze(req: TextRequest):
-        """Batch analysis endpoint - returns full forensic bundle."""
-        assert_execution_allowed()
+        """Batch analysis endpoint - returns full forensic bundle.
+
+        Error contract (IF-07): oversize text is 413, invalid input
+        is 422, an active stop is 503, unexpected failures are 500 --
+        each with a stable generic detail and no rejected input,
+        exception text, traceback or path. HTTPException details are
+        server-constructed constants, so they propagate unchanged to
+        the shared redacting handler.
+        """
         try:
+            assert_execution_allowed()
             # Explicit default policy (IF-01): local-only unless a later
-            # surface passes an explicitly consented policy. The
-            # redacting error contract (IF-07) for this endpoint is
-            # wired by Worker C from execution_policy.
+            # surface passes an explicitly consented policy.
             policy = ExecutionPolicy.default_local_only(
                 max_input_bytes=active_settings.max_input_bytes
             )
@@ -445,8 +671,13 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
             result = bundle.to_dict()
             store_analysis(result)
             return AnalyzeResponse(success=True, data=result)
-        except Exception as e:
-            return AnalyzeResponse(success=False, error=str(e))
+        except HTTPException:
+            raise
+        except Exception as exc:
+            status = error_status_for_exception(exc)
+            raise HTTPException(
+                status_code=status, detail=public_message_for_status(status)
+            ) from exc
 
     @app.post("/api/report")
     async def report_compat(request: Request):
@@ -459,8 +690,17 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
         buffer — the former endpoint had no history. The emergency-stop
         gate applies via the request middleware, closing the hole the
         stdlib UI had (it analysed text even while the stop was active).
+        The assert below is a second, in-handler check for a stop
+        raised between middleware and dispatch; it returns the same
+        constant 503 as the middleware.
         """
-        assert_execution_allowed()
+        try:
+            assert_execution_allowed()
+        except EmergencyStopError:
+            return JSONResponse(
+                status_code=503,
+                content={"detail": "Emergency stop is active."},
+            )
         try:
             payload = await request.json()
         except Exception:
@@ -490,9 +730,11 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
         """Export analysis results as JSON, CSV, or HTML report."""
         fmt = req.format.lower()
         if fmt not in ("json", "csv", "html"):
+            # Constant detail: the caller-supplied format is never
+            # reflected in an error (IF-07).
             return JSONResponse(
                 status_code=400,
-                content={"error": f"Unsupported format: {fmt}. Use json, csv, or html."},
+                content={"error": "Unsupported format. Use json, csv, or html."},
             )
 
         if fmt == "json":
@@ -582,31 +824,83 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
     async def websocket_analyze(websocket: WebSocket):
         """WebSocket endpoint for real-time analysis streaming with collaboration support.
 
-        Stop/consent note (W1 Worker A): detector dispatch below runs
-        under the shared execution policy (default local-only) and the
-        shared stop gate in ``run_all_detectors`` /
-        ``build_forensic_bundle``, so an active stop refuses work with
-        zero detector calls. The handshake check and per-operation
-        refusal before ``started`` are wired by Worker C from
-        ``execution_policy.assert_execution_allowed``.
+        Trust boundary (IF-05, W1 Worker C): the handshake validates
+        the configured Host and the exact Origin before accept, so a
+        cross-origin page cannot drive an analysis. Frames over the
+        byte cap are closed before JSON parsing; every message must
+        match its schema; shared bundles must pass enum/size
+        validation, and sharing by server-side analysis ID is the
+        trusted path (a caller-supplied bundle is validated, never
+        trusted blindly).
+
+        Stop gate (IF-03, W1 Worker C): the handshake refuses while
+        stopped, every new analysis/share/join operation checks the
+        shared stop before starting (no ``started`` is sent while
+        stopped), and detector dispatch itself re-checks between
+        steps, so a stop raised mid-run starts no further plugin
+        step. Leaving (cleanup) is always allowed.
+
+        Errors (IF-07, W1 Worker C): all WebSocket errors use the
+        shared generic error body -- no exception text, rejected
+        input, traceback or path is ever sent.
         """
+        # Trust boundary first: an untrusted origin learns nothing
+        # about the stop state. Refusal happens before accept, so no
+        # frame -- not even "started" -- is ever sent to it.
+        if not _is_allowed_ws_handshake(websocket, active_settings):
+            await websocket.close(code=1008, reason="Origin or host not allowed.")
+            return
+        if is_execution_stopped():
+            await websocket.close(code=1011, reason="Emergency stop is active.")
+            return
         await websocket.accept()
         ws_key = str(uuid.uuid4())
+        max_frame_bytes = active_settings.max_input_bytes + _WS_FRAME_OVERHEAD_BYTES
 
         # Optional session parameter from query string
         session_id = websocket.query_params.get("session")
 
         try:
             while True:
-                # Receive message from client
-                data = await websocket.receive_text()
-                message = json.loads(data)
+                # Receive message from client; reject oversized frames
+                # BEFORE JSON parsing.
+                raw = await websocket.receive_text()
+                if len(raw.encode("utf-8")) > max_frame_bytes:
+                    await websocket.close(code=1009, reason="Message too large.")
+                    return
+                try:
+                    message = json.loads(raw)
+                except ValueError:
+                    await websocket.send_json(_ws_error_body(422))
+                    continue
+                if not isinstance(message, dict):
+                    await websocket.send_json(_ws_error_body(422))
+                    continue
                 msg_type = message.get("type")
 
                 # ── Collaboration messages ────────────────────────
                 if msg_type == "join_session":
+                    # History/session mutation: refused while stopped.
+                    try:
+                        assert_execution_allowed()
+                    except (
+                        EmergencyStopError,
+                        ExecutionCancelled,
+                        ExecutionPolicyError,
+                    ) as exc:
+                        await websocket.send_json(_ws_error_body(error_status_for_exception(exc)))
+                        continue
                     sess_id = message.get("session_id") or session_id
                     display_name = message.get("display_name", "Anonymous")
+                    if (
+                        not isinstance(sess_id, str)
+                        or not sess_id
+                        or len(sess_id) > _MAX_WS_ID_CHARS
+                        or not isinstance(display_name, str)
+                        or len(display_name) > _MAX_WS_DISPLAY_NAME_CHARS
+                    ):
+                        await websocket.send_json(_ws_error_body(422))
+                        continue
                     try:
                         user_info = session_manager.join_user(
                             sess_id, ws_key, websocket, display_name
@@ -632,12 +926,14 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                                             "users": session_manager.list_users(sess_id),
                                         }
                                     )
-                    except ValueError as e:
-                        error_msg = {"type": "error", "message": str(e)}
-                        await websocket.send_json(error_msg)
+                    except ValueError:
+                        # Constant: the session identifier is never
+                        # reflected in an error (IF-07).
+                        await websocket.send_json(_ws_error_body(404))
                     continue
 
                 elif msg_type == "leave_session":
+                    # Cleanup is always allowed, including while stopped.
                     sess_id = session_manager._ws_map.pop(ws_key, None)
                     if sess_id:
                         session_manager.leave_user(ws_key)
@@ -657,37 +953,107 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                     continue
 
                 elif msg_type == "analysis_shared":
+                    # History mutation: refused while stopped.
+                    try:
+                        assert_execution_allowed()
+                    except (
+                        EmergencyStopError,
+                        ExecutionCancelled,
+                        ExecutionPolicyError,
+                    ) as exc:
+                        await websocket.send_json(_ws_error_body(error_status_for_exception(exc)))
+                        continue
                     sess_id = session_manager._ws_map.get(ws_key)
-                    if sess_id:
-                        analysis_data = message.get("data")
-                        if analysis_data:
-                            store_analysis(analysis_data)
-                            for conn_ws in session_manager.get_connected(sess_id):
-                                with suppress(Exception):
-                                    await conn_ws.send_json(
-                                        {
-                                            "type": "analysis_shared",
-                                            "data": analysis_data,
-                                            "shared_by": message.get("shared_by", ws_key),
-                                        }
-                                    )
+                    if not sess_id:
+                        await websocket.send_json(_ws_error_body(404))
+                        continue
+                    # Trusted path: share a server-side analysis by ID.
+                    # Peers receive the server-stored object, and
+                    # sharing never duplicates the retained entry.
+                    analysis_id = message.get("analysis_id")
+                    shared_data: dict[str, Any] | None = None
+                    stored_id: str | None = None
+                    if isinstance(analysis_id, str) and analysis_id:
+                        entry = history_buffer.get(analysis_id)
+                        if entry is None:
+                            await websocket.send_json(_ws_error_body(404))
+                            continue
+                        stored_id = entry["id"]
+                        shared_data = entry["data"]
+                    elif "data" in message:
+                        # Compatibility path: a caller-supplied bundle
+                        # is validated (schema, verdict enums, size)
+                        # before it may enter history -- never trusted
+                        # blindly. Forged markup/oversized verdicts
+                        # are rejected here.
+                        try:
+                            _validate_shared_bundle(message.get("data"))
+                        except ValueError:
+                            await websocket.send_json(_ws_error_body(422))
+                            continue
+                        stored_id = store_analysis(message["data"])
+                        if stored_id is None:
+                            await websocket.send_json(_ws_error_body(413))
+                            continue
+                        shared_data = message["data"]
+                    else:
+                        await websocket.send_json(_ws_error_body(422))
+                        continue
+                    shared_by = message.get("shared_by", ws_key)
+                    if not isinstance(shared_by, str) or len(shared_by) > _MAX_WS_ID_CHARS:
+                        shared_by = ws_key
+                    await websocket.send_json({"type": "analysis_shared", "analysis_id": stored_id})
+                    for conn_ws in session_manager.get_connected(sess_id):
+                        with suppress(Exception):
+                            await conn_ws.send_json(
+                                {
+                                    "type": "analysis_shared",
+                                    "data": shared_data,
+                                    "analysis_id": stored_id,
+                                    "shared_by": shared_by,
+                                }
+                            )
                     continue
 
                 # ── Existing analysis protocol ────────────────────
                 elif msg_type == "analyze":
                     text = message.get("text", "")
+                    if not isinstance(text, str):
+                        await websocket.send_json(_ws_error_body(422))
+                        continue
                     if not text:
                         await websocket.send_json(
-                            {"type": "error", "message": "Empty text provided"}
+                            {
+                                "type": "error",
+                                "message": "Empty text provided",
+                                "error_code": "invalid_request",
+                                "request_id": new_request_id(),
+                            }
                         )
                         continue
 
-                    # Validate input
+                    # Validate input (oversize -> 413, invalid -> 422;
+                    # constant messages only, connection stays open).
                     try:
                         validated_text = checked(text)
-                    except ValueError as e:
-                        error_msg = {"type": "error", "message": str(e)}
-                        await websocket.send_json(error_msg)
+                    except HTTPException as exc:
+                        await websocket.send_json(_ws_error_body(exc.status_code))
+                        continue
+                    except ValueError:
+                        await websocket.send_json(_ws_error_body(422))
+                        continue
+
+                    # Stop gate BEFORE "started" (IF-03): an active
+                    # stop refuses the operation with zero detector
+                    # calls and no "started" frame.
+                    try:
+                        assert_execution_allowed()
+                    except (
+                        EmergencyStopError,
+                        ExecutionCancelled,
+                        ExecutionPolicyError,
+                    ) as exc:
+                        await websocket.send_json(_ws_error_body(error_status_for_exception(exc)))
                         continue
 
                     # Send analysis started
@@ -728,7 +1094,11 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                     analysis_id = store_analysis(result_data)
 
                     # If in a session, broadcast to other collaborators
-                    if session_id and session_manager.has_session(session_id):
+                    if (
+                        session_id
+                        and analysis_id is not None
+                        and session_manager.has_session(session_id)
+                    ):
                         for conn_ws in session_manager.get_connected(session_id):
                             if id(conn_ws) != id(websocket):
                                 with suppress(Exception):
@@ -742,12 +1112,18 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
 
                     await websocket.send_json({"type": "complete", "data": result_data})
 
+                else:
+                    await websocket.send_json(_ws_error_body(422))
+                    continue
+
         except WebSocketDisconnect:
             pass
-        except Exception as e:
+        except Exception as exc:
+            # Generic error only: never exception text, rejected input,
+            # tracebacks or paths (IF-07). The socket closes after an
+            # unexpected failure; content errors above keep it open.
             with suppress(Exception):
-                error_msg = {"type": "error", "message": str(e)}
-                await websocket.send_json(error_msg)
+                await websocket.send_json(_ws_error_body(error_status_for_exception(exc)))
         finally:
             # Always clean up on disconnect
             session_manager.leave_user(ws_key)

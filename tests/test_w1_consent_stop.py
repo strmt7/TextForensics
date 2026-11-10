@@ -41,9 +41,10 @@ REMOTE_ID_B = "audit.example/recording-remote-b"
 try:
     import fastapi  # noqa: F401
     from fastapi.testclient import TestClient  # noqa: F401
+    from starlette.websockets import WebSocketDisconnect  # noqa: F401
 
     HAS_FASTAPI = True
-except ImportError:
+except ImportError:  # pragma: no cover - fastapi is an extra
     HAS_FASTAPI = False
 
 
@@ -484,18 +485,15 @@ class TestIf03WebSocket:
         sentinel = tmp_path / "stop"
         sentinel.write_text("stop\n", encoding="utf-8")
         monkeypatch.setenv("TEXTFORENSICS_EMERGENCY_STOP", str(sentinel))
+        # W1 Worker C wiring: the handshake itself is refused while
+        # stopped, so the socket never opens -- no "started", no
+        # analysis, and the detector registry is never consulted.
         with (
             _DiscoveryPatch(registry),
-            self._client().websocket_connect("/ws/analyze") as ws,
+            pytest.raises(WebSocketDisconnect),
+            self._client().websocket_connect("/ws/analyze"),
         ):
-            ws.send_json({"type": "analyze", "text": TEXT})
-            types = self._drain(ws)
-        # The dispatch gate (this worker) guarantees zero detector calls
-        # and an error instead of results. The handshake/pre-"started"
-        # refusal is Worker C's wiring on top of the same shared gate.
-        assert "error" in types
-        assert "complete" not in types
-        assert "detector_result" not in types
+            pass
         assert remote.calls == []
 
     def test_stop_after_connect_before_analyze_prevents_analysis(self, tmp_path, monkeypatch):
