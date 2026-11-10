@@ -189,19 +189,22 @@ These are findings about CI entry points / local executability that the
 coordinator must reconcile with the owners of the other W0 items.
 None of them was worked around by weakening a gate:
 
-1. `pytest --forked` (enterprise-deep-verification test suite and
-   coverage jobs) cannot run: the `pytest-forked` plugin is not
-   installed in the canonical venv, and the dev extra does not declare
-   it (ENG-07). `ent-deep-suite` and `ent-deep-coverage` are
-   `unavailable`; the same suite without `--forked` is covered by
-   `pytest-core`, and core coverage by `coverage`.
+1. The enterprise-deep-verification test-suite and coverage jobs are
+   schedule/dispatch-only and no longer use `pytest --forked` (the flag
+   was removed in W0, ENG-07, because the `pytest-forked` plugin is not
+   installed and not a declared dev dependency). `ent-deep-suite` and
+   `ent-deep-coverage` are `unavailable`; the same suite without
+   `--forked` is covered by `pytest-core`, and core coverage by
+   `coverage`.
 2. `actionlint` is not installed: `workflow-lint` is `unavailable`
    (required).
 3. `gitleaks` is not installed: `secrets-scan` is `unavailable`
    (required).
 4. `cosign` is not installed and there are no signed release artifacts
-   for any HEAD: `sigstore-verification` is `unavailable` (required);
-   the CI job itself is an echo placeholder (ENG-07).
+   for any HEAD: `sigstore-verification` is `unavailable` (required).
+   The CI job itself now performs real cosign/attestation verification
+   (the echo placeholder was replaced in W0, ENG-07); the gate is
+   unavailable for lack of artifacts to verify, not for lack of a check.
 5. No Syft binary: the three Syft-based SBOM jobs
    (`supply-chain-sbom`, `repo-provenance-sbom`,
    `ent-deep-provenance`) are `unavailable`; the checked-in SBOM
@@ -222,20 +225,29 @@ None of them was worked around by weakening a gate:
    independent evidence of a mutation campaign; a future wave may
    want SHA-bound artifacts or a suite that stops writing
    repo-relative mutation artifacts.
-8. The enterprise-deep documentation job swallows failures with
-   `|| true` (ENG-07) and requires `sphinx` and the `markdown`
-   package, neither installed: `ent-deep-docs` is `unavailable`.
-9. The fuzz direct-atheris step is `|| true` in CI (ENG-07) and
-   `atheris` is not installed: `fuzz-direct-atheris` is `unavailable`.
+8. The enterprise-deep documentation job requires `sphinx` and the
+   `markdown` package, neither installed: `ent-deep-docs` is
+   `unavailable`. (Its `|| true` failure swallowing was removed in W0,
+   ENG-07.)
+9. The fuzz direct-atheris steps no longer swallow exit codes (the
+   `|| true` on the `run_fuzz.py` invocations was removed in W0,
+   ENG-07), but `atheris` is not installed: `fuzz-direct-atheris` is
+   `unavailable`. The pytest-mode regression is covered by
+   `fuzz-regression`.
 10. `benchmark-compare` has no resolved baseline artifact for any
     HEAD, so it is `not_applicable` (ENG-13): a success label must not
     claim a matched baseline was evaluated.
-11. No Worker A evidence-manifest schema was attached to the W0 brief
-    for this command, so no field-by-field conformance check against
-    it could be performed. The report uses the frozen contract's
-    status vocabulary and path + SHA-256 artifact references; if
-    Worker A defines additional required fields, the coordinator must
-    reconcile them. The status strings win in any disagreement.
+11. Worker A's evidence-manifest schema was not attached to the W0
+    brief for this command, so no field-by-field conformance check
+    against it could be performed at build time. The coordinator
+    reconciled the boundary at integration: the manifest's `gates` map
+    is derived from this command's gate list by gate `name`, with
+    `status` copied verbatim (see
+    `docs/verification/evidence-manifest-spec.md`), and the
+    required-gates binding is enforced by the exact-SHA promotion gate
+    and the W10 manifest verifier, not by this command. The report uses
+    the frozen contract's status vocabulary and path + SHA-256 artifact
+    references.
 12. `sbom-check` (`generate_sbom.py --check`) regenerates the SBOM
     from the *installed* environment. The canonical venv's closure
     differs from the checked-in lockfile closure (for example
@@ -304,7 +316,7 @@ CI job → local gate → required → how it runs locally.
 | observatory.yml / machinery-smoke | `drift-status-smoke` | yes | `drift status` with an empty runs dir |
 | observatory.yml / scheduled-probe-run | `observatory-probe-run` | no | `unavailable`: corpus host only; no user-cache access |
 | fuzz.yml / fuzz-regression | `fuzz-regression` | yes | `pytest tests/fuzz/test_fuzz_pytest.py -v` |
-| fuzz.yml / fuzz-regression | `fuzz-direct-atheris` | no | `unavailable`: atheris absent; CI step is `|| true` |
+| fuzz.yml / fuzz-regression | `fuzz-direct-atheris` | no | `unavailable`: atheris absent; pytest-mode covered by `fuzz-regression` |
 | fuzz.yml / fuzz-weekly | `fuzz-weekly` | no | `not_applicable`: schedule-only extended campaign |
 | fuzz.yml / fuzz-summary | `fuzz-summary` | no | `not_applicable`: aggregation only |
 | mutation.yml / mutation-diff | `mutation-diff` | yes | `--check-results` on existing summary only; never launches a campaign |
@@ -313,7 +325,7 @@ CI job → local gate → required → how it runs locally.
 | workflow-lint.yml / actionlint | `workflow-lint` | yes | `unavailable`: actionlint not installed |
 | codeql.yml / analyze | `codeql` | yes | `unavailable`: requires GitHub CodeQL action |
 | container.yml / build-and-push | `container` | yes | `unavailable`: must not push images |
-| repository-integrity.yml / sigstore | `sigstore-verification` | yes | `unavailable`: echo placeholder; no signed artifacts |
+| repository-integrity.yml / sigstore | `sigstore-verification` | yes | `unavailable`: real verification in CI now; no signed artifacts |
 | repository-integrity.yml / provenance | `repo-provenance-sbom` | yes | `unavailable`: requires Syft action |
 | reproducibility.yml / build-reproducibility | `wheel-reproducibility` | yes | two snapshot builds, fatal byte compare |
 | reproducibility.yml / cli-determinism | `cli-determinism` | yes | scan ×5, jq-filtered, hash-compared |
@@ -323,9 +335,9 @@ CI job → local gate → required → how it runs locally.
 | benchmark.yml / benchmark | `pytest-performance` | no | pytest-benchmark on `test_performance.py` |
 | benchmark.yml / benchmark | `pytest-benchmarks` | no | pytest-benchmark on `test_benchmarks.py` |
 | benchmark.yml / benchmark | `benchmark-compare` | no | `not_applicable`: no baseline artifact (ENG-13) |
-| enterprise-deep-verification.yml / test-suite-all-features | `ent-deep-suite` | no | `unavailable`: requires `--forked` |
-| enterprise-deep-verification.yml / coverage-verification | `ent-deep-coverage` | no | `unavailable`: requires `--forked` |
-| enterprise-deep-verification.yml / documentation-verification | `ent-deep-docs` | no | `unavailable`: `|| true` + sphinx/markdown absent |
+| enterprise-deep-verification.yml / test-suite-all-features | `ent-deep-suite` | no | `unavailable`: schedule/dispatch-only; `--forked` removed in W0 |
+| enterprise-deep-verification.yml / coverage-verification | `ent-deep-coverage` | no | `unavailable`: schedule/dispatch-only; `--forked` removed in W0 |
+| enterprise-deep-verification.yml / documentation-verification | `ent-deep-docs` | no | `unavailable`: sphinx/markdown absent (`|| true` removed in W0) |
 | enterprise-deep-verification.yml / vulnerability-audit | `ent-deep-vuln-audit` | no | `unavailable`: needs isolated audit venv + network |
 | enterprise-deep-verification.yml / schema-validation | `ent-deep-schema` | no | jsonschema check + `load_schema` asserts |
 | enterprise-deep-verification.yml / release-provenance | `ent-deep-provenance` | no | `unavailable`: requires Syft action |

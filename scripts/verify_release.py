@@ -1541,9 +1541,9 @@ GATE_DEFS = [
         ".github/workflows/fuzz.yml",
         "fuzz-regression",
         "unavailable",
-        "atheris is not installed in the canonical venv; the CI "
-        "direct-atheris step is `|| true`, i.e. vacuous (ENG-07), so "
-        "there is no honest local pass to mirror",
+        "atheris is not installed in the canonical venv, so the "
+        "direct-atheris step cannot run locally; the pytest-mode fuzz "
+        "regression is covered by the fuzz-regression gate",
         required=False,
     ),
     static_gate(
@@ -1624,8 +1624,9 @@ GATE_DEFS = [
         ".github/workflows/repository-integrity.yml",
         "sigstore",
         "unavailable",
-        "the CI job is an echo placeholder (ENG-07) and no signed "
-        "release artifacts exist for this HEAD to verify",
+        "the CI job now performs real cosign/attestation verification "
+        "(ENG-07 fixed in W0), but no signed release artifacts exist "
+        "for this HEAD to verify",
         required=True,
     ),
     static_gate(
@@ -1735,9 +1736,9 @@ GATE_DEFS = [
         ".github/workflows/enterprise-deep-verification.yml",
         "test-suite-all-features",
         "unavailable",
-        "requires pytest --forked; the pytest-forked plugin is not "
-        "installed in the canonical venv (ENG-07); the same suite "
-        "without --forked is covered by the pytest-core gate",
+        "the CI job is schedule/dispatch-only and no longer uses "
+        "--forked (removed in W0, ENG-07); the same suite without "
+        "--forked is covered by the pytest-core gate",
         required=False,
     ),
     static_gate(
@@ -1745,9 +1746,9 @@ GATE_DEFS = [
         ".github/workflows/enterprise-deep-verification.yml",
         "coverage-verification",
         "unavailable",
-        "requires pytest --forked; the pytest-forked plugin is not "
-        "installed in the canonical venv (ENG-07); core coverage is "
-        "covered by the coverage gate",
+        "the CI job is schedule/dispatch-only and no longer uses "
+        "--forked (removed in W0, ENG-07); core coverage is covered "
+        "by the coverage gate",
         required=False,
     ),
     static_gate(
@@ -1755,7 +1756,6 @@ GATE_DEFS = [
         ".github/workflows/enterprise-deep-verification.yml",
         "documentation-verification",
         "unavailable",
-        "the CI docs build swallows failures with `|| true` (ENG-07) and "
         "requires sphinx and the `markdown` package, neither installed "
         "in the canonical venv",
         required=False,
