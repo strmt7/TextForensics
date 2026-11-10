@@ -388,6 +388,7 @@ def test_report_to_dict_roundtrip():
         "source_sha256",
         "lines_scanned",
         "local_only_verified",
+        "unknown_reasons",
     }
     assert isinstance(d["findings"], list)
     assert isinstance(d["scanned_at"], str)
@@ -428,9 +429,10 @@ def test_syntax_error_produces_critical_finding():
     report = scan_adapter_source(SYNTAX_ERROR_SOURCE, "broken")
     findings = [f for f in report.findings if f.category == "dynamic_execution"]
     assert any(f.rule_id == "DYN-999" and f.severity == "critical" for f in findings)
-    # local_only_verified is True because the only finding is dynamic_execution
-    # (not network, subprocess, or telemetry)
-    assert report.local_only_verified is True
+    # IF-08: a syntax error fails closed — uninspectable source can never
+    # be verified local-only.
+    assert report.local_only_verified is False
+    assert report.unknown_reasons
 
 
 def test_socket_create_connection_critical():

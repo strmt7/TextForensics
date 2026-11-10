@@ -1,9 +1,10 @@
 """Static security scanner for detector adapter source code.
 
 Inspired by NVIDIA/SkillSpector, adapted for AI-text detector adapters.
-Scans adapter Python source at import time — before an adapter is loaded or run — to flag
+Scans adapter Python source WITHOUT importing it — before an adapter is loaded or run — to flag
 security risks such as network access, subprocess spawning, dynamic execution, file writes,
-obfuscation and telemetry.
+obfuscation and telemetry. Importing the scanned module would execute plugin code as a side
+effect of the inspection, so source is resolved from distribution metadata instead.
 
 Enforces the project rule:
     "Core is local-first. No text leaves the machine unless the user explicitly selects
@@ -15,8 +16,8 @@ from __future__ import annotations
 import ast
 import hashlib
 import importlib.metadata
-import inspect
 import pathlib
+import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -68,7 +69,14 @@ class SecurityFinding:
 
 @dataclass(frozen=True, slots=True)
 class AdapterScanReport:
-    """Report produced by scanning a single adapter source file."""
+    """Report produced by scanning a single adapter source file.
+
+    ``local_only_verified`` is true only when the scanned file shows no
+    network/subprocess/telemetry/dynamic-execution or critical finding,
+    parses cleanly, and contains no uninspectable code (see
+    ``unknown_reasons``). It is a statement about the inspected source
+    text only — never proof of whole-package network isolation.
+    """
 
     module_name: str
     findings: list[SecurityFinding]
@@ -76,6 +84,7 @@ class AdapterScanReport:
     source_sha256: str
     lines_scanned: int
     local_only_verified: bool
+    unknown_reasons: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -85,6 +94,7 @@ class AdapterScanReport:
             "source_sha256": self.source_sha256,
             "lines_scanned": self.lines_scanned,
             "local_only_verified": self.local_only_verified,
+            "unknown_reasons": list(self.unknown_reasons),
         }
 
     def is_safe(self, max_severity: str = "high") -> bool:
@@ -179,15 +189,101 @@ def _is_write_mode(node: ast.expr) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def _network_tier(dotted: str) -> str | None:
+    """Return the network severity tier for a dotted module name.
+
+    Matches the full name and every dotted prefix, so ``httpx._client``
+    resolves through ``httpx`` and ``urllib.request`` through its own
+    critical entry. The most severe matching tier wins.
+    """
+    parts = dotted.split(".")
+    tier: str | None = None
+    for index in range(1, len(parts) + 1):
+        prefix = ".".join(parts[:index])
+        if prefix in _NETWORK_MODULES_CRITICAL:
+            return "critical"
+        if prefix in _NETWORK_MODULES_HIGH:
+            tier = "high"
+        elif prefix in _NETWORK_MODULES_MEDIUM and tier is None:
+            tier = "medium"
+    return tier
+
+
+def _telemetry_tier(dotted: str) -> str | None:
+    """Return ``"medium"`` when a dotted module is a telemetry module."""
+    parts = dotted.split(".")
+    for index in range(1, len(parts) + 1):
+        if ".".join(parts[:index]) in _TELEMETRY_MODULES:
+            return "medium"
+    return None
+
+
+def _resolve_call_target(expr: ast.expr, aliases: dict[str, str]) -> str | None:
+    """Resolve a call target to a dotted module path via the alias map.
+
+    ``h.Client().post(...)`` with ``import httpx._client as h`` resolves
+    to ``httpx._client.Client.post``; a bare ``Client()`` imported from
+    ``httpx`` resolves to ``httpx.Client``. Returns ``None`` when the
+    target cannot be resolved statically.
+    """
+    if isinstance(expr, ast.Name):
+        return aliases.get(expr.id)
+    if isinstance(expr, ast.Attribute):
+        base = _resolve_call_target(expr.value, aliases)
+        if base is None:
+            return None
+        return f"{base}.{expr.attr}"
+    if isinstance(expr, ast.Call):
+        return _resolve_call_target(expr.func, aliases)
+    return None
+
+
+_NETWORK_CALL_ATTRS = frozenset(
+    {
+        "get",
+        "post",
+        "put",
+        "delete",
+        "head",
+        "patch",
+        "options",
+        "request",
+        "urlopen",
+        "create_connection",
+        "connect",
+        "send",
+        "sendall",
+        "recv",
+        "Client",
+        "AsyncClient",
+        "Session",
+        "HTTPConnection",
+        "HTTPSConnection",
+        "FTP",
+        "SMTP",
+    }
+)
+
+
 def _scan(
     tree: ast.Module,
     source: str,
     module_name: str,
-) -> list[SecurityFinding]:
-    """Walk the AST and collect findings."""
+) -> tuple[list[SecurityFinding], list[str]]:
+    """Walk the AST and collect findings plus unknown-code reasons.
+
+    Returns ``(findings, unknown_reasons)``. ``unknown_reasons`` names
+    code that could not be inspected statically: relative imports,
+    unscanned transitive imports, dynamic imports with unresolvable
+    targets, and literal dynamic imports of uninspected modules. The
+    scanner never imports the scanned module, so anything it cannot
+    see is reported as unknown rather than assumed local.
+    """
     source_lines = source.splitlines()
     findings: list[SecurityFinding] = []
+    unknown_reasons: list[str] = []
     seen: set[tuple[str, int | None]] = set()
+    seen_unknown: set[str] = set()
 
     def _add(rule_id: str, severity: str, category: str, message: str, node: ast.AST) -> None:
         line = getattr(node, "lineno", None)
@@ -205,6 +301,70 @@ def _scan(
                 snippet=_get_snippet(source_lines, line),
             )
         )
+
+    def _unknown(reason: str) -> None:
+        if reason not in seen_unknown:
+            seen_unknown.add(reason)
+            unknown_reasons.append(reason)
+
+    # Pre-collect import aliases: local name -> dotted module path.
+    # ``alias_names`` holds only bindings that hide the origin module
+    # behind a local name (``import x as y`` / ``from x import y``);
+    # plain ``import x.y`` keeps the dotted path visible in the source
+    # and is already pinned by the import finding itself.
+    aliases: dict[str, str] = {}
+    alias_names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.asname:
+                    aliases[alias.asname] = alias.name
+                    alias_names.add(alias.asname)
+                else:
+                    aliases[alias.name.split(".")[0]] = alias.name.split(".")[0]
+        elif isinstance(node, ast.ImportFrom):
+            if node.level > 0 or not node.module:
+                continue
+            for alias in node.names:
+                if alias.name == "*":
+                    continue
+                aliases[alias.asname or alias.name] = f"{node.module}.{alias.name}"
+                alias_names.add(alias.asname or alias.name)
+
+    def _flag_import(mod: str, node: ast.AST, *, from_import: bool) -> None:
+        tier = _network_tier(mod)
+        if tier == "critical":
+            _add(
+                "NET-001",
+                "high",
+                "network",
+                f"{'From-import' if from_import else 'Import'} of network module '{mod}'",
+                node,
+            )
+        elif tier == "high":
+            _add(
+                "NET-002",
+                "high",
+                "network",
+                f"{'From-import' if from_import else 'Import'} of network library '{mod}'",
+                node,
+            )
+        elif tier == "medium":
+            _add(
+                "NET-003",
+                "medium",
+                "network",
+                f"{'From-import' if from_import else 'Import'} of network module '{mod}'",
+                node,
+            )
+        elif _telemetry_tier(mod) is not None:
+            _add(
+                "TEL-001",
+                "medium",
+                "telemetry",
+                f"{'From-import' if from_import else 'Import'} of telemetry/cloud module '{mod}'",
+                node,
+            )
 
     # Pre-collect: does the file contain both base64.b64decode?
     has_base64_decode = False
@@ -226,77 +386,41 @@ def _scan(
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     mod = alias.name
-                    if mod in _NETWORK_MODULES_CRITICAL:
-                        _add(
-                            "NET-001",
-                            "high",
-                            "network",
-                            f"Import of network module '{mod}'",
-                            node,
-                        )
-                    elif mod in _NETWORK_MODULES_HIGH:
-                        _add(
-                            "NET-002",
-                            "high",
-                            "network",
-                            f"Import of network library '{mod}'",
-                            node,
-                        )
-                    elif mod in _NETWORK_MODULES_MEDIUM:
-                        _add(
-                            "NET-003",
-                            "medium",
-                            "network",
-                            f"Import of network module '{mod}'",
-                            node,
-                        )
-                    elif mod in _TELEMETRY_MODULES:
-                        _add(
-                            "TEL-001",
-                            "medium",
-                            "telemetry",
-                            f"Import of telemetry/cloud module '{mod}'",
-                            node,
+                    _flag_import(mod, node, from_import=False)
+                    top = _resolve_import_name(mod)
+                    if (
+                        _network_tier(mod) is None
+                        and _telemetry_tier(mod) is None
+                        and top not in sys.stdlib_module_names
+                    ):
+                        _unknown(
+                            f"transitive import: {top} (line {node.lineno}) — "
+                            "module not inspected; network behaviour unknown"
                         )
             elif isinstance(node, ast.ImportFrom):
+                if node.level > 0 or not node.module:
+                    _unknown(
+                        f"relative import (line {node.lineno}) — target "
+                        "cannot be resolved without package context; "
+                        "network behaviour unknown"
+                    )
+                    continue
                 mod_name = node.module or ""
+                _flag_import(mod_name, node, from_import=True)
                 top = _resolve_import_name(mod_name)
-                if mod_name in _NETWORK_MODULES_CRITICAL:
-                    _add(
-                        "NET-001",
-                        "high",
-                        "network",
-                        f"From-import of network module '{mod_name}'",
-                        node,
-                    )
-                elif mod_name in _NETWORK_MODULES_HIGH:
-                    _add(
-                        "NET-002",
-                        "high",
-                        "network",
-                        f"From-import of network library '{mod_name}'",
-                        node,
-                    )
-                elif mod_name in _NETWORK_MODULES_MEDIUM or top in _NETWORK_MODULES_MEDIUM:
-                    _add(
-                        "NET-003",
-                        "medium",
-                        "network",
-                        f"From-import of network module '{mod_name}'",
-                        node,
-                    )
-                elif mod_name in _TELEMETRY_MODULES or top in _TELEMETRY_MODULES:
-                    _add(
-                        "TEL-001",
-                        "medium",
-                        "telemetry",
-                        f"From-import of telemetry/cloud module '{mod_name}'",
-                        node,
-                    )
-                elif mod_name == "subprocess" or top == "subprocess":
+                if mod_name == "subprocess" or top == "subprocess":
                     _add("SUB-001", "high", "subprocess", "Import of subprocess module", node)
                 elif mod_name == "commands" or top == "commands":
                     _add("SUB-002", "high", "subprocess", "Import of commands module", node)
+                elif (
+                    _network_tier(mod_name) is None
+                    and _telemetry_tier(mod_name) is None
+                    and top not in sys.stdlib_module_names
+                ):
+                    _unknown(
+                        f"transitive import: {top} (line {node.lineno}) — "
+                        "module not inspected; network behaviour unknown"
+                    )
 
         # ----- Call nodes -----
         if isinstance(node, ast.Call):
@@ -329,12 +453,92 @@ def _scan(
             if isinstance(func, ast.Attribute):
                 full_attr_name = _get_full_attr_name(func)
 
+            matched_direct_network = False
             if full_attr_name == "urllib.request.urlopen" and call_name == "urlopen":
                 _add("NET-010", "critical", "network", "Direct urlopen call", node)
+                matched_direct_network = True
             if full_attr_name == "socket.create_connection" and call_name == "create_connection":
                 _add("NET-011", "critical", "network", "Direct socket.create_connection call", node)
+                matched_direct_network = True
             if full_attr_name == "socket.socket":
                 _add("NET-012", "critical", "network", "Direct socket.socket call", node)
+                matched_direct_network = True
+
+            # Network calls via imported aliases / dotted submodules
+            # (e.g. `import httpx._client as h; h.Client().post(...)` or
+            # `from httpx import Client; Client().post(...)`). Fires only
+            # when the network origin is hidden behind a local alias —
+            # plain dotted calls are already pinned by the import
+            # finding — and is skipped when a direct rule above already
+            # fired on this call.
+            if not matched_direct_network and isinstance(func, (ast.Attribute, ast.Name)):
+                root = func
+                while isinstance(root, ast.Attribute):
+                    root = root.value
+                root_name = root.id if isinstance(root, ast.Name) else None
+                resolved = _resolve_call_target(func, aliases)
+                if (
+                    resolved is not None
+                    and root_name in alias_names
+                    and call_name in _NETWORK_CALL_ATTRS
+                ):
+                    module_part = ".".join(resolved.split(".")[:-1])
+                    tier = _network_tier(module_part) or "high"
+                    severity = (
+                        "critical" if tier == "critical" else "high" if tier == "high" else "medium"
+                    )
+                    _add(
+                        "NET-013",
+                        severity,
+                        "network",
+                        f"Network call via imported alias '{resolved}'",
+                        node,
+                    )
+
+            # Dynamic imports: literal network targets are network
+            # findings; unresolvable targets are unknown.
+            def _dynamic_import_target(args: list[ast.expr]) -> str | None:
+                if args and isinstance(args[0], ast.Constant) and isinstance(args[0].value, str):
+                    return args[0].value
+                return None
+
+            if call_name == "__import__" or call_base == "__import__":
+                target = _dynamic_import_target(node.args)
+                if target is not None:
+                    if _network_tier(target) is not None:
+                        _add(
+                            "NET-002",
+                            "high",
+                            "network",
+                            f"Dynamic import of network library '{target}'",
+                            node,
+                        )
+                    elif _resolve_import_name(target) not in sys.stdlib_module_names:
+                        _unknown(
+                            f"dynamic import of '{target}' (line {node.lineno}) — "
+                            "module not inspected; network behaviour unknown"
+                        )
+                else:
+                    _unknown(
+                        f"dynamic import target unknown (line {node.lineno}) — "
+                        "imported module cannot be resolved statically"
+                    )
+            elif call_base == "importlib.import_module":
+                target = _dynamic_import_target(node.args)
+                if target is not None:
+                    if _network_tier(target) is not None:
+                        _add(
+                            "NET-002",
+                            "high",
+                            "network",
+                            f"Dynamic import of network library '{target}'",
+                            node,
+                        )
+                    elif _resolve_import_name(target) not in sys.stdlib_module_names:
+                        _unknown(
+                            f"dynamic import of '{target}' (line {node.lineno}) — "
+                            "module not inspected; network behaviour unknown"
+                        )
 
             # Subprocess calls
             if call_name in ("system", "popen") and call_base in ("os.system", "os.popen"):
@@ -422,7 +626,7 @@ def _scan(
                     _add("DYN-002", "high", "dynamic_execution", "Call to exec()", node)
             elif call_name == "compile":
                 _add("DYN-003", "high", "dynamic_execution", "Call to compile()", node)
-            elif call_base == "__import__" or call_name == "__import__":
+            elif call_name == "__import__" or call_base == "__import__":
                 _add("DYN-004", "medium", "dynamic_execution", "Call to __import__", node)
             elif (
                 call_base == "importlib.import_module"
@@ -436,6 +640,10 @@ def _scan(
                     "dynamic_execution",
                     "importlib.import_module with non-literal argument",
                     node,
+                )
+                _unknown(
+                    f"dynamic import target unknown (line {node.lineno}) — "
+                    "imported module cannot be resolved statically"
                 )
 
             # Obfuscation: codecs.decode
@@ -467,7 +675,7 @@ def _scan(
             if isinstance(func, ast.Attribute) and func.attr in ("write_text", "write_bytes"):
                 _add("FS-004", "medium", "filesystem", f"Call to Path.{func.attr}", node)
 
-    return findings
+    return findings, unknown_reasons
 
 
 def scan_adapter_source(
@@ -478,6 +686,14 @@ def scan_adapter_source(
 
     Detects network access, subprocess spawning, dynamic execution, file writes,
     obfuscation patterns and telemetry imports.
+
+    Fail-closed (IF-08): ``local_only_verified`` is true only when the
+    file shows no network/subprocess/telemetry/dynamic-execution or
+    critical finding, parses cleanly, and contains no uninspectable
+    (``unknown``) code. A syntax error, a dynamic import with an
+    unresolvable target, a relative import, or an unscanned transitive
+    import all leave the report unverified — absence of a finding is
+    never presented as proof of whole-package network isolation.
     """
     source_sha = hashlib.sha256(source.encode("utf-8")).hexdigest()
     source_lines = source.splitlines()
@@ -485,7 +701,7 @@ def scan_adapter_source(
 
     try:
         tree = ast.parse(source)
-        findings = _scan(tree, source, module_name)
+        findings, unknown_reasons = _scan(tree, source, module_name)
     except SyntaxError as exc:
         line = getattr(exc, "lineno", None)
         snippet = _get_snippet(source_lines, line)
@@ -499,8 +715,13 @@ def scan_adapter_source(
                 snippet=snippet,
             )
         ]
+        unknown_reasons = ["source has syntax errors; cannot be safely inspected"]
 
-    has_unsafe = any(f.category in {"network", "subprocess", "telemetry"} for f in findings)
+    has_unsafe = any(
+        f.category in {"network", "subprocess", "telemetry", "dynamic_execution"}
+        or f.severity == "critical"
+        for f in findings
+    )
 
     return AdapterScanReport(
         module_name=module_name,
@@ -508,7 +729,8 @@ def scan_adapter_source(
         scanned_at=datetime.now(UTC).isoformat(),
         source_sha256=source_sha,
         lines_scanned=lines_count,
-        local_only_verified=not has_unsafe,
+        local_only_verified=not has_unsafe and not unknown_reasons,
+        unknown_reasons=tuple(unknown_reasons),
     )
 
 
@@ -525,37 +747,82 @@ def scan_adapter_file(
 
 
 def verify_local_only(source: str) -> bool:
-    """Return True iff no network, subprocess or telemetry findings exist."""
+    """Return True iff the source is verified local-only (see scan_adapter_source)."""
     report = scan_adapter_source(source)
     return report.local_only_verified
 
 
+def _resolve_entry_point_source(
+    entry_point: Any,
+) -> tuple[str | None, str | None]:
+    """Resolve an entry point's source text WITHOUT importing it.
+
+    Returns ``(source, unknown_reason)``; exactly one is ``None``.
+    The distribution file list maps the entry point's module to its
+    ``.py`` source file, which is read as text. Importing the module
+    (``entry_point.load()``) would execute plugin code as a side effect
+    of the purported inspection, so it is never called here. Missing
+    distribution metadata, a missing source file, or a bytecode/native
+    only file all resolve to unknown — never to a verified claim.
+    """
+    dist = getattr(entry_point, "dist", None)
+    if dist is None:
+        return None, "distribution metadata unavailable; cannot resolve source without importing"
+    module = getattr(entry_point, "module", None) or ""
+    if not module:
+        value = getattr(entry_point, "value", "") or ""
+        module = value.split(":")[0].strip()
+    if not module:
+        return None, "entry point declares no module"
+    parts = module.split(".")
+    candidates = ["/".join(parts) + ".py", "/".join(parts) + "/__init__.py"]
+    try:
+        files = list(dist.files or [])
+    except Exception:
+        return None, "distribution file list unavailable"
+    for entry_file in files:
+        rel = str(entry_file).replace("\\", "/")
+        if rel in candidates or any(rel.endswith("/" + c) for c in candidates):
+            if not rel.endswith(".py"):
+                return (
+                    None,
+                    f"only a non-source file is available for module {module}; "
+                    "bytecode/native code cannot be inspected",
+                )
+            try:
+                locate = getattr(dist, "locate_file", None)
+                path = locate(entry_file) if locate is not None else None
+                if path is None:
+                    return None, f"source file for module {module} cannot be located"
+                return pathlib.Path(path).read_text(encoding="utf-8"), None
+            except Exception:
+                return None, f"source file for module {module} cannot be read"
+    return None, f"source for module {module} not found in distribution"
+
+
 def scan_adapter_entry_points() -> list[AdapterScanReport]:
-    """Discover installed detector plugin entry points and scan each."""
+    """Discover installed detector plugin entry points and scan each.
+
+    Source is resolved from distribution metadata without importing
+    the entry-point module (see :func:`_resolve_entry_point_source`).
+    One uninspectable plugin never breaks the scan of the others.
+    """
     reports: list[AdapterScanReport] = []
     try:
         eps = importlib.metadata.entry_points()
-        selected = (
-            eps.select(group="textforensics.detectors")
-            if hasattr(eps, "select")
-            else eps.get("textforensics.detectors", [])
-        )
+        if hasattr(eps, "select"):
+            selected = eps.select(group="textforensics.detectors")
+        elif hasattr(eps, "get"):
+            selected = eps.get("textforensics.detectors", [])
+        else:
+            selected = list(eps)
     except Exception:
         return reports
 
     for entry_point in selected:
         ep_name = getattr(entry_point, "name", "unknown")
-        try:
-            mod = entry_point.load()
-            # If it's a class (typical detector plugin), get the module
-            if inspect.isclass(mod):
-                mod = inspect.getmodule(mod)
-            if mod is None:
-                raise AdapterScanError(f"Could not get module for entry point {ep_name}")
-            source = inspect.getsource(mod)
-            reports.append(scan_adapter_source(source, module_name=f"plugin:{ep_name}"))
-        except Exception:
-            # One failing plugin doesn't break the scan
+        source, unknown = _resolve_entry_point_source(entry_point)
+        if source is None:
             reports.append(
                 AdapterScanReport(
                     module_name=f"plugin:{ep_name}",
@@ -564,7 +831,9 @@ def scan_adapter_entry_points() -> list[AdapterScanReport]:
                             rule_id="DYN-998",
                             severity="critical",
                             category="dynamic_execution",
-                            message=f"Module could not be inspected: {ep_name}",
+                            message=(
+                                f"Module could not be inspected without importing it: {unknown}"
+                            ),
                             line=None,
                             snippet=None,
                         )
@@ -573,6 +842,9 @@ def scan_adapter_entry_points() -> list[AdapterScanReport]:
                     source_sha256="",
                     lines_scanned=0,
                     local_only_verified=False,
+                    unknown_reasons=(unknown,) if unknown else (),
                 )
             )
+            continue
+        reports.append(scan_adapter_source(source, module_name=f"plugin:{ep_name}"))
     return reports
