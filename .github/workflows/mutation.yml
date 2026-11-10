@@ -226,7 +226,7 @@ jobs:
                   total = int((summary or {}).get("total", 0))
                   return ("fail", total, "mutation job failed (see its logs)")
               if result == "cancelled":
-                  return ("error", 0, "mutation job was cancelled")
+                  return ("fail", 0, "mutation job was cancelled")
               # result == "skipped": the job's `if:` condition was false.
               if full_job:
                   return (

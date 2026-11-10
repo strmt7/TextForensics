@@ -214,3 +214,19 @@ def test_main_exit_two_when_check_runs_cannot_be_fetched(gate, monkeypatch):
 
     monkeypatch.setattr(gate, "fetch_check_runs", boom)
     assert gate.main(["--sha", SHA, "--repo", "strmt7/TextForensics"]) == 2
+
+
+def test_main_exit_two_when_repo_has_no_slash(gate, capsys, monkeypatch):
+    """A --repo without OWNER/NAME is unevaluated (exit 2), not a crash."""
+    monkeypatch.setattr(gate, "fetch_check_runs", lambda *a, **k: pytest.fail("must not fetch"))
+    assert gate.main(["--sha", SHA, "--repo", "not-a-repo"]) == 2
+    err = capsys.readouterr().err
+    assert "OWNER/NAME" in err
+    assert "Traceback" not in err
+
+
+@pytest.mark.parametrize("repo", ["owner/", "/repo", "owner/name/extra"])
+def test_main_exit_two_when_repo_owner_or_name_missing(gate, monkeypatch, repo):
+    """--repo must be exactly OWNER/NAME with both parts non-empty."""
+    monkeypatch.setattr(gate, "fetch_check_runs", lambda *a, **k: pytest.fail("must not fetch"))
+    assert gate.main(["--sha", SHA, "--repo", repo]) == 2

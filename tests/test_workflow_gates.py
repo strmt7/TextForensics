@@ -148,6 +148,35 @@ def test_mutation_report_distinguishes_skipped_from_passed():
     assert "mutation-results-full" in joined or "mutation-full" in joined
 
 
+def test_mutation_job_status_cancelled_maps_to_fail_not_error():
+    """A cancelled mutation job is "fail": attempted, did not succeed.
+
+    The status file uses the shared gate vocabulary
+    (pass / fail / skipped / unavailable / not_applicable / zero_work);
+    "error" is not a member, so job_status must never emit it.
+    """
+    import re
+
+    workflow = _load("mutation.yml")
+    report_steps = _steps(workflow, "mutation-report")
+    joined = "\n".join(str(s.get("run", "")) for s in report_steps)
+    start = joined.index("def job_status")
+    end = joined.index("diff_summary =")
+    body = joined[start:end]
+    statuses = re.findall(r'"(pass|fail|skipped|unavailable|not_applicable|zero_work|error)"', body)
+    assert statuses, "no job_status return values found"
+    assert set(statuses) <= {
+        "pass",
+        "fail",
+        "skipped",
+        "unavailable",
+        "not_applicable",
+        "zero_work",
+    }, f"job_status emits a non-vocabulary status: {sorted(set(statuses))}"
+    cancelled = body[body.index('result == "cancelled"') :]
+    assert '("fail", 0, "mutation job was cancelled")' in cancelled
+
+
 # ---------------------------------------------------------------------------
 # ENG-07(3) companion: fuzz.yml must not swallow run_fuzz.py's exit code
 # ---------------------------------------------------------------------------

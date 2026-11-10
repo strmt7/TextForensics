@@ -245,9 +245,11 @@ def main(argv: list[str] | None = None) -> int:
     if not args.sha or not args.repo:
         print("ERROR: --sha and --repo are required", file=sys.stderr)
         return 2
+    parts = args.repo.split("/")
+    if len(parts) != 2 or not parts[0] or not parts[1]:
         print("ERROR: --repo must be OWNER/NAME", file=sys.stderr)
         return 2
-    owner, repo = args.repo.split("/", 1)
+    owner, repo = parts
     required = list(REQUIRED_CHECKS)
     for extra in args.extra_required:
         if "=" not in extra:
