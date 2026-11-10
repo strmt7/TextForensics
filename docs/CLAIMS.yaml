@@ -29,6 +29,12 @@
 #   so the cited document must be unchanged since the as-of SHA;
 #   historical is a dated record (bytes still pinned by the digest);
 #   blocked can never pass. File existence alone is not evidence.
+#   NOTE (W0 integration): the as-of SHA was re-anchored to the integrated
+#   W0 head because the original as-of commit lived on a rebased worker
+#   branch. The cited documents are byte-identical between the original
+#   as-of tree and the re-anchored tree (verified by empty diff), so the
+#   recorded digests still bind the same bytes; no digest was recomputed
+#   or rehashed.
 # - executable_property / executable_check: ENG-16 (W0) — when a doc
 #   claim asserts an executable property, executable_property: true
 #   requires executable_check (a command) to be present and exit 0.
@@ -100,7 +106,7 @@ claims:
     evidence_type: "doc"
     evidence_path: "pyproject.toml"
     doc_sha256: "d02a30111ecebfb6393b6cd83a53b368e35b1fc98ec98fb7691d55e71313d79a"
-    doc_as_of_sha: "30dac08e368dec5c1afbb0a8a24bf1b5d2223654"
+    doc_as_of_sha: "05450032f73d9c5fa344115677412aa2586190f0"
     doc_state: "implemented"
     owner: "core"
     last_verified: "2026-11-06"
@@ -251,7 +257,7 @@ claims:
     evidence_type: "doc"
     evidence_path: "docs/evidence/runs/EV-20261106-determinism.json"
     doc_sha256: "e27c0393d5bc147403b0d9cc054d73d79cfc06cc21d6a87793dd2d6a159400d1"
-    doc_as_of_sha: "30dac08e368dec5c1afbb0a8a24bf1b5d2223654"
+    doc_as_of_sha: "05450032f73d9c5fa344115677412aa2586190f0"
     doc_state: "historical"
     owner: "detectors"
     last_verified: "2026-11-06"
@@ -313,7 +319,7 @@ claims:
     evidence_type: "doc"
     evidence_path: "docs/VERIFICATION.md"
     doc_sha256: "6cba7255a0c33f2b3c8cdfdf04fec411048e6848fdbc2594d75d23eb82d8cd3e"
-    doc_as_of_sha: "30dac08e368dec5c1afbb0a8a24bf1b5d2223654"
+    doc_as_of_sha: "05450032f73d9c5fa344115677412aa2586190f0"
     doc_state: "historical"
     owner: "dev"
     last_verified: "2026-11-07"
@@ -333,7 +339,7 @@ claims:
     evidence_type: "doc"
     evidence_path: "docs/VERIFICATION.md"
     doc_sha256: "6cba7255a0c33f2b3c8cdfdf04fec411048e6848fdbc2594d75d23eb82d8cd3e"
-    doc_as_of_sha: "30dac08e368dec5c1afbb0a8a24bf1b5d2223654"
+    doc_as_of_sha: "05450032f73d9c5fa344115677412aa2586190f0"
     doc_state: "historical"
     owner: "dev"
     last_verified: "2026-11-07"
@@ -353,7 +359,7 @@ claims:
     evidence_type: "doc"
     evidence_path: ".github/workflows/ci.yml"
     doc_sha256: "2f80c6be9f17833ebd3f8ff499a58b22b16b550a4626789e990fbd25afa565cf"
-    doc_as_of_sha: "30dac08e368dec5c1afbb0a8a24bf1b5d2223654"
+    doc_as_of_sha: "05450032f73d9c5fa344115677412aa2586190f0"
     doc_state: "implemented"
     owner: "dev"
     last_verified: "2026-11-06"
@@ -406,7 +412,7 @@ claims:
     evidence_type: "doc"
     evidence_path: "docs/VERIFICATION.md"
     doc_sha256: "6cba7255a0c33f2b3c8cdfdf04fec411048e6848fdbc2594d75d23eb82d8cd3e"
-    doc_as_of_sha: "30dac08e368dec5c1afbb0a8a24bf1b5d2223654"
+    doc_as_of_sha: "05450032f73d9c5fa344115677412aa2586190f0"
     doc_state: "historical"
     owner: "security"
     last_verified: "2026-11-08"
@@ -426,7 +432,7 @@ claims:
     evidence_type: "doc"
     evidence_path: ".github/workflows/reproducibility.yml"
     doc_sha256: "70b6dedbb58df08ba4ee09c048a0c4a3c6ab9fff6a2b6216db6215eb42bd653b"
-    doc_as_of_sha: "30dac08e368dec5c1afbb0a8a24bf1b5d2223654"
+    doc_as_of_sha: "05450032f73d9c5fa344115677412aa2586190f0"
     doc_state: "blocked"
     executable_property: true
     owner: "dev"

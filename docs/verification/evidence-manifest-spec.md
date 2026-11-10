@@ -2,11 +2,11 @@
 
 Schema: `textforensics.evidence-manifest/v1`
 (`src/textforensics/schemas/evidence-manifest.schema.json`).
-This document is the normative companion to that schema. Worker B
-(`scripts/verify_release.py`) consumes this schema; it does not
-redefine it. The manifest is the shared boundary between W0 (this
-spec), W7 (gates that feed it) and W10 (the candidate dossier that
-presents it).
+This document is the normative companion to that schema. The manifest
+is the shared boundary between W0 (this spec), W7 (gates that feed it)
+and W10 (the candidate dossier that presents it). `scripts/verify_release.py`
+produces the JSON output the manifest references; it does not itself
+read or enforce the manifest schema, and it does not redefine it.
 
 ## Purpose
 
@@ -39,9 +39,10 @@ status strings by reference. Full results live elsewhere.
 - `verify_release_output`: `{path, sha256}` — a pointer to the
   `scripts/verify_release.py` JSON output file for this candidate,
   bound by its SHA-256 over persisted bytes.
-- `gates`: a map from gate id to `{status, detail?}`. `status` is one
-  of the frozen vocabulary strings below. `detail` is an optional
-  one-line pointer or note (for example which section of the
+- `gates`: a map from gate id to `{status, detail?}`. Gate ids are the
+  `name` values of the `scripts/verify_release.py` JSON output's gate
+  list; `status` is copied verbatim from that output. `detail` is an
+  optional one-line pointer or note (for example which section of the
   referenced output records the gate). It must not duplicate gate
   results.
 - `required_gates`: the list of gate ids that must pass for this
@@ -68,14 +69,19 @@ valid in a manifest:
 | `not_applicable` | The gate does not apply to this candidate (e.g. a platform-specific gate on another platform) |
 | `zero_work` | The gate ran but executed zero work (zero tests collected, zero mutants, zero files checked, empty comparison) |
 
-**Required gates accept ONLY `pass`.** `verify_release.py` must
-enforce that every id in `required_gates` is present in `gates` with
-status `pass`; any other status — including `skipped`,
-`not_applicable` and `zero_work` — blocks promotion. This is a
-verifier rule, not a schema rule: JSON Schema cannot express the
-cross-field requirement (required id ⊆ gates keys, with status
-`pass`), so the schema constrains the vocabulary and the required
-lists, and `verify_release.py` enforces the binding. A manifest that
+**Required gates accept ONLY `pass`.** `verify_release.py` enforces
+its own required-gate set: it exits 0 only when every gate it marks
+required has status `pass` with positive executed work. The manifest's
+`required_gates` binding — every id in `required_gates` present in
+`gates` with status `pass` — is enforced by the manifest verifier (the
+W10 candidate dossier) and, at the CI level, by the exact-SHA promotion
+gate (`scripts/promotion_gate.py`); `verify_release.py` does not read
+manifests, so it cannot enforce the manifest's own list. Any other
+status — including `skipped`, `not_applicable` and `zero_work` —
+blocks promotion. This is a verifier rule, not a schema rule: JSON
+Schema cannot express the cross-field requirement (required id ⊆ gates
+keys, with status `pass`), so the schema constrains the vocabulary and
+the required lists, and the verifiers enforce the binding. A manifest that
 claims `pass` for a gate whose referenced output shows no executed
 work is a corrupt manifest, not a passing candidate.
 
@@ -120,8 +126,8 @@ are SHA-256 over the persisted file bytes, exactly as recorded.
   ],
   "gate_results": {
     "verify_release_output": {"path": "verify-release.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
-    "gates": {"core-pytest": {"status": "pass"}},
-    "required_gates": ["core-pytest"]
+    "gates": {"pytest-core": {"status": "pass"}},
+    "required_gates": ["pytest-core"]
   },
   "recorded_at_utc": "2026-11-10T19:17:39Z"
 }
