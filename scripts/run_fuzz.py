@@ -114,9 +114,7 @@ def _crash_files(crashes_dir: Path) -> list[Path]:
     if not crashes_dir.exists():
         return []
     return [
-        f
-        for f in crashes_dir.iterdir()
-        if f.is_file() and f.name not in (".gitkeep", "README.txt")
+        f for f in crashes_dir.iterdir() if f.is_file() and f.name not in (".gitkeep", "README.txt")
     ]
 
 
@@ -210,12 +208,10 @@ atheris.Fuzz()
                 f"(crash artifacts are counted below)"
             )
             result["error"] = (
-                f"atheris child exited with status {proc.returncode} "
-                f"without a crash artifact"
+                f"atheris child exited with status {proc.returncode} without a crash artifact"
                 if not _crash_files(crashes_dir)
                 else (
-                    f"atheris child exited with status {proc.returncode} "
-                    f"(crash artifact present)"
+                    f"atheris child exited with status {proc.returncode} (crash artifact present)"
                 )
             )
         # Print atheris stats
@@ -252,8 +248,7 @@ atheris.Fuzz()
     # result never claims "no error" for a failed child.
     if result["error"] is None and result["crashes"]:
         result["error"] = (
-            "atheris child produced crash artifact(s) "
-            f"({result['crashes']} in {crashes_dir})"
+            f"atheris child produced crash artifact(s) ({result['crashes']} in {crashes_dir})"
         )
 
     # Count new corpus entries

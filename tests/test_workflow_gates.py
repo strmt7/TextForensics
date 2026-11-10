@@ -44,9 +44,7 @@ def test_integrity_no_placeholder_steps():
 
 def test_integrity_signatures_are_really_verified():
     workflow = _load("repository-integrity.yml")
-    step = next(
-        s for s in _steps(workflow, "sigstore") if "signatures" in str(s.get("name", ""))
-    )
+    step = next(s for s in _steps(workflow, "sigstore") if "signatures" in str(s.get("name", "")))
     run = str(step.get("run", ""))
     assert "cosign verify-blob" in run
     assert "exit 1" in run
@@ -59,9 +57,7 @@ def test_integrity_signatures_are_really_verified():
 
 def test_integrity_attestations_are_really_verified():
     workflow = _load("repository-integrity.yml")
-    step = next(
-        s for s in _steps(workflow, "sigstore") if "attestation" in str(s.get("name", ""))
-    )
+    step = next(s for s in _steps(workflow, "sigstore") if "attestation" in str(s.get("name", "")))
     run = str(step.get("run", ""))
     assert "gh attestation verify" in run
     assert "exit 1" in run

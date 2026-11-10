@@ -588,8 +588,7 @@ def check_doc(
             tail = "\n".join(detail[-10:])
             return (
                 False,
-                f"doc evidence executable_check failed (exit {code}) for "
-                f"{evidence_path}: {tail}",
+                f"doc evidence executable_check failed (exit {code}) for {evidence_path}: {tail}",
             )
     return True, "Document digest and as-of SHA verified"
 
@@ -676,11 +675,7 @@ def _worst_document_slice(artifact: dict[str, Any]) -> dict[str, Any] | None:
     slices = results.get("slices")
     if not isinstance(slices, list):
         return None
-    docs = [
-        s
-        for s in slices
-        if isinstance(s, dict) and s.get("slice_kind") == "document"
-    ]
+    docs = [s for s in slices if isinstance(s, dict) and s.get("slice_kind") == "document"]
     if not docs:
         return None
 
@@ -807,15 +802,16 @@ def human_fpr_summary(
                     and can_support
                 ):
                     qualified = True
-                    reason = (
-                        f"worst document slice {dataset} (n_human={n_human}) "
-                        "meets the bar"
-                    )
+                    reason = f"worst document slice {dataset} (n_human={n_human}) meets the bar"
                 else:
                     qualified = False
-                    detail = "; ".join(blockers) if blockers else (
-                        f"worst document slice {dataset} (n_human={n_human}) "
-                        "does not meet the bar"
+                    detail = (
+                        "; ".join(blockers)
+                        if blockers
+                        else (
+                            f"worst document slice {dataset} (n_human={n_human}) "
+                            "does not meet the bar"
+                        )
                     )
                     reason = f"present but unqualified: {detail}"
             entries.append(
@@ -874,12 +870,7 @@ def human_fpr_summary(
                         "qualified": False,
                         "reason": (
                             "per-slice value; this record has no worst-slice "
-                            "aggregation field"
-                            + (
-                                f": {'; '.join(blockers)}"
-                                if blockers
-                                else ""
-                            )
+                            "aggregation field" + (f": {'; '.join(blockers)}" if blockers else "")
                         ),
                     }
                 )

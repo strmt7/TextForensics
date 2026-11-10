@@ -9,6 +9,8 @@ the real repo.
 import hashlib
 import importlib.util
 import json
+import os
+import subprocess
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -282,9 +284,7 @@ def test_verify_claim_runs_doc_evidence(gate, fake_repo):
     sha = _seed_fake_repo(fake_repo, artifact)
     records_by_id, _ = gate.verify_registry_records(fake_repo, gate.load_registry(fake_repo))
     doc_rel = "docs/evidence/runs/EV-20261106-suite.json"
-    head = _commit_doc_repo(
-        fake_repo, doc_rel, (fake_repo / doc_rel).read_text(encoding="utf-8")
-    )
+    head = _commit_doc_repo(fake_repo, doc_rel, (fake_repo / doc_rel).read_text(encoding="utf-8"))
     digest = hashlib.sha256((fake_repo / doc_rel).read_bytes()).hexdigest()
     claim = _make_claim(
         "EV-20261106-suite",
@@ -297,12 +297,11 @@ def test_verify_claim_runs_doc_evidence(gate, fake_repo):
     ok, _msg, verdict = gate.verify_claim(claim, records_by_id, fake_repo, TODAY, "0.1.0")
     assert ok and verdict == "pass"
 
+
 # ---------------------------------------------------------------------------
 # ENG-16: doc evidence must bind to content digest + source SHA, and the
 # report card must be schema-aware about Wilson-upper-bound FPR evidence.
 # ---------------------------------------------------------------------------
-
-import subprocess
 
 
 def _git(root: Path, *args: str) -> str:
@@ -312,8 +311,6 @@ def _git(root: Path, *args: str) -> str:
         "GIT_COMMITTER_NAME": "Test",
         "GIT_COMMITTER_EMAIL": "test@example.invalid",
     }
-    import os
-
     full_env = dict(os.environ, **env)
     result = subprocess.run(
         ["git", "-C", str(root), *args],
@@ -372,9 +369,7 @@ def test_doc_evidence_without_digest_fails(gate, fake_repo):
 def test_doc_evidence_digest_mismatch_fails(gate, fake_repo):
     """ENG-16: a recorded digest that no longer matches the bytes fails."""
     records_by_id, sha, head, _digest = _seed_doc_repo(gate, fake_repo)
-    claim = _doc_claim(
-        "EV-20261106-suite", sha, "docs/STATUS.md", "0" * 64, head, "implemented"
-    )
+    claim = _doc_claim("EV-20261106-suite", sha, "docs/STATUS.md", "0" * 64, head, "implemented")
     ok, msg, verdict = gate.verify_claim(claim, records_by_id, fake_repo, TODAY, "0.1.0")
     assert not ok and verdict == "fail"
     assert "digest" in msg.lower()
@@ -384,9 +379,7 @@ def test_doc_evidence_content_change_after_digest_fails(gate, fake_repo):
     """ENG-16: mutating the doc after its digest was recorded must fail."""
     records_by_id, sha, head, digest = _seed_doc_repo(gate, fake_repo)
     (fake_repo / "docs/STATUS.md").write_text("status: changed\n", encoding="utf-8")
-    claim = _doc_claim(
-        "EV-20261106-suite", sha, "docs/STATUS.md", digest, head, "implemented"
-    )
+    claim = _doc_claim("EV-20261106-suite", sha, "docs/STATUS.md", digest, head, "implemented")
     ok, msg, verdict = gate.verify_claim(claim, records_by_id, fake_repo, TODAY, "0.1.0")
     assert not ok and verdict == "fail"
     assert "digest" in msg.lower()
@@ -395,9 +388,7 @@ def test_doc_evidence_content_change_after_digest_fails(gate, fake_repo):
 def test_doc_evidence_matching_digest_and_as_of_passes(gate, fake_repo):
     """Clean control: matching digest + as-of SHA + implemented state passes."""
     records_by_id, sha, head, digest = _seed_doc_repo(gate, fake_repo)
-    claim = _doc_claim(
-        "EV-20261106-suite", sha, "docs/STATUS.md", digest, head, "implemented"
-    )
+    claim = _doc_claim("EV-20261106-suite", sha, "docs/STATUS.md", digest, head, "implemented")
     ok, msg, verdict = gate.verify_claim(claim, records_by_id, fake_repo, TODAY, "0.1.0")
     assert ok and verdict == "pass", msg
 
@@ -432,9 +423,7 @@ def test_doc_evidence_historical_state_allows_older_as_of(gate, fake_repo):
     _git(fake_repo, "add", ".")
     _git(fake_repo, "commit", "-q", "-m", "unrelated")
     digest = hashlib.sha256((fake_repo / "docs/STATUS.md").read_bytes()).hexdigest()
-    claim = _doc_claim(
-        "EV-20261106-suite", sha, "docs/STATUS.md", digest, head_v1, "historical"
-    )
+    claim = _doc_claim("EV-20261106-suite", sha, "docs/STATUS.md", digest, head_v1, "historical")
     ok, msg, verdict = gate.verify_claim(claim, records_by_id, fake_repo, TODAY, "0.1.0")
     assert ok and verdict == "pass", msg
 
@@ -442,9 +431,7 @@ def test_doc_evidence_historical_state_allows_older_as_of(gate, fake_repo):
 def test_doc_evidence_unknown_as_of_sha_fails(gate, fake_repo):
     """An as-of SHA that does not resolve in the repo must fail."""
     records_by_id, sha, _head, digest = _seed_doc_repo(gate, fake_repo)
-    claim = _doc_claim(
-        "EV-20261106-suite", sha, "docs/STATUS.md", digest, "f" * 40, "implemented"
-    )
+    claim = _doc_claim("EV-20261106-suite", sha, "docs/STATUS.md", digest, "f" * 40, "implemented")
     ok, msg, verdict = gate.verify_claim(claim, records_by_id, fake_repo, TODAY, "0.1.0")
     assert not ok and verdict == "fail"
     assert "as-of" in msg.lower() or "as_of" in msg.lower()
@@ -453,9 +440,7 @@ def test_doc_evidence_unknown_as_of_sha_fails(gate, fake_repo):
 def test_doc_evidence_bad_state_fails(gate, fake_repo):
     """doc_state must be one of implemented/tested/historical/blocked."""
     records_by_id, sha, head, digest = _seed_doc_repo(gate, fake_repo)
-    claim = _doc_claim(
-        "EV-20261106-suite", sha, "docs/STATUS.md", digest, head, "current"
-    )
+    claim = _doc_claim("EV-20261106-suite", sha, "docs/STATUS.md", digest, head, "current")
     ok, msg, verdict = gate.verify_claim(claim, records_by_id, fake_repo, TODAY, "0.1.0")
     assert not ok and verdict == "fail"
     assert "doc_state" in msg
@@ -464,9 +449,7 @@ def test_doc_evidence_bad_state_fails(gate, fake_repo):
 def test_doc_evidence_blocked_state_fails(gate, fake_repo):
     """A blocked doc assertion can never pass the gate."""
     records_by_id, sha, head, digest = _seed_doc_repo(gate, fake_repo)
-    claim = _doc_claim(
-        "EV-20261106-suite", sha, "docs/STATUS.md", digest, head, "blocked"
-    )
+    claim = _doc_claim("EV-20261106-suite", sha, "docs/STATUS.md", digest, head, "blocked")
     ok, msg, verdict = gate.verify_claim(claim, records_by_id, fake_repo, TODAY, "0.1.0")
     assert not ok and verdict == "fail"
     assert "blocked" in msg.lower()
@@ -533,10 +516,8 @@ def _fpr_artifact(record_id, results):
 
 
 def _fpr_records(gate, fake_repo, artifact):
-    sha = _seed_fake_repo(fake_repo, artifact)
-    records_by_id, failures = gate.verify_registry_records(
-        fake_repo, gate.load_registry(fake_repo)
-    )
+    _seed_fake_repo(fake_repo, artifact)
+    records_by_id, failures = gate.verify_registry_records(fake_repo, gate.load_registry(fake_repo))
     assert not failures
     return records_by_id
 

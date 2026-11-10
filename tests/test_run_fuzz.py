@@ -8,7 +8,6 @@ crashes/hangs, no error" with exit 0.
 
 import importlib.util
 import sys
-import tempfile
 from pathlib import Path
 from unittest import mock
 
@@ -45,9 +44,7 @@ def isolated_run_fuzz(run_fuzz, tmp_path, monkeypatch):
     return run_fuzz
 
 
-def test_child_exit_2_without_crash_artifact_is_recorded_as_error(
-    isolated_run_fuzz, tmp_path
-):
+def test_child_exit_2_without_crash_artifact_is_recorded_as_error(isolated_run_fuzz, tmp_path):
     """ENG-07(3): controlled child-exit-2 probe — error must be recorded."""
     target = isolated_run_fuzz.FUZZ_TARGETS["text_parsing"]
     fake = _FakeProc(returncode=2, stdout="fake atheris startup failure\n")
@@ -71,11 +68,11 @@ def test_child_exit_2_without_crash_artifact_fails_the_run(isolated_run_fuzz, tm
     }
     with (
         mock.patch.object(isolated_run_fuzz, "generate_corpus", return_value=None),
+        mock.patch.object(isolated_run_fuzz, "run_atheris_target", return_value=error_result),
         mock.patch.object(
-            isolated_run_fuzz, "run_atheris_target", return_value=error_result
-        ),
-        mock.patch.object(
-            sys, "argv", ["run_fuzz.py", "--method", "direct", "--target", "text_parsing", "--duration", "0"]
+            sys,
+            "argv",
+            ["run_fuzz.py", "--method", "direct", "--target", "text_parsing", "--duration", "0"],
         ),
     ):
         assert isolated_run_fuzz.main() != 0
