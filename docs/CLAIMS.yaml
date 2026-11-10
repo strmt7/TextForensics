@@ -18,6 +18,22 @@
 #   metrics, e.g. packages.cryptography). Every scalar value must
 #   appear in the statement.
 # - tolerance: U7 — optional numeric tolerance for values comparison
+# - doc_sha256 / doc_as_of_sha / doc_state: ENG-16 (W0) — required for
+#   every evidence_type: "doc" claim. doc_sha256 is the SHA-256 of the
+#   cited document's persisted bytes (UTF-8, LF — see
+#   docs/verification/byte-policy.md); a recorded digest that does not
+#   match the current bytes FAILS the claim. doc_as_of_sha is the full
+#   commit SHA whose tree the digest was computed from (it must resolve
+#   in the repo). doc_state is implemented | tested | historical |
+#   blocked: implemented/tested assert a property of the CURRENT tree,
+#   so the cited document must be unchanged since the as-of SHA;
+#   historical is a dated record (bytes still pinned by the digest);
+#   blocked can never pass. File existence alone is not evidence.
+# - executable_property / executable_check: ENG-16 (W0) — when a doc
+#   claim asserts an executable property, executable_property: true
+#   requires executable_check (a command) to be present and exit 0.
+#   A saved note such as cited_content_present=true is not execution
+#   evidence.
 #
 # CI (check_claims.py, the U7 claim-to-evidence gate) will:
 # 1. Parse this file (duplicate YAML keys are rejected)
@@ -83,6 +99,9 @@ claims:
     status: "verified"
     evidence_type: "doc"
     evidence_path: "pyproject.toml"
+    doc_sha256: "d02a30111ecebfb6393b6cd83a53b368e35b1fc98ec98fb7691d55e71313d79a"
+    doc_as_of_sha: "30dac08e368dec5c1afbb0a8a24bf1b5d2223654"
+    doc_state: "implemented"
     owner: "core"
     last_verified: "2026-11-06"
     evidence_record_id: "EV-20261106-doc-license"
@@ -231,6 +250,9 @@ claims:
     status: "verified"
     evidence_type: "doc"
     evidence_path: "docs/evidence/runs/EV-20261106-determinism.json"
+    doc_sha256: "e27c0393d5bc147403b0d9cc054d73d79cfc06cc21d6a87793dd2d6a159400d1"
+    doc_as_of_sha: "30dac08e368dec5c1afbb0a8a24bf1b5d2223654"
+    doc_state: "historical"
     owner: "detectors"
     last_verified: "2026-11-06"
     notes: "Measured with the reproducibility workflow's exact jq filter (walk deleting runtime fields). The Trust Map coverage key order fix (TRUST_STATES as an ordered tuple) is what made this hold."
@@ -290,6 +312,9 @@ claims:
     status: "verified"
     evidence_type: "doc"
     evidence_path: "docs/VERIFICATION.md"
+    doc_sha256: "6cba7255a0c33f2b3c8cdfdf04fec411048e6848fdbc2594d75d23eb82d8cd3e"
+    doc_as_of_sha: "30dac08e368dec5c1afbb0a8a24bf1b5d2223654"
+    doc_state: "historical"
     owner: "dev"
     last_verified: "2026-11-07"
     notes: "The 1 failure is tests/test_diagnostics.py::TestDiagnosticsEngine::test_memory_check, a known host-memory flake: it fails when this VM sits above 95% memory use and passes in isolation and in CI. Supersedes the 2026-11-06 record (2354 passed, 1 failed, 86%). The bare core-only numbers are in test_suite_measured_core."
@@ -307,6 +332,9 @@ claims:
     status: "verified"
     evidence_type: "doc"
     evidence_path: "docs/VERIFICATION.md"
+    doc_sha256: "6cba7255a0c33f2b3c8cdfdf04fec411048e6848fdbc2594d75d23eb82d8cd3e"
+    doc_as_of_sha: "30dac08e368dec5c1afbb0a8a24bf1b5d2223654"
+    doc_state: "historical"
     owner: "dev"
     last_verified: "2026-11-07"
     notes: "The 112 skips are tests for optional extras not installed in the core venv (fastapi/typer-gated). The 1 failure is the test_memory_check host-memory flake (see test_suite_measured); the record's drops manifest names it. Supersedes the 2026-11-06 record (2243 passed, 0 failed, 112 skipped, 82%)."
@@ -324,6 +352,9 @@ claims:
     status: "verified"
     evidence_type: "doc"
     evidence_path: ".github/workflows/ci.yml"
+    doc_sha256: "2f80c6be9f17833ebd3f8ff499a58b22b16b550a4626789e990fbd25afa565cf"
+    doc_as_of_sha: "30dac08e368dec5c1afbb0a8a24bf1b5d2223654"
+    doc_state: "implemented"
     owner: "dev"
     last_verified: "2026-11-06"
     notes: "pyproject.toml declares requires-python >=3.11 and classifiers for 3.11-3.15. Local verification on 3.11/3.13/3.14/3.15 is NOT claimed; that is what CI is for."
@@ -374,6 +405,9 @@ claims:
     status: "verified"
     evidence_type: "doc"
     evidence_path: "docs/VERIFICATION.md"
+    doc_sha256: "6cba7255a0c33f2b3c8cdfdf04fec411048e6848fdbc2594d75d23eb82d8cd3e"
+    doc_as_of_sha: "30dac08e368dec5c1afbb0a8a24bf1b5d2223654"
+    doc_state: "historical"
     owner: "security"
     last_verified: "2026-11-08"
     notes: "Replaces the old 'no critical vulnerabilities' claim, whose own note admitted 108 vulns. pip 24.0 is the venv installer, not a shipped dependency; pytest is dev-only. Re-seeded 2026-11-08 (Phase 5 pip-audit gate wave): the gate now fails CI on any finding not in pip-audit-baseline.toml (6 pip 24.0 entries, review_by 2027-02-06); the pinned-requirements audit reports 0 findings after the setuptools cap widening <80 -> <85 (79.0.1 had PYSEC-2026-3447 x2 + GHSA-xmj3-9gf7-h52w). Dependabot #27 (Phase 4, commit ac030c7) widened the cryptography cap from <43 to <51, clearing all 11 cryptography findings (installed 50.0.2, 0 findings); pytest is now 9.2.0 with 0 findings."
@@ -388,12 +422,16 @@ claims:
   - id: "deterministic_builds"
     statement: "Wheel builds are reproducible: the reproducibility workflow builds twice with SOURCE_DATE_EPOCH=1704067200 and compares the artifacts"
     category: "maturity"
-    status: "verified"
+    status: "unverified"
     evidence_type: "doc"
     evidence_path: ".github/workflows/reproducibility.yml"
+    doc_sha256: "70b6dedbb58df08ba4ee09c048a0c4a3c6ab9fff6a2b6216db6215eb42bd653b"
+    doc_as_of_sha: "30dac08e368dec5c1afbb0a8a24bf1b5d2223654"
+    doc_state: "blocked"
+    executable_property: true
     owner: "dev"
     last_verified: "2026-11-06"
-    notes: "Build backend pinned to setuptools>=75,<80 and wheel>=0.45 in pyproject.toml."
+    notes: "Build backend pinned to setuptools>=75,<80 and wheel>=0.45 in pyproject.toml. ENG-16 (W0, 2026-11-10): reclassified unverified/blocked — the cited workflow text only records that SOURCE_DATE_EPOCH is set; ENG-03 proves the downloaded exact-SHA wheels differ byte-for-byte, so 'reproducible' is not established. Re-establishment requires the W6 ENG-03 fix (byte-identical clean builds with fatal comparison) plus an executable reproducibility check; do not re-verify on file existence."
     evidence_record_id: "EV-20261106-doc-repro"
     run_artifact_sha256: "f442ba484a8647881c0bb68495600965b466f2da5f80cf0aff79cde5988d5b21"
     values:
