@@ -7,8 +7,11 @@ The SBOM lists the *resolved dependency closure of requirements-pinned.txt*
 as installed: the extras named on that file's editable ``-e .[...]`` line,
 plus every package named directly in the file (e.g. ``atheris``,
 ``bandit``, ``pip-audit``, which are not part of any pyproject extra),
-plus their transitive ``Requires-Dist`` closure. The project itself is the
-``metadata.component`` (``textforensics``). Install tooling appears only
+plus their transitive ``Requires-Dist`` closure. Since 2026-11-10 the
+file is an exact-pin lockfile naming the whole closure, so the root
+component's ``dependsOn`` lists the full locked closure; the true
+direct/transitive graph is in the per-component ``dependsOn`` edges.
+The project itself is the ``metadata.component`` (``textforensics``). Install tooling appears only
 where it is genuinely required: ``setuptools`` and ``wheel`` are direct
 pins in requirements-pinned.txt. ``pip`` is EXCLUDED from the closure
 (see ``EXCLUDED_DISTRIBUTIONS``): it enters only as a transitive edge
@@ -28,8 +31,8 @@ with a fixed schema shape (``bomFormat``/``specVersion``/``serialNumber``/
 used only as an independent cross-check in ``tests/test_generate_sbom.py``
 (``Bom.from_json(...).validate()``), never as a generation input, because
 its CLI embeds wall-clock timestamps and tool versions that vary per run,
-and its ``requirements`` mode cannot resolve the range-only entries of
-``requirements-pinned.txt`` to exact versions either.
+and it resolves from the requirements file rather than from the installed
+environment whose versions the SBOM records.
 
 Reproducibility
 ---------------
@@ -50,11 +53,16 @@ Same inputs produce byte-identical output:
   entries — a blanket ``detect-secrets scan --baseline`` rewrites the
   whole baseline).
 
-A live install IS needed for version resolution: requirements-pinned.txt
-contains version *ranges* (``pytest>=8.4.2,<10``), not exact pins, so exact
-versions can only come from the resolved environment. The canonical
-generation environment is ``pip install -r requirements-pinned.txt``
-(the same install the ``pinned`` CI job performs). Regenerating in a
+A live install IS still needed: exact versions are read from the installed
+environment (``importlib.metadata``), not parsed out of the file.
+requirements-pinned.txt is an exact-pin lockfile (every entry
+``name==version``, direct and transitive), so a fresh install from it is
+deterministic. The canonical generation environment is
+``pip install -r requirements-pinned.txt`` (the same install the
+``pinned`` CI job performs). Before 2026-11-10 the file contained version
+*ranges*, so a fresh install could resolve to newer upstream releases and
+stale the SBOM with no repo change; the lockfile decision is recorded in
+SECURITY.md ("Python dependency pinning policy"). Regenerating in a
 partial environment does not fail: uninstalled root packages are omitted
 from ``components`` and listed in ``metadata.properties`` as
 ``unresolvedDependencies``, so the output stays honest and the CI

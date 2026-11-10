@@ -214,3 +214,74 @@ All three items previously listed here (checkout v5.1.0 → v7.0.1 in
 `container.yml:42`, gitleaks v3.0.0 major bump in `supply-chain.yml:80`,
 scorecard v2.5.0 bump in `scorecard.yml:32`) were taken by the
 2026-11-09 action upgrades; nothing remains open in this section.
+
+## Python dependency pinning policy
+
+The same rule as for GitHub Actions — **pin, and upgrade the pin** —
+applies to Python dependencies, with the same shape: an exact pin plus a
+named update trigger plus a review step. The mechanism is
+`requirements-pinned.txt`, which since 2026-11-10 is an exact-pin
+lockfile: every package in the resolved dependency closure, direct and
+transitive alike, is pinned `==` to the exact version installed and
+tested in a fresh venv. `pyproject.toml` keeps version ranges: it is the
+abstract spec (what the project tolerates, the library contract for
+downstream consumers); the lockfile is the concrete record (what was
+installed and tested). Every direct `==` pin must lie inside its
+pyproject range; `tests/test_generate_sbom.py` enforces both the `==`
+form and the in-range property.
+
+### Decision (2026-11-10) — full exact-pin lockfile, typer removed
+
+**Decision: pin the whole closure `==`, and upgrade the pin.** The
+previous file used version ranges, so a fresh install could resolve to
+a newer upstream release with no repo change — and did: filelock
+4.2.9 → 4.2.10 and typer 0.28.0 → 0.29.0 staled the checked-in SBOM
+and failed the CI staleness job on 2026-11-09 (18/19 jobs success).
+Pinning only those two packages was rejected as patchwork: any other
+transitive package (click, anyio, pydantic, …) could release next and
+fail CI the same way. A `pip-compile` / `pip-tools` two-file lock and a
+separate constraints file were considered and deferred (new tooling,
+CI-command changes, weaker Dependabot support for standalone
+constraints files); the freeze-based lock achieves the same
+determinism with the tools the repo already uses, and the
+direct/transitive distinction is preserved one level up, in
+`pyproject.toml` vs the lockfile. Hash pinning is likewise deferred.
+
+`typer` was removed from the lockfile in the same change: it is unused
+(no `import typer` in `src/`, `tests/` or `scripts/`; the Typer CLI
+was deleted in Phase 2 and its commands ported to the `argparse`
+`cli.py`; the only other requirer, `mcp`, needs it solely under its
+uninstalled `cli` extra). Removing it drops `typer` and its sole
+dependent `shellingham` from the SBOM (122 → 120 components).
+`filelock` is pinned as an ordinary transitive lock line
+(`filelock==4.2.10`); it needed no special mechanism once the whole
+closure is locked, but it is the package that proved a transitive pin
+was required — it appeared nowhere in `pyproject.toml` or the old
+pinned file, yet its release staled the SBOM.
+
+### Review cadence
+
+- **Trigger:** Dependabot's `pip` ecosystem in
+  `.github/dependabot.yml` (weekly, `open-pull-requests-limit: 5`;
+  0 open PRs at decision time) proposes bumps. That is the normal
+  trigger; no separate calendar reminder is needed while Dependabot is
+  enabled. The `pip-audit` gate is the security backstop: a CVE in a
+  pinned version fails CI until the pin is bumped, independent of the
+  weekly schedule.
+- **What "review" means:** read the upstream release notes for
+  breaking changes (a major bump is reviewed separately and never
+  taken as part of a routine pin update); edit the `==` line(s); if the
+  new version falls outside the pyproject range, widen the range in
+  `pyproject.toml` in the same commit; reinstall in a fresh venv,
+  re-freeze the transitive section, regenerate the SBOM in the same
+  commit, and run the claims gate, schemas gate, pre-commit, and
+  `tests/test_generate_sbom.py` before merging. The full procedure is
+  documented in the lockfile header. This repo works main-only, so
+  Dependabot PRs are applied as direct main commits, never merged.
+- **Known limits:** the lock carries versions, not hashes (see above);
+  it has no environment markers and was resolved on Python 3.12 —
+  safe because the file is installed only on 3.12/ubuntu (the
+  `pinned`, `sbom`, and `pip-audit-gate` jobs); if a job ever installs
+  it on another Python or OS, the lock must be re-resolved per
+  environment first. If a direct pin is removed, prune its orphaned
+  transitive lines by re-freezing (nothing auto-prunes).

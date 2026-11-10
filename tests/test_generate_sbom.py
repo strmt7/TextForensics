@@ -10,10 +10,14 @@ job, which installs -r requirements-pinned.txt, is the real-repo coverage).
 import hashlib
 import importlib.util
 import json
+import re
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
+from packaging.specifiers import SpecifierSet
+from packaging.version import Version
 
 SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
 REPO_ROOT = Path(__file__).parent.parent
@@ -87,6 +91,57 @@ def test_parse_pinned_requirements_rejects_includes(tmp_path):
     pinned.write_text("-r other.txt\n", encoding="utf-8")
     with pytest.raises(ValueError, match="Unsupported line"):
         sbom.parse_pinned_requirements(pinned)
+
+
+def _specifier_part(spec: str) -> str:
+    """Return the version-specifier part of a requirement string."""
+    match = re.search(r"[<>=!~]", spec)
+    return spec[match.start() :].split(";", 1)[0].strip() if match else ""
+
+
+def test_real_pinned_file_is_exact_lock():
+    """requirements-pinned.txt is an exact-pin lockfile (decision 2026-11-10).
+
+    Every requirement line must be an exact ``name==version`` pin (no
+    ranges, no bare names), and every direct pin must lie inside its
+    pyproject.toml range. Transitive lines have no pyproject range and are
+    only checked for the ``==`` form. The lockfile is what stops upstream
+    releases from staling the checked-in SBOM on their own: with ranges,
+    filelock 4.2.9 -> 4.2.10 and typer 0.28.0 -> 0.29.0 failed the CI
+    staleness gate with no repo change (2026-11-09).
+    """
+    pinned_path = REPO_ROOT / "requirements-pinned.txt"
+    pinned: dict[str, str] = {}
+    for raw_line in pinned_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or line.startswith("-e "):
+            continue
+        match = re.fullmatch(r"([A-Za-z0-9_.\-]+)==([^\s#]+)", line.split("#", 1)[0].strip())
+        assert match is not None, f"not an exact == pin: {raw_line!r}"
+        pinned[sbom.normalize_name(match.group(1))] = match.group(2)
+    assert pinned, "no pins found"
+    assert "pip" not in pinned  # installer, not a shipped dependency
+    assert "textforensics" not in pinned  # installed via the -e line
+
+    with (REPO_ROOT / "pyproject.toml").open("rb") as handle:
+        data = tomllib.load(handle)
+    ranges: dict[str, list[str]] = {}
+    for spec in data.get("build-system", {}).get("requires", []):
+        name = sbom.parse_requirement_name(str(spec))
+        ranges.setdefault(name, []).append(_specifier_part(str(spec)))
+    project = data.get("project", {})
+    for spec in project.get("dependencies", []) or []:
+        name = sbom.parse_requirement_name(str(spec))
+        ranges.setdefault(name, []).append(_specifier_part(str(spec)))
+    for deps in (project.get("optional-dependencies", {}) or {}).values():
+        for spec in deps or []:
+            name = sbom.parse_requirement_name(str(spec))
+            ranges.setdefault(name, []).append(_specifier_part(str(spec)))
+    for name, version in sorted(pinned.items()):
+        for specifier in ranges.get(name, []):
+            assert Version(version) in SpecifierSet(specifier), (
+                f"{name}=={version} is outside its pyproject range {specifier!r}"
+            )
 
 
 def test_root_requirement_names(tmp_path):

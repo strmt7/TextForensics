@@ -157,14 +157,15 @@ Generation (one canonical path for the checked-in SBOM):
 The generator is stdlib-only (no new dependency). It reads the extras
 from the `-e .[...]` line of `requirements-pinned.txt` plus every package
 named directly in that file, resolves exact versions from the installed
-environment (the file contains version *ranges*, so a live install is
-required for resolution — the canonical install is the command above),
-walks the transitive `Requires-Dist` closure, and emits CycloneDX 1.6
-JSON. `cyclonedx-python-lib` (already in the dev/audit environment) is
-not a generation input: its CLI embeds wall-clock timestamps and it
-cannot resolve range-only requirements either. It is used only as an
-independent cross-check in `tests/test_generate_sbom.py`
-(`Bom.from_json(...).validate()`).
+environment (the file is an exact-pin lockfile, so a fresh install is
+deterministic; a live install is still required because exact versions
+are read from the installed environment — the canonical install is the
+command above), walks the transitive `Requires-Dist` closure, and emits
+CycloneDX 1.6 JSON. `cyclonedx-python-lib` (already in the dev/audit
+environment) is not a generation input: its CLI embeds wall-clock
+timestamps and it resolves from the file rather than from the installed
+environment. It is used only as an independent cross-check in
+`tests/test_generate_sbom.py` (`Bom.from_json(...).validate()`).
 
 Reproducibility guarantee: same inputs produce byte-identical output.
 Components and `dependsOn` lists are sorted by PEP 503 normalized name;
@@ -183,9 +184,12 @@ What "stale" means, per SBOM:
 * Checked-in SBOM: `python scripts/generate_sbom.py --check` (the `sbom`
   CI job) exits 1 and prints a unified diff when regeneration from a
   fresh `requirements-pinned.txt` install differs. Regenerate and commit
-  the result. Note the ranges in `requirements-pinned.txt` can resolve
-  to a newer release upstream with no repo change; that is a real
-  staleness event, not CI flakiness — regenerate, review the diff, commit.
+  the result. Since 2026-11-10 the file is an exact-pin lockfile (see the
+  lockfile decision in SECURITY.md), so a fresh install cannot resolve to
+  a newer release on its own: staleness now means a deliberate change (a
+  pin bump, a pyproject/extras change, or a generator change). Before the
+  lockfile, ranges could resolve to a newer upstream release with no repo
+  change; that was a real staleness event, not CI flakiness.
   Regenerating in a partial environment (e.g. only `.[dev]` installed)
   lists the missing declared packages in `metadata.properties` as
   `unresolvedDependencies` instead of silently omitting them; that output
