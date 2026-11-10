@@ -69,6 +69,11 @@ from .detectors import (
     text_sha256,
 )
 from .evidence import EvidenceRegistry
+from .sealing import (
+    FORBIDDEN_RAW_TEXT_KEYS,
+    assert_case_portable,
+    find_forbidden_raw_text_keys,
+)
 from .trust import assess_trust_map
 
 CASE_SCHEMA_V4 = "textforensics.case-file/v4"
@@ -151,18 +156,10 @@ AUTHORSHIP_WARNING = (
     "evidence about textual signals, not a finding about who wrote the text."
 )
 
-_FORBIDDEN_RAW_KEYS = frozenset(
-    {
-        "text",
-        "raw_text",
-        "source_text",
-        "document_text",
-        "content",
-        "snippet",
-        "quote",
-        "excerpt",
-    }
-)
+# Canonical forbidden raw-text keys live in sealing.py (the shared
+# privacy helper, W1: C03); this module re-exports the name its tests
+# and the bundle check rely on.  Do NOT define a second key set here.
+_FORBIDDEN_RAW_KEYS = FORBIDDEN_RAW_TEXT_KEYS
 
 
 def canonical_json_bytes(payload: Mapping[str, Any]) -> bytes:
@@ -194,18 +191,8 @@ def _hash_without_seal(payload: Mapping[str, Any]) -> str:
 
 
 def _forbidden_paths(value: Any, path: str = "$") -> list[str]:
-    found: list[str] = []
-    if isinstance(value, Mapping):
-        for key, child in value.items():
-            key_string = str(key)
-            child_path = f"{path}.{key_string}"
-            if key_string.strip().lower() in _FORBIDDEN_RAW_KEYS:
-                found.append(child_path)
-            found.extend(_forbidden_paths(child, child_path))
-    elif isinstance(value, list):
-        for index, child in enumerate(value):
-            found.extend(_forbidden_paths(child, f"{path}[{index}]"))
-    return found
+    """Backwards-compatible wrapper for :func:`sealing.find_forbidden_raw_text_keys`."""
+    return find_forbidden_raw_text_keys(value, path)
 
 
 def _strip_runtime_ms_from_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
@@ -1287,6 +1274,7 @@ def seal_case_file(
     limitations: Mapping[str, Any] | None = None,
     determinism: Mapping[str, str] | None = None,
     determinism_reasons: Mapping[str, str] | None = None,
+    include_raw_text: bool = False,
 ) -> dict[str, Any]:
     """Seal a forensic bundle into a case file.
 
@@ -1313,6 +1301,18 @@ def seal_case_file(
     what was sealed.  Absent everywhere, a detector is
     ``"unknown"``.  Overrides apply to v3/v4 seals only (v1/v2 carry
     no observations).
+    ``include_raw_text`` is the explicit opt-in to retaining literal
+    source text in the case (W1: C03).  It defaults to ``False``: the
+    completed case is then scanned recursively for forbidden raw-text
+    keys in EVERY section (forensic bundle, process/reviewer, appeal,
+    custody, validation references, limitations, nested lists) and
+    rejected when any is found, so the case can never declare
+    ``raw_text_included=false`` while carrying literal text.  With
+    ``include_raw_text=True`` the case records
+    ``raw_text_included=True`` accurately — but such a case is NOT
+    portable evidence: portable verification refuses it
+    (``raw_text_policy_violation``).  The forensic bundle itself stays
+    raw-text-free in both modes.
     """
     if version not in {"v1", "v2", "v3", "v4"}:
         raise ValueError(f"Unsupported case-file version: {version!r}.")
@@ -1344,9 +1344,12 @@ def seal_case_file(
             "schema": LEGACY_CASE_SCHEMA,
             "tool": {"name": "TextForensics", "version": get_version()},
             "forensic_bundle": bundle,
-            "raw_text_included": False,
+            "raw_text_included": bool(include_raw_text),
             "case_sha256": None,
         }
+        # Whole-case portability check (W1: C03) — the bundle alone was
+        # checked on entry; the completed case is checked here.
+        assert_case_portable(case, allow_raw_text=include_raw_text)
         case["case_sha256"] = _hash_without_seal(case)
         return case
     if version == "v1":
@@ -1357,11 +1360,12 @@ def seal_case_file(
             "schema": CASE_SCHEMA,
             "tool": tool,
             "created_at_utc": timestamp,
-            "raw_text_included": False,
+            "raw_text_included": bool(include_raw_text),
             "forensic_bundle": bundle,
             "manifest": _manifest_for(bundle, tool),
             "case_sha256": None,
         }
+        assert_case_portable(case, allow_raw_text=include_raw_text)
         case["case_sha256"] = _hash_without_seal(case)
         return case
 
@@ -1459,7 +1463,7 @@ def seal_case_file(
         "schema": CASE_SCHEMA_V4 if version == "v4" else CASE_SCHEMA_V3,
         "tool": tool,
         "created_at_utc": timestamp,
-        "raw_text_included": False,
+        "raw_text_included": bool(include_raw_text),
         "forensic_bundle": bundle,
         "manifest": _manifest_for(bundle, tool),
         "input": input_section,
@@ -1478,6 +1482,12 @@ def seal_case_file(
         "gaps": gaps,
         "case_sha256": None,
     }
+    # Whole-case portability check (W1: C03) on the COMPLETED case —
+    # before signing and before hashing — so no section outside the
+    # forensic bundle (process/reviewer, appeal, custody, validation
+    # references, limitations, nested lists) can smuggle literal source
+    # text while the case declares raw text absent.
+    assert_case_portable(case, allow_raw_text=include_raw_text)
     if signing_seed is not None:
         from .sealing import fingerprint, public_key_from_seed, sign_case_body
 
@@ -1524,9 +1534,28 @@ def verify_case_file(
     is reported as a warning (present but not cryptographically
     verified), never as a pass: a signature nobody checks authenticates
     nothing.
+
+    Never raises for a non-mapping payload: it is reported invalid.
     """
     errors: list[str] = []
     warnings: list[str] = []
+    if not isinstance(payload, Mapping):
+        return {
+            "valid": False,
+            "errors": ["case_must_be_a_mapping"],
+            "warnings": warnings,
+            "schema": None,
+            "case_sha256": None,
+            "note": (
+                "Integrity verification checks this artifact's structure, seal and "
+                "manifest; it does not prove an authorship conclusion."
+            ),
+        }
+    # Whole-case portability (W1: C03): forbidden raw-text keys anywhere
+    # in the case — not only in the forensic bundle — contradict a
+    # raw_text_included=false declaration.
+    if find_forbidden_raw_text_keys(payload):
+        errors.append("raw_text_present_in_case")
     schema = payload.get("schema")
     if schema not in CASE_SCHEMAS:
         errors.append("unsupported_schema")
@@ -1916,6 +1945,28 @@ def _replay_trust_map(
     if not isinstance(sealed_trust, Mapping):
         errors.append("missing_trust_map")
         return errors, warnings, checks
+    # A present-but-malformed robustness section is itself a replay
+    # error (W1 fallout item 3): silently dropping it as zero rows
+    # would let a destroyed robustness section pass replay whenever
+    # the stored Trust Map state already reads unknown.  An absent
+    # section keeps its prior meaning (no robustness evidence).
+    robustness_present = sealed_bundle.get("robustness", None)
+    if robustness_present is not None:
+        if not isinstance(robustness_present, Mapping):
+            errors.append("trust_map_state_mismatch")
+            checks["trust_map"] = {
+                "status": "mismatch",
+                "reason": "robustness_not_a_mapping",
+            }
+            return errors, warnings, checks
+        detectors_section = robustness_present.get("detectors", None)
+        if detectors_section is not None and not isinstance(detectors_section, list):
+            errors.append("trust_map_state_mismatch")
+            checks["trust_map"] = {
+                "status": "mismatch",
+                "reason": "robustness_detectors_not_a_list",
+            }
+            return errors, warnings, checks
 
     if sealed_trust.get("schema") == TRUST_SCHEMA_V3:
         # A v3 map is derived from U1 validation records, never from the

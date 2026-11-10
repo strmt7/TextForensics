@@ -40,7 +40,6 @@ from typing import Any
 from .detectors import (
     Detector,
     DetectorPrediction,
-    discover_detector_registry,
     execute_detector,
     is_remote_detector,
     text_sha256,
@@ -973,6 +972,11 @@ class DriftObservatory:
             return snapshot
 
         if detectors is None:
+            # Resolved at call time (W1: same convention as api/mcp/cli/
+            # report): a module-level import binds at import time, so
+            # patching the canonical name would have no effect.
+            from .detectors import discover_detector_registry
+
             registry = discover_detector_registry()
             selected_detectors: list[Detector] = list(registry.detectors.values())
         else:

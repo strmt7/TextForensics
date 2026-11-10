@@ -334,6 +334,22 @@ def pack_sealed_bundle(
     return archive, seal_record
 
 
+def _read_capped(zf: zipfile.ZipFile, name: str) -> bytes:
+    """Read one member through a capped stream (W1: C06).
+
+    Never ``ZipFile.read``: the stream read is bounded at
+    ``MAX_ENTRY_BYTES + 1`` so a member whose declared size lied
+    about its contents is rejected instead of decompressed without
+    bound.  Raises :class:`SealedBundleError` over the cap and lets
+    ``KeyError`` / ``BadZipFile`` propagate to the caller's handler.
+    """
+    with zf.open(name) as stream:
+        data = stream.read(MAX_ENTRY_BYTES + 1)
+    if len(data) > MAX_ENTRY_BYTES:
+        raise SealedBundleError(f"Entry {name} exceeds the 64 MiB cap on read.")
+    return data
+
+
 def verify_sealed_bundle(
     data: bytes,
     *,
@@ -395,23 +411,64 @@ def verify_sealed_bundle(
     if seal_record is not None:
         record_checks: list[dict[str, Any]] = []
         record_errors: list[str] = []
+        seal_record_unavailable = False
         if not isinstance(seal_record, dict):
             # The shared tail below turns record_errors into the report;
             # nulling seal_record skips the manifest comparisons.
             record_errors.append("seal_record must be a JSON object")
             seal_record = None
+        elif seal_failed:
+            # W1: C06 — after the standalone verifier rejected the
+            # container, the optional cross-check is UNAVAILABLE: it
+            # must never open the rejected archive again, and
+            # certainly never call uncapped ZipFile.read on its
+            # members.  A rejected archive never reaches a
+            # less-restricted second reader.
+            report["seal_record"] = {
+                "status": "unavailable",
+                "reason": "seal_failed",
+                "checks": [],
+                "errors": [
+                    "seal-record cross-check unavailable: standalone "
+                    "verification rejected the container"
+                ],
+            }
+            seal_record = None
+            seal_record_unavailable = True
         manifest_bytes = b""
         manifest: dict[str, Any] | None = None
         files: dict[str, bytes] = {}
-        try:
-            with zipfile.ZipFile(io.BytesIO(data)) as zf:
-                manifest_bytes = zf.read("manifest.json")
-                for name in zf.namelist():
-                    if name != "manifest.json":
-                        files[name] = zf.read(name)
-            manifest = json.loads(manifest_bytes.decode("utf-8"))
-        except (zipfile.BadZipFile, KeyError, OSError, ValueError) as exc:
-            record_errors.append(f"bundle unreadable for seal-record check: {exc}")
+        if seal_record is not None:
+            # Rereading is unavoidable here (the standalone verifier
+            # does not hand back its contents), so the same guards
+            # apply before and during reads: entry count, STORED-only
+            # compression, per-entry and aggregate caps, capped
+            # stream reads — never an uncapped ZipFile.read.
+            try:
+                with zipfile.ZipFile(io.BytesIO(data)) as zf:
+                    infos = zf.infolist()
+                    if len(infos) > MAX_ENTRIES:
+                        raise SealedBundleError("Too many entries for a sealed bundle.")
+                    total = 0
+                    for info in infos:
+                        if info.compress_type != zipfile.ZIP_STORED:
+                            raise SealedBundleError(f"Entry {info.filename} is not STORED.")
+                        if info.file_size > MAX_ENTRY_BYTES:
+                            raise SealedBundleError(
+                                f"Entry {info.filename} exceeds the 64 MiB cap."
+                            )
+                        total += info.file_size
+                        if total > MAX_TOTAL_BYTES:
+                            raise SealedBundleError("Sealed bundle exceeds the 256 MiB total cap.")
+                    manifest_bytes = _read_capped(zf, "manifest.json")
+                    for info in infos:
+                        if info.filename != "manifest.json":
+                            files[info.filename] = _read_capped(zf, info.filename)
+                manifest = json.loads(manifest_bytes.decode("utf-8"))
+            except (zipfile.BadZipFile, KeyError, OSError, ValueError) as exc:
+                record_errors.append(f"bundle unreadable for seal-record check: {exc}")
+            except SealedBundleError as exc:
+                record_errors.append(f"bundle exceeds seal-record check caps: {exc}")
         if manifest is not None and seal_record is not None:
             if not isinstance(manifest, dict):
                 record_errors.append("bundle manifest is not a JSON object")
@@ -445,21 +502,22 @@ def verify_sealed_bundle(
                             record_errors.append("seal_record timestamp token digest mismatch")
                 except (KeyError, TypeError, AttributeError) as exc:
                     record_errors.append(f"seal-record cross-check failed: {exc}")
-        for error in record_errors:
-            record_checks.append(
-                {"id": "seal_record_cross_check", "status": "fail", "detail": error}
-            )
-        if not record_errors:
-            record_checks.append(
-                {
-                    "id": "seal_record_cross_check",
-                    "status": "pass",
-                    "detail": "seal record matches the bundle",
-                }
-            )
-        report["seal_record"] = {"checks": record_checks, "errors": record_errors}
-        if record_errors:
-            report["exit_code"] = 1
+        if not seal_record_unavailable:
+            for error in record_errors:
+                record_checks.append(
+                    {"id": "seal_record_cross_check", "status": "fail", "detail": error}
+                )
+            if not record_errors:
+                record_checks.append(
+                    {
+                        "id": "seal_record_cross_check",
+                        "status": "pass",
+                        "detail": "seal record matches the bundle",
+                    }
+                )
+            report["seal_record"] = {"checks": record_checks, "errors": record_errors}
+            if record_errors:
+                report["exit_code"] = 1
 
     if text is not None or detectors is not None:
         if seal_failed:
@@ -472,8 +530,12 @@ def verify_sealed_bundle(
         else:
             try:
                 with zipfile.ZipFile(io.BytesIO(data)) as zf:
-                    case = json.loads(zf.read("case.json").decode("utf-8"))
+                    case = json.loads(_read_capped(zf, "case.json").decode("utf-8"))
             except (zipfile.BadZipFile, KeyError, OSError, ValueError) as exc:
+                report["replay"] = {"status": "unavailable", "reason": str(exc)}
+                report["exit_code"] = 1
+                return report
+            except SealedBundleError as exc:
                 report["replay"] = {"status": "unavailable", "reason": str(exc)}
                 report["exit_code"] = 1
                 return report

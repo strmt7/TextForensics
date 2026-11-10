@@ -31,6 +31,141 @@ SEALING_KEY_ALGORITHM = "ed25519"
 
 _CASE_BODY_EXCLUDED_KEYS = frozenset({"case_sha256", "created_at_utc"})
 
+# ---------------------------------------------------------------------------
+# Portable-case privacy policy (W1: C03 — shared helper, single owner).
+#
+# The recursive forbidden-key policy is the ONE implementation of the
+# raw-text portability check.  It is consumed by the sealer, the case
+# writer (via the sealer), the primary and combined verifiers, and the
+# packer (via primary verification).  The standalone verifier
+# (``_standalone_verify.py``) cannot import this package — it must stay
+# a stdlib-only file that ships inside bundles — so it carries a
+# verbatim mirror of the key set, pinned equal by
+# ``tests/test_w1_worker_d.py::TestC03WholeCasePrivacy::
+# test_standalone_forbidden_key_set_matches_canonical``.
+#
+# Policy (key-based, never content-guessing):
+# * A key whose stripped, lower-cased name is in
+#   ``FORBIDDEN_RAW_TEXT_KEYS`` may carry literal source text, so it is
+#   rejected anywhere in a completed portable case unless the caller
+#   explicitly opts in (see ``check_case_portability``).
+# * Every other key is permitted, including the free-text process
+#   metadata fields listed in ``ALLOWED_PROCESS_METADATA_KEYS``
+#   (reviewer ``reasoning``, checklist ``note``, disposition ``reason``,
+#   ...).  Their *values* are never scanned or guessed at: legitimate
+#   free-text reasoning that happens to quote source material is not
+#   prohibited by guessing its content.
+# * ``raw_text_included`` is never emitted contradictorily: the default
+#   (``allow_raw_text=False``) seals ``raw_text_included=False`` only
+#   after the whole-case check passes; the explicit opt-in seals
+#   ``raw_text_included=True``.  An opted-in case is accurately
+#   labelled but is NOT portable evidence — portable verification
+#   refuses it (``raw_text_policy_violation``) rather than passing it
+#   off as clean.
+# ---------------------------------------------------------------------------
+
+FORBIDDEN_RAW_TEXT_KEYS = frozenset(
+    {
+        "text",
+        "raw_text",
+        "source_text",
+        "document_text",
+        "content",
+        "snippet",
+        "quote",
+        "excerpt",
+    }
+)
+
+# Process-metadata fields whose free-text values are legitimate reviewer
+# reasoning / process records.  They are documented here so the boundary
+# is explicit; the checker never scans their values.
+ALLOWED_PROCESS_METADATA_KEYS = frozenset(
+    {
+        # Checklist items (D1-D10).
+        "status",
+        "evidence",
+        "actor",
+        "at_utc",
+        "note",
+        # Reviewer (D4) / appeal (D5) / subject response (D7).
+        "identity",
+        "role",
+        "reasoning",
+        "agreed_with_tool",
+        "decider",
+        "appeal_decider",
+        "route",
+        "deadline",
+        "opportunity_given",
+        "response_attached",
+        # Retention (D9).
+        "period",
+        "legal_basis",
+        "access",
+        "disposal",
+        "expungement",
+        # Evidence dispositions (D1) / alternative explanations (D3).
+        "disposition",
+        "reason",
+        "tested",
+        "outcome",
+        # Contrary evidence (D2).
+        "detector_id",
+    }
+)
+
+
+def find_forbidden_raw_text_keys(value: Any, path: str = "$") -> list[str]:
+    """Recursively find forbidden raw-text keys in *value*.
+
+    Returns the JSON-style paths (``$.process.reviewer.raw_text``,
+    ``$.limitations.counterfactuals[0].excerpt``) of every mapping key
+    whose stripped, lower-cased name is in
+    :data:`FORBIDDEN_RAW_TEXT_KEYS`.  Mapping values, list items and
+    nested mappings are all scanned.  Only key *names* are inspected —
+    values are never read for content.
+    """
+    found: list[str] = []
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            key_string = str(key)
+            child_path = f"{path}.{key_string}"
+            if key_string.strip().lower() in FORBIDDEN_RAW_TEXT_KEYS:
+                found.append(child_path)
+            found.extend(find_forbidden_raw_text_keys(child, child_path))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            found.extend(find_forbidden_raw_text_keys(child, f"{path}[{index}]"))
+    return found
+
+
+def check_case_portability(case: Any, *, allow_raw_text: bool = False) -> list[str]:
+    """Check a completed case for smuggled literal source text.
+
+    Returns the list of forbidden-key paths (empty when the case is
+    portable).  With ``allow_raw_text=True`` the caller has explicitly
+    opted in to retaining raw material, so no paths are reported — the
+    caller must then record ``raw_text_included=True`` accurately (see
+    :func:`textforensics.casefile.seal_case_file`).  Never raises for
+    bad input: a non-mapping case reports its own path.
+    """
+    if allow_raw_text:
+        return []
+    if not isinstance(case, Mapping):
+        return ["$"]
+    return find_forbidden_raw_text_keys(case)
+
+
+def assert_case_portable(case: Any, *, allow_raw_text: bool = False) -> None:
+    """Raise ``ValueError`` unless :func:`check_case_portability` passes."""
+    forbidden = check_case_portability(case, allow_raw_text=allow_raw_text)
+    if forbidden:
+        raise ValueError(
+            "Portable case files reject fields that may contain raw source text: "
+            + ", ".join(forbidden[:5])
+        )
+
 
 def _b64encode(data: bytes) -> str:
     return base64.b64encode(data).decode("ascii")

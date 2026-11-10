@@ -2156,7 +2156,7 @@ def verify_detectrl_x_file(path: str | Path) -> Path:
     return path
 
 
-def iter_detectrl_x_rows(path: str | Path):
+def iter_detectrl_x_rows(path: str | Path, *, max_object_bytes: int = 16 * 1024 * 1024):
     """Yield ``(row_index, row_dict)`` from a DetectRL-X JSON-array file, streaming.
 
     The general file is ~879 MB; loading it whole would need several
@@ -2166,48 +2166,111 @@ def iter_detectrl_x_rows(path: str | Path):
     2026-11-07: the file starts ``[{``); anything else — JSONL, a
     bare object, truncated input — raises :class:`DatasetFetchError`
     instead of being guessed at.
+
+    Grammar (W1: CORE-09) — strict, state-machine enforced:
+
+    * ``[`` then zero or more objects separated by exactly one comma
+      each; no leading, repeated or trailing comma; no missing comma
+      between elements; exactly one top-level array.
+    * After the closing ``]`` only whitespace may follow: EOF is
+      required, and any trailing data is rejected.
+    * Each object is capped by ``max_object_bytes`` (default 16 MiB):
+      a single object that cannot be decoded within that budget is
+      rejected instead of growing the buffer without bound, and the
+      rolling buffer never holds more than one partial object plus
+      one read chunk.  Streaming is preserved: rows are yielded as
+      they decode; the file is never read into memory whole.
+    * Malformed Unicode (invalid UTF-8 bytes, truncated sequences)
+      and pathological nesting depth are rejected as
+      :class:`DatasetFetchError`, never as a bare codec or recursion
+      exception escaping the parser.
     """
     decoder = json.JSONDecoder()
     path = Path(path)
     buf = ""
     eof = False
+    chunk_size = 1 << 20
     with path.open("r", encoding="utf-8") as handle:
 
         def _fill() -> bool:
             nonlocal buf, eof
             if eof:
                 return False
-            chunk = handle.read(1 << 20)
+            try:
+                chunk = handle.read(chunk_size)
+            except UnicodeDecodeError as exc:
+                raise DatasetFetchError("detectrl_x: file is not valid UTF-8") from exc
             if not chunk:
                 eof = True
                 return False
             buf += chunk
+            if len(buf) > max_object_bytes + chunk_size:
+                raise DatasetFetchError(
+                    f"detectrl_x: single object exceeds the {max_object_bytes}-byte object budget"
+                )
             return True
 
-        def _skip_ws_commas() -> None:
+        def _skip_ws() -> None:
+            """Drop leading whitespace, filling until non-ws or EOF."""
             nonlocal buf
             while True:
-                buf = buf.lstrip(" \t\r\n,")
-                if buf or eof:
+                stripped = buf.lstrip(" \t\r\n")
+                if stripped:
+                    buf = stripped
                     return
-                _fill()
+                buf = ""
+                if not _fill():
+                    return
 
-        _skip_ws_commas()
-        if not buf.startswith("["):
+        def _peek() -> str:
+            """First non-whitespace character, or "" at EOF."""
+            _skip_ws()
+            return buf[:1]
+
+        def _require_eof_after_close() -> None:
+            """After ']', only whitespace may follow, then EOF."""
+            while True:
+                _skip_ws()
+                if not buf:
+                    if eof:
+                        return
+                    _fill()
+                    continue
+                raise DatasetFetchError("detectrl_x: trailing data after the closing JSON array")
+
+        first = _peek()
+        if first != "[":
             raise DatasetFetchError(
                 "detectrl_x: expected a JSON array file (first non-whitespace "
-                f"character is {buf[:1]!r}, not '[')"
+                f"character is {first!r}, not '[')"
             )
         buf = buf[1:]
         index = 0
+        expect_element = True  # after '[' or ','; False after an object
         while True:
-            _skip_ws_commas()
+            char = _peek()
             if eof and not buf:
                 raise DatasetFetchError(
                     "detectrl_x: file ended before the JSON array closed (truncated?)"
                 )
-            if buf.startswith("]"):
+            if char == "]":
+                if index > 0:
+                    # Reached only after a comma: a trailing comma.
+                    raise DatasetFetchError("detectrl_x: trailing comma in JSON array")
+                buf = buf[1:]
+                _require_eof_after_close()
                 return
+            if char == ",":
+                raise DatasetFetchError("detectrl_x: unexpected comma in JSON array")
+            if not expect_element:
+                raise DatasetFetchError(
+                    f"detectrl_x: expected ',' or ']' after row {index - 1}, "
+                    f"found {char!r} (missing comma?)"
+                )
+            if char != "{":
+                raise DatasetFetchError(
+                    f"detectrl_x: row {index} is not a JSON object (found {char!r})"
+                )
             try:
                 obj, end = decoder.raw_decode(buf)
             except json.JSONDecodeError:
@@ -2217,6 +2280,14 @@ def iter_detectrl_x_rows(path: str | Path):
                     ) from None
                 _fill()
                 continue
+            except RecursionError as exc:
+                raise DatasetFetchError(
+                    f"detectrl_x: row {index} exceeds the nesting-depth budget"
+                ) from exc
+            if end > max_object_bytes:
+                raise DatasetFetchError(
+                    f"detectrl_x: row {index} exceeds the {max_object_bytes}-byte object budget"
+                )
             if not isinstance(obj, dict):
                 raise DatasetFetchError(
                     f"detectrl_x: row {index} is {type(obj).__name__}, expected object"
@@ -2224,6 +2295,25 @@ def iter_detectrl_x_rows(path: str | Path):
             yield index, obj
             index += 1
             buf = buf[end:]
+            expect_element = False
+            # After an object, the separator must be ',' or ']'.
+            char = _peek()
+            if eof and not buf:
+                raise DatasetFetchError(
+                    "detectrl_x: file ended before the JSON array closed (truncated?)"
+                )
+            if char == ",":
+                buf = buf[1:]
+                expect_element = True
+            elif char == "]":
+                buf = buf[1:]
+                _require_eof_after_close()
+                return
+            else:
+                raise DatasetFetchError(
+                    f"detectrl_x: expected ',' or ']' after row {index - 1}, "
+                    f"found {char!r} (missing comma?)"
+                )
 
 
 def sample_detectrl_x_rows(

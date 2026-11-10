@@ -64,6 +64,44 @@ MAX_TIMESTAMP_TOKEN_BYTES = 1024 * 1024
 COMMENT_PREFIX = "mpl-bundle-sha256:"
 ZIP_STORED = 0
 
+# Portable-case privacy policy (W1: C03) — verbatim mirror of
+# ``textforensics.sealing.FORBIDDEN_RAW_TEXT_KEYS``.  This file cannot
+# import the package (it must stay stdlib-only and shippable inside
+# bundles), so the key set is duplicated here by design and pinned
+# equal by the package test suite
+# (``tests/test_w1_worker_d.py::TestC03WholeCasePrivacy::
+# test_standalone_forbidden_key_set_matches_canonical``).  Change the
+# set in sealing.py first, then mirror it here and re-run that test.
+FORBIDDEN_RAW_TEXT_KEYS = frozenset(
+    {
+        "text",
+        "raw_text",
+        "source_text",
+        "document_text",
+        "content",
+        "snippet",
+        "quote",
+        "excerpt",
+    }
+)
+
+
+def _find_forbidden_raw_text_keys(value, path="$"):
+    """Mirror of ``textforensics.sealing.find_forbidden_raw_text_keys``."""
+    found = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            key_string = str(key)
+            child_path = f"{path}.{key_string}"
+            if key_string.strip().lower() in FORBIDDEN_RAW_TEXT_KEYS:
+                found.append(child_path)
+            found.extend(_find_forbidden_raw_text_keys(child, child_path))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            found.extend(_find_forbidden_raw_text_keys(child, f"{path}[{index}]"))
+    return found
+
+
 HONEST_LIMITS = [
     "A hash seal cannot prove the underlying analysis was RUN: a "
     "fabricated but internally consistent bundle passes seal checks. "
@@ -1329,6 +1367,15 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
         report["scope_statement"] = "seal: not verified (manifest malformed)"
         return report
     manifest_names = [f.get("path") for f in manifest_files if isinstance(f, dict)]
+    # Validate path shapes BEFORE sorting (W1: C12): sorting a mix of
+    # strings and non-strings (None, numbers) raises TypeError instead
+    # of failing verification.  A non-string path is a malformed
+    # manifest, reported as a structured failure.
+    if any(not isinstance(name, str) for name in manifest_names):
+        fail("seal_manifest_files", "manifest file path is not a string")
+        report["exit_code"] = 1
+        report["scope_statement"] = "seal: not verified (manifest malformed)"
+        return report
     if manifest_names != sorted(manifest_names):
         fail("seal_manifest_order", "manifest files are not in sorted order")
     digest_errors = []
@@ -1383,6 +1430,20 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
         fail("seal_case_hash", "case_sha256 does not match the recomputed case hash")
     else:
         ok("seal_case_hash", "case_sha256 matches the recomputed case hash")
+    # Whole-case portability (W1: C03): a portable case declares raw
+    # text absent, so forbidden raw-text keys anywhere in the case —
+    # not only in the forensic bundle — fail verification, and a
+    # non-False raw_text_included flag is not portable evidence.
+    if case.get("raw_text_included") is not False:
+        fail("seal_case_raw_text_policy", "case raw_text_included is not False")
+    forbidden = _find_forbidden_raw_text_keys(case)
+    if forbidden:
+        fail(
+            "seal_case_raw_text",
+            "case carries fields that may contain raw source text: " + ", ".join(forbidden[:5]),
+        )
+    else:
+        ok("seal_case_raw_text", "no raw-text fields in the case")
     if case_id is not None and case_id != case.get("case_sha256"):
         fail("seal_case_id", "manifest case_id does not match case_sha256")
     elif case_id is not None:

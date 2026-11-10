@@ -173,19 +173,37 @@ def verify_case_file(payload: dict[str, Any]) -> dict[str, Any]:
           matches the re-derived value
         - seal_verified: True if the case hash seal matches
         - dimensions: per-dimension verification results
+
+    Never raises for malformed data: a non-mapping payload, a
+    non-object dimension, or a non-list ``detector_results`` is a
+    structured invalid result (W1: C12).  Only genuine programming
+    errors (bugs in this function itself) propagate.
     """
     errors: list[str] = []
     info: dict[str, Any] = {}
     dimensions_status: dict[str, str] = {}
+
+    if not isinstance(payload, dict):
+        return {
+            "valid": False,
+            "errors": ["case file must be a JSON object"],
+            "seal_verified": False,
+            "trust_map_verified": False,
+            "dimensions": {},
+        }
 
     # --- Schema ---
     case_schema = payload.get("schema", "")
     if case_schema not in _CASE_FILE_SCHEMAS:
         errors.append(f"unexpected case schema: {case_schema!r}")
 
-    # --- Raw text policy ---
+    # --- Raw text policy (W1: C03) ---
     if payload.get("raw_text_included") is not False:
         errors.append("raw_text_included must be False")
+    from .sealing import find_forbidden_raw_text_keys
+
+    if find_forbidden_raw_text_keys(payload):
+        errors.append("raw_text_present_in_case")
 
     # --- Case hash seal (re-computed independently) ---
     bundle = payload.get("forensic_bundle")
@@ -246,7 +264,10 @@ def verify_case_file(payload: dict[str, Any]) -> dict[str, Any]:
         else:
             for dim in dims:
                 status = _verify_trust_dimension(dim, allow_stale=is_v3)
-                dname = dim.get("dimension", "<unnamed>")
+                # A non-object dimension has no name to report (W1:
+                # C12): it was already reported as an error above, so
+                # do not call .get on it here.
+                dname = dim.get("dimension", "<unnamed>") if isinstance(dim, dict) else "<unnamed>"
                 dimensions_status[dname] = status
                 if status != "ok":
                     errors.append(f"trust dimension {dname}: {status}")
@@ -280,7 +301,11 @@ def verify_case_file(payload: dict[str, Any]) -> dict[str, Any]:
             errors.append("input.raw_text_included must be False")
 
         # --- Detector results sanity ---
-        for dr in bundle.get("detector_results", []):
+        detector_results = bundle.get("detector_results", [])
+        if not isinstance(detector_results, list):
+            errors.append("detector_results is not a list")
+            detector_results = []
+        for dr in detector_results:
             if isinstance(dr, dict):
                 if dr.get("schema") not in _DETECTOR_RESULT_SCHEMAS:
                     errors.append(f"detector {dr.get('detector_id')} has wrong schema")
@@ -335,7 +360,9 @@ def verify_case_file_combined(
     The primary-path check raises ``ValueError`` on non-finite floats
     (its canonical JSON uses ``allow_nan=False``); the combined entry
     point never raises for bad data — it reports the file invalid
-    instead.
+    instead.  The same applies to malformed shapes (``TypeError`` /
+    ``AttributeError`` / ``KeyError`` from non-object dimensions or
+    manifest entries, W1: C12).
 
     ``public_key`` supplies the Ed25519 public key for cryptographic
     verification of a v3 T2 signature in the primary path.  Without
@@ -353,12 +380,15 @@ def verify_case_file_combined(
         from .casefile import verify_case_file as _casefile_verify
 
         primary = _casefile_verify(payload, public_key=public_key)
-    except ValueError as exc:
+    except (ValueError, TypeError, AttributeError, KeyError) as exc:
+        # Malformed data at the public boundary (W1: C12) is a
+        # structured invalid result, never an escaping exception.
+        # Anything else (a genuine programming error) propagates.
         primary = {
             "valid": False,
             "errors": [f"primary verification failed: {exc}"],
-            "schema": payload.get("schema"),
-            "case_sha256": payload.get("case_sha256"),
+            "schema": payload.get("schema") if isinstance(payload, dict) else None,
+            "case_sha256": payload.get("case_sha256") if isinstance(payload, dict) else None,
             "note": None,
         }
     errors = list(nversion.get("errors", [])) + list(primary.get("errors", []))

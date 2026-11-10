@@ -55,6 +55,7 @@ from .evidence import (
     aggregate_coverage_states,
     coverage_for_predictions,
 )
+from .execution_policy import CompletenessAccounting
 
 TRUST_STATES = ("supported", "partial", "unknown", "out_of_scope")
 TRUST_STATES_V3 = TRUST_STATES + ("stale",)
@@ -183,25 +184,90 @@ def _diversity_dimension(
     )
 
 
+def _parse_row_completeness(row: Mapping[str, Any]) -> CompletenessAccounting | None:
+    """Parse a robustness row's completeness record (W1: CORE-07).
+
+    Returns ``None`` for legacy rows that carry no ``completeness``
+    mapping: rows sealed before completeness accounting existed keep
+    their prior contract (their ``verdict_stability`` is used as
+    before).  Raises ``ValueError`` when a present record is malformed
+    (not a mapping, missing counts, or non-integer counts); such a row
+    is unusable, never silently treated as complete.
+    """
+    if "completeness" not in row:
+        return None
+    data = row["completeness"]
+    if not isinstance(data, Mapping):
+        raise ValueError("robustness completeness must be a mapping")
+    counts: dict[str, int] = {}
+    for name in ("selected", "attempted", "succeeded", "abstained", "failed"):
+        value = data.get(name)
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError(f"robustness completeness {name} must be an integer")
+        counts[name] = value
+    return CompletenessAccounting(**counts)
+
+
 def _stability_dimension(
     robustness: Iterable[Mapping[str, Any]],
     *,
     max_native_drift: float | None,
 ) -> TrustDimension:
+    """Benign-transformation stability dimension (W1: CORE-07).
+
+    A row is usable for support only when its ``verdict_stability`` is
+    numeric AND — when it carries a completeness record — that record
+    is :attr:`CompletenessAccounting.support_eligible` (the complete
+    probe set ran with every probe succeeding).  An incomplete or
+    failed probe set can therefore never yield ``supported``: its
+    survivor-only value is excluded from the floor, and its counts
+    stay visible in ``observed["completeness"]`` with their
+    denominators.  Adding failures can never increase support.
+    Legacy rows without a completeness record keep their prior
+    contract (see :func:`_parse_row_completeness`).
+    """
     usable: list[Mapping[str, Any]] = []
+    completeness_records: list[dict[str, Any]] = []
+    excluded_incomplete = 0
     for row in robustness:
         if not isinstance(row, Mapping):
             continue
+        try:
+            accounting = _parse_row_completeness(row)
+        except ValueError:
+            excluded_incomplete += 1
+            continue
+        if accounting is not None:
+            record = accounting.to_dict()
+            record["detector_id"] = row.get("detector_id")
+            completeness_records.append(record)
         value = row.get("verdict_stability")
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             continue
+        if accounting is not None and not accounting.support_eligible:
+            excluded_incomplete += 1
+            continue
         usable.append(row)
 
+    observed: dict[str, Any] = {}
+    if completeness_records:
+        observed["completeness"] = completeness_records
+    if excluded_incomplete:
+        observed["incomplete_probe_sets_excluded"] = excluded_incomplete
+
     if not usable:
+        reason = "No usable benign-transformation stability evidence is available."
+        if excluded_incomplete:
+            reason = (
+                "No usable benign-transformation stability evidence is available: "
+                f"{excluded_incomplete} probe set(s) did not complete successfully, "
+                "so no stability claim can be supported from them."
+            )
         return TrustDimension(
             dimension="benign_stability",
             state="unknown",
-            reason="No usable benign-transformation stability evidence is available.",
+            reason=reason,
+            observed=observed,
             limitations=[
                 "Representation probes are not semantic rewrites and do not "
                 "establish paraphrase robustness."
@@ -237,6 +303,18 @@ def _stability_dimension(
             "score range, or exceeded the declared drift bound under a benign probe."
         )
 
+    limitations = [
+        "Native score ranges remain in each detector's own units and are "
+        "not compared across detectors.",
+        "Current probes cover representation stability, not semantic rewriting.",
+    ]
+    if excluded_incomplete:
+        limitations.append(
+            f"{excluded_incomplete} incomplete or failed probe set(s) were excluded "
+            "from this stability decision; their counts stay visible in the "
+            "observed completeness records."
+        )
+
     return TrustDimension(
         dimension="benign_stability",
         state=state,
@@ -245,12 +323,9 @@ def _stability_dimension(
             "detectors": drift_rows,
             "verdict_stability_floor": round(verdict_floor, 6),
             "max_native_drift_policy": max_native_drift,
+            **observed,
         },
-        limitations=[
-            "Native score ranges remain in each detector's own units and are "
-            "not compared across detectors.",
-            "Current probes cover representation stability, not semantic rewriting.",
-        ],
+        limitations=limitations,
     )
 
 
