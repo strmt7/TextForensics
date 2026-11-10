@@ -152,15 +152,21 @@ Detail lives in `~/workspace/goals/textforensics-complete-revamp/hidden_files/`
 - **Docs wave: in progress.** This file, README / CHANGELOG /
   SECURITY / RELEASE / SPEC / CLAIMS / VERIFICATION consistency
   against current main.
-- **Remaining release-gate items:** live-TSA interop (never achieved from the sandbox VM),
-  plain `docker run` of the container on this VM (still blocked by
+- **Remaining release-gate items:** plain `docker run` of the container on this VM (still blocked by
   the host netns bind-mount EPERM — the container run itself was
   proven via crun-direct, 15/15 checks — and in-container
   HEALTHCHECK execution is unverified), and the coverage gate (now
   `--fail-under=75` in CI Core, measured on core-only coverage:
   78.43% on 928dbc0, 78.49% on e65fde9, 76.95% on a1e7857 — the
   ~81% extras-venv figure is not what CI Core measures).
-  Closed since this list was written: the worst-slice human FPR
+  Closed since this list was written: live-TSA interop (round-trip
+  achieved vs freetsa 2026-11-10, `valid=True`, four independent
+  runs; two pre-existing client defects fixed — the wrong
+  id-signedData OID and wrong P-384 curve constants — merged
+  `7a3d28f`; evidence seeding for the round-trip is an open design
+  question, `seed_evidence.py` has no TSA measurement, and the
+  round-trip is recorded in `docs/TSA_INTEROP.md` with token SHAs),
+  the worst-slice human FPR
   (OpAI-Bench document slice now n=218, Wilson 95% upper 0.0173,
   record `evr-20261110-opai-bench-builtin-heuristic` supported,
   merged `cc9a272`, applied `48ae5bc`; the report-card lead stays

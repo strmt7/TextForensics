@@ -1,6 +1,6 @@
 # Verification record — Phase 1 (2026-11-06)
 
-## Current state (HEAD `48ae5bc`, 2026-11-10)
+## Current state (HEAD `7a3d28f`, 2026-11-10)
 
 Read this first. The dated sections below are historical records;
 their numbers are the numbers as measured at the time, and some of
@@ -24,6 +24,26 @@ the end of this file):
   no FPR claim is written). Neither the FPR merge nor the apply
   changes any `src/` code, so the `8c8a1cf` suite numbers stand as
   the latest full measurements.
+- **Since `48ae5bc` (merge to `7a3d28f`):** live-TSA interop
+  (`7a3d28f`): a live timestamp round-trip was achieved against
+  freetsa (`valid=True`, four independent runs 08:50–09:40 UTC,
+  serials strictly increasing), closing the release blocker. The
+  wave found and fixed two pre-existing client defects from
+  `8eb4163` that had made every conforming token unverifiable: the
+  wrong id-signedData OID (`1.9.16.1.2` → `1.7.2`) and wrong P-384
+  curve constants (`n` had 8 extra leading `F`s, `gy` was truncated
+  to 64 hex chars) — both verified numerically by the parent
+  (generator on curve, `n*G` = infinity, values match OpenSSL's
+  secp384r1 exactly) and by a fresh live round-trip (09:40 UTC,
+  serial `166107095`, `valid=True`). Gates on the merged tree:
+  claims 33/33, schemas 12 OK, pre-commit 13/13, 55 timestamp
+  tests passed. Evidence seeding for the round-trip is an open
+  design question (`seed_evidence.py` has no TSA measurement); the
+  round-trip is recorded in `docs/TSA_INTEROP.md` with token SHAs.
+  This merge DOES change `src/` (`timestamp.py`,
+  `_standalone_verify.py`), so the `8c8a1cf` suite numbers remain
+  the latest full measurements; only the TSA-affected test files
+  were re-run on the merged tree.
 
 - **Since `fb1e23a` (merges to `8c8a1cf`):** action upgrades
   (`21ff98e`: checkout v7.0.1, gitleaks v3.0.0, scorecard v2.5.0),
