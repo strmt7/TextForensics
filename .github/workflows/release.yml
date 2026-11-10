@@ -3,6 +3,35 @@ name: Release
 # Manual release pipeline with supply-chain attestations.
 # Modeled after rejection-rejector's release.yml, adapted for Python.
 #
+# PROMOTION BOUNDARY (ENG-04/05/06/14; see docs/verification/promotion-boundary.md):
+# A release publishes ONLY a candidate SHA whose REQUIRED acceptance results
+# all exist and passed for that exact SHA. The `acceptance-gate` job enforces
+# this BEFORE any signing/publication step, via scripts/promotion_gate.py
+# (read-only `gh api` check-runs lookup). Required gates accept ONLY `pass`
+# in the shared vocabulary (pass/fail/skipped/unavailable/not_applicable/
+# zero_work). Missing, skipped, failed, stale-SHA, or incomplete required
+# results ALL block promotion. The `release` job also runs the full
+# canonical pytest collection (not unittest discovery: 267 module-level
+# pytest test functions on current main are invisible to unittest
+# discovery) plus claims / pip-audit / locked-SBOM checks and the canonical
+# verification command, so the release path and the local command agree.
+#
+# Required-check set (check-run display names; see promotion_gate.py):
+#   CI / Claims-to-evidence gate (U7)                 (claims)
+#   CI / Core Python <matrix>                         (full pytest)
+#   CI / Pinned requirements install                 (pinned install)
+#   CI / Checked-in SBOM is not stale                 (locked SBOM)
+#   CI / Build and wheel-install                      (installed distribution)
+#   Supply-chain security / pip-audit gate            (pip-audit)
+#   Supply-chain security / Software Bill of Materials(SBOM)
+#   Reproducibility / Build Reproducibility          (reproducibility)
+#   Repository Integrity / Sigstore Verification      (integrity)
+#   Repository Integrity / Build Provenance           (integrity)
+#   Enterprise Deep Verification / Full Test Suite    (deep verification)
+# The integrity/deep-verification workflows run on schedule/dispatch, not
+# push: dispatch them for the candidate SHA before promoting; until their
+# check-runs exist for that SHA the gate reports `unavailable` and blocks.
+#
 # Requires an explicit "RELEASE" confirmation input so the pipeline can never
 # be triggered by accident (no automatic tag/push triggers).
 #
@@ -12,6 +41,10 @@ name: Release
 # - attestations: write -> publish provenance to the repo attestation store
 #
 # Signatures are produced in keyless mode (no stored private keys in CI).
+# The signing/TSA trust identity and credential policy is a HUMAN-ONLY
+# decision (see docs/verification/promotion-boundary.md): this workflow
+# uses the repository's existing keyless Sigstore identity and invents no
+# signer identity of its own.
 
 on:
   workflow_dispatch:
@@ -32,10 +65,39 @@ env:
   PYTHON_VERSION: "3.12"
 
 jobs:
+  # Exact-SHA acceptance gate (ENG-04). Runs BEFORE any signing or
+  # publication step; the release job needs this job. Fails unless every
+  # required check is `success` for the exact candidate SHA.
+  acceptance-gate:
+    name: Acceptance gate (exact-SHA promotion boundary)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Verify required acceptance results for candidate SHA
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/promotion_gate.py \
+            --sha "${{ github.sha }}" \
+            --repo "${{ github.repository }}"
+
   release:
     name: Build, attest and publish release
+    needs: [acceptance-gate]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     permissions:
       contents: write
       id-token: write
@@ -72,16 +134,53 @@ jobs:
           echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Releasing textforensics v${VERSION}"
 
-      - name: Lint and test before release
+      # ENG-04: canonical pytest collection, not unittest discovery, plus
+      # the acceptance checks the old dispatch path skipped entirely
+      # (claims, pip-audit, locked SBOM). Thresholds are never lowered and
+      # failing tests are never ignored to satisfy publication.
+      - name: Lint and full test suite before release
         run: |
           python -m pip install -e ".[dev,all]"
           ruff check src tests
-          python -m unittest discover -s tests -v
+          python -m pytest tests -q
+
+      - name: Claims gate
+        run: python scripts/check_claims.py
+
+      - name: pip-audit gate
+        run: python scripts/check_pip_audit.py --report pip-audit-gate.json
+
+      - name: Locked SBOM is not stale
+        run: python scripts/generate_sbom.py --check
+
+      # Canonical verification command (Worker B, W0): exit 0 pass, 1 gate
+      # failed, 2 incomplete. Exit 1 AND exit 2 BOTH block promotion, and
+      # a missing script blocks too (fail closed, never silently skipped).
+      - name: Canonical verification (scripts/verify_release.py)
+        run: |
+          if [ ! -f scripts/verify_release.py ]; then
+            echo "::error::scripts/verify_release.py is absent (W0 canonical verification command); promotion is blocked until it lands."
+            exit 1
+          fi
+          python scripts/verify_release.py
 
       - name: Build distributions (wheel + sdist)
         run: |
           python -m build
           python -m twine check dist/*
+
+      # ENG-04/ENG-01: the installed wheel must serve its advertised web
+      # console. Reinstall the wheel itself (--no-deps: API deps are
+      # already installed from .[dev,all]) and construct the web app from
+      # the installed files, not from the checkout.
+      # KNOWN-RED until W6 fixes ENG-01 (web templates/static are not
+      # packaged): this step is expected to fail until then, and that
+      # failure correctly blocks publication.
+      - name: Installed-web smoke (wheel, outside the checkout)
+        run: |
+          python -m pip install --force-reinstall --no-deps dist/*.whl
+          python -c "from textforensics.web_ui.main import create_web_app; create_web_app(); print('installed web app constructs OK')"
+          python -m pip install -e ".[dev,all]"
 
       - name: Create source tarball from Git tree
         run: |
@@ -95,27 +194,8 @@ jobs:
           python scripts/publish_release.py changelog \
             --output release-notes.md
 
-      - name: Generate checksums
-        run: |
-          cd dist
-          sha256sum * > SHA256SUMS
-
       - name: Install cosign
         uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
-
-      # Keyless signing: cosign obtains a short-lived certificate from Sigstore
-      # Fulcio using the GitHub Actions OIDC token. No private keys are stored.
-      # cosign sign-blob supports this in CI ("keyless/unsigned-key" mode).
-      - name: Sign release notes and artifacts with cosign (keyless)
-        run: |
-          set -euo pipefail
-          python scripts/publish_release.py sign-notes --notes release-notes.md
-          for f in dist/*; do
-            case "$f" in
-              *.sig|*.bundle) continue ;;
-            esac
-            cosign sign-blob --yes "$f" --bundle "${f}.bundle" --output-signature "${f}.sig"
-          done
 
       - name: Generate CycloneDX SBOM for built artifacts
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0 (2026-03-19 tip, Syft v1.42.3)
@@ -144,17 +224,6 @@ jobs:
             --bundle dist/textforensics-sbom.spdx.json.bundle \
             --output-signature dist/textforensics-sbom.spdx.json.sig
 
-      - name: Upload SBOM artifact
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: textforensics-sbom-${{ steps.meta.outputs.version }}
-          path: |
-            dist/textforensics-sbom.cdx.json
-            dist/textforensics-sbom.spdx.json
-            dist/textforensics-sbom.cdx.json.sig
-            dist/textforensics-sbom.spdx.json.sig
-          if-no-files-found: error
-
       # Publishes SLSA-style build provenance for the wheel, sdist and source
       # tarball to the repository attestation store, and saves the signed DSSE
       # bundles next to the artifacts so they can be attached to the release.
@@ -177,21 +246,69 @@ jobs:
           done
           ls -la provenance/
 
+      # Keyless signing: cosign obtains a short-lived certificate from Sigstore
+      # Fulcio using the GitHub Actions OIDC token. No private keys are stored.
+      # cosign sign-blob supports this in CI ("keyless/unsigned-key" mode).
+      # ENG-06: sign-notes FAILS in publication mode when cosign is absent
+      # (a checksum is not an authenticity signature). The loop signs every
+      # artifact in dist/ (payloads and SBOMs alike) before checksums are
+      # generated, so SHA256SUMS covers the complete attached set.
+      - name: Sign release notes and artifacts with cosign (keyless)
+        run: |
+          set -euo pipefail
+          python scripts/publish_release.py sign-notes --notes release-notes.md
+          for f in dist/*; do
+            case "$f" in
+              *.sig|*.bundle) continue ;;
+            esac
+            cosign sign-blob --yes "$f" --bundle "${f}.bundle" --output-signature "${f}.sig"
+          done
+
+      # ENG-06: checksums are generated AFTER the complete payload set is
+      # defined (wheel, sdist, source tarball, SBOM payloads + signatures,
+      # signed notes, provenance), so "checksums for every attached
+      # artifact" is true. SHA256SUMS itself is the manifest and is not
+      # self-checksummed; the notes digest is also recorded in
+      # release-notes.md.sha256.
+      - name: Generate checksums for every attached artifact
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS
+          sha256sum ../release-notes.md ../release-notes.md.sig ../release-notes.md.bundle ../release-notes.md.sha256 ../provenance/*.intoto.jsonl >> SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: textforensics-sbom-${{ steps.meta.outputs.version }}
+          path: |
+            dist/textforensics-sbom.cdx.json
+            dist/textforensics-sbom.spdx.json
+            dist/textforensics-sbom.cdx.json.sig
+            dist/textforensics-sbom.spdx.json.sig
+          if-no-files-found: error
+
+      # ENG-05: upload fails closed (exact RELEASE_CONFIRMATION, typed
+      # mandatory manifest, per-asset digest validation, tag -> commit
+      # binding) before any `gh release create` is launched.
       - name: Create GitHub Release and upload artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_CONFIRMATION: ${{ github.event.inputs.confirmation }}
         run: |
           python scripts/publish_release.py upload \
             --notes release-notes.md \
             --dist-dir dist \
             --provenance-dir provenance \
             --tag "${{ steps.meta.outputs.tag }}" \
-            --version "${{ steps.meta.outputs.version }}"
+            --version "${{ steps.meta.outputs.version }}" \
+            --source-sha "${{ github.sha }}"
 
       - name: Release summary
         run: |
           echo "Published textforensics v${{ steps.meta.outputs.version }}"
-          echo "  - signed changelog:  release-notes.md (+ cosign signature/bundle)"
-          echo "  - SBOM:              CycloneDX + SPDX JSON (signed, uploaded as artifact)"
+          echo "  - signed changelog:  release-notes.md (+ cosign signature/bundle, attached)"
+          echo "  - SBOM:              CycloneDX + SPDX JSON payloads, signed, attached to the release"
           echo "  - provenance:        SLSA build provenance via actions/attest-build-provenance@v4"
-          echo "  - artifacts:         wheel, sdist, source tarball, SHA256SUMS (cosign-signed)"
+          echo "  - artifacts:         wheel, sdist, source tarball, SHA256SUMS (covers every attached artifact)"
+          echo "  - acceptance gate:   all required checks passed for ${{ github.sha }}"

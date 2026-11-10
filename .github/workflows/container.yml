@@ -1,5 +1,28 @@
 name: Container
 
+# Candidate build is SEPARATE from promotion (ENG-14; see
+# docs/verification/promotion-boundary.md).
+#
+# - On main push / schedule / plain workflow_dispatch, this workflow builds
+#   a candidate image ONLY. It never pushes, never writes a mutable tag
+#   (`latest`, version, short-SHA), and never calls the work a governed
+#   release. The candidate digest is recorded in the job summary.
+# - Promotion (pushing `latest` / version / short-SHA tags) happens ONLY
+#   via an explicit workflow_dispatch with confirmation exactly `PROMOTE`
+#   and a candidate SHA, AFTER the exact-SHA acceptance gate
+#   (scripts/promotion_gate.py, same required set as the release workflow)
+#   passes for that SHA, AND after the rebuilt image passes post-build
+#   running-image acceptance. Promotion rebuilds from the exact candidate
+#   SHA; byte-identical rebuild is ENG-03/W6-owned and is NOT claimed here.
+# - SBOM/attestation bind to the immutable image digest and the tested
+#   source SHA, never to the source tree (`path: .`).
+#
+# POLICY (HUMAN-ONLY, undecided): whether automated main snapshots are
+# intentionally public. Safe default implemented here: NO push on main
+# push, and no public snapshot is published. Do not call main-push builds
+# governed releases. The owner decides the public-snapshot policy; until
+# then, images reach the registry only through explicit promotion.
+
 on:
   push:
     branches: [main]
@@ -13,6 +36,15 @@ on:
   schedule:
     - cron: "0 3 * * 0"
   workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type PROMOTE to promote a candidate image (push latest/version/short-SHA tags)'
+        required: false
+        type: string
+      candidate-sha:
+        description: 'Full source SHA of the candidate to promote (default: current HEAD)'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -26,12 +58,48 @@ env:
   IMAGE_NAME: strmt7/textforensics
 
 jobs:
-  build-and-push:
-    name: Build and push multi-arch image
+  # Exact-SHA acceptance gate for promotion (ENG-04/ENG-14). Only runs
+  # when promotion is requested; a skipped gate blocks promotion (the
+  # promote job requires `needs.promotion-gate.result == 'success'`).
+  promotion-gate:
+    name: Acceptance gate (exact-SHA promotion boundary)
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.confirmation == 'PROMOTE'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout candidate SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.inputs.candidate-sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Verify required acceptance results for candidate SHA
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/promotion_gate.py \
+            --sha "${{ github.event.inputs.candidate-sha || github.sha }}" \
+            --repo "${{ github.repository }}" \
+            --extra-required "candidate-build=Container / Build candidate image (no push)"
+
+  # Candidate build: build ONLY (no push, no mutable tags). Runs on every
+  # trigger. Post-build running-image acceptance runs here; the web-UI
+  # resources probe is KNOWN-RED until W6 fixes ENG-01 (web templates /
+  # static are not packaged) and correctly fails the candidate until then.
+  build-candidate:
+    name: Build candidate image (no push)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      packages: write
       contents: read
       id-token: write
       attestations: write
@@ -48,6 +116,138 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
           echo "textforensics v${VERSION} (sha-${{ github.sha }})"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          driver: docker-container
+          driver-opts: |
+            image=moby/buildkit:latest
+
+      # Multi-arch candidate build. push: false -- nothing leaves the
+      # runner. The immutable digest is the candidate identity.
+      - name: Build multi-arch candidate (no push)
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+
+      # Single-arch loadable copy for the running-image acceptance checks.
+      - name: Build amd64 image for acceptance checks
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: textforensics:candidate
+          cache-from: type=gha
+
+      # ENG-14: the SBOM scans the BUILT IMAGE by digest, not `path: .`
+      # (the source tree). The source-tree inventory is not a runtime
+      # image inventory.
+      - name: Generate SBOM for built image (by digest)
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0 (2026-03-19 tip, Syft v1.42.3)
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+          format: cyclonedx-json
+          artifact-name: textforensics-sbom-cyclonedx.json
+          output-file: textforensics-sbom.cdx.json
+          upload-artifact: false
+
+      # Post-build running-image acceptance (ENG-14): the image must serve
+      # its health endpoint, run non-root and read-only, and expose its
+      # installed web resources. Loopback-only port publishing, as in
+      # compose.yaml / docs/INSTALLATION.md; the API has no authentication
+      # and must never be published on a network interface.
+      - name: Running-image acceptance
+        run: |
+          set -euo pipefail
+          IMAGE=textforensics:candidate
+          docker run -d --rm --read-only --name tf-acceptance \
+            -p 127.0.0.1:8765:8765 "$IMAGE"
+          trap 'docker stop tf-acceptance >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8765/healthz >/dev/null 2>&1; then
+              echo "health endpoint OK"
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8765/healthz
+          # Non-root execution: the image USER must not be root.
+          USER_ID=$(docker inspect -f '{{ .Config.User }}' "$IMAGE")
+          echo "image USER: ${USER_ID}"
+          test -n "$USER_ID" && test "$USER_ID" != "root" && test "$USER_ID" != "0"
+          # Read-only execution: the container above ran with --read-only.
+          docker inspect -f '{{ .HostConfig.ReadonlyRootfs }}' tf-acceptance | grep -qx true
+          # Installed web resources present (ENG-01; KNOWN-RED until W6):
+          # the web console must construct from the installed files.
+          docker run --rm --entrypoint python "$IMAGE" \
+            -c "from textforensics.web_ui.main import create_web_app; create_web_app(); print('installed web app constructs OK')"
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: textforensics-sbom-${{ steps.version.outputs.version }}-${{ github.sha }}
+          path: textforensics-sbom.cdx.json
+          if-no-files-found: error
+
+      - name: Summary
+        run: |
+          echo "## Container candidate summary (NOT published)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Registry:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Version:** \`${{ steps.version.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **SHA:** \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Platforms:** linux/amd64, linux/arm64" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Digest:** \`${{ steps.build.outputs.digest }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Published:** no (candidate build only; promotion requires explicit dispatch + acceptance gate)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **SBOM:** CycloneDX JSON for the built image digest, uploaded as artifact" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Acceptance:** health endpoint, non-root, read-only, installed web resources" >> "$GITHUB_STEP_SUMMARY"
+
+  # Promotion: ONLY via explicit workflow_dispatch with confirmation
+  # PROMOTE, ONLY after the acceptance gate passed for the candidate SHA.
+  # Rebuilds from the exact candidate SHA, re-runs acceptance on the
+  # rebuilt image, then pushes the mutable tags. Nothing is pushed on a
+  # main push, a schedule run, or an unconfirmed dispatch.
+  promote:
+    name: Promote candidate image (push tags)
+    needs: [promotion-gate]
+    if: >-
+      needs.promotion-gate.result == 'success' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.confirmation == 'PROMOTE'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      packages: write
+      contents: read
+      id-token: write
+      attestations: write
+      security-events: write
+      actions: write
+    steps:
+      - name: Checkout candidate SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.inputs.candidate-sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Read package version
+        id: version
+        run: |
+          VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Promoting textforensics v${VERSION} from ${{ github.event.inputs.candidate-sha || github.sha }}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -75,6 +275,42 @@ jobs:
           flavor: |
             latest=false
 
+      # Rebuild from the exact candidate SHA and re-run acceptance on the
+      # rebuilt image BEFORE pushing. (Promotion rebuilds; byte-identical
+      # rebuild is ENG-03/W6-owned and is not claimed here.)
+      - name: Build amd64 image for acceptance checks
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: textforensics:promote-candidate
+          cache-from: type=gha
+
+      - name: Running-image acceptance (rebuilt image)
+        run: |
+          set -euo pipefail
+          IMAGE=textforensics:promote-candidate
+          docker run -d --rm --read-only --name tf-promote-acceptance \
+            -p 127.0.0.1:8765:8765 "$IMAGE"
+          trap 'docker stop tf-promote-acceptance >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8765/healthz >/dev/null 2>&1; then
+              echo "health endpoint OK"
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8765/healthz
+          USER_ID=$(docker inspect -f '{{ .Config.User }}' "$IMAGE")
+          echo "image USER: ${USER_ID}"
+          test -n "$USER_ID" && test "$USER_ID" != "root" && test "$USER_ID" != "0"
+          docker inspect -f '{{ .HostConfig.ReadonlyRootfs }}' tf-promote-acceptance | grep -qx true
+          docker run --rm --entrypoint python "$IMAGE" \
+            -c "from textforensics.web_ui.main import create_web_app; create_web_app(); print('installed web app constructs OK')"
+
       - name: Build and push
         id: build-push
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -89,10 +325,10 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: true
 
-      - name: Generate SBOM
+      - name: Generate SBOM for promoted image (by digest)
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0 (2026-03-19 tip, Syft v1.42.3)
         with:
-          path: .
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-push.outputs.digest }}
           format: cyclonedx-json
           artifact-name: textforensics-sbom-cyclonedx.json
           output-file: textforensics-sbom.cdx.json
@@ -108,19 +344,20 @@ jobs:
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: textforensics-sbom-${{ steps.version.outputs.version }}-${{ github.sha }}
+          name: textforensics-sbom-${{ steps.version.outputs.version }}-${{ github.event.inputs.candidate-sha || github.sha }}
           path: textforensics-sbom.cdx.json
           if-no-files-found: error
 
       - name: Summary
         run: |
-          echo "## Container build summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Container promotion summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Registry:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Version:** \`${{ steps.version.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **SHA:** \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Candidate SHA:** \`${{ github.event.inputs.candidate-sha || github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Platforms:** linux/amd64, linux/arm64" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Digest:** \`${{ steps.build-push.outputs.digest }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Tags:** latest, ${{ steps.version.outputs.version }}, sha-${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **SBOM:** CycloneDX JSON uploaded as artifact" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Tags:** latest, ${{ steps.version.outputs.version }}, sha-${{ github.event.inputs.candidate-sha || github.sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **SBOM:** CycloneDX JSON for the promoted image digest" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Provenance:** SLSA attestation published" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Acceptance gate:** passed for the candidate SHA before promotion" >> "$GITHUB_STEP_SUMMARY"
