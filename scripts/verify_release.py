@@ -1756,8 +1756,7 @@ GATE_DEFS = [
         ".github/workflows/enterprise-deep-verification.yml",
         "documentation-verification",
         "unavailable",
-        "requires sphinx and the `markdown` package, neither installed "
-        "in the canonical venv",
+        "requires sphinx and the `markdown` package, neither installed in the canonical venv",
         required=False,
     ),
     static_gate(
