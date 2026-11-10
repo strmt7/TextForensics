@@ -184,12 +184,15 @@ def display_command(argv):
 
 
 def one_line(text, limit=200):
-    """Last non-empty line of output, flattened and truncated."""
+    """Last informative line of output, flattened and truncated.
+
+    Separator-only lines (runs of dashes / equals / stars) are skipped:
+    they carry no information and otherwise become useless fail details.
+    """
     lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
-    if not lines:
-        return ""
-    line = lines[-1].replace("\n", " ")[:limit]
-    return line
+    informative = [line for line in lines if not re.fullmatch(r"[-=~_*#\s]+", line)]
+    picked = informative[-1] if informative else (lines[-1] if lines else "")
+    return picked.replace("\n", " ")[:limit]
 
 
 def parse_work(spec, output, ctx):
@@ -336,6 +339,15 @@ def build_context(repo_root, work_dir, candidate_sha=None, head_sha=None, dirty=
     existing = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = src + (os.pathsep + existing if existing else "")
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+    # The command is specified to run under the canonical venv, so its
+    # children must see that venv's binaries: pre-commit's local hooks
+    # invoke bare `python`, and tests invoke the bare `textforensics`
+    # console script. Without this, both fail with FileNotFoundError
+    # whenever the caller's PATH lacks the venv bin dir.
+    venv_bin = str(Path(sys.executable).parent)
+    path_entries = env.get("PATH", "").split(os.pathsep) if env.get("PATH") else []
+    if venv_bin not in path_entries:
+        env["PATH"] = venv_bin + (os.pathsep + env["PATH"] if env.get("PATH") else "")
     return {
         "repo_root": repo_root,
         "work_dir": work_dir,
@@ -662,9 +674,10 @@ def special_package_build(gate, ctx):
     outside the source tree), exactly as the reproducibility fix
     direction requires. Uses --no-isolation: local verification has no
     network access, unlike CI's isolated build."""
-    missing = check_missing({"kind": "module", "name": "build"})
-    if missing is not None:
-        return special_result(gate, "unavailable", 0, None, missing)
+    for module in ("build", "wheel"):
+        missing = check_missing({"kind": "module", "name": module})
+        if missing is not None:
+            return special_result(gate, "unavailable", 0, None, missing)
     snapshot = ctx["work_dir"] / "snapshot"
     if not git_archive_snapshot(ctx["repo_root"], snapshot):
         return special_result(gate, "fail", 0, None, "git archive HEAD failed")
@@ -1034,9 +1047,10 @@ def special_wheel_reproducibility(gate, ctx):
     version the repo's own security evidence rejected (ENG-10); the
     local gate uses the ambient build backend instead (--no-isolation,
     no network)."""
-    missing = check_missing({"kind": "module", "name": "build"})
-    if missing is not None:
-        return special_result(gate, "unavailable", 0, None, missing)
+    for module in ("build", "wheel"):
+        missing = check_missing({"kind": "module", "name": module})
+        if missing is not None:
+            return special_result(gate, "unavailable", 0, None, missing)
     wheels = []
     artifacts = []
     command_parts = []

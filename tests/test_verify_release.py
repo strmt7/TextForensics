@@ -7,6 +7,7 @@ one-liners; the full suite is never run inside these unit tests.
 
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -331,6 +332,32 @@ class TestVerifyReleaseContract(unittest.TestCase):
             set(vr.STATUSES),
             {"pass", "fail", "skipped", "unavailable", "not_applicable", "zero_work"},
         )
+
+    def test_child_env_prepends_venv_bin(self):
+        """Children see the canonical venv's binaries: pre-commit hooks
+        invoke bare `python` and tests invoke bare `textforensics`."""
+        ctx = clean_ctx()
+        venv_bin = str(Path(sys.executable).parent)
+        first_entry = ctx["env"]["PATH"].split(os.pathsep)[0]
+        self.assertEqual(first_entry, venv_bin)
+
+    def test_bare_python_resolves_for_children(self):
+        """A synthetic gate invoking bare `python` passes: without the
+        venv bin dir on the child PATH it fails with FileNotFoundError
+        (the pre-commit / schema-CLI failure mode)."""
+        gate = vr.subprocess_gate(
+            name="synthetic-bare-python",
+            ci_workflow="test",
+            ci_job="synthetic",
+            argv=["python", "-c", "print('WORK 1')"],
+            work={"type": "regex_sum", "patterns": [r"WORK (\d+)"]},
+            required=True,
+        )
+        ctx = clean_ctx()
+        records, _verdict, exit_code = vr.evaluate([gate], ctx)
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(records[0]["status"], "pass")
+        self.assertEqual(records[0]["executed_work"], 1)
 
     def test_unknown_gate_name_is_usage_error(self):
         """An unknown --gate name is rejected instead of silently ignored."""

@@ -174,6 +174,14 @@ not a silent adaptation:
   throwaway venv with system site packages, so no network is needed,
   and runs its checks with `PYTHONPATH` removed so the wheel — not the
   worktree — is imported.
+- Children inherit a `PATH` with the canonical venv's bin directory
+  prepended (the directory of the interpreter running this command).
+  Pre-commit's local hooks invoke bare `python` and the test suite
+  invokes the bare `textforensics` console script; without this, both
+  fail with `FileNotFoundError` whenever the caller's `PATH` lacks the
+  venv bin dir. This was the single root cause of the pre-commit gate
+  failure and of the 5 `test_schema.py` CLI failures in the first
+  end-to-end run (see the part-report).
 
 ## Known gate defects (recorded, not silently adapted)
 
@@ -204,8 +212,16 @@ None of them was worked around by weakening a gate:
 7. The `mutation-diff` summary (`mutation-results/summary.json`)
    carries no source-SHA binding, so the gate cannot establish that a
    present artifact is for the exact HEAD; it records that limitation
-   in its detail. No summary exists in the tree, so the gate is
-   currently `unavailable`.
+   in its detail. Note also that the test suite itself writes this
+   file: `tests/test_mutation.py` writes the `no-relevant-changes`
+   marker summary into the repo-root `mutation-results/` directory
+   while the `pytest-core` gate runs, so a full verification run
+   always finds a zero-mutant summary and the gate reports
+   `zero_work` for it (per the frozen contract). That file is
+   git-ignored, so the tree stays clean, but it is test debris, not
+   independent evidence of a mutation campaign; a future wave may
+   want SHA-bound artifacts or a suite that stops writing
+   repo-relative mutation artifacts.
 8. The enterprise-deep documentation job swallows failures with
    `|| true` (ENG-07) and requires `sphinx` and the `markdown`
    package, neither installed: `ent-deep-docs` is `unavailable`.
@@ -229,6 +245,29 @@ None of them was worked around by weakening a gate:
     That is an environment mismatch, not a repo defect; a future wave
     may run this gate in a fresh venv built from
     `requirements-pinned.txt`.
+13. The `wheel` package is not installed in the canonical venv, so
+    `python -m build --no-isolation` fails with "Unmet dependencies:
+    wheel>=0.45, found: not installed". `package-build` and
+    `wheel-reproducibility` therefore report `unavailable` naming the
+    missing `wheel` module (missing-tool handling), instead of
+    failing the build. A future wave may provide a build venv with
+    the locked build backend.
+14. The benchmark workflow's legacy step is broken as written:
+    `pytest tests/test_benchmarks.py --benchmark-only
+    --benchmark-json=…` deselects all 9 tests ("Skipping
+    non-benchmark (--benchmark-only active)"), so pytest-benchmark
+    runs zero benchmarks and warns "Not saving anything, no
+    benchmarks have been run!", which the repo's
+    `filterwarnings = ["error", …]` turns into an error (exit 1).
+    The `pytest-benchmarks` gate mirrors the CI command exactly and
+    reports `fail`; fixing the workflow step belongs to a later wave.
+15. The first end-to-end run's `pre-commit` gate and 5
+    `test_schema.py` CLI failures shared one root cause: bare
+    `python` / `textforensics` were not resolvable for child
+    processes because the caller's `PATH` lacked the venv bin dir.
+    The command now prepends the interpreter's bin dir to the child
+    `PATH` (see "Deviations"); the failures were environmental, not
+    repo defects.
 
 ## Gate inventory
 
