@@ -5,7 +5,6 @@ test deliberately does not depend on schema discovery (``schema.py``),
 which is itself under repair (audit CORE-10).
 """
 
-import copy
 import importlib.util
 import json
 import unittest
@@ -14,9 +13,7 @@ from pathlib import Path
 import textforensics
 
 SCHEMA_PATH = (
-    Path(textforensics.__file__).resolve().parent
-    / "schemas"
-    / "evidence-manifest.schema.json"
+    Path(textforensics.__file__).resolve().parent / "schemas" / "evidence-manifest.schema.json"
 )
 
 ZERO_SHA256 = "0" * 64
