@@ -152,10 +152,7 @@ Detail lives in `~/workspace/goals/textforensics-complete-revamp/hidden_files/`
 - **Docs wave: in progress.** This file, README / CHANGELOG /
   SECURITY / RELEASE / SPEC / CLAIMS / VERIFICATION consistency
   against current main.
-- **Remaining release-gate items:** human-FPR evidence (worst-slice
-  human FPR still unknown — see `docs/evidence/report-card.md`;
-  worst document slice is OpAI-Bench, Wilson 95% upper 0.0642,
-  n=56), live-TSA interop (never achieved from the sandbox VM),
+- **Remaining release-gate items:** live-TSA interop (never achieved from the sandbox VM),
   plain `docker run` of the container on this VM (still blocked by
   the host netns bind-mount EPERM — the container run itself was
   proven via crun-direct, 15/15 checks — and in-container
@@ -163,7 +160,11 @@ Detail lives in `~/workspace/goals/textforensics-complete-revamp/hidden_files/`
   `--fail-under=75` in CI Core, measured on core-only coverage:
   78.43% on 928dbc0, 78.49% on e65fde9, 76.95% on a1e7857 — the
   ~81% extras-venv figure is not what CI Core measures).
-  Closed since this list was written: the `pip-audit` failing gate
+  Closed since this list was written: the worst-slice human FPR
+  (OpAI-Bench document slice now n=218, Wilson 95% upper 0.0173,
+  record `evr-20261110-opai-bench-builtin-heuristic` supported,
+  merged `cc9a272`, applied `48ae5bc`; the report-card lead stays
+  unknown — no FPR claim is written), the `pip-audit` failing gate
   (`.github/workflows/supply-chain.yml`, baseline 6 pip findings,
   review 2027-02-06), SBOM in the release workflow
   (`.github/workflows/release.yml`, CycloneDX + SPDX) and the

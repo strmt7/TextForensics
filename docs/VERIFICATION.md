@@ -1,6 +1,6 @@
 # Verification record — Phase 1 (2026-11-06)
 
-## Current state (HEAD `8c8a1cf`, 2026-11-10)
+## Current state (HEAD `48ae5bc`, 2026-11-10)
 
 Read this first. The dated sections below are historical records;
 their numbers are the numbers as measured at the time, and some of
@@ -8,6 +8,22 @@ their "NOT verified" items have since been superseded (marked
 inline). The current picture, measured on `fb1e23a` (Python 3.12.3,
 `test_memory_check` host flake deselected — see the HEAD section at
 the end of this file):
+
+- **Since `8c8a1cf` (merges to `48ae5bc`):** full verification on
+  `8c8a1cf` (extras 3933 passed / 81%, core-only 3813 passed /
+  78.50% exact, claims 33/33, schemas 12 OK, pre-commit 13/13,
+  manual checks byte-identical to `fb1e23a`; report
+  `hidden_files/phase5-full-verification-8c8a1cf.md`), the
+  worst-slice human-FPR wave (`cc9a272`: OpAI-Bench n=2000 sample,
+  218 human / 223 AI, Wilson 95% upper 0.0173 — the worst slice now
+  passes the bar; 4 U1 duplicates excluded by content hash;
+  GhostWriter threshold robustness measured, threshold unchanged;
+  human-FPR run artifact now conforms to run-artifact/v1), and the
+  registry apply (`48ae5bc`: validation registry 8 → 9 records,
+  evidence registry 32 → 34 pins; report-card lead stays unknown —
+  no FPR claim is written). Neither the FPR merge nor the apply
+  changes any `src/` code, so the `8c8a1cf` suite numbers stand as
+  the latest full measurements.
 
 - **Since `fb1e23a` (merges to `8c8a1cf`):** action upgrades
   (`21ff98e`: checkout v7.0.1, gitleaks v3.0.0, scorecard v2.5.0),
