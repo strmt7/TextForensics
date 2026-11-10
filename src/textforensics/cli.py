@@ -30,11 +30,9 @@ from .constants import (
     EXIT_OK,
 )
 from .detectors import list_detector_health, list_detector_metadata
-from .emergency_stop import (
-    EmergencyStopSentinel,
-    check_emergency_stop,
-)
+from .emergency_stop import EmergencyStopSentinel
 from .engine import analyze_text, compare_texts
+from .execution_policy import ExecutionPolicy, is_execution_stopped
 from .features import audit_naturalness
 from .ledger import (
     AuditAnchor,
@@ -691,6 +689,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     report.add_argument("--fixed-timestamp", help="Fixed ISO timestamp for reproducible output")
     report.add_argument("--rich", action="store_true", help="Use Rich-formatted terminal output")
+    report.add_argument(
+        "--remote-detector",
+        action="append",
+        default=None,
+        metavar="<detector_id>",
+        help="Explicitly consent to one remote detector ID for this "
+        "report (repeatable). Local-only by default; remote detectors "
+        "run only when listed here. Unknown IDs are rejected.",
+    )
 
     case = sub.add_parser("case", help="Export or verify a sealed case file.")
     case_sub = case.add_subparsers(dest="case_command", required=True)
@@ -718,6 +725,15 @@ def build_parser() -> argparse.ArgumentParser:
         "analysis recorded; absent everywhere, the detector is "
         "unknown. A declared non_deterministic detector whose replay "
         "differs is reported not_reproducible instead of failing.",
+    )
+    case_export.add_argument(
+        "--remote-detector",
+        action="append",
+        default=None,
+        metavar="<detector_id>",
+        help="Explicitly consent to one remote detector ID for this "
+        "case export (repeatable). Local-only by default; remote "
+        "detectors run only when listed here. Unknown IDs are rejected.",
     )
     case_export.add_argument(
         "--rich", action="store_true", help="Use Rich-formatted terminal output"
@@ -1548,11 +1564,30 @@ def _drift_status(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _policy_for_cli(args: argparse.Namespace, settings: Settings) -> ExecutionPolicy:
+    """Build the execution policy for a CLI report/case command (IF-01).
+
+    Local-only by default. ``--remote-detector`` lists the remote IDs
+    explicitly consented for this run; an unknown ID raises
+    :class:`ValueError` (reported by ``main()`` as an error).
+    """
+    ids = list(getattr(args, "remote_detector", None) or [])
+    if not ids:
+        return ExecutionPolicy.default_local_only(max_input_bytes=settings.max_input_bytes)
+    policy = ExecutionPolicy.with_remote_consent(ids, max_input_bytes=settings.max_input_bytes)
+    # Resolved at call time (not bound at import) so the canonical
+    # registry is always consulted.
+    from .detectors import discover_detector_registry
+
+    available = {detector_id for detector_id in discover_detector_registry().detectors}
+    return policy.resolve_against(available)
+
+
 def _run(args: argparse.Namespace, settings: Settings) -> int:
     # Emergency stop gate: checked at dispatch entry for all analysis
     # commands. The emergency management command bypasses this gate so
     # the sentinel can always be inspected/removed.
-    if args.command != "emergency" and check_emergency_stop():
+    if args.command != "emergency" and is_execution_stopped():
         print(
             "error: emergency stop is active. All analysis, report, "
             "audit, compare, benchmark, drift, and serve commands are blocked.",
@@ -1798,6 +1833,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             ledger_path=args.ledger,
             deterministic=args.deterministic,
             fixed_timestamp=args.fixed_timestamp,
+            execution_policy=_policy_for_cli(args, settings),
         )
         data = bundle.to_dict()
         if args.deterministic:
@@ -1833,6 +1869,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
                 ledger_path=args.ledger,
                 deterministic=args.deterministic,
                 fixed_timestamp=args.fixed_timestamp,
+                execution_policy=_policy_for_cli(args, settings),
             )
             bundle_dict = bundle.to_dict()
             if args.deterministic:

@@ -7,7 +7,43 @@ from . import mcp_tools
 from .casefile import seal_case_file
 from .config import Settings, validate_text_input
 from .detectors import list_detector_health, list_detector_metadata
-from .emergency_stop import assert_not_stopped
+from .execution_policy import (
+    ExecutionPolicy,
+    RemoteConsentError,
+    assert_execution_allowed,
+)
+
+
+def _policy_for_mcp(
+    remote_detector_ids: list[str] | None,
+    remote_consent: bool,
+    settings: Settings,
+) -> ExecutionPolicy:
+    """Build the execution policy for an MCP report/case call (IF-01).
+
+    Default is local-only. IDs without consent, consent without IDs,
+    and unknown IDs are all rejected with ``ValueError`` (surfaced to
+    the MCP caller as a tool error, with no submitted text).
+    """
+    ids = list(remote_detector_ids or [])
+    if ids and not remote_consent:
+        raise ValueError("Explicit remote consent is required to run remote detectors.")
+    if remote_consent and not ids:
+        raise ValueError("Remote consent requires at least one remote detector ID.")
+    if ids:
+        policy = ExecutionPolicy.with_remote_consent(ids, max_input_bytes=settings.max_input_bytes)
+    else:
+        policy = ExecutionPolicy.default_local_only(max_input_bytes=settings.max_input_bytes)
+    try:
+        # Resolved at call time (not bound at import) so the canonical
+        # registry is always consulted.
+        from .detectors import discover_detector_registry
+
+        available = {detector_id for detector_id in discover_detector_registry().detectors}
+        policy.resolve_against(available)
+    except RemoteConsentError as exc:
+        raise ValueError("Unknown remote detector ID.") from exc
+    return policy
 
 
 def _server():
@@ -43,20 +79,39 @@ def _server():
     @mcp.tool()
     def analyze_ai_text(text: str) -> str:
         """Run the local alpha text-pattern baseline with explicit limitations."""
-        assert_not_stopped()
+        assert_execution_allowed()
         return dumped(analyze_text(checked(text)).to_dict())
 
     @mcp.tool()
-    def build_forensic_report(text: str) -> str:
-        """Build detector observations, Trust Map, stability, and limitations."""
-        assert_not_stopped()
-        return dumped(build_forensic_bundle(checked(text)).to_dict())
+    def build_forensic_report(
+        text: str,
+        remote_detector_ids: list[str] | None = None,
+        remote_consent: bool = False,
+    ) -> str:
+        """Build detector observations, Trust Map, stability, and limitations.
+
+        Local-only by default. Remote detectors run only when their IDs
+        are listed in ``remote_detector_ids`` AND ``remote_consent`` is
+        true; anything else is rejected.
+        """
+        assert_execution_allowed()
+        policy = _policy_for_mcp(remote_detector_ids, remote_consent, settings)
+        return dumped(build_forensic_bundle(checked(text), execution_policy=policy).to_dict())
 
     @mcp.tool()
-    def build_case_file(text: str) -> str:
-        """Build a sealed, raw-text-free case artifact for the supplied text."""
-        assert_not_stopped()
-        bundle = build_forensic_bundle(checked(text)).to_dict()
+    def build_case_file(
+        text: str,
+        remote_detector_ids: list[str] | None = None,
+        remote_consent: bool = False,
+    ) -> str:
+        """Build a sealed, raw-text-free case artifact for the supplied text.
+
+        Local-only by default; see :func:`build_forensic_report` for
+        the remote-consent contract.
+        """
+        assert_execution_allowed()
+        policy = _policy_for_mcp(remote_detector_ids, remote_consent, settings)
+        bundle = build_forensic_bundle(checked(text), execution_policy=policy).to_dict()
         return dumped(seal_case_file(bundle))
 
     @mcp.tool()
@@ -76,7 +131,7 @@ def _server():
         sentences_per_segment: int = 4,
     ) -> str:
         """Localize diagnostic baseline patterns; not sentence-level authorship."""
-        assert_not_stopped()
+        assert_execution_allowed()
         if sentences_per_segment < 1:
             raise ValueError("sentences_per_segment must be at least 1.")
         return dumped(
@@ -92,13 +147,13 @@ def _server():
     @mcp.tool()
     def compare_text_versions(before: str, after: str) -> str:
         """Compare two versions and their diagnostic baseline scores."""
-        assert_not_stopped()
+        assert_execution_allowed()
         return dumped(compare_texts(checked(before), checked(after)).to_dict())
 
     @mcp.tool()
     def audit_writing_naturalness(text: str) -> str:
         """Identify formulaic writing patterns without promising detector outcomes."""
-        assert_not_stopped()
+        assert_execution_allowed()
         return dumped(audit_naturalness(checked(text)))
 
     # --- Capability Ledger tools ---

@@ -8,6 +8,11 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
 from .engine import analyze_text
+from .execution_policy import (
+    CancellationToken,
+    ExecutionPolicy,
+    assert_execution_allowed,
+)
 
 
 class DetectorContractError(ValueError):
@@ -635,18 +640,118 @@ def list_detector_health() -> list[dict[str, Any]]:
     return [row.to_dict() for row in discover_detector_registry().plugin_health]
 
 
+def detector_execution(detector: Any) -> str:
+    """Return a detector's declared execution mode.
+
+    Reads the optional ``execution`` (``"local"`` / ``"remote"``) or
+    ``remote`` (bool) attributes. Adapters that declare neither — like
+    the builtin heuristic detector, which only states execution in its
+    predictions — report ``"unknown"``. Unknown is treated as local
+    before the call and is re-checked against the returned prediction
+    after the call (see :func:`execute_detector`); it is never assumed
+    to be remote, and never assumed to be local after the fact.
+    """
+    declared = getattr(detector, "execution", None)
+    if declared in {"local", "remote"}:
+        return str(declared)
+    remote = getattr(detector, "remote", None)
+    if remote is True:
+        return "remote"
+    if remote is False:
+        return "local"
+    return "unknown"
+
+
+def is_remote_detector(detector: Any) -> bool:
+    """Return ``True`` iff the detector declares remote execution.
+
+    This is the shared pre-call classification used by the execution
+    policy. It never imports or runs the adapter.
+    """
+    return detector_execution(detector) == "remote"
+
+
+def filter_detectors_by_policy(
+    detectors: list[Detector],
+    policy: ExecutionPolicy,
+) -> tuple[list[Detector], list[dict[str, str]]]:
+    """Split detectors into (allowed, skipped) under ``policy``.
+
+    Skipped entries are ``{"detector_id": ..., "reason":
+    "remote_not_consented"}`` records for provenance. Detectors with
+    undeclared execution pass through here; a remote prediction from
+    one is refused by :func:`execute_detector` instead.
+    """
+    allowed: list[Detector] = []
+    skipped: list[dict[str, str]] = []
+    for detector in detectors:
+        detector_id = str(getattr(detector, "detector_id", "unknown"))
+        if is_remote_detector(detector) and not policy.allows_remote(detector_id):
+            skipped.append({"detector_id": detector_id, "reason": "remote_not_consented"})
+        else:
+            allowed.append(detector)
+    return allowed, skipped
+
+
+def _remote_not_consented_failure(detector: Any, started: float) -> DetectorFailure:
+    """Build the failure record for a remote detector refused by policy."""
+    return DetectorFailure(
+        detector_id=str(getattr(detector, "detector_id", "unknown")),
+        detector_version=str(getattr(detector, "detector_version", "unknown")),
+        detector_family=str(getattr(detector, "detector_family", "unknown")),
+        error_type="RemoteNotConsented",
+        message=(
+            "Remote detector execution was refused by the execution "
+            "policy: no explicit consent for this detector."
+        ),
+        runtime_ms=round((time.perf_counter() - started) * 1000, 3),
+    )
+
+
 def execute_detector(
     detector: Detector,
     text: str,
+    *,
+    policy: ExecutionPolicy | None = None,
+    cancellation: CancellationToken | None = None,
 ) -> tuple[DetectorPrediction | None, DetectorFailure | None]:
+    """Execute one detector under the shared execution policy.
+
+    Enforcement lives here — in the detector loop — not only in
+    transport middleware:
+
+    * the shared stop/cancellation check runs before the call and
+      again after it returns (a stop that activates mid-call discards
+      the result; the error propagates, it is never converted into an
+      ordinary detector failure);
+    * a detector that declares remote execution runs only when
+      ``policy`` explicitly consents to its ID — otherwise it is not
+      called at all and a ``RemoteNotConsented`` failure is returned;
+    * a detector that only reveals remote execution in its returned
+      prediction has that prediction discarded with the same failure;
+    * a configured ``max_input_bytes`` bound is enforced before the
+      call.
+
+    With no policy given, the default local-only policy applies, so
+    every pre-existing caller is fail-closed by default.
+    """
+    effective_policy = policy or ExecutionPolicy.default_local_only()
+    assert_execution_allowed(effective_policy, cancellation=cancellation)
     started = time.perf_counter()
+    if (
+        effective_policy.max_input_bytes is not None
+        and len(text.encode("utf-8")) > effective_policy.max_input_bytes
+    ):
+        raise ValueError(
+            f"Text exceeds the configured input limit of {effective_policy.max_input_bytes} bytes."
+        )
+    detector_id = str(getattr(detector, "detector_id", "unknown"))
+    if is_remote_detector(detector) and not effective_policy.allows_remote(detector_id):
+        return None, _remote_not_consented_failure(detector, started)
     try:
         prediction = detector.detect(text)
         validate_prediction(prediction, detector=detector)
         _validate_no_source_echo(prediction, text)
-        if prediction.runtime_ms is None:
-            prediction.runtime_ms = round((time.perf_counter() - started) * 1000, 3)
-        return prediction, None
     except Exception as exc:
         elapsed = round((time.perf_counter() - started) * 1000, 3)
         return None, DetectorFailure(
@@ -660,20 +765,47 @@ def execute_detector(
             ),
             runtime_ms=elapsed,
         )
+    # Post-call gates run outside the failure conversion above: a stop
+    # or cancellation is terminal, never an ordinary detector failure.
+    assert_execution_allowed(effective_policy, cancellation=cancellation)
+    if prediction.execution == "remote" and not effective_policy.allows_remote(
+        prediction.detector_id
+    ):
+        return None, _remote_not_consented_failure(detector, started)
+    if prediction.runtime_ms is None:
+        prediction.runtime_ms = round((time.perf_counter() - started) * 1000, 3)
+    return prediction, None
 
 
 def text_sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def run_all_detectors(text: str) -> list[dict[str, Any]]:
-    """Run all discovered detectors on the given text and return their predictions as dicts."""
+def run_all_detectors(
+    text: str,
+    *,
+    policy: ExecutionPolicy | None = None,
+    cancellation: CancellationToken | None = None,
+) -> list[dict[str, Any]]:
+    """Run all discovered detectors on the given text and return their predictions as dicts.
+
+    Enforced under ``policy`` (default local-only): remote detectors
+    without explicit consent are not called and appear as
+    ``RemoteNotConsented`` failure rows. The shared stop check runs
+    before the run and before each detector; an active stop raises
+    :class:`textforensics.emergency_stop.EmergencyStopError` instead
+    of returning partial results.
+    """
+    effective_policy = policy or ExecutionPolicy.default_local_only()
+    assert_execution_allowed(effective_policy, cancellation=cancellation)
     registry = discover_detector_registry()
     detector_list = list(registry.detectors.values())
 
     results = []
     for detector in detector_list:
-        prediction, failure = execute_detector(detector, text)
+        prediction, failure = execute_detector(
+            detector, text, policy=effective_policy, cancellation=cancellation
+        )
         if prediction is not None:
             row = prediction.to_dict()
             value, reason = detector_determinism(detector)

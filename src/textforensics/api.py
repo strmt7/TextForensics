@@ -7,7 +7,13 @@ from ._build_info import get_version
 from .casefile import seal_case_file
 from .config import Settings, ensure_bind_allowed, validate_text_input
 from .detectors import list_detector_health, list_detector_metadata
-from .emergency_stop import assert_not_stopped, check_emergency_stop
+from .execution_policy import (
+    ExecutionPolicy,
+    RemoteConsentError,
+    assert_execution_allowed,
+    is_execution_stopped,
+    register_redacting_handlers,
+)
 
 try:
     from fastapi import FastAPI, HTTPException, Request
@@ -30,6 +36,12 @@ if BaseModel is not None:
 
     class TextRequest(BaseModel):
         text: str
+        # Outbound remote-adapter consent (IF-01). Default is local-only:
+        # remote detectors run only when their IDs are listed here AND
+        # remote_consent is true. IDs without consent, consent without
+        # IDs, and unknown IDs are all rejected with 422.
+        remote_detector_ids: list[str] | None = None
+        remote_consent: bool = False
 
     class CompareRequest(BaseModel):
         before: str
@@ -49,6 +61,53 @@ def create_app(settings: Settings | None = None):
         description=("Local-first AI-text detector evidence and reliability auditing API."),
     )
     app.state.textforensics_settings = active_settings
+    # Shared redacting error handlers (IF-07): request-validation failures
+    # never echo rejected input; HTTPException statuses are preserved.
+    register_redacting_handlers(app)
+
+    def _policy_for_request(req: TextRequest) -> ExecutionPolicy:
+        """Build the execution policy for a report/case request (IF-01)."""
+        ids = list(req.remote_detector_ids or [])
+        if ids and not req.remote_consent:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "remote_consent_required",
+                    "message": "Explicit remote consent is required to run remote detectors.",
+                },
+            )
+        if req.remote_consent and not ids:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "remote_detector_ids_required",
+                    "message": "Remote consent requires at least one remote detector ID.",
+                },
+            )
+        if ids:
+            policy = ExecutionPolicy.with_remote_consent(
+                ids, max_input_bytes=active_settings.max_input_bytes
+            )
+        else:
+            policy = ExecutionPolicy.default_local_only(
+                max_input_bytes=active_settings.max_input_bytes
+            )
+        try:
+            # Resolved at call time (not bound at import) so the
+            # canonical registry is always consulted.
+            from .detectors import discover_detector_registry
+
+            available = {detector_id for detector_id in discover_detector_registry().detectors}
+            policy.resolve_against(available)
+        except RemoteConsentError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "unknown_remote_detector",
+                    "message": "Unknown remote detector ID.",
+                },
+            ) from exc
+        return policy
 
     def checked(text: str) -> str:
         try:
@@ -73,7 +132,7 @@ def create_app(settings: Settings | None = None):
     @app.middleware("http")
     async def request_guard_and_security_headers(request: Request, call_next):
         # Emergency stop gate: checked at dispatch entry for every request.
-        if check_emergency_stop():
+        if is_execution_stopped():
             return secure_response(
                 JSONResponse(
                     status_code=503,
@@ -144,28 +203,30 @@ def create_app(settings: Settings | None = None):
 
     @app.post("/v1/analyze")
     def analyze(req: TextRequest):
-        assert_not_stopped()
+        assert_execution_allowed()
         return analyze_text(checked(req.text)).to_dict()
 
     @app.post("/v1/report")
     def report(req: TextRequest):
-        assert_not_stopped()
-        return build_forensic_bundle(checked(req.text)).to_dict()
+        assert_execution_allowed()
+        policy = _policy_for_request(req)
+        return build_forensic_bundle(checked(req.text), execution_policy=policy).to_dict()
 
     @app.post("/v1/case")
     def case(req: TextRequest):
-        assert_not_stopped()
-        bundle = build_forensic_bundle(checked(req.text)).to_dict()
+        assert_execution_allowed()
+        policy = _policy_for_request(req)
+        bundle = build_forensic_bundle(checked(req.text), execution_policy=policy).to_dict()
         return seal_case_file(bundle)
 
     @app.post("/v1/audit")
     def audit(req: TextRequest):
-        assert_not_stopped()
+        assert_execution_allowed()
         return audit_naturalness(checked(req.text))
 
     @app.post("/v1/compare")
     def compare(req: CompareRequest):
-        assert_not_stopped()
+        assert_execution_allowed()
         before = checked(req.before)
         after = checked(req.after)
         return compare_texts(before, after).to_dict()

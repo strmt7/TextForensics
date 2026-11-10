@@ -42,7 +42,13 @@ from .detectors import (
     DetectorPrediction,
     discover_detector_registry,
     execute_detector,
+    is_remote_detector,
     text_sha256,
+)
+from .execution_policy import (
+    CancellationToken,
+    ExecutionPolicy,
+    assert_execution_allowed,
 )
 
 __all__ = [
@@ -941,7 +947,20 @@ class DriftObservatory:
         taken_at: str | None = None,
         snapshot_id: str | None = None,
         label: str | None = None,
+        execution_policy: ExecutionPolicy | None = None,
+        cancellation: CancellationToken | None = None,
     ) -> dict[str, Any]:
+        # S08 / IF-03: the canonical stop gate runs before any execution
+        # and between sample/detector operations. A stop raises
+        # EmergencyStopError — an explicit terminal/incomplete condition,
+        # never a stored observation and never an ordinary suppressed
+        # detector failure. Cancellation is cooperative: a detector
+        # already running is not forcibly terminated, but no further
+        # sample/detector operation starts after it is requested.
+        policy_supplied = execution_policy is not None
+        effective_policy = execution_policy or ExecutionPolicy.default_local_only()
+        assert_execution_allowed(effective_policy, cancellation=cancellation)
+
         if not self.samples:
             snapshot = self.snapshot_from_observations(
                 [],
@@ -965,12 +984,27 @@ class DriftObservatory:
                 detector for detector in selected_detectors if detector.detector_id in wanted
             ]
 
+        # Legacy caller opt-in: when no explicit policy was supplied,
+        # allow_remote=True consents to exactly the remote detectors
+        # selected for this snapshot. An explicit policy always wins.
+        if not policy_supplied and allow_remote:
+            effective_policy = ExecutionPolicy.with_remote_consent(
+                [
+                    detector.detector_id
+                    for detector in selected_detectors
+                    if is_remote_detector(detector)
+                ]
+            )
+
         records: list[dict[str, Any]] = []
         failures: list[dict[str, Any]] = []
         skipped: list[dict[str, Any]] = []
 
         for detector in selected_detectors:
-            if _is_remote_detector(detector) and not allow_remote:
+            assert_execution_allowed(effective_policy, cancellation=cancellation)
+            if is_remote_detector(detector) and not effective_policy.allows_remote(
+                detector.detector_id
+            ):
                 skipped.append(
                     {
                         "detector_id": detector.detector_id,
@@ -979,11 +1013,17 @@ class DriftObservatory:
                 )
                 continue
             for sample in self.samples.values():
+                assert_execution_allowed(effective_policy, cancellation=cancellation)
                 if sample.text is None:
                     raise ValueError(
                         f"Sample {sample.sample_id} has no text; cannot execute detectors."
                     )
-                prediction, failure = execute_detector(detector, sample.text)
+                prediction, failure = execute_detector(
+                    detector,
+                    sample.text,
+                    policy=effective_policy,
+                    cancellation=cancellation,
+                )
                 if failure is not None:
                     failures.append(
                         {
@@ -1415,9 +1455,9 @@ class DriftObservatory:
 
 
 def _is_remote_detector(detector: Detector) -> bool:
-    return getattr(detector, "execution", None) == "remote" or bool(
-        getattr(detector, "remote", False)
-    )
+    # Kept for internal callers; delegates to the shared classifier in
+    # detectors.py (the execution-policy boundary).
+    return is_remote_detector(detector)
 
 
 # ---------------------------------------------------------------------------

@@ -393,7 +393,7 @@ class RobustnessForDetectorEdgeTests(unittest.TestCase):
 
         # Make original pass (it's used directly), but all variants fail
 
-        def mock_execute(det, text):
+        def mock_execute(det, text, **kwargs):
             return (
                 None,
                 DetectorFailure(
@@ -445,7 +445,7 @@ class RobustnessForDetectorEdgeTests(unittest.TestCase):
 
         call_count = [0]
 
-        def mock_execute(det, text):
+        def mock_execute(det, text, **kwargs):
             call_count[0] += 1
             return (
                 None,

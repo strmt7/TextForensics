@@ -29,11 +29,17 @@ from .detectors import (
     DetectorFailure,
     DetectorPrediction,
     detector_determinism,
-    discover_detector_registry,
     execute_detector,
+    filter_detectors_by_policy,
     text_sha256,
 )
 from .evidence import EvidenceRegistry, load_registry
+from .execution_policy import (
+    CancellationToken,
+    CompletenessAccounting,
+    ExecutionPolicy,
+    assert_execution_allowed,
+)
 from .features import benign_variants, extract_features
 from .ledger import verify_ledger
 from .trust import TrustMap, assess_trust_map
@@ -113,18 +119,43 @@ def _robustness_for_detector(
     detector: Detector,
     text: str,
     original_prediction: DetectorPrediction,
+    *,
+    policy: ExecutionPolicy | None = None,
+    cancellation: CancellationToken | None = None,
 ) -> dict[str, Any]:
+    """Run the benign-variant probes for one detector (CORE-07).
+
+    Tracks the prescribed probe set with :class:`CompletenessAccounting`
+    (``selected`` / ``attempted`` / ``succeeded`` / ``abstained`` /
+    ``failed``). ``verdict_stability`` is populated ONLY when the
+    complete set ran with every probe succeeding; otherwise it is
+    ``None`` and the survivor-only value stays visible under
+    ``verdict_stability_survivors`` with its denominators in
+    ``completeness``. Adding failures can therefore never increase
+    support: a partial measurement is visible, never promoted.
+    """
+    effective_policy = policy or ExecutionPolicy.default_local_only()
+    variants = benign_variants(text)
     probes: dict[str, Any] = {}
     scores: list[float] = []
     labels: list[str] = []
     failures: list[dict[str, Any]] = []
+    attempted = 0
+    succeeded = 0
+    abstained = 0
+    failed = 0
 
-    for name, variant in benign_variants(text).items():
+    for name, variant in variants.items():
+        assert_execution_allowed(effective_policy, cancellation=cancellation)
+        attempted += 1
         if name == "original":
             prediction, failure = original_prediction, None
         else:
-            prediction, failure = execute_detector(detector, variant)
+            prediction, failure = execute_detector(
+                detector, variant, policy=effective_policy, cancellation=cancellation
+            )
         if failure is not None:
+            failed += 1
             failures.append({"probe": name, **failure.to_dict()})
             probes[name] = {"score": None, "verdict": "error"}
             continue
@@ -134,17 +165,40 @@ def _robustness_for_detector(
             "score": prediction.score,
             "verdict": prediction.verdict,
         }
+        if prediction.verdict == "abstain":
+            abstained += 1
+        else:
+            succeeded += 1
         if prediction.score is not None:
             scores.append(float(prediction.score))
         labels.append(prediction.verdict)
+
+    accounting = CompletenessAccounting(
+        selected=len(variants),
+        attempted=attempted,
+        succeeded=succeeded,
+        abstained=abstained,
+        failed=failed,
+    )
 
     native_score_range = None
     if len(scores) >= 2:
         native_score_range = max(scores) - min(scores)
 
-    verdict_stability = None
+    verdict_stability_survivors = None
     if labels:
-        verdict_stability = max(labels.count(label) for label in set(labels)) / len(labels)
+        verdict_stability_survivors = max(labels.count(label) for label in set(labels)) / len(
+            labels
+        )
+
+    # Only a complete, fully successful probe set may claim stability.
+    # Anything else keeps the survivor value visible but does not feed
+    # the Trust Map.
+    verdict_stability = (
+        round(verdict_stability_survivors, 4)
+        if verdict_stability_survivors is not None and accounting.support_eligible
+        else None
+    )
 
     return {
         "detector_id": str(getattr(detector, "detector_id", "unknown")),
@@ -155,9 +209,13 @@ def _robustness_for_detector(
             "Raw movement in this detector's native score units; "
             "not normalized and not comparable across detectors."
         ),
-        "verdict_stability": (
-            round(verdict_stability, 4) if verdict_stability is not None else None
+        "verdict_stability": verdict_stability,
+        "verdict_stability_survivors": (
+            round(verdict_stability_survivors, 4)
+            if verdict_stability_survivors is not None
+            else None
         ),
+        "completeness": accounting.to_dict(),
         "probes": probes,
         "failures": failures,
     }
@@ -306,6 +364,8 @@ def build_forensic_bundle(
     include_legacy: bool = False,
     trust_max_age_days: int | None = None,
     trust_fpr_ceiling: float | None = None,
+    execution_policy: ExecutionPolicy | None = None,
+    cancellation: CancellationToken | None = None,
 ) -> ForensicBundle:
     if not isinstance(text, str) or not text.strip():
         raise ValueError("Text must not be empty.")
@@ -313,6 +373,11 @@ def build_forensic_bundle(
         raise ValueError("Pass registry or registry_path, not both.")
     if registry_path is not None:
         registry = load_registry(registry_path)
+
+    # Shared execution boundary (IF-01/IF-03): default local-only, explicit
+    # remote consent, stop checked here and before every detector/probe.
+    effective_policy = execution_policy or ExecutionPolicy.default_local_only()
+    assert_execution_allowed(effective_policy, cancellation=cancellation)
 
     registry_verified: bool | None = None
     if verify_evidence:
@@ -326,6 +391,10 @@ def build_forensic_bundle(
             )
 
     if detectors is None:
+        # Resolved at call time (not bound at import) so the canonical
+        # registry is always consulted.
+        from .detectors import discover_detector_registry
+
         discovered = discover_detector_registry()
         detector_list = list(discovered.detectors.values())
         plugin_health = [row.to_dict() for row in discovered.plugin_health]
@@ -336,12 +405,20 @@ def build_forensic_bundle(
     if not detector_list:
         raise ValueError("No detectors are configured.")
 
+    # A consented remote ID that is not among the selected detectors is
+    # a misconfiguration, not a silent no-op.
+    effective_policy.resolve_against({d.detector_id for d in detector_list})
+    detector_list, skipped_detectors = filter_detectors_by_policy(detector_list, effective_policy)
+
     predictions: list[DetectorPrediction] = []
     failures: list[DetectorFailure] = []
     successful_detectors: list[Detector] = []
 
     for detector in detector_list:
-        prediction, failure = execute_detector(detector, text)
+        assert_execution_allowed(effective_policy, cancellation=cancellation)
+        prediction, failure = execute_detector(
+            detector, text, policy=effective_policy, cancellation=cancellation
+        )
         if prediction is not None:
             predictions.append(prediction)
             successful_detectors.append(detector)
@@ -349,12 +426,24 @@ def build_forensic_bundle(
             failures.append(failure)
 
     robustness = [
-        _robustness_for_detector(detector, text, prediction)
+        _robustness_for_detector(
+            detector,
+            text,
+            prediction,
+            policy=effective_policy,
+            cancellation=cancellation,
+        )
         for detector, prediction in zip(successful_detectors, predictions, strict=True)
     ]
     features = extract_features(text)
     conditions: InputConditions = extract_conditions(text, declared=declared_conditions)
-    provenance = verify_ledger(ledger_path) if ledger_path else None
+    provenance = verify_ledger(ledger_path) if ledger_path else {}
+    provenance = {
+        **provenance,
+        "execution_policy": effective_policy.to_dict(),
+    }
+    if skipped_detectors:
+        provenance["skipped_detectors"] = skipped_detectors
     consensus = family_balanced_consensus(predictions)
 
     if deterministic:
@@ -423,6 +512,21 @@ def build_forensic_bundle(
     if failures:
         limitations.append(
             f"{len(failures)} configured detector(s) failed and were excluded from consensus."
+        )
+    if skipped_detectors:
+        limitations.append(
+            f"{len(skipped_detectors)} discovered detector(s) skipped by the "
+            "execution policy (remote use not consented)."
+        )
+    incomplete_robustness = [
+        row for row in robustness if not row.get("completeness", {}).get("support_eligible", False)
+    ]
+    if incomplete_robustness:
+        limitations.append(
+            "Benign-probe stability is incomplete for "
+            f"{len(incomplete_robustness)} detector(s); partial measurements "
+            "remain visible with their denominators in robustness.completeness "
+            "and do not support a stability claim."
         )
     if registry is None:
         limitations.append(

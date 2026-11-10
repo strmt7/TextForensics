@@ -29,6 +29,7 @@ from ..config import (
     validate_text_input,
 )
 from ..detectors import list_detector_health, list_detector_metadata
+from ..execution_policy import ExecutionPolicy, assert_execution_allowed
 from ..report import build_forensic_bundle
 
 
@@ -313,10 +314,10 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
 
     @app.middleware("http")
     async def request_guard_and_security_headers(request: Request, call_next):
-        # Emergency stop gate
-        from ..emergency_stop import check_emergency_stop
+        # Emergency stop gate (shared check; see execution_policy).
+        from ..execution_policy import is_execution_stopped
 
-        if check_emergency_stop():
+        if is_execution_stopped():
             return secure_response(
                 JSONResponse(
                     status_code=503,
@@ -431,11 +432,16 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/api/analyze", response_model=AnalyzeResponse)
     def analyze(req: TextRequest):
         """Batch analysis endpoint - returns full forensic bundle."""
-        from ..emergency_stop import assert_not_stopped
-
-        assert_not_stopped()
+        assert_execution_allowed()
         try:
-            bundle = build_forensic_bundle(checked(req.text))
+            # Explicit default policy (IF-01): local-only unless a later
+            # surface passes an explicitly consented policy. The
+            # redacting error contract (IF-07) for this endpoint is
+            # wired by Worker C from execution_policy.
+            policy = ExecutionPolicy.default_local_only(
+                max_input_bytes=active_settings.max_input_bytes
+            )
+            bundle = build_forensic_bundle(checked(req.text), execution_policy=policy)
             result = bundle.to_dict()
             store_analysis(result)
             return AnalyzeResponse(success=True, data=result)
@@ -454,9 +460,7 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
         gate applies via the request middleware, closing the hole the
         stdlib UI had (it analysed text even while the stop was active).
         """
-        from ..emergency_stop import assert_not_stopped
-
-        assert_not_stopped()
+        assert_execution_allowed()
         try:
             payload = await request.json()
         except Exception:
@@ -471,7 +475,10 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
         except ValueError:
             return JSONResponse(status_code=400, content={"error": "invalid request"})
         try:
-            bundle = build_forensic_bundle(text)
+            policy = ExecutionPolicy.default_local_only(
+                max_input_bytes=active_settings.max_input_bytes
+            )
+            bundle = build_forensic_bundle(text, execution_policy=policy)
         except ValueError:
             return JSONResponse(status_code=400, content={"error": "invalid request"})
         return JSONResponse(status_code=200, content=bundle.to_dict())
@@ -573,7 +580,16 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
 
     @app.websocket("/ws/analyze")
     async def websocket_analyze(websocket: WebSocket):
-        """WebSocket endpoint for real-time analysis streaming with collaboration support."""
+        """WebSocket endpoint for real-time analysis streaming with collaboration support.
+
+        Stop/consent note (W1 Worker A): detector dispatch below runs
+        under the shared execution policy (default local-only) and the
+        shared stop gate in ``run_all_detectors`` /
+        ``build_forensic_bundle``, so an active stop refuses work with
+        zero detector calls. The handshake check and per-operation
+        refusal before ``started`` are wired by Worker C from
+        ``execution_policy.assert_execution_allowed``.
+        """
         await websocket.accept()
         ws_key = str(uuid.uuid4())
 
@@ -680,11 +696,17 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                     # Run analysis in thread pool to avoid blocking
                     loop = asyncio.get_event_loop()
 
-                    # Stream detector results one by one
+                    # Stream detector results one by one, under the shared
+                    # execution policy (default local-only; an active stop
+                    # raises here with zero detector calls).
                     from ..detectors import run_all_detectors
 
+                    policy = ExecutionPolicy.default_local_only(
+                        max_input_bytes=active_settings.max_input_bytes
+                    )
                     detector_results = await loop.run_in_executor(
-                        None, run_all_detectors, validated_text
+                        None,
+                        lambda text=validated_text, pol=policy: run_all_detectors(text, policy=pol),
                     )
 
                     for i, result in enumerate(detector_results):
@@ -699,8 +721,9 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                         # Small delay to simulate streaming
                         await asyncio.sleep(0.05)
 
-                    # Build and send final bundle
-                    bundle = build_forensic_bundle(validated_text)
+                    # Build and send final bundle (same policy: local-only
+                    # unless an explicitly consented policy is passed).
+                    bundle = build_forensic_bundle(validated_text, execution_policy=policy)
                     result_data = bundle.to_dict()
                     analysis_id = store_analysis(result_data)
 
