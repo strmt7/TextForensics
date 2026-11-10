@@ -1,0 +1,2389 @@
+{
+  "schema": "textforensics.repository-audit-evidence/v1",
+  "audited_commit": "digest-ref:D00001",
+  "observation_date": "2026-11-10",
+  "interpretation": "Synthetic negative probes record current broken behavior. Zero probe exit is not a passing release gate. No real user text, external-provider inference or release publication occurred.",
+  "environment": {
+    "os": "Windows",
+    "python": "3.12.10",
+    "canonical_lock_installed": false,
+    "profile": "extras constrained to applicable pinned versions; Linux-only atheris absent",
+    "build_backend": "setuptools 84.2.1",
+    "wheel_tool": "0.48.0"
+  },
+  "full_suite": {
+    "command": "python -m coverage run --source=textforensics -m pytest tests -q --tb=short --timeout=180 --junitxml=<disposable-output>/junit.xml",
+    "exit_code": 1,
+    "passed": 3961,
+    "failed": 21,
+    "errors": 4,
+    "skipped": 1,
+    "passing_subtests": 1985,
+    "duration_seconds": 198.64,
+    "coverage_accepted_as_release_evidence": false
+  },
+  "claims": {
+    "canonical_git_blob_copy": {
+      "claims_passed": 33,
+      "claims_failed": 0,
+      "registry_valid": 34
+    },
+    "normal_autocrlf_windows_checkout": {
+      "claims_passed": 0,
+      "claims_failed": 33,
+      "registry_hash_failures": 34
+    },
+    "meaning": "Current claims-gate outcomes, not independent proof of every asserted property."
+  },
+  "bandit": {
+    "command": "python -m bandit -r src/textforensics -f json",
+    "exit_code": 1,
+    "low": 26,
+    "medium": 0,
+    "high": 0
+  },
+  "core": {
+    "temperature_probability_domain": {
+      "input": 0.2,
+      "temperature": 1.0,
+      "observed": 0.549833997312478,
+      "expected_binary_temperature_scaling": 0.2
+    },
+    "mutable_calibration": {
+      "eligible_after_mutation": true,
+      "stored_hash_still_matches": false,
+      "old_hash_unchanged": true,
+      "new_probability": 0.9999999979388463
+    },
+    "calibration_version_boundary": {
+      "selected_artifact_version": "old-version",
+      "result_probability_eligible": true,
+      "accepted_parameters": [
+        "detector_id",
+        "raw_score",
+        "allow_unvalidated"
+      ]
+    },
+    "held_out_overlap": {
+      "file_hashes_differ": true,
+      "sample_overlap": 2,
+      "observed_mode": "held_out_evaluation",
+      "diagnostic_mode": "held_out",
+      "diagnostic_contamination_detected": false,
+      "no_provenance_mode": "held_out"
+    },
+    "v2_inapplicable_evidence": {
+      "artifact_verification": false,
+      "split": "train",
+      "record_version": "*",
+      "input_editing": "human_only",
+      "record_editing": "machine_only",
+      "dimensions": {
+        "language": "supported",
+        "text_length": "supported",
+        "domain_genre": "supported",
+        "editing_revision": "unknown",
+        "generator_scope": "supported",
+        "human_population": "supported",
+        "human_false_positive_evidence": "supported",
+        "temporal_version_stability": "partial",
+        "detector_diversity": "partial",
+        "benign_stability": "unknown"
+      }
+    },
+    "v3_best_fpr": {
+      "state": "supported",
+      "reported_ci_upper": 0.01,
+      "worst_matching_ci_upper": 0.9
+    },
+    "failed_benign_probes": {
+      "failures": 2,
+      "verdict_stability": 1.0,
+      "trust_state": "supported"
+    },
+    "cache_persisted_byte_hash": {
+      "declared_matches_persisted": false,
+      "crlf_present": true
+    },
+    "dataset_array_syntax": {
+      "trailing_garbage": {
+        "accepted": true,
+        "rows": 1
+      },
+      "missing_comma": {
+        "accepted": true,
+        "rows": 2
+      },
+      "leading_trailing_commas": {
+        "accepted": true,
+        "rows": 1
+      }
+    },
+    "schema_discovery": {
+      "shipped": 12,
+      "listed": 10,
+      "listed_but_undispatchable": [
+        "evidence-registry",
+        "run-artifact",
+        "sealed-bundle-manifest",
+        "validation-registry"
+      ]
+    },
+    "mixed_origin_coverage": {
+      "wrong_detector_expired_demoted_partial_accepted": true
+    }
+  },
+  "crypto_primary": [
+    {
+      "probe": "baseline",
+      "observed": {
+        "case_valid": true,
+        "combined_valid": true,
+        "standalone_exit": 0
+      },
+      "expected": "All clean controls must verify; tests must be non-vacuous."
+    },
+    {
+      "probe": "watermark_payload_substitution",
+      "observed": {
+        "standalone_accepts_forged": true,
+        "manager_accepts_forged": false,
+        "actual_payload_hash_matches_signed_hash": false
+      },
+      "expected": "Both verifiers must reject a payload whose computed hash differs from the signed hash."
+    },
+    {
+      "probe": "watermark_public_key_expiry",
+      "observed": {
+        "accepted": true
+      },
+      "expected": "A signature whose authenticated signing time is later than trusted key expiration must fail."
+    },
+    {
+      "probe": "case_unsigned_signer_metadata",
+      "observed": {
+        "signature_valid": true,
+        "combined_valid": true,
+        "signed_payload_unchanged": true
+      },
+      "expected": "Identity, role, and recorded fingerprint changes must fail or be explicitly unauthenticated."
+    },
+    {
+      "probe": "append_retains_invalid_signature",
+      "observed": {
+        "without_key_valid": true,
+        "with_key_valid": false
+      },
+      "expected": "Appending to a signed case must require re-signing or explicitly invalidate/remove the signature."
+    },
+    {
+      "probe": "case_top_level_raw_text",
+      "observed": {
+        "raw_text_included_flag": false,
+        "literal_text_present": true,
+        "combined_valid": true
+      },
+      "expected": "Portable case-file generation must reject forbidden raw-text keys throughout the entire case, not only forensic_bundle."
+    },
+    {
+      "probe": "standalone_validation_parity",
+      "observed": {
+        "raw_text": {
+          "combined_valid": false,
+          "standalone_exit": 0
+        },
+        "missing_checklist": {
+          "combined_valid": false,
+          "standalone_exit": 0
+        },
+        "wrong_trust_overall": {
+          "combined_valid": false,
+          "standalone_exit": 0
+        }
+      },
+      "expected": "All offline/installed entry points must reject the same malformed artifact even when its unsigned hash is recomputed."
+    },
+    {
+      "probe": "standalone_duplicate_name_shadow",
+      "observed": {
+        "first_case_is_wrong": true,
+        "standalone_exit": 0
+      },
+      "expected": "Reject duplicate archive member names before any name-based reads."
+    },
+    {
+      "probe": "sealed_record_bypasses_container_rejection",
+      "observed": {
+        "standalone_exit": 1,
+        "rejected_archive_entries_still_read": [
+          {
+            "name": "manifest.json",
+            "bytes": 2
+          },
+          {
+            "name": "bomb.bin",
+            "bytes": 1048576
+          }
+        ],
+        "compressed_bytes": 1254
+      },
+      "expected": "No entry may be decompressed after standalone container rejection; use the already validated capped contents."
+    },
+    {
+      "probe": "audit_log_prefix_deletion",
+      "observed": {
+        "chain_valid": false,
+        "public_report": {
+          "valid": true,
+          "entry_count": 1,
+          "errors": []
+        }
+      },
+      "expected": "A surviving record with a non-genesis previous hash must be invalid in the public wrapper."
+    },
+    {
+      "probe": "audit_log_stale_writer",
+      "observed": {
+        "stored_indices": [
+          0,
+          0
+        ],
+        "verification_valid": false
+      },
+      "expected": "Serialized appends from separate instances must reload/verify the head and persist indices [0,1] with a valid chain."
+    },
+    {
+      "probe": "directory_hash_framing_collision",
+      "observed": {
+        "different_file_counts": [
+          1,
+          2
+        ],
+        "same_tree_hash": true
+      },
+      "expected": "Different path/content maps must have distinct framed hash preimages; length-prefix records or hash a canonical per-file manifest."
+    },
+    {
+      "probe": "anchor_chain_masks_benchmark_tamper",
+      "observed": {
+        "no_chain": {
+          "raised": "RollbackError"
+        },
+        "unchanged_chain": "chain_valid"
+      },
+      "expected": "An unchanged calibration chain cannot authorize a benchmark change or calibration rollback; chain head must bind verified current tree roots."
+    },
+    {
+      "probe": "workspace_unvalidated_head",
+      "observed": {
+        "tampered_head_accepted": true,
+        "append_breaks_chain": true
+      },
+      "expected": "Stored head/root must be checked or recomputed before appending; a valid loaded chain must remain valid after append."
+    },
+    {
+      "probe": "workspace_missing_required_chain",
+      "observed": {
+        "audit_chain_valid": true,
+        "overall_status": "healthy"
+      },
+      "expected": "An explicitly requested missing audit-chain file is unavailable/invalid, never a verified healthy chain."
+    },
+    {
+      "probe": "bundle_content_hash_omissions",
+      "observed": {
+        "same_hash": true
+      },
+      "expected": "A content hash must bind subject content_sha256 and analysis provenance, or be named/scoped as a partial presentation hash."
+    },
+    {
+      "probe": "combined_malformed_dimensions",
+      "observed": {
+        "raised": "AttributeError"
+      },
+      "expected": "Return valid=false with structured errors for a non-object Trust Map dimension."
+    },
+    {
+      "probe": "windows_sealing_key_save",
+      "observed": {
+        "os_name": "nt",
+        "has_fchmod": false,
+        "save": {
+          "raised": "AttributeError"
+        }
+      },
+      "expected": "Key generation/storage must have an owner-private supported-platform implementation, not an unavailable os.fchmod call."
+    },
+    {
+      "probe": "timestamp_bad_time_parity",
+      "observed": {
+        "package": {
+          "raised": "ValueError"
+        },
+        "standalone_errors": []
+      },
+      "expected": "An invalid GeneralizedTime must be a structured failure in both verifiers, never an exception or a verified token."
+    },
+    {
+      "probe": "timestamp_valid_p256_sha384",
+      "observed": {
+        "independent_crypto_signature_verified": true,
+        "package_errors": [
+          "ec_curve_mismatch:1.2.840.10045.3.1.7"
+        ],
+        "standalone_errors": [
+          "ec_curve_mismatch"
+        ]
+      },
+      "expected": "ECDSA-with-SHA384 names the hash, not a mandated P-384 curve; accept the curve declared in the signer certificate when supported."
+    },
+    {
+      "probe": "legacy_empty_manifest_accepts_non_archive",
+      "observed": {
+        "valid": true,
+        "per_file_status": {},
+        "errors": []
+      },
+      "expected": "A wrong-schema, unsupported-format, non-archive payload cannot be a verified bundle even when its self-declared digest matches."
+    },
+    {
+      "probe": "v3_trust_incomplete_strong",
+      "observed": {
+        "combined_valid": false,
+        "nversion_trust_map_verified": true
+      },
+      "expected": "Strong requires the complete declared dimension set, each supported exactly once; an arbitrary single dimension is not a strong Trust Map."
+    },
+    {
+      "probe": "completed",
+      "observed": {
+        "observations": 22
+      },
+      "expected": "All observations above are saved with no repository writes."
+    }
+  ],
+  "crypto_followup": [
+    {
+      "probe": "signed_duplicate_shadow",
+      "observed": {
+        "control_exit": 0,
+        "changed_archive": true,
+        "shadow_exit": 0,
+        "signature": "verified"
+      },
+      "expected": "Reject duplicate archive names even while the original manifest signature remains valid."
+    },
+    {
+      "probe": "production_pack_wrong_trust_map",
+      "observed": {
+        "combined_valid": false,
+        "packer_returned_archive": true,
+        "offline_exit": 0,
+        "signature": "verified"
+      },
+      "expected": "Packing and offline verification must reject a case rejected by the required combined verifier."
+    },
+    {
+      "probe": "v3_incomplete_map_precise_result",
+      "observed": {
+        "primary_errors": [],
+        "nversion_valid": true,
+        "trust_map_verified": true,
+        "combined_valid": true
+      },
+      "expected": "Both verifiers must reject an undeclared one-dimension strong map even when its unsigned manifest is internally consistent."
+    },
+    {
+      "probe": "genuine_v3_schema_disagreement",
+      "observed": {
+        "trust_map_schema": "textforensics.trust-map/v3",
+        "combined_valid": true,
+        "trust_map_schema_errors": [],
+        "case_schema_errors": [],
+        "bundle_schema_errors": [
+          {
+            "instance": "trust_map/schema",
+            "validator": "enum"
+          },
+          {
+            "instance": "trust_map/schema",
+            "validator": "const"
+          }
+        ]
+      },
+      "expected": "Current generated Trust Map versions must be accepted consistently by public nested schemas and runtime verifiers."
+    },
+    {
+      "probe": "benchmark_invalid_inputs",
+      "observed": {
+        "nan_rates_valid": true,
+        "negative_counts_valid": true,
+        "nonhex_fingerprint_valid": true
+      },
+      "expected": "Rates must be finite, counts nonnegative integers (not bool), and SHA-256 fingerprints hexadecimal."
+    },
+    {
+      "probe": "bounded_shape_and_depth_failures",
+      "observed": {
+        "mixed_manifest_path_types": {
+          "raised": "TypeError"
+        },
+        "deep_json_file_bytes": 2201,
+        "deep_case_path": {
+          "valid": false,
+          "errors": [
+            "case file must be a JSON object"
+          ],
+          "seal_verified": false,
+          "trust_map_verified": false,
+          "dimensions": {},
+          "schema": null,
+          "case_sha256": null,
+          "note": null,
+          "nversion": null,
+          "primary": null
+        }
+      },
+      "expected": "Malformed shapes and bounded-depth violations must return structured failure, not uncaught exceptions."
+    },
+    {
+      "probe": "watermark_unsigned_dates",
+      "observed": {
+        "primary_accepts": true,
+        "manager_accepts": true,
+        "signed_payload_timestamp_unchanged": true
+      },
+      "expected": "Use trusted public-key validity bounds and an authenticated signing time, not editable envelope dates."
+    },
+    {
+      "probe": "watermark_key_path_traversal",
+      "observed": {
+        "outside_key_dir_created": true,
+        "private_key_field_present": true
+      },
+      "expected": "Reject caller key IDs containing traversal/separators and keep private key writes under the configured key directory."
+    },
+    {
+      "probe": "audit_log_failed_append_mutates_head",
+      "observed": {
+        "write_failure": {
+          "raised": "OSError"
+        },
+        "stored_indices": [
+          1
+        ],
+        "reloaded_chain_valid": false
+      },
+      "expected": "Only commit in-memory head after successful durable persistence; retry must not reference a nonexistent record."
+    },
+    {
+      "probe": "windows_keysave_descriptor_leak",
+      "observed": {
+        "failure": {
+          "raised": "AttributeError"
+        },
+        "descriptor_still_open": true,
+        "scratch_unlink_blocked_until_close": true,
+        "tracked_descriptor_closed_after_probe": true
+      },
+      "expected": "A failed key save must close every created descriptor and remove the scratch file; Windows must have a supported private-file implementation."
+    },
+    {
+      "probe": "ed25519_noncanonical_identity_key",
+      "observed": {
+        "package_accepts": true,
+        "standalone_accepts": true,
+        "independent_cryptography_accepts": true
+      },
+      "expected": "Reject the noncanonical x=0/sign=1 encoding before group arithmetic; no valid generated public key is substituted."
+    },
+    {
+      "probe": "completed",
+      "observed": {
+        "observations_before_completion": 11
+      },
+      "expected": "All follow-ups completed; product files remain unchanged."
+    }
+  ],
+  "state_primary": {
+    "cache_budget": {
+      "accounted": 75,
+      "actual_entries": 1,
+      "configured": 20
+    },
+    "cache_lifecycle_not_persisted": {
+      "file_exists": false
+    },
+    "cache_mutable_result": {
+      "reread": {
+        "v": 99
+      }
+    },
+    "cache_partial_load": {
+      "get_exception": "ValueError",
+      "retained_entries": 1
+    },
+    "cache_replace_accounting": {
+      "actual_before": 1,
+      "entries_after": 1,
+      "entries_before": 2,
+      "size_after": 7
+    },
+    "cache_unknown_config_max_age": {
+      "status": "fresh",
+      "value": {
+        "v": 99
+      }
+    },
+    "capability_invalid_expired": {
+      "policy_passed": true,
+      "trust_state": "supported",
+      "validation_issues": [
+        "No evidence for claim d/probability_calibration. Every claim must carry at least one evidence reference.",
+        "VALIDATED claim d/probability_calibration requires at least one EXECUTED evidence reference."
+      ]
+    },
+    "capability_unknown_tier": {
+      "interior_glob_match": false,
+      "passed": true
+    },
+    "codec_decode_nan": {
+      "accepted": true
+    },
+    "health_latency_warning": {
+      "alert": false,
+      "latency": 4000.0,
+      "warning_threshold": 3000.0
+    },
+    "health_nan": {
+      "score": 1.0,
+      "state": "healthy"
+    },
+    "health_persistence": {
+      "alerts_retained": 6,
+      "metrics_retained": 2,
+      "reserialize_exception": "AttributeError"
+    },
+    "health_throughput": {
+      "alert": false,
+      "critical_threshold": 0.1,
+      "rate": 0.03333333333333333,
+      "warning_threshold": 0.5
+    },
+    "imported_snapshot_unlinked": {
+      "claim_allowed": true,
+      "comparable": 2,
+      "overall_status": "stable"
+    },
+    "math_oracles": {
+      "brier_actual": 0.3400000000000001,
+      "brier_expected": 0.3400000000000001,
+      "ece_actual": 0.3,
+      "ece_expected": 0.3,
+      "holm_actual": [
+        0.03,
+        0.06,
+        0.06
+      ],
+      "holm_expected": [
+        0.03,
+        0.06,
+        0.06
+      ],
+      "ks_actual": 0.25,
+      "ks_expected": 0.25,
+      "psi_actual": 0.2746530721670274,
+      "psi_expected": 0.2746530721670274,
+      "wilson_upper_actual": 0.07135003417431873,
+      "wilson_upper_expected": 0.07135003417431873
+    },
+    "nan_fpr": {
+      "value": 0.0
+    },
+    "nan_ks_hang": {
+      "timed_out": true,
+      "timeout_seconds": 1.5
+    },
+    "nan_manifest_accepted": {
+      "accepted": true,
+      "omitted_required_fields": [
+        "code_sha",
+        "thresholds",
+        "alpha_per_run",
+        "is_baseline",
+        "previous_run_id"
+      ]
+    },
+    "nan_model_card": {
+      "serializes_nan": true
+    },
+    "one_sample_demotes": {
+      "demote": true,
+      "drift_signal_allowed": false,
+      "n": 1,
+      "tiers": [
+        1,
+        2
+      ]
+    },
+    "partial_calibrated_baseline": {
+      "exception": "KeyError: 't'"
+    },
+    "policy_conditions_digest": {
+      "digest_equal": true
+    },
+    "policy_mutable_content": {
+      "current_status": "disabled",
+      "recomputed_matches": false,
+      "stored_digest_unchanged": true
+    },
+    "policy_stale_writer": {
+      "expected_floor": 10,
+      "final_disk_floor": 1,
+      "lower_policy_rejections": []
+    },
+    "probe_partial_full_promoted": {
+      "clean_full_runs": 2,
+      "demotions_cleared": true,
+      "first_alerts": [],
+      "gaps_only_builtins": 2,
+      "registry_undemoted": true,
+      "scored": 1,
+      "selected": 4,
+      "temporal_support": true
+    },
+    "retry_closed_backoff": {
+      "declared_delay": 30,
+      "next_ready": [
+        true,
+        0.0
+      ]
+    },
+    "retry_half_open_retry_after": {
+      "elapsed": 5,
+      "first_allowed": true,
+      "promised_retry_after": 60,
+      "second_allowed": true
+    },
+    "run_history_overwrite": {
+      "files": 1,
+      "same_id_replaced": true
+    },
+    "snapshot_ignores_stop": {
+      "calls": 1,
+      "observations": 1
+    }
+  },
+  "state_followup": {
+    "cache_read_clear_race": {
+      "actual_entries": 1,
+      "errors": [],
+      "stats_entries": 0
+    },
+    "committed_corpus_review": {
+      "base_hash_shapes": true,
+      "datasets": {
+        "beemo": 50,
+        "detectrl_x": 50,
+        "mage": 150,
+        "opai_bench": 50,
+        "raid": 100
+      },
+      "item_count": 400,
+      "problems": [],
+      "slice_counts": {
+        "ai-current-generator": 50,
+        "ai-humanized": 50,
+        "ai-legacy-generator": 50,
+        "ai-paraphrased": 50,
+        "benign-transformed": 50,
+        "human-native": 50,
+        "human-short": 50,
+        "mixed-origin": 50
+      },
+      "transform_counts": {
+        "apostrophe_curly": 4,
+        "double_space_after_period": 30,
+        "ellipsis_unicode": 2,
+        "trailing_newline": 14
+      },
+      "unique_content_hashes": 400
+    },
+    "committed_drift_corpus_review": {
+      "actual_count": 34,
+      "declared_count": 34,
+      "labels": {
+        "ai": 12,
+        "human": 22
+      },
+      "verified_hashes": 34,
+      "word_count_mismatches": 0
+    },
+    "foreign_demotion_erased": {
+      "final_reason": null,
+      "original_foreign": true,
+      "replaced_with_u3": true
+    },
+    "health_stale_observation": {
+      "observation_timestamp": "2000-01-01T00:00:00Z",
+      "report_timestamp_fresh": true,
+      "state": "healthy"
+    },
+    "ks_exhaustive_oracle": {
+      "mismatches": 0,
+      "pairs": 225
+    },
+    "lower_score_direction_ignored": {
+      "achieved_fpr": 0.0,
+      "expected_threshold_between": [
+        0.1,
+        0.9
+      ],
+      "expected_tpr": 1.0,
+      "measured_tpr": 0.0
+    },
+    "model_card_zero_hidden": {
+      "zero_metric_lines": [
+        "- ROC AUC: N/A",
+        "- PR AUC: N/A",
+        "- Calibration Error: N/A"
+      ]
+    },
+    "open_gate_consumes_attempt": {
+      "elapsed": 5.0,
+      "exception": "RuntimeError: Retry gate exhausted",
+      "operation_calls": 0
+    },
+    "provider_changed_temporal_support": {
+      "baseline_selected": {
+        "d": "p1"
+      },
+      "temporal_support": true
+    },
+    "streak_across_version_change": {
+      "clean_full_runs": 2,
+      "clean_ids": [
+        "r3",
+        "r1"
+      ],
+      "temporal_support": true
+    },
+    "streak_ignores_latest_partial_breach": {
+      "clean_full_runs": 2,
+      "temporal_support": true
+    }
+  },
+  "state_fullcorpus": {
+    "alerts_each": [
+      [],
+      []
+    ],
+    "clean_full_runs": 2,
+    "detector_attempts_each": [
+      400,
+      400
+    ],
+    "first_cleared_records": 1,
+    "scored_each": [
+      1,
+      1
+    ],
+    "selected_items": 400,
+    "still_demoted_records": 0,
+    "temporal_support": true,
+    "verified_corpus_problems": []
+  },
+  "interfaces": {
+    "cross_origin_websocket": {
+      "types": [
+        "started",
+        "detector_result",
+        "complete"
+      ],
+      "bundle_received": true
+    },
+    "session_join": "session_joined",
+    "session_after_disconnect": {
+      "user_count": 1,
+      "cleanup_removed": 0,
+      "still_present": true
+    },
+    "web_invalid_input": {
+      "status": 200,
+      "body": {
+        "success": false,
+        "data": null,
+        "error": "413: Invalid text input."
+      }
+    },
+    "web_error_echo": {
+      "status": 200,
+      "body": {
+        "success": false,
+        "data": null,
+        "error": "SENSITIVE-PROBE-ERROR"
+      }
+    },
+    "api_validation_echo": {
+      "status": 422,
+      "marker_in_response": true
+    },
+    "api_untrusted_host": {
+      "status": 200
+    },
+    "api_remote_without_opt_in": {
+      "status": 200,
+      "adapter_calls": 4,
+      "executions": [
+        "remote"
+      ]
+    },
+    "stopped_http": 503,
+    "stopped_websocket": {
+      "types": [
+        "started",
+        "detector_result",
+        "complete"
+      ],
+      "adapter_calls": 5
+    },
+    "websocket_forged_history": {
+      "ack": "session_left",
+      "max_input_bytes": 1024,
+      "padding_bytes_stored": 65536,
+      "stored_verdict": "<strong id=\"injected\">FORGED</strong>"
+    },
+    "scanner_syntax_error": {
+      "local_only_verified": true,
+      "rules": [
+        "DYN-999"
+      ]
+    },
+    "scanner_submodule_network": {
+      "local_only_verified": true,
+      "rules": []
+    },
+    "scanner_import_before_scan": {
+      "marker_written": true,
+      "findings": [
+        "FS-004"
+      ]
+    },
+    "unsupported_confidence": {
+      "typo": {
+        "risk": "medium",
+        "confidence": 0.7,
+        "patterns_triggered": 2
+      },
+      "clean": {
+        "risk": "none",
+        "confidence": 1.0
+      },
+      "semantic": {
+        "risk": "none",
+        "confidence": 1.0,
+        "segments": 1,
+        "score": 0.0
+      }
+    },
+    "saved_explanation_text": {
+      "first_sentence_present": true,
+      "second_sentence_present": true,
+      "has_raw_text_opt_in": false
+    },
+    "explanation_scored_count": {
+      "n_scored": 2,
+      "actual_attributions": 0
+    },
+    "mcp_expired_claim": {
+      "success": true,
+      "exit_code": 0,
+      "detector_id": "audit.example/detector",
+      "capability": "language_coverage.en",
+      "is_validated": true,
+      "tier": "validated",
+      "evidence_count": 0,
+      "valid_until": "2000-01-01"
+    },
+    "cli_equivalent_expired_claim": {
+      "tier": "validated"
+    },
+    "diagnostics_contract": {
+      "version": "0.1.0",
+      "optional_failed_state": "critical",
+      "prometheus": "# TYPE test_metric{label=\"line\nbreak\"} gauge\ntest_metric{label=\"line\nbreak\"} 1.0"
+    },
+    "ollama_redirect": {
+      "allow_remote_host": false,
+      "received": [
+        {
+          "host": "receiver.example",
+          "prompt": "SENSITIVE-DISPOSABLE-PROMPT"
+        }
+      ],
+      "done": true
+    },
+    "ollama_response_cap": {
+      "error": "OllamaError",
+      "body_completed_before_error": true,
+      "bytes_sent": 65536,
+      "configured_cap": 1024
+    },
+    "ollama_embeddings_wire": {
+      "error": "HTTP 400: {\"error\": \"legacy embeddings endpoint requires prompt\"}",
+      "requests": [
+        {
+          "path": "/api/embeddings",
+          "json": {
+            "model": "audit-model",
+            "input": [
+              "one",
+              "two"
+            ]
+          }
+        }
+      ]
+    },
+    "ollama_error_echo": {
+      "marker_in_error": true,
+      "error_type": "OllamaError"
+    },
+    "ollama_stream_without_context": {
+      "error_type": "AttributeError",
+      "error": "'NoneType' object has no attribute 'post'"
+    }
+  },
+  "interfaces_extra": {
+    "static_traversal": 404,
+    "template_session_escaped": true,
+    "mcp_registered_tools": [
+      "analyze_ai_text",
+      "audit_writing_naturalness",
+      "build_case_file",
+      "build_forensic_report",
+      "capability_check",
+      "capability_list",
+      "capability_register",
+      "check_contamination",
+      "compare_text_versions",
+      "detector_health",
+      "drift_compare",
+      "drift_report",
+      "drift_snapshot",
+      "fingerprint_dataset",
+      "localize_text_patterns",
+      "verify_case_file"
+    ],
+    "unregistered_mcp_implementations": [
+      "result_encode",
+      "result_decode",
+      "capability_policy_evaluate"
+    ],
+    "rich_diff_markup": {
+      "type": "MarkupError",
+      "message": "closing tag '[/]' at position 16 has nothing to close"
+    },
+    "diagnostics_default_claims": {
+      "state": "healthy",
+      "checks": [
+        {
+          "name": "database",
+          "passed": true,
+          "message": "Database connected"
+        },
+        {
+          "name": "storage",
+          "passed": true,
+          "message": "Storage writable"
+        },
+        {
+          "name": "disk_space",
+          "passed": true,
+          "message": "sufficient"
+        },
+        {
+          "name": "memory",
+          "passed": true,
+          "message": "sufficient"
+        }
+      ]
+    },
+    "csv_untrusted_formula": true
+  },
+  "interfaces_js": {
+    "complete_analysis_real_bundle": {
+      "error": "TypeError",
+      "message": "Cannot read properties of undefined (reading 'replace')"
+    },
+    "warnings_real_bundle": {
+      "error": "TypeError",
+      "message": "Cannot set properties of null (setting 'innerHTML')"
+    },
+    "streaming_first_detector": {
+      "error": "ReferenceError",
+      "message": "updateDetectorChart is not defined"
+    },
+    "gauge_ai_like": {
+      "dataset": [
+        85,
+        15
+      ],
+      "drawn": [
+        "85%",
+        "AI Probability"
+      ]
+    },
+    "gauge_human_like": {
+      "dataset": [
+        15,
+        85
+      ],
+      "drawn": [
+        "15%",
+        "AI Probability"
+      ]
+    },
+    "gauge_abstain": {
+      "dataset": [
+        50,
+        50
+      ],
+      "drawn": [
+        "50%",
+        "AI Probability"
+      ]
+    },
+    "export_json": {
+      "extension": "json",
+      "mime": "application/json",
+      "starts_with_json": true,
+      "wrapper_keys": [
+        "data",
+        "format"
+      ]
+    },
+    "export_csv": {
+      "extension": "csv",
+      "mime": "application/json",
+      "starts_with_json": true,
+      "wrapper_keys": [
+        "data",
+        "format"
+      ]
+    },
+    "export_html": {
+      "extension": "html",
+      "mime": "application/json",
+      "starts_with_json": true,
+      "wrapper_keys": [
+        "data",
+        "format"
+      ]
+    },
+    "https_socket": {
+      "url": "ws://audit.localhost/ws/analyze"
+    },
+    "missing_dom_refs": [
+      "warningsList"
+    ],
+    "unescaped_history": true
+  },
+  "interfaces_targeted_tests": {
+    "exit_code": 0,
+    "selected_test_files": [
+      "tests/test_api.py",
+      "tests/test_mcp.py",
+      "tests/test_web_ui.py",
+      "tests/test_web_ui_consolidation.py",
+      "tests/test_ollama.py",
+      "tests/test_adapter_scanner.py",
+      "tests/test_localize.py",
+      "tests/test_localize_enhanced.py",
+      "tests/test_localize_extra.py",
+      "tests/test_explain.py",
+      "tests/test_semantic.py",
+      "tests/test_compliance.py",
+      "tests/test_corpus_analyzer.py",
+      "tests/test_rich_output.py",
+      "tests/test_no_telemetry.py"
+    ],
+    "counts": {
+      "tests": 333,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "failures": []
+  },
+  "engineering": {
+    "build_identity_without_commit_or_dependencies": {
+      "valid": true,
+      "checks": [
+        {
+          "name": "source_commit_verified",
+          "expected": true,
+          "actual": false,
+          "passed": false
+        },
+        {
+          "name": "dependencies_sha256",
+          "expected": "available",
+          "actual": "unavailable",
+          "passed": false
+        }
+      ],
+      "errors": [
+        "Working directory was not clean at build time",
+        "Dependencies hash unavailable"
+      ]
+    },
+    "upload_incomplete_artifacts_no_confirmation": {
+      "returncode": 0,
+      "would_invoke_gh_release_create": true,
+      "selected_asset_names": [
+        "wrong-name-9.9.9-py3-none-any.whl",
+        "textforensics-0.2.0-source.tar.gz"
+      ],
+      "notes_asset_attached": false
+    },
+    "performance_disjoint_names": {
+      "returncode": 0,
+      "output": "Warning: Benchmark 'before' not found in current results\nComparison (threshold: 1.20x = 20% slower)\n  Baseline: base\n  Current:  current\n  Total benchmarks compared: 1\n\nNo significant changes detected.\n\n"
+    },
+    "audit_skipped_dependency": {
+      "parsed_findings": 0,
+      "raw_findings": 0,
+      "raises_error": false
+    },
+    "sbom_missing_transitive": {
+      "included": [
+        "root"
+      ],
+      "unresolved": []
+    },
+    "deep_verification_bash_syntax": {
+      "python -m pip install pip-audit>=2,<3": {
+        "exit": 0,
+        "stderr": ""
+      },
+      "python -m pip install bandit>=1.7,<2": {
+        "exit": 0,
+        "stderr": ""
+      },
+      "python -m pip install httpx>=0.27,<1": {
+        "exit": 0,
+        "stderr": ""
+      }
+    },
+    "unquoted_range_safe_printf_probe": {
+      "exit": 1,
+      "stderr": "/bin/bash: line 1: 3: No such file or directory",
+      "files_created": [
+        "=2,"
+      ]
+    },
+    "fuzz_child_nonzero_without_crash_artifact": {
+      "target": "fake-target",
+      "crashes": 0,
+      "hangs": 0,
+      "timed_out": false,
+      "error": null,
+      "elapsed": 0.0,
+      "corpus_count": 0
+    }
+  },
+  "wheel_smoke": {
+    "installed_import": true,
+    "sample_word_count": 5,
+    "case_schema_loaded": true,
+    "web_static_exists": false,
+    "web_template_exists": false,
+    "embedded_identity": {
+      "source_commit": "digest-ref:D00001",
+      "source_commit_verified": true,
+      "contract_info": {
+        "agents_md_sha256": "digest-ref:D00002",
+        "architecture_md_sha256": "digest-ref:D00003",
+        "engineering_toml_sha256": "digest-ref:D00004",
+        "schema_files": "{\"case-file.schema.json\": \"digest-ref:D00005\", \"detector-result.schema.json\": \"digest-ref:D00006\", \"enterprise-policy.schema.json\": \"digest-ref:D00007\", \"evidence-record.schema.json\": \"digest-ref:D00008\", \"evidence-registry.schema.json\": \"digest-ref:D00009\", \"forensic-bundle.schema.json\": \"digest-ref:D00010\", \"mixed-origin-report.schema.json\": \"digest-ref:D00011\", \"probe-run.schema.json\": \"digest-ref:D00012\", \"run-artifact.schema.json\": \"digest-ref:D00013\", \"sealed-bundle-manifest.schema.json\": \"digest-ref:D00014\", \"trust-map.schema.json\": \"digest-ref:D00015\", \"validation-registry.schema.json\": \"digest-ref:D00016\"}",
+        "schemas_sha256": "digest-ref:D00017",
+        "spec_md_sha256": "digest-ref:D00018"
+      }
+    },
+    "web_app_created": false,
+    "web_error_type": "RuntimeError",
+    "web_error": "Directory '<installed-package>\\web_ui\\static' does not exist"
+  },
+  "sdist_rebuild": {
+    "sdist_build_exit": 0,
+    "sdist_has_agents": false,
+    "sdist_has_engineering_policy": false,
+    "sdist_has_spec": false,
+    "sdist_wheel_source_commit": "unknown",
+    "sdist_wheel_source_commit_verified": false,
+    "sdist_wheel_contract_fields": [
+      "schema_files",
+      "schemas_sha256"
+    ]
+  },
+  "remote_wheel_comparison": {
+    "different_entries": [
+      "textforensics/_build_info.json",
+      "textforensics-0.2.0.dist-info/RECORD"
+    ],
+    "first_identity": {
+      "api_spec_sha256": "digest-ref:D00019",
+      "contract_info": {
+        "agents_md_sha256": "digest-ref:D00020",
+        "architecture_md_sha256": "digest-ref:D00021",
+        "engineering_toml_sha256": "digest-ref:D00022",
+        "schema_files": "{\"case-file.schema.json\": \"digest-ref:D00023\", \"detector-result.schema.json\": \"digest-ref:D00024\", \"enterprise-policy.schema.json\": \"digest-ref:D00025\", \"evidence-record.schema.json\": \"digest-ref:D00026\", \"evidence-registry.schema.json\": \"digest-ref:D00027\", \"forensic-bundle.schema.json\": \"digest-ref:D00028\", \"mixed-origin-report.schema.json\": \"digest-ref:D00029\", \"probe-run.schema.json\": \"digest-ref:D00030\", \"run-artifact.schema.json\": \"digest-ref:D00031\", \"sealed-bundle-manifest.schema.json\": \"digest-ref:D00032\", \"trust-map.schema.json\": \"digest-ref:D00033\", \"validation-registry.schema.json\": \"digest-ref:D00034\"}",
+        "schemas_sha256": "digest-ref:D00035",
+        "spec_md_sha256": "digest-ref:D00019"
+      },
+      "dependencies_sha256": "digest-ref:D00036",
+      "detector_adapter_api_sha256": "digest-ref:D00022",
+      "embedded_at": "build_time",
+      "source_commit": "digest-ref:D00001",
+      "source_commit_verified": true
+    },
+    "second_identity": {
+      "api_spec_sha256": "digest-ref:D00019",
+      "contract_info": {
+        "agents_md_sha256": "digest-ref:D00020",
+        "architecture_md_sha256": "digest-ref:D00021",
+        "engineering_toml_sha256": "digest-ref:D00022",
+        "schema_files": "{\"case-file.schema.json\": \"digest-ref:D00023\", \"detector-result.schema.json\": \"digest-ref:D00024\", \"enterprise-policy.schema.json\": \"digest-ref:D00025\", \"evidence-record.schema.json\": \"digest-ref:D00026\", \"evidence-registry.schema.json\": \"digest-ref:D00027\", \"forensic-bundle.schema.json\": \"digest-ref:D00028\", \"mixed-origin-report.schema.json\": \"digest-ref:D00029\", \"probe-run.schema.json\": \"digest-ref:D00030\", \"run-artifact.schema.json\": \"digest-ref:D00031\", \"sealed-bundle-manifest.schema.json\": \"digest-ref:D00032\", \"trust-map.schema.json\": \"digest-ref:D00033\", \"validation-registry.schema.json\": \"digest-ref:D00034\"}",
+        "schemas_sha256": "digest-ref:D00035",
+        "spec_md_sha256": "digest-ref:D00019"
+      },
+      "dependencies_sha256": "digest-ref:D00036",
+      "detector_adapter_api_sha256": "digest-ref:D00022",
+      "embedded_at": "build_time",
+      "source_commit": "digest-ref:D00001",
+      "source_commit_verified": false
+    },
+    "web_paths": [
+      "textforensics/web_ui/main.py"
+    ],
+    "first_sha256": "digest-ref:D00037",
+    "second_sha256": "digest-ref:D00038"
+  },
+  "remote_baseline": {
+    "sha": "digest-ref:D00001",
+    "check_run_records": 37,
+    "successful": 35,
+    "skipped": 2,
+    "unique_check_names": 36,
+    "open_code_scanning_alerts": 89,
+    "scorecard": 86,
+    "codeql": 3,
+    "open_dependabot_alerts": 0,
+    "current_sarif_matched_alerts": 89,
+    "snapshot_sources": [
+      {
+        "endpoint": "commits/digest-ref:D00001/check-runs?per_page=100&filter=all",
+        "retrieved_at": "2026-11-10T17:24:17.139101+00:00",
+        "page_count": 1,
+        "record_count": 37
+      },
+      {
+        "endpoint": "actions/runs?head_sha=digest-ref:D00001&per_page=100",
+        "retrieved_at": "2026-11-10T17:24:17.217069+00:00",
+        "page_count": 1,
+        "record_count": 9
+      },
+      {
+        "endpoint": "code-scanning/alerts?state=open&per_page=100",
+        "retrieved_at": "2026-11-10T17:24:17.728829+00:00",
+        "page_count": 1,
+        "record_count": 89
+      },
+      {
+        "endpoint": "dependabot/alerts?state=open&per_page=100",
+        "retrieved_at": "2026-11-10T17:24:17.672422+00:00",
+        "page_count": 1,
+        "record_count": 0
+      },
+      {
+        "endpoint": "code-scanning/analyses?ref=refs/heads/main&per_page=100",
+        "retrieved_at": "2026-11-10T17:24:22.682050+00:00",
+        "page_count": 12,
+        "record_count": 1127
+      }
+    ],
+    "checks": [
+      {
+        "id": 129806315404,
+        "name": "CodeQL security analysis",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T11:39:44Z",
+        "completed_at": "2026-11-10T11:41:05Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42809279741/job/129806315404"
+      },
+      {
+        "id": 129756570047,
+        "name": "DeepSource: Analysis",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "skipped",
+        "started_at": "2026-11-10T09:54:43Z",
+        "completed_at": "2026-11-10T09:54:43Z",
+        "details_url": "https://app.deepsource.com/gh/strmt7/TextForensics/"
+      },
+      {
+        "id": 129756030387,
+        "name": "Mutation Report Summary",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:35Z",
+        "completed_at": "2026-11-10T09:53:39Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427771/job/129756030387"
+      },
+      {
+        "id": 129755985546,
+        "name": "Reproducibility Summary",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:30Z",
+        "completed_at": "2026-11-10T09:53:32Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427815/job/129755985546"
+      },
+      {
+        "id": 129755811850,
+        "name": "OpenSSF Scorecard",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:18Z",
+        "completed_at": "2026-11-10T09:53:43Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427989/job/129755811850"
+      },
+      {
+        "id": 129755809513,
+        "name": "Core Python 3.12",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:16Z",
+        "completed_at": "2026-11-10T09:58:13Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937/job/129755809513"
+      },
+      {
+        "id": 129755809271,
+        "name": "Full Mutation (Weekly / Safety-Critical)",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "skipped",
+        "started_at": "2026-11-10T09:53:06Z",
+        "completed_at": "2026-11-10T09:53:05Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427771/job/129755809271"
+      },
+      {
+        "id": 129755809091,
+        "name": "Pinned requirements install",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:53:39Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937/job/129755809091"
+      },
+      {
+        "id": 129755809080,
+        "name": "Semantic Versioning Check",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:53:14Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427872/job/129755809080"
+      },
+      {
+        "id": 129755808957,
+        "name": "OS smoke windows-latest Python 3.15",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:53:35Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937/job/129755808957"
+      },
+      {
+        "id": 129755808954,
+        "name": "Core Python 3.15",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:57:24Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937/job/129755808954"
+      },
+      {
+        "id": 129755808949,
+        "name": "Optional MCP surface Python 3.15",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:53:27Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937/job/129755808949"
+      },
+      {
+        "id": 129755808939,
+        "name": "Core Python 3.11",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:57:12Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937/job/129755808939"
+      },
+      {
+        "id": 129755808935,
+        "name": "OS smoke ubuntu-latest Python 3.11",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:53:23Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937/job/129755808935"
+      },
+      {
+        "id": 129755808930,
+        "name": "Optional API surface Python 3.15",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:07Z",
+        "completed_at": "2026-11-10T09:53:33Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937/job/129755808930"
+      },
+      {
+        "id": 129755808886,
+        "name": "OS smoke macos-latest Python 3.15",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:09Z",
+        "completed_at": "2026-11-10T09:54:23Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937/job/129755808886"
+      },
+      {
+        "id": 129755808878,
+        "name": "OS smoke windows-latest Python 3.11",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:53:48Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937/job/129755808878"
+      },
+      {
+        "id": 129755808877,
+        "name": "Optional API surface Python 3.11",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:53:31Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937/job/129755808877"
+      },
+      {
+        "id": 129755808868,
+        "name": "OS smoke macos-latest Python 3.11",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:14Z",
+        "completed_at": "2026-11-10T09:53:27Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937/job/129755808868"
+      },
+      {
+        "id": 129755808855,
+        "name": "Core Python 3.13",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:57:56Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937/job/129755808855"
+      },
+      {
+        "id": 129755808853,
+        "name": "Build and wheel-install",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:53:29Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937/job/129755808853"
+      },
+      {
+        "id": 129755808798,
+        "name": "Checked-in SBOM is not stale",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:53:37Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937/job/129755808798"
+      },
+      {
+        "id": 129755808771,
+        "name": "Core Python 3.14",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:56:33Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937/job/129755808771"
+      },
+      {
+        "id": 129755808748,
+        "name": "OS smoke ubuntu-latest Python 3.15",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:07Z",
+        "completed_at": "2026-11-10T09:53:21Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937/job/129755808748"
+      },
+      {
+        "id": 129755808678,
+        "name": "Software Bill of Materials",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:53:16Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427898/job/129755808678"
+      },
+      {
+        "id": 129755808635,
+        "name": "pip-audit gate (baseline, fail on new findings)",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:07Z",
+        "completed_at": "2026-11-10T09:53:46Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427898/job/129755808635"
+      },
+      {
+        "id": 129755808631,
+        "name": "Optional MCP surface Python 3.11",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:53:25Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937/job/129755808631"
+      },
+      {
+        "id": 129755808313,
+        "name": "Claims-to-evidence gate (U7)",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:07Z",
+        "completed_at": "2026-11-10T09:54:01Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937/job/129755808313"
+      },
+      {
+        "id": 129755808240,
+        "name": "CodeQL security analysis",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:54:51Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427845/job/129755808240"
+      },
+      {
+        "id": 129755808197,
+        "name": "Full-history secret scan",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:53:19Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427898/job/129755808197"
+      },
+      {
+        "id": 129755808089,
+        "name": "CLI Determinism (jq-filtered)",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:53:23Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427815/job/129755808089"
+      },
+      {
+        "id": 129755808084,
+        "name": "Detector Determinism (jq-filtered)",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:53:28Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427815/job/129755808084"
+      },
+      {
+        "id": 129755807959,
+        "name": "Case File Determinism",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:07Z",
+        "completed_at": "2026-11-10T09:53:21Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427815/job/129755807959"
+      },
+      {
+        "id": 129755807745,
+        "name": "Build Reproducibility",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:53:23Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427815/job/129755807745"
+      },
+      {
+        "id": 129755807536,
+        "name": "Sigstore Verification",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:07Z",
+        "completed_at": "2026-11-10T09:53:12Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427747/job/129755807536"
+      },
+      {
+        "id": 129755807369,
+        "name": "Diff-based Mutation (Push)",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:09Z",
+        "completed_at": "2026-11-10T09:53:33Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427771/job/129755807369"
+      },
+      {
+        "id": 129755807340,
+        "name": "Build Provenance",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-10T09:53:08Z",
+        "completed_at": "2026-11-10T09:53:19Z",
+        "details_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427747/job/129755807340"
+      }
+    ],
+    "runs": [
+      {
+        "id": 42809279741,
+        "name": "CodeQL",
+        "path": ".github/workflows/codeql.yml",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "event": "schedule",
+        "html_url": "https://github.com/strmt7/TextForensics/actions/runs/42809279741"
+      },
+      {
+        "id": 42794427771,
+        "name": "Mutation Testing",
+        "path": ".github/workflows/mutation.yml",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "event": "push",
+        "html_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427771"
+      },
+      {
+        "id": 42794427872,
+        "name": "Semver",
+        "path": ".github/workflows/semver.yml",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "event": "push",
+        "html_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427872"
+      },
+      {
+        "id": 42794427815,
+        "name": "Reproducibility",
+        "path": ".github/workflows/reproducibility.yml",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "event": "push",
+        "html_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427815"
+      },
+      {
+        "id": 42794427898,
+        "name": "Supply-chain security",
+        "path": ".github/workflows/supply-chain.yml",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "event": "push",
+        "html_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427898"
+      },
+      {
+        "id": 42794427989,
+        "name": "Scorecard",
+        "path": ".github/workflows/scorecard.yml",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "event": "push",
+        "html_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427989"
+      },
+      {
+        "id": 42794427845,
+        "name": "CodeQL",
+        "path": ".github/workflows/codeql.yml",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "event": "push",
+        "html_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427845"
+      },
+      {
+        "id": 42794427747,
+        "name": "Repository Integrity",
+        "path": ".github/workflows/repository-integrity.yml",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "event": "push",
+        "html_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427747"
+      },
+      {
+        "id": 42794427937,
+        "name": "CI",
+        "path": ".github/workflows/ci.yml",
+        "head_sha": "digest-ref:D00001",
+        "status": "completed",
+        "conclusion": "success",
+        "event": "push",
+        "html_url": "https://github.com/strmt7/TextForensics/actions/runs/42794427937"
+      }
+    ]
+  },
+  "parent_recheck": [
+    {
+      "probe": "crypto",
+      "exit_code": 0,
+      "seconds": 2.62,
+      "started_utc": "2026-11-10T17:51:34.262815+00:00"
+    },
+    {
+      "probe": "state-fullcorpus",
+      "exit_code": 0,
+      "seconds": 0.573,
+      "started_utc": "2026-11-10T17:51:36.883393+00:00"
+    },
+    {
+      "probe": "state-probes",
+      "exit_code": 0,
+      "seconds": 2.115,
+      "started_utc": "2026-11-10T17:51:37.456715+00:00"
+    },
+    {
+      "probe": "state-followup",
+      "exit_code": 0,
+      "seconds": 0.595,
+      "started_utc": "2026-11-10T17:51:39.571856+00:00"
+    },
+    {
+      "probe": "interfaces",
+      "exit_code": 0,
+      "seconds": 1.376,
+      "started_utc": "2026-11-10T17:51:40.167629+00:00"
+    },
+    {
+      "probe": "interfaces-extra",
+      "exit_code": 0,
+      "seconds": 1.346,
+      "started_utc": "2026-11-10T17:51:41.543789+00:00"
+    },
+    {
+      "probe": "interfaces-js",
+      "exit_code": 0,
+      "seconds": 0.067,
+      "started_utc": "2026-11-10T17:51:42.890628+00:00"
+    },
+    {
+      "probe": "engineering",
+      "exit_code": 0,
+      "seconds": 0.616,
+      "started_utc": "2026-11-10T17:51:42.957547+00:00"
+    }
+  ],
+  "privacy_candidate_locations": [
+    {
+      "path": "docs/evidence/runs/EV-20261106-suite.json",
+      "kind": "host-specific-home-path",
+      "occurrences": 1
+    },
+    {
+      "path": "docs/evidence/runs/EV-20261107-suite.json",
+      "kind": "host-specific-home-path",
+      "occurrences": 1
+    },
+    {
+      "path": "docs/live-host-api/fullsuite2.log",
+      "kind": "host-specific-home-path",
+      "occurrences": 4
+    },
+    {
+      "path": "tests/fuzz/generate_corpus.py",
+      "kind": "host-specific-home-path",
+      "occurrences": 1
+    }
+  ],
+  "digest_register": "digests.tsv",
+  "digest_reference_syntax": "digest-ref:D00001",
+  "reproduction_metadata": {
+    "profile": {
+      "captured_utc": "2026-11-10T18:31:25.915783+00:00",
+      "python": "3.12.10",
+      "platform": "win32",
+      "package_count": 119,
+      "packages": [
+        {
+          "name": "aiohappyeyeballs",
+          "version": "2.7.1"
+        },
+        {
+          "name": "aiohttp",
+          "version": "3.14.5"
+        },
+        {
+          "name": "aiosignal",
+          "version": "1.4.0"
+        },
+        {
+          "name": "annotated-doc",
+          "version": "0.0.5"
+        },
+        {
+          "name": "annotated-types",
+          "version": "0.8.0"
+        },
+        {
+          "name": "anybadge",
+          "version": "1.18.0"
+        },
+        {
+          "name": "anyio",
+          "version": "4.16.0"
+        },
+        {
+          "name": "attrs",
+          "version": "26.1.0"
+        },
+        {
+          "name": "bandit",
+          "version": "1.9.4"
+        },
+        {
+          "name": "boolean.py",
+          "version": "5.0"
+        },
+        {
+          "name": "build",
+          "version": "1.6.1"
+        },
+        {
+          "name": "CacheControl",
+          "version": "0.14.4"
+        },
+        {
+          "name": "certifi",
+          "version": "2026.10.23"
+        },
+        {
+          "name": "cffi",
+          "version": "2.1.1"
+        },
+        {
+          "name": "cfgv",
+          "version": "3.5.0"
+        },
+        {
+          "name": "charset-normalizer",
+          "version": "3.5.2"
+        },
+        {
+          "name": "click",
+          "version": "8.5.1"
+        },
+        {
+          "name": "colorama",
+          "version": "0.4.6"
+        },
+        {
+          "name": "cosmic_ray",
+          "version": "8.8.0"
+        },
+        {
+          "name": "coverage",
+          "version": "7.17.2"
+        },
+        {
+          "name": "cryptography",
+          "version": "50.0.2"
+        },
+        {
+          "name": "cyclonedx-python-lib",
+          "version": "11.12.0"
+        },
+        {
+          "name": "decorator",
+          "version": "5.3.1"
+        },
+        {
+          "name": "defusedxml",
+          "version": "0.7.1"
+        },
+        {
+          "name": "distlib",
+          "version": "0.4.4"
+        },
+        {
+          "name": "docutils",
+          "version": "0.23"
+        },
+        {
+          "name": "exit-codes",
+          "version": "1.3.0"
+        },
+        {
+          "name": "fastapi",
+          "version": "0.162.2"
+        },
+        {
+          "name": "filelock",
+          "version": "4.2.10"
+        },
+        {
+          "name": "frozenlist",
+          "version": "1.8.0"
+        },
+        {
+          "name": "gitdb",
+          "version": "4.0.12"
+        },
+        {
+          "name": "GitPython",
+          "version": "3.2.1"
+        },
+        {
+          "name": "h11",
+          "version": "0.16.0"
+        },
+        {
+          "name": "httpcore",
+          "version": "1.0.9"
+        },
+        {
+          "name": "httpcore2",
+          "version": "2.16.0"
+        },
+        {
+          "name": "httpx",
+          "version": "0.28.1"
+        },
+        {
+          "name": "httpx2",
+          "version": "2.16.0"
+        },
+        {
+          "name": "hypothesis",
+          "version": "6.170.15"
+        },
+        {
+          "name": "id",
+          "version": "1.6.1"
+        },
+        {
+          "name": "identify",
+          "version": "2.6.20"
+        },
+        {
+          "name": "idna",
+          "version": "3.20"
+        },
+        {
+          "name": "iniconfig",
+          "version": "2.3.1"
+        },
+        {
+          "name": "jaraco.classes",
+          "version": "3.4.0"
+        },
+        {
+          "name": "jaraco.context",
+          "version": "6.1.2"
+        },
+        {
+          "name": "jaraco.functools",
+          "version": "4.6.0"
+        },
+        {
+          "name": "Jinja2",
+          "version": "3.1.6"
+        },
+        {
+          "name": "jsonschema",
+          "version": "4.26.0"
+        },
+        {
+          "name": "jsonschema-specifications",
+          "version": "2025.9.1"
+        },
+        {
+          "name": "keyring",
+          "version": "25.7.0"
+        },
+        {
+          "name": "license-expression",
+          "version": "30.4.4"
+        },
+        {
+          "name": "markdown-it-py",
+          "version": "4.2.0"
+        },
+        {
+          "name": "MarkupSafe",
+          "version": "3.0.4"
+        },
+        {
+          "name": "mcp",
+          "version": "2.3.0"
+        },
+        {
+          "name": "mcp-types",
+          "version": "2.3.0"
+        },
+        {
+          "name": "mdurl",
+          "version": "0.1.2"
+        },
+        {
+          "name": "more-itertools",
+          "version": "11.2.1"
+        },
+        {
+          "name": "msgpack",
+          "version": "1.2.4"
+        },
+        {
+          "name": "multidict",
+          "version": "7.2.1"
+        },
+        {
+          "name": "nh3",
+          "version": "0.3.7"
+        },
+        {
+          "name": "nodeenv",
+          "version": "1.12.0"
+        },
+        {
+          "name": "opentelemetry-api",
+          "version": "1.45.2"
+        },
+        {
+          "name": "packageurl-python",
+          "version": "0.17.6"
+        },
+        {
+          "name": "packaging",
+          "version": "26.3"
+        },
+        {
+          "name": "parso",
+          "version": "0.8.7"
+        },
+        {
+          "name": "pip",
+          "version": "26.3"
+        },
+        {
+          "name": "pip-requirements-parser",
+          "version": "32.0.1"
+        },
+        {
+          "name": "pip_api",
+          "version": "0.0.35"
+        },
+        {
+          "name": "pip_audit",
+          "version": "2.10.1"
+        },
+        {
+          "name": "platformdirs",
+          "version": "4.14.5"
+        },
+        {
+          "name": "pluggy",
+          "version": "1.7.0"
+        },
+        {
+          "name": "pre-commit",
+          "version": "3.8.0"
+        },
+        {
+          "name": "propcache",
+          "version": "0.5.4"
+        },
+        {
+          "name": "psutil",
+          "version": "7.2.2"
+        },
+        {
+          "name": "py-cpuinfo2",
+          "version": "10.1.1"
+        },
+        {
+          "name": "py-serializable",
+          "version": "2.2.0"
+        },
+        {
+          "name": "pycparser",
+          "version": "3.12"
+        },
+        {
+          "name": "pydantic",
+          "version": "2.14.3"
+        },
+        {
+          "name": "pydantic_core",
+          "version": "2.50.4"
+        },
+        {
+          "name": "Pygments",
+          "version": "2.21.0"
+        },
+        {
+          "name": "PyJWT",
+          "version": "2.15.1"
+        },
+        {
+          "name": "pyparsing",
+          "version": "3.3.3"
+        },
+        {
+          "name": "pyproject_hooks",
+          "version": "1.3.3"
+        },
+        {
+          "name": "pytest",
+          "version": "9.2.0"
+        },
+        {
+          "name": "pytest-asyncio",
+          "version": "1.4.1.post1"
+        },
+        {
+          "name": "pytest-benchmark",
+          "version": "5.3.1"
+        },
+        {
+          "name": "pytest-cov",
+          "version": "7.1.0"
+        },
+        {
+          "name": "pytest-timeout",
+          "version": "2.4.0"
+        },
+        {
+          "name": "python-discovery",
+          "version": "1.9.5"
+        },
+        {
+          "name": "python-multipart",
+          "version": "0.0.33"
+        },
+        {
+          "name": "pywin32",
+          "version": "312"
+        },
+        {
+          "name": "pywin32-ctypes",
+          "version": "0.2.3"
+        },
+        {
+          "name": "PyYAML",
+          "version": "6.0.3"
+        },
+        {
+          "name": "readme_renderer",
+          "version": "46.0"
+        },
+        {
+          "name": "referencing",
+          "version": "0.37.0"
+        },
+        {
+          "name": "requests",
+          "version": "2.34.2"
+        },
+        {
+          "name": "requests-toolbelt",
+          "version": "1.0.0"
+        },
+        {
+          "name": "rfc3986",
+          "version": "2.0.0"
+        },
+        {
+          "name": "rich",
+          "version": "15.0.0"
+        },
+        {
+          "name": "rpds-py",
+          "version": "2026.9.1"
+        },
+        {
+          "name": "ruff",
+          "version": "0.17.4"
+        },
+        {
+          "name": "smmap",
+          "version": "5.0.3"
+        },
+        {
+          "name": "sortedcontainers",
+          "version": "2.4.0"
+        },
+        {
+          "name": "SQLAlchemy",
+          "version": "2.1.8"
+        },
+        {
+          "name": "sse-starlette",
+          "version": "3.7.0"
+        },
+        {
+          "name": "starlette",
+          "version": "1.10.0"
+        },
+        {
+          "name": "stevedore",
+          "version": "5.9.1"
+        },
+        {
+          "name": "toml",
+          "version": "0.10.2"
+        },
+        {
+          "name": "tomli",
+          "version": "2.5.0"
+        },
+        {
+          "name": "tomli_w",
+          "version": "1.2.0"
+        },
+        {
+          "name": "truststore",
+          "version": "0.10.5"
+        },
+        {
+          "name": "twine",
+          "version": "7.0.0"
+        },
+        {
+          "name": "typing-inspection",
+          "version": "0.4.5"
+        },
+        {
+          "name": "typing_extensions",
+          "version": "4.16.0"
+        },
+        {
+          "name": "urllib3",
+          "version": "2.8.0"
+        },
+        {
+          "name": "uvicorn",
+          "version": "0.54.0"
+        },
+        {
+          "name": "virtualenv",
+          "version": "21.15.6"
+        },
+        {
+          "name": "websockets",
+          "version": "12.0"
+        },
+        {
+          "name": "yarl",
+          "version": "1.25.1"
+        },
+        {
+          "name": "yattag",
+          "version": "1.16.1"
+        }
+      ]
+    },
+    "profile_scope": "Captured from the same provisioned audit interpreter after the audit. No per-test environment seal was captured, so this is a reproducibility aid, not retroactive proof of baseline environment identity. Editable project is excluded; no local paths or direct-source URLs are published.",
+    "interface_selection": [
+      "tests/test_api.py",
+      "tests/test_mcp.py",
+      "tests/test_web_ui.py",
+      "tests/test_web_ui_consolidation.py",
+      "tests/test_ollama.py",
+      "tests/test_adapter_scanner.py",
+      "tests/test_localize.py",
+      "tests/test_localize_enhanced.py",
+      "tests/test_localize_extra.py",
+      "tests/test_explain.py",
+      "tests/test_semantic.py",
+      "tests/test_compliance.py",
+      "tests/test_corpus_analyzer.py",
+      "tests/test_rich_output.py",
+      "tests/test_no_telemetry.py"
+    ],
+    "state_selection": [
+      "tests/test_probe_metrics.py",
+      "tests/test_detector_health.py",
+      "tests/test_retry.py::TestRetryGate::test_ready_when_closed",
+      "tests/test_result_codec.py::TestResultCodec::test_encode_decode_roundtrip"
+    ],
+    "command_template": "<profile-python> -m pytest -q -p no:cacheprovider <selection> --basetemp=<disposable-output>",
+    "audit_probe_contract": "Synthetic construction and expected results are in each finding. Audit-only scratch scripts and generated keys are not shipped."
+  },
+  "documentation_review": {
+    "original_verdict": "conditional after R1",
+    "required_correction": "R1: preserve existing interface reviewed_tests/reviewed_ranges/test_functions metadata",
+    "correction_checks": {
+      "matching_files": 29,
+      "identified_test_named_functions": 621,
+      "reviewed_function_entries": 505,
+      "full_files": 19,
+      "risk_sliced_files": 10,
+      "risk_sliced_reviewed_names": 93,
+      "risk_sliced_ranges": 93,
+      "interpretation": "Source review counts, not executed test counts or line/branch coverage; names can repeat in distinct classes."
+    },
+    "source_cross_checks_confirmed": [
+      "CORE-02",
+      "C01",
+      "S01",
+      "ENG-01",
+      "ENG-02",
+      "ENG-03"
+    ],
+    "approval_scope": "Documentation accuracy only, not runtime or release approval"
+  }
+}

@@ -2,6 +2,8 @@
 
 This file is the durable handoff contract for human and AI contributors. Read it before changing architecture, detector semantics, benchmarking, reports, MCP tools, or user-facing claims.
 
+Current audit and implementation state: [handover](docs/HANDOVER.md).
+
 ## North star
 
 **TextForensics is an independent audit layer for AI-text detection.**

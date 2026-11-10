@@ -1,0 +1,1724 @@
+{
+  "schema": "textforensics.repository-audit-findings/v1",
+  "audited_commit": "digest-ref:D00001",
+  "date": "2026-11-10",
+  "numbered_record_count": 91,
+  "counts_by_report": {
+    "CORE.md": 11,
+    "CRYPTOGRAPHY.md": 23,
+    "INTERFACES.md": 19,
+    "STATEFUL_RELIABILITY.md": 22,
+    "ENGINEERING.md": 16
+  },
+  "interpretation": "Finding records include overlapping root causes and are not independent vulnerability counts. Residual risks and additional state contract notes remain in detailed reports and the implementation plan.",
+  "all_implementation_findings_open": true,
+  "findings": [
+    {
+      "id": "CORE-01",
+      "title": "V2 coverage accepts scientifically ineligible evidence",
+      "priority": "P1",
+      "status": "open",
+      "report": "CORE.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/core/v2_inapplicable_evidence"
+      ]
+    },
+    {
+      "id": "CORE-02",
+      "title": "Human-FPR support selects the most favorable slice",
+      "priority": "P1",
+      "status": "open",
+      "report": "CORE.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/core/v3_best_fpr"
+      ]
+    },
+    {
+      "id": "CORE-03",
+      "title": "Temperature scaling is applied to the wrong input domain",
+      "priority": "P1",
+      "status": "open",
+      "report": "CORE.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/core/temperature_probability_domain"
+      ]
+    },
+    {
+      "id": "CORE-04",
+      "title": "Frozen calibration artifacts remain mutable after hashing",
+      "priority": "P1",
+      "status": "open",
+      "report": "CORE.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/core/mutable_calibration"
+      ]
+    },
+    {
+      "id": "CORE-05",
+      "title": "Calibration lookup cannot bind the current detector version",
+      "priority": "P1",
+      "status": "open",
+      "report": "CORE.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/core/calibration_version_boundary"
+      ]
+    },
+    {
+      "id": "CORE-06",
+      "title": "Held-out labels survive overlapping or unproven evaluations",
+      "priority": "P1",
+      "status": "open",
+      "report": "CORE.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/core/held_out_overlap"
+      ]
+    },
+    {
+      "id": "CORE-07",
+      "title": "Failed benign probes can yield supported stability",
+      "priority": "P1",
+      "status": "open",
+      "report": "CORE.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/core/failed_benign_probes"
+      ]
+    },
+    {
+      "id": "CORE-08",
+      "title": "Dataset cache hashes describe strings, not persisted bytes",
+      "priority": "P1",
+      "status": "open",
+      "report": "CORE.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/core/cache_persisted_byte_hash"
+      ]
+    },
+    {
+      "id": "CORE-09",
+      "title": "The streaming dataset parser accepts invalid JSON arrays",
+      "priority": "P2",
+      "status": "open",
+      "report": "CORE.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/core/dataset_array_syntax"
+      ]
+    },
+    {
+      "id": "CORE-10",
+      "title": "Schema discovery and dispatch disagree",
+      "priority": "P2",
+      "status": "open",
+      "report": "CORE.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/core/schema_discovery"
+      ]
+    },
+    {
+      "id": "CORE-11",
+      "title": "Mixed-origin coverage ignores detector identity and eligibility",
+      "priority": "P1",
+      "status": "open",
+      "report": "CORE.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/core/mixed_origin_coverage"
+      ]
+    },
+    {
+      "id": "C01",
+      "title": "Primary watermark verifier accepts a substituted detector result",
+      "priority": "P1",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/1"
+      ]
+    },
+    {
+      "id": "C02",
+      "title": "A valid bare-case signature does not bind its displayed signer/role/fingerprint",
+      "priority": "P1",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/3"
+      ]
+    },
+    {
+      "id": "C03",
+      "title": "Process metadata can export literal source text while declaring raw text absent",
+      "priority": "P1",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/5",
+        "/crypto_primary/22",
+        "/crypto_followup/11"
+      ]
+    },
+    {
+      "id": "C04",
+      "title": "Sealed-bundle packaging and offline verification bypass the required combined verifier",
+      "priority": "P1",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/6",
+        "/crypto_followup/1"
+      ]
+    },
+    {
+      "id": "C05",
+      "title": "Duplicate ZIP member names hide unverified content behind a valid manifest signature",
+      "priority": "P1",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/7",
+        "/crypto_followup/0"
+      ]
+    },
+    {
+      "id": "C06",
+      "title": "Optional seal-record cross-check decompresses entries after container rejection",
+      "priority": "P1",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/8"
+      ]
+    },
+    {
+      "id": "C07",
+      "title": "Public audit-log verification returns valid after detecting missing genesis",
+      "priority": "P1",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/9"
+      ]
+    },
+    {
+      "id": "C08",
+      "title": "An unchanged calibration chain authorizes unrelated artifact tampering",
+      "priority": "P1",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/12"
+      ]
+    },
+    {
+      "id": "C09",
+      "title": "Directory hashing has a structural preimage collision",
+      "priority": "P2",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/11"
+      ]
+    },
+    {
+      "id": "C10",
+      "title": "Combined verification accepts a one-dimension, undeclared v3 Trust Map as strong",
+      "priority": "P1",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_followup/2"
+      ]
+    },
+    {
+      "id": "C11",
+      "title": "Windows key generation fails and leaks its temporary file descriptor",
+      "priority": "P1",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/17",
+        "/crypto_followup/9"
+      ]
+    },
+    {
+      "id": "C12",
+      "title": "Ordinary malformed shapes escape verification APIs as exceptions",
+      "priority": "P2",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/16",
+        "/crypto_followup/5"
+      ]
+    },
+    {
+      "id": "C13",
+      "title": "Invalid RFC 3161 genTime is an exception in-package but verifies offline",
+      "priority": "P2",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/18"
+      ]
+    },
+    {
+      "id": "C14",
+      "title": "ECDSA signature OIDs are incorrectly used to mandate a curve",
+      "priority": "P2",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/19"
+      ]
+    },
+    {
+      "id": "C15",
+      "title": "AuditLog writers race and a failed write poisons the in-memory head",
+      "priority": "P2",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/10",
+        "/crypto_followup/8"
+      ]
+    },
+    {
+      "id": "C16",
+      "title": "Workspace chains trust serialized head fields they never verify",
+      "priority": "P2",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/13"
+      ]
+    },
+    {
+      "id": "C17",
+      "title": "An explicitly requested missing workspace chain is reported healthy",
+      "priority": "P2",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/14"
+      ]
+    },
+    {
+      "id": "C18",
+      "title": "Legacy bundle verification accepts a non-archive with an empty manifest",
+      "priority": "P2",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/20"
+      ]
+    },
+    {
+      "id": "C19",
+      "title": "Benchmark verification accepts NaN metrics, negative counts, and a nonhex fingerprint",
+      "priority": "P2",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_followup/4"
+      ]
+    },
+    {
+      "id": "C20",
+      "title": "Watermark expiry checks trust unsigned envelope dates, not the trusted key",
+      "priority": "P2",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/2",
+        "/crypto_followup/6"
+      ]
+    },
+    {
+      "id": "C21",
+      "title": "Watermark key IDs escape the configured private-key directory",
+      "priority": "P2",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_followup/7"
+      ]
+    },
+    {
+      "id": "C22",
+      "title": "Appending custody leaves an invalid T2 signature attached to the new case",
+      "priority": "P2",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/4"
+      ]
+    },
+    {
+      "id": "C23",
+      "title": "Public bundle schema rejects a genuine v3 Trust Map that runtime/case schema accept",
+      "priority": "P1",
+      "status": "open",
+      "report": "CRYPTOGRAPHY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/crypto_primary/15",
+        "/crypto_followup/3",
+        "/crypto_followup/10"
+      ]
+    },
+    {
+      "id": "IF-01",
+      "title": "Discovered remote adapters run without request opt-in",
+      "priority": "P1",
+      "status": "open",
+      "report": "INTERFACES.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/interfaces/api_remote_without_opt_in"
+      ]
+    },
+    {
+      "id": "IF-02",
+      "title": "Redirect escapes Ollama's loopback-only boundary",
+      "priority": "P1",
+      "status": "open",
+      "report": "INTERFACES.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/interfaces/ollama_redirect"
+      ]
+    },
+    {
+      "id": "IF-03",
+      "title": "Emergency stop does not protect WebSocket analysis",
+      "priority": "P1",
+      "status": "open",
+      "report": "INTERFACES.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/interfaces/stopped_websocket"
+      ]
+    },
+    {
+      "id": "IF-04",
+      "title": "UI fabricates authorship probabilities",
+      "priority": "P1",
+      "status": "open",
+      "report": "INTERFACES.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/interfaces_js/gauge_ai_like",
+        "/interfaces_js/gauge_human_like",
+        "/interfaces_js/gauge_abstain"
+      ]
+    },
+    {
+      "id": "IF-05",
+      "title": "WebSocket trust boundary permits forged history and HTML injection",
+      "priority": "P2",
+      "status": "open",
+      "report": "INTERFACES.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/interfaces/cross_origin_websocket",
+        "/interfaces/api_untrusted_host",
+        "/interfaces/websocket_forged_history",
+        "/interfaces_js/unescaped_history"
+      ]
+    },
+    {
+      "id": "IF-06",
+      "title": "Shipped UI and server schemas/DOM are incompatible",
+      "priority": "P1",
+      "status": "open",
+      "report": "INTERFACES.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/interfaces_js/complete_analysis_real_bundle",
+        "/interfaces_js/warnings_real_bundle",
+        "/interfaces_js/streaming_first_detector"
+      ]
+    },
+    {
+      "id": "IF-07",
+      "title": "Error paths echo sensitive material",
+      "priority": "P2",
+      "status": "open",
+      "report": "INTERFACES.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/interfaces/web_invalid_input",
+        "/interfaces/web_error_echo",
+        "/interfaces/api_validation_echo",
+        "/interfaces/ollama_error_echo"
+      ]
+    },
+    {
+      "id": "IF-08",
+      "title": "Scanner executes plugins and overclaims local verification",
+      "priority": "P2",
+      "status": "open",
+      "report": "INTERFACES.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/interfaces/scanner_syntax_error",
+        "/interfaces/scanner_submodule_network",
+        "/interfaces/scanner_import_before_scan"
+      ]
+    },
+    {
+      "id": "IF-09",
+      "title": "Response byte cap is enforced after complete buffering",
+      "priority": "P2",
+      "status": "open",
+      "report": "INTERFACES.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/interfaces/ollama_response_cap"
+      ]
+    },
+    {
+      "id": "IF-10",
+      "title": "Session bookkeeping retains disconnected users/connections",
+      "priority": "P2",
+      "status": "open",
+      "report": "INTERFACES.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/interfaces/session_after_disconnect"
+      ]
+    },
+    {
+      "id": "IF-11",
+      "title": "Explanation export retains source sentences by default",
+      "priority": "P2",
+      "status": "open",
+      "report": "INTERFACES.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/interfaces/saved_explanation_text"
+      ]
+    },
+    {
+      "id": "IF-12",
+      "title": "Heuristic reports express certainty on unsupported tiny samples",
+      "priority": "P2",
+      "status": "open",
+      "report": "INTERFACES.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/interfaces/unsupported_confidence"
+      ]
+    },
+    {
+      "id": "IF-13",
+      "title": "Embeddings request does not match Ollama's endpoint contract",
+      "priority": "P2",
+      "status": "open",
+      "report": "INTERFACES.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/interfaces/ollama_embeddings_wire"
+      ]
+    },
+    {
+      "id": "IF-14",
+      "title": "CSV/HTML export writes a JSON wrapper",
+      "priority": "P2",
+      "status": "open",
+      "report": "INTERFACES.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/interfaces_js/export_csv",
+        "/interfaces_js/export_html"
+      ]
+    },
+    {
+      "id": "IF-15",
+      "title": "Streaming skips normal session and request setup",
+      "priority": "P2",
+      "status": "open",
+      "report": "INTERFACES.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/interfaces/ollama_stream_without_context"
+      ]
+    },
+    {
+      "id": "IF-16",
+      "title": "Implemented MCP tools are not registered",
+      "priority": "P2",
+      "status": "open",
+      "report": "INTERFACES.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/interfaces_extra/unregistered_mcp_implementations"
+      ]
+    },
+    {
+      "id": "IF-17",
+      "title": "Diagnostics report placeholders rather than checked facts",
+      "priority": "P2",
+      "status": "open",
+      "report": "INTERFACES.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/interfaces/diagnostics_contract",
+        "/interfaces_extra/diagnostics_default_claims"
+      ]
+    },
+    {
+      "id": "IF-18",
+      "title": "Rich diff parses original text as markup",
+      "priority": "P2",
+      "status": "open",
+      "report": "INTERFACES.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/interfaces_extra/rich_diff_markup"
+      ]
+    },
+    {
+      "id": "IF-19",
+      "title": "Explanation scored count includes abstained perturbations",
+      "priority": "P2",
+      "status": "open",
+      "report": "INTERFACES.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/interfaces/explanation_scored_count",
+        "/interfaces/mcp_expired_claim",
+        "/interfaces/cli_equivalent_expired_claim",
+        "/interfaces_extra/static_traversal",
+        "/interfaces_extra/template_session_escaped"
+      ]
+    },
+    {
+      "id": "S01",
+      "title": "Failed observations disappear; incomplete full runs clear demotions and establish temporal support",
+      "priority": "P1",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_fullcorpus/alerts_each",
+        "/state_fullcorpus/scored_each",
+        "/state_fullcorpus/temporal_support",
+        "/state_fullcorpus/verified_corpus_problems"
+      ]
+    },
+    {
+      "id": "S02",
+      "title": "Stale policy instances can lower the persisted anti-rollback floor",
+      "priority": "P1",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_primary/policy_stale_writer"
+      ]
+    },
+    {
+      "id": "S03",
+      "title": "U3 demotion overwrites a foreign/manual demotion, which a later clean run erases",
+      "priority": "P1",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_followup/foreign_demotion_erased"
+      ]
+    },
+    {
+      "id": "S04",
+      "title": "Invalid or expired capability evidence is still accepted as validated/supported",
+      "priority": "P1",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_primary/capability_invalid_expired"
+      ]
+    },
+    {
+      "id": "S05",
+      "title": "Imported snapshots bypass per-record corpus and observation validation",
+      "priority": "P1",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_primary/imported_snapshot_unlinked"
+      ]
+    },
+    {
+      "id": "S06",
+      "title": "Temporal streak ignores intervening versions, partial-run breaches, and provider identity",
+      "priority": "P1",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_followup/provider_changed_temporal_support",
+        "/state_fullcorpus/temporal_support"
+      ]
+    },
+    {
+      "id": "S07",
+      "title": "One human sample can cause Tier-1 detector-wide demotion despite the n>=50 rule",
+      "priority": "P1",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_primary/one_sample_demotes"
+      ]
+    },
+    {
+      "id": "S08",
+      "title": "Observatory execution does not honor an active emergency stop between detector calls",
+      "priority": "P1",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_primary/snapshot_ignores_stop"
+      ]
+    },
+    {
+      "id": "S09",
+      "title": "Score direction is discarded and attacked-slice TPR reverses a valid detector",
+      "priority": "P2",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_followup/lower_score_direction_ignored"
+      ]
+    },
+    {
+      "id": "S10",
+      "title": "NaN can hang KS indefinitely and fabricate FPR zero",
+      "priority": "P2",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_primary/nan_fpr",
+        "/state_primary/nan_ks_hang"
+      ]
+    },
+    {
+      "id": "S11",
+      "title": "Cache capacity and replacement accounting are wrong; compression is not resident-size enforcement",
+      "priority": "P2",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_primary/cache_budget",
+        "/state_primary/cache_replace_accounting"
+      ]
+    },
+    {
+      "id": "S12",
+      "title": "Cache config/max-age invalidation fails open and callers can mutate cached evidence",
+      "priority": "P2",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_primary/cache_mutable_result",
+        "/state_primary/cache_unknown_config_max_age"
+      ]
+    },
+    {
+      "id": "S13",
+      "title": "Advertised thread safety is absent; concurrent clear resurrects entries outside the index/statistics",
+      "priority": "P2",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_followup/cache_read_clear_race"
+      ]
+    },
+    {
+      "id": "S14",
+      "title": "Cache persistence is not part of lifecycle and malformed loads leave poisoned partial state",
+      "priority": "P2",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_primary/cache_lifecycle_not_persisted",
+        "/state_primary/cache_partial_load"
+      ]
+    },
+    {
+      "id": "S15",
+      "title": "Retry readiness ignores backoff, half-open admits unlimited probes, and opening shortens Retry-After",
+      "priority": "P2",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_primary/retry_closed_backoff",
+        "/state_primary/retry_half_open_retry_after"
+      ]
+    },
+    {
+      "id": "S16",
+      "title": "Waiting on an open retry gate consumes an attempt without calling the operation",
+      "priority": "P2",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_followup/open_gate_consumes_attempt"
+      ]
+    },
+    {
+      "id": "S17",
+      "title": "Built-in health thresholds do not implement their own warning/critical contracts",
+      "priority": "P2",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_primary/health_latency_warning",
+        "/state_primary/health_throughput"
+      ]
+    },
+    {
+      "id": "S18",
+      "title": "Health reports can label undefined or ancient observations healthy and refresh their timestamp",
+      "priority": "P2",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_primary/health_nan",
+        "/state_followup/health_stale_observation"
+      ]
+    },
+    {
+      "id": "S19",
+      "title": "Health alert persistence loses the enum type; alert history is unbounded",
+      "priority": "P2",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_primary/health_persistence"
+      ]
+    },
+    {
+      "id": "S20",
+      "title": "Probe history is overwriteable and run validation is materially weaker than the shipped schema",
+      "priority": "P2",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_primary/nan_manifest_accepted",
+        "/state_primary/run_history_overwrite"
+      ]
+    },
+    {
+      "id": "S21",
+      "title": "A partial calibrated baseline causes a KeyError instead of recording missing calibration evidence",
+      "priority": "P2",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_primary/partial_calibrated_baseline"
+      ]
+    },
+    {
+      "id": "S22",
+      "title": "Model-card and codec numeric validation accepts non-JSON/nonfinite values; zero metrics disappear",
+      "priority": "P2",
+      "status": "open",
+      "report": "STATEFUL_RELIABILITY.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/state_primary/capability_unknown_tier",
+        "/state_primary/codec_decode_nan",
+        "/state_primary/math_oracles",
+        "/state_primary/nan_model_card",
+        "/state_primary/policy_conditions_digest",
+        "/state_primary/policy_mutable_content",
+        "/state_followup/ks_exhaustive_oracle",
+        "/state_followup/model_card_zero_hidden"
+      ]
+    },
+    {
+      "id": "ENG-01",
+      "title": "P1 / release blocker: the advertised installed web entry point lacks its resources",
+      "priority": "P1",
+      "status": "open",
+      "report": "ENGINEERING.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/engineering",
+        "/remote_wheel_comparison",
+        "/remote_baseline"
+      ]
+    },
+    {
+      "id": "ENG-02",
+      "title": "P1 / release blocker: sdist provenance is lost and failed identity checks still say valid",
+      "priority": "P1",
+      "status": "open",
+      "report": "ENGINEERING.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/remote_baseline/successful",
+        "/remote_baseline/checks"
+      ]
+    },
+    {
+      "id": "ENG-03",
+      "title": "P1 / release blocker: reproducibility is explicitly non-gating, and the downloaded wheels disprove the reported result",
+      "priority": "P1",
+      "status": "open",
+      "report": "ENGINEERING.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/remote_baseline/runs"
+      ]
+    },
+    {
+      "id": "ENG-04",
+      "title": "P1 / release blocker: the publishing workflow does not enforce this repository's actual acceptance gates",
+      "priority": "P1",
+      "status": "open",
+      "report": "ENGINEERING.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/remote_baseline/successful",
+        "/remote_baseline/skipped",
+        "/remote_baseline/checks",
+        "/remote_baseline/runs"
+      ]
+    },
+    {
+      "id": "ENG-05",
+      "title": "P1 / release blocker: upload is not fail-closed for confirmation, artifact identity, signatures or provenance",
+      "priority": "P1",
+      "status": "open",
+      "report": "ENGINEERING.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/remote_baseline/checks"
+      ]
+    },
+    {
+      "id": "ENG-06",
+      "title": "P1 / release blocker: signed SBOMs and signed notes are not actually attached as promised",
+      "priority": "P1",
+      "status": "open",
+      "report": "ENGINEERING.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/remote_baseline/checks"
+      ]
+    },
+    {
+      "id": "ENG-07",
+      "title": "P1: integrity and deep-verification greens can represent no verification or suppressed execution errors",
+      "priority": "P1",
+      "status": "open",
+      "report": "ENGINEERING.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/remote_baseline/successful",
+        "/remote_baseline/skipped",
+        "/remote_baseline/checks"
+      ]
+    },
+    {
+      "id": "ENG-08",
+      "title": "P1 for supported Windows evidence workflows: checkout conversion changes the bytes whose hashes are contractual",
+      "priority": "P1",
+      "status": "open",
+      "report": "ENGINEERING.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/engineering",
+        "/remote_wheel_comparison",
+        "/remote_baseline"
+      ]
+    },
+    {
+      "id": "ENG-09",
+      "title": "P1 release acceptance gap: cross-platform green means two shallow CLI operations, not supported workflows",
+      "priority": "P1",
+      "status": "open",
+      "report": "ENGINEERING.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/remote_baseline/sha",
+        "/remote_baseline/successful"
+      ]
+    },
+    {
+      "id": "ENG-10",
+      "title": "P1 build-chain inconsistency: the “upgraded pin” security policy does not govern all build/release inputs",
+      "priority": "P1",
+      "status": "open",
+      "report": "ENGINEERING.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/engineering",
+        "/remote_wheel_comparison",
+        "/remote_baseline"
+      ]
+    },
+    {
+      "id": "ENG-11",
+      "title": "P2: unaudited/skipped packages can become a successful zero-finding result; accepted findings are not zero findings",
+      "priority": "P2",
+      "status": "open",
+      "report": "ENGINEERING.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/remote_baseline/successful",
+        "/remote_baseline/skipped"
+      ]
+    },
+    {
+      "id": "ENG-12",
+      "title": "P2: the SBOM closure algorithm mistakes missing required transitives for optional dependencies",
+      "priority": "P2",
+      "status": "open",
+      "report": "ENGINEERING.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/engineering",
+        "/remote_wheel_comparison",
+        "/remote_baseline"
+      ]
+    },
+    {
+      "id": "ENG-13",
+      "title": "P2: benchmark comparison is broken or vacuous, despite full-SHA action syntax",
+      "priority": "P2",
+      "status": "open",
+      "report": "ENGINEERING.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/remote_baseline/sha"
+      ]
+    },
+    {
+      "id": "ENG-14",
+      "title": "P1 release-governance gap: container publication bypasses release acceptance and mutates version tags",
+      "priority": "P1",
+      "status": "open",
+      "report": "ENGINEERING.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/remote_baseline/checks"
+      ]
+    },
+    {
+      "id": "ENG-15",
+      "title": "P1 distribution/compliance blocker: vendored JavaScript lacks its full third-party license notices",
+      "priority": "P1",
+      "status": "open",
+      "report": "ENGINEERING.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/engineering",
+        "/remote_wheel_comparison",
+        "/remote_baseline"
+      ]
+    },
+    {
+      "id": "ENG-16",
+      "title": "P2: document evidence proves file existence, not the claimed contents/current implementation",
+      "priority": "P2",
+      "status": "open",
+      "report": "ENGINEERING.md",
+      "evidence": "evidence.json",
+      "baseline": "digest-ref:D00001",
+      "closure_requires": [
+        "current-source reproduction and independently specified regression test",
+        "source fix under deliberate compatibility/privacy contract",
+        "complete applicable exact-head gates and independent review"
+      ],
+      "severity_note": "Use the detailed report's deployment/trust-anchor preconditions; priority is implementation order, not universal exploit severity.",
+      "evidence_json_pointers": [
+        "/remote_baseline/skipped",
+        "/remote_baseline/checks",
+        "/remote_baseline/runs"
+      ]
+    }
+  ],
+  "digest_register": "digests.tsv",
+  "digest_reference_syntax": "digest-ref:D00001"
+}

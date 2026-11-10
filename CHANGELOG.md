@@ -7,6 +7,11 @@ The project is pre-1.0. Public schemas and detector/calibration semantics are tr
 ## [Unreleased]
 
 ### Added
+
+- repository-wide audit of `5ea804c3bcfeaa333ae7d346ee6400ea434e5fdb`,
+  privacy-minimized evidence and review inventory, an ordered
+  [unpublished release-readiness plan](docs/RELEASE_READINESS_PLAN.md), and a
+  [successor handover](docs/HANDOVER.md); audit only, no fixes implemented.
 - strict TFDP/1 runtime result validation;
 - detector plugin-health reporting with redacted failure messages;
 - qualitative `textforensics.trust-map/v2` (v3, which adds a `stale`
