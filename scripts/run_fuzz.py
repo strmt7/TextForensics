@@ -109,6 +109,17 @@ def ensure_dirs(target: FuzzTarget) -> tuple[Path, Path, Path]:
     return crashes, corpus_out, coverage
 
 
+def _crash_files(crashes_dir: Path) -> list[Path]:
+    """Crash artifacts in a directory, excluding marker files."""
+    if not crashes_dir.exists():
+        return []
+    return [
+        f
+        for f in crashes_dir.iterdir()
+        if f.is_file() and f.name not in (".gitkeep", "README.txt")
+    ]
+
+
 def run_atheris_target(target: FuzzTarget, duration_seconds: int, regression: bool) -> dict:
     """Run a single fuzz target via atheris in a subprocess.
 
@@ -190,7 +201,23 @@ atheris.Fuzz()
             cwd=str(REPO_ROOT),
         )
         if proc.returncode != 0:
-            print(f"  [info] atheris returned {proc.returncode} (expected on crash/hang)")
+            # ENG-07(3): a nonzero child exit is an ERROR, not information.
+            # A crash/hang exit is expected to leave a crash artifact; a
+            # nonzero exit with no artifact is an instrumentation/startup
+            # failure and must never read as "zero crashes, no error".
+            print(
+                f"  [error] atheris child exited with status {proc.returncode} "
+                f"(crash artifacts are counted below)"
+            )
+            result["error"] = (
+                f"atheris child exited with status {proc.returncode} "
+                f"without a crash artifact"
+                if not _crash_files(crashes_dir)
+                else (
+                    f"atheris child exited with status {proc.returncode} "
+                    f"(crash artifact present)"
+                )
+            )
         # Print atheris stats
         if proc.stdout:
             for line in proc.stdout.splitlines()[-10:]:
@@ -198,7 +225,11 @@ atheris.Fuzz()
                     print(f"  {line.strip()}")
     except subprocess.TimeoutExpired:
         result["timed_out"] = True
-        print(f"  [warn] Target timed out after {duration_seconds + 60}s")
+        result["error"] = (
+            f"atheris child did not exit within {duration_seconds + 60}s "
+            "(timeout — treated as a failed execution, not a clean run)"
+        )
+        print(f"  [error] Target timed out after {duration_seconds + 60}s")
     except Exception as exc:
         result["error"] = str(exc)
         print(f"  [error] {exc}")
@@ -208,16 +239,22 @@ atheris.Fuzz()
 
     # Count crash artifacts
     if crashes_dir.exists():
-        crash_files = [
-            f
-            for f in crashes_dir.iterdir()
-            if f.is_file() and f.name not in (".gitkeep", "README.txt")
-        ]
+        crash_files = _crash_files(crashes_dir)
         result["crashes"] = len(crash_files)
         if crash_files:
             print(f"  Found {len(crash_files)} crash artifact(s):")
             for f in crash_files[:10]:
                 print(f"    {f.name}")
+
+    # ENG-07(3): a nonzero child exit with no crash artifact was already
+    # recorded as an error above; if crash artifacts appeared only after
+    # the exit-status branch ran, reconcile the message here so the
+    # result never claims "no error" for a failed child.
+    if result["error"] is None and result["crashes"]:
+        result["error"] = (
+            "atheris child produced crash artifact(s) "
+            f"({result['crashes']} in {crashes_dir})"
+        )
 
     # Count new corpus entries
     if corpus_out.exists():
@@ -340,6 +377,7 @@ def main() -> int:
     print("FUZZ SUMMARY")
     print(f"{'=' * 60}")
     total_crashes = 0
+    total_errors = 0
     for r in results:
         status = "OK"
         if r["crashes"]:
@@ -348,12 +386,21 @@ def main() -> int:
         if r["timed_out"]:
             status += " TIMEOUT"
         if r["error"]:
-            status = f"ERROR ({r['error'][:50]})"
+            status = f"ERROR ({r['error'][:80]})"
+            total_errors += 1
         print(f"  {r['target']:25s}  {status:30s}  {r.get('elapsed', '?'):6.1f}s")
 
     if total_crashes:
         print(f"\n  *** {total_crashes} crash(es) found in {ARTIFACTS_DIR}/")
         print("  *** Reproduce: python scripts/run_fuzz.py --target <name> --method direct")
+        return 1
+    # ENG-07(3): a child error (nonzero exit without a crash artifact, a
+    # timeout, or a runner exception) is a failed run, never a clean one.
+    if total_errors:
+        print(
+            f"\n  *** {total_errors} target(s) errored (see ERROR above); "
+            "the run did NOT complete cleanly."
+        )
         return 1
     else:
         print("\n  No crashes detected.")

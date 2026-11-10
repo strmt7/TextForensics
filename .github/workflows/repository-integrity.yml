@@ -26,15 +26,83 @@ jobs:
           persist-credentials: false
       - name: Install cosign
         uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
-      - name: Verify signatures
+      # ENG-07(1): the old steps were echo-only stubs labelled as such.
+      # These steps perform REAL verification of the latest
+      # release's artifacts, and fail closed (status: unavailable) when
+      # there is nothing to verify. No step prints a success label
+      # without executing verification work. At the time of writing the
+      # repository has no releases at all, so this job is RED until a
+      # signed release exists — that is the honest state, not a defect
+      # in the check. Tightening verification to a pinned signer
+      # identity / OIDC issuer is a human-only decision (signing trust
+      # identity); until then cosign verifies the bundle against the
+      # public Sigstore roots and gh attestation verify checks the
+      # SLSA attestation cryptographically.
+      - name: Verify release signatures
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Verifying release signatures..."
-          # This would verify cosign signatures on releases
-          echo "Sigstore verification placeholder - requires signed releases"
+          set -euo pipefail
+          TAG="$(gh release list --limit 1 --json tagName --jq '.[0].tagName // empty')"
+          if [ -z "$TAG" ]; then
+            echo "::error::status=unavailable: no GitHub releases exist, so no release signatures can be verified. This job stays red until a signed release is published; it must never print a success label for verification that did not happen."
+            exit 1
+          fi
+          echo "Latest release: $TAG"
+          WORK="$(mktemp -d)"
+          trap 'rm -rf "$WORK"' EXIT
+          gh release download "$TAG" --dir "$WORK" --pattern '*'
+          # Payloads are release assets other than their verification
+          # material. Every payload must carry a detached cosign
+          # signature (.sig) and bundle (.bundle); each bundle is
+          # verified cryptographically against the Sigstore roots.
+          mapfile -t PAYLOADS < <(find "$WORK" -maxdepth 1 -type f \
+            ! -name '*.sig' ! -name '*.bundle' ! -name '*.intoto.jsonl' \
+            ! -name 'SHA256SUMS*' -printf '%f\n' | sort)
+          if [ "${#PAYLOADS[@]}" -eq 0 ]; then
+            echo "::error::status=unavailable: release $TAG has no payload artifacts to verify."
+            exit 1
+          fi
+          VERIFIED=0
+          for asset in "${PAYLOADS[@]}"; do
+            if [ ! -f "$WORK/$asset.sig" ] || [ ! -f "$WORK/$asset.bundle" ]; then
+              echo "::error::status=unavailable: release asset $asset has no detached cosign signature/bundle (.sig/.bundle missing)."
+              exit 1
+            fi
+            cosign verify-blob --bundle "$WORK/$asset.bundle" "$WORK/$asset"
+            VERIFIED=$((VERIFIED + 1))
+            echo "verified signature: $asset"
+          done
+          echo "verified signatures: $VERIFIED"
       - name: Verify attestations
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Verifying SLSA attestations..."
-          echo "Attestation verification placeholder"
+          set -euo pipefail
+          TAG="$(gh release list --limit 1 --json tagName --jq '.[0].tagName // empty')"
+          if [ -z "$TAG" ]; then
+            echo "::error::status=unavailable: no GitHub releases exist, so no SLSA attestations can be verified. This job stays red until an attested release is published."
+            exit 1
+          fi
+          WORK="$(mktemp -d)"
+          trap 'rm -rf "$WORK"' EXIT
+          gh release download "$TAG" --dir "$WORK" --pattern '*'
+          mapfile -t PAYLOADS < <(find "$WORK" -maxdepth 1 -type f \
+            ! -name '*.sig' ! -name '*.bundle' ! -name '*.intoto.jsonl' \
+            ! -name 'SHA256SUMS*' -printf '%f\n' | sort)
+          if [ "${#PAYLOADS[@]}" -eq 0 ]; then
+            echo "::error::status=unavailable: release $TAG has no payload artifacts whose attestations can be verified."
+            exit 1
+          fi
+          VERIFIED=0
+          for asset in "${PAYLOADS[@]}"; do
+            # Fails closed when no attestation exists for the artifact:
+            # gh attestation verify exits nonzero and prints the reason.
+            gh attestation verify "$WORK/$asset" --repo "${{ github.repository }}"
+            VERIFIED=$((VERIFIED + 1))
+            echo "verified attestation: $asset"
+          done
+          echo "verified attestations: $VERIFIED"
 
   provenance:
     name: Build Provenance

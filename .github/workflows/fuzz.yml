@@ -93,7 +93,11 @@ jobs:
         if: steps.atheris.outputs.available == 'true' && github.event_name == 'push'
         run: |
           mkdir -p artifacts/fuzz
-          python scripts/run_fuzz.py --method direct --duration 5 --regression || true
+          # ENG-07(3): no exit-code swallowing here — run_fuzz.py fails
+          # the run on a child error (nonzero exit without a crash
+          # artifact, a timeout, or a runner exception), and that
+          # failure must propagate instead of reading as a clean fuzz run.
+          python scripts/run_fuzz.py --method direct --duration 5 --regression
           echo "::group::Crash artifacts"
           find artifacts/fuzz -type f -not -name '.gitkeep' 2>/dev/null | head -20 || echo "No crash artifacts"
           echo "::endgroup::"
@@ -148,7 +152,9 @@ jobs:
           DURATION=${{ github.event.inputs.duration || '10' }}
           METHOD=${{ github.event.inputs.method || 'direct' }}
           echo "Running fuzz with duration=${DURATION}min method=${METHOD}"
-          python scripts/run_fuzz.py --method "$METHOD" --duration "$DURATION" || true
+          # ENG-07(3): no exit-code swallowing — a child error in
+          # run_fuzz.py must fail this job, not read as a clean run.
+          python scripts/run_fuzz.py --method "$METHOD" --duration "$DURATION"
 
       - name: Upload crash artifacts
         if: always()

@@ -105,6 +105,69 @@ def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+# ---------------------------------------------------------------------------
+# ENG-16 / byte policy (docs/verification/byte-policy.md): doc evidence
+# binds to persisted bytes (UTF-8, LF) and an explicit as-of source SHA.
+# ---------------------------------------------------------------------------
+
+DOC_STATES = ("implemented", "tested", "historical", "blocked")
+
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+_SHA1_RE = re.compile(r"^[0-9a-f]{40}$")
+
+# Release bar for a worst-slice human-FPR claim, as recorded in
+# EV-20261110-dataset-opai-bench (fpr_bar): a supported slice needs at
+# least 100 human rows and a Wilson 95% upper bound at or below 0.05.
+FPR_BAR_N_HUMAN_MINIMUM = 100
+FPR_BAR_WILSON_UPPER_CEILING = 0.05
+
+
+def _git_output(root: Path, *args: str) -> tuple[int, str]:
+    """Run git in root; (returncode, stdout). 127 when git is unavailable."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), *args],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return 127, ""
+    return result.returncode, result.stdout.strip()
+
+
+def _git_commit_exists(root: Path, sha: str) -> bool:
+    code, _ = _git_output(root, "cat-file", "-e", f"{sha}^{{commit}}")
+    return code == 0
+
+
+def _git_doc_unchanged_since(root: Path, as_of: str, rel_path: str) -> bool | None:
+    """True if rel_path is unchanged between as_of and HEAD.
+
+    Returns None when git cannot answer (missing git, bad ref): the
+    caller must fail closed, not assume "unchanged".
+    """
+    code, _ = _git_output(root, "diff", "--quiet", as_of, "HEAD", "--", rel_path)
+    if code == 0:
+        return True
+    if code == 1:
+        return False
+    return None
+
+
+def _crlf_hint(path: Path) -> str:
+    try:
+        if b"\r\n" in path.read_bytes():
+            return (
+                " (bytes contain CRLF line endings — see "
+                "docs/verification/byte-policy.md; do not rehash to "
+                "host-specific bytes)"
+            )
+    except OSError:
+        pass
+    return ""
+
+
 def _load_schema(root: Path, name: str) -> dict[str, Any]:
     return json.loads((_schemas_dir(root) / name).read_text(encoding="utf-8"))
 
@@ -190,7 +253,8 @@ def verify_registry_records(
                     "run artifact hash mismatch (U7 (b)): "
                     f"registry says {record['run_artifact_sha256'][:12]}..., "
                     f"file hashes to {actual[:12]}... — the artifact was modified "
-                    "after the record was written",
+                    "after the record was written"
+                    f"{_crlf_hint(artifact_path)}",
                 )
             )
             continue
@@ -420,12 +484,114 @@ def check_code_audit(evidence_path: str, root: Path) -> tuple[bool, str]:
     return True, "Code path exists"
 
 
-def check_doc(evidence_path: str, root: Path) -> tuple[bool, str]:
-    """Check if a doc/file exists and contains expected content."""
+def check_doc(
+    evidence_path: str, root: Path, claim: dict[str, Any] | None = None
+) -> tuple[bool, str]:
+    """Check a ``doc`` evidence assertion (ENG-16).
+
+    File existence is NOT evidence. The claim must carry:
+    - ``doc_sha256``: SHA-256 of the cited document's persisted bytes
+      (UTF-8, LF — see docs/verification/byte-policy.md). A recorded
+      digest that does not match the current bytes FAILS.
+    - ``doc_as_of_sha``: the full commit SHA whose tree the digest was
+      computed from. It must resolve in this repo.
+    - ``doc_state``: ``implemented`` | ``tested`` | ``historical`` |
+      ``blocked``. ``implemented``/``tested`` assert a property of the
+      current tree, so the cited document must be unchanged since the
+      as-of SHA; ``historical`` is a dated record (bytes still pinned
+      by the digest); ``blocked`` can never pass.
+    - ``executable_property`` (bool): when true, the claim asserts an
+      executable property and ``executable_check`` (a command) must be
+      present and exit 0. A saved ``cited_content_present=true``-style
+      note is not execution evidence.
+    """
+    if claim is None:
+        return (
+            False,
+            "doc evidence requires the claim's doc_sha256 / doc_as_of_sha / "
+            "doc_state fields (ENG-16: existence is not evidence)",
+        )
+    rel = Path(evidence_path)
+    if rel.is_absolute() or ".." in rel.parts:
+        return False, f"doc evidence path escapes the repo: {evidence_path}"
     path = root / evidence_path
     if not path.exists():
         return False, f"Document not found: {path}"
-    return True, "Document exists"
+    doc_sha = claim.get("doc_sha256")
+    if not doc_sha or not _SHA256_RE.match(str(doc_sha)):
+        return (
+            False,
+            f"doc evidence for {evidence_path} has no recorded doc_sha256 "
+            "(ENG-16: bind the assertion to the document's current content digest)",
+        )
+    actual = _sha256_file(path)
+    if actual != doc_sha:
+        return (
+            False,
+            f"doc evidence digest mismatch for {evidence_path}: recorded "
+            f"{str(doc_sha)[:12]}..., current bytes hash to {actual[:12]}..."
+            f"{_crlf_hint(path)} (ENG-16)",
+        )
+    as_of = claim.get("doc_as_of_sha")
+    if not as_of or not _SHA1_RE.match(str(as_of)):
+        return (
+            False,
+            f"doc evidence for {evidence_path} has no valid doc_as_of_sha "
+            "(ENG-16: record the source SHA the digest was computed from)",
+        )
+    if not _git_commit_exists(root, str(as_of)):
+        return (
+            False,
+            f"doc evidence as-of SHA {as_of} does not resolve in this repo (ENG-16)",
+        )
+    state = claim.get("doc_state")
+    if state not in DOC_STATES:
+        return (
+            False,
+            f"doc evidence for {evidence_path} has doc_state {state!r}; "
+            f"expected one of {', '.join(DOC_STATES)} (ENG-16)",
+        )
+    if state == "blocked":
+        return (
+            False,
+            f"doc evidence for {evidence_path} is blocked: the asserted "
+            "property is not established (ENG-16)",
+        )
+    if state in ("implemented", "tested"):
+        unchanged = _git_doc_unchanged_since(root, str(as_of), evidence_path)
+        if unchanged is None:
+            return (
+                False,
+                f"doc evidence for {evidence_path}: cannot verify the document "
+                f"is unchanged since as-of {str(as_of)[:12]}... (git unavailable "
+                "or error) (ENG-16)",
+            )
+        if not unchanged:
+            return (
+                False,
+                f"doc evidence for {evidence_path} changed since as-of "
+                f"{str(as_of)[:12]}... — re-verify and re-record the digest / "
+                "as-of SHA (ENG-16)",
+            )
+    if claim.get("executable_property"):
+        check = claim.get("executable_check")
+        if not check:
+            return (
+                False,
+                f"doc evidence for {evidence_path} asserts an executable "
+                "property but carries no executable_check (ENG-16: a saved "
+                "content note is not execution evidence)",
+            )
+        code, stdout, stderr = run_chain(str(check), cwd=root)
+        if code != 0:
+            detail = (stderr or stdout).strip().splitlines()
+            tail = "\n".join(detail[-10:])
+            return (
+                False,
+                f"doc evidence executable_check failed (exit {code}) for "
+                f"{evidence_path}: {tail}",
+            )
+    return True, "Document digest and as-of SHA verified"
 
 
 def check_external_audit(evidence_path: str, root: Path) -> tuple[bool, str]:
@@ -484,7 +650,7 @@ def verify_claim(
         elif evidence_type == "code_audit":
             ok, msg = check_code_audit(evidence_path, root)
         elif evidence_type == "doc":
-            ok, msg = check_doc(evidence_path, root)
+            ok, msg = check_doc(evidence_path, root, claim)
         elif evidence_type == "external_audit":
             ok, msg = check_external_audit(evidence_path, root)
         elif evidence_type == "command":
@@ -496,27 +662,317 @@ def verify_claim(
     return ok, msg, "pass" if ok else "fail"
 
 
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _worst_document_slice(artifact: dict[str, Any]) -> dict[str, Any] | None:
+    """The document slice with the largest per-slice Wilson FPR upper bound.
+
+    Segment slices are a different unit (sentences, not documents) and
+    are never candidates for a document-level worst slice.
+    """
+    results = artifact.get("results", {})
+    slices = results.get("slices")
+    if not isinstance(slices, list):
+        return None
+    docs = [
+        s
+        for s in slices
+        if isinstance(s, dict) and s.get("slice_kind") == "document"
+    ]
+    if not docs:
+        return None
+
+    def upper(s: dict[str, Any]) -> float:
+        wilson = s.get("fpr_native_wilson")
+        if isinstance(wilson, dict) and _is_number(wilson.get("ci_upper")):
+            return float(wilson["ci_upper"])
+        return -1.0
+
+    return max(docs, key=upper)
+
+
+def _slice_blockers(slice_entry: dict[str, Any]) -> list[str]:
+    assessment = slice_entry.get("assessment")
+    if isinstance(assessment, dict):
+        blockers = assessment.get("blockers")
+        if isinstance(blockers, list):
+            return [str(b) for b in blockers]
+    return []
+
+
+def human_fpr_summary(
+    records_by_id: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Schema-aware human-FPR aggregation over the registry (ENG-16).
+
+    Wilson-upper-bound field names, enumerated from the run-artifact
+    schema (``results`` is a free-form object) and the committed
+    measurement runs, plus the validation-registry schema
+    (``evidence-record.schema.json`` ``$defs.metric_estimate``:
+    ``records[].metrics[].fpr_native.ci_upper`` with ``value``/``n``/
+    ``method`` — mirrored in the run artifacts' per-slice values below):
+
+    - ``results.worst_slice_wilson_ci_upper`` — worst-slice Wilson 95%
+      upper bound (EV-20261110-human-fpr).
+    - ``results.worst_document_slice_wilson_ci_upper`` — same, document
+      slices only (EV-20261110-human-fpr).
+    - ``results.slices[].fpr_native_wilson.ci_upper`` — per-slice Wilson
+      95% upper bound, with ``n_human`` and ``assessment`` (``can_support_fpr_claim``,
+      ``blockers``) on the same slice entry.
+    - ``results.human_fpr_native.wilson_95_ci_upper`` — a SINGLE slice's
+      Wilson 95% upper bound (EV-20261110-dataset-opai-bench); present
+      evidence, never a worst-slice lead.
+    - ``results.pooled_documents_only.ci_upper`` and
+      ``results.pooled_all_slices_including_segments.ci_upper`` — pooled
+      values. Pooling hides slice heterogeneity (and the segment pool
+      mixes units); pooled values are NEVER a worst-slice statistic.
+    - Legacy point-rate keys (unchanged behaviour):
+      ``results.worst_slice_human_fpr`` and
+      ``results.human_fpr.worst_slice``.
+
+    A worst-slice Wilson upper bound qualifies as the lead only when
+    the worst document slice behind it meets the release bar
+    (n_human >= 100, Wilson upper <= 0.05, assessment says the slice
+    can support an FPR claim). Anything else is present-but-unqualified
+    evidence: the lead stays ``unknown`` with an accurate reason, and
+    is NEVER filled from a best slice, a single slice, or a pooled
+    value.
+    """
+    entries: list[dict[str, Any]] = []
+    best_point: tuple[float, str] | None = None
+    best_wilson: tuple[float, str] | None = None
+
+    def consider(kind: str, value: float, record_id: str) -> None:
+        nonlocal best_point, best_wilson
+        target = best_point if kind == "point_rate" else best_wilson
+        if target is None or value > target[0]:
+            if kind == "point_rate":
+                best_point = (value, record_id)
+            else:
+                best_wilson = (value, record_id)
+
+    for record_id, entry in records_by_id.items():
+        artifact = entry["artifact"]
+        results = artifact.get("results", {})
+        if not isinstance(results, dict):
+            continue
+
+        # Legacy point-rate keys: a worst-slice point rate, when present.
+        point_value = results.get("worst_slice_human_fpr")
+        if point_value is None and isinstance(results.get("human_fpr"), dict):
+            point_value = results["human_fpr"].get("worst_slice")
+        if _is_number(point_value):
+            entries.append(
+                {
+                    "record_id": record_id,
+                    "field": "results.worst_slice_human_fpr",
+                    "value": float(point_value),
+                    "kind": "worst_slice_point_rate",
+                    "n": None,
+                    "qualified": True,
+                    "reason": "worst-slice point rate",
+                }
+            )
+            consider("point_rate", float(point_value), record_id)
+
+        # Worst-slice Wilson upper bounds (top-level aggregation fields).
+        worst_slice = _worst_document_slice(artifact)
+        for field in (
+            "worst_slice_wilson_ci_upper",
+            "worst_document_slice_wilson_ci_upper",
+        ):
+            value = results.get(field)
+            if not _is_number(value):
+                continue
+            if worst_slice is None:
+                qualified = False
+                reason = (
+                    "no per-slice detail in the record to establish that "
+                    "the worst slice meets the bar (n>=100, Wilson upper "
+                    "<=0.05, slice can support an FPR claim)"
+                )
+            else:
+                wilson = worst_slice.get("fpr_native_wilson") or {}
+                n_human = worst_slice.get("n_human")
+                assessment = worst_slice.get("assessment") or {}
+                can_support = assessment.get("can_support_fpr_claim") is True
+                blockers = _slice_blockers(worst_slice)
+                dataset = worst_slice.get("dataset", worst_slice.get("record_id", "?"))
+                if (
+                    isinstance(n_human, int)
+                    and n_human >= FPR_BAR_N_HUMAN_MINIMUM
+                    and float(value) <= FPR_BAR_WILSON_UPPER_CEILING
+                    and can_support
+                ):
+                    qualified = True
+                    reason = (
+                        f"worst document slice {dataset} (n_human={n_human}) "
+                        "meets the bar"
+                    )
+                else:
+                    qualified = False
+                    detail = "; ".join(blockers) if blockers else (
+                        f"worst document slice {dataset} (n_human={n_human}) "
+                        "does not meet the bar"
+                    )
+                    reason = f"present but unqualified: {detail}"
+            entries.append(
+                {
+                    "record_id": record_id,
+                    "field": f"results.{field}",
+                    "value": float(value),
+                    "kind": "worst_slice_wilson_upper",
+                    "n": worst_slice.get("n_human") if worst_slice else None,
+                    "qualified": qualified,
+                    "reason": reason,
+                }
+            )
+            if qualified:
+                consider("wilson_upper", float(value), record_id)
+
+        # Single-slice Wilson upper bound: present evidence, never a lead.
+        human_fpr = results.get("human_fpr_native")
+        if isinstance(human_fpr, dict) and _is_number(human_fpr.get("wilson_95_ci_upper")):
+            entries.append(
+                {
+                    "record_id": record_id,
+                    "field": "results.human_fpr_native.wilson_95_ci_upper",
+                    "value": float(human_fpr["wilson_95_ci_upper"]),
+                    "kind": "single_slice_wilson_upper",
+                    "n": human_fpr.get("n_human"),
+                    "qualified": False,
+                    "reason": (
+                        "single-slice value (one dataset slice, "
+                        f"n_human={human_fpr.get('n_human')}); not a "
+                        "worst-slice aggregation, so it cannot fill the lead"
+                    ),
+                }
+            )
+
+        # Per-slice detail only when the record carries no top-level
+        # worst-slice field: report the worst document slice itself.
+        has_worst_field = any(
+            _is_number(results.get(f))
+            for f in (
+                "worst_slice_wilson_ci_upper",
+                "worst_document_slice_wilson_ci_upper",
+            )
+        )
+        if not has_worst_field and worst_slice is not None:
+            wilson = worst_slice.get("fpr_native_wilson") or {}
+            if _is_number(wilson.get("ci_upper")):
+                blockers = _slice_blockers(worst_slice)
+                entries.append(
+                    {
+                        "record_id": record_id,
+                        "field": "results.slices[].fpr_native_wilson.ci_upper (worst document slice)",
+                        "value": float(wilson["ci_upper"]),
+                        "kind": "per_slice_wilson_upper",
+                        "n": worst_slice.get("n_human"),
+                        "qualified": False,
+                        "reason": (
+                            "per-slice value; this record has no worst-slice "
+                            "aggregation field"
+                            + (
+                                f": {'; '.join(blockers)}"
+                                if blockers
+                                else ""
+                            )
+                        ),
+                    }
+                )
+
+        # Pooled values: recorded for completeness, never a lead.
+        for field in (
+            "pooled_documents_only",
+            "pooled_all_slices_including_segments",
+        ):
+            pooled = results.get(field)
+            if isinstance(pooled, dict) and _is_number(pooled.get("ci_upper")):
+                entries.append(
+                    {
+                        "record_id": record_id,
+                        "field": f"results.{field}.ci_upper",
+                        "value": float(pooled["ci_upper"]),
+                        "kind": "pooled_wilson_upper",
+                        "n": pooled.get("n"),
+                        "qualified": False,
+                        "reason": (
+                            "pooled value: pooling hides slice heterogeneity "
+                            "(and the segment pool mixes units) and is never "
+                            "a worst-slice statistic"
+                        ),
+                    }
+                )
+
+    # A worst-slice point rate is the direct statistic and leads when
+    # present; a qualified Wilson upper bound leads only when no point
+    # rate exists. The two are never mixed into one max.
+    if best_point is not None:
+        lead_kind, (lead_value, lead_record) = "point_rate", best_point
+    elif best_wilson is not None:
+        lead_kind, (lead_value, lead_record) = "wilson_upper", best_wilson
+    else:
+        lead_kind, lead_value, lead_record = None, None, None
+
+    if lead_value is not None:
+        reason = ""
+    elif not entries:
+        reason = (
+            "no human-FPR evidence is recorded in the registry yet "
+            "(Phase 5 release gate). No FPR is claimed anywhere in this repository."
+        )
+    else:
+        parts = []
+        for e in entries:
+            if e["kind"] == "worst_slice_wilson_upper":
+                parts.append(
+                    f"worst-slice Wilson 95% upper bound {e['value']} in "
+                    f"`{e['record_id']}` ({e['field']}) — {e['reason']}"
+                )
+            elif e["kind"] == "single_slice_wilson_upper":
+                parts.append(
+                    f"single-slice Wilson 95% upper bound {e['value']} in "
+                    f"`{e['record_id']}` — {e['reason']}"
+                )
+            elif e["kind"] == "per_slice_wilson_upper":
+                parts.append(
+                    f"per-slice Wilson 95% upper bound {e['value']} in "
+                    f"`{e['record_id']}` — {e['reason']}"
+                )
+            elif e["kind"] == "pooled_wilson_upper":
+                parts.append(
+                    f"pooled Wilson 95% upper bound {e['value']} in "
+                    f"`{e['record_id']}` ({e['field']}) — {e['reason']}"
+                )
+        reason = (
+            "human-FPR evidence is present in the registry but unqualified "
+            "for a worst-slice lead: " + "; ".join(parts)
+        )
+
+    return {
+        "lead_kind": lead_kind,
+        "lead_value": lead_value,
+        "lead_record": lead_record,
+        "entries": entries,
+        "reason": reason,
+    }
+
+
 def worst_slice_fpr(
     records_by_id: dict[str, dict[str, Any]],
 ) -> tuple[float | None, str | None]:
-    """Find the worst-slice human false-positive rate in the registry.
+    """Worst-slice human false-positive rate for the report-card lead.
 
-    Looks for ``worst_slice_human_fpr`` in any record's results (or
-    ``human_fpr.worst_slice``). Returns (value, record_id) or (None, None)
-    when no human-FPR evidence is recorded — the honest answer until
-    U1/dataset runs produce real measurements.
+    Returns (value, record_id) or (None, None) when no qualified
+    worst-slice evidence exists. A qualified worst-slice Wilson 95%
+    upper bound is returned as the value; the caller labels it as an
+    upper bound (see human_fpr_summary), never as a point rate.
     """
-    worst: float | None = None
-    worst_record: str | None = None
-    for record_id, entry in records_by_id.items():
-        results = entry["artifact"].get("results", {})
-        value = results.get("worst_slice_human_fpr")
-        if value is None and isinstance(results.get("human_fpr"), dict):
-            value = results["human_fpr"].get("worst_slice")
-        if isinstance(value, (int, float)) and (worst is None or value > worst):
-            worst = float(value)
-            worst_record = record_id
-    return worst, worst_record
+    summary = human_fpr_summary(records_by_id)
+    return summary["lead_value"], summary["lead_record"]
 
 
 def write_report_card(
@@ -533,7 +989,7 @@ def write_report_card(
     is fully determined by the claims, the registry, and the verdicts, so
     CI can diff it and hand-edits fail.
     """
-    fpr, fpr_record = worst_slice_fpr(records_by_id)
+    summary = human_fpr_summary(records_by_id)
     lines = [
         "# TextForensics evidence report card",
         "",
@@ -543,15 +999,35 @@ def write_report_card(
         "## Worst-slice human false-positive rate",
         "",
     ]
-    if fpr is None:
+    if summary["lead_value"] is None:
         lines += [
-            "**unknown** — no human-FPR evidence is recorded in the registry yet "
-            "(Phase 5 release gate). No FPR is claimed anywhere in this repository.",
+            f"**unknown** — {summary['reason']}",
             "",
         ]
+        if summary["entries"]:
+            lines += [
+                "### Human-FPR evidence present in the registry (unqualified)",
+                "",
+                "The following Wilson-upper-bound / FPR evidence exists in "
+                "registry run artifacts. None of it qualifies as a "
+                "worst-slice lead (see the reason above); it is listed here "
+                "so the card does not claim no evidence exists.",
+                "",
+            ]
+            for e in summary["entries"]:
+                lines.append(
+                    f"- `{e['record_id']}`: `{e['field']}` = {e['value']} "
+                    f"({e['kind']}; {e['reason']})"
+                )
+            lines.append("")
     else:
+        label = (
+            "worst slice; Wilson 95% upper bound"
+            if summary["lead_kind"] == "wilson_upper"
+            else "worst slice"
+        )
         lines += [
-            f"**{fpr}** (worst slice; evidence record `{fpr_record}`)",
+            f"**{summary['lead_value']}** ({label}; evidence record `{summary['lead_record']}`)",
             "",
         ]
     failed = [r for r in claim_results if not r[3]]

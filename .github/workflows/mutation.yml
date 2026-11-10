@@ -189,9 +189,105 @@ jobs:
           pattern: mutation-results-*
           path: artifacts/
 
+      # ENG-07(6): the full-mutation job is skipped on push/pull_request
+      # by design (it runs only on schedule/workflow_dispatch), but the
+      # old report said nothing about it, so the push check read as
+      # "mutation passed" with no full mutation work executed. This step
+      # writes a machine-readable status file using the shared gate
+      # vocabulary — pass / fail / skipped / not_applicable / zero_work —
+      # with measured work counts and a reason, so the canonical
+      # verification command can observe that no full mutation work
+      # executed for this SHA. A skipped/not_applicable job is recorded
+      # as such; it is never relabelled as passed.
+      - name: Record mutation execution status
+        env:
+          DIFF_RESULT: ${{ needs.mutation-diff.result }}
+          FULL_RESULT: ${{ needs.mutation-full.result }}
+          EVENT_NAME: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          def load_summary(kind):
+              for path in Path("artifacts").glob(f"mutation-results-{kind}-*/summary.json"):
+                  return json.loads(path.read_text(encoding="utf-8"))
+              return None
+
+          def job_status(result, summary, *, full_job):
+              if result == "success":
+                  if summary and summary.get("skipped_reason") == "no-relevant-changes":
+                      return ("skipped", 0, "no-relevant-changes: no safety-critical modules changed")
+                  total = int((summary or {}).get("total", 0))
+                  return ("pass", total, f"executed {total} mutant(s)")
+              if result == "failure":
+                  total = int((summary or {}).get("total", 0))
+                  return ("fail", total, "mutation job failed (see its logs)")
+              if result == "cancelled":
+                  return ("error", 0, "mutation job was cancelled")
+              # result == "skipped": the job's `if:` condition was false.
+              if full_job:
+                  return (
+                      "not_applicable",
+                      0,
+                      "full mutation runs only on schedule/workflow_dispatch; "
+                      "not applicable to push/pull_request events — no full "
+                      "mutation work executed for this SHA",
+                  )
+              return ("skipped", 0, "job skipped by its event condition")
+
+          diff_summary = load_summary("diff")
+          full_summary = load_summary("full")
+          diff_status, diff_total, diff_reason = job_status(
+              os.environ["DIFF_RESULT"], diff_summary, full_job=False
+          )
+          full_status, full_total, full_reason = job_status(
+              os.environ["FULL_RESULT"], full_summary, full_job=True
+          )
+          status = {
+              "schema": "textforensics.mutation-status/v1",
+              "sha": os.environ["SHA"],
+              "event": os.environ["EVENT_NAME"],
+              "jobs": {
+                  "mutation-diff": {
+                      "status": diff_status,
+                      "mutants_executed": diff_total,
+                      "reason": diff_reason,
+                  },
+                  "mutation-full": {
+                      "status": full_status,
+                      "mutants_executed": full_total,
+                      "reason": full_reason,
+                  },
+              },
+          }
+          Path("mutation-status.json").write_text(
+              json.dumps(status, indent=2) + "\n", encoding="utf-8"
+          )
+          print(json.dumps(status, indent=2))
+          PY
+
+      - name: Upload mutation status
+        uses: actions/upload-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: mutation-status-${{ github.sha }}
+          path: mutation-status.json
+          retention-days: 90
+
       - name: Generate summary report
         run: |
           echo "## Mutation Testing Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status | Mutants executed | Reason |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|------------------|--------|" >> $GITHUB_STEP_SUMMARY
+          python - <<'PY' >> $GITHUB_STEP_SUMMARY
+          import json
+          status = json.load(open("mutation-status.json", encoding="utf-8"))
+          for job, info in status["jobs"].items():
+              print(f"| {job} | {info['status']} | {info['mutants_executed']} | {info['reason']} |")
+          PY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Run | Status | Surviving | Killed | Timeout |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|-----------|--------|---------|" >> $GITHUB_STEP_SUMMARY

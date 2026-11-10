@@ -47,19 +47,22 @@ jobs:
       - name: Compile Python sources
         run: python -m compileall -q src tests
 
-      - name: Run full pytest suite with forked isolation
+      # ENG-07(2): the forked-isolation flag was removed: pytest-forked
+      # is not a declared dev dependency, so the suite failed collection
+      # with "unrecognized arguments". The suite must run with the
+      # declared tooling; forked isolation can be re-added only with a
+      # verified pytest-forked declaration and a passing run.
+      - name: Run full pytest suite
         id: test-results
         run: |
           set -o pipefail
           pytest tests \
-            --forked \
             -v \
             --tb=short \
             --strict-markers \
             -W error \
             --ignore=tests/test_docs.py \
             2>&1 | tee "${RUNNER_TEMP}/pytest-output.log"
-        continue-on-error: true
 
       - name: Upload test artifacts on failure
         if: failure() || steps.test-results.outcome == 'failure'
@@ -98,7 +101,6 @@ jobs:
       - name: Run tests with coverage
         run: |
           coverage run -m pytest tests \
-            --forked \
             --ignore=tests/test_docs.py
 
       - name: Generate coverage report with thresholds
@@ -162,7 +164,7 @@ jobs:
         run: |
           if [ -d "docs" ]; then
             mkdir -p docs/_build
-            sphinx-build -b html docs docs/_build/html || true
+            sphinx-build -b html docs docs/_build/html
           fi
 
       - name: Verify schema documentation
@@ -220,8 +222,12 @@ jobs:
 
       - name: Run pip-audit with zero tolerance
         run: |
-          .audit-env/bin/python -m pip install pip-audit>=2,<3
-          .audit-env/bin/python -m pip install bandit>=1.7,<2
+          # ENG-07(2): requirement ranges are quoted: unquoted
+          # `pip-audit>=2,<3` is a shell redirection (`3: No such file
+          # or directory`, creates a file named `=2,`), not a
+          # requirement string.
+          .audit-env/bin/python -m pip install "pip-audit>=2,<3"
+          .audit-env/bin/python -m pip install "bandit>=1.7,<2"
 
           # Strict dependency audit - fail on any vulnerability
           .audit-env/bin/pip-audit --strict --no-deps -r audit-requirements.txt
@@ -341,8 +347,15 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install jsonschema
-        run: python -m pip install "jsonschema>=4.23,<5"
+      # ENG-07(2): the project itself must be installed before any step
+      # imports `textforensics`; the old job installed only jsonschema
+      # and then imported a `CaseFile` symbol that does not exist
+      # (`ImportError: cannot import name 'CaseFile' from
+      # 'textforensics.casefile'`).
+      - name: Install jsonschema and the project
+        run: |
+          python -m pip install "jsonschema>=4.23,<5"
+          python -m pip install -e ".[dev]"
 
       - name: Validate all schemas are valid JSON Schema
         run: |
@@ -374,8 +387,8 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-          from textforensics.schema import load_schema
-          from textforensics.casefile import CaseFile
+          from textforensics.schema import load_schema, validate_case_file
+          from textforensics.casefile import build_checklist
 
           # Verify CaseFile schema load
           case_schema = load_schema('case-file')
@@ -389,6 +402,13 @@ jobs:
           bundle_schema = load_schema('forensic-bundle')
           assert bundle_schema['type'] == 'object', "ForensicBundle schema type mismatch"
           print("✓ ForensicBundle schema loads correctly")
+
+          # Exercise the real case-file validation entry point: the
+          # casefile module exposes build_checklist / validate_case_file
+          # (via textforensics.schema), not a `CaseFile` class.
+          assert callable(validate_case_file), "validate_case_file missing"
+          assert callable(build_checklist), "build_checklist missing"
+          print("✓ Case-file validation entry points resolve")
           PY
 
       - name: Upload schema validation report
@@ -485,7 +505,9 @@ jobs:
       - name: Install API dependencies
         run: |
           python -m pip install -e ".[dev,api]"
-          python -m pip install httpx>=0.27,<1
+          # ENG-07(2): quoted — unquoted `httpx>=0.27,<1` is a shell
+          # redirection, not a requirement string.
+          python -m pip install "httpx>=0.27,<1"
 
       - name: Test API import and instantiation
         run: |

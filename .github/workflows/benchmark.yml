@@ -42,7 +42,6 @@ jobs:
     env:
       BENCHMARK_ITERATIONS: ${{ github.event.inputs.iterations || '5' }}
       BENCHMARK_INCLUDE_MEMORY: ${{ github.event.inputs.include-memory || 'false' }}
-      BASELINE_REF: ${{ github.event.inputs.baseline-ref || 'main' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -81,34 +80,68 @@ jobs:
             python -m pytest tests/test_benchmarks.py -v --tb=short
           fi
 
+      # ENG-13: resolve the immutable baseline BEFORE downloading it.
+      # Comparison is REQUIRED by default (push/schedule/dispatch):
+      # the only legitimate skip is a workflow_dispatch whose
+      # baseline-ref input is explicitly empty, and that is reported as
+      # status=skipped with a reason — never as a pass. The baseline is
+      # the latest successful benchmark run on the resolved ref; its run
+      # id is recorded so the comparison is against one immutable run,
+      # not "whatever artifact happens to exist". Baselines are
+      # published from main runs only (artifact performance-baseline-main);
+      # a ref with no successful run (or no such artifact) fails closed.
+      - name: Resolve baseline run
+        id: resolve-baseline
+        run: |
+          RAW_REF="${{ github.event.inputs.baseline-ref }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -z "$RAW_REF" ]; then
+            echo "status=skipped" >> "$GITHUB_OUTPUT"
+            echo "reason=workflow_dispatch with empty baseline-ref input (explicit opt-out)" >> "$GITHUB_OUTPUT"
+            echo "::warning::Baseline comparison skipped: workflow_dispatch with empty baseline-ref input."
+            exit 0
+          fi
+          REF="${RAW_REF:-main}"
+          echo "status=required" >> "$GITHUB_OUTPUT"
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          RUN_ID="$(gh api "repos/${{ github.repository }}/actions/workflows/benchmark.yml/runs?branch=${REF}&status=success&per_page=1" --jq '.workflow_runs[0].id // empty')"
+          if [ -z "$RUN_ID" ]; then
+            echo "::error::No successful benchmark run found on ref '${REF}'; cannot resolve an immutable baseline. Run the benchmark workflow on '${REF}' first so a baseline artifact is published."
+            exit 1
+          fi
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "Resolved baseline: ref=${REF} run_id=${RUN_ID}"
+
       - name: Download performance baseline for comparison
-        if: github.event.inputs.baseline-ref != ''
-        uses: actions/download-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0 (validated: gh api repos/actions/download-artifact/commits/<sha> returns 200)
         with:
-          name: performance-baseline-${{ env.BASELINE_REF }}
+          name: performance-baseline-main
           path: baseline/
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          # Allow failure if baseline doesn't exist yet
-          fail-on-error: false
+          run-id: ${{ steps.resolve-baseline.outputs.run_id }}
 
       - name: Compare performance against baseline
-        if: github.event.inputs.baseline-ref != '' && always()
         run: |
-          if [ -f "baseline/pytest-performance.json" ]; then
-            echo "Comparing against baseline from ${{ env.BASELINE_REF }}"
-            python -m pytest tests/test_performance.py --benchmark-only --benchmark-min-rounds=5 \
-              --benchmark-compare=baseline/pytest-performance.json \
-              --benchmark-compare-fail=mean:1.20 \
-              --benchmark-json=pytest-performance-comparison.json 2>&1 | tee comparison-output.txt
-            COMPARE_EXIT_CODE=${PIPESTATUS[0]}
-            if [ $COMPARE_EXIT_CODE -ne 0 ]; then
-              echo "::error::Performance regression detected! Results are >20% slower than baseline."
-              cat comparison-output.txt
-              exit 1
-            fi
-          else
-            echo "No baseline found for ${{ env.BASELINE_REF }}. Skipping comparison."
-            echo "To create a baseline, run the workflow with baseline-ref='' or push to main."
+          if [ "${{ steps.resolve-baseline.outputs.status }}" = "skipped" ]; then
+            echo "Baseline comparison skipped: ${{ steps.resolve-baseline.outputs.reason }}"
+            printf '{"status": "skipped", "reason": "%s", "compared": 0}\n' "${{ steps.resolve-baseline.outputs.reason }}" > comparison-status.json
+            exit 0
+          fi
+          if [ ! -f "baseline/pytest-performance.json" ]; then
+            echo "::error::Baseline artifact is missing pytest-performance.json (resolved run ${{ steps.resolve-baseline.outputs.run_id }} on ref ${{ steps.resolve-baseline.outputs.ref }}). Comparison is required and cannot proceed without a baseline."
+            printf '{"status": "error", "reason": "baseline artifact missing pytest-performance.json", "run_id": "%s", "ref": "%s", "compared": 0}\n' "${{ steps.resolve-baseline.outputs.run_id }}" "${{ steps.resolve-baseline.outputs.ref }}" > comparison-status.json
+            exit 1
+          fi
+          echo "Comparing against baseline from run ${{ steps.resolve-baseline.outputs.run_id }} (ref ${{ steps.resolve-baseline.outputs.ref }})"
+          python -m pytest tests/test_performance.py --benchmark-only --benchmark-min-rounds=5 \
+            --benchmark-compare=baseline/pytest-performance.json \
+            --benchmark-compare-fail=mean:1.20 \
+            --benchmark-json=pytest-performance-comparison.json 2>&1 | tee comparison-output.txt
+          COMPARE_EXIT_CODE=${PIPESTATUS[0]}
+          printf '{"status": "%s", "run_id": "%s", "ref": "%s"}\n' "$([ "$COMPARE_EXIT_CODE" -eq 0 ] && echo passed || echo failed)" "${{ steps.resolve-baseline.outputs.run_id }}" "${{ steps.resolve-baseline.outputs.ref }}" > comparison-status.json
+          if [ $COMPARE_EXIT_CODE -ne 0 ]; then
+            echo "::error::Performance regression detected! Results are >20% slower than baseline."
+            cat comparison-output.txt
+            exit 1
           fi
 
       - name: Upload benchmark results
@@ -121,6 +154,7 @@ jobs:
             pytest-benchmark.json
             pytest-performance.json
             pytest-performance-comparison.json
+            comparison-status.json
           if-no-files-found: warn
           retention-days: 90
 
