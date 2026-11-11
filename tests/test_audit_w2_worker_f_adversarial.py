@@ -21,7 +21,7 @@ from w2_f_kill_helpers import (
 )
 
 
-EXPECTED_PROBE_ADV_ANALYZE = [((40, None), 'none', 'sufficient', 0), ((8, None), 'unknown', 'insufficient', 0), ((120, None), 'medium', 'sufficient', 1), ((33, None), 'none', 'sufficient', 0), ((32, None), 'none', 'sufficient', 0), ((40, 'fr'), 'unknown', 'insufficient', 0), ((0, None), 'unknown', 'insufficient', 0)]
+EXPECTED_PROBE_ADV_ANALYZE = [((40, None), 'none', 'sufficient', 0), ((8, None), 'unknown', 'insufficient', 0), ((9, None), 'unknown', 'insufficient', 0), ((10, None), 'none', 'sufficient', 0), ((11, None), 'none', 'sufficient', 0), ((120, None), 'medium', 'sufficient', 1), ((33, None), 'none', 'sufficient', 0), ((32, None), 'none', 'sufficient', 0), ((40, 'fr'), 'unknown', 'insufficient', 0), ((0, None), 'unknown', 'insufficient', 0), (('summary', 40), ('66ad6ae8896f1590...', 'none', 0, 8)), (('summary', 10), ('865c881b7e66db5f...', 'none', 0, 8))]
 
 
 EXPECTED_PROBE_ADV_ASSESS_RISK = [(((),), ('ok', "('none', None)")), (((('low', 0.1),),), ('ok', "('low', None)")), (((('medium', 0.5),),), ('ok', "('medium', None)")), (((('high', 0.7),),), ('ok', "('critical', None)")), (((('critical', 0.9),),), ('ok', "('critical', None)")), (((('low', 0.1), ('high', 0.7)),), ('ok', "('medium', None)")), (((('critical', 0.9), ('critical', 0.9)),), ('ok', "('critical', None)")), (((('medium', 0.5), ('medium', 0.5), ('medium', 0.5)),), ('ok', "('medium', None)"))]

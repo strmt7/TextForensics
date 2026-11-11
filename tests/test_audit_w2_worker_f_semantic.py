@@ -23,7 +23,7 @@ from w2_f_kill_helpers import (
 )
 
 
-EXPECTED_PROBE_SEM_ANALYZE = [((28, None), 'unknown', 'insufficient', 0), ((17, None), 'unknown', 'insufficient', 0), ((67, None), 'unknown', 'insufficient', 0), ((28, 'fr'), 'unknown', 'insufficient', 0), ((0, None), 'unknown', 'insufficient', 0), ((400, None), 'unknown', 'insufficient', 0)]
+EXPECTED_PROBE_SEM_ANALYZE = [((28, None), 'unknown', 'insufficient', 0), ((17, None), 'unknown', 'insufficient', 0), ((67, None), 'unknown', 'insufficient', 0), ((28, 'fr'), 'unknown', 'insufficient', 0), ((0, None), 'unknown', 'insufficient', 0), ((400, None), 'unknown', 'insufficient', 0), (('summary', 28), ('d75e3fad1e1197c9...', 'unknown', 0, 'insufficient')), (('summary', 17), ('6554ec001b078e0f...', 'unknown', 0, 'insufficient')), (('target-boundary', 199), 'insufficient', None, 0), (('target-boundary', 200), 'insufficient', None, 0), (('target-boundary', 201), 'sufficient', 0.6, 1), (('target-boundary', 202), 'sufficient', 0.6, 1)]
 
 
 EXPECTED_PROBE_SEM_ASSESS_RISK = [(((),), ('ok', "('none', None)")), (((('low', 0.1),),), ('ok', "('low', None)")), (((('medium', 0.5),),), ('ok', "('low', None)")), (((('high', 0.7),),), ('ok', "('medium', None)")), (((('critical', 0.9),),), ('ok', "('critical', None)")), (((('low', 0.1), ('high', 0.7)),), ('ok', "('low', None)")), (((('critical', 0.9), ('critical', 0.9)),), ('ok', "('critical', None)"))]

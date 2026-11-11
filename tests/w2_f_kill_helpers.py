@@ -955,6 +955,9 @@ def probe_adv_analyze():
     for text, language in (
             (_adv_text(40), None),
             (_adv_text(8), None),                    # below MIN_WORDS (10)
+            (_adv_text(9), None),                    # MIN_WORDS - 1
+            (_adv_text(10), None),                   # MIN_WORDS exactly
+            (_adv_text(11), None),                   # MIN_WORDS + 1
             (_adv_text(120), None),
             ("As an AI language model, I cannot help with that request. " * 3, None),
             ("Delve into the multifaceted tapestry of human experience. " * 4, None),
@@ -967,6 +970,13 @@ def probe_adv_analyze():
         except Exception as exc:  # noqa: BLE001
             rows.append(((len(text.split()), language),
                          ("raise", type(exc).__name__, str(exc))))
+    # summary(): text_sha256 prefix is [:16] + "..."
+    for text in (_adv_text(40), _adv_text(10)):
+        rep = det.analyze(text)
+        s = rep.summary()
+        rows.append((("summary", len(text.split())),
+                     (s["text_sha256"], s["overall_risk"], s["total_findings"],
+                      s["patterns_checked"])))
     return rows
 
 
@@ -1010,6 +1020,26 @@ def probe_sem_analyze():
                          rep.support_status, len(rep.findings)))
         except Exception as exc:  # noqa: BLE001
             rows.append(((len(text.split()), language),
+                         ("raise", type(exc).__name__, str(exc))))
+    # summary(): text_sha256 prefix is [:16] + "..."
+    for text in (three, two):
+        rep = checker.analyze(text)
+        s = rep.summary()
+        rows.append((("summary", len(text.split())),
+                     (s["text_sha256"], s["risk_level"], s["total_findings"],
+                      s["support_status"])))
+    # segment_word_target boundary: one-word sentences, 200 vs 201 words.
+    # target 100 -> 200 words = 2 segments, 201 words = 3 segments.
+    # target 101 -> 201 words = 2 segments; target 99 -> 200 words = 3.
+    from textforensics.semantic import analyze_semantic_consistency
+    for n in (199, 200, 201, 202):
+        text = " ".join(f"Word{i}." for i in range(n))
+        try:
+            rep = analyze_semantic_consistency(text)
+            rows.append((("target-boundary", n), rep.support_status,
+                         rep.overall_consistency_score, len(rep.findings)))
+        except Exception as exc:  # noqa: BLE001
+            rows.append((("target-boundary", n),
                          ("raise", type(exc).__name__, str(exc))))
     return rows
 
@@ -3091,4 +3121,155 @@ def probe_trust_build():
             rows.append((name, ("ok", _summarize(tm))))
         except Exception as exc:  # noqa: BLE001
             rows.append((name, ("raise", type(exc).__name__, str(exc))))
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# casefile._replay_trust_map / _validate_portable_bundle (new probe)
+# ---------------------------------------------------------------------------
+def probe_cf_replay():
+    import copy
+    import test_result_codec as T
+    from textforensics.casefile import _replay_trust_map, _validate_portable_bundle
+    rows = []
+    base = copy.deepcopy(T.MINIMAL_BUNDLE)
+    # v3 trust map with a single dimension (dimension-set errors) and no
+    # evidence_refs -> inner replay: not_rederived, no errors.
+    v3_one = {"schema": "textforensics.trust-map/v3", "overall": "strong",
+              "dimensions": [{"dimension": "language", "state": "supported",
+                              "reason": "ok", "evidence_refs": []}],
+              "limitations": [], "generated_at_utc": "2024-01-01T00:00:00+00:00"}
+    v3_full = {"schema": "textforensics.trust-map/v3", "overall": "unknown",
+               "dimensions": [{"dimension": d, "state": "unknown", "reason": "ok",
+                               "evidence_refs": []}
+                              for d in ("language", "text_length", "domain_genre",
+                                        "editing_revision", "generator_scope",
+                                        "human_population",
+                                        "human_false_positive_evidence",
+                                        "temporal_version_stability")],
+               "limitations": [], "generated_at_utc": "2024-01-01T00:00:00+00:00"}
+    for name, bundle in [
+        ("v3-one-dim", {**base, "trust_map": v3_one}),
+        ("v3-full", {**base, "trust_map": v3_full}),
+        ("v2-map", base),
+        ("no-input-conditions", {k: v for k, v in {**base, "trust_map": v3_one}.items()
+                                 if k != "input_conditions"}),
+        ("input-conditions-str", {**base, "trust_map": v3_one,
+                                  "input_conditions": "not-a-mapping"}),
+        ("no-trust-map", {k: v for k, v in base.items() if k != "trust_map"}),
+    ]:
+        rows.append((name, outcome(_replay_trust_map, bundle, None)))
+    # _validate_portable_bundle: pair errors are a single-element list,
+    # so pair_errors[0] == pair_errors[-1] (see report).
+    for name, bundle in [
+        ("validate-v2-v3", {**base, "trust_map": v3_one}),
+        ("validate-v2-v2", base),
+        ("validate-v1-v3", {**base, "schema": "textforensics.forensic-bundle/v1",
+                            "trust_map": v3_one}),
+        ("validate-v1-v1", {**base, "schema": "textforensics.forensic-bundle/v1",
+                            "trust_map": {"schema": "textforensics.trust-map/v1"}}),
+        ("validate-no-tm-schema", {**base, "trust_map": {"overall": "strong"}}),
+        ("validate-bad-bundle-schema", {**base, "schema": "textforensics.forensic-bundle/v9"}),
+    ]:
+        rows.append((name, outcome(_validate_portable_bundle, bundle)))
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# probe_runs._score / _series_from_records / build_run_manifest (new probe)
+# ---------------------------------------------------------------------------
+def probe_pr_score_series():
+    from textforensics.probe_runs import (
+        _score, _series_from_records, build_run_manifest)
+    rows = []
+    # _score
+    for name, rec in [
+        ("score-05", {"score": 0.5}),
+        ("score-0", {"score": 0}),
+        ("score-none", {"score": None}),
+        ("score-missing", {}),
+        ("score-bool", {"score": True}),
+        ("score-str", {"score": "0.5"}),
+        ("score-nan", {"score": float("nan")}),
+        ("score-inf", {"score": float("inf")}),
+        ("score-list", {"score": [0.5]}),
+    ]:
+        rows.append((name, outcome(_score, rec)))
+    # _series_from_records
+    def _rec(sid, score):
+        return {"sample_id": sid, "score": score, "verdict": "ai_like",
+                "native_score_direction": "higher_means_ai",
+                "score_range": [0.0, 1.0]}
+    for name, records in [
+        ("series-one", [_rec("s1", 0.5)]),
+        ("series-two", [_rec("s1", 0.5), _rec("s2", 0.7)]),
+        ("series-empty", []),
+        ("series-int-id", [_rec(123, 0.5)]),
+        ("series-empty-id", [_rec("", 0.5)]),
+        ("series-none-id", [_rec(None, 0.5)]),
+        ("series-no-score", [_rec("s1", None)]),
+        ("series-bool-score", [_rec("s1", True)]),
+    ]:
+        rows.append((name, outcome(_series_from_records, records)))
+    # build_run_manifest: provider_metadata / code_sha or-branches
+    kw = dict(scope="full", corpus_version="1.0.0",
+              corpus_fingerprint="a" * 64, corpus_manifest_sha256="b" * 64,
+              detector_id="d", detector_version="1", metrics={},
+              alerts=[], breaches=[], baseline_run_id=None, is_baseline=True,
+              previous_run_id=None)
+    for name, over in [
+        ("manifest-default", {}),
+        ("manifest-provider-set", {"provider_metadata": {"a": 1}}),
+        ("manifest-provider-none", {"provider_metadata": None}),
+        ("manifest-code-set", {"code_sha": "abc1234"}),
+        ("manifest-code-none", {"code_sha": None}),
+        ("manifest-run-id", {"run_id": "run-1", "run_at_utc": "2026-01-01T00:00:00+00:00"}),
+    ]:
+        try:
+            m = build_run_manifest(**{**kw, **over})
+            rows.append((name, ("ok", m["provider_metadata"], m["code_sha"],
+                                m["run_id"] if "run_id" in over else "auto",
+                                m["run_at_utc"] if "run_at_utc" in over else "auto")))
+        except Exception as exc:  # noqa: BLE001
+            rows.append((name, ("raise", type(exc).__name__, str(exc))))
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# benchmark.DisjointnessProof from_dict / frozen / slots (new probe)
+# ---------------------------------------------------------------------------
+def probe_bm_proof_dict():
+    from textforensics.benchmark import DisjointnessProof
+    rows = []
+    base = {"status": "verified", "overlap_count": 0, "training_count": 10,
+            "evaluation_count": 10, "training_hash": "a" * 64,
+            "evaluation_hash": "b" * 64}
+    for name, over in [
+        ("fromdict-no-group", {}),
+        ("fromdict-group-0", {"group_overlap_count": 0}),
+        ("fromdict-group-3", {"group_overlap_count": 3}),
+        ("fromdict-group-neg1", {"group_overlap_count": -1}),
+        ("fromdict-no-errors", {}),
+        ("fromdict-errors", {"errors": ["e1", "e2"]}),
+        ("fromdict-non-dict", None),
+    ]:
+        if over is None:
+            rows.append((name, outcome(DisjointnessProof.from_dict, ["x"])))
+            continue
+        d = dict(base)
+        d.update(over)
+        try:
+            p = DisjointnessProof.from_dict(d)
+            rows.append((name, ("ok", p.group_overlap_count, p.errors)))
+        except Exception as exc:  # noqa: BLE001
+            rows.append((name, ("raise", type(exc).__name__, str(exc))))
+    # frozen / slots
+    proof = DisjointnessProof(status="verified", overlap_count=0, training_count=10,
+                              evaluation_count=10, training_hash="a" * 64,
+                              evaluation_hash="b" * 64)
+    rows.append(("proof-frozen", outcome(lambda: setattr(proof, "status", "unknown"))))
+    rows.append(("proof-slots", ("ok", hasattr(proof, "__dict__"))))
+    rows.append(("proof-default-group", ("ok", proof.group_overlap_count)))
+    rows.append(("proof-default-errors", ("ok", proof.errors)))
+    rows.append(("proof-to-dict", outcome(lambda: proof.to_dict()["group_overlap_count"])))
     return rows
