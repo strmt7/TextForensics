@@ -2508,6 +2508,9 @@ EXPECTED_PROBE_CAL_STORE = [
         "store-cal-zzz",
         ("raise", "CalibrationError", "identity.calibration_id does not match calibration_id."),
     ),
+    ("store-id-distinct", ("ok", "stored")),
+    ("store-ver-distinct", ("ok", "stored")),
+    ("store-cal-distinct", ("ok", "stored")),
     ("store-cal-none", ("ok", "cal1")),
     (
         "store-prov-aaa",
@@ -2578,6 +2581,17 @@ EXPECTED_PROBE_CAL_STORE = [
         "result-id-zzz",
         ("raise", "CalibrationError", "identity.detector_id does not match detector_id."),
     ),
+    (
+        "result-id-distinct",
+        (
+            "ok",
+            "CalibrationResult(value=0.6681877721681662, calibration_id='cal1', status='validated', probability_eligible=True)",
+        ),
+    ),
+    (
+        "result-id-aaa",
+        ("raise", "CalibrationError", "identity.detector_id does not match detector_id."),
+    ),
     ("result-unvalidated", ("ok", "0.6681877721681662")),
     ("score-for-identity", ("ok", "0.6681877721681662")),
     ("score-for-identity-zzz", ("ok", "None")),
@@ -2588,6 +2602,16 @@ EXPECTED_PROBE_CAL_STORE = [
             "CalibrationResult(value=0.6681877721681662, calibration_id='cal1', status='validated', probability_eligible=True)",
         ),
     ),
+    ("store-ineligible", ("ok", "cal2", False)),
+    (
+        "score-for-identity-ineligible",
+        (
+            "raise",
+            "CalibrationError",
+            "Calibration artifact is not eligible for probability emission: fit_dataset is required for probability eligibility; evaluation_dataset is required for probability eligibility; disjointness declaration is required; metrics.brier is required for probability eligibility; metrics.ece is required for probability eligibility; metrics.log_loss is required for probability eligibility; code_version is required for probability eligibility; run_artifact_sha256 is required for probability eligibility. Pass allow_unvalidated=True only for diagnostics.",
+        ),
+    ),
+    ("score-for-identity-ineligible-allow", ("ok", "0.6681877721681662")),
 ]
 
 

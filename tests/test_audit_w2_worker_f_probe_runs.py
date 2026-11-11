@@ -1738,6 +1738,7 @@ EXPECTED_PROBE_PR_EVALUATE_TIERS = [
         ("t2-rate-0.02-ci0",),
         ("ok", "{'alerts': [], 'breaches': [], 'demote': False, 'watch': False}"),
     ),
+    (("t2-ci-neg",), ("ok", "{'alerts': [], 'breaches': [], 'demote': False, 'watch': False}")),
     (
         ("t2-rate-0.02-n49",),
         ("ok", "{'alerts': [], 'breaches': [], 'demote': False, 'watch': False}"),
@@ -1763,6 +1764,21 @@ EXPECTED_PROBE_PR_EVALUATE_TIERS = [
     ),
     (("overall-ci0",), ("ok", "{'alerts': [], 'breaches': [], 'demote': False, 'watch': False}")),
     (("overall-n49",), ("ok", "{'alerts': [], 'breaches': [], 'demote': False, 'watch': False}")),
+    (
+        ("overall-n50",),
+        (
+            "ok",
+            "{'alerts': [{'tier': 2, 'rule': 'flip_rate', 'slice': 'overall', 'statistic': {'flip_rate': 0.02, 'flip_rate_ci': [0.01, 0.5], 'flips': 2, 'n': 50}, 'threshold': 0.01, 'consecutive_runs': 1, 'action': 'investigate', 'detail': 'Overall flip rate 0.02 > 0.01 with Wilson CI excluding 0. Trust Map watch; human review required.'}], 'breaches': [], 'demote': False, 'watch': True}",
+        ),
+    ),
+    (
+        ("overall-rate-0.005",),
+        ("ok", "{'alerts': [], 'breaches': [], 'demote': False, 'watch': False}"),
+    ),
+    (
+        ("overall-ci-neg",),
+        ("ok", "{'alerts': [], 'breaches': [], 'demote': False, 'watch': False}"),
+    ),
     (
         ("overall-rate-none",),
         ("ok", "{'alerts': [], 'breaches': [], 'demote': False, 'watch': False}"),
@@ -1848,6 +1864,22 @@ EXPECTED_PROBE_PR_EVALUATE_TIERS = [
         ("prov-no-run-at",),
         ("ok", "{'alerts': [], 'breaches': [], 'demote': False, 'watch': False}"),
     ),
+    (
+        ("ver-distinct-equal",),
+        ("ok", "{'alerts': [], 'breaches': [], 'demote': False, 'watch': False}"),
+    ),
+    (
+        ("ver-prev-greater",),
+        (
+            "ok",
+            "{'alerts': [{'tier': 1, 'rule': 'version_change_no_probe_run', 'slice': 'overall', 'statistic': {'previous_detector_version': '0.2.0', 'detector_version': '0.1.0', 'days_since_previous_run': 10}, 'threshold': 7, 'consecutive_runs': 1, 'action': 'demote', 'detail': \"Detector version changed '0.2.0' -> '0.1.0' with no probe run within 7 days (10 days since the previous run). Demote the detector's U1 records to stale until this run completes.\"}], 'breaches': [], 'demote': True, 'watch': False}",
+        ),
+    ),
+    (
+        ("prov-distinct-equal",),
+        ("ok", "{'alerts': [], 'breaches': [], 'demote': False, 'watch': False}"),
+    ),
+    (("prov-diff-3d",), ("ok", "{'alerts': [], 'breaches': [], 'demote': False, 'watch': False}")),
     (
         ("multi-drift",),
         (

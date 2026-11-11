@@ -1159,6 +1159,11 @@ def probe_pr_evaluate_tiers():
         ("t2-rate-0.02-ci0.01", dict(flips=_et_flips(n=60, flips=2, rate=0.02)), {}),
         ("t2-rate-0.01", dict(flips=_et_flips(n=60, flips=1, rate=0.01)), {}),
         ("t2-rate-0.02-ci0", dict(flips=_et_flips(n=60, flips=2, rate=0.02, ci=(0.0, 0.5))), {}),
+        # Negative CI lower bound: the Tier-2 elif's `ci_lo > 0` vs `!= 0`
+        # differ only here (ci_lo == 0.0 agrees under both). Kills
+        # Gt_NotEq:6 [1211,94] (per-slice Tier-2). Tier-1 cannot fire:
+        # human_to_ai_human defaults to 0, so human_to_ai_rate is 0.0.
+        ("t2-ci-neg", dict(flips=_et_flips(n=60, flips=2, rate=0.02, ci=(-0.01, 0.5))), {}),
         ("t2-rate-0.02-n49", dict(flips=_et_flips(n=49, flips=2, rate=0.02)), {}),
         ("t2-rate-0.02-n50", dict(flips=_et_flips(n=50, flips=2, rate=0.02)), {}),
         ("t2-rate-none", dict(flips=_et_flips(n=60, flips=0, rate=None)), {}),
@@ -1195,6 +1200,37 @@ def probe_pr_evaluate_tiers():
             dict(
                 overall={
                     "flips": {"flip_rate": 0.02, "flip_rate_ci": [0.01, 0.5], "flips": 2, "n": 49}
+                }
+            ),
+            {},
+        ),
+        # Overall-flips boundaries: n == 50 exactly (`>=` vs `>`),
+        # rate below the Tier-2 threshold (`>` vs `!=`), and a negative
+        # CI lower bound (`ci_lo > 0` vs `!= 0`). Kill GtE_Gt:7 [1242,42],
+        # Gt_NotEq:7 [1243,21], Gt_NotEq:8 [1244,22] respectively.
+        (
+            "overall-n50",
+            dict(
+                overall={
+                    "flips": {"flip_rate": 0.02, "flip_rate_ci": [0.01, 0.5], "flips": 2, "n": 50}
+                }
+            ),
+            {},
+        ),
+        (
+            "overall-rate-0.005",
+            dict(
+                overall={
+                    "flips": {"flip_rate": 0.005, "flip_rate_ci": [0.01, 0.5], "flips": 1, "n": 60}
+                }
+            ),
+            {},
+        ),
+        (
+            "overall-ci-neg",
+            dict(
+                overall={
+                    "flips": {"flip_rate": 0.02, "flip_rate_ci": [-0.01, 0.5], "flips": 2, "n": 60}
                 }
             ),
             {},
@@ -1435,6 +1471,61 @@ def probe_pr_evaluate_tiers():
                 previous_provider_metadata={"a": 1},
                 provider_metadata={"a": 2},
                 previous_run_at=None,
+                run_at="2026-11-11T00:00:00",
+            ),
+        ),
+        # --- version / provider identity boundaries ------------------------
+        # ver-distinct-equal: previous == current as DISTINCT objects.
+        # `!=` is False, `is not` is True. Kills NotEq_IsNot:1 [1332,75].
+        # (The existing "ver-same" row uses two literals "0.1.0" in one
+        # function, which CPython interns to one object, so `is not` agrees.)
+        (
+            "ver-distinct-equal",
+            dict(),
+            dict(
+                previous_detector_version="".join(["0", ".1.0"]),
+                previous_run_at="2026-11-01T00:00:00",
+                run_at="2026-11-11T00:00:00",
+            ),
+        ),
+        # ver-prev-greater: previous sorts AFTER current. `!=` is True,
+        # `<` is False. Kills NotEq_Lt:2 [1332,75]. (The existing rows
+        # have previous "0.0.9" < current, where both agree True.)
+        (
+            "ver-prev-greater",
+            dict(),
+            dict(
+                previous_detector_version="0.2.0",
+                previous_run_at="2026-11-01T00:00:00",
+                run_at="2026-11-11T00:00:00",
+            ),
+        ),
+        # prov-distinct-equal: a shared provider key with distinct-equal
+        # values. `!=` is False, `is not` is True. Kills NotEq_IsNot:2
+        # [1361,20]. (The existing "prov-nodiff" row uses the literal 1,
+        # which is the same cached int object on both sides.)
+        (
+            "prov-distinct-equal",
+            dict(),
+            dict(
+                previous_provider_metadata={"a": "".join(["", "x"])},
+                provider_metadata={"a": "x"},
+                previous_run_at="2026-11-01T00:00:00",
+                run_at="2026-11-11T00:00:00",
+            ),
+        ),
+        # prov-diff-3d: a provider diff with only 3 days since the previous
+        # run. `days > 7` is False; `days is not 7` and `days != 7` are both
+        # True. Kills Gt_IsNot:8 [1367,31] and Gt_NotEq:12 [1367,31].
+        # (The existing 7-day row agrees under every mutant: 7 > 7, 7 is
+        # not 7 and 7 != 7 are all False.)
+        (
+            "prov-diff-3d",
+            dict(),
+            dict(
+                previous_provider_metadata={"a": 1},
+                provider_metadata={"a": 2},
+                previous_run_at="2026-11-08T00:00:00",
                 run_at="2026-11-11T00:00:00",
             ),
         ),
@@ -2899,6 +2990,17 @@ def probe_ev_check_eligibility():
         _ident(),
         _dj(training_hash=base_record.benchmark.fingerprint_sha256),
     )
+    # Distinct-but-equal hashes: training_hash is a NEW string object equal
+    # to the evaluation hash (joining the 64 fingerprint chars rebuilds it).
+    # `==` is True (the "not distinct" reason is appended); `is` is False
+    # (no reason). Kills Eq_Is:4 [1117,42]. (The "hashes-equal" row uses the
+    # SAME object for both hashes, so `is` agrees with `==` there.)
+    _check(
+        ("hashes-distinct-equal",),
+        base_record,
+        _ident(),
+        _dj(training_hash="".join(base_record.benchmark.fingerprint_sha256)),
+    )
     _check(("age-30",), _ev_record(evaluated_at="2026-10-12T00:00:00Z"), _ident(), base_dj)
     _check(("age-31",), _ev_record(evaluated_at="2026-10-11T00:00:00Z"), _ident(), base_dj)
     for nh, na in ((99, 120), (100, 120), (101, 120), (120, 99), (120, 100), (120, 101), (99, 99)):
@@ -2946,7 +3048,7 @@ def probe_ev_assess_coverage():
                 (
                     (status, "base"),
                     list(cov.record_ids),
-                    [(k, v.state) for k, v in sorted(cov.dimensions.items())],
+                    [(k, v.state, v.observed) for k, v in sorted(cov.dimensions.items())],
                     list(cov.limitations),
                 )
             )
@@ -2979,7 +3081,7 @@ def probe_ev_assess_coverage():
                 (
                     ("active", tag),
                     list(cov.record_ids),
-                    [(k, v.state) for k, v in sorted(cov.dimensions.items())],
+                    [(k, v.state, v.observed) for k, v in sorted(cov.dimensions.items())],
                     list(cov.limitations),
                 )
             )
@@ -2991,7 +3093,7 @@ def probe_ev_assess_coverage():
             (
                 ("empty-registry",),
                 list(cov.record_ids),
-                [(k, v.state) for k, v in sorted(cov.dimensions.items())],
+                [(k, v.state, v.observed) for k, v in sorted(cov.dimensions.items())],
                 list(cov.limitations),
             )
         )
@@ -3014,10 +3116,62 @@ def probe_ev_assess_coverage():
                 (
                     (tag,),
                     list(cov.record_ids),
-                    [(k, v.state) for k, v in sorted(cov.dimensions.items())],
+                    [(k, v.state, v.observed) for k, v in sorted(cov.dimensions.items())],
                     list(cov.limitations),
                 )
             )
+        # --- non-applicable first slice (continue vs break) ---------------
+        # The `continue` at [1850,20] is in the INNER per-slice loop, not
+        # the outer per-record loop: `break` there only ends the current
+        # record's slice iteration. A non-applicable RECORD followed by a
+        # good record therefore does NOT distinguish it (the outer loop
+        # moves on either way) — the distinguishing shape is ONE record
+        # with TWO slices, the first non-applicable (fr-only) and the
+        # second applicable. The original `continue` reaches the second
+        # slice; the `break` mutant drops it, so the record contributes
+        # nothing. Kills ContinueWithBreak:1 [1850,20]. (The first
+        # attempt used two records, which the disk check correctly
+        # reported as SAME — the inner/outer loop distinction above is
+        # why.)
+        base_rec = A._v2_record(status="active")
+        fr_slice = dataclasses.replace(
+            base_rec.slices[0],
+            conditions=dataclasses.replace(base_rec.slices[0].conditions, languages=("fr",)),
+        )
+        en_slice2 = dataclasses.replace(base_rec.slices[0], slice_id="s2")
+        two_slice = dataclasses.replace(base_rec, slices=(fr_slice, en_slice2))
+        registry = EvidenceRegistry([two_slice])
+        cov = A._v2_coverage(registry, **A._eligible_inputs(registry, root))
+        rows.append(
+            (
+                ("nonapplicable-then-good",),
+                list(cov.record_ids),
+                [(k, v.state, v.observed) for k, v in sorted(cov.dimensions.items())],
+                list(cov.limitations),
+            )
+        )
+        # --- ineligible record with adequate slices and a worse FPR -------
+        # The second record has a different detector_id, so the identity
+        # (built from the first record) does not bind it: eligible False,
+        # but its slice is adequate (n 200/200). Its FPR CI upper (0.09)
+        # exceeds the default ceiling (0.05), so under the `or` mutant its
+        # pair joins fpr_pairs and vetoes HFP support; the original `and`
+        # excludes it. Kills AndWithOr:39 [1852,36]. (The existing thin
+        # rows pair eligible False with adequate False, where both agree;
+        # the CI (0.01, 0.09) keeps the metric value 0.02 inside the
+        # interval, which the MetricEstimate invariant requires.)
+        good = A._v2_record(status="active")
+        bad = A._v2_record(detector_id="b", status="active", fpr_ci=(0.01, 0.09))
+        registry = EvidenceRegistry([good, bad])
+        cov = A._v2_coverage(registry, **A._eligible_inputs(registry, root))
+        rows.append(
+            (
+                ("ineligible-worse-fpr",),
+                list(cov.record_ids),
+                [(k, v.state, v.observed) for k, v in sorted(cov.dimensions.items())],
+                list(cov.limitations),
+            )
+        )
         # --- max_age_days / fpr_ceiling boundaries -------------------------
         for tag, kw in (
             ("max-age-0", dict(max_age_days=0)),
@@ -3034,7 +3188,7 @@ def probe_ev_assess_coverage():
                     (
                         (tag,),
                         list(cov.record_ids),
-                        [(k, v.state) for k, v in sorted(cov.dimensions.items())],
+                        [(k, v.state, v.observed) for k, v in sorted(cov.dimensions.items())],
                         list(cov.limitations),
                     )
                 )
@@ -3060,7 +3214,7 @@ def probe_ev_assess_coverage():
             (
                 ("unbound-identity",),
                 list(cov.record_ids),
-                [(k, v.state) for k, v in sorted(cov.dimensions.items())],
+                [(k, v.state, v.observed) for k, v in sorted(cov.dimensions.items())],
                 list(cov.limitations),
             )
         )
@@ -3101,6 +3255,26 @@ def probe_val_support_blockers():
                     ),
                 )
             )
+    # Dimension sorting before "human_false_positive_evidence" with a
+    # failing FPR gate: the default record's worst CI upper (0.05) fails
+    # ceiling 0.04 while passing every common blocker. The original skips
+    # the FPR extension for "domain_genre"; the mutant `<=` adds the
+    # worst-slice blocker. Kills Eq_LtE:12 [2074,17]. (The loop's
+    # dimensions all sort at or after "human_false_positive_evidence":
+    # "language" sorts after it, so `<=` agrees with `==` there.)
+    rows.append(
+        (
+            ("domain_genre", "ceiling-004"),
+            outcome(
+                _support_blockers,
+                rec,
+                dimension="domain_genre",
+                detector_version=A.V3_VERSION,
+                now=A.NOW,
+                fpr_ceiling=0.04,
+            ),
+        )
+    )
     return rows
 
 
@@ -3288,6 +3462,89 @@ def probe_val_derive_dimension():
                 ),
             )
         )
+    # --- longitudinal + non-temporal names (supported branch) -------------
+    # The name-* rows above pass no longitudinal, so the temporal guard's
+    # `and longitudinal is not None` is False under every mutant there;
+    # the temporal rows use name "temporal_version_stability", where the
+    # `==` mutants agree. A non-temporal name WITH longitudinal set
+    # separates them. Kills AndWithOr:43 [2283,48] (`and` -> `or`) and
+    # Eq_LtE:18 [2283,16] (`==` -> `<=`) with name "language", and
+    # Eq_GtE:18 [2283,16] (`==` -> `>=`) with name "text_length" (the only
+    # dimension name sorting after "temporal_version_stability").
+    for name in ("language", "text_length"):
+        rows.append(
+            (
+                (f"long-name-{name}", False),
+                outcome(
+                    _derive_evidence_dimension,
+                    name,
+                    matching=(sup,),
+                    detector_records=(sup,),
+                    **base_kw,
+                    longitudinal=_long(2),
+                ),
+            )
+        )
+    # --- longitudinal + non-temporal names (partial branch) ---------------
+    # Same shapes with a record that cannot support (status "partial"):
+    # supporting is empty, so the partial branch's guard at [2350,12]
+    # decides whether the u3 fields are recorded. Kills Eq_LtE:21
+    # [2350,12] (name "language") and Eq_GtE:21 [2350,12] (name
+    # "text_length").
+    partial_rec = A.ValidationRecord.from_dict(A._v3_record_dict(status="partial"))
+    for name in ("language", "text_length"):
+        rows.append(
+            (
+                (f"long-name-partial-{name}", False),
+                outcome(
+                    _derive_evidence_dimension,
+                    name,
+                    matching=(partial_rec,),
+                    detector_records=(partial_rec,),
+                    **base_kw,
+                    longitudinal=_long(2),
+                ),
+            )
+        )
+    # --- cross-record veto with a lowered FPR ceiling ----------------------
+    # The default record's worst FPR CI upper (0.05) meets the default
+    # ceiling (0.05), so it passes the FPR gate; at ceiling 0.04 it fails
+    # while passing every common blocker (signature intact — no record
+    # tampering). With name "domain_genre" (sorting before
+    # "human_false_positive_evidence") and supporting non-empty, the mutant
+    # `<=` enters the veto block and empties supporting. Kills Eq_LtE:17
+    # [2261,12].
+    rows.append(
+        (
+            ("veto-ceiling-004", False),
+            outcome(
+                _derive_evidence_dimension,
+                "domain_genre",
+                matching=(sup,),
+                detector_records=(sup,),
+                **{**base_kw, "fpr_ceiling": 0.04},
+            ),
+        )
+    )
+    # --- partial branch HFP uppers with a non-HFP name ---------------------
+    # A partial-status record with FPR-bearing slices: supporting is empty,
+    # so the partial branch runs. The original skips the HFP uppers block
+    # for name "domain_genre"; the mutant `<=` records the worst-slice
+    # upper. Kills Eq_LtE:20 [2335,12]. (The existing status rows use name
+    # "language", which sorts AFTER "human_false_positive_evidence", so
+    # `<=` agrees with `==` there.)
+    rows.append(
+        (
+            ("partial-hfp-domain", False),
+            outcome(
+                _derive_evidence_dimension,
+                "domain_genre",
+                matching=(partial_rec,),
+                detector_records=(partial_rec,),
+                **base_kw,
+            ),
+        )
+    )
     return rows
 
 
@@ -3310,7 +3567,12 @@ def probe_val_derive_trust_map():
         cond = A._v3_conditions()
         tm = A._v3_derive(cond, registry)
         rows.append(
-            ((n_records, statuses), tm.overall, [(d.dimension, d.state) for d in tm.dimensions])
+            (
+                (n_records, statuses),
+                tm.overall,
+                [(d.dimension, d.state, d.observed) for d in tm.dimensions],
+                list(tm.limitations),
+            )
         )
     # fpr_ceiling / failure_count validation boundaries (call derive_trust_map directly)
     recs = [A._v3_record_dict(status="supported")]
@@ -3330,8 +3592,9 @@ def probe_val_derive_trust_map():
                 (
                     (f"fpr-ceiling-{fc!r}",),
                     tm.overall,
-                    [(d.dimension, d.state) for d in tm.dimensions],
+                    [(d.dimension, d.state, d.observed) for d in tm.dimensions],
                     sorted(tm.evidence_registry.items()) if tm.evidence_registry else None,
+                    list(tm.limitations),
                 )
             )
         except Exception as exc:  # noqa: BLE001
@@ -3350,7 +3613,8 @@ def probe_val_derive_trust_map():
                 (
                     (f"failure-count-{nfail!r}",),
                     tm.overall,
-                    [(d.dimension, d.state) for d in tm.dimensions],
+                    [(d.dimension, d.state, d.observed) for d in tm.dimensions],
+                    list(tm.limitations),
                 )
             )
         except Exception as exc:  # noqa: BLE001
@@ -3371,7 +3635,14 @@ def probe_val_derive_trust_map():
         try:
             c2 = A._v3_conditions(**overrides)
             tm = A._v3_derive(c2, registry)
-            rows.append(((label,), tm.overall, [(d.dimension, d.state) for d in tm.dimensions]))
+            rows.append(
+                (
+                    (label,),
+                    tm.overall,
+                    [(d.dimension, d.state, d.observed) for d in tm.dimensions],
+                    list(tm.limitations),
+                )
+            )
         except Exception as exc:  # noqa: BLE001
             rows.append(((label,), ("raise", type(exc).__name__, str(exc))))
     # longitudinal watch shapes
@@ -3390,7 +3661,85 @@ def probe_val_derive_trust_map():
                 now=A.NOW,
                 longitudinal=longi,
             )
-            rows.append(((label,), tm.overall, [(d.dimension, d.state) for d in tm.dimensions]))
+            rows.append(
+                (
+                    (label,),
+                    tm.overall,
+                    [(d.dimension, d.state, d.observed) for d in tm.dimensions],
+                    list(tm.limitations),
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            rows.append(((label,), ("raise", type(exc).__name__, str(exc))))
+    # short input: word_count below every record's length floor, so the
+    # text_length dimension is out_of_scope and its observed dict (with
+    # length_maxima) is recorded. The v3 record's max_words is None, so
+    # the original filter (`is not None`) yields [] while the mutant
+    # (`is None`) yields [None]. Kills IsNot_Is:66 [2574,65]. (Without
+    # the observed recording above, the difference is constructed but
+    # discarded on every row: out_of_scope_observed only surfaces when
+    # the dimension IS out_of_scope.)
+    for label, overrides in (("words-10", {"word_count": 10}),):
+        try:
+            c2 = A._v3_conditions(**overrides)
+            tm = A._v3_derive(c2, registry)
+            rows.append(
+                (
+                    (label,),
+                    tm.overall,
+                    [(d.dimension, d.state, d.observed) for d in tm.dimensions],
+                    list(tm.limitations),
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            rows.append(((label,), ("raise", type(exc).__name__, str(exc))))
+    # complete longitudinal dicts: the "long-*" rows above omit
+    # consecutive_clean_full_runs, so derive_trust_map raises KeyError
+    # before ever reaching the watch check at [2763,11/37]. With a
+    # complete dict the watch branch is reached. Kills IsNot_Is:68
+    # [2763,37] (`is not None` -> `is None`) and AddNot:249 [2763,11]
+    # (same condition negated): watch set -> the watch limitation is
+    # appended by the original and skipped by the mutant; watch None or
+    # absent -> the mutant enters the branch and raises AttributeError
+    # on None.get('run_id') while the original returns normally.
+    _long_full = {
+        "detector_id": A.V3_DETECTOR,
+        "detector_version": A.V3_VERSION,
+        "consecutive_clean_full_runs": 2,
+        "clean_full_run_ids": ["run-0", "run-1"],
+        # _validate_longitudinal requires a bare 64-char hex digest here
+        # (not the "sha256:"-prefixed form _derive_evidence_dimension's
+        # _long() helper uses) and the detector binding above.
+        "corpus_fingerprint": "a" * 64,
+    }
+    for label, longi in (
+        (
+            "long-full-watch",
+            {
+                **_long_full,
+                "watch": {"reason": "drift", "run_id": "r1", "run_at_utc": "2026-11-01T00:00:00Z"},
+            },
+        ),
+        ("long-full-nowatch", dict(_long_full)),
+        ("long-full-watch-none", {**_long_full, "watch": None}),
+    ):
+        try:
+            tm = derive_trust_map(
+                cond,
+                registry,
+                detector_id=A.V3_DETECTOR,
+                detector_version=A.V3_VERSION,
+                now=A.NOW,
+                longitudinal=longi,
+            )
+            rows.append(
+                (
+                    (label,),
+                    tm.overall,
+                    [(d.dimension, d.state, d.observed) for d in tm.dimensions],
+                    list(tm.limitations),
+                )
+            )
         except Exception as exc:  # noqa: BLE001
             rows.append(((label,), ("raise", type(exc).__name__, str(exc))))
     # invalid `now`: _coerce_now raises ValidationError -> except falls back
@@ -3400,7 +3749,14 @@ def probe_val_derive_trust_map():
             tm = derive_trust_map(
                 cond, registry, detector_id=A.V3_DETECTOR, detector_version=A.V3_VERSION, now=now
             )
-            rows.append(((label,), tm.overall, [(d.dimension, d.state) for d in tm.dimensions]))
+            rows.append(
+                (
+                    (label,),
+                    tm.overall,
+                    [(d.dimension, d.state, d.observed) for d in tm.dimensions],
+                    list(tm.limitations),
+                )
+            )
         except Exception as exc:  # noqa: BLE001
             rows.append(((label,), ("raise", type(exc).__name__, str(exc))))
     return rows
@@ -6927,6 +7283,31 @@ def probe_cal_store():
                 rows.append((f"store-{name}", ("ok", "stored")))
             except Exception as exc:  # noqa: BLE001
                 rows.append((f"store-{name}", ("raise", type(exc).__name__, str(exc))))
+        # Distinct-but-equal identity fields: `!=` is False, `is not` is
+        # True. The mismatch rows above use different VALUES ("aaa"/"zzz"),
+        # where both agree. Kill NotEq_IsNot:9 [1229,36] (detector_id),
+        # NotEq_IsNot:10 [1231,41] (detector_version) and NotEq_IsNot:11
+        # [1233,70] (calibration_id). Each join builds a genuinely distinct
+        # equal string (multi-element joins; a single-element join would
+        # return the literal itself).
+        for name, over in [
+            ("id-distinct", {"detector_id": "".join(["d", "e", "t", "1"])}),
+            ("ver-distinct", {"detector_version": "".join(["1", ".0"])}),
+            ("cal-distinct", {"calibration_id": "".join(["c", "a", "l", "1"])}),
+        ]:
+            try:
+                mgr.store(
+                    detector_id="det1",
+                    detector_version="1.0",
+                    curve=T.platt_curve(),
+                    calibration_id="cal1",
+                    created_at="2024-01-01T00:00:00+00:00",
+                    identity=_cal_identity(**over),
+                    **T.eligible_artifact_kwargs(),
+                )
+                rows.append((f"store-{name}", ("ok", "stored")))
+            except Exception as exc:  # noqa: BLE001
+                rows.append((f"store-{name}", ("raise", type(exc).__name__, str(exc))))
         # calibration_id None vs set (identity carries cal1)
         try:
             art = mgr.store(
@@ -6978,6 +7359,23 @@ def probe_cal_store():
             ("score-no-identity", lambda: mgr.get_calibrated_score("det1", 0.7)),
             ("result-match", lambda: mgr.get_calibrated_result("det1", 0.7, identity=ident)),
             ("result-id-zzz", lambda: mgr.get_calibrated_result("zzz", 0.7, identity=ident)),
+            # result-id-distinct: the detector_id arg is a DISTINCT object
+            # equal to the identity's "det1". `!=` is False, `is not` is
+            # True. Kills NotEq_IsNot:15 [1469,32] (get_calibrated_result).
+            # (The existing "score-id-distinct" row exercises the same
+            # check in get_calibrated_score [1442,42], a different
+            # occurrence, so it cannot kill :15.)
+            (
+                "result-id-distinct",
+                lambda: mgr.get_calibrated_result(
+                    "".join(["d", "e", "t", "1"]), 0.7, identity=ident
+                ),
+            ),
+            # result-id-aaa: the identity's "det1" sorts AFTER "aaa".
+            # `!=` is True (raises); `<` is False (proceeds). Kills
+            # NotEq_Lt:19 [1469,32]. (The "result-id-zzz" row agrees under
+            # both: "det1" < "zzz" is True, so the mutant raises too.)
+            ("result-id-aaa", lambda: mgr.get_calibrated_result("aaa", 0.7, identity=ident)),
             (
                 "result-unvalidated",
                 lambda: mgr.get_calibrated_score(
@@ -6994,6 +7392,47 @@ def probe_cal_store():
             ("result-for-identity", lambda: mgr.get_calibrated_result_for_identity(ident, 0.7)),
         ]:
             rows.append((name, outcome(fn)))
+        # Ineligible artifact: stored WITHOUT any eligibility provenance
+        # (no fit/evaluation datasets, disjointness, metrics, code version
+        # or run hash), so validation_issues() is non-empty and
+        # eligible_for_probability is False. get_calibrated_score_for_identity
+        # without the flag raises (original); with the allow_unvalidated
+        # DEFAULT flipped to True the mutant returns the score. Kills
+        # ReplaceFalseWithTrue:7 [1384,34] (the default, not the call site:
+        # the existing "result-unvalidated" row passes the flag explicitly).
+        # A distinct identity (det2/cal2) keeps the eligible det1 artifact
+        # intact for the getter rows above.
+        ident2 = _cal_identity(detector_id="det2", calibration_id="cal2")
+        try:
+            art2 = mgr.store(
+                detector_id="det2",
+                detector_version="1.0",
+                curve=T.platt_curve(),
+                calibration_id="cal2",
+                created_at="2024-01-01T00:00:00+00:00",
+                identity=ident2,
+            )
+            rows.append(
+                ("store-ineligible", ("ok", art2.calibration_id, art2.eligible_for_probability))
+            )
+        except Exception as exc:  # noqa: BLE001
+            rows.append(("store-ineligible", ("raise", type(exc).__name__, str(exc))))
+        rows.append(
+            (
+                "score-for-identity-ineligible",
+                outcome(lambda: mgr.get_calibrated_score_for_identity(ident2, 0.7)),
+            )
+        )
+        rows.append(
+            (
+                "score-for-identity-ineligible-allow",
+                outcome(
+                    lambda: mgr.get_calibrated_score_for_identity(
+                        ident2, 0.7, allow_unvalidated=True
+                    )
+                ),
+            )
+        )
     return rows
 
 
