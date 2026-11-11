@@ -922,17 +922,38 @@ def _ev_record(*, evaluated_at="2026-11-01T00:00:00Z", status="active", n_human=
         status=status)
 
 
-def _ev_slice(*, n_human=120, n_ai=120):
+def _ev_slice(*, n_human=120, n_ai=120, cond_over=None, fpr="default"):
     from textforensics.evidence import MetricEstimate, SliceConditions, ValidationSlice
+    cond_kw = dict(languages=("en",), domains=("general",),
+                   editing_regimes=("human_only",))
+    if cond_over:
+        cond_kw.update(cond_over)
+    if fpr == "default":
+        metrics = {"auroc": MetricEstimate(value=0.8, n=n_human + n_ai,
+                                           ci_lower=0.7, ci_upper=0.9,
+                                           method="bootstrap")}
+    elif fpr is None:
+        metrics = {}
+    else:
+        metrics = {"fpr": fpr}
     return ValidationSlice(
         slice_id="s1",
-        conditions=SliceConditions(languages=("en",), domains=("general",),
-                                   editing_regimes=("human_only",)),
+        conditions=SliceConditions(**cond_kw),
         n_human=n_human, n_ai=n_ai,
-        metrics={"auroc": MetricEstimate(value=0.8, n=n_human + n_ai,
-                                         ci_lower=0.7, ci_upper=0.9,
-                                         method="bootstrap")},
+        metrics=metrics,
         threshold=0.5)
+
+
+def _ev_fpr(*, value=0.02, has_ci=True, ci_upper=0.03, ci_lower=0.01, n=120):
+    """An fpr metric. MetricEstimate requires both CI bounds or neither,
+    so has_ci=False means both bounds None; a lone ci_upper is
+    unconstructible (and AndWithOr:35/36 are equivalent for that reason)."""
+    from textforensics.evidence import MetricEstimate
+    if has_ci:
+        return MetricEstimate(value=value, n=n, ci_lower=ci_lower,
+                              ci_upper=ci_upper, method="wilson")
+    return MetricEstimate(value=value, n=n, ci_lower=None, ci_upper=None,
+                          method="wilson")
 
 
 def probe_ev_record_candidate():
@@ -940,6 +961,20 @@ def probe_ev_record_candidate():
     from textforensics.evidence import _record_candidate_for_dimension, SliceMatch
     rows = []
     now = datetime(2026, 11, 11, tzinfo=UTC)
+
+    def _run(dimension, match, record, slice_, key):
+        try:
+            cand = _record_candidate_for_dimension(
+                record=record, slice_=slice_, match=match, now=now,
+                max_age_days=30, dimension=dimension, fpr_ceiling=0.05)
+            if cand is None:
+                rows.append((key, ("ok", None)))
+            else:
+                rows.append((key, ("ok", cand.state, cand.reason,
+                                   cand.observed.get("age_days"))))
+        except Exception as exc:  # noqa: BLE001
+            rows.append((key, ("raise", type(exc).__name__, str(exc))))
+
     for dimension in ("language", "text_length", "domain_genre", "editing_revision",
                       "generator_scope", "human_population",
                       "human_false_positive_evidence", "temporal_version_stability"):
@@ -955,18 +990,107 @@ def probe_ev_record_candidate():
                                 ("2026-11-01T00:00:00Z", 10, 10)):    # partial sample
                 record = _ev_record(evaluated_at=age, n_human=nh, n_ai=na)
                 slice_ = _ev_slice(n_human=nh, n_ai=na)
-                try:
-                    cand = _record_candidate_for_dimension(
-                        record=record, slice_=slice_, match=match, now=now,
-                        max_age_days=30, dimension=dimension, fpr_ceiling=0.05)
-                    if cand is None:
-                        rows.append(((dimension, match_vals, age, nh), ("ok", None)))
-                    else:
-                        rows.append(((dimension, match_vals, age, nh),
-                                     ("ok", cand.state, cand.reason)))
-                except Exception as exc:  # noqa: BLE001
-                    rows.append(((dimension, match_vals, age, nh),
-                                 ("raise", type(exc).__name__, str(exc))))
+                _run(dimension, match, record, slice_,
+                     (dimension, match_vals, age, nh))
+    # --- fresh == "partial" (age 31..60 days) + fractional ages -----------
+    for age, nh, na in (("2026-10-01T00:00:00Z", 120, 120),   # 41d -> partial
+                        ("2026-10-01T00:00:00Z", 10, 10),    # partial + partial
+                        ("2026-11-10T10:40:48Z", 120, 120),  # 0.555d -> round() grid
+                        ("2026-10-12T00:00:00Z", 120, 120)): # 30d exactly
+        for dimension in ("language", "text_length", "domain_genre",
+                          "editing_revision", "generator_scope",
+                          "human_population", "human_false_positive_evidence",
+                          "temporal_version_stability"):
+            match = SliceMatch(language="match", length="match", domain="match",
+                               editing="match", applicable=True)
+            record = _ev_record(evaluated_at=age, n_human=nh, n_ai=na)
+            slice_ = _ev_slice(n_human=nh, n_ai=na)
+            _run(dimension, match, record, slice_,
+                 (dimension, ("match",) * 4, age, nh))
+    # --- generator scope / population shapes ------------------------------
+    for scope, gens, pops in (
+            ("representative", ("g1", "g2", "g3"), ("p1", "p2")),
+            ("multi", ("g1", "g2", "g3"), ("p1",)),
+            ("multi", ("g1", "g2"), ("p1", "p2")),
+            ("multi", ("g1",), ("representative",)),
+            ("single", ("g1",), ("p1",)),
+            ("single", (), ()),
+            ("unknown", (), ("p1",)),
+            ("unknown", ("g1",), ())):
+        for age in ("2026-11-01T00:00:00Z", "2026-01-01T00:00:00Z"):
+            match = SliceMatch(language="match", length="match", domain="match",
+                               editing="match", applicable=True)
+            record = _ev_record(evaluated_at=age)
+            slice_ = _ev_slice(cond_over={"generators": gens,
+                                          "generator_scope": scope,
+                                          "human_populations": pops})
+            for dimension in ("generator_scope", "human_population"):
+                _run(dimension, match, record, slice_,
+                     (dimension, (scope, gens, pops), age, 120))
+    # --- single-field mismatch (reaches the guarded mismatch lines) ------
+    for match_vals in (("mismatch", "match", "match", "match"),
+                       ("match", "mismatch", "match", "match"),
+                       ("match", "match", "mismatch", "match"),
+                       ("match", "match", "match", "mismatch"),
+                       ("match", "match", "unknown", "match"),
+                       ("match", "match", "match", "unknown")):
+        match = SliceMatch(language=match_vals[0], length=match_vals[1],
+                           domain=match_vals[2], editing=match_vals[3],
+                           applicable=True)
+        for dimension in ("language", "text_length", "domain_genre",
+                          "editing_revision", "generator_scope",
+                          "human_population", "human_false_positive_evidence",
+                          "temporal_version_stability"):
+            record = _ev_record()
+            slice_ = _ev_slice()
+            _run(dimension, match, record, slice_,
+                 (dimension, match_vals, "2026-11-01T00:00:00Z", 120))
+    # --- out-of-vocabulary match values + dimensions ----------------------
+    for field, val in (("language", "zzz"), ("language", "aaa"),
+                       ("length", "zzz"), ("length", "aaa"),
+                       ("domain", "zzz"), ("domain", "aaa"),
+                       ("editing", "zzz"), ("editing", "aaa")):
+        vals = {"language": "match", "length": "match", "domain": "match",
+                "editing": "match"}
+        vals[field] = val
+        match = SliceMatch(language=vals["language"], length=vals["length"],
+                           domain=vals["domain"], editing=vals["editing"],
+                           applicable=True)
+        for dimension in ("language", "text_length", "domain_genre",
+                          "editing_revision", "generator_scope",
+                          "human_population", "human_false_positive_evidence",
+                          "temporal_version_stability"):
+            record = _ev_record()
+            slice_ = _ev_slice()
+            _run(dimension, match, record, slice_,
+                 (dimension, (field, val), "2026-11-01T00:00:00Z", 120))
+    for dimension in ("zzz", "aaa", "LANGUAGE", ""):
+        match = SliceMatch(language="match", length="match", domain="match",
+                           editing="match", applicable=True)
+        record = _ev_record()
+        slice_ = _ev_slice()
+        _run(dimension, match, record, slice_,
+             (dimension, ("match",) * 4, "2026-11-01T00:00:00Z", 120))
+    # --- human-false-positive section: fpr metric shapes ------------------
+    for nh, fpr in (
+            (120, _ev_fpr(n=120)),
+            (99, _ev_fpr(n=99)),
+            (100, _ev_fpr(n=100)),
+            (101, _ev_fpr(n=101)),
+            (120, _ev_fpr(ci_upper=0.05, n=120)),
+            (120, _ev_fpr(ci_upper=0.07, n=120)),
+            (120, _ev_fpr(has_ci=False, n=120)),
+            (120, None)):
+        for age in ("2026-11-01T00:00:00Z", "2026-10-01T00:00:00Z",
+                    "2026-01-01T00:00:00Z"):
+            match = SliceMatch(language="match", length="match", domain="match",
+                               editing="match", applicable=True)
+            record = _ev_record(evaluated_at=age, n_human=nh, n_ai=120)
+            slice_ = _ev_slice(n_human=nh, n_ai=120, fpr=fpr)
+            _run("human_false_positive_evidence", match, record, slice_,
+                 ("human_false_positive_evidence",
+                  (nh, getattr(fpr, "ci_upper", None),
+                   getattr(fpr, "has_ci", None)), age, nh))
     return rows
 
 
@@ -1038,6 +1162,73 @@ def probe_ev_check_eligibility():
             rows.append((("active", "2026-11-01T00:00:00Z", "human_only",
                           f"verified-{tcount}-{ecount}"),
                          ("raise", type(exc).__name__, str(exc))))
+    # --- identity / proof shape boundaries --------------------------------
+    base_record = _ev_record()
+    base_dj = DisjointnessProof(status="verified", overlap_count=0,
+                                training_count=1000, evaluation_count=400,
+                                training_hash=_hex64(9),
+                                evaluation_hash=base_record.benchmark.fingerprint_sha256)
+
+    def _ident(**over):
+        kw = dict(detector_id="det", detector_version="1", provider=None,
+                  model=None, config_hash=None, native_score_semantics=None,
+                  calibration_id=None, regime="human_only")
+        kw.update(over)
+        return InferenceIdentity(**kw)
+
+    def _dj(**over):
+        kw = dict(status="verified", overlap_count=0, training_count=1000,
+                  evaluation_count=400, training_hash=_hex64(9),
+                  evaluation_hash=base_record.benchmark.fingerprint_sha256)
+        kw.update(over)
+        return DisjointnessProof(**kw)
+
+    def _check(key, record, ident, dj, **kw):
+        try:
+            v = check_record_eligibility(record, identity=ident, disjointness=dj,
+                                         now=now, max_age_days=30, **kw)
+            rows.append((key, ("ok", v.eligible, list(v.reasons),
+                               list(v.unbound_identity_fields))))
+        except Exception as exc:  # noqa: BLE001
+            rows.append((key, ("raise", type(exc).__name__, str(exc))))
+
+    _check(("id-aaa",), base_record, _ident(detector_id="aaa"), base_dj)
+    _check(("id-zzz",), base_record, _ident(detector_id="zzz"), base_dj)
+    _check(("ver-0.9",), base_record, _ident(detector_version="0.9"), base_dj)
+    _check(("ver-2",), base_record, _ident(detector_version="2"), base_dj)
+    _check(("rec-ver-bang",), _ev_record(detector_version="!"), _ident(), base_dj)
+    _check(("rec-ver-0.9",), _ev_record(detector_version="0.9"), _ident(), base_dj)
+    _check(("overlap-1",), base_record, _ident(), _dj(overlap_count=1))
+    _check(("train-1",), base_record, _ident(), _dj(training_count=1))
+    _check(("eval-1",), base_record, _ident(), _dj(evaluation_count=1))
+    _check(("train-1-eval-1",), base_record, _ident(),
+           _dj(training_count=1, evaluation_count=1))
+    _check(("eval-hash-diff-lo",), base_record, _ident(),
+           _dj(evaluation_hash="0" * 64))
+    _check(("eval-hash-diff-hi",), base_record, _ident(),
+           _dj(evaluation_hash="f" * 64))
+    _check(("eval-hash-none",), base_record, _ident(),
+           _dj(evaluation_hash=None))
+    _check(("hashes-equal",), base_record, _ident(),
+           _dj(training_hash=base_record.benchmark.fingerprint_sha256))
+    _check(("age-30",), _ev_record(evaluated_at="2026-10-12T00:00:00Z"),
+           _ident(), base_dj)
+    _check(("age-31",), _ev_record(evaluated_at="2026-10-11T00:00:00Z"),
+           _ident(), base_dj)
+    for nh, na in ((99, 120), (100, 120), (101, 120), (120, 99), (120, 100),
+                   (120, 101), (99, 99)):
+        _check((f"samples-{nh}-{na}",), _ev_record(n_human=nh, n_ai=na),
+               _ident(), base_dj)
+    _check(("artifact-ok",), base_record, _ident(), base_dj,
+           artifact_verification={"ev-1": True})
+    _check(("artifact-fail",), base_record, _ident(), base_dj,
+           artifact_verification={"ev-1": False})
+    _check(("artifact-missing-row",), base_record, _ident(), base_dj,
+           artifact_verification={"other": True})
+    _check(("artifact-none",), base_record, _ident(), base_dj,
+           artifact_verification=None)
+    _check(("artifact-bad-shape",), base_record, _ident(), base_dj,
+           artifact_verification="not-a-mapping")
     return rows
 
 
@@ -1056,7 +1247,8 @@ def probe_ev_assess_coverage():
             registry = EvidenceRegistry([record])
             cov = A._v2_coverage(registry, **A._eligible_inputs(registry, root))
             rows.append(((status, "base"), list(cov.record_ids),
-                         [(k, v.state) for k, v in sorted(cov.dimensions.items())]))
+                         [(k, v.state) for k, v in sorted(cov.dimensions.items())],
+                         list(cov.limitations)))
         # Out-of-scope metadata: language outside supported_languages and
         # word_count below min_words — exercises the metadata downgrade
         # branches (state == "out_of_scope").
@@ -1072,7 +1264,56 @@ def probe_ev_assess_coverage():
                 supported_languages=("en",), min_words=80, max_words=1000,
                 conditions=cond, registry=registry, now=A.NOW, **base_inputs)
             rows.append(((("active", tag), list(cov.record_ids),
-                         [(k, v.state) for k, v in sorted(cov.dimensions.items())])))
+                         [(k, v.state) for k, v in sorted(cov.dimensions.items())],
+                         list(cov.limitations))))
+        # --- empty registry / multi-record continue-vs-break --------------
+        cov = A._v2_coverage(EvidenceRegistry([]),
+                             **A._eligible_inputs(EvidenceRegistry([record]), root))
+        rows.append((("empty-registry",), list(cov.record_ids),
+                     [(k, v.state) for k, v in sorted(cov.dimensions.items())],
+                     list(cov.limitations)))
+        retracted = A._v2_record(status="retracted")
+        retracted2 = A._v2_record(status="retracted", split="heldout")
+        active = A._v2_record(status="active")
+        # Second record needs a distinct evidence_id: split="heldout" is an
+        # approved held-out split, so it stays eligible.
+        active2 = A._v2_record(status="active", split="heldout")
+        thin2 = A._v2_record(n_human=10, n_ai=10, split="heldout")
+        for tag, recs in (("retracted-then-active", [retracted, active2]),
+                          ("active-then-retracted", [active, retracted2]),
+                          ("thin-then-adequate", [A._v2_record(n_human=10, n_ai=10), active2]),
+                          ("adequate-then-thin", [active, thin2])):
+            registry = EvidenceRegistry(recs)
+            cov = A._v2_coverage(registry, **A._eligible_inputs(registry, root))
+            rows.append(((tag,), list(cov.record_ids),
+                         [(k, v.state) for k, v in sorted(cov.dimensions.items())],
+                         list(cov.limitations)))
+        # --- max_age_days / fpr_ceiling boundaries -------------------------
+        for tag, kw in (("max-age-0", dict(max_age_days=0)),
+                        ("max-age-1", dict(max_age_days=1)),
+                        ("max-age-2", dict(max_age_days=2)),
+                        ("fpr-ceiling-0", dict(fpr_ceiling=0.0)),
+                        ("fpr-ceiling-1", dict(fpr_ceiling=1.0)),
+                        ("fpr-ceiling-1.5", dict(fpr_ceiling=1.5)),
+                        ("fpr-ceiling-neg", dict(fpr_ceiling=-0.1))):
+            try:
+                cov = A._v2_coverage(registry, **A._eligible_inputs(registry, root), **kw)
+                rows.append(((tag,), list(cov.record_ids),
+                             [(k, v.state) for k, v in sorted(cov.dimensions.items())],
+                             list(cov.limitations)))
+            except Exception as exc:  # noqa: BLE001
+                rows.append(((tag,), ("raise", type(exc).__name__, str(exc))))
+        # --- unbound identity fields (limitations message) -----------------
+        from textforensics.evidence import InferenceIdentity
+        bound_identity = InferenceIdentity(
+            detector_id="a", detector_version="1", provider="prov", model="m",
+            config_hash=_hex64(5), native_score_semantics="probability",
+            calibration_id=None, regime="human_only")
+        cov = A._v2_coverage(registry, **{**A._eligible_inputs(registry, root),
+                                          "identity": bound_identity})
+        rows.append((("unbound-identity",), list(cov.record_ids),
+                     [(k, v.state) for k, v in sorted(cov.dimensions.items())],
+                     list(cov.limitations)))
     return rows
 
 
