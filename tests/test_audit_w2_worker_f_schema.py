@@ -32,13 +32,25 @@ EXPECTED_PROBE_SCHEMA_LOAD = [('maxsize', ('ok', '16')), ('bogus-name', ('raise'
 
 class TestWorkerFKillSchema(unittest.TestCase):
     def test_probe_schema_completeness(self):
-        self.assertEqual(probe_schema_completeness(), EXPECTED_PROBE_SCHEMA_COMPLETENESS)
+        got = probe_schema_completeness()
+        exp = EXPECTED_PROBE_SCHEMA_COMPLETENESS
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_schema_dimensions(self):
-        self.assertEqual(probe_schema_dimensions(), EXPECTED_PROBE_SCHEMA_DIMENSIONS)
+        got = probe_schema_dimensions()
+        exp = EXPECTED_PROBE_SCHEMA_DIMENSIONS
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_schema_load(self):
-        self.assertEqual(probe_schema_load(), EXPECTED_PROBE_SCHEMA_LOAD)
+        got = probe_schema_load()
+        exp = EXPECTED_PROBE_SCHEMA_LOAD
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
 
 if __name__ == "__main__":

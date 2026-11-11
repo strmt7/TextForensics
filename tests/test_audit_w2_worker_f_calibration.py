@@ -60,34 +60,74 @@ EXPECTED_PROBE_CAL_VALIDATE_NO_CONTAMINATION = [(('identical',), ('ok', "{'valid
 
 class TestWorkerFKillCalibration(unittest.TestCase):
     def test_probe_cal_calibrate(self):
-        self.assertEqual(probe_cal_calibrate(), EXPECTED_PROBE_CAL_CALIBRATE)
+        got = probe_cal_calibrate()
+        exp = EXPECTED_PROBE_CAL_CALIBRATE
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_cal_evaluate_threshold(self):
-        self.assertEqual(probe_cal_evaluate_threshold(), EXPECTED_PROBE_CAL_EVALUATE_THRESHOLD)
+        got = probe_cal_evaluate_threshold()
+        exp = EXPECTED_PROBE_CAL_EVALUATE_THRESHOLD
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_cal_from_dict(self):
-        self.assertEqual(probe_cal_from_dict(), EXPECTED_PROBE_CAL_FROM_DICT)
+        got = probe_cal_from_dict()
+        exp = EXPECTED_PROBE_CAL_FROM_DICT
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_cal_identity(self):
-        self.assertEqual(probe_cal_identity(), EXPECTED_PROBE_CAL_IDENTITY)
+        got = probe_cal_identity()
+        exp = EXPECTED_PROBE_CAL_IDENTITY
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_cal_is_legacy(self):
-        self.assertEqual(probe_cal_is_legacy(), EXPECTED_PROBE_CAL_IS_LEGACY)
+        got = probe_cal_is_legacy()
+        exp = EXPECTED_PROBE_CAL_IS_LEGACY
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_cal_migrate(self):
-        self.assertEqual(probe_cal_migrate(), EXPECTED_PROBE_CAL_MIGRATE)
+        got = probe_cal_migrate()
+        exp = EXPECTED_PROBE_CAL_MIGRATE
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_cal_pipeline(self):
-        self.assertEqual(probe_cal_pipeline(), EXPECTED_PROBE_CAL_PIPELINE)
+        got = probe_cal_pipeline()
+        exp = EXPECTED_PROBE_CAL_PIPELINE
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_cal_post_init(self):
-        self.assertEqual(probe_cal_post_init(), EXPECTED_PROBE_CAL_POST_INIT)
+        got = probe_cal_post_init()
+        exp = EXPECTED_PROBE_CAL_POST_INIT
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_cal_store(self):
-        self.assertEqual(probe_cal_store(), EXPECTED_PROBE_CAL_STORE)
+        got = probe_cal_store()
+        exp = EXPECTED_PROBE_CAL_STORE
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_cal_validate_no_contamination(self):
-        self.assertEqual(probe_cal_validate_no_contamination(), EXPECTED_PROBE_CAL_VALIDATE_NO_CONTAMINATION)
+        got = probe_cal_validate_no_contamination()
+        exp = EXPECTED_PROBE_CAL_VALIDATE_NO_CONTAMINATION
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
 
 if __name__ == "__main__":

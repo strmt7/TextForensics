@@ -32,13 +32,25 @@ EXPECTED_PROBE_EXPLAIN_SUMMARY = [('summary-default', ('ok', "{'detector_id': 'd
 
 class TestWorkerFKillExplain(unittest.TestCase):
     def test_probe_explain_coverage_label(self):
-        self.assertEqual(probe_explain_coverage_label(), EXPECTED_PROBE_EXPLAIN_COVERAGE_LABEL)
+        got = probe_explain_coverage_label()
+        exp = EXPECTED_PROBE_EXPLAIN_COVERAGE_LABEL
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_explain_explain(self):
-        self.assertEqual(probe_explain_explain(), EXPECTED_PROBE_EXPLAIN_EXPLAIN)
+        got = probe_explain_explain()
+        exp = EXPECTED_PROBE_EXPLAIN_EXPLAIN
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_explain_summary(self):
-        self.assertEqual(probe_explain_summary(), EXPECTED_PROBE_EXPLAIN_SUMMARY)
+        got = probe_explain_summary()
+        exp = EXPECTED_PROBE_EXPLAIN_SUMMARY
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
 
 if __name__ == "__main__":

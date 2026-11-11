@@ -56,31 +56,67 @@ EXPECTED_PROBE_PM_TPR = [(([0.1, 0.9, 0.4, 0.6], [0, 1, 0, 1], 0.01, 'higher_mea
 
 class TestWorkerFKillProbeMetrics(unittest.TestCase):
     def test_probe_pm_brier(self):
-        self.assertEqual(probe_pm_brier(), EXPECTED_PROBE_PM_BRIER)
+        got = probe_pm_brier()
+        exp = EXPECTED_PROBE_PM_BRIER
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_pm_ece(self):
-        self.assertEqual(probe_pm_ece(), EXPECTED_PROBE_PM_ECE)
+        got = probe_pm_ece()
+        exp = EXPECTED_PROBE_PM_ECE
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_pm_extra(self):
-        self.assertEqual(probe_pm_extra(), EXPECTED_PROBE_PM_EXTRA)
+        got = probe_pm_extra()
+        exp = EXPECTED_PROBE_PM_EXTRA
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_pm_fpr(self):
-        self.assertEqual(probe_pm_fpr(), EXPECTED_PROBE_PM_FPR)
+        got = probe_pm_fpr()
+        exp = EXPECTED_PROBE_PM_FPR
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_pm_is_ai_like(self):
-        self.assertEqual(probe_pm_is_ai_like(), EXPECTED_PROBE_PM_IS_AI_LIKE)
+        got = probe_pm_is_ai_like()
+        exp = EXPECTED_PROBE_PM_IS_AI_LIKE
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_pm_ks_pvalue(self):
-        self.assertEqual(probe_pm_ks_pvalue(), EXPECTED_PROBE_PM_KS_PVALUE)
+        got = probe_pm_ks_pvalue()
+        exp = EXPECTED_PROBE_PM_KS_PVALUE
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_pm_ks_statistic(self):
-        self.assertEqual(probe_pm_ks_statistic(), EXPECTED_PROBE_PM_KS_STATISTIC)
+        got = probe_pm_ks_statistic()
+        exp = EXPECTED_PROBE_PM_KS_STATISTIC
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_pm_oriented(self):
-        self.assertEqual(probe_pm_oriented(), EXPECTED_PROBE_PM_ORIENTED)
+        got = probe_pm_oriented()
+        exp = EXPECTED_PROBE_PM_ORIENTED
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_pm_tpr(self):
-        self.assertEqual(probe_pm_tpr(), EXPECTED_PROBE_PM_TPR)
+        got = probe_pm_tpr()
+        exp = EXPECTED_PROBE_PM_TPR
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
 
 if __name__ == "__main__":

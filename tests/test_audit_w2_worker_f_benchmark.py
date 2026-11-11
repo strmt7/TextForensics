@@ -44,22 +44,46 @@ EXPECTED_PROBE_BM_SAMPLE_HASHES = [('valid', ('ok', "(['e0cde269fd5fba43c1382a8a
 
 class TestWorkerFKillBenchmark(unittest.TestCase):
     def test_probe_bm_check_disjointness(self):
-        self.assertEqual(probe_bm_check_disjointness(), EXPECTED_PROBE_BM_CHECK_DISJOINTNESS)
+        got = probe_bm_check_disjointness()
+        exp = EXPECTED_PROBE_BM_CHECK_DISJOINTNESS
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_bm_jsonl(self):
-        self.assertEqual(probe_bm_jsonl(), EXPECTED_PROBE_BM_JSONL)
+        got = probe_bm_jsonl()
+        exp = EXPECTED_PROBE_BM_JSONL
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_bm_post_init(self):
-        self.assertEqual(probe_bm_post_init(), EXPECTED_PROBE_BM_POST_INIT)
+        got = probe_bm_post_init()
+        exp = EXPECTED_PROBE_BM_POST_INIT
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_bm_proof_dict(self):
-        self.assertEqual(probe_bm_proof_dict(), EXPECTED_PROBE_BM_PROOF_DICT)
+        got = probe_bm_proof_dict()
+        exp = EXPECTED_PROBE_BM_PROOF_DICT
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_bm_prove_disjointness(self):
-        self.assertEqual(probe_bm_prove_disjointness(), EXPECTED_PROBE_BM_PROVE_DISJOINTNESS)
+        got = probe_bm_prove_disjointness()
+        exp = EXPECTED_PROBE_BM_PROVE_DISJOINTNESS
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_bm_sample_hashes(self):
-        self.assertEqual(probe_bm_sample_hashes(), EXPECTED_PROBE_BM_SAMPLE_HASHES)
+        got = probe_bm_sample_hashes()
+        exp = EXPECTED_PROBE_BM_SAMPLE_HASHES
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
 
 if __name__ == "__main__":

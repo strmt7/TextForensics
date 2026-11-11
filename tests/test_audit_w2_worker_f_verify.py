@@ -32,13 +32,25 @@ EXPECTED_PROBE_VERIFY_RECOMPUTE = [('v2', [((0, 0, 0, 8), ('ok', "'insufficient'
 
 class TestWorkerFKillVerify(unittest.TestCase):
     def test_probe_verify_benchmark(self):
-        self.assertEqual(probe_verify_benchmark(), EXPECTED_PROBE_VERIFY_BENCHMARK)
+        got = probe_verify_benchmark()
+        exp = EXPECTED_PROBE_VERIFY_BENCHMARK
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_verify_case_file(self):
-        self.assertEqual(probe_verify_case_file(), EXPECTED_PROBE_VERIFY_CASE_FILE)
+        got = probe_verify_case_file()
+        exp = EXPECTED_PROBE_VERIFY_CASE_FILE
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_verify_recompute(self):
-        self.assertEqual(probe_verify_recompute(), EXPECTED_PROBE_VERIFY_RECOMPUTE)
+        got = probe_verify_recompute()
+        exp = EXPECTED_PROBE_VERIFY_RECOMPUTE
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
 
 if __name__ == "__main__":

@@ -24,7 +24,11 @@ EXPECTED_PROBE_RC_CODEC = [('encode-canonical', ('ok', 'b\'{"consensus":{"ai_pro
 
 class TestWorkerFKillResultCodec(unittest.TestCase):
     def test_probe_rc_codec(self):
-        self.assertEqual(probe_rc_codec(), EXPECTED_PROBE_RC_CODEC)
+        got = probe_rc_codec()
+        exp = EXPECTED_PROBE_RC_CODEC
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
 
 if __name__ == "__main__":

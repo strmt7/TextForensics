@@ -36,16 +36,32 @@ EXPECTED_PROBE_PR_SLICE_METRICS = [((0, 0, 'higher_means_ai', ()), {'n': 0, 'fli
 
 class TestWorkerFKillProbeRuns(unittest.TestCase):
     def test_probe_pr_compute_run_metrics(self):
-        self.assertEqual(probe_pr_compute_run_metrics(), EXPECTED_PROBE_PR_COMPUTE_RUN_METRICS)
+        got = probe_pr_compute_run_metrics()
+        exp = EXPECTED_PROBE_PR_COMPUTE_RUN_METRICS
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_pr_evaluate_tiers(self):
-        self.assertEqual(probe_pr_evaluate_tiers(), EXPECTED_PROBE_PR_EVALUATE_TIERS)
+        got = probe_pr_evaluate_tiers()
+        exp = EXPECTED_PROBE_PR_EVALUATE_TIERS
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_pr_score_series(self):
-        self.assertEqual(probe_pr_score_series(), EXPECTED_PROBE_PR_SCORE_SERIES)
+        got = probe_pr_score_series()
+        exp = EXPECTED_PROBE_PR_SCORE_SERIES
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_pr_slice_metrics(self):
-        self.assertEqual(probe_pr_slice_metrics(), EXPECTED_PROBE_PR_SLICE_METRICS)
+        got = probe_pr_slice_metrics()
+        exp = EXPECTED_PROBE_PR_SLICE_METRICS
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
 
 if __name__ == "__main__":

@@ -36,16 +36,32 @@ EXPECTED_PROBE_TRUST_OVERALL_STATE = [((0, 0, 0, 8), ('ok', "'insufficient'")), 
 
 class TestWorkerFKillTrust(unittest.TestCase):
     def test_probe_trust_assess(self):
-        self.assertEqual(probe_trust_assess(), EXPECTED_PROBE_TRUST_ASSESS)
+        got = probe_trust_assess()
+        exp = EXPECTED_PROBE_TRUST_ASSESS
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_trust_build(self):
-        self.assertEqual(probe_trust_build(), EXPECTED_PROBE_TRUST_BUILD)
+        got = probe_trust_build()
+        exp = EXPECTED_PROBE_TRUST_BUILD
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_trust_ledger(self):
-        self.assertEqual(probe_trust_ledger(), EXPECTED_PROBE_TRUST_LEDGER)
+        got = probe_trust_ledger()
+        exp = EXPECTED_PROBE_TRUST_LEDGER
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_trust_overall_state(self):
-        self.assertEqual(probe_trust_overall_state(), EXPECTED_PROBE_TRUST_OVERALL_STATE)
+        got = probe_trust_overall_state()
+        exp = EXPECTED_PROBE_TRUST_OVERALL_STATE
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
 
 if __name__ == "__main__":

@@ -24,7 +24,11 @@ EXPECTED_PROBE_REPORT_BUNDLE = [('default', ('ok', {'schema': 'textforensics.for
 
 class TestWorkerFKillReport(unittest.TestCase):
     def test_probe_report_bundle(self):
-        self.assertEqual(probe_report_bundle(), EXPECTED_PROBE_REPORT_BUNDLE)
+        got = probe_report_bundle()
+        exp = EXPECTED_PROBE_REPORT_BUNDLE
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
 
 if __name__ == "__main__":

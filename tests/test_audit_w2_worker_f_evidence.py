@@ -56,31 +56,67 @@ EXPECTED_PROBE_EV_WORST_FPR = [('supported-one-below', ('ok', 'supported', 'base
 
 class TestWorkerFKillEvidence(unittest.TestCase):
     def test_probe_ev_assess_coverage(self):
-        self.assertEqual(probe_ev_assess_coverage(), EXPECTED_PROBE_EV_ASSESS_COVERAGE)
+        got = probe_ev_assess_coverage()
+        exp = EXPECTED_PROBE_EV_ASSESS_COVERAGE
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_ev_check_eligibility(self):
-        self.assertEqual(probe_ev_check_eligibility(), EXPECTED_PROBE_EV_CHECK_ELIGIBILITY)
+        got = probe_ev_check_eligibility()
+        exp = EXPECTED_PROBE_EV_CHECK_ELIGIBILITY
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_ev_coverage_preds(self):
-        self.assertEqual(probe_ev_coverage_preds(), EXPECTED_PROBE_EV_COVERAGE_PREDS)
+        got = probe_ev_coverage_preds()
+        exp = EXPECTED_PROBE_EV_COVERAGE_PREDS
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_ev_identity_proof(self):
-        self.assertEqual(probe_ev_identity_proof(), EXPECTED_PROBE_EV_IDENTITY_PROOF)
+        got = probe_ev_identity_proof()
+        exp = EXPECTED_PROBE_EV_IDENTITY_PROOF
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_ev_record_candidate(self):
-        self.assertEqual(probe_ev_record_candidate(), EXPECTED_PROBE_EV_RECORD_CANDIDATE)
+        got = probe_ev_record_candidate()
+        exp = EXPECTED_PROBE_EV_RECORD_CANDIDATE
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_ev_record_candidate2(self):
-        self.assertEqual(probe_ev_record_candidate2(), EXPECTED_PROBE_EV_RECORD_CANDIDATE2)
+        got = probe_ev_record_candidate2()
+        exp = EXPECTED_PROBE_EV_RECORD_CANDIDATE2
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_ev_records_for(self):
-        self.assertEqual(probe_ev_records_for(), EXPECTED_PROBE_EV_RECORDS_FOR)
+        got = probe_ev_records_for()
+        exp = EXPECTED_PROBE_EV_RECORDS_FOR
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_ev_row_ok(self):
-        self.assertEqual(probe_ev_row_ok(), EXPECTED_PROBE_EV_ROW_OK)
+        got = probe_ev_row_ok()
+        exp = EXPECTED_PROBE_EV_ROW_OK
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_ev_worst_fpr(self):
-        self.assertEqual(probe_ev_worst_fpr(), EXPECTED_PROBE_EV_WORST_FPR)
+        got = probe_ev_worst_fpr()
+        exp = EXPECTED_PROBE_EV_WORST_FPR
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
 
 if __name__ == "__main__":

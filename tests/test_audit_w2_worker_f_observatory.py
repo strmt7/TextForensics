@@ -24,7 +24,11 @@ EXPECTED_PROBE_OBS_NORMALIZE = [('valid', ('ok', {'sample_id': 's1', 'text_sha25
 
 class TestWorkerFKillObservatory(unittest.TestCase):
     def test_probe_obs_normalize(self):
-        self.assertEqual(probe_obs_normalize(), EXPECTED_PROBE_OBS_NORMALIZE)
+        got = probe_obs_normalize()
+        exp = EXPECTED_PROBE_OBS_NORMALIZE
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
 
 if __name__ == "__main__":

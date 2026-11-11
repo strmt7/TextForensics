@@ -24,7 +24,11 @@ EXPECTED_PROBE_MC_FROM_DICT = [('eval-valid', ('ok', "EvaluationDataset(name='RA
 
 class TestWorkerFKillModelCard(unittest.TestCase):
     def test_probe_mc_from_dict(self):
-        self.assertEqual(probe_mc_from_dict(), EXPECTED_PROBE_MC_FROM_DICT)
+        got = probe_mc_from_dict()
+        exp = EXPECTED_PROBE_MC_FROM_DICT
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
 
 if __name__ == "__main__":

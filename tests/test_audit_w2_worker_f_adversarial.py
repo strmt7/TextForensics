@@ -28,10 +28,18 @@ EXPECTED_PROBE_ADV_ASSESS_RISK = [(((),), ('ok', "('none', None)")), (((('low', 
 
 class TestWorkerFKillAdversarial(unittest.TestCase):
     def test_probe_adv_analyze(self):
-        self.assertEqual(probe_adv_analyze(), EXPECTED_PROBE_ADV_ANALYZE)
+        got = probe_adv_analyze()
+        exp = EXPECTED_PROBE_ADV_ANALYZE
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_adv_assess_risk(self):
-        self.assertEqual(probe_adv_assess_risk(), EXPECTED_PROBE_ADV_ASSESS_RISK)
+        got = probe_adv_assess_risk()
+        exp = EXPECTED_PROBE_ADV_ASSESS_RISK
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
 
 if __name__ == "__main__":

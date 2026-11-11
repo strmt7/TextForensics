@@ -24,7 +24,11 @@ EXPECTED_PROBE_CF_REPLAY = [('v3-one-dim', ('ok', "(['trust_map dimensions are m
 
 class TestWorkerFKillCasefile(unittest.TestCase):
     def test_probe_cf_replay(self):
-        self.assertEqual(probe_cf_replay(), EXPECTED_PROBE_CF_REPLAY)
+        got = probe_cf_replay()
+        exp = EXPECTED_PROBE_CF_REPLAY
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
 
 if __name__ == "__main__":

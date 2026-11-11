@@ -253,6 +253,19 @@ def probe_sa_recompute():
             if schema is not None:
                 tm["schema"] = schema
             rows.append(((schema, tup), outcome(sa._recompute_trust_map_overall, tm)))
+    # non-string / missing dimension names: the `and` in the dim filter
+    # only includes dict dims with a string dimension.
+    for name, dims in [
+        ("dim-none", [{"dimension": None, "state": "supported"}]),
+        ("dim-int", [{"dimension": 123, "state": "supported"}]),
+        ("dim-missing", [{"state": "supported"}]),
+        ("dim-mixed", [{"dimension": "language", "state": "supported"},
+                       {"dimension": None, "state": "out_of_scope"},
+                       {"dimension": 123, "state": "partial"}]),
+        ("dim-nonstr-out-of-scope", [{"dimension": None, "state": "out_of_scope"}]),
+    ]:
+        rows.append(((name, dims), outcome(sa._recompute_trust_map_overall,
+                                            {"dimensions": dims, "schema": "textforensics.trust-map/v3"})))
     return rows
 
 

@@ -28,10 +28,18 @@ EXPECTED_PROBE_POLICY_HELPERS = [('today-none', ('ok', 'None')), ('today-date', 
 
 class TestWorkerFKillPolicy(unittest.TestCase):
     def test_probe_policy_claim_effective(self):
-        self.assertEqual(probe_policy_claim_effective(), EXPECTED_PROBE_POLICY_CLAIM_EFFECTIVE)
+        got = probe_policy_claim_effective()
+        exp = EXPECTED_PROBE_POLICY_CLAIM_EFFECTIVE
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_policy_helpers(self):
-        self.assertEqual(probe_policy_helpers(), EXPECTED_PROBE_POLICY_HELPERS)
+        got = probe_policy_helpers()
+        exp = EXPECTED_PROBE_POLICY_HELPERS
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
 
 if __name__ == "__main__":

@@ -36,16 +36,32 @@ EXPECTED_PROBE_SEM_MIN_SEGMENTS = [(2, 1, 'insufficient', True, 'unknown'), (4, 
 
 class TestWorkerFKillSemantic(unittest.TestCase):
     def test_probe_sem_analyze(self):
-        self.assertEqual(probe_sem_analyze(), EXPECTED_PROBE_SEM_ANALYZE)
+        got = probe_sem_analyze()
+        exp = EXPECTED_PROBE_SEM_ANALYZE
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_sem_assess_risk(self):
-        self.assertEqual(probe_sem_assess_risk(), EXPECTED_PROBE_SEM_ASSESS_RISK)
+        got = probe_sem_assess_risk()
+        exp = EXPECTED_PROBE_SEM_ASSESS_RISK
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_sem_consistency_score(self):
-        self.assertEqual(probe_sem_consistency_score(), EXPECTED_PROBE_SEM_CONSISTENCY_SCORE)
+        got = probe_sem_consistency_score()
+        exp = EXPECTED_PROBE_SEM_CONSISTENCY_SCORE
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_sem_min_segments(self):
-        self.assertEqual(probe_sem_min_segments(), EXPECTED_PROBE_SEM_MIN_SEGMENTS)
+        got = probe_sem_min_segments()
+        exp = EXPECTED_PROBE_SEM_MIN_SEGMENTS
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
 
 if __name__ == "__main__":

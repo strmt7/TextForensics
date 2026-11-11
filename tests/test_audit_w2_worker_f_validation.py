@@ -40,19 +40,39 @@ EXPECTED_PROBE_VALIDATION_OVERALL_V3 = [((0, 0, 0, 8), ('ok', "'insufficient'"))
 
 class TestWorkerFKillValidation(unittest.TestCase):
     def test_probe_val_common_blockers(self):
-        self.assertEqual(probe_val_common_blockers(), EXPECTED_PROBE_VAL_COMMON_BLOCKERS)
+        got = probe_val_common_blockers()
+        exp = EXPECTED_PROBE_VAL_COMMON_BLOCKERS
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_val_derive_dimension(self):
-        self.assertEqual(probe_val_derive_dimension(), EXPECTED_PROBE_VAL_DERIVE_DIMENSION)
+        got = probe_val_derive_dimension()
+        exp = EXPECTED_PROBE_VAL_DERIVE_DIMENSION
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_val_derive_trust_map(self):
-        self.assertEqual(probe_val_derive_trust_map(), EXPECTED_PROBE_VAL_DERIVE_TRUST_MAP)
+        got = probe_val_derive_trust_map()
+        exp = EXPECTED_PROBE_VAL_DERIVE_TRUST_MAP
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_val_support_blockers(self):
-        self.assertEqual(probe_val_support_blockers(), EXPECTED_PROBE_VAL_SUPPORT_BLOCKERS)
+        got = probe_val_support_blockers()
+        exp = EXPECTED_PROBE_VAL_SUPPORT_BLOCKERS
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
     def test_probe_validation_overall_v3(self):
-        self.assertEqual(probe_validation_overall_v3(), EXPECTED_PROBE_VALIDATION_OVERALL_V3)
+        got = probe_validation_overall_v3()
+        exp = EXPECTED_PROBE_VALIDATION_OVERALL_V3
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
 
 if __name__ == "__main__":

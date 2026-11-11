@@ -24,7 +24,11 @@ EXPECTED_PROBE_MIXED_ORIGIN_REGIMES = [('valid', ('ok', [('en', 'essays'), ('en'
 
 class TestWorkerFKillMixedOrigin(unittest.TestCase):
     def test_probe_mixed_origin_regimes(self):
-        self.assertEqual(probe_mixed_origin_regimes(), EXPECTED_PROBE_MIXED_ORIGIN_REGIMES)
+        got = probe_mixed_origin_regimes()
+        exp = EXPECTED_PROBE_MIXED_ORIGIN_REGIMES
+        self.assertEqual(len(got), len(exp))
+        for i, (g, e) in enumerate(zip(got, exp)):
+            self.assertEqual(g, e, f'row {i}')
 
 
 if __name__ == "__main__":
