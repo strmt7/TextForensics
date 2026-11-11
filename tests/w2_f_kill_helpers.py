@@ -80,6 +80,19 @@ def probe_trust_overall_state():
                   []):
         dims = [SimpleNamespace(dimension=n, state="supported") for n in names]
         rows.append((("set", tuple(names)), outcome(_overall_state, dims)))
+    # 10-dim declared set (schema.py): strong needs exactly these 10.
+    from textforensics.schema import DECLARED_TRUST_MAP_DIMENSIONS as DECLARED10
+    declared10 = list(DECLARED10)
+    for label, names, states in (
+            ("exact10", declared10, ["supported"] * 10),
+            ("exact10-one-partial", declared10, ["supported"] * 9 + ["partial"]),
+            ("ten-plus-rogue", declared10 + ["rogue_dim"], ["supported"] * 11),
+            ("ten-plus-rogue-partial", declared10 + ["rogue_dim"],
+             ["supported"] * 10 + ["partial"]),
+            ("nine-plus-rogue", declared10[:9] + ["rogue_dim"], ["supported"] * 10),
+            ("ten-rogue-names", ["rogue_%d" % i for i in range(10)], ["supported"] * 10)):
+        dims = [SimpleNamespace(dimension=n, state=st) for n, st in zip(names, states)]
+        rows.append(((label,), outcome(_overall_state, dims)))
     # the exact C10 rogue-dimension scenario: 8 supported + 1 unknown + 1 rogue supported
     dims = ([SimpleNamespace(dimension=n, state="supported") for n in TRUST_DIMENSIONS]
             + [SimpleNamespace(dimension="rogue_dim", state="supported")])
@@ -118,9 +131,41 @@ def probe_trust_assess():
             # timestamp-free: generated_at_utc varies per call; overall +
             # per-dimension states are the stable outputs.
             rows.append((verified, ("ok", tm.overall,
-                                    [(d.dimension, d.state) for d in tm.dimensions])))
+                                    [(d.dimension, d.state) for d in tm.dimensions],
+                                    sorted((tm.evidence_registry or {}).items()),
+                                    tuple(tm.limitations))))
         except Exception as exc:  # noqa: BLE001
             rows.append((verified, ("raise", type(exc).__name__, str(exc))))
+    # failure_count / max_native_drift validation + fixed generated_at_utc
+    for label, kwargs in (
+            ("failure-true", {"failure_count": True}),
+            ("failure-neg", {"failure_count": -1}),
+            ("failure-1", {"failure_count": 1}),
+            ("drift-0", {"max_native_drift": 0.0}),
+            ("drift-neg", {"max_native_drift": -0.1}),
+            ("drift-1", {"max_native_drift": 1.0}),
+            ("generated-fixed", {"generated_at_utc": "2026-01-01T00:00:00+00:00"})):
+        try:
+            tm = assess_trust_map(cond, [pred], registry=None, **kwargs)
+            rows.append(((label,), ("ok", tm.overall,
+                                    [(d.dimension, d.state) for d in tm.dimensions],
+                                    sorted((tm.evidence_registry or {}).items()),
+                                    tuple(tm.limitations),
+                                    tm.generated_at_utc if "generated_at_utc" in kwargs else None)))
+        except Exception as exc:  # noqa: BLE001
+            rows.append(((label,), ("raise", type(exc).__name__, str(exc))))
+    # empty vs non-empty registry (Delete_Not:14 limitation branch)
+    import test_audit_w2_worker_a as A
+    for label, reg in (("registry-empty", A._v3_registry()),
+                       ("registry-one", A._v3_registry(A._v3_record_dict(status="supported")))):
+        try:
+            tm = assess_trust_map(cond, [pred], registry=reg)
+            rows.append(((label,), ("ok", tm.overall,
+                                    [(d.dimension, d.state) for d in tm.dimensions],
+                                    sorted((tm.evidence_registry or {}).items()),
+                                    tuple(tm.limitations))))
+        except Exception as exc:  # noqa: BLE001
+            rows.append(((label,), ("raise", type(exc).__name__, str(exc))))
     return rows
 
 
@@ -155,14 +200,16 @@ def probe_trust_ledger():
             ledger = _ledger_with(_ledger_claim(capability=cap, tier_name=tier))
             tm = trust_map_from_capability_ledger(ledger)
             rows.append(((cap, tier), tm.overall,
-                         [(d.dimension, d.state) for d in tm.dimensions]))
+                         [(d.dimension, d.state, d.reason, tuple(d.evidence_refs))
+                          for d in tm.dimensions]))
     # expired / evidence-less / ineffective claims (the NumberReplacer:48/50/51 shapes)
     for kwargs in ({"valid_until": "2000-01-01"}, {"evidence": False},
                    {"tier_name": "READABLE", "evidence": False}):
         ledger = _ledger_with(_ledger_claim(**kwargs))
         tm = trust_map_from_capability_ledger(ledger)
         rows.append((("ineffective", tuple(sorted(kwargs.items()))), tm.overall,
-                     [(d.dimension, d.state) for d in tm.dimensions]))
+                     [(d.dimension, d.state, d.reason, tuple(d.evidence_refs))
+                      for d in tm.dimensions]))
     # 6 dims with 2 unknown (the :50 shape) and 4 dims with 2 unknown (the :51 shape)
     for n_unknown in (0, 1, 2, 3, 4):
         claims = [_ledger_claim(capability=c) for c in caps[:6]]
@@ -171,7 +218,28 @@ def probe_trust_ledger():
                    else _ledger_claim(capability=c)) for i, c in enumerate(caps[:6])]
         tm = trust_map_from_capability_ledger(_ledger_with(*claims))
         rows.append((("unknown-count", n_unknown), tm.overall,
-                     [(d.dimension, d.state) for d in tm.dimensions]))
+                     [(d.dimension, d.state, d.reason, tuple(d.evidence_refs))
+                      for d in tm.dimensions]))
+    # odd dimension counts for the //2 threshold: 5 dims, 2 unknown
+    # (5//2=2 vs 5/2=2.5: unknown>=2 differs)
+    for n_unknown in (0, 1, 2, 3):
+        claims = [(_ledger_claim(capability=c, valid_until="2000-01-01") if i < n_unknown
+                   else _ledger_claim(capability=c)) for i, c in enumerate(caps[:5])]
+        tm = trust_map_from_capability_ledger(_ledger_with(*claims))
+        rows.append((("unknown-count-5", n_unknown), tm.overall,
+                     [(d.dimension, d.state, d.reason, tuple(d.evidence_refs))
+                      for d in tm.dimensions]))
+    # distinct-but-equal capability strings: `is` vs `==` (Eq_Is:9).
+    # Two claims, one VALIDATED with the joined string, one expired with the
+    # literal: under `==` both are relevant; under `is` only the set member.
+    joined_cap = "".join(["lang", "uage"])
+    ledger = _ledger_with(_ledger_claim(capability=joined_cap, tier_name="VALIDATED"),
+                          _ledger_claim(capability="language", tier_name="VALIDATED",
+                                        valid_until="2000-01-01"))
+    tm = trust_map_from_capability_ledger(ledger)
+    rows.append((("cap-joined",), tm.overall,
+                 [(d.dimension, d.state, d.reason, tuple(d.evidence_refs))
+                  for d in tm.dimensions]))
     return rows
 
 
@@ -201,6 +269,26 @@ def _overall_grid(fn, make_dim, dim_names):
         except ValueError:
             dims = [SimpleNamespace(dimension=n, state="supported") for n in names]
         rows.append((("set", tuple(names)), outcome(fn, dims)))
+    # 10-dim declared set (schema.py DECLARED_TRUST_MAP_DIMENSIONS): the
+    # strong gate needs exactly these 10 names, all supported. The 8-name
+    # grid above can never derive strong.
+    from textforensics.schema import DECLARED_TRUST_MAP_DIMENSIONS as DECLARED10
+    declared10 = list(DECLARED10)
+    for label, names, states in (
+            ("exact10", declared10, ["supported"] * 10),
+            ("exact10-one-partial", declared10, ["supported"] * 9 + ["partial"]),
+            ("exact10-one-unknown", declared10, ["supported"] * 9 + ["unknown"]),
+            ("ten-plus-rogue", declared10 + ["rogue_dim"], ["supported"] * 11),
+            ("nine-plus-rogue", declared10[:9] + ["rogue_dim"], ["supported"] * 10),
+            ("ten-rogue-names", ["rogue_%d" % i for i in range(10)], ["supported"] * 10),
+            ("ten-plus-rogue-partial", declared10 + ["rogue_dim"],
+             ["supported"] * 10 + ["partial"]),
+            ("eleven-supported", declared10 + ["rogue_dim"], ["supported"] * 11)):
+        try:
+            dims = [make_dim(n, st) for n, st in zip(names, states)]
+        except ValueError:
+            dims = [SimpleNamespace(dimension=n, state=st) for n, st in zip(names, states)]
+        rows.append(((label,), outcome(fn, dims)))
     return rows
 
 
@@ -266,6 +354,23 @@ def probe_sa_recompute():
     ]:
         rows.append(((name, dims), outcome(sa._recompute_trust_map_overall,
                                             {"dimensions": dims, "schema": "textforensics.trust-map/v3"})))
+    # 10-dim declared set: strong needs exactly these 10 names, all supported.
+    from textforensics.schema import DECLARED_TRUST_MAP_DIMENSIONS as DECLARED10
+    declared10 = list(DECLARED10)
+    for schema in ("textforensics.trust-map/v3", "textforensics.trust-map/v2", None):
+        for label, names, states in (
+                ("exact10", declared10, ["supported"] * 10),
+                ("exact10-one-partial", declared10, ["supported"] * 9 + ["partial"]),
+                ("ten-plus-rogue", declared10 + ["rogue_dim"], ["supported"] * 11),
+                ("nine-plus-rogue", declared10[:9] + ["rogue_dim"], ["supported"] * 10),
+                ("ten-rogue-names", ["rogue_%d" % i for i in range(10)], ["supported"] * 10),
+                ("ten-plus-rogue-partial", declared10 + ["rogue_dim"],
+                 ["supported"] * 10 + ["partial"])):
+            dims = [{"dimension": n, "state": st} for n, st in zip(names, states)]
+            tm = {"dimensions": dims}
+            if schema is not None:
+                tm["schema"] = schema
+            rows.append(((f"10dim-{schema}-{label}",), outcome(sa._recompute_trust_map_overall, tm)))
     return rows
 
 
@@ -2470,6 +2575,14 @@ def probe_verify_benchmark():
         ("sixths", _bm_result(tp=1, fn=5, fp=1, tn=5)),
         ("sevenths", _bm_result(tp=1, fn=6, fp=2, tn=5)),
         ("all-zero", _bm_result(tp=0, fn=0, fp=0, tn=0, evaluated=0)),
+        # zero denominators with total > 0 (inside `if total:`): the else-0.0
+        # NumberReplacers and the ** mutants (0**0 == 1 -> ZeroDivisionError)
+        ("tp-fn-0-fp1", _bm_result(tp=0, fn=0, fp=1, tn=1, evaluated=2)),
+        ("tp-fn-0-fp1-tn0", _bm_result(tp=0, fn=0, fp=1, tn=0, evaluated=1)),
+        ("fn-tp-0", _bm_result(tp=0, fn=2, fp=1, tn=0, evaluated=3)),
+        ("fp-tn-0", _bm_result(tp=1, fn=0, fp=0, tn=0, evaluated=1)),
+        ("tp-fp-0", _bm_result(tp=0, fn=1, fp=0, tn=1, evaluated=2)),
+        ("tn-fp-0", _bm_result(tp=1, fn=1, fp=0, tn=0, evaluated=2)),
         ("tp-fn-21", _bm_result(tp=2, fn=1, fp=0, tn=0)),
         ("tp-fp-11", _bm_result(tp=1, fn=0, fp=1, tn=0)),
         ("neg-count", _bm_result(tp=-1)),
@@ -2531,7 +2644,16 @@ def probe_verify_case_file():
         ("overall-partial", _vc_case(ascii_text, **{"forensic_bundle.trust_map.overall": "partial"})),
         ("overall-unknown", _vc_case(ascii_text, **{"forensic_bundle.trust_map.overall": "unknown"})),
         ("overall-supported", _vc_case(ascii_text, **{"forensic_bundle.trust_map.overall": "supported"})),
+        ("overall-insufficient", _vc_case(ascii_text, **{"forensic_bundle.trust_map.overall": "insufficient"})),
+        ("overall-strong", _vc_case(ascii_text, **{"forensic_bundle.trust_map.overall": "strong"})),
         ("overall-same", _vc_case(ascii_text, **{"forensic_bundle.trust_map.overall": derived})),
+        # stored overall built dynamically: `is` vs `==` (Eq_Is:15) - the
+        # literal "mixed" may be interned, a joined string is not.
+        ("overall-same-dynamic", _vc_case(ascii_text, **{"forensic_bundle.trust_map.overall": "".join(["mi", "xed"])})),
+        # rogue dimension name: _verify_trust_dimension returns a status
+        # sorting after "ok" (NotEq_Lt:0).
+        ("tm-rogue-dim", _vc_case(ascii_text, **{"forensic_bundle.trust_map.dimensions": [
+            {"dimension": "rogue_dim", "state": "supported", "reason": "ok"}] + tm["dimensions"]})),
         ("raw-0", _vc_case(ascii_text, **{"raw_text_included": 0})),
         ("raw-1", _vc_case(ascii_text, **{"raw_text_included": 1})),
         ("raw-true", _vc_case(ascii_text, **{"raw_text_included": True})),
@@ -2596,6 +2718,25 @@ def probe_verify_case_file():
         stripped, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
         allow_nan=False).encode("utf-8")).hexdigest()
     cases.append(("v3-partial-unknown", minimal))
+    # v2-schema variant of the divergent map: v2 derives "insufficient"
+    # (unknown >= 4), v3 derives "mixed". Kills the is_v3 `is not` mutant
+    # (which would run the v3 recompute for a v2 map).
+    tm2 = _schema_map("v2", dims=v3dims)
+    tm2["overall"] = "insufficient"
+    tm2["coverage"] = {"supported": 0, "partial": 1, "unknown": 9, "out_of_scope": 0}
+    minimal2 = {"schema": "textforensics.case-file/v1", "raw_text_included": False,
+                "forensic_bundle": {"schema": "textforensics.forensic-bundle/v2",
+                                    "content_sha256": "a" * 64, "trust_map": tm2,
+                                    "input": {"raw_text_included": False},
+                                    "detector_results": []},
+                "case_sha256": "x" * 64}
+    stripped2 = _sanitize(copy.deepcopy(minimal2))
+    stripped2.pop("case_sha256", None)
+    stripped2.pop("created_at_utc", None)
+    minimal2["case_sha256"] = hashlib.sha256(json.dumps(
+        stripped2, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+        allow_nan=False).encode("utf-8")).hexdigest()
+    cases.append(("v2-partial-unknown", minimal2))
     # fix the tm-no-trust-map case (built above as a placeholder)
     cases = [(n, c) for n, c in cases if n != "tm-no-trust-map"]
     no_tm = copy.deepcopy(base)
@@ -2704,6 +2845,20 @@ def probe_mixed_origin_regimes():
         ("fail-regime-then-good", [_mo_record(editing_regime="raw", domain=("news",)), good], {}),
         ("fail-slice-then-good", [_mo_record(fpr_slices=({"slice_id": "other", "value": 0.02, "ci": (0.0, 0.05)},), domain=("news",)), good], {}),
         ("two-good", [good, _mo_record(domain=("science",))], {}),
+        # version orderings (NotEq_Lt/Gt) + distinct-but-equal version (NotEq_Is)
+        ("version-less", [_mo_record(detector_version="0.0.1", domain=("news", "essays"))], {}),
+        ("version-greater", [_mo_record(detector_version="9.9.9", domain=("news", "essays"))], {}),
+        ("version-dynamic", [_mo_set(good, "detector_version", "".join(["1", ".0.0"]))], {}),
+        # effective_status "unknown" (< "supported": NotEq_Lt:2)
+        ("status-unknown", [_mo_record(status="unknown", domain=("news", "essays"))], {}),
+        ("status-contested", [_mo_record(status="contested", domain=("news", "essays"))], {}),
+        # language/domain combos (AndWithOr:3)
+        ("language-set-domain-empty", [_mo_set(good, "regime.domain", [])], {}),
+        ("language-none-domain-empty", [_mo_set(_mo_set(good, "regime.language", None), "regime.domain", [])], {}),
+        ("domain-missing", [_mo_set(good, "regime.domain", None)], {}),
+        # non-Mapping record (first `continue`): break would stop before good
+        ("nonmapping-then-good", ["not a record", good], {}),
+        ("nonmapping-only", ["not a record"], {}),
     ]
     for name, records, kwargs in cases:
         # sorted list: set repr order varies across processes (hash seed)
@@ -2780,6 +2935,31 @@ def _records_registry():
     return reg
 
 
+def _builtin_records_registry():
+    """Registry with a record FOR the builtin heuristic detector, so
+    artifact_verification + disjointness can make it eligible (CORE-01).
+    verify_artifacts returns a real RegistryVerification with an ok row."""
+    import test_audit_w2_worker_a as A
+    reg = _VerifiedMockRegistry(True, [])
+    rec = A._v2_record(detector_id="textforensics/builtin-heuristic",
+                       detector_version="0.1.0", benchmark_fingerprint="b" * 64)
+    reg._records_for = [rec]
+    reg.records = reg._records_for
+    return reg
+
+
+class _VerifiedMockRegistry(_MockRegistry):
+    """Mock registry whose verify_artifacts returns a real
+    RegistryVerification with an ok row for the builtin record."""
+    def verify_artifacts(self, root="."):
+        from textforensics.evidence import RegistryVerification
+        self.roots.append(root)
+        return RegistryVerification(
+            verified=self.verified, errors=tuple(self.errors),
+            records={"ev-textforensics/builtin-heuristic-0.1.0-test": {"ok": True}},
+            checked_at_utc="2026-01-01T00:00:00+00:00")
+
+
 def probe_report_bundle():
     from textforensics.report import build_forensic_bundle
     from textforensics.detectors import BuiltinHeuristicDetector
@@ -2828,6 +3008,18 @@ def probe_report_bundle():
         ("no-detectors", {"detectors": []}, None),
         ("registry-records", {"registry": _records_registry()}, None),
         ("registry-records-disjointness", {"registry": _records_registry(), "disjointness": proof}, None),
+        # artifact_verification is a LOCAL set from registry.verify_artifacts()
+        # (verify_evidence=True); it is NOT a build_forensic_bundle kwarg.
+        # The eligible case needs the builtin record + binding proof + a
+        # verified RegistryVerification; without verification the record is
+        # ineligible and the trust dims stay partial/unknown.
+        ("artifact-eligible", {"verify_evidence": True,
+                               "registry": _builtin_records_registry(),
+                               "disjointness": proof}, "roots"),
+        ("artifact-eligible-noverify", {"registry": _builtin_records_registry(),
+                                        "disjointness": proof}, None),
+        ("artifact-empty", {"verify_evidence": True,
+                            "registry": _VerifiedMockRegistry(True, [])}, "roots"),
     ]
     for name, kwargs, extra in cases:
         text_arg = kwargs.pop("text", text)
