@@ -1667,3 +1667,129 @@ def probe_mixed_origin_regimes():
         except Exception as exc:  # noqa: BLE001
             rows.append((name, ("raise", type(exc).__name__, str(exc))))
     return rows
+
+
+# ---------------------------------------------------------------------------
+# report.build_forensic_bundle (new probe, W2-F kill tests)
+# ---------------------------------------------------------------------------
+class _MockRegistry:
+    """Minimal EvidenceRegistry stand-in for build_forensic_bundle."""
+    def __init__(self, verified=True, errors=()):
+        self.verified = verified
+        self.errors = list(errors)
+        self.roots = []
+        self.records = []
+        self.registry_id = "mock-registry"
+
+    def verify_artifacts(self, root="."):
+        from types import SimpleNamespace
+        self.roots.append(root)
+        return SimpleNamespace(verified=self.verified, errors=list(self.errors))
+
+    def summary(self):
+        return {"registry_id": "mock-registry", "record_count": 0}
+
+    def records_for(self, *args, **kwargs):
+        return list(getattr(self, "_records_for", []))
+
+
+def _report_summary(bundle):
+    d = bundle.to_dict()
+    d.pop("generated_at_utc", None)
+    tm = dict(d.get("trust_map") or {})
+    tm.pop("generated_at_utc", None)
+    results = []
+    for row in d.get("detector_results") or []:
+        results.append({k: v for k, v in row.items() if k != "runtime_ms"})
+        results[-1]["_has_runtime_ms"] = "runtime_ms" in row
+    failures = []
+    for row in d.get("detector_failures") or []:
+        failures.append({k: v for k, v in row.items() if k != "runtime_ms"})
+        failures[-1]["_has_runtime_ms"] = "runtime_ms" in row
+    robustness = []
+    for row in (d.get("robustness") or {}).get("detectors") or []:
+        r = dict(row)
+        r["failures"] = [{k: v for k, v in f.items() if k != "runtime_ms"}
+                         for f in row.get("failures") or []]
+        r["_failure_has_runtime_ms"] = [("runtime_ms" in f) for f in row.get("failures") or []]
+        robustness.append(r)
+    return {"schema": d.get("schema"), "content_sha256": d.get("content_sha256"),
+            "detector_results": results, "detector_failures": failures,
+            "robustness": robustness,
+            "trust_overall": tm.get("overall"),
+            "trust_dims": [(x.get("dimension"), x.get("state")) for x in tm.get("dimensions") or []],
+            "trust_dim_limitations": [(x.get("dimension"), x.get("limitations"))
+                                      for x in tm.get("dimensions") or []],
+            "trust_coverage": tm.get("coverage"),
+            "limitations": d.get("limitations"),
+            "skipped": (d.get("provenance") or {}).get("skipped_detectors"),
+            "legacy": d.get("legacy"),
+            "evidence_registry": d.get("evidence_registry")}
+
+
+def _records_registry():
+    import test_audit_w2_worker_a as A
+    reg = _MockRegistry(True, [])
+    reg._records_for = [A._v2_record()]
+    reg.records = reg._records_for
+    return reg
+
+
+def probe_report_bundle():
+    from textforensics.report import build_forensic_bundle
+    from textforensics.detectors import BuiltinHeuristicDetector
+    from textforensics.benchmark import DisjointnessProof
+    from types import SimpleNamespace
+    text = ("The city council approved the new budget on Tuesday. "
+            "Local residents welcomed the decision with cautious optimism. " * 8)
+    det = [BuiltinHeuristicDetector()]
+    proof = DisjointnessProof(status="verified", overlap_count=0, training_count=10,
+                              evaluation_count=10, training_hash="a" * 64,
+                              evaluation_hash="b" * 64, group_overlap_count=0)
+
+    def failing_detector():
+        d = SimpleNamespace(detector_id="fake/failing", detector_version="1",
+                            detector_family="fake", execution="local")
+        def detect(t):
+            raise RuntimeError("boom")
+        d.detect = detect
+        return d
+
+    def remote_detector():
+        d = SimpleNamespace(detector_id="fake/remote", detector_version="1",
+                            detector_family="fake", execution="remote")
+        d.detect = lambda t: None
+        return d
+
+    rows = []
+    cases = [
+        ("default", {}, None),
+        ("deterministic", {"deterministic": True}, None),
+        ("deterministic-fixed-ts", {"deterministic": True, "fixed_timestamp": "2026-01-01T00:00:00+00:00"}, None),
+        ("legacy", {"include_legacy": True}, None),
+        ("text-int", {"text": 123}, None),
+        ("text-empty", {"text": ""}, None),
+        ("text-spaces", {"text": "   "}, None),
+        ("both-registry", {"registry": _MockRegistry(), "registry_path": "x.json"}, None),
+        ("verify-no-registry", {"verify_evidence": True}, None),
+        ("verify-ok", {"verify_evidence": True, "registry": _MockRegistry(True, [])}, "roots"),
+        ("verify-fail-1", {"verify_evidence": True, "registry": _MockRegistry(False, ["bad artifact"])}, "roots"),
+        ("verify-fail-6", {"verify_evidence": True, "registry": _MockRegistry(False, [f"err{i}" for i in range(6)])}, "roots"),
+        ("verify-root", {"verify_evidence": True, "registry": _MockRegistry(True, []), "evidence_root": "/tmp/ev"}, "roots"),
+        ("disjointness", {"disjointness": proof}, None),
+        ("failing-detector", {"detectors": det + [failing_detector()]}, None),
+        ("failing-det-det", {"detectors": det + [failing_detector()], "deterministic": True}, None),
+        ("skipped-remote", {"detectors": det + [remote_detector()]}, None),
+        ("no-detectors", {"detectors": []}, None),
+        ("registry-records", {"registry": _records_registry()}, None),
+        ("registry-records-disjointness", {"registry": _records_registry(), "disjointness": proof}, None),
+    ]
+    for name, kwargs, extra in cases:
+        text_arg = kwargs.pop("text", text)
+        try:
+            bundle = build_forensic_bundle(text_arg, **kwargs)
+            rows.append((name, ("ok", _report_summary(bundle),
+                                kwargs.get("registry").roots if extra == "roots" else None)))
+        except Exception as exc:  # noqa: BLE001
+            rows.append((name, ("raise", type(exc).__name__, str(exc))))
+    return rows
