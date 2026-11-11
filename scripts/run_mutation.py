@@ -158,7 +158,7 @@ Some mutants cannot be killed by any test. Five kinds are recognised:
 Entries are keyed by ``(module, operator, start_pos, end_pos,
 occurrence)``. ``occurrence`` is part of the key — not provenance only —
 because one operator can generate several distinct mutants at one
-position: ``trust_map_from_capability_ledger`` L542:54 proves it, with
+position: ``trust_map_from_capability_ledger`` L628:54 proves it, with
 ``max(1, ...)`` -> ``max(2, ...)`` equivalent but ``max(1, ...)`` ->
 ``max(0, ...)`` killable (``0 >= 0`` becomes True). Position-only
 matching would conflate the two. An occurrence renumbering (a new
@@ -769,7 +769,7 @@ def _entry_key(
     ``occurrence`` is part of the key, not provenance only: one operator
     generates several distinct mutants at one position (NumberReplacer
     replaces a literal with several values), and those mutants need not
-    share equivalence — at ``trust_map_from_capability_ledger`` L542:54,
+    share equivalence — at ``trust_map_from_capability_ledger`` L628:54,
     ``max(1, ...)`` -> ``max(2, ...)`` is equivalent while ``max(1, ...)``
     -> ``max(0, ...)`` is killable. Position-only matching would conflate
     them. A renumbering (a new mutation point earlier in the file) makes
