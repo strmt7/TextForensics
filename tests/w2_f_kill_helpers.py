@@ -1514,13 +1514,32 @@ def probe_adv_analyze():
             ("As an AI language model, I cannot help with that request. " * 3, None),
             ("Delve into the multifaceted tapestry of human experience. " * 4, None),
             (_adv_text(40), "fr"),                  # non-English declaration
-            ("", None)):
+            ("", None),
+            ("   ", None),                            # whitespace-only: empty branch
+            ("   ", "fr"),                            # whitespace + non-English
+            ("\u4e2d\u6587\u6587\u672c\u6ca1\u6709\u62c9\u4e01\u5b57\u6bcd\u3002" * 3, None),  # no Latin letters
+            ("\u4e2d\u6587\u6587\u672c\u6ca1\u6709\u62c9\u4e01\u5b57\u6bcd\u3002" * 3, "en")):  # declared en, no Latin
         try:
             rep = det.analyze(text, language=language)
             rows.append(((len(text.split()), language), rep.overall_risk,
-                         rep.support_status, len(rep.findings)))
+                         rep.support_status, len(rep.findings), rep.text_length,
+                         len(rep.report_id), tuple(sorted(rep.detector_outputs.items())),
+                         tuple(sorted(rep.metadata.items())), len(rep.limitations)))
         except Exception as exc:  # noqa: BLE001
             rows.append(((len(text.split()), language),
+                         ("raise", type(exc).__name__, str(exc))))
+    # detector_outputs / metadata passthrough shapes (or->and, or {} mutants)
+    for det_out, meta in ((None, None), ({}, {}), ({"d1": 0.9}, None),
+                          (None, {"k": "v"}), ({"d1": 0.9}, {"k": "v"})):
+        try:
+            rep = det.analyze(_adv_text(40), detector_outputs=det_out, metadata=meta)
+            rows.append((("passthrough", det_out is not None, meta is not None),
+                         rep.overall_risk, rep.support_status, len(rep.findings),
+                         rep.text_length, len(rep.report_id),
+                         tuple(sorted(rep.detector_outputs.items())),
+                         tuple(sorted(rep.metadata.items())), len(rep.limitations)))
+        except Exception as exc:  # noqa: BLE001
+            rows.append((("passthrough", det_out is not None, meta is not None),
                          ("raise", type(exc).__name__, str(exc))))
     # summary(): text_sha256 prefix is [:16] + "..."
     for text in (_adv_text(40), _adv_text(10)):
@@ -1546,7 +1565,23 @@ def probe_adv_assess_risk():
                      [finding("low", 0.1), finding("high", 0.7)],
                      [finding("critical", 0.9), finding("critical", 0.9)],
                      [finding("medium", 0.5), finding("medium", 0.5),
-                      finding("medium", 0.5)]):
+                      finding("medium", 0.5)],
+                     # exact band boundaries (single high: risk == confidence)
+                     [finding("high", 0.65)], [finding("high", 0.45)],
+                     [finding("high", 0.25)], [finding("high", 0.15)],
+                     # exact boundaries via other weights
+                     [finding("critical", 0.4875)], [finding("critical", 0.3375)],
+                     [finding("critical", 0.1875)], [finding("critical", 0.1125)],
+                     [finding("medium", 0.84375)], [finding("medium", 0.46875)],
+                     [finding("medium", 0.28125)],
+                     [finding("low", 0.45)], [finding("low", 0.75)],
+                     # near-boundary weight rows (+/-1 weight crosses a band)
+                     [finding("critical", 0.3)], [finding("critical", 0.525)],
+                     [finding("high", 0.45)], [finding("high", 0.65)],
+                     [finding("medium", 0.5)], [finding("low", 1.0)],
+                     # unknown severity -> default weight 0
+                     [finding("bogus", 0.9)],
+                     [finding("bogus", 0.9), finding("critical", 0.9)]):
         rows.append(((tuple((f.severity, f.confidence) for f in findings),),
                      outcome(det._assess_risk, findings)))
     return rows
@@ -1565,11 +1600,16 @@ def probe_sem_analyze():
                   "certain problems exponentially faster than classical machines. " * 3)
     for text, language in ((three, None), (two, None), (long_mixed, None),
                            (three, "fr"), ("", None),
-                           (" ".join(["word"] * 400), None)):
+                           (" ".join(["word"] * 400), None),
+                           ("   ", None),                            # whitespace-only
+                           ("\u4e2d\u6587\u6587\u672c\u6ca1\u6709\u62c9\u4e01\u5b57\u6bcd\u3002" * 3, None)):  # no Latin
         try:
             rep = checker.analyze(text, language=language)
             rows.append(((len(text.split()), language), rep.risk_level,
-                         rep.support_status, len(rep.findings)))
+                         rep.support_status, len(rep.findings), rep.text_length,
+                         rep.n_segments, len(rep.report_id),
+                         tuple(sorted(rep.metadata.items())), len(rep.limitations),
+                         rep.overall_consistency_score))
         except Exception as exc:  # noqa: BLE001
             rows.append(((len(text.split()), language),
                          ("raise", type(exc).__name__, str(exc))))
@@ -1607,8 +1647,34 @@ def probe_sem_assess_risk():
     for findings in ([], [finding("low", 0.1)], [finding("medium", 0.5)],
                      [finding("high", 0.7)], [finding("critical", 0.9)],
                      [finding("low", 0.1), finding("high", 0.7)],
-                     [finding("critical", 0.9), finding("critical", 0.9)]):
-        rows.append(((tuple((f["severity"], f["confidence"]) for f in findings),),
+                     [finding("critical", 0.9), finding("critical", 0.9)],
+                     # exact band boundaries (single critical: risk == confidence)
+                     [finding("critical", 0.5)], [finding("critical", 0.3)],
+                     [finding("critical", 0.15)],
+                     # exact 0.7: 3 criticals (0.5, 0.7, 0.9) -> 3.15/4.5 == 0.7
+                     [finding("critical", 0.5), finding("critical", 0.7),
+                      finding("critical", 0.9)],
+                     # exact boundaries via other weights
+                     [finding("high", 0.75)], [finding("high", 0.45)],
+                     [finding("high", 0.225)],
+                     [finding("medium", 0.75)], [finding("medium", 0.375)],
+                     [finding("low", 0.75)], [finding("low", 1.0)],
+                     # near-boundary weight rows (+/-1 weight crosses a band)
+                     [finding("critical", 0.45)], [finding("high", 0.75)],
+                     [finding("medium", 0.75)], [finding("low", 1.0)],
+                     # unknown severity -> default weight 0.3; missing keys -> defaults
+                     [finding("bogus", 0.9)],
+                     [finding("bogus", 0.9), finding("critical", 0.9)],
+                     [{"finding_id": "f1", "category": "style", "description": "synthetic",
+                       "evidence": 0.5, "confidence": 0.9,
+                       "segment_indices": (0, 1), "details": {}},
+                      ],
+                     [{"finding_id": "f1", "category": "style", "description": "synthetic",
+                       "evidence": 0.5, "severity": "critical",
+                       "segment_indices": (0, 1), "details": {}},
+                      ]):
+        rows.append(((tuple((f.get("severity", "<missing>"),
+                             f.get("confidence", "<missing>")) for f in findings),),
                      outcome(checker._assess_risk, findings)))
     return rows
 
