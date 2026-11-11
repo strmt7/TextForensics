@@ -282,6 +282,12 @@ def probe_pm_brier():
         rows.append(((probs, labels), outcome(brier, probs, labels)))
     # mismatched lengths: must raise identically under both (strict never fires)
     rows.append((("mismatch",), outcome(brier, [0.1, 0.2], [0])))
+    rows.append((("mismatch-short",), outcome(brier, [0.1], [0, 1])))
+    # >256 equal lengths: NotEq_IsNot (len is not len)
+    rows.append((("len-300",), outcome(brier, [0.5] * 300, [0] * 300)))
+    # invalid probs: ZeroIterationForLoop validation
+    for probs in ([2.0, 0.5], [-0.5, 0.5], [float("nan"), 0.5]):
+        rows.append(((f"badprob-{probs[0]!r}",), outcome(brier, probs, [0, 1])))
     return rows
 
 
@@ -292,9 +298,19 @@ def probe_pm_ece():
             ([0.1, 0.9, 0.4, 0.6], [0, 1, 0, 1], 10),
             ([0.0, 1.0, 0.5], [0, 1, 1], 2),
             ([0.25, 0.75], [0, 1], 1),
-            ([0.1, 0.9], [0, 1], 300)):
+            ([0.1, 0.9], [0, 1], 300),
+            ([0.1, 0.9, 1.0], [0, 1, 1], 300),   # p == 1.0 in last bin (Eq_Is:15)
+            ([0.1, 0.9, 1.0], [0, 1, 1], 10),
+            ([0.0, 0.0, 1.0, 1.0], [0, 0, 1, 1], 4)):
         rows.append(((probs, labels, nb), outcome(ece, probs, labels, n_bins=nb)))
     rows.append((("mismatch",), outcome(ece, [0.1, 0.2], [0])))
+    rows.append((("mismatch-short",), outcome(ece, [0.1], [0, 1])))
+    rows.append((("len-300",), outcome(ece, [0.5] * 300, [0] * 300, n_bins=10)))
+    for nb in (0, 1, 2):
+        rows.append(((f"nb-{nb}",), outcome(ece, [0.1, 0.9], [0, 1], n_bins=nb)))
+    for labels in ([True, 1], [2, 1], ["x", 1]):
+        rows.append(((f"badlabel-{labels[0]!r}",),
+                     outcome(ece, [0.1, 0.9], labels, n_bins=10)))
     return rows
 
 
@@ -309,6 +325,11 @@ def probe_pm_fpr():
         rows.append(((scores, labels, thr, direction),
                      outcome(fpr_at_threshold, scores, labels, thr, direction=direction)))
     rows.append((("mismatch",), outcome(fpr_at_threshold, [0.1], [0, 1], 0.5)))
+    rows.append((("mismatch-long",), outcome(fpr_at_threshold, [0.1, 0.2], [0], 0.5)))
+    rows.append((("len-300",), outcome(fpr_at_threshold, [0.5] * 300, [0] * 300, 0.5)))
+    for labels in ([True, 1], [2, 1], ["x", 1]):
+        rows.append(((f"badlabel-{labels[0]!r}",),
+                     outcome(fpr_at_threshold, [0.1, 0.9], labels, 0.5)))
     return rows
 
 
@@ -326,7 +347,10 @@ def probe_pm_is_ai_like():
 def probe_pm_ks_pvalue():
     from textforensics.probe_metrics import ks_pvalue
     rows = []
-    for d, n, m in ((0.0, 10, 10), (0.5, 10, 10), (1.0, 5, 7), (0.25, 100, 100), (0.0, 1, 1)):
+    for d, n, m in ((0.0, 10, 10), (0.5, 10, 10), (1.0, 5, 7), (0.25, 100, 100), (0.0, 1, 1),
+                    (-0.5, 10, 10), (1.5, 10, 10), (0.05, 100, 100), (0.01, 100, 100),
+                    (0.5, 0, 10), (0.5, 1, 10), (0.5, 10, 0), (0.5, 10, 1),
+                    (0.9, 100, 100), (0.3, 20, 30)):
         rows.append(((d, n, m), outcome(ks_pvalue, d, n, m)))
     return rows
 
@@ -336,7 +360,14 @@ def probe_pm_ks_statistic():
     rows = []
     for a, b in (([1, 2, 3], [1, 2, 3]), ([1, 2], [3, 4, 5]),
                  ([0.5], [0.5, 0.6]), ([1, 1, 1], [2, 2, 2]),
-                 (list(range(300)), list(range(300)))):
+                 (list(range(300)), list(range(300))),
+                 ([3, 4, 5], [1, 2]),              # b shorter: j hits m first
+                 ([1, 3], [2, 4]),                  # interleaved
+                 ([1, 2, 3], [1, 2]),               # b shorter, ties
+                 (list(range(400)), list(range(300))),   # b shorter, >256
+                 (list(range(300)), list(range(400))),   # a shorter, >256
+                 ([1, 1, 2, 2, 3], [1, 2, 3, 3]),  # ties + interleaved
+                 ([5], [1, 2, 3, 4])):              # a single, b longer
         rows.append(((a, b), outcome(ks_statistic, a, b)))
     return rows
 
@@ -358,9 +389,38 @@ def probe_pm_tpr():
             ([0.1, 0.9, 0.4, 0.6], [0, 1, 0, 1], 0.01, "higher_means_ai"),
             ([0.1, 0.9], [0, 1], 0.5, "higher_means_ai"),
             ([0.1, 0.9], [0, 1], 0.0, "lower_means_ai"),
-            ([0.5, 0.5], [0, 1], 0.01, "higher_means_ai")):
+            ([0.5, 0.5], [0, 1], 0.01, "higher_means_ai"),
+            # valid lower_means_ai rows (native threshold negation)
+            ([0.1, 0.9], [0, 1], 0.5, "lower_means_ai"),
+            ([0.1, 0.9, 0.4, 0.6], [0, 1, 0, 1], 0.01, "lower_means_ai"),
+            # target_fpr boundaries (Lt_NotEq / Lt_LtE / NumberReplacer)
+            ([0.1, 0.9], [0, 1], -0.5, "higher_means_ai"),
+            ([0.1, 0.9], [0, 1], 0.0, "higher_means_ai"),
+            ([0.1, 0.9], [0, 1], 1.0, "higher_means_ai"),
+            ([0.1, 0.9], [0, 1], 1.5, "higher_means_ai"),
+            # fpr exactly == target_fpr: threshold 0.9 is the unique best
+            # (tpr 1.0); the LtE_Lt mutant drops it and falls back to tpr 0.5
+            ([0.9, 0.95] + [0.1] * 99 + [0.9], [1, 1] + [0] * 99 + [0],
+             0.01, "higher_means_ai"),
+            # tied tpr: equal tpr, different fpr/threshold (USub tie-breaks)
+            ([0.2, 0.8, 0.3, 0.7], [0, 1, 0, 1], 0.5, "higher_means_ai"),
+            ([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8],
+             [0, 0, 0, 0, 1, 1, 1, 1], 0.25, "higher_means_ai")):
         rows.append(((scores, labels, target, direction),
                      outcome(tpr_at_fpr, scores, labels, target_fpr=target, direction=direction)))
+    # default target_fpr (0.01): NumberReplacer on the default
+    for scores, labels, direction in (
+            ([0.1, 0.9, 0.4, 0.6], [0, 1, 0, 1], "higher_means_ai"),
+            ([0.1, 0.9], [0, 1], "lower_means_ai")):
+        rows.append(((f"default-{direction}",),
+                     outcome(tpr_at_fpr, scores, labels, direction=direction)))
+    rows.append((("mismatch-long",), outcome(tpr_at_fpr, [0.1, 0.2], [0], target_fpr=0.5)))
+    rows.append((("mismatch-short",), outcome(tpr_at_fpr, [0.1], [0, 1], target_fpr=0.5)))
+    rows.append((("len-300",), outcome(tpr_at_fpr, [0.5] * 300, [0] * 300, target_fpr=0.5)))
+    rows.append((("empty",), outcome(tpr_at_fpr, [], [], target_fpr=0.5)))
+    for labels in ([True, 1], [2, 1], ["x", 1]):
+        rows.append(((f"badlabel-{labels[0]!r}",),
+                     outcome(tpr_at_fpr, [0.1, 0.9], labels, target_fpr=0.5)))
     return rows
 
 
@@ -1471,10 +1531,51 @@ def probe_val_derive_dimension():
     rows.append((("empty-oos", False),
                  outcome(_derive_evidence_dimension, "language", matching=(),
                          detector_records=recs, **base_kw)))
+    # every dimension name with a supporting record: Eq_Lt/Eq_LtE/Eq_GtE name mutants
+    sup = A.ValidationRecord.from_dict(A._v3_record_dict(status="supported"))
+    for name in ("language", "text_length", "domain_genre", "editing_revision",
+                 "generator_scope", "human_population",
+                 "human_false_positive_evidence", "temporal_version_stability"):
+        rows.append(((f"name-{name}", False),
+                     outcome(_derive_evidence_dimension, name, matching=(sup,),
+                             detector_records=(sup,), **base_kw)))
+    # temporal: clean_runs boundaries 0/1/2/3 + watch shapes
+    def _long(runs, watch=None):
+        d = {"consecutive_clean_full_runs": runs,
+             "clean_full_run_ids": [f"run-{i}" for i in range(runs)],
+             "corpus_fingerprint": "sha256:" + "a" * 64}
+        if watch is not None:
+            d["watch"] = watch
+        return d
+    for runs in (0, 1, 2, 3):
+        rows.append(((f"temporal-runs{runs}", False),
+                     outcome(_derive_evidence_dimension, "temporal_version_stability",
+                             matching=(sup,), detector_records=(sup,), **base_kw,
+                             longitudinal=_long(runs))))
+    for watch in (None, {"reason": "drift"}, {"reason": "drift", "since": "2026-11-01"}):
+        rows.append(((f"temporal-watch-{watch is not None}", False),
+                     outcome(_derive_evidence_dimension, "temporal_version_stability",
+                             matching=(sup,), detector_records=(sup,), **base_kw,
+                             longitudinal=_long(2, watch))))
+    rows.append((("temporal-long-empty", False),
+                 outcome(_derive_evidence_dimension, "temporal_version_stability",
+                         matching=(sup,), detector_records=(sup,), **base_kw,
+                         longitudinal={})))
+    rows.append((("temporal-long-none", False),
+                 outcome(_derive_evidence_dimension, "temporal_version_stability",
+                         matching=(sup,), detector_records=(sup,), **base_kw,
+                         longitudinal=None)))
+    # HFP with supporting + other-name veto shapes
+    for name in ("domain_genre", "editing_revision", "generator_scope", "language",
+                 "human_false_positive_evidence"):
+        rows.append(((f"hfp-{name}", False),
+                     outcome(_derive_evidence_dimension, name, matching=(sup,),
+                             detector_records=(sup,), **base_kw)))
     return rows
 
 
 def probe_val_derive_trust_map():
+    from textforensics.validation import derive_trust_map
     A = _v3()
     rows = []
     for n_records, statuses in ((0, ()), (1, ("supported",)),
@@ -1487,6 +1588,70 @@ def probe_val_derive_trust_map():
         tm = A._v3_derive(cond, registry)
         rows.append(((n_records, statuses), tm.overall,
                      [(d.dimension, d.state) for d in tm.dimensions]))
+    # fpr_ceiling / failure_count validation boundaries (call derive_trust_map directly)
+    recs = [A._v3_record_dict(status="supported")]
+    registry = A._v3_registry(*recs)
+    cond = A._v3_conditions()
+    for fc in (True, False, 0.0, 0.5, 1.0, -0.1, 1.1, "x", None):
+        try:
+            tm = derive_trust_map(cond, registry, detector_id=A.V3_DETECTOR,
+                                  detector_version=A.V3_VERSION, now=A.NOW,
+                                  fpr_ceiling=fc)
+            rows.append(((f"fpr-ceiling-{fc!r}",), tm.overall,
+                         [(d.dimension, d.state) for d in tm.dimensions],
+                         sorted(tm.evidence_registry.items()) if tm.evidence_registry else None))
+        except Exception as exc:  # noqa: BLE001
+            rows.append(((f"fpr-ceiling-{fc!r}",), ("raise", type(exc).__name__, str(exc))))
+    for nfail in (True, -1, 0, 1, 2):
+        try:
+            tm = derive_trust_map(cond, registry, detector_id=A.V3_DETECTOR,
+                                  detector_version=A.V3_VERSION, now=A.NOW,
+                                  failure_count=nfail)
+            rows.append(((f"failure-count-{nfail!r}",), tm.overall,
+                         [(d.dimension, d.state) for d in tm.dimensions]))
+        except Exception as exc:  # noqa: BLE001
+            rows.append(((f"failure-count-{nfail!r}",), ("raise", type(exc).__name__, str(exc))))
+    # out-of-vocabulary condition values: language/domain/population "zzz",
+    # unknown domain (low confidence), unknown editing regime
+    for label, overrides in (
+            ("lang-zho", {"language": "zho"}),
+            ("lang-und", {"language": "und"}),
+            ("lang-lowconf", {"language_confidence": "low"}),
+            ("domain-zzz", {"domain_genre": "zzz"}),
+            ("domain-lowconf", {"domain_confidence": "low"}),
+            ("editing-zzz", {"editing_regime": "zzz"}),
+            ("editing-mixed", {"editing_regime": "mixed"}),
+            ("pop-zzz", {"human_population": "zzz"}),
+            ("pop-unknown", {"human_population": "unknown"})):
+        try:
+            c2 = A._v3_conditions(**overrides)
+            tm = A._v3_derive(c2, registry)
+            rows.append(((label,), tm.overall,
+                         [(d.dimension, d.state) for d in tm.dimensions]))
+        except Exception as exc:  # noqa: BLE001
+            rows.append(((label,), ("raise", type(exc).__name__, str(exc))))
+    # longitudinal watch shapes
+    for label, longi in (("long-none", None), ("long-empty", {}),
+                         ("long-watch-none", {"watch": None}),
+                         ("long-watch", {"watch": {"reason": "drift"}})):
+        try:
+            tm = derive_trust_map(cond, registry, detector_id=A.V3_DETECTOR,
+                                  detector_version=A.V3_VERSION, now=A.NOW,
+                                  longitudinal=longi)
+            rows.append(((label,), tm.overall,
+                         [(d.dimension, d.state) for d in tm.dimensions]))
+        except Exception as exc:  # noqa: BLE001
+            rows.append(((label,), ("raise", type(exc).__name__, str(exc))))
+    # invalid `now`: _coerce_now raises ValidationError -> except falls back
+    # (record no timestamp: the fallback uses datetime.now, non-deterministic)
+    for label, now in (("now-bad", "not-a-date"), ("now-none", None)):
+        try:
+            tm = derive_trust_map(cond, registry, detector_id=A.V3_DETECTOR,
+                                  detector_version=A.V3_VERSION, now=now)
+            rows.append(((label,), tm.overall,
+                         [(d.dimension, d.state) for d in tm.dimensions]))
+        except Exception as exc:  # noqa: BLE001
+            rows.append(((label,), ("raise", type(exc).__name__, str(exc))))
     return rows
 
 # ---------------------------------------------------------------------------
@@ -1700,16 +1865,97 @@ def probe_explain_explain():
         "This is machine generated content. This is a handwritten note from a friend. The weather is fine today.",
         "The weather is fine today. This is machine generated content. This is a handwritten note from a friend.",
         "A single sentence only.",
+        "",                                  # 0 segments: LtE_Eq:0 limitation branch
+        "   ",                               # whitespace-only: 0 segments
     ]
     for text in texts:
         try:
             rep = expl.explain(text)
             rows.append(((len(text.split(".")),),
                          [(s.direction, round(s.delta, 6)) for s in rep.segment_attribution],
-                         rep.completeness.selected, rep.completeness.attempted))
+                         rep.completeness.selected, rep.completeness.attempted,
+                         [(a.direction, a.abs_delta) for a in rep.top_ai_driving],
+                         [(a.direction, a.abs_delta) for a in rep.top_human_driving],
+                         tuple(rep.limitations), rep.n_segments, rep.n_scored))
         except Exception as exc:  # noqa: BLE001
             rows.append(((len(text.split(".")),),
                          ("raise", type(exc).__name__, str(exc))))
+    # recording progress callback: Add family + NumberReplacer on idx+1
+    calls = []
+    try:
+        rep = expl.explain(texts[0], progress=lambda c, t: calls.append((c, t)))
+        rows.append((("progress",),
+                     [(s.direction, round(s.delta, 6)) for s in rep.segment_attribution],
+                     tuple(calls), rep.completeness.selected, rep.completeness.attempted))
+    except Exception as exc:  # noqa: BLE001
+        rows.append((("progress",), ("raise", type(exc).__name__, str(exc))))
+    # raising score_fn: continue-vs-break (raise on one perturbed text only)
+    def raising_fn(text):
+        if "machine generated" not in text:
+            raise ValueError("no machine marker")
+        return score_fn(text)
+    expl_r = CounterfactualExplainer(raising_fn, detector_id="d", detector_version="1")
+    try:
+        rep = expl_r.explain(texts[0])
+        rows.append((("raising",),
+                     [(s.direction, round(s.delta, 6)) for s in rep.segment_attribution],
+                     rep.completeness.selected, rep.completeness.attempted,
+                     rep.completeness.failed, rep.completeness.succeeded,
+                     tuple(rep.limitations)))
+    except Exception as exc:  # noqa: BLE001
+        rows.append((("raising",), ("raise", type(exc).__name__, str(exc))))
+    # long-decimal score_fn: round(delta, 6) mutants
+    def long_fn(text):
+        score = 0.1234567891
+        if "machine generated" in text:
+            score += 0.1111111111
+        if "handwritten note" in text:
+            score -= 0.2222222222
+        return score
+    expl_l = CounterfactualExplainer(long_fn, detector_id="d", detector_version="1")
+    try:
+        rep = expl_l.explain(texts[0])
+        rows.append((("long-decimal",),
+                     [(s.direction, s.delta, s.abs_delta) for s in rep.segment_attribution],
+                     [(a.direction, a.abs_delta) for a in rep.top_ai_driving],
+                     [(a.direction, a.abs_delta) for a in rep.top_human_driving]))
+    except Exception as exc:  # noqa: BLE001
+        rows.append((("long-decimal",), ("raise", type(exc).__name__, str(exc))))
+    # >256 segments: NotEq_IsNot:0 (i != idx -> i is not idx).
+    # Counting score_fn + a marker in EVERY segment: removing segment idx
+    # drops the count by 1 (delta -0.4); under the mutant, idx >= 257 keeps
+    # its own segment in `remaining` (delta 0).
+    def counting_fn(text):
+        score = 0.5
+        score += 0.4 * text.count("machine generated")
+        score += 0.2 * text.count("AI wrote this")
+        score -= 0.3 * text.count("handwritten note")
+        score -= 0.1 * text.count("penned by hand")
+        return score
+    expl_c = CounterfactualExplainer(counting_fn, detector_id="d", detector_version="1")
+    big_text = " ".join(f"Word {i} machine generated here." for i in range(260))
+    try:
+        rep = expl_c.explain(big_text)
+        rows.append((("big-260",),
+                     rep.n_segments, rep.n_scored,
+                     round(sum(s.delta for s in rep.segment_attribution), 6),
+                     round(sum(s.abs_delta for s in rep.segment_attribution), 6),
+                     [(s.direction, round(s.delta, 6)) for s in rep.segment_attribution[:3]],
+                     [(s.direction, round(s.delta, 6)) for s in rep.segment_attribution[-3:]]))
+    except Exception as exc:  # noqa: BLE001
+        rows.append((("big-260",), ("raise", type(exc).__name__, str(exc))))
+    # two pushes_ai segments with DIFFERENT deltas: reverse=True ordering
+    multi_text = ("This is machine generated content. AI wrote this paragraph here. "
+                  "This is a handwritten note from a friend. A passage penned by hand follows. "
+                  "The weather is fine today.")
+    try:
+        rep = expl_c.explain(multi_text)
+        rows.append((("multi-direction",),
+                     [(s.direction, round(s.delta, 6)) for s in rep.segment_attribution],
+                     [(a.direction, a.abs_delta) for a in rep.top_ai_driving],
+                     [(a.direction, a.abs_delta) for a in rep.top_human_driving]))
+    except Exception as exc:  # noqa: BLE001
+        rows.append((("multi-direction",), ("raise", type(exc).__name__, str(exc))))
     # abstaining score_fn (timestamp-free fields: created_at varies per call)
     expl2 = CounterfactualExplainer(lambda t: None, detector_id="d", detector_version="1")
     try:
@@ -2615,7 +2861,20 @@ def probe_pm_extra():
         ("psi-empty", lambda: psi([], [0.1])),
         ("psi-nan", lambda: psi([0.1, float("nan")], [0.1, 0.2])),
         ("psi-cut-edge", lambda: psi([0.0, 0.25, 0.5, 0.75, 1.0], [0.25, 0.25, 0.5, 0.75, 1.0], bins=4)),
+        # psi with default bins: this spread distribution gives distinct
+        # values for bins 9/10/11 (1.061635 / 1.647748 / 0.840492)
+        ("psi-spread", lambda: psi(
+            [0.037, 0.058, 0.07, 0.072, 0.091, 0.124, 0.151, 0.223, 0.324, 0.366,
+             0.397, 0.425, 0.434, 0.507, 0.536, 0.577, 0.627, 0.651, 0.827, 0.948],
+            [0.047, 0.06, 0.063, 0.118, 0.144, 0.181, 0.206, 0.29, 0.308, 0.314,
+             0.372, 0.428, 0.548, 0.582, 0.586, 0.639, 0.68, 0.816, 0.858, 0.976])),
+        ("psi-spread2", lambda: psi([0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95],
+                                    [0.5] * 10,
+                                    bins=5)),
+        ("psi-n1", lambda: psi([0.1], [0.9], bins=2)),
+        ("psi-n2", lambda: psi([0.1, 0.9], [0.2, 0.8], bins=3)),
         ("wilson-0-10", lambda: wilson_ci(0, 10)),
+        ("wilson-k-neg", lambda: wilson_ci(-1, 10)),
         ("wilson-10-10", lambda: wilson_ci(10, 10)),
         ("wilson-5-10", lambda: wilson_ci(5, 10)),
         ("wilson-1-100", lambda: wilson_ci(1, 100)),
@@ -2637,6 +2896,8 @@ def probe_pm_extra():
         ("holm-unsorted", lambda: holm_adjusted([0.04, 0.01, 0.03, 0.02])),
         ("holm-cap", lambda: holm_adjusted([0.5, 0.6, 0.7])),
         ("holm-running-max", lambda: holm_adjusted([0.01, 0.9, 0.02])),
+        ("holm-small", lambda: holm_adjusted([0.001, 0.002])),
+        ("holm-zero", lambda: holm_adjusted([0.0, 0.5])),
         ("holm-empty", lambda: holm_adjusted([])),
         ("holm-over-1", lambda: holm_adjusted([1.5])),
         ("holm-5-2", lambda: holm_adjusted([0.01, 0.02, 0.03, 0.04, 0.05])),
@@ -2644,6 +2905,7 @@ def probe_pm_extra():
         ("setcov-none", lambda: set_coverage([{1}, {0}], [0, 1])),
         ("setcov-half", lambda: set_coverage([{0}, {0}], [0, 1])),
         ("setcov-mismatch", lambda: set_coverage([{0}], [0, 1])),
+        ("setcov-longer", lambda: set_coverage([{0}, {1}], [0])),
         ("setcov-empty", lambda: set_coverage([], [])),
         ("setcov-bool-label", lambda: set_coverage([{0}], [True])),
         ("setcov-str-label", lambda: set_coverage([{0}], ["0"])),
