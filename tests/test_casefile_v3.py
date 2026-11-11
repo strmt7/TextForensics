@@ -11,6 +11,7 @@ keep sealing and verifying as before.
 """
 
 import copy
+import hashlib
 import importlib.util
 import json
 import unittest
@@ -458,12 +459,15 @@ class VerifyV3Tests(unittest.TestCase):
         trust_map = v3_trust_map(bundle, registry)
         trust_map["dimensions"][0]["state"] = "stale"
         trust_map["dimensions"][0]["reason"] = "Record is stale: revalidation due."
-        trust_map["overall"] = _overall_state_v3(
-            [
-                TrustDimension(d["dimension"], d["state"], d["reason"])
-                for d in trust_map["dimensions"]
-            ]
-        )
+        dims = [
+            TrustDimension(d["dimension"], d["state"], d["reason"]) for d in trust_map["dimensions"]
+        ]
+        trust_map["overall"] = _overall_state_v3(dims)
+        # W2 (C10): coverage must stay consistent with the dimensions
+        # after the flip, or the map is incomplete.
+        from textforensics.trust import TRUST_STATES_V3, _coverage_counts
+
+        trust_map["coverage"] = _coverage_counts(dims, TRUST_STATES_V3)
         bundle["trust_map"] = trust_map
         case = seal_case_file(bundle, validation_registry=registry)
         result = nversion_verify_case_file(case)
@@ -487,8 +491,6 @@ class VerifyV3Tests(unittest.TestCase):
         result = nversion_verify_case_file(case)
         self.assertFalse(result["valid"])
         self.assertTrue(any("overall mismatch" in error for error in result["errors"]))
-
-
 
 
 class TrustMapCompletenessReplayTests(unittest.TestCase):
@@ -530,9 +532,7 @@ class TrustMapCompletenessReplayTests(unittest.TestCase):
         tampered = self._reseal(tampered)
         result = replay_case_file(tampered)
         self.assertFalse(result["valid"])
-        self.assertTrue(
-            any("dimension" in error for error in result["errors"]), result["errors"]
-        )
+        self.assertTrue(any("dimension" in error for error in result["errors"]), result["errors"])
 
     def test_replay_rejects_subset_map_without_registry(self):
         from textforensics.trust import TRUST_DIMENSIONS

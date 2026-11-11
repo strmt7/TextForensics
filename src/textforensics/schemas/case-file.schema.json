@@ -379,6 +379,29 @@
       "type": "array"
     },
     "forensic_bundle": {
+      "properties": {
+        "schema": {
+          "enum": [
+            "textforensics.forensic-bundle/v1",
+            "textforensics.forensic-bundle/v2"
+          ]
+        },
+        "trust_map": {
+          "properties": {
+            "schema": {
+              "enum": [
+                "textforensics.trust-map/v1",
+                "textforensics.trust-map/v2",
+                "textforensics.trust-map/v3"
+              ]
+            }
+          },
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
       "type": "object"
     },
     "gaps": {

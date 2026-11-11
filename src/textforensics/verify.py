@@ -96,12 +96,12 @@ def _recompute_overall(dimensions: list[dict[str, Any]]) -> str | None:
     not stand in for a missing one), ``strong`` requires every declared
     dimension present and supported, and an empty dimension list yields
     ``insufficient`` — never ``strong``.  Only the declared dimension
-    names are imported from ``trust`` (data, not logic); the derivation
+    names are imported from ``schema`` (data, not logic); the derivation
     itself stays an independent implementation.  Non-dict entries are
     skipped here — they are already reported as errors by
     ``_verify_trust_dimension``.
     """
-    from .trust import TRUST_DIMENSIONS
+    from .schema import DECLARED_TRUST_MAP_DIMENSIONS
 
     by_name = {
         dim.get("dimension"): dim.get("state", "") for dim in dimensions if isinstance(dim, dict)
@@ -113,7 +113,9 @@ def _recompute_overall(dimensions: list[dict[str, Any]]) -> str | None:
 
     if by_name.get("language") == "out_of_scope" or by_name.get("text_length") == "out_of_scope":
         return "insufficient"
-    if supported == len(TRUST_DIMENSIONS):
+    if set(by_name) == DECLARED_TRUST_MAP_DIMENSIONS and supported == len(
+        DECLARED_TRUST_MAP_DIMENSIONS
+    ):
         return "strong"
     if supported == 0 and partial == 0:
         return "insufficient"
@@ -130,8 +132,13 @@ def _recompute_overall_v3(dimensions: list[dict[str, Any]]) -> str | None:
     supported; insufficient iff language or text_length is
     out_of_scope, or no dimension is supported or partial; else mixed.
     ``stale`` counts as neither supported nor partial.  Dimensions are
-    deduplicated by name, as in :func:`_recompute_overall`.
+    deduplicated by name, as in :func:`_recompute_overall`, and
+    ``strong`` additionally requires exactly the declared dimension
+    set — a one-dimension map, a nonempty subset, or ten wrong names
+    can never derive ``strong`` (C10).
     """
+    from .schema import DECLARED_TRUST_MAP_DIMENSIONS
+
     by_name = {
         dim.get("dimension"): dim.get("state", "") for dim in dimensions if isinstance(dim, dict)
     }
@@ -145,7 +152,9 @@ def _recompute_overall_v3(dimensions: list[dict[str, Any]]) -> str | None:
         # Mirrors the v2 independent implementation: an empty dimension
         # list yields insufficient, never strong.
         return "insufficient"
-    if supported == len(by_name):
+    if set(by_name) == DECLARED_TRUST_MAP_DIMENSIONS and supported == len(
+        DECLARED_TRUST_MAP_DIMENSIONS
+    ):
         return "strong"
     if supported == 0 and partial == 0:
         return "insufficient"
@@ -257,6 +266,14 @@ def verify_case_file(payload: dict[str, Any]) -> dict[str, Any]:
         tm_schema = trust_map.get("schema")
         if tm_schema not in (_TRUST_MAP_V3_SCHEMA, _TRUST_MAP_V2_SCHEMA, _TRUST_MAP_V1_SCHEMA):
             errors.append(f"trust_map has unexpected schema: {tm_schema!r}")
+        # C23: the (bundle version, trust-map version) pair must be an
+        # accepted one; C10: a v2/v3 map must carry exactly the declared
+        # dimension set with consistent metadata/coverage before any
+        # `strong` overall may be derived from it.
+        from .schema import validate_bundle_trust_map_pair, validate_trust_map_completeness
+
+        if isinstance(bundle, dict):
+            errors.extend(validate_bundle_trust_map_pair(bundle.get("schema"), tm_schema))
         is_v3 = tm_schema == _TRUST_MAP_V3_SCHEMA
         dims = trust_map.get("dimensions")
         if not isinstance(dims, list):
@@ -272,9 +289,14 @@ def verify_case_file(payload: dict[str, Any]) -> dict[str, Any]:
                 if status != "ok":
                     errors.append(f"trust dimension {dname}: {status}")
 
+            completeness_errors = validate_trust_map_completeness(trust_map)
+            errors.extend(completeness_errors)
+
             overall_stored = trust_map.get("overall", "")
             overall_derived = _recompute_overall_v3(dims) if is_v3 else _recompute_overall(dims)
-            info["trust_map_verified"] = overall_stored == overall_derived
+            info["trust_map_verified"] = (
+                overall_stored == overall_derived and not completeness_errors
+            )
             if overall_stored != overall_derived:
                 errors.append(
                     f"trust_map overall mismatch: stored={overall_stored!r} "
@@ -555,6 +577,16 @@ def verify_benchmark(result: dict[str, Any]) -> dict[str, Any]:
     ``benchmark._metrics``. It re-computes rates from tp/fp/tn/fn and
     compares them to the stored values.
 
+    Domains are validated BEFORE any recomputation or comparison (C19):
+    counts must be exact non-negative integers (booleans are not
+    integers, fractional/string/null counts are not counts), stored
+    rates must be present, finite numbers in [0, 1], and the dataset
+    fingerprint must be 64 lowercase hex characters.  An invalid
+    domain is an artifact rejection, not a comparison result — a NaN
+    rate can never compare equal, and a negative count can never be
+    rescued by algebraically consistent rates.  Rates are still
+    independently derived from valid counts, as before.
+
     Parameters
     ----------
     result:
@@ -567,57 +599,108 @@ def verify_benchmark(result: dict[str, Any]) -> dict[str, Any]:
         - valid: overall boolean
         - errors: list of error strings
         - recomputed_metrics: dict of re-derived metric values
+          (empty when the counts are not valid enough to derive from)
     """
     errors: list[str] = []
     recomputed: dict[str, Any] = {}
 
-    tp = result.get("tp", 0)
-    fp = result.get("fp", 0)
-    tn = result.get("tn", 0)
-    fn = result.get("fn", 0)
-    evaluated = result.get("evaluated", 0)
+    if not isinstance(result, dict):
+        return {
+            "valid": False,
+            "errors": ["benchmark result must be a JSON object"],
+            "recomputed_metrics": recomputed,
+        }
 
-    # Total check
-    total = tp + fp + tn + fn
-    if total != evaluated:
-        errors.append(f"evaluated ({evaluated}) != tp+fp+tn+fn ({total})")
+    # --- Count domains: exact non-negative integers, bool excluded. ---
+    counts: dict[str, int] = {}
+    counts_ok = True
+    for field in ("tp", "fp", "tn", "fn", "evaluated"):
+        value = result.get(field)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            errors.append(f"{field} must be a non-negative integer")
+            counts_ok = False
+        else:
+            counts[field] = value
 
-    # Re-compute rates independently
-    if total:
-        recomputed["accuracy"] = round((tp + tn) / total, 4)
-        recomputed["true_positive_rate"] = round(tp / (tp + fn), 4) if (tp + fn) else 0.0
-        recomputed["false_positive_rate"] = round(fp / (fp + tn), 4) if (fp + tn) else 0.0
-        recomputed["specificity"] = round(tn / (tn + fp), 4) if (tn + fp) else 0.0
-        recomputed["false_negative_rate"] = round(fn / (fn + tp), 4) if (fn + tp) else 0.0
-        recomputed["precision"] = round(tp / (tp + fp), 4) if (tp + fp) else 0.0
-    else:
-        recomputed["accuracy"] = 0.0
-        recomputed["true_positive_rate"] = 0.0
-        recomputed["false_positive_rate"] = 0.0
-        recomputed["specificity"] = 0.0
-        recomputed["false_negative_rate"] = 0.0
-        recomputed["precision"] = 0.0
-
-    # Cross-check stored values against re-derived
-    for metric in (
+    # --- Stored rates: present, finite numbers in [0, 1]. ---
+    rate_names = (
         "accuracy",
         "true_positive_rate",
         "false_positive_rate",
         "specificity",
         "false_negative_rate",
         "precision",
-    ):
+    )
+    stored_rates: dict[str, float] = {}
+    for metric in rate_names:
         stored = result.get(metric)
-        derived = recomputed[metric]
-        if stored is not None and derived is not None:
-            if abs(stored - derived) > 0.001:
-                errors.append(f"{metric}: stored={stored} recomputed={derived}")
-        elif stored is None and derived is not None:
-            errors.append(f"{metric}: stored value is None")
+        if (
+            isinstance(stored, bool)
+            or not isinstance(stored, (int, float))
+            or not math.isfinite(float(stored))
+            or not 0.0 <= float(stored) <= 1.0
+        ):
+            errors.append(f"{metric} must be a finite number in [0, 1]")
+        else:
+            stored_rates[metric] = float(stored)
 
-    # Dataset fingerprint
+    # --- Total check and independent re-derivation (valid counts only). ---
+    if counts_ok:
+        total = counts["tp"] + counts["fp"] + counts["tn"] + counts["fn"]
+        if total != counts["evaluated"]:
+            errors.append(f"evaluated ({counts['evaluated']}) != tp+fp+tn+fn ({total})")
+
+        # Re-compute rates independently
+        if total:
+            recomputed["accuracy"] = round((counts["tp"] + counts["tn"]) / total, 4)
+            recomputed["true_positive_rate"] = (
+                round(counts["tp"] / (counts["tp"] + counts["fn"]), 4)
+                if (counts["tp"] + counts["fn"])
+                else 0.0
+            )
+            recomputed["false_positive_rate"] = (
+                round(counts["fp"] / (counts["fp"] + counts["tn"]), 4)
+                if (counts["fp"] + counts["tn"])
+                else 0.0
+            )
+            recomputed["specificity"] = (
+                round(counts["tn"] / (counts["tn"] + counts["fp"]), 4)
+                if (counts["tn"] + counts["fp"])
+                else 0.0
+            )
+            recomputed["false_negative_rate"] = (
+                round(counts["fn"] / (counts["fn"] + counts["tp"]), 4)
+                if (counts["fn"] + counts["tp"])
+                else 0.0
+            )
+            recomputed["precision"] = (
+                round(counts["tp"] / (counts["tp"] + counts["fp"]), 4)
+                if (counts["tp"] + counts["fp"])
+                else 0.0
+            )
+        else:
+            recomputed["accuracy"] = 0.0
+            recomputed["true_positive_rate"] = 0.0
+            recomputed["false_positive_rate"] = 0.0
+            recomputed["specificity"] = 0.0
+            recomputed["false_negative_rate"] = 0.0
+            recomputed["precision"] = 0.0
+
+        # Cross-check stored values against re-derived (valid rates only;
+        # an invalid stored rate was already reported above).
+        for metric in rate_names:
+            if metric in stored_rates:
+                derived = recomputed[metric]
+                if abs(stored_rates[metric] - derived) > 0.001:
+                    errors.append(f"{metric}: stored={result.get(metric)} recomputed={derived}")
+
+    # Dataset fingerprint: exactly 64 lowercase hex characters.
     fp_str = result.get("dataset_sha256")
-    if not isinstance(fp_str, str) or len(fp_str) != 64:
+    if (
+        not isinstance(fp_str, str)
+        or len(fp_str) != 64
+        or any(c not in "0123456789abcdef" for c in fp_str)
+    ):
         errors.append("missing or invalid dataset_sha256")
 
     # Threshold sanity

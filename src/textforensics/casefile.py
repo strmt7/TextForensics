@@ -69,6 +69,7 @@ from .detectors import (
     text_sha256,
 )
 from .evidence import EvidenceRegistry
+from .schema import validate_bundle_trust_map_pair, validate_trust_map_dimensions
 from .sealing import (
     FORBIDDEN_RAW_TEXT_KEYS,
     assert_case_portable,
@@ -230,6 +231,17 @@ def _validate_portable_bundle(bundle: Mapping[str, Any]) -> None:
             "Case files require a TextForensics forensic-bundle/v2 object "
             "(v1 is accepted for legacy verification)."
         )
+    # C23: the embedded Trust Map version must be an accepted pair for
+    # this bundle version (v1 bundle: v1/v2 map; v2 bundle: v2/v3 map).
+    # A map without a schema string is left to the verifiers — sealing
+    # must not invent a version for a map that declares none — but a
+    # declared, incompatible version is refused here, at production
+    # time, not only at verification time.
+    trust_map = bundle.get("trust_map")
+    if isinstance(trust_map, Mapping) and isinstance(trust_map.get("schema"), str):
+        pair_errors = validate_bundle_trust_map_pair(schema, trust_map.get("schema"))
+        if pair_errors:
+            raise ValueError(pair_errors[0])
     _validate_digest(bundle.get("content_sha256"), "content_sha256")
 
     input_metadata = bundle.get("input")
@@ -1929,6 +1941,52 @@ def _replay_trust_map_v3(
 
 
 def _replay_trust_map(
+    sealed_bundle: Mapping[str, Any],
+    registry: EvidenceRegistry | None,
+    *,
+    validation_registry: Any | None = None,
+) -> tuple[list[str], list[str], dict[str, Any]]:
+    """Replay a sealed Trust Map, enforcing dimension-set completeness (C10).
+
+    The inner replay re-derives states from a registry when one is
+    supplied; when no registry is supplied (or the derivation detector
+    is ambiguous) it reports ``not_rederived`` — which, on its own,
+    lets a one-dimension ``strong`` map pass.  So when the inner replay
+    produces no errors, the sealed map's dimension set is checked
+    here: a v2/v3 map must carry exactly the declared dimension set
+    (unique valid names, every state in the version's vocabulary).
+    A map the re-derivation already condemns (state/overall mismatch)
+    keeps exactly that verdict — the completeness check is not layered
+    on top of it.  Metadata/coverage consistency is enforced by the
+    N-version and standalone verifiers, not here: replay fixtures
+    legitimately carry maps without reason/coverage metadata, and
+    replay's job is state re-derivation, not metadata acceptance.
+    """
+    errors, warnings, checks = _replay_trust_map_inner(
+        sealed_bundle, registry, validation_registry=validation_registry
+    )
+    if not errors and isinstance(sealed_bundle, Mapping):
+        sealed_trust = sealed_bundle.get("trust_map")
+        if isinstance(sealed_trust, Mapping):
+            dimension_errors = validate_trust_map_dimensions(sealed_trust)
+            if dimension_errors:
+                errors.extend(dimension_errors)
+                trust_checks = checks.get("trust_map")
+                if isinstance(trust_checks, dict):
+                    checks["trust_map"] = {
+                        **trust_checks,
+                        "status": "incomplete",
+                        "errors": dimension_errors,
+                    }
+                else:
+                    checks["trust_map"] = {
+                        "status": "incomplete",
+                        "errors": dimension_errors,
+                    }
+    return errors, warnings, checks
+
+
+def _replay_trust_map_inner(
     sealed_bundle: Mapping[str, Any],
     registry: EvidenceRegistry | None,
     *,

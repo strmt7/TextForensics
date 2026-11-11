@@ -730,9 +730,7 @@ class SchemaRegistryCompletenessTests(unittest.TestCase):
         trust_schema = load_schema("trust-map")
         for version in ("v2", "v3"):
             branch = next(
-                item["then"]["properties"]["dimensions"]["items"]["properties"]["dimension"][
-                    "enum"
-                ]
+                item["then"]["properties"]["dimensions"]["items"]["properties"]["dimension"]["enum"]
                 for item in trust_schema["allOf"]
                 if item["if"]["properties"]["schema"]["const"]
                 == f"textforensics.trust-map/{version}"

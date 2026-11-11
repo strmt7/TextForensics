@@ -3705,9 +3705,17 @@ class CasefileMutationKillTests(unittest.TestCase):
         wrong_schema = copy.deepcopy(case_ok)
         wrong_schema["forensic_bundle"]["trust_map"]["schema"] = "textforensics.trust-map/v4"
         result2 = replay_case_file(wrong_schema, validation_registry=registry)
+        # W2 (C23): a declared but unsupported map version is also
+        # refused as a non-portable bundle by the primary verifier, in
+        # addition to the hash/manifest/state errors above.
         self.assertEqual(
             result2["errors"],
-            ["case_hash_mismatch", "manifest_mismatch:schema_versions", "trust_map_state_mismatch"],
+            [
+                "case_hash_mismatch",
+                "invalid_or_nonportable_forensic_bundle",
+                "manifest_mismatch:schema_versions",
+                "trust_map_state_mismatch",
+            ],
         )
         self.assertEqual(result2["replay_outcome"], "failed")
 

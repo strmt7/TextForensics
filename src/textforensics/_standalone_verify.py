@@ -64,6 +64,193 @@ MAX_TIMESTAMP_TOKEN_BYTES = 1024 * 1024
 COMMENT_PREFIX = "mpl-bundle-sha256:"
 ZIP_STORED = 0
 
+# Trust Map completeness contract (W2: C10/C23) — independent stdlib
+# mirror of ``textforensics.schema``.  This file cannot import the
+# package (it must stay stdlib-only and shippable inside bundles), so
+# the declared dimension set and the accepted bundle/map version pairs
+# are duplicated here by design and pinned equal by the package test
+# suite (``tests/test_standalone_verify.py::StandaloneTrustMapTests::
+# test_declared_dimensions_match_package_registry``).  Change the set
+# in schema.py first, then mirror it here and re-run that test.
+_DECLARED_TRUST_MAP_DIMENSIONS = frozenset(
+    {
+        "language",
+        "text_length",
+        "domain_genre",
+        "editing_revision",
+        "generator_scope",
+        "human_population",
+        "human_false_positive_evidence",
+        "detector_diversity",
+        "benign_stability",
+        "temporal_version_stability",
+    }
+)
+_TRUST_MAP_STATES_V2 = frozenset({"supported", "partial", "unknown", "out_of_scope"})
+_TRUST_MAP_STATES_V3 = frozenset({"supported", "partial", "unknown", "out_of_scope", "stale"})
+# C23 compatibility decision, mirrored from schema.py: a bundle accepts
+# its own map version and the next one.
+_ACCEPTED_BUNDLE_TRUST_MAP_PAIRS = frozenset(
+    {
+        ("textforensics.forensic-bundle/v1", "textforensics.trust-map/v1"),
+        ("textforensics.forensic-bundle/v1", "textforensics.trust-map/v2"),
+        ("textforensics.forensic-bundle/v2", "textforensics.trust-map/v2"),
+        ("textforensics.forensic-bundle/v2", "textforensics.trust-map/v3"),
+    }
+)
+_TRUST_MAP_SCHEMAS = frozenset(
+    {
+        "textforensics.trust-map/v1",
+        "textforensics.trust-map/v2",
+        "textforensics.trust-map/v3",
+    }
+)
+
+
+def _recompute_trust_map_overall(trust_map):
+    """Re-derive a Trust Map ``overall`` from its dimensions.
+
+    Independent mirror of ``textforensics.verify._recompute_overall``
+    (v1/v2 maps) and ``_recompute_overall_v3`` (v3 maps): ``strong``
+    requires exactly the declared dimension set with every dimension
+    supported — mere count equality is never treated as name-set
+    equality.  Returns ``None`` when the map has no usable dimensions.
+    """
+    dims = trust_map.get("dimensions")
+    if not isinstance(dims, list):
+        return None
+    by_name = {}
+    for dim in dims:
+        if isinstance(dim, dict) and isinstance(dim.get("dimension"), str):
+            by_name[dim["dimension"]] = dim.get("state", "")
+    if by_name.get("language") == "out_of_scope" or by_name.get("text_length") == "out_of_scope":
+        return "insufficient"
+    if not by_name:
+        return "insufficient"
+    supported = sum(state == "supported" for state in by_name.values())
+    partial = sum(state == "partial" for state in by_name.values())
+    if trust_map.get("schema") == "textforensics.trust-map/v3":
+        if set(by_name) == _DECLARED_TRUST_MAP_DIMENSIONS and supported == len(
+            _DECLARED_TRUST_MAP_DIMENSIONS
+        ):
+            return "strong"
+        if supported == 0 and partial == 0:
+            return "insufficient"
+        return "mixed"
+    unknown = sum(state == "unknown" for state in by_name.values())
+    if set(by_name) == _DECLARED_TRUST_MAP_DIMENSIONS and supported == len(
+        _DECLARED_TRUST_MAP_DIMENSIONS
+    ):
+        return "strong"
+    if supported == 0 and partial == 0:
+        return "insufficient"
+    if supported == 0 and unknown >= 4:
+        return "insufficient"
+    return "mixed"
+
+
+def _trust_map_check_errors(trust_map, bundle_schema):
+    """Check a sealed Trust Map for C10 completeness and C23 pairing.
+
+    Independent mirror of ``textforensics.schema.validate_trust_map_completeness``
+    plus the overall re-derivation in ``textforensics.verify``: exact
+    declared dimension set (v2/v3), per-dimension state/reason, v2/v3
+    required metadata, coverage counts consistent with the dimensions,
+    the accepted (bundle, map) version pair, and an overall that
+    matches the re-derived value.  A v1 legacy map is exempt from the
+    dimension-set/metadata/coverage checks, as in the installed
+    verifier; its overall is still re-derived under the v2 rules.
+    Returns a list of error strings (empty when the map checks out).
+    """
+    errors = []
+    if not isinstance(trust_map, dict):
+        return ["trust map is missing or not an object"]
+    map_schema = trust_map.get("schema")
+    if map_schema not in _TRUST_MAP_SCHEMAS:
+        errors.append(f"trust map has unexpected schema: {map_schema!r}")
+        return errors
+    if (bundle_schema, map_schema) not in _ACCEPTED_BUNDLE_TRUST_MAP_PAIRS:
+        errors.append(
+            "unsupported forensic-bundle/trust-map version pair: "
+            f"{bundle_schema!r} with {map_schema!r}"
+        )
+    is_v3 = map_schema == "textforensics.trust-map/v3"
+    allowed_states = _TRUST_MAP_STATES_V3 if is_v3 else _TRUST_MAP_STATES_V2
+    dims = trust_map.get("dimensions")
+    if not isinstance(dims, list):
+        errors.append("trust map dimensions is not a list")
+        return errors
+    names = []
+    for dim in dims:
+        if not isinstance(dim, dict):
+            errors.append("trust map dimension is not an object")
+            continue
+        name = dim.get("dimension")
+        if not isinstance(name, str) or not name:
+            errors.append("trust map dimension has a missing or empty dimension name")
+            continue
+        names.append(name)
+        if dim.get("state") not in allowed_states:
+            errors.append(f"trust map dimension {name!r} has invalid state {dim.get('state')!r}")
+        reason = dim.get("reason")
+        if not isinstance(reason, str) or not reason:
+            errors.append(f"trust map dimension {name!r} has a missing or empty reason")
+    if map_schema in ("textforensics.trust-map/v2", "textforensics.trust-map/v3"):
+        duplicates = sorted({name for name in names if names.count(name) > 1})
+        if duplicates:
+            errors.append(f"trust map dimensions are duplicated: {', '.join(duplicates)}")
+        unknown = sorted(set(names) - _DECLARED_TRUST_MAP_DIMENSIONS)
+        if unknown:
+            errors.append(f"trust map dimensions are not declared: {', '.join(unknown)}")
+        missing = sorted(_DECLARED_TRUST_MAP_DIMENSIONS - set(names))
+        if missing:
+            errors.append(
+                "trust map dimensions are missing declared dimensions: " + ", ".join(missing)
+            )
+        if not isinstance(trust_map.get("input_conditions"), dict):
+            errors.append("trust map input_conditions is missing or not an object")
+        if not isinstance(trust_map.get("evidence_registry"), dict):
+            errors.append("trust map evidence_registry is missing or not an object")
+        generated_at_utc = trust_map.get("generated_at_utc")
+        if not isinstance(generated_at_utc, str) or not generated_at_utc:
+            errors.append("trust map generated_at_utc is missing or empty")
+        coverage = trust_map.get("coverage")
+        expected_keys = (
+            {"supported", "partial", "unknown", "out_of_scope", "stale"}
+            if is_v3
+            else {"supported", "partial", "unknown", "out_of_scope"}
+        )
+        if not isinstance(coverage, dict):
+            errors.append("trust map coverage is missing or not an object")
+        else:
+            extra = sorted(set(coverage) - expected_keys)
+            if extra:
+                errors.append(f"trust map coverage has unexpected keys: {', '.join(extra)}")
+            missing_keys = sorted(expected_keys - set(coverage))
+            if missing_keys:
+                errors.append(f"trust map coverage is missing keys: {', '.join(missing_keys)}")
+            counts = {key: 0 for key in expected_keys}
+            for dim in dims:
+                if isinstance(dim, dict) and dim.get("state") in counts:
+                    counts[dim["state"]] += 1
+            for key in sorted(expected_keys):
+                value = coverage.get(key)
+                if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                    errors.append(f"trust map coverage[{key!r}] is not a non-negative integer")
+                elif value != counts[key]:
+                    errors.append(
+                        f"trust map coverage[{key!r}] is {value} "
+                        f"but {counts[key]} dimensions carry that state"
+                    )
+    derived_overall = _recompute_trust_map_overall(trust_map)
+    if derived_overall is not None and trust_map.get("overall") != derived_overall:
+        errors.append(
+            "trust map overall mismatch: stored="
+            f"{trust_map.get('overall')!r} re-derived={derived_overall!r}"
+        )
+    return errors
+
+
 # Portable-case privacy policy (W1: C03) — verbatim mirror of
 # ``textforensics.sealing.FORBIDDEN_RAW_TEXT_KEYS``.  This file cannot
 # import the package (it must stay stdlib-only and shippable inside
@@ -1577,6 +1764,20 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
                 fail("seal_checklist", "; ".join(checklist_errors))
             else:
                 ok("seal_checklist", "checklist statuses are consistent with the sealed evidence")
+            # C10/C23: the embedded Trust Map must carry exactly the
+            # declared dimension set with consistent metadata/coverage,
+            # an overall matching the re-derived value, and a
+            # bundle/map version pair the public contract accepts.
+            # A one-dimension `strong` map fails here even though the
+            # case hash and the checklist above still verify.
+            tm_errors = _trust_map_check_errors(bundle.get("trust_map"), bundle.get("schema"))
+            if tm_errors:
+                fail("seal_trust_map", "; ".join(tm_errors))
+            else:
+                ok(
+                    "seal_trust_map",
+                    "trust map dimensions complete and bundle/map versions compatible",
+                )
     elif schema in (CASE_SCHEMA_V2, CASE_SCHEMA_V1):
         ok("seal_case_legacy", f"legacy case file {schema}: hash check only")
         gaps.append(

@@ -362,7 +362,9 @@ class TestCombinedTrustMapCompleteness:
     def test_stale_state_in_v2_map_fails_combined(self):
         case = _sealed_case()
         dims = [_c10_dim(name, "unknown") for name in TRUST_DIMENSIONS]
-        dims[-1] = _c10_dim("temporal_version_stability", "stale")
+        dims[TRUST_DIMENSIONS.index("temporal_version_stability")] = _c10_dim(
+            "temporal_version_stability", "stale"
+        )
         mutated = _c10_mutated_case(case, dimensions=dims, overall="insufficient")
         result = verify_case_file_combined(mutated)
         assert result["valid"] is False

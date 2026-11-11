@@ -515,8 +515,6 @@ class StandaloneTimestampTests(unittest.TestCase):
             self.assertIsNone(mult(n, (gx, gy), p, a), f"{name} n*G is infinity")
 
 
-
-
 # ---------------------------------------------------------------------------
 # W2 Worker C (C10): standalone Trust Map completeness parity.
 # ---------------------------------------------------------------------------
@@ -600,8 +598,7 @@ class StandaloneTrustMapTests(unittest.TestCase):
     def test_one_undeclared_dimension_fails(self):
         _, _, case = build_bundle()
         dims = [_sa_dim("not-a-declared-dimension")]
-        bundle, _, _ = _sa_mutated_bundle(case, dimensions=dims, overall="strong",
-                                          stale_key=False)
+        bundle, _, _ = _sa_mutated_bundle(case, dimensions=dims, overall="strong", stale_key=False)
         report = self.mod.verify_bundle_bytes(bundle)
         self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
         self.assertEqual(self._check_status(report, "seal_trust_map"), "fail")
@@ -611,8 +608,7 @@ class StandaloneTrustMapTests(unittest.TestCase):
 
         _, _, case = build_bundle()
         dims = [_sa_dim(name) for name in TRUST_DIMENSIONS[:9]]
-        bundle, _, _ = _sa_mutated_bundle(case, dimensions=dims, overall="strong",
-                                          stale_key=False)
+        bundle, _, _ = _sa_mutated_bundle(case, dimensions=dims, overall="strong", stale_key=False)
         report = self.mod.verify_bundle_bytes(bundle)
         self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
         self.assertEqual(self._check_status(report, "seal_trust_map"), "fail")
@@ -620,8 +616,7 @@ class StandaloneTrustMapTests(unittest.TestCase):
     def test_ten_wrong_names_fail(self):
         _, _, case = build_bundle()
         dims = [_sa_dim(f"wrong-{i}") for i in range(10)]
-        bundle, _, _ = _sa_mutated_bundle(case, dimensions=dims, overall="strong",
-                                          stale_key=False)
+        bundle, _, _ = _sa_mutated_bundle(case, dimensions=dims, overall="strong", stale_key=False)
         report = self.mod.verify_bundle_bytes(bundle)
         self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
         self.assertEqual(self._check_status(report, "seal_trust_map"), "fail")
@@ -641,11 +636,27 @@ class StandaloneTrustMapTests(unittest.TestCase):
 
         case = _sa_genuine_v3_case()
         dims = [_sa_dim(name, "unknown") for name in TRUST_DIMENSIONS]
-        dims[-1] = _sa_dim("temporal_version_stability", "stale")
+        dims[TRUST_DIMENSIONS.index("temporal_version_stability")] = _sa_dim(
+            "temporal_version_stability", "stale"
+        )
         bundle, _, _ = _sa_mutated_bundle(case, dimensions=dims, overall="insufficient")
         report = self.mod.verify_bundle_bytes(bundle)
         self.assertEqual(report["exit_code"], 0, json.dumps(report, indent=2))
         self.assertEqual(self._check_status(report, "seal_trust_map"), "pass")
+
+    def test_v1_map_in_v2_bundle_fails(self):
+        """C23: a v1 map inside a v2 bundle is not an accepted pair."""
+        import copy
+
+        _, _, case = build_bundle()
+        mutated = copy.deepcopy(case)
+        mutated["forensic_bundle"]["trust_map"] = dict(mutated["forensic_bundle"]["trust_map"])
+        mutated["forensic_bundle"]["trust_map"]["schema"] = "textforensics.trust-map/v1"
+        mutated = _sa_reseal(mutated)
+        bundle, _, _ = build_bundle(case_bytes=canonical_json(mutated), case=mutated)
+        report = self.mod.verify_bundle_bytes(bundle)
+        self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+        self.assertEqual(self._check_status(report, "seal_trust_map"), "fail")
 
     def test_declared_dimensions_match_package_registry(self):
         from textforensics.schema import DECLARED_TRUST_MAP_DIMENSIONS

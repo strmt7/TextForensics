@@ -53,10 +53,11 @@
     "consensus": {"type": "object"},
     "trust_map": {
       "type": "object",
+      "description": "Embedded Trust Map. Bundle and map versions are deliberately decoupled (C23): the bundle version tracks the container contract and the map version tracks the derivation engine (v1 legacy capability view, v2 evidence-conditioned, v3 U1-derived with the stale state). Accepted pairs: forensic-bundle/v1 with trust-map/v1 or trust-map/v2; forensic-bundle/v2 with trust-map/v2 or trust-map/v3. A v3 map is never accepted inside a v1 bundle, and a v1 map is never accepted inside a v2 bundle. See docs/REVAMP_SPEC.md §13.",
       "required": ["schema", "overall", "dimensions", "limitations"],
       "properties": {
         "schema": {
-          "enum": ["textforensics.trust-map/v1", "textforensics.trust-map/v2"]
+          "enum": ["textforensics.trust-map/v1", "textforensics.trust-map/v2", "textforensics.trust-map/v3"]
         },
         "overall": {"enum": ["strong", "mixed", "insufficient"]},
         "dimensions": {"type": "array", "items": {"type": "object"}},
@@ -107,7 +108,7 @@
         "properties": {
           "trust_map": {
             "properties": {
-              "schema": {"const": "textforensics.trust-map/v2"}
+              "schema": {"enum": ["textforensics.trust-map/v2", "textforensics.trust-map/v3"]}
             }
           }
         }
@@ -118,7 +119,16 @@
         "properties": {"schema": {"const": "textforensics.forensic-bundle/v1"}},
         "required": ["schema"]
       },
-      "then": {"required": ["verdict_integrity"]}
+      "then": {
+        "required": ["verdict_integrity"],
+        "properties": {
+          "trust_map": {
+            "properties": {
+              "schema": {"enum": ["textforensics.trust-map/v1", "textforensics.trust-map/v2"]}
+            }
+          }
+        }
+      }
     }
   ]
 }

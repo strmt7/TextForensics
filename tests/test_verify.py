@@ -1134,14 +1134,13 @@ class TrustMapCompletenessTests(unittest.TestCase):
             case["manifest"]["schema_versions"]["trust_map"], "textforensics.trust-map/v3"
         )
         dims = [_dim("not-a-declared-dimension")]
-        mutated = _mutated_case(case, dimensions=dims, overall="strong",
-                                coverage=_coverage_for(dims))
+        mutated = _mutated_case(
+            case, dimensions=dims, overall="strong", coverage=_coverage_for(dims)
+        )
         result = verify_case_file(mutated)
         self.assertFalse(result["valid"])
         self.assertFalse(result["trust_map_verified"])
-        self.assertTrue(
-            any("dimension" in e for e in result["errors"]), result["errors"]
-        )
+        self.assertTrue(any("dimension" in e for e in result["errors"]), result["errors"])
         combined = verify_case_file_combined(mutated)
         self.assertFalse(combined["valid"])
         self.assertFalse(combined["trust_map_verified"])
@@ -1151,8 +1150,9 @@ class TrustMapCompletenessTests(unittest.TestCase):
 
         case = _genuine_v3_case()
         dims = [_dim(name) for name in TRUST_DIMENSIONS[:9]]
-        mutated = _mutated_case(case, dimensions=dims, overall="strong",
-                                coverage=_coverage_for(dims))
+        mutated = _mutated_case(
+            case, dimensions=dims, overall="strong", coverage=_coverage_for(dims)
+        )
         result = verify_case_file(mutated)
         self.assertFalse(result["valid"])
         self.assertFalse(result["trust_map_verified"])
@@ -1163,8 +1163,9 @@ class TrustMapCompletenessTests(unittest.TestCase):
         case = _genuine_v3_case()
         dims = [_dim(name) for name in TRUST_DIMENSIONS[:9]]
         dims.append(_dim(TRUST_DIMENSIONS[0]))
-        mutated = _mutated_case(case, dimensions=dims, overall="strong",
-                                coverage=_coverage_for(dims))
+        mutated = _mutated_case(
+            case, dimensions=dims, overall="strong", coverage=_coverage_for(dims)
+        )
         result = verify_case_file(mutated)
         self.assertFalse(result["valid"])
         self.assertFalse(result["trust_map_verified"])
@@ -1172,8 +1173,9 @@ class TrustMapCompletenessTests(unittest.TestCase):
     def test_ten_wrong_names_cannot_be_strong(self):
         case = _genuine_v3_case()
         dims = [_dim(f"wrong-{i}") for i in range(10)]
-        mutated = _mutated_case(case, dimensions=dims, overall="strong",
-                                coverage=_coverage_for(dims))
+        mutated = _mutated_case(
+            case, dimensions=dims, overall="strong", coverage=_coverage_for(dims)
+        )
         result = verify_case_file(mutated)
         self.assertFalse(result["valid"])
         self.assertFalse(result["trust_map_verified"])
@@ -1183,8 +1185,9 @@ class TrustMapCompletenessTests(unittest.TestCase):
 
         case = _genuine_v3_case()
         dims = [_dim(name) for name in TRUST_DIMENSIONS]
-        mutated = _mutated_case(case, dimensions=dims, overall="strong",
-                                coverage=_coverage_for(dims))
+        mutated = _mutated_case(
+            case, dimensions=dims, overall="strong", coverage=_coverage_for(dims)
+        )
         result = verify_case_file(mutated)
         self.assertTrue(result["valid"], result.get("errors"))
         self.assertTrue(result["trust_map_verified"])
@@ -1194,9 +1197,12 @@ class TrustMapCompletenessTests(unittest.TestCase):
 
         case = _genuine_v3_case()
         dims = [_dim(name, "unknown") for name in TRUST_DIMENSIONS]
-        dims[-1] = _dim("temporal_version_stability", "stale")
-        mutated = _mutated_case(case, dimensions=dims, overall="insufficient",
-                                coverage=_coverage_for(dims))
+        dims[TRUST_DIMENSIONS.index("temporal_version_stability")] = _dim(
+            "temporal_version_stability", "stale"
+        )
+        mutated = _mutated_case(
+            case, dimensions=dims, overall="insufficient", coverage=_coverage_for(dims)
+        )
         result = verify_case_file(mutated)
         self.assertTrue(result["valid"], result.get("errors"))
         self.assertTrue(result["trust_map_verified"])
@@ -1207,8 +1213,9 @@ class TrustMapCompletenessTests(unittest.TestCase):
         case = _genuine_v3_case()
         dims = [_dim(name, "unknown") for name in TRUST_DIMENSIONS]
         dims[0] = _dim("language", "out_of_scope")
-        mutated = _mutated_case(case, dimensions=dims, overall="insufficient",
-                                coverage=_coverage_for(dims))
+        mutated = _mutated_case(
+            case, dimensions=dims, overall="insufficient", coverage=_coverage_for(dims)
+        )
         result = verify_case_file(mutated)
         self.assertTrue(result["valid"], result.get("errors"))
         self.assertTrue(result["trust_map_verified"])
@@ -1226,21 +1233,18 @@ class TrustMapCompletenessTests(unittest.TestCase):
         self.assertTrue(any("coverage" in e for e in result["errors"]), result["errors"])
 
     def test_v3_missing_generated_at_utc_is_rejected(self):
-        import copy
-
         from textforensics.trust import TRUST_DIMENSIONS
 
         case = _genuine_v3_case()
         dims = [_dim(name) for name in TRUST_DIMENSIONS]
-        mutated = _mutated_case(case, dimensions=dims, overall="strong",
-                                coverage=_coverage_for(dims))
+        mutated = _mutated_case(
+            case, dimensions=dims, overall="strong", coverage=_coverage_for(dims)
+        )
         mutated["forensic_bundle"]["trust_map"]["generated_at_utc"] = None
         mutated = _reseal_case(mutated)
         result = verify_case_file(mutated)
         self.assertFalse(result["valid"])
-        self.assertTrue(
-            any("generated_at_utc" in e for e in result["errors"]), result["errors"]
-        )
+        self.assertTrue(any("generated_at_utc" in e for e in result["errors"]), result["errors"])
 
     def test_v2_subset_cannot_be_strong(self):
         from textforensics.trust import TRUST_DIMENSIONS
@@ -1248,8 +1252,9 @@ class TrustMapCompletenessTests(unittest.TestCase):
         bundle = build_forensic_bundle(VerifyCaseFileTests.TEXT).to_dict()
         case = seal_case_file(bundle)
         dims = [_dim(name) for name in TRUST_DIMENSIONS[:9]]
-        mutated = _mutated_case(case, dimensions=dims, overall="strong",
-                                coverage=_coverage_for(dims, stale_key=False))
+        mutated = _mutated_case(
+            case, dimensions=dims, overall="strong", coverage=_coverage_for(dims, stale_key=False)
+        )
         result = verify_case_file(mutated)
         self.assertFalse(result["valid"])
         self.assertFalse(result["trust_map_verified"])
@@ -1260,8 +1265,9 @@ class TrustMapCompletenessTests(unittest.TestCase):
         bundle = build_forensic_bundle(VerifyCaseFileTests.TEXT).to_dict()
         case = seal_case_file(bundle)
         dims = [_dim(name) for name in TRUST_DIMENSIONS]
-        mutated = _mutated_case(case, dimensions=dims, overall="strong",
-                                coverage=_coverage_for(dims, stale_key=False))
+        mutated = _mutated_case(
+            case, dimensions=dims, overall="strong", coverage=_coverage_for(dims, stale_key=False)
+        )
         result = verify_case_file(mutated)
         self.assertTrue(result["valid"], result.get("errors"))
         self.assertTrue(result["trust_map_verified"])

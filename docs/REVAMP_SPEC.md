@@ -737,6 +737,7 @@ Tool implementations in `mcp_tools.py` return `{success, exit_code, ...}` on suc
 ## 13. Migration and compatibility
 
 - `textforensics.trust-map/v1` readers: v2 is a deliberate schema bump. There is **no** `trust_map_v1_to_v2` adapter in the tree: v1 maps are accepted as legacy (no adapter, no migration) — `verify.py` accepts Trust Map v1/v2/v3, and the legacy v1 view is produced only by `trust_map_from_capability_ledger` (§3.1), which is explicitly not evidence-conditioned and must not be presented as a v2 result. A v2/v1 map carrying the v3-only `stale` state is rejected.
+- `textforensics.forensic-bundle` / `textforensics.trust-map` version pairing (W2, C23 decision): bundle and map versions are deliberately decoupled — the bundle version tracks the container contract, the map version tracks the derivation engine (v1 legacy capability view, v2 evidence-conditioned, v3 U1-derived with the `stale` state). Accepted pairs: `forensic-bundle/v1` with `trust-map/v1` or `trust-map/v2`; `forensic-bundle/v2` with `trust-map/v2` or `trust-map/v3`. A v3 map is never accepted inside a v1 bundle, and a v1 map is never accepted inside a v2 bundle. The pairing is enforced in one place — `schema.ACCEPTED_BUNDLE_TRUST_MAP_PAIRS`, mirrored in the forensic-bundle JSON schema, the sealer (`casefile._validate_portable_bundle`), the N-version verifier (`verify.verify_case_file`) and the standalone verifier (`_standalone_verify._trust_map_check_errors`). A v2/v3 map must additionally carry exactly the ten declared dimensions (`schema.DECLARED_TRUST_MAP_DIMENSIONS`) with consistent metadata/coverage before any `strong` overall may be derived (C10).
 - `textforensics.forensic-bundle/v1` → v2: `verdict_integrity` is removed from the default bundle; a `legacy.verdict_integrity` field is available only with `include_legacy=True` and is marked deprecated.
 - `textforensics.detector-result/v1` remains accepted; new fields are optional.
 - CLI flags from alpha are retained where they do not conflict; deprecated flags emit a warning.
@@ -755,7 +756,7 @@ A release is shippable only when:
 5. live-host verification has been run on the release commit (the revamp's "fully tested incl. live host" bar);
 6. the case-file golden fixture matches;
 7. the benchmark/evidence artifacts referenced by the README exist and hash-match;
-8. `python scripts/validate_schemas.py` reports 12 OK and `pre-commit run --all-files` passes;
+8. `python scripts/validate_schemas.py` reports 13 OK and `pre-commit run --all-files` passes;
 9. no release is created without Greg's explicit permission; report readiness instead (see `docs/RELEASE.md` for the full checklist).
 
 There is no pull-request self-review step: development is only in `main`, with no PRs and no manual code review by Greg (process rule, 2026-11-07).
