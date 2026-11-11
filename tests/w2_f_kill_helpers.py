@@ -2458,6 +2458,8 @@ def probe_schema_dimensions():
         ("no-schema", {"dimensions": []}),
         ("dims-dict", _schema_map("v3", dims={"a": 1})),
         ("dim-string", _schema_map("v3", dims=["language"])),
+        ("dim-string-then-bad", _schema_map("v3", dims=["language", {"dimension": dims[0], "state": "bogus"}])),
+        ("dim-no-name-then-bad", _schema_map("v3", dims=[{"state": "supported"}, {"dimension": dims[0], "state": "bogus"}])),
         ("dim-no-name", _schema_map("v3", dims=[{"state": "supported"}])),
         ("dim-empty-name", _schema_map("v3", dims=[{"dimension": "", "state": "supported"}])),
         ("state-bogus", _schema_map("v3", dims=[{"dimension": dims[0], "state": "bogus"}] + [
@@ -2502,6 +2504,10 @@ def probe_schema_completeness():
         ("two-bad-reasons", _schema_map("v3", dims=[{"dimension": dims[0], "state": "supported", "reason": ""},
                                                      {"dimension": dims[1], "state": "supported", "reason": 1}] + [
             {"dimension": d, "state": "supported", "reason": "ok"} for d in dims[2:]])),
+        ("reason-nonmapping-then-bad", _schema_map("v3", dims=[123, {"dimension": dims[0], "state": "supported", "reason": ""}] + [
+            {"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]])),
+        ("counts-nonmapping", _schema_map("v3", dims=[123] + [
+            {"dimension": d, "state": "supported", "reason": "ok"} for d in dims])),
         ("no-input-conditions", {k: v for k, v in base.items() if k != "input_conditions"}),
         ("input-conditions-list", _schema_map("v3", input_conditions=[])),
         ("no-evidence-registry", {k: v for k, v in base.items() if k != "evidence_registry"}),
@@ -2529,6 +2535,7 @@ def probe_schema_load():
     rows = []
     rows.append(("maxsize", outcome(lambda: load_schema.cache_info().maxsize)))
     rows.append(("bogus-name", outcome(load_schema, "no-such-schema")))
+    rows.append(("bad-version", outcome(load_schema, "case-file", version="v9")))
     rows.append(("valid", outcome(lambda: sorted(load_schema("case-file").keys())[:3])))
     return rows
 
@@ -3171,6 +3178,19 @@ def probe_sa_trust_map_errors():
         ("dims-not-list", _schema_map("v3", dims={"a": 1}), "textforensics.forensic-bundle/v2"),
         ("partial-unknown-mix", _schema_map("v3", dims=[{"dimension": dims[0], "state": "partial", "reason": "ok"}] + [{"dimension": d, "state": "unknown", "reason": "ok"} for d in dims[1:]], **{"overall": "mixed", "coverage": {"supported": 0, "partial": 1, "unknown": 9, "out_of_scope": 0, "stale": 0}}), "textforensics.forensic-bundle/v2"),
     ]
+    # _trust_map_check_errors extras (Batch 6b): continue-vs-break,
+    # coverage key sets, generated_at_utc shapes, >256 counts
+    _cov_missing = _schema_map("v3")
+    _cov_missing["coverage"] = {k: v for k, v in _cov_missing["coverage"].items() if k != "stale"}
+    cases.append(("coverage-missing-key", _cov_missing, "textforensics.forensic-bundle/v2"))
+    cases.append(("coverage-extra", _schema_cov(base, bogus=1), "textforensics.forensic-bundle/v2"))
+    cases.append(("coverage-300", _schema_map("v3", dims=[{"dimension": dims[0], "state": "supported", "reason": "ok"}] * 300,
+                                              coverage={"supported": 300, "partial": 0, "unknown": 0, "out_of_scope": 0, "stale": 0}),
+                  "textforensics.forensic-bundle/v2"))
+    cases.append(("dim-nondict-then-bad", _schema_map("v3", dims=[123, {"dimension": dims[0], "state": "bogus", "reason": "ok"}] + [
+        {"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]]), "textforensics.forensic-bundle/v2"))
+    cases.append(("generated-int", _schema_map("v3", generated_at_utc=123), "textforensics.forensic-bundle/v2"))
+    cases.append(("generated-empty", _schema_map("v3", generated_at_utc=""), "textforensics.forensic-bundle/v2"))
     # fix the coverage cases to carry the right overall (all-supported -> strong)
     fixed = []
     for name, m, bundle_schema in cases:
@@ -3640,6 +3660,9 @@ def probe_obs_normalize():
         ("score-range-eq", _obs_valid(obs, score_range=[0.0, 0.0])),
         ("score-range-lo", _obs_valid(obs, score_range=[0.0, 1.0])),
         ("score-range-hi", _obs_valid(obs, score_range=[-1.0, 0.0])),
+        ("score-below-range", _obs_valid(obs, score_range=[0.2, 1.0])),
+        ("score-eq-lo", _obs_valid(obs, score_range=[0.1, 1.0])),
+        ("score-eq-hi", _obs_valid(obs, score_range=[-5.0, 0.1])),
         ("score-range-none", _obs_valid(obs, score_range=None)),
         ("not-mapping", "x"),
         ("unknown-sample", _obs_valid(obs, sample_id="s9")),
@@ -3671,6 +3694,8 @@ def probe_obs_normalize():
                            "records": [{"native_score_direction": "lower_means_ai"}], "failures": []}),
         ("snap-bad-schema", {"schema": "textforensics.drift-snapshot/v9", "records": []}),
         ("snap-old-schema", {"schema": "textforensics.drift-snapshot/v1", "records": []}),
+        ("snap-schema-a", {"schema": "a", "records": []}),
+        ("snap-schema-v0", {"schema": "textforensics.drift-snapshot/v0", "records": []}),
         ("snap-records-not-list", {"schema": DRIFT_SNAPSHOT_SCHEMA, "records": "x"}),
         ("snap-record-not-obj", {"schema": DRIFT_SNAPSHOT_SCHEMA, "records": ["x"]}),
         ("snap-bad-direction", {"schema": DRIFT_SNAPSHOT_SCHEMA,
@@ -3733,6 +3758,8 @@ def probe_mc_from_dict():
         ("eval-over", {"train": 1.5, "test": -0.5}),
         ("eval-sum-1e-6", {"train": 0.8 + 1e-6, "test": 0.2}),
         ("eval-sum-2e-6", {"train": 0.8 + 2e-6, "test": 0.2}),
+        ("eval-sum-2.0", {"train": 1.0, "val": 1.0, "test": 0.0}),
+        ("eval-sum-0.0", {"train": 0.0, "test": 0.0}),
         ("eval-sum-low", {"train": 0.8, "test": 0.1}),
         ("eval-sum-empty", {}),
         ("eval-sum-3way", {"train": 0.7, "val": 0.2, "test": 0.1}),
@@ -3781,6 +3808,16 @@ def probe_mc_from_dict():
     ]:
         m = copy.deepcopy(train_d)
         m.update(over)
+        rows.append((name, outcome(_training_data_from_dict, m)))
+    # _training_data_from_dict: optional lists ABSENT (required=False -> True raises)
+    for name, pop in [
+        ("train-missing-aug", ["augmentation_techniques"]),
+        ("train-missing-biases", ["known_biases"]),
+        ("train-missing-both", ["augmentation_techniques", "known_biases"]),
+    ]:
+        m = copy.deepcopy(train_d)
+        for key in pop:
+            m.pop(key, None)
         rows.append((name, outcome(_training_data_from_dict, m)))
     # _mc_int / _mc_number / _mc_opt_number
     for name, fn in [
@@ -3837,6 +3874,7 @@ def probe_mc_from_dict():
         nan = Path(tmp) / "nan.json"
         nan.write_text('{"schema_version": "1.0.0", "x": NaN}', encoding="utf-8")
         rows.append(("load-nan", _scrub_path(outcome(load_model_card, nan), tmp)))
+        rows.append(("load-dir", _scrub_path(outcome(load_model_card, Path(tmp)), tmp)))
     return rows
 
 
@@ -4306,6 +4344,24 @@ def probe_policy_helpers():
                         ("register-expired", expired)]:
         ledger = CapabilityLedger()
         rows.append((name, outcome(lambda c=claim, l=ledger: (l.register(c), len(l.claims().get("a", []))))))
+    # register: the warning is logged iff issues are non-empty (AddNot:12)
+    import logging
+    def _register_with_logs(claim):
+        logger = logging.getLogger("textforensics.policy")
+        captured = []
+        class _H(logging.Handler):
+            def emit(self, record):
+                captured.append(record.getMessage())
+        handler = _H()
+        logger.addHandler(handler)
+        try:
+            ledger = CapabilityLedger()
+            issues = ledger.register(claim)
+        finally:
+            logger.removeHandler(handler)
+        return (issues, captured)
+    rows.append(("register-log-valid", outcome(lambda: _register_with_logs(valid))))
+    rows.append(("register-log-invalid", outcome(lambda: _register_with_logs(no_evidence))))
     # ledger_to_trust_dimension: valid_until limitation present/absent
     for name, claim in [
         ("ltd-no-expiry", TT._ledger_claim()),
