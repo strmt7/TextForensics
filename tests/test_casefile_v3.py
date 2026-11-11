@@ -489,5 +489,117 @@ class VerifyV3Tests(unittest.TestCase):
         self.assertTrue(any("overall mismatch" in error for error in result["errors"]))
 
 
+
+
+class TrustMapCompletenessReplayTests(unittest.TestCase):
+    """C10: replay must reject an incomplete v3 map even when no
+    validation registry is supplied (re-derivation is unavailable)."""
+
+    def _reseal(self, case):
+        resealed = copy.deepcopy(case)
+        stripped = copy.deepcopy(resealed)
+        stripped.pop("case_sha256", None)
+        stripped.pop("created_at_utc", None)
+        canonical = json.dumps(
+            stripped, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+        )
+        resealed["case_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        return resealed
+
+    def _genuine_v3_case(self):
+        registry = load_real_registry()
+        bundle = matching_bundle()
+        bundle["trust_map"] = v3_trust_map(bundle, registry)
+        return seal_case_file(bundle, validation_registry=registry)
+
+    def test_replay_rejects_one_dimension_map_without_registry(self):
+        case = self._genuine_v3_case()
+        tampered = copy.deepcopy(case)
+        trust_map = tampered["forensic_bundle"]["trust_map"]
+        trust_map["dimensions"] = [
+            {"dimension": "not-a-declared-dimension", "state": "supported", "reason": "synthetic"}
+        ]
+        trust_map["overall"] = "strong"
+        trust_map["coverage"] = {
+            "supported": 1,
+            "partial": 0,
+            "unknown": 0,
+            "out_of_scope": 0,
+            "stale": 0,
+        }
+        tampered = self._reseal(tampered)
+        result = replay_case_file(tampered)
+        self.assertFalse(result["valid"])
+        self.assertTrue(
+            any("dimension" in error for error in result["errors"]), result["errors"]
+        )
+
+    def test_replay_rejects_subset_map_without_registry(self):
+        from textforensics.trust import TRUST_DIMENSIONS
+
+        case = self._genuine_v3_case()
+        tampered = copy.deepcopy(case)
+        trust_map = tampered["forensic_bundle"]["trust_map"]
+        trust_map["dimensions"] = [
+            {"dimension": name, "state": "supported", "reason": "synthetic"}
+            for name in TRUST_DIMENSIONS[:9]
+        ]
+        trust_map["overall"] = "strong"
+        trust_map["coverage"] = {
+            "supported": 9,
+            "partial": 0,
+            "unknown": 0,
+            "out_of_scope": 0,
+            "stale": 0,
+        }
+        tampered = self._reseal(tampered)
+        result = replay_case_file(tampered)
+        self.assertFalse(result["valid"])
+
+    def test_replay_accepts_complete_v3_map_without_registry(self):
+        # Control: the genuine complete map still replays as
+        # not-rederived (no registry) but valid.
+        case = self._genuine_v3_case()
+        result = replay_case_file(case)
+        self.assertTrue(result["valid"], result["errors"])
+
+
+class BundleTrustMapPairTests(unittest.TestCase):
+    """C23: the sealer and the primary verifier enforce the accepted
+    bundle/map version pairs."""
+
+    def test_seal_rejects_v1_map_in_v2_bundle(self):
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        bundle["trust_map"] = dict(bundle["trust_map"])
+        bundle["trust_map"]["schema"] = "textforensics.trust-map/v1"
+        with self.assertRaises(ValueError):
+            seal_case_file(bundle)
+
+    def test_primary_verify_rejects_v3_map_in_v1_bundle(self):
+        registry = load_real_registry()
+        bundle = matching_bundle()
+        bundle["trust_map"] = v3_trust_map(bundle, registry)
+        case = seal_case_file(bundle, validation_registry=registry)
+        tampered = copy.deepcopy(case)
+        tampered["forensic_bundle"]["schema"] = "textforensics.forensic-bundle/v1"
+        tampered["manifest"]["schema_versions"]["forensic_bundle"] = (
+            "textforensics.forensic-bundle/v1"
+        )
+        resealed = copy.deepcopy(tampered)
+        stripped = copy.deepcopy(resealed)
+        stripped.pop("case_sha256", None)
+        stripped.pop("created_at_utc", None)
+        canonical = json.dumps(
+            stripped, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+        )
+        resealed["case_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        result = verify_case_file(resealed)
+        self.assertFalse(result["valid"])
+        self.assertTrue(
+            any("forensic_bundle" in error or "trust_map" in error for error in result["errors"]),
+            result["errors"],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

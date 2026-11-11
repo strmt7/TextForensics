@@ -21,6 +21,7 @@ from textforensics.verify import (
     verify_benchmark,
     verify_calibration,
     verify_case_file,
+    verify_case_file_combined,
     verify_case_file_path,
 )
 
@@ -1037,6 +1038,391 @@ class VerifyCaseFilePathTests(unittest.TestCase):
             report = verify_case_file_path(path)
             self.assertTrue(report.overall_valid)
             self.assertTrue(report.case_file["valid"])
+
+
+# ---------------------------------------------------------------------------
+# W2 Worker C (C10 / C19): Trust Map completeness and benchmark domains.
+# ---------------------------------------------------------------------------
+
+_V3_TEXT = (
+    "The committee met on Tuesday to review the quarterly figures and "
+    "discuss the outlook for the coming year. The chair opened the meeting "
+    "with a summary of the previous session, and the members agreed to "
+    "focus on three items: revenue, staffing, and the maintenance budget. "
+    "Revenue grew modestly in the first quarter, driven by new contracts "
+    "in the northern region. Staffing remains tight, and the hiring plan "
+    "was approved with minor changes. The maintenance budget was reduced "
+    "after a review of the supplier quotes. The meeting ended with a plan "
+    "to reconvene in four weeks to review progress on each item."
+)
+
+
+def _dim(name: str, state: str = "supported") -> dict:
+    return {"dimension": name, "state": state, "reason": "synthetic"}
+
+
+def _coverage_for(dimensions: list[dict], *, stale_key: bool = True) -> dict:
+    counts = {"supported": 0, "partial": 0, "unknown": 0, "out_of_scope": 0, "stale": 0}
+    for item in dimensions:
+        counts[item["state"]] += 1
+    if not stale_key:
+        counts.pop("stale")
+    return counts
+
+
+def _reseal_case(case: dict) -> dict:
+    """Recompute the case seal after tampering (mirrors _hash_without_seal)."""
+    import copy
+
+    resealed = copy.deepcopy(case)
+    stripped = copy.deepcopy(resealed)
+    stripped.pop("case_sha256", None)
+    stripped.pop("created_at_utc", None)
+    canonical = json.dumps(
+        stripped, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+    )
+    resealed["case_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return resealed
+
+
+def _genuine_v3_case() -> dict:
+    """A genuine v3 case: empty-registry v3 Trust Map sealed as case-file/v3."""
+    from textforensics.conditions import conditions_from_dict
+    from textforensics.validation import ValidationRegistry, derive_trust_map
+
+    bundle = build_forensic_bundle(_V3_TEXT).to_dict()
+    conditions = conditions_from_dict(bundle["input_conditions"])
+    trust_map = derive_trust_map(
+        conditions,
+        ValidationRegistry(),
+        detector_id="textforensics/builtin-heuristic",
+        detector_version="0.1.0",
+        now="2026-11-07T00:00:00Z",
+    ).to_dict()
+    bundle["trust_map"] = trust_map
+    case = seal_case_file(bundle, version="v3")
+    assert verify_case_file_combined(case)["valid"], "genuine v3 fixture must verify"
+    return case
+
+
+def _mutated_case(case: dict, *, dimensions, overall, coverage=None) -> dict:
+    import copy
+
+    mutated = copy.deepcopy(case)
+    trust_map = mutated["forensic_bundle"]["trust_map"]
+    trust_map["dimensions"] = dimensions
+    trust_map["overall"] = overall
+    if coverage is not None:
+        trust_map["coverage"] = coverage
+    return _reseal_case(mutated)
+
+
+class TrustMapCompletenessTests(unittest.TestCase):
+    """C10: exactly the declared dimension set is required before `strong`."""
+
+    def test_genuine_v3_case_verifies(self):
+        case = _genuine_v3_case()
+        result = verify_case_file(case)
+        self.assertTrue(result["valid"], result.get("errors"))
+        self.assertTrue(result["trust_map_verified"])
+
+    def test_one_undeclared_dimension_cannot_be_strong(self):
+        """The audit's precise C10 case: one undeclared supported dimension
+        with overall `strong` and a consistent manifest must fail."""
+        case = _genuine_v3_case()
+        self.assertEqual(
+            case["manifest"]["schema_versions"]["trust_map"], "textforensics.trust-map/v3"
+        )
+        dims = [_dim("not-a-declared-dimension")]
+        mutated = _mutated_case(case, dimensions=dims, overall="strong",
+                                coverage=_coverage_for(dims))
+        result = verify_case_file(mutated)
+        self.assertFalse(result["valid"])
+        self.assertFalse(result["trust_map_verified"])
+        self.assertTrue(
+            any("dimension" in e for e in result["errors"]), result["errors"]
+        )
+        combined = verify_case_file_combined(mutated)
+        self.assertFalse(combined["valid"])
+        self.assertFalse(combined["trust_map_verified"])
+
+    def test_nonempty_subset_cannot_be_strong(self):
+        from textforensics.trust import TRUST_DIMENSIONS
+
+        case = _genuine_v3_case()
+        dims = [_dim(name) for name in TRUST_DIMENSIONS[:9]]
+        mutated = _mutated_case(case, dimensions=dims, overall="strong",
+                                coverage=_coverage_for(dims))
+        result = verify_case_file(mutated)
+        self.assertFalse(result["valid"])
+        self.assertFalse(result["trust_map_verified"])
+
+    def test_duplicated_dimension_cannot_complete_the_set(self):
+        from textforensics.trust import TRUST_DIMENSIONS
+
+        case = _genuine_v3_case()
+        dims = [_dim(name) for name in TRUST_DIMENSIONS[:9]]
+        dims.append(_dim(TRUST_DIMENSIONS[0]))
+        mutated = _mutated_case(case, dimensions=dims, overall="strong",
+                                coverage=_coverage_for(dims))
+        result = verify_case_file(mutated)
+        self.assertFalse(result["valid"])
+        self.assertFalse(result["trust_map_verified"])
+
+    def test_ten_wrong_names_cannot_be_strong(self):
+        case = _genuine_v3_case()
+        dims = [_dim(f"wrong-{i}") for i in range(10)]
+        mutated = _mutated_case(case, dimensions=dims, overall="strong",
+                                coverage=_coverage_for(dims))
+        result = verify_case_file(mutated)
+        self.assertFalse(result["valid"])
+        self.assertFalse(result["trust_map_verified"])
+
+    def test_complete_supported_v3_map_still_verifies(self):
+        from textforensics.trust import TRUST_DIMENSIONS
+
+        case = _genuine_v3_case()
+        dims = [_dim(name) for name in TRUST_DIMENSIONS]
+        mutated = _mutated_case(case, dimensions=dims, overall="strong",
+                                coverage=_coverage_for(dims))
+        result = verify_case_file(mutated)
+        self.assertTrue(result["valid"], result.get("errors"))
+        self.assertTrue(result["trust_map_verified"])
+
+    def test_stale_v3_dimension_still_verifies(self):
+        from textforensics.trust import TRUST_DIMENSIONS
+
+        case = _genuine_v3_case()
+        dims = [_dim(name, "unknown") for name in TRUST_DIMENSIONS]
+        dims[-1] = _dim("temporal_version_stability", "stale")
+        mutated = _mutated_case(case, dimensions=dims, overall="insufficient",
+                                coverage=_coverage_for(dims))
+        result = verify_case_file(mutated)
+        self.assertTrue(result["valid"], result.get("errors"))
+        self.assertTrue(result["trust_map_verified"])
+
+    def test_out_of_scope_language_v3_map_still_verifies(self):
+        from textforensics.trust import TRUST_DIMENSIONS
+
+        case = _genuine_v3_case()
+        dims = [_dim(name, "unknown") for name in TRUST_DIMENSIONS]
+        dims[0] = _dim("language", "out_of_scope")
+        mutated = _mutated_case(case, dimensions=dims, overall="insufficient",
+                                coverage=_coverage_for(dims))
+        result = verify_case_file(mutated)
+        self.assertTrue(result["valid"], result.get("errors"))
+        self.assertTrue(result["trust_map_verified"])
+
+    def test_v3_coverage_mismatch_is_rejected(self):
+        from textforensics.trust import TRUST_DIMENSIONS
+
+        case = _genuine_v3_case()
+        dims = [_dim(name) for name in TRUST_DIMENSIONS]
+        coverage = _coverage_for(dims)
+        coverage["supported"] = 5  # inconsistent with ten supported dimensions
+        mutated = _mutated_case(case, dimensions=dims, overall="strong", coverage=coverage)
+        result = verify_case_file(mutated)
+        self.assertFalse(result["valid"])
+        self.assertTrue(any("coverage" in e for e in result["errors"]), result["errors"])
+
+    def test_v3_missing_generated_at_utc_is_rejected(self):
+        import copy
+
+        from textforensics.trust import TRUST_DIMENSIONS
+
+        case = _genuine_v3_case()
+        dims = [_dim(name) for name in TRUST_DIMENSIONS]
+        mutated = _mutated_case(case, dimensions=dims, overall="strong",
+                                coverage=_coverage_for(dims))
+        mutated["forensic_bundle"]["trust_map"]["generated_at_utc"] = None
+        mutated = _reseal_case(mutated)
+        result = verify_case_file(mutated)
+        self.assertFalse(result["valid"])
+        self.assertTrue(
+            any("generated_at_utc" in e for e in result["errors"]), result["errors"]
+        )
+
+    def test_v2_subset_cannot_be_strong(self):
+        from textforensics.trust import TRUST_DIMENSIONS
+
+        bundle = build_forensic_bundle(VerifyCaseFileTests.TEXT).to_dict()
+        case = seal_case_file(bundle)
+        dims = [_dim(name) for name in TRUST_DIMENSIONS[:9]]
+        mutated = _mutated_case(case, dimensions=dims, overall="strong",
+                                coverage=_coverage_for(dims, stale_key=False))
+        result = verify_case_file(mutated)
+        self.assertFalse(result["valid"])
+        self.assertFalse(result["trust_map_verified"])
+
+    def test_v2_complete_supported_map_still_verifies(self):
+        from textforensics.trust import TRUST_DIMENSIONS
+
+        bundle = build_forensic_bundle(VerifyCaseFileTests.TEXT).to_dict()
+        case = seal_case_file(bundle)
+        dims = [_dim(name) for name in TRUST_DIMENSIONS]
+        mutated = _mutated_case(case, dimensions=dims, overall="strong",
+                                coverage=_coverage_for(dims, stale_key=False))
+        result = verify_case_file(mutated)
+        self.assertTrue(result["valid"], result.get("errors"))
+        self.assertTrue(result["trust_map_verified"])
+
+    def test_recompute_overall_v3_requires_exact_declared_set(self):
+        from textforensics.trust import TRUST_DIMENSIONS
+
+        full = [_dim(name) for name in TRUST_DIMENSIONS]
+        self.assertEqual(_recompute_overall_v3(full), "strong")
+        self.assertEqual(_recompute_overall_v3(full[:9]), "mixed")
+        dup = full[:9] + [_dim(TRUST_DIMENSIONS[0])]
+        self.assertEqual(_recompute_overall_v3(dup), "mixed")
+        wrong = [_dim(f"wrong-{i}") for i in range(10)]
+        self.assertEqual(_recompute_overall_v3(wrong), "mixed")
+        self.assertEqual(_recompute_overall_v3([_dim("not-a-declared-dimension")]), "mixed")
+
+    def test_recompute_overall_requires_exact_declared_set(self):
+        from textforensics.trust import TRUST_DIMENSIONS
+
+        full = [_dim(name) for name in TRUST_DIMENSIONS]
+        self.assertEqual(_recompute_overall(full), "strong")
+        self.assertEqual(_recompute_overall(full[:9]), "mixed")
+        wrong = [_dim(f"wrong-{i}") for i in range(10)]
+        self.assertEqual(_recompute_overall(wrong), "mixed")
+        self.assertEqual(_recompute_overall([_dim("not-a-declared-dimension")]), "mixed")
+
+
+class VerifyBenchmarkInvalidInputsTests(unittest.TestCase):
+    """C19: benchmark verification must validate domains before recomputation."""
+
+    def _base_result(self) -> dict:
+        return {
+            "schema": "textforensics.benchmark-result/v1",
+            "dataset_sha256": "a" * 64,
+            "threshold": 0.5,
+            "tp": 10,
+            "fp": 5,
+            "tn": 85,
+            "fn": 10,
+            "evaluated": 110,
+            "accuracy": 0.8636,
+            "true_positive_rate": 0.5,
+            "false_positive_rate": 0.0556,
+            "specificity": 0.9444,
+            "false_negative_rate": 0.5,
+            "precision": 0.6667,
+        }
+
+    def test_nan_rates_rejected(self):
+        import math
+
+        result = self._base_result()
+        for metric in (
+            "accuracy",
+            "true_positive_rate",
+            "false_positive_rate",
+            "specificity",
+            "false_negative_rate",
+            "precision",
+        ):
+            result[metric] = math.nan
+        verification = verify_benchmark(result)
+        self.assertFalse(verification["valid"])
+        single = self._base_result()
+        single["accuracy"] = math.nan
+        self.assertFalse(verify_benchmark(single)["valid"])
+
+    def test_infinite_rates_rejected(self):
+        import math
+
+        for bad in (math.inf, -math.inf):
+            result = self._base_result()
+            result["accuracy"] = bad
+            with self.subTest(bad=bad):
+                self.assertFalse(verify_benchmark(result)["valid"])
+
+    def test_null_string_bool_rates_rejected(self):
+        for metric in (
+            "accuracy",
+            "true_positive_rate",
+            "false_positive_rate",
+            "specificity",
+            "false_negative_rate",
+            "precision",
+        ):
+            for bad in (None, "0.5", True):
+                result = self._base_result()
+                result[metric] = bad
+                with self.subTest(metric=metric, bad=bad):
+                    self.assertFalse(verify_benchmark(result)["valid"])
+
+    def test_out_of_range_rates_rejected(self):
+        for bad in (1.5, -0.1, 2.0):
+            result = self._base_result()
+            result["accuracy"] = bad
+            with self.subTest(bad=bad):
+                self.assertFalse(verify_benchmark(result)["valid"])
+
+    def test_negative_counts_rejected(self):
+        """The audit's algebraic case: tp=tn=-1, evaluated=-2 with
+        algebraically consistent rates must still reject."""
+        result = self._base_result()
+        result.update(
+            tp=-1,
+            tn=-1,
+            fp=0,
+            fn=0,
+            evaluated=-2,
+            accuracy=1.0,
+            true_positive_rate=1.0,
+            false_positive_rate=0.0,
+            specificity=1.0,
+            false_negative_rate=0.0,
+            precision=1.0,
+        )
+        verification = verify_benchmark(result)
+        self.assertFalse(verification["valid"])
+
+    def test_bool_fractional_string_null_counts_rejected(self):
+        for field in ("tp", "fp", "tn", "fn", "evaluated"):
+            for bad in (True, 10.5, "10", None, -1):
+                result = self._base_result()
+                result[field] = bad
+                with self.subTest(field=field, bad=bad):
+                    self.assertFalse(verify_benchmark(result)["valid"])
+
+    def test_missing_count_rejected(self):
+        for field in ("tp", "fp", "tn", "fn", "evaluated"):
+            result = self._base_result()
+            del result[field]
+            with self.subTest(field=field):
+                self.assertFalse(verify_benchmark(result)["valid"])
+
+    def test_nonhex_dataset_digest_rejected(self):
+        for bad in ("z" * 64, "A" * 64, "a" * 63, "a" * 65, 1234, None):
+            result = self._base_result()
+            result["dataset_sha256"] = bad
+            with self.subTest(bad=bad):
+                self.assertFalse(verify_benchmark(result)["valid"])
+
+    def test_boundary_rates_accepted(self):
+        result = self._base_result()
+        result.update(
+            tp=10,
+            fp=0,
+            tn=10,
+            fn=0,
+            evaluated=20,
+            accuracy=1.0,
+            true_positive_rate=1.0,
+            false_positive_rate=0.0,
+            specificity=1.0,
+            false_negative_rate=0.0,
+            precision=1.0,
+        )
+        verification = verify_benchmark(result)
+        self.assertTrue(verification["valid"], verification.get("errors"))
+
+    def test_valid_benchmark_still_passes(self):
+        verification = verify_benchmark(self._base_result())
+        self.assertTrue(verification["valid"], verification.get("errors"))
 
 
 if __name__ == "__main__":

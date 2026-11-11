@@ -75,6 +75,34 @@ class CaseAndSchemaTests(unittest.TestCase):
                 load_schema("detector-result"),
             )
 
+    @unittest.skipUnless(
+        importlib.util.find_spec("jsonschema"),
+        "jsonschema is a development dependency",
+    )
+    def test_generated_bundle_with_v3_trust_map_validates_against_all_schemas(self):
+        """C23: a genuine current v3 Trust Map inside a v2 bundle (and the
+        case sealing it) must validate against every applicable public
+        schema — forensic-bundle, trust-map and case-file alike."""
+        import jsonschema
+
+        from textforensics.conditions import conditions_from_dict
+        from textforensics.validation import ValidationRegistry, derive_trust_map
+
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        conditions = conditions_from_dict(bundle["input_conditions"])
+        bundle["trust_map"] = derive_trust_map(
+            conditions,
+            ValidationRegistry(),
+            detector_id="textforensics/builtin-heuristic",
+            detector_version="0.1.0",
+            now="2026-11-07T00:00:00Z",
+        ).to_dict()
+        case = seal_case_file(bundle, version="v3")
+        jsonschema.validate(bundle, load_schema("forensic-bundle"))
+        jsonschema.validate(bundle["trust_map"], load_schema("trust-map"))
+        jsonschema.validate(case, load_schema("case-file"))
+        jsonschema.validate(case["forensic_bundle"], load_schema("forensic-bundle"))
+
 
 if __name__ == "__main__":
     unittest.main()

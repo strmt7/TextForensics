@@ -515,5 +515,144 @@ class StandaloneTimestampTests(unittest.TestCase):
             self.assertIsNone(mult(n, (gx, gy), p, a), f"{name} n*G is infinity")
 
 
+
+
+# ---------------------------------------------------------------------------
+# W2 Worker C (C10): standalone Trust Map completeness parity.
+# ---------------------------------------------------------------------------
+
+
+def _sa_dim(name, state="supported"):
+    return {"dimension": name, "state": state, "reason": "synthetic"}
+
+
+def _sa_coverage(dimensions, *, stale_key=True):
+    counts = {"supported": 0, "partial": 0, "unknown": 0, "out_of_scope": 0, "stale": 0}
+    for item in dimensions:
+        counts[item["state"]] += 1
+    if not stale_key:
+        counts.pop("stale")
+    return counts
+
+
+def _sa_reseal(case):
+    import copy
+
+    resealed = copy.deepcopy(case)
+    stripped = copy.deepcopy(resealed)
+    stripped.pop("case_sha256", None)
+    stripped.pop("created_at_utc", None)
+    canonical = json.dumps(
+        stripped, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+    )
+    resealed["case_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return resealed
+
+
+def _sa_genuine_v3_case():
+    from textforensics.conditions import conditions_from_dict
+    from textforensics.validation import ValidationRegistry, derive_trust_map
+
+    bundle = build_forensic_bundle(TEXT).to_dict()
+    conditions = conditions_from_dict(bundle["input_conditions"])
+    trust_map = derive_trust_map(
+        conditions,
+        ValidationRegistry(),
+        detector_id="textforensics/builtin-heuristic",
+        detector_version="0.1.0",
+        now="2026-11-07T00:00:00Z",
+    ).to_dict()
+    bundle["trust_map"] = trust_map
+    return seal_case_file(bundle, version="v3")
+
+
+def _sa_mutated_bundle(case, *, dimensions, overall, stale_key=True):
+    import copy
+
+    mutated = copy.deepcopy(case)
+    trust_map = mutated["forensic_bundle"]["trust_map"]
+    trust_map["dimensions"] = dimensions
+    trust_map["overall"] = overall
+    trust_map["coverage"] = _sa_coverage(dimensions, stale_key=stale_key)
+    mutated = _sa_reseal(mutated)
+    return build_bundle(case_bytes=canonical_json(mutated), case=mutated)
+
+
+class StandaloneTrustMapTests(unittest.TestCase):
+    """C10 parity: the stdlib-only verifier must enforce the same
+    Trust Map completeness contract as the installed verifier."""
+
+    def setUp(self):
+        self.mod = load_standalone()
+
+    def _check_status(self, report, check_id):
+        for check in report["checks"]:
+            if check["id"] == check_id:
+                return check["status"]
+        return None
+
+    def test_valid_bundle_trust_map_passes(self):
+        bundle, _, _ = build_bundle()
+        report = self.mod.verify_bundle_bytes(bundle)
+        self.assertEqual(report["exit_code"], 0, json.dumps(report, indent=2))
+        self.assertEqual(self._check_status(report, "seal_trust_map"), "pass")
+
+    def test_one_undeclared_dimension_fails(self):
+        _, _, case = build_bundle()
+        dims = [_sa_dim("not-a-declared-dimension")]
+        bundle, _, _ = _sa_mutated_bundle(case, dimensions=dims, overall="strong",
+                                          stale_key=False)
+        report = self.mod.verify_bundle_bytes(bundle)
+        self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+        self.assertEqual(self._check_status(report, "seal_trust_map"), "fail")
+
+    def test_subset_fails(self):
+        from textforensics.trust import TRUST_DIMENSIONS
+
+        _, _, case = build_bundle()
+        dims = [_sa_dim(name) for name in TRUST_DIMENSIONS[:9]]
+        bundle, _, _ = _sa_mutated_bundle(case, dimensions=dims, overall="strong",
+                                          stale_key=False)
+        report = self.mod.verify_bundle_bytes(bundle)
+        self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+        self.assertEqual(self._check_status(report, "seal_trust_map"), "fail")
+
+    def test_ten_wrong_names_fail(self):
+        _, _, case = build_bundle()
+        dims = [_sa_dim(f"wrong-{i}") for i in range(10)]
+        bundle, _, _ = _sa_mutated_bundle(case, dimensions=dims, overall="strong",
+                                          stale_key=False)
+        report = self.mod.verify_bundle_bytes(bundle)
+        self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+        self.assertEqual(self._check_status(report, "seal_trust_map"), "fail")
+
+    def test_complete_supported_v3_map_passes(self):
+        from textforensics.trust import TRUST_DIMENSIONS
+
+        case = _sa_genuine_v3_case()
+        dims = [_sa_dim(name) for name in TRUST_DIMENSIONS]
+        bundle, _, _ = _sa_mutated_bundle(case, dimensions=dims, overall="strong")
+        report = self.mod.verify_bundle_bytes(bundle)
+        self.assertEqual(report["exit_code"], 0, json.dumps(report, indent=2))
+        self.assertEqual(self._check_status(report, "seal_trust_map"), "pass")
+
+    def test_stale_v3_dimension_passes(self):
+        from textforensics.trust import TRUST_DIMENSIONS
+
+        case = _sa_genuine_v3_case()
+        dims = [_sa_dim(name, "unknown") for name in TRUST_DIMENSIONS]
+        dims[-1] = _sa_dim("temporal_version_stability", "stale")
+        bundle, _, _ = _sa_mutated_bundle(case, dimensions=dims, overall="insufficient")
+        report = self.mod.verify_bundle_bytes(bundle)
+        self.assertEqual(report["exit_code"], 0, json.dumps(report, indent=2))
+        self.assertEqual(self._check_status(report, "seal_trust_map"), "pass")
+
+    def test_declared_dimensions_match_package_registry(self):
+        from textforensics.schema import DECLARED_TRUST_MAP_DIMENSIONS
+
+        declared = self.mod._DECLARED_TRUST_MAP_DIMENSIONS
+        self.assertEqual(set(declared), set(DECLARED_TRUST_MAP_DIMENSIONS))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -287,3 +287,82 @@ class TestCodecOneFormat:
             ResultCodec(CodecConfig(strict_version=True)).decode(
                 json.dumps(data), "forensic-bundle", validate=False
             )
+
+
+# ---------------------------------------------------------------------------
+# W2 Worker C (C10): combined verifier Trust Map completeness.
+# ---------------------------------------------------------------------------
+
+
+def _c10_dim(name, state="supported"):
+    return {"dimension": name, "state": state, "reason": "synthetic"}
+
+
+def _c10_coverage(dimensions):
+    counts = {"supported": 0, "partial": 0, "unknown": 0, "out_of_scope": 0}
+    for item in dimensions:
+        if item["state"] == "stale":
+            counts["stale"] = counts.get("stale", 0) + 1
+        else:
+            counts[item["state"]] += 1
+    return counts
+
+
+def _c10_mutated_case(case, *, dimensions, overall):
+    mutated = copy.deepcopy(case)
+    trust_map = mutated["forensic_bundle"]["trust_map"]
+    trust_map["dimensions"] = dimensions
+    trust_map["overall"] = overall
+    trust_map["coverage"] = _c10_coverage(dimensions)
+    return _reseal(mutated)
+
+
+class TestCombinedTrustMapCompleteness:
+    """C10 through the combined entry point (v2 map in a v4 case)."""
+
+    def test_one_undeclared_dimension_fails_combined(self):
+        case = _sealed_case()
+        dims = [_c10_dim("not-a-declared-dimension")]
+        mutated = _c10_mutated_case(case, dimensions=dims, overall="strong")
+        result = verify_case_file_combined(mutated)
+        assert result["valid"] is False
+        assert result["trust_map_verified"] is False
+
+    def test_nonempty_subset_fails_combined(self):
+        case = _sealed_case()
+        dims = [_c10_dim(name) for name in TRUST_DIMENSIONS[:9]]
+        mutated = _c10_mutated_case(case, dimensions=dims, overall="strong")
+        result = verify_case_file_combined(mutated)
+        assert result["valid"] is False
+
+    def test_duplicated_dimension_fails_combined(self):
+        case = _sealed_case()
+        dims = [_c10_dim(name) for name in TRUST_DIMENSIONS[:9]]
+        dims.append(_c10_dim(TRUST_DIMENSIONS[0]))
+        mutated = _c10_mutated_case(case, dimensions=dims, overall="strong")
+        result = verify_case_file_combined(mutated)
+        assert result["valid"] is False
+
+    def test_ten_wrong_names_fail_combined(self):
+        case = _sealed_case()
+        dims = [_c10_dim(f"wrong-{i}") for i in range(10)]
+        mutated = _c10_mutated_case(case, dimensions=dims, overall="strong")
+        result = verify_case_file_combined(mutated)
+        assert result["valid"] is False
+        assert result["trust_map_verified"] is False
+
+    def test_complete_supported_map_passes_combined(self):
+        case = _sealed_case()
+        dims = [_c10_dim(name) for name in TRUST_DIMENSIONS]
+        mutated = _c10_mutated_case(case, dimensions=dims, overall="strong")
+        result = verify_case_file_combined(mutated)
+        assert result["valid"] is True, result["errors"]
+        assert result["trust_map_verified"] is True
+
+    def test_stale_state_in_v2_map_fails_combined(self):
+        case = _sealed_case()
+        dims = [_c10_dim(name, "unknown") for name in TRUST_DIMENSIONS]
+        dims[-1] = _c10_dim("temporal_version_stability", "stale")
+        mutated = _c10_mutated_case(case, dimensions=dims, overall="insufficient")
+        result = verify_case_file_combined(mutated)
+        assert result["valid"] is False

@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from textforensics import schema as schema_module
 from textforensics.casefile import seal_case_file
 from textforensics.report import build_forensic_bundle
 from textforensics.schema import (
@@ -449,6 +450,315 @@ class SchemaCLITests(unittest.TestCase):
             cwd=Path(__file__).parent.parent,
         )
         self.assertNotEqual(result.returncode, 0)
+
+
+# ---------------------------------------------------------------------------
+# W2 Worker C (CORE-10 / C23): one explicit, complete, version-aware
+# schema registry.  New API is reached through the module so these tests
+# fail (AttributeError) on the pre-fix registry instead of failing at
+# collection time.
+# ---------------------------------------------------------------------------
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+SCHEMAS_DIR = REPO_ROOT / "src" / "textforensics" / "schemas"
+
+
+def _valid_payloads() -> dict[str, dict]:
+    """One minimal valid synthetic payload per shipped schema."""
+    return {
+        "evidence-registry": {
+            "schema": "textforensics.evidence-registry/v1",
+            "records": [],
+        },
+        "validation-registry": {
+            "schema": "textforensics.validation-registry/v1",
+            "registry_id": "d" * 64,
+            "created_at_utc": "2026-11-06T00:00:00+00:00",
+            "records": [],
+        },
+        "run-artifact": {
+            "schema": "textforensics.run-artifact/v1",
+            "evidence_record_id": "EV-20261106-synthetic-test",
+            "kind": "test",
+            "command": "pytest",
+            "environment": {"python": "3.12.3"},
+            "code_version": "a" * 40,
+            "run_date": "2026-11-06",
+            "results": {},
+            "drops": [],
+            "badge": "available",
+        },
+        "sealed-bundle-manifest": {
+            "schema": "textforensics.sealed-bundle-manifest/v1",
+            "context": {
+                "tool_version": "0.1.0",
+                "case_id": "a" * 64,
+                "input_sha256": "b" * 64,
+                "registry_sha256": None,
+                "signature": None,
+                "signer": None,
+                "timestamp_token_sha256": None,
+                "timestamp_imprint": None,
+                "appeal_checklist_digest": None,
+            },
+            "files": [],
+        },
+        "evidence-manifest": {
+            "schema": "textforensics.evidence-manifest/v1",
+            "manifest_version": "1",
+            "candidate_source_sha": "a" * 40,
+            "source_tree_digest": {"method": "git-tree", "value": "a" * 40},
+            "package_inputs": [
+                {
+                    "name": "textforensics",
+                    "version": "0.2.0",
+                    "digest": {"algorithm": "sha256", "value": "a" * 64},
+                }
+            ],
+            "schema_versions": {"forensic-bundle": "textforensics.forensic-bundle/v2"},
+            "test_suites": [{"suite": "core", "run_id": "local-synthetic"}],
+            "scientific_run_ids": [],
+            "artifacts": [
+                {"path": "docs/evidence/report-card.md", "sha256": "a" * 64, "role": "report"}
+            ],
+            "gate_results": {
+                "verify_release_output": {"path": "verify-release.json", "sha256": "a" * 64},
+                "gates": {"core": {"status": "pass"}},
+                "required_gates": ["core"],
+            },
+            "recorded_at_utc": "2026-11-06T00:00:00+00:00",
+        },
+        "probe-run": {
+            "schema": "textforensics.probe-run/v1",
+            "run_id": "run-1",
+            "run_at_utc": "2026-11-06T00:00:00+00:00",
+            "scope": "full",
+            "corpus_version": "1.0.0",
+            "corpus_fingerprint": "a" * 64,
+            "detector_id": "synthetic-detector",
+            "detector_version": "0.1.0",
+            "code_sha": "a" * 40,
+            "baseline_run_id": None,
+            "is_baseline": True,
+            "previous_run_id": None,
+            "alpha_per_run": 0.01,
+            "thresholds": {
+                "psi_action": 0.1,
+                "ks_effect_size": 0.1,
+                "ks_p_threshold": 0.01,
+                "flip_rate_tier2": 0.1,
+                "flip_rate_tier1": 0.2,
+                "ece_increase_tier2": 0.05,
+                "coverage_shortfall_tier2_pp": 5.0,
+                "coverage_shortfall_tier1_pp": 10.0,
+                "version_change_stale_days": 30,
+                "min_clean_full_runs_for_temporal_support": 3,
+                "min_slice_n": 100,
+                "min_slice_n_for_fpr_claim": 100,
+                "fpr_cap": 0.05,
+            },
+            "metrics": {},
+            "alerts": [],
+            "breaches": [],
+            "demotions_applied": {},
+            "demotions_cleared": {},
+            "watches": [],
+            "gaps": [],
+            "scope_statement": "synthetic",
+            "limitations": [],
+        },
+        "mixed-origin-report": {
+            "schema": "textforensics.mixed-origin-report/v1",
+            "input": {
+                "char_count": 10,
+                "word_count": 3,
+                "segment_count": 1,
+                "content_hash": "sha256:" + "a" * 64,
+            },
+            "detector": {"id": "synthetic-detector", "version": "0.1.0"},
+            "verdict": "withheld",
+            "withheld_reasons": ["synthetic"],
+            "collaboration_type": "unknown",
+            "collaboration_confidence": "low",
+            "degree_of_change": {
+                "estimate": 0.5,
+                "tiers": "human",
+                "method": "synthetic",
+                "calibration": "none",
+            },
+            "operation_hypothesis": {
+                "operation": "unknown",
+                "direction": "unknown",
+                "confidence": "low",
+                "evidence": [],
+            },
+            "segments": [],
+            "non_monotonicity_warning": (
+                "Intermediate mixtures are the hardest regime to detect "
+                "(OpAI-Bench 2026); a low AI score here does not mean human."
+            ),
+            "idea_provenance_note": (
+                "Prose evidence cannot determine who originated the ideas (IdeaLens 2026)."
+            ),
+            "regime": {"language": "en", "domain": "synthetic", "validation_slice_covered": False},
+            "limitations": ["synthetic"],
+        },
+    }
+
+
+class SchemaRegistryCompletenessTests(unittest.TestCase):
+    """CORE-10: discovery, dispatch and versioning must agree with the tree."""
+
+    def test_registry_lists_every_shipped_schema(self):
+        shipped = sorted(p.name.removesuffix(".schema.json") for p in SCHEMAS_DIR.glob("*.json"))
+        self.assertEqual(shipped, sorted(list_schemas()))
+        self.assertIn("evidence-manifest", list_schemas())
+        self.assertIn("mixed-origin-report", list_schemas())
+        self.assertIn("probe-run", list_schemas())
+
+    def test_every_listed_schema_loads(self):
+        for name in list_schemas():
+            schema = load_schema(name)
+            self.assertIsInstance(schema, dict)
+            self.assertIn("$schema", schema)
+
+    def test_validate_dispatches_every_listed_name(self):
+        # An invalid payload must produce schema errors, never an
+        # "Unknown schema" ValueError: dispatch must exist for every
+        # listed name, including the four CORE-10 names.
+        for name in list_schemas():
+            with self.subTest(name=name):
+                errors = validate({}, name)
+                self.assertIsInstance(errors, list)
+                self.assertGreater(len(errors), 0)
+
+    def test_validate_accepts_valid_payload_for_every_listed_name(self):
+        payloads = _valid_payloads()
+        payloads["evidence-record"] = minimal_evidence_record()
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        payloads["forensic-bundle"] = bundle
+        payloads["case-file"] = seal_case_file(bundle)
+        payloads["trust-map"] = bundle["trust_map"]
+        payloads["detector-result"] = bundle["detector_results"][0]
+        payloads["enterprise-policy"] = {
+            "revision": 1,
+            "settings": {},
+            "rules": [
+                {
+                    "id": "synthetic-rule",
+                    "description": "synthetic",
+                    "action": "warn",
+                    "scope": "global",
+                }
+            ],
+        }
+        self.assertEqual(set(payloads), set(list_schemas()))
+        for name, payload in payloads.items():
+            with self.subTest(name=name):
+                self.assertEqual(validate(payload, name), [], f"{name} failed to validate")
+
+    def test_supported_versions_come_from_the_schema_files(self):
+        supported_versions = schema_module.supported_versions
+        self.assertEqual(
+            supported_versions("trust-map"),
+            frozenset(
+                {
+                    "textforensics.trust-map/v1",
+                    "textforensics.trust-map/v2",
+                    "textforensics.trust-map/v3",
+                }
+            ),
+        )
+        self.assertEqual(
+            supported_versions("forensic-bundle"),
+            frozenset({"textforensics.forensic-bundle/v1", "textforensics.forensic-bundle/v2"}),
+        )
+        self.assertEqual(
+            supported_versions("case-file"),
+            frozenset(
+                {
+                    "textforensics.case-file/v1",
+                    "textforensics.case-file/v2",
+                    "textforensics.case-file/v3",
+                    "textforensics.case-file/v4",
+                }
+            ),
+        )
+        self.assertEqual(
+            supported_versions("evidence-record"),
+            frozenset({"textforensics.evidence-record/v1"}),
+        )
+        # enterprise-policy carries no top-level version: unversioned.
+        self.assertEqual(supported_versions("enterprise-policy"), frozenset())
+        with self.assertRaises(ValueError):
+            supported_versions("does-not-exist")
+
+    def test_unsupported_version_is_refused_deliberately(self):
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        bundle["schema"] = "textforensics.forensic-bundle/v99"
+        errors = validate(bundle, "forensic-bundle")
+        self.assertTrue(any("v99" in e and "unsupported" in e.lower() for e in errors), errors)
+        trust_map = bundle["trust_map"]
+        trust_map["schema"] = "textforensics.trust-map/v9"
+        errors = validate(trust_map, "trust-map")
+        self.assertTrue(any("unsupported" in e.lower() for e in errors), errors)
+        with self.assertRaises(ValueError):
+            load_schema("trust-map", version="textforensics.trust-map/v9")
+        # A supported version loads.
+        self.assertIsInstance(load_schema("trust-map", version="textforensics.trust-map/v3"), dict)
+
+    def test_declared_trust_map_dimensions_are_the_single_set(self):
+        from textforensics.trust import TRUST_DIMENSIONS
+
+        declared = schema_module.DECLARED_TRUST_MAP_DIMENSIONS
+        self.assertEqual(declared, frozenset(TRUST_DIMENSIONS))
+        self.assertEqual(
+            declared,
+            {
+                "language",
+                "text_length",
+                "domain_genre",
+                "editing_revision",
+                "generator_scope",
+                "human_population",
+                "human_false_positive_evidence",
+                "detector_diversity",
+                "benign_stability",
+                "temporal_version_stability",
+            },
+        )
+        trust_schema = load_schema("trust-map")
+        for version in ("v2", "v3"):
+            branch = next(
+                item["then"]["properties"]["dimensions"]["items"]["properties"]["dimension"][
+                    "enum"
+                ]
+                for item in trust_schema["allOf"]
+                if item["if"]["properties"]["schema"]["const"]
+                == f"textforensics.trust-map/{version}"
+            )
+            self.assertEqual(set(branch), set(declared))
+
+    def test_bundle_trust_map_version_pairs(self):
+        # C23 compatibility decision: a bundle accepts its own map
+        # version and the next one; nothing else.
+        check_pair = schema_module.validate_bundle_trust_map_pair
+        for bundle_version, map_version in (
+            ("textforensics.forensic-bundle/v1", "textforensics.trust-map/v1"),
+            ("textforensics.forensic-bundle/v1", "textforensics.trust-map/v2"),
+            ("textforensics.forensic-bundle/v2", "textforensics.trust-map/v2"),
+            ("textforensics.forensic-bundle/v2", "textforensics.trust-map/v3"),
+        ):
+            with self.subTest(bundle=bundle_version, trust_map=map_version):
+                self.assertEqual(check_pair(bundle_version, map_version), [])
+        for bundle_version, map_version in (
+            ("textforensics.forensic-bundle/v1", "textforensics.trust-map/v3"),
+            ("textforensics.forensic-bundle/v2", "textforensics.trust-map/v1"),
+            ("textforensics.forensic-bundle/v2", "textforensics.trust-map/v9"),
+            ("textforensics.forensic-bundle/v9", "textforensics.trust-map/v2"),
+        ):
+            with self.subTest(bundle=bundle_version, trust_map=map_version):
+                self.assertGreater(len(check_pair(bundle_version, map_version)), 0)
 
 
 if __name__ == "__main__":
