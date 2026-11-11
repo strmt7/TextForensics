@@ -1793,3 +1793,334 @@ def probe_report_bundle():
         except Exception as exc:  # noqa: BLE001
             rows.append((name, ("raise", type(exc).__name__, str(exc))))
     return rows
+
+
+# ---------------------------------------------------------------------------
+# probe_metrics supplementary functions (new probe, W2-F kill tests)
+# ---------------------------------------------------------------------------
+def probe_pm_extra():
+    import math
+    from textforensics.probe_metrics import (
+        psi, coverage_shortfall_pp, require_integer, wilson_ci,
+        holm_adjusted, set_coverage, reject_nonfinite_value,
+        require_finite_number)
+    rows = []
+    # psi: identical -> 0; shifted; empty bins (smoothing); bin edges
+    for name, fn in [
+        ("psi-identical", lambda: psi([0.1, 0.2, 0.3, 0.4], [0.1, 0.2, 0.3, 0.4])),
+        ("psi-shifted", lambda: psi([0.1, 0.2, 0.3, 0.4], [0.5, 0.6, 0.7, 0.8])),
+        ("psi-empty-bins", lambda: psi([0.1] * 10, [0.9] * 10)),
+        ("psi-bins1", lambda: psi([0.1, 0.9], [0.2, 0.8], bins=1)),
+        ("psi-bins2", lambda: psi([0.1, 0.2, 0.8, 0.9], [0.15, 0.25, 0.75, 0.85], bins=2)),
+        ("psi-bins0", lambda: psi([0.1, 0.2], [0.1, 0.2], bins=0)),
+        ("psi-empty", lambda: psi([], [0.1])),
+        ("psi-nan", lambda: psi([0.1, float("nan")], [0.1, 0.2])),
+        ("psi-cut-edge", lambda: psi([0.0, 0.25, 0.5, 0.75, 1.0], [0.25, 0.25, 0.5, 0.75, 1.0], bins=4)),
+        ("wilson-0-10", lambda: wilson_ci(0, 10)),
+        ("wilson-10-10", lambda: wilson_ci(10, 10)),
+        ("wilson-5-10", lambda: wilson_ci(5, 10)),
+        ("wilson-1-100", lambda: wilson_ci(1, 100)),
+        ("wilson-0-1", lambda: wilson_ci(0, 1)),
+        ("wilson-k-gt-n", lambda: wilson_ci(11, 10)),
+        ("wilson-n-0", lambda: wilson_ci(0, 0)),
+        ("wilson-z-0", lambda: wilson_ci(1, 10, z=0.0)),
+        ("wilson-z-neg", lambda: wilson_ci(1, 10, z=-1.0)),
+        ("wilson-z-2", lambda: wilson_ci(5, 10, z=2.0)),
+        ("shortfall-0", lambda: coverage_shortfall_pp(0.9, 0.9)),
+        ("shortfall-5pp", lambda: coverage_shortfall_pp(0.85, 0.9)),
+        ("shortfall-neg", lambda: coverage_shortfall_pp(0.95, 0.9)),
+        ("shortfall-100", lambda: coverage_shortfall_pp(0.0, 1.0)),
+        ("shortfall-emp-over", lambda: coverage_shortfall_pp(1.1, 0.9)),
+        ("shortfall-nom-under", lambda: coverage_shortfall_pp(0.9, -0.1)),
+        ("shortfall-nan", lambda: coverage_shortfall_pp(float("nan"), 0.9)),
+        ("holm-single", lambda: holm_adjusted([0.03])),
+        ("holm-sorted", lambda: holm_adjusted([0.01, 0.02, 0.03, 0.04])),
+        ("holm-unsorted", lambda: holm_adjusted([0.04, 0.01, 0.03, 0.02])),
+        ("holm-cap", lambda: holm_adjusted([0.5, 0.6, 0.7])),
+        ("holm-running-max", lambda: holm_adjusted([0.01, 0.9, 0.02])),
+        ("holm-empty", lambda: holm_adjusted([])),
+        ("holm-over-1", lambda: holm_adjusted([1.5])),
+        ("holm-5-2", lambda: holm_adjusted([0.01, 0.02, 0.03, 0.04, 0.05])),
+        ("setcov-all", lambda: set_coverage([{0}, {1}, {0, 1}], [0, 1, 1])),
+        ("setcov-none", lambda: set_coverage([{1}, {0}], [0, 1])),
+        ("setcov-half", lambda: set_coverage([{0}, {0}], [0, 1])),
+        ("setcov-mismatch", lambda: set_coverage([{0}], [0, 1])),
+        ("setcov-empty", lambda: set_coverage([], [])),
+        ("setcov-bool-label", lambda: set_coverage([{0}], [True])),
+        ("setcov-str-label", lambda: set_coverage([{0}], ["0"])),
+        ("setcov-300", lambda: set_coverage([{0}] * 300, [0] * 300)),
+        ("reqint-5", lambda: require_integer(5, "n")),
+        ("reqint-0-min0", lambda: require_integer(0, "n", minimum=0)),
+        ("reqint-neg-min0", lambda: require_integer(-1, "n", minimum=0)),
+        ("reqint-10-max10", lambda: require_integer(10, "n", maximum=10)),
+        ("reqint-11-max10", lambda: require_integer(11, "n", maximum=10)),
+        ("reqint-9-max10", lambda: require_integer(9, "n", maximum=10)),
+        ("reqint-bool", lambda: require_integer(True, "n")),
+        ("reqint-float", lambda: require_integer(5.0, "n")),
+        ("reqint-str", lambda: require_integer("5", "n")),
+        ("reqfin-1", lambda: require_finite_number(1, "x")),
+        ("reqfin-nan", lambda: require_finite_number(float("nan"), "x")),
+        ("reqfin-inf", lambda: require_finite_number(float("inf"), "x")),
+        ("reqfin-bool", lambda: require_finite_number(True, "x")),
+        ("reqfin-str", lambda: require_finite_number("1", "x")),
+        ("reject-none", lambda: reject_nonfinite_value(None)),
+        ("reject-nan", lambda: reject_nonfinite_value(float("nan"))),
+        ("reject-inf", lambda: reject_nonfinite_value(float("inf"))),
+        ("reject-nested", lambda: reject_nonfinite_value({"a": [1.0, float("nan")]})),
+        ("reject-nested-ok", lambda: reject_nonfinite_value({"a": [1.0, 2.0]})),
+        ("reject-set-nan", lambda: reject_nonfinite_value({float("nan")})),
+    ]:
+        rows.append((name, outcome(fn)))
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# _standalone_verify._trust_map_check_errors (new probe, W2-F kill tests)
+# ---------------------------------------------------------------------------
+def probe_sa_trust_map_errors():
+    import sys
+    from textforensics._standalone_verify import _trust_map_check_errors
+    from textforensics.trust import TRUST_DIMENSIONS
+    import copy, json
+    dims = sorted(TRUST_DIMENSIONS)
+    base = _schema_map("v3")
+    base["overall"] = "mixed"
+    # derive the correct overall for the base map (all supported -> strong)
+    base["overall"] = "strong"
+    base2 = _schema_map("v2")
+    base2["overall"] = "strong"
+    cases = [
+        ("valid-v3", base, "textforensics.forensic-bundle/v2"),
+        ("valid-v2", base2, "textforensics.forensic-bundle/v2"),
+        ("valid-v2-bundle-v1", base2, "textforensics.forensic-bundle/v1"),
+        ("not-dict", [], "textforensics.forensic-bundle/v2"),
+        ("v4-schema", _schema_map("v3", **{"schema": "textforensics.trust-map/v4"}), "textforensics.forensic-bundle/v2"),
+        ("v1-map", _schema_map("v1"), "textforensics.forensic-bundle/v1"),
+        ("overall-mismatch", _schema_map("v3", **{"overall": "mixed"}), "textforensics.forensic-bundle/v2"),
+        ("overall-distinct", _schema_map("v3", **{"overall": "".join(["s", "t", "r", "o", "n", "g"])}), "textforensics.forensic-bundle/v2"),
+        ("overall-partial", _schema_map("v3", **{"overall": "partial"}), "textforensics.forensic-bundle/v2"),
+        ("missing-dim", _schema_map("v3", dims=[{"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]]), "textforensics.forensic-bundle/v2"),
+        ("unknown-dim", _schema_map("v3", dims=[{"dimension": "nope", "state": "supported", "reason": "ok"}] + [{"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]]), "textforensics.forensic-bundle/v2"),
+        ("dup2", _schema_map("v3", dims=[{"dimension": dims[0], "state": "supported", "reason": "ok"}] * 2 + [{"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]]), "textforensics.forensic-bundle/v2"),
+        ("dup3", _schema_map("v3", dims=[{"dimension": dims[0], "state": "supported", "reason": "ok"}] * 3 + [{"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]]), "textforensics.forensic-bundle/v2"),
+        ("two-bad-dims", _schema_map("v3", dims=[{"dimension": dims[0], "state": "bogus", "reason": "ok"}, {"dimension": dims[1], "state": "bogus", "reason": "ok"}] + [{"dimension": d, "state": "supported", "reason": "ok"} for d in dims[2:]]), "textforensics.forensic-bundle/v2"),
+        ("reason-123", _schema_map("v3", dims=[{"dimension": dims[0], "state": "supported", "reason": 123}] + [{"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]]), "textforensics.forensic-bundle/v2"),
+        ("reason-empty", _schema_map("v3", dims=[{"dimension": dims[0], "state": "supported", "reason": ""}] + [{"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]]), "textforensics.forensic-bundle/v2"),
+        ("name-non-str", _schema_map("v3", dims=[{"dimension": 123, "state": "supported", "reason": "ok"}] + [{"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]]), "textforensics.forensic-bundle/v2"),
+        ("name-empty", _schema_map("v3", dims=[{"dimension": "", "state": "supported", "reason": "ok"}] + [{"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]]), "textforensics.forensic-bundle/v2"),
+        ("generated-none", _schema_map("v3", generated_at_utc=None), "textforensics.forensic-bundle/v2"),
+        ("coverage-bool", _schema_cov(base, supported=True), "textforensics.forensic-bundle/v2"),
+        ("coverage-neg", _schema_cov(base, supported=-1), "textforensics.forensic-bundle/v2"),
+        ("coverage-mismatch", _schema_cov(base, supported=len(dims) - 1, partial=1), "textforensics.forensic-bundle/v2"),
+        ("coverage-mismatch-up", _schema_cov(base, supported=len(dims) + 1), "textforensics.forensic-bundle/v2"),
+        ("pair-bad", base, "textforensics.forensic-bundle/v9"),
+        ("empty-dims", _schema_map("v3", dims=[]), "textforensics.forensic-bundle/v2"),
+        ("dims-not-list", _schema_map("v3", dims={"a": 1}), "textforensics.forensic-bundle/v2"),
+        ("partial-unknown-mix", _schema_map("v3", dims=[{"dimension": dims[0], "state": "partial", "reason": "ok"}] + [{"dimension": d, "state": "unknown", "reason": "ok"} for d in dims[1:]], **{"overall": "mixed", "coverage": {"supported": 0, "partial": 1, "unknown": 9, "out_of_scope": 0, "stale": 0}}), "textforensics.forensic-bundle/v2"),
+    ]
+    # fix the coverage cases to carry the right overall (all-supported -> strong)
+    fixed = []
+    for name, m, bundle_schema in cases:
+        if name.startswith("coverage-"):
+            m = copy.deepcopy(m)
+            m["overall"] = "strong"
+        fixed.append((name, m, bundle_schema))
+    return [(name, outcome(_trust_map_check_errors, m, b)) for name, m, b in fixed]
+
+
+# ---------------------------------------------------------------------------
+# calibration.run_calibration_evaluation (new probe, W2-F kill tests)
+# ---------------------------------------------------------------------------
+def probe_cal_pipeline():
+    import tempfile, json
+    from pathlib import Path
+    from textforensics.calibration import run_calibration_evaluation
+    rows = []
+
+    def write(path, texts):
+        rows = ([{"label": "human", "text": t} for t in texts[:4]]
+                + [{"label": "ai", "text": t} for t in texts[4:]])
+        path.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        cal = tmp / "cal.jsonl"
+        ev = tmp / "ev.jsonl"
+        same = tmp / "same.jsonl"
+        bad = tmp / "bad.jsonl"
+        write(cal, [f"cal human sentence {i}." for i in range(4)] + [f"cal ai sentence {i}." for i in range(4)])
+        write(ev, [f"ev human sentence {i}." for i in range(4)] + [f"ev ai sentence {i}." for i in range(4)])
+        write(same, [f"same human sentence {i}." for i in range(4)])
+        bad.write_text('{"label": "human", "text": "ok."}\nNOT JSON\n{"label": "ai", "text": "ok2."}\n', encoding="utf-8")
+        for name, c, e, kwargs in [
+            ("disjoint", cal, ev, {}),
+            ("disjoint-diag", cal, ev, {"diagnostic": True}),
+            ("same-file", cal, cal, {}),
+            ("same-file-diag", cal, cal, {"diagnostic": True}),
+            ("bad-cal", bad, ev, {}),
+            ("bad-cal-diag", bad, ev, {"diagnostic": True}),
+            ("bad-cal-nostrict", bad, ev, {"strict": False}),
+            ("bad-eval", cal, bad, {}),
+            ("bad-eval-diag", cal, bad, {"diagnostic": True}),
+            ("missing", cal, tmp / "nope.jsonl", {}),
+            ("missing-diag", cal, tmp / "nope.jsonl", {"diagnostic": True}),
+        ]:
+            try:
+                out = run_calibration_evaluation(c, e, **kwargs)
+                er = out["evaluation_result"]
+                rows.append((name, ("ok", er.get("evaluation_mode"),
+                                    er.get("contamination_detected"),
+                                    er.get("overlap_count"),
+                                    out["validation"].get("valid"),
+                                    out["validation"].get("contamination_detected"))))
+            except Exception as exc:  # noqa: BLE001
+                rows.append((name, ("raise", type(exc).__name__,
+                                    str(exc).replace(str(tmp), "TMP"))))
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# calibration.store / getters (new probe, W2-F kill tests)
+# ---------------------------------------------------------------------------
+def _cal_identity(**over):
+    from textforensics.calibration import InferenceIdentity
+    import test_calibration as T
+    kw = dict(detector_id="det1", detector_version="1.0", provider="local",
+              model="builtin-heuristic-0.1.0", config_hash=T.hex64(5),
+              native_score_semantics="probability_higher_means_ai",
+              regime="unedited", calibration_id="cal1")
+    kw.update(over)
+    return InferenceIdentity(**kw)
+
+
+def probe_cal_store():
+    import tempfile
+    from textforensics.calibration import CalibrationManager
+    import test_calibration as T
+    rows = []
+    with tempfile.TemporaryDirectory() as tmp:
+        mgr = CalibrationManager(tmp)
+        ident = _cal_identity()
+        # valid store with identity
+        try:
+            art = mgr.store(detector_id="det1", detector_version="1.0",
+                            curve=T.platt_curve(), calibration_id="cal1",
+                            created_at="2024-01-01T00:00:00+00:00", identity=ident,
+                            **T.eligible_artifact_kwargs())
+            rows.append(("store-identity", ("ok", art.artifact_id, art.calibration_id)))
+        except Exception as exc:  # noqa: BLE001
+            rows.append(("store-identity", ("raise", type(exc).__name__, str(exc))))
+        # identity mismatches (each field, either side of the value)
+        for name, over in [
+            ("id-aaa", {"detector_id": "aaa"}),
+            ("id-zzz", {"detector_id": "zzz"}),
+            ("ver-099", {"detector_version": "0.9.9"}),
+            ("ver-200", {"detector_version": "2.0.0"}),
+            ("cal-aaa", {"calibration_id": "aaa"}),
+            ("cal-zzz", {"calibration_id": "zzz"}),
+        ]:
+            try:
+                mgr.store(detector_id="det1", detector_version="1.0",
+                          curve=T.platt_curve(), calibration_id="cal1",
+                          created_at="2024-01-01T00:00:00+00:00",
+                          identity=_cal_identity(**over), **T.eligible_artifact_kwargs())
+                rows.append((f"store-{name}", ("ok", "stored")))
+            except Exception as exc:  # noqa: BLE001
+                rows.append((f"store-{name}", ("raise", type(exc).__name__, str(exc))))
+        # calibration_id None vs set (identity carries cal1)
+        try:
+            art = mgr.store(detector_id="det1", detector_version="1.0",
+                            curve=T.platt_curve(), created_at="2024-01-01T00:00:00+00:00",
+                            identity=ident, **T.eligible_artifact_kwargs())
+            rows.append(("store-cal-none", ("ok", art.calibration_id)))
+        except Exception as exc:  # noqa: BLE001
+            rows.append(("store-cal-none", ("raise", type(exc).__name__, str(exc))))
+        # explicit identity-field mismatches (provider/model/config/semantics/regime)
+        for name, field, value in [
+            ("prov-aaa", "provider", "aaa"), ("prov-zzz", "provider", "zzz"),
+            ("model-aaa", "model", "aaa"), ("model-zzz", "model", "zzz"),
+            ("semantics-aaa", "native_score_semantics", "aaa"),
+            ("semantics-zzz", "native_score_semantics", "zzz"),
+            ("regime-aaa", "regime", "aaa"), ("regime-zzz", "regime", "zzz"),
+        ]:
+            try:
+                mgr.store(detector_id="det1", detector_version="1.0",
+                          curve=T.platt_curve(), calibration_id="cal1",
+                          created_at="2024-01-01T00:00:00+00:00", identity=ident,
+                          **{**T.eligible_artifact_kwargs(), field: value})
+                rows.append((f"store-{name}", ("ok", "stored")))
+            except Exception as exc:  # noqa: BLE001
+                rows.append((f"store-{name}", ("raise", type(exc).__name__, str(exc))))
+        # getters on the stored artifact
+        for name, fn in [
+            ("score-match", lambda: mgr.get_calibrated_score("det1", 0.7, identity=ident)),
+            ("score-id-zzz", lambda: mgr.get_calibrated_score("zzz", 0.7, identity=ident)),
+            ("score-id-aaa", lambda: mgr.get_calibrated_score("aaa", 0.7, identity=ident)),
+            ("score-id-distinct", lambda: mgr.get_calibrated_score("".join(["d", "e", "t", "1"]), 0.7, identity=ident)),
+            ("score-no-identity", lambda: mgr.get_calibrated_score("det1", 0.7)),
+            ("result-match", lambda: mgr.get_calibrated_result("det1", 0.7, identity=ident)),
+            ("result-id-zzz", lambda: mgr.get_calibrated_result("zzz", 0.7, identity=ident)),
+            ("result-unvalidated", lambda: mgr.get_calibrated_score("det1", 0.7, identity=ident, allow_unvalidated=True)),
+            ("score-for-identity", lambda: mgr.get_calibrated_score_for_identity(ident, 0.7)),
+            ("score-for-identity-zzz", lambda: mgr.get_calibrated_score_for_identity(_cal_identity(detector_id="zzz"), 0.7)),
+            ("result-for-identity", lambda: mgr.get_calibrated_result_for_identity(ident, 0.7)),
+        ]:
+            rows.append((name, outcome(fn)))
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# calibration InferenceIdentity / content hash / EvaluationResult (new probe)
+# ---------------------------------------------------------------------------
+def probe_cal_identity():
+    import dataclasses
+    from textforensics.calibration import InferenceIdentity, EvaluationResult
+    import test_calibration as T
+    rows = []
+    # from_dict as a classmethod (called on the class, not an instance)
+    rows.append(("from-dict-class", outcome(InferenceIdentity.from_dict, {
+        "detector_id": "det1", "detector_version": "1.0", "provider": "local",
+        "model": "m", "config_hash": T.hex64(5),
+        "native_score_semantics": "probability_higher_means_ai",
+        "regime": "unedited", "calibration_id": "cal1"})))
+    rows.append(("from-dict-nonmapping", outcome(InferenceIdentity.from_dict, ["x"])))
+    ident = _cal_identity()
+    # frozen: assignment must raise
+    def _assign():
+        ident.provider = "other"
+        return ident.provider
+    rows.append(("frozen-assign", outcome(_assign)))
+    rows.append(("slots-no-dict", outcome(lambda: hasattr(ident, "__dict__"))))
+    # EvaluationResult default overlap_count
+    rows.append(("evalresult-default", outcome(lambda: EvaluationResult(
+        threshold=0.5, tp=4, fp=0, tn=4, fn=0, accuracy=1.0, fpr=0.0,
+        fnr=0.0, tpr=1.0, specificity=1.0, precision=1.0, evaluated=8,
+        test_dataset_hash="a" * 64, calibration_dataset_hash="b" * 64).overlap_count)))
+    # content hash: valid, then tampered stored hash (either side + distinct object)
+    art = T.eligible_artifact()
+    rows.append(("hash-valid", outcome(art.check_content_hash)))
+    computed = art.compute_content_hash()
+    rows.append(("hash-computed", ("ok", computed == art.content_hash)))
+    for name, value in [("stored-less", "0" * 64), ("stored-greater", "f" * 64),
+                        ("stored-distinct", "".join(computed))]:
+        tampered = dataclasses.replace(art)
+        object.__setattr__(tampered, "content_hash", value)
+        rows.append((f"hash-{name}", outcome(tampered.check_content_hash)))
+    # _content_payload: all identity fields None vs some set
+    art_no_ident = dataclasses.replace(art)
+    for _f in ("provider", "model", "config_hash", "native_score_semantics", "regime"):
+        object.__setattr__(art_no_ident, _f, None)
+    rows.append(("payload-all-none", outcome(lambda: sorted(art_no_ident._content_payload().keys()))))
+    rows.append(("payload-some-set", outcome(lambda: sorted(art._content_payload().keys()))))
+    rows.append(("payload-missing-field", outcome(lambda: "provider" in art_no_ident._content_payload())))
+    # _identity_issues: missing fields, direction in/out of set, semantics mismatch
+    rows.append(("issues-complete", outcome(art._identity_issues)))
+    rows.append(("issues-missing", outcome(art_no_ident._identity_issues)))
+    def _with_semantics(value):
+        a = dataclasses.replace(art)
+        object.__setattr__(a, "native_score_semantics", value)
+        return a._identity_issues()
+    rows.append(("issues-semantics-before", outcome(_with_semantics, "aaa")))
+    rows.append(("issues-semantics-after", outcome(_with_semantics, "zzz")))
+    rows.append(("issues-semantics-equal", outcome(_with_semantics, "probability_higher_means_ai")))
+    return rows
