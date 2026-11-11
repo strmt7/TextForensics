@@ -64,6 +64,7 @@ from .evidence import (
     EvidenceError,
     MetricEstimate,
 )
+from .schema import DECLARED_TRUST_MAP_DIMENSIONS
 from .trust import (
     EVIDENCE_DIMENSIONS,
     TRUST_SCHEMA_V3,
@@ -1813,12 +1814,20 @@ class ValidationRegistry:
 #   always computed with the CURRENT detector_version and now, never
 #   trusted from the stored status.
 # * supported requires a matching record with effective status "supported"
-#   AND n_human >= 100 AND n_ai >= 100 AND contamination_flag == "no".
-#   Contamination "yes"/"unknown" caps the dimension at partial with the
-#   contamination label; a contested record caps at partial; a record with
-#   effective status "unknown" (or "partial") also caps at partial.
-# * human_false_positive_evidence additionally requires an fpr_native
-#   metric with CI and ci_upper <= fpr_ceiling for supported.
+#   AND n_human >= 100 AND n_ai >= 100 AND contamination_flag == "no"
+#   AND split_role == "test" (the approved held-out role) AND a
+#   verifying record signature. Contamination "yes"/"unknown" caps the
+#   dimension at partial with the contamination label; a contested
+#   record caps at partial; a record with effective status "unknown"
+#   (or "partial") also caps at partial.
+# * human_false_positive_evidence additionally requires, for every
+#   required slice of every supporting record (see
+#   :func:`required_fpr_slices`), an fpr_native metric with CI whose
+#   upper bound meets the ceiling; the reported statistic is the WORST
+#   (largest) upper bound, never the best. Any other fresh matching
+#   record that passes every non-FPR blocker but fails the FPR gate
+#   vetoes support: a favorable record can never hide adverse
+#   applicable evidence, and populations are never pooled.
 # * temporal_version_stability caps at partial from a single snapshot;
 #   longitudinal data is U3's job. U3 lifts the cap only when
 #   MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT consecutive clean
@@ -1954,19 +1963,98 @@ def _record_matches_full_regime(record: ValidationRecord, conditions: InputCondi
     return _record_matches_population(record, conditions)
 
 
+def required_fpr_slices(record: ValidationRecord) -> tuple[SliceMetrics, ...]:
+    """Return the record's required slices for human-FPR support (CORE-02).
+
+    The required-slice declaration is the record's own metrics list:
+    every slice the record declares is required. No slice may be
+    omitted, lack a confidence interval, or exceed the ceiling — a
+    best-slice statistic never substitutes for the declared worst
+    required slice. Slices from other records or other populations are
+    never pooled into this record's statistic; aggregation across
+    records is a veto (see :func:`_derive_evidence_dimension`), not an
+    average.
+    """
+    return tuple(record.metrics)
+
+
+def worst_fpr_upper(
+    record: ValidationRecord,
+) -> tuple[float | None, str | None, tuple[str, ...]]:
+    """Return ``(worst_ci_upper, worst_slice_id, slices_missing_ci)``.
+
+    ``worst_ci_upper`` is the largest ``fpr_native`` CI upper across
+    the record's required slices (``None`` when no slice carries a CI);
+    ``worst_slice_id`` names the slice it came from (``None`` when
+    there is none); ``slices_missing_ci`` lists required slices with no
+    FPR confidence interval.
+    """
+    uppers: dict[str, float] = {}
+    missing: list[str] = []
+    for item in record.metrics:
+        if item.fpr_native.has_ci and item.fpr_native.ci_upper is not None:
+            uppers[item.slice_id] = item.fpr_native.ci_upper
+        else:
+            missing.append(item.slice_id)
+    if not uppers:
+        return None, None, tuple(missing)
+    worst_slice = max(uppers, key=lambda name: uppers[name])
+    return uppers[worst_slice], worst_slice, tuple(missing)
+
+
 def _fpr_blockers(record: ValidationRecord, fpr_ceiling: float) -> list[str]:
-    """Blockers to ``supported`` for human_false_positive_evidence."""
-    with_ci = [item for item in record.metrics if item.fpr_native.has_ci]
-    if not with_ci:
-        return ["no fpr_native metric carries a confidence interval"]
-    best_upper = min(
-        item.fpr_native.ci_upper for item in with_ci if item.fpr_native.ci_upper is not None
-    )
-    if best_upper > fpr_ceiling:
+    """Blockers to ``supported`` for human_false_positive_evidence.
+
+    Worst-required-slice rule (CORE-02): every required slice (see
+    :func:`required_fpr_slices`) must carry an ``fpr_native`` confidence
+    interval, and the WORST (largest) CI upper across those slices must
+    meet the ceiling. A favorable slice never hides an adverse one.
+    """
+    worst, worst_slice, missing = worst_fpr_upper(record)
+    if missing:
         return [
-            f"best fpr_native ci_upper is {best_upper}, which exceeds the ceiling {fpr_ceiling}"
+            "required FPR slice(s) "
+            + ", ".join(sorted(missing))
+            + " carry no fpr_native confidence interval"
+        ]
+    if worst is None or worst_slice is None:  # pragma: no cover - missing covers this
+        return ["no fpr_native metric carries a confidence interval"]
+    if worst > fpr_ceiling:
+        return [
+            f"worst required-slice fpr_native ci_upper is {worst} "
+            f"(slice {worst_slice}), which exceeds the ceiling {fpr_ceiling}"
         ]
     return []
+
+
+def _common_support_blockers(
+    record: ValidationRecord,
+    *,
+    detector_version: str,
+    now: datetime | str | None,
+) -> list[str]:
+    """Blockers shared by every dimension (status, samples, contamination,
+    held-out role, signature integrity)."""
+    blockers: list[str] = []
+    status = effective_status(record, detector_version=detector_version, now=now)
+    if status != "supported":
+        blockers.append(f"effective record status is {status!r}")
+    if record.data.n_human < MIN_HUMAN_SAMPLES or record.data.n_ai < MIN_AI_SAMPLES:
+        blockers.append(
+            f"sample counts are thin (n_human={record.data.n_human}, "
+            f"n_ai={record.data.n_ai}; at least {MIN_HUMAN_SAMPLES} each "
+            "are required)"
+        )
+    label = contamination_label(record)
+    if label is not None:
+        blockers.append(label)
+    if record.data.split_role != "test":
+        blockers.append(
+            f"split_role is {record.data.split_role!r}, not the approved held-out role 'test'"
+        )
+    if not verify_signature(record):
+        blockers.append("record signature does not verify against its contents")
+    return blockers
 
 
 def _support_blockers(
@@ -1982,19 +2070,7 @@ def _support_blockers(
 
     An empty list means the record can support the dimension.
     """
-    blockers: list[str] = []
-    status = effective_status(record, detector_version=detector_version, now=now)
-    if status != "supported":
-        blockers.append(f"effective record status is {status!r}")
-    if record.data.n_human < MIN_HUMAN_SAMPLES or record.data.n_ai < MIN_AI_SAMPLES:
-        blockers.append(
-            f"sample counts are thin (n_human={record.data.n_human}, "
-            f"n_ai={record.data.n_ai}; at least {MIN_HUMAN_SAMPLES} each "
-            "are required)"
-        )
-    label = contamination_label(record)
-    if label is not None:
-        blockers.append(label)
+    blockers = _common_support_blockers(record, detector_version=detector_version, now=now)
     if dimension == "human_false_positive_evidence":
         blockers.extend(_fpr_blockers(record, fpr_ceiling))
     if (
@@ -2182,6 +2258,20 @@ def _derive_evidence_dimension(
             longitudinal_clean_runs=clean_runs,
         )
     )
+    if name == "human_false_positive_evidence" and supporting:
+        # Cross-record veto (CORE-02): support also requires that no
+        # OTHER fresh matching record that passes every non-FPR blocker
+        # fails the FPR gate. A favorable record can never hide an
+        # adverse applicable record; populations are never pooled, and
+        # conflicting evidence is preserved in the partial details below.
+        vetoed = tuple(
+            record
+            for record in fresh
+            if not _common_support_blockers(record, detector_version=detector_version, now=now)
+            and _fpr_blockers(record, fpr_ceiling)
+        )
+        if vetoed:
+            supporting = ()
     if supporting:
         supporting_ids = sorted({record.record_id for record in supporting})
         reason = (
@@ -2202,15 +2292,24 @@ def _derive_evidence_dimension(
             if longitudinal.get("watch") is not None:
                 observed["u3_watch"] = dict(longitudinal["watch"])
         if name == "human_false_positive_evidence":
-            best_upper = min(
-                item.fpr_native.ci_upper
-                for record in supporting
-                for item in record.metrics
-                if item.fpr_native.has_ci and item.fpr_native.ci_upper is not None
-            )
-            observed["fpr_ci_upper"] = best_upper
+            # Worst required-slice statistic (CORE-02): the largest CI
+            # upper across every required slice of every supporting
+            # record — never the best slice.
+            uppers: dict[str, float] = {}
+            for record in supporting:
+                for item in required_fpr_slices(record):
+                    if item.fpr_native.has_ci and item.fpr_native.ci_upper is not None:
+                        uppers[item.slice_id] = item.fpr_native.ci_upper
+            worst_slice = max(uppers, key=lambda slice_id: uppers[slice_id])
+            worst_upper = uppers[worst_slice]
+            observed["fpr_ci_upper"] = worst_upper
+            observed["fpr_ci_upper_worst_slice"] = worst_slice
+            observed["fpr_ci_uppers_by_slice"] = dict(uppers)
             observed["fpr_ceiling"] = fpr_ceiling
-            reason += f" Best fpr_native ci_upper is {best_upper} (ceiling {fpr_ceiling})."
+            reason += (
+                f" Worst required-slice fpr_native ci_upper is {worst_upper} "
+                f"(slice {worst_slice}; ceiling {fpr_ceiling})."
+            )
         return TrustDimension(
             dimension=name,
             state="supported",
@@ -2233,6 +2332,21 @@ def _derive_evidence_dimension(
         )
         details.append(f"{record.record_id}: {'; '.join(blockers)}")
     observed_partial: dict[str, Any] = {"record_ids": record_ids}
+    if name == "human_false_positive_evidence":
+        # The worst applicable statistic stays visible even when the
+        # dimension is partial: conflicting evidence is preserved, not
+        # hidden behind the favorable slice.
+        uppers: dict[str, float] = {}
+        for record in fresh:
+            for item in required_fpr_slices(record):
+                if item.fpr_native.has_ci and item.fpr_native.ci_upper is not None:
+                    uppers[item.slice_id] = item.fpr_native.ci_upper
+        if uppers:
+            worst_slice = max(uppers, key=lambda slice_id: uppers[slice_id])
+            observed_partial["fpr_ci_upper"] = uppers[worst_slice]
+            observed_partial["fpr_ci_upper_worst_slice"] = worst_slice
+            observed_partial["fpr_ci_uppers_by_slice"] = dict(uppers)
+            observed_partial["fpr_ceiling"] = fpr_ceiling
     if name == "temporal_version_stability" and longitudinal is not None:
         observed_partial["u3_clean_full_runs"] = clean_runs
         observed_partial["u3_clean_full_run_ids"] = list(longitudinal["clean_full_run_ids"])
@@ -2256,12 +2370,17 @@ def _derive_evidence_dimension(
 def _overall_state_v3(dimensions: list[TrustDimension]) -> str:
     """Overall state for a Trust Map v3.
 
-    Strong iff every dimension is supported; insufficient iff language or
-    text_length is out_of_scope, or no dimension is supported or partial;
-    else mixed. Stale counts as neither supported nor partial. An empty
-    dimension list yields insufficient, never strong (0 == 0 must not
-    report "strong" for no evidence), mirroring
-    ``verify._recompute_overall_v3`` and the v2 behaviour.
+    Strong iff the map carries EXACTLY the declared dimension set
+    (:const:`schema.DECLARED_TRUST_MAP_DIMENSIONS`) with every
+    dimension supported — mere count equality is never name-set
+    equality (C10): a one-dimension map, ten rogue dimensions, or nine
+    declared plus one rogue dimension must never derive ``strong``.
+    Insufficient iff language or text_length is out_of_scope, or no
+    dimension is supported or partial; else mixed. Stale counts as
+    neither supported nor partial. An empty dimension list yields
+    insufficient, never strong (0 == 0 must not report "strong" for
+    no evidence), mirroring ``verify._recompute_overall_v3`` and the
+    v2 behaviour.
     """
     by_name = {item.dimension: item.state for item in dimensions}
     supported = sum(state == "supported" for state in by_name.values())
@@ -2270,7 +2389,9 @@ def _overall_state_v3(dimensions: list[TrustDimension]) -> str:
         return "insufficient"
     if not dimensions:
         return "insufficient"
-    if supported == len(dimensions):
+    if set(by_name) == DECLARED_TRUST_MAP_DIMENSIONS and supported == len(
+        DECLARED_TRUST_MAP_DIMENSIONS
+    ):
         return "strong"
     if supported == 0 and partial == 0:
         return "insufficient"
@@ -2336,11 +2457,17 @@ def derive_trust_map(
     A dimension is ``supported`` only when a regime-matching record has
     effective status ``supported`` (computed with the CURRENT
     ``detector_version`` and ``now``, never trusted from the stored
-    status), n_human >= 100 and n_ai >= 100, and contamination_flag
-    ``"no"``. Contamination ``"yes"``/``"unknown"`` and contested records
-    cap at ``partial``. ``human_false_positive_evidence`` additionally
-    requires an ``fpr_native`` metric with CI and ci_upper <=
-    ``fpr_ceiling``. ``temporal_version_stability`` caps at ``partial``
+    status), n_human >= 100 and n_ai >= 100, contamination_flag
+    ``"no"``, split_role ``"test"`` (the approved held-out role), and a
+    verifying record signature. Contamination ``"yes"``/``"unknown"``
+    and contested records cap at ``partial``.
+    ``human_false_positive_evidence`` additionally requires, for every
+    required slice of every supporting record, an ``fpr_native`` metric
+    with CI whose upper bound meets ``fpr_ceiling``; the reported
+    statistic is the WORST (largest) upper bound, never the best, and
+    any other fresh matching record that passes every non-FPR blocker
+    but fails the FPR gate vetoes support.
+    ``temporal_version_stability`` caps at ``partial``
     from a single snapshot, unless ``longitudinal`` (U3 probe-run
     evidence, see ``probe_runs.summarize_longitudinal``) shows at least
     ``MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT`` consecutive clean
@@ -2711,6 +2838,8 @@ __all__ = [
     "empty_validation_registry",
     "load_validation_registry",
     "missing_mandatory_fields",
+    "required_fpr_slices",
     "validate_record",
     "verify_signature",
+    "worst_fpr_upper",
 ]

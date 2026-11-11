@@ -15,6 +15,68 @@ Design rules
 * The registry is untrusted input. Loading verifies the registry hash and
   all field invariants before use.
 
+Support-eligibility model (audit W2, CORE-01)
+---------------------------------------------
+Whether a record may establish ``supported`` is decided by ONE predicate,
+:func:`check_record_eligibility`, applied identically by V2 coverage
+(:func:`assess_detector_coverage`), the U1/V3 engine
+(:mod:`textforensics.validation`) and the mixed-origin segment bar
+(:mod:`textforensics.mixed_origin`). A record is eligible only when ALL
+of these hold:
+
+* exact identity — the record's ``detector_id`` and ``detector_version``
+  equal the caller's :class:`InferenceIdentity` exactly (a stored
+  wildcard ``"*"`` version never matches a versioned query, and
+  :meth:`EvidenceRegistry.records_for` no longer treats ``"*"`` as a
+  match); when the identity carries a ``calibration_id`` the record must
+  list it; when it carries a ``regime`` some slice must declare it;
+* approved held-out role — ``benchmark.split`` is in
+  :data:`APPROVED_HELD_OUT_SPLITS` (``test`` / ``heldout`` / ``held-out``).
+  A ``train`` / ``fit`` / selection split is not held-out evidence;
+* contamination state — the caller supplies a :class:`DisjointnessProof`
+  (Worker B's proof type) with status ``"verified"``, zero overlap, and
+  an ``evaluation_hash`` equal to the record's benchmark fingerprint.
+  No proof, or any other status, means the contamination state is
+  unknown and the record is ineligible;
+* applicable conditions — per slice, via :meth:`SliceConditions.matches`
+  (a slice whose editing regime does not cover the input cannot support
+  the editing dimension, and an inapplicable slice never supports);
+* freshness — ``age_days(now) <= max_age_days``;
+* sufficient samples — at least one slice with ``n_human >= 100`` and
+  ``n_ai >= 100``. The floor is 100/100: the Wilson 95% upper bound for
+  zero observed false positives is ``z^2 / (n + z^2)`` — 0.0714 at n=50
+  (above the 0.05 FPR ceiling, so even perfect performance could not
+  support) and 0.0370 at n=100 (below the ceiling). The floor is the
+  smallest n at which a perfect human-FPR observation can support;
+* resolved artifact integrity — the caller supplies an artifact
+  verification (see :meth:`EvidenceRegistry.verify_artifacts`) whose row
+  for the record is ``ok``. Unverified artifacts are never promoted.
+
+Trust policy (caller-supplied vs verified records): a record that is
+present in a registry but fails any eligibility check is preserved as
+``partial`` / ``unknown`` evidence — visible, citable, never deleted —
+and its ineligibility reasons are recorded on the capped dimension's
+limitations. It can never raise a dimension to ``supported``. There is
+no silent conversion of old artifacts into verified evidence: a record
+sealed before this model existed is judged by the same predicate, and
+only passes if its own fields satisfy it.
+
+Identity components the v1 record schema cannot carry (``provider``,
+``model``, ``config_hash``, ``native_score_semantics``) are reported in
+:attr:`EligibilityVerdict.unbound_identity_fields` whenever the caller
+supplies them: the record does not attest them, and the gap is disclosed
+on supported dimensions rather than assumed. Binding those components
+requires a record schema that carries them (a later schema version, not
+a silent reinterpretation of v1 records).
+
+Required slices for human-FPR support (audit W2, CORE-02): every
+applicable slice of an eligible record is a required slice. Support
+requires every required slice to carry an FPR confidence interval whose
+upper bound meets the ceiling; the reported statistic is the WORST
+(largest) upper bound across required slices, never the best (``min``).
+See :func:`assess_detector_coverage` and the V3 engine for the
+cross-record veto rule.
+
 The module has no third-party dependencies.
 """
 
@@ -44,6 +106,15 @@ MIN_HUMAN_SAMPLES = 100
 MIN_AI_SAMPLES = 100
 DEFAULT_MAX_AGE_DAYS = 365
 DEFAULT_FPR_CEILING = 0.05
+
+#: Benchmark splits that count as approved held-out roles (CORE-01).
+#: Only a final held-out evaluation split may establish support. ``test``
+#: is the canonical held-out role; ``heldout`` / ``held-out`` are the
+#: accepted spellings of the same role. ``train``, ``fit``, ``dev``,
+#: ``validation`` and selection splits are never held-out evidence: a
+#: threshold/selection split was used to choose the operating point, so
+#: performance on it is not generalisation evidence.
+APPROVED_HELD_OUT_SPLITS = frozenset({"test", "heldout", "held-out"})
 
 ALLOWED_METRICS = frozenset(
     {
@@ -770,6 +841,318 @@ class RegistryVerification:
 
 
 # ---------------------------------------------------------------------------
+# Support-eligibility model (audit W2, CORE-01/CORE-02)
+#
+# This is the ONE eligibility predicate for V2 evidence. The U1/V3 engine
+# (validation.py) and the mixed-origin segment bar (mixed_origin.py) apply
+# the same components through their own record types; the components are
+# defined once here so the bar cannot drift between surfaces.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class InferenceIdentity:
+    """Exact inference identity a caller claims ran (audit W2, CORE-01/05).
+
+    Field list agreed with Worker B (calibration.py): the identity Worker
+    B's calibration binding consumes. Defined here, in the import-base
+    evidence module, so calibration.py can import it without a cycle;
+    calibration.py must import this type, not define a second one.
+
+    ``detector_id`` / ``detector_version`` are always bound exactly.
+    ``calibration_id`` is bound when set (the record must list it).
+    ``regime`` is bound when set (some slice must declare that editing
+    regime). ``provider`` / ``model`` / ``config_hash`` /
+    ``native_score_semantics`` cannot be bound by a v1 evidence record —
+    the schema carries no such fields — and are reported as unbound by
+    :func:`check_record_eligibility` rather than assumed.
+    """
+
+    detector_id: str
+    detector_version: str
+    provider: str | None = None
+    model: str | None = None
+    config_hash: str | None = None
+    native_score_semantics: str | None = None
+    calibration_id: str | None = None
+    regime: str | None = None
+
+    def __post_init__(self) -> None:
+        _require_nonempty_string(self.detector_id, "identity.detector_id")
+        _require_nonempty_string(self.detector_version, "identity.detector_version")
+        for name in (
+            "provider",
+            "model",
+            "config_hash",
+            "native_score_semantics",
+            "calibration_id",
+            "regime",
+        ):
+            value = getattr(self, name)
+            if value is not None:
+                _require_nonempty_string(value, f"identity.{name}")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "detector_id": self.detector_id,
+            "detector_version": self.detector_version,
+            "provider": self.provider,
+            "model": self.model,
+            "config_hash": self.config_hash,
+            "native_score_semantics": self.native_score_semantics,
+            "calibration_id": self.calibration_id,
+            "regime": self.regime,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> InferenceIdentity:
+        if not isinstance(payload, Mapping):
+            raise EvidenceError("inference identity must be an object.")
+        return cls(
+            detector_id=str(payload["detector_id"]),
+            detector_version=str(payload["detector_version"]),
+            provider=payload.get("provider"),
+            model=payload.get("model"),
+            config_hash=payload.get("config_hash"),
+            native_score_semantics=payload.get("native_score_semantics"),
+            calibration_id=payload.get("calibration_id"),
+            regime=payload.get("regime"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class DisjointnessProof:
+    """Sample/group-level disjointness proof (audit W2, CORE-01/CORE-06).
+
+    Field list agreed with Worker B (calibration.py / benchmark.py):
+    the contamination state CORE-01's predicate consumes. Defined here
+    so the evidence module and the evaluation modules share one type;
+    producers must import this type, not define a second one.
+
+    ``status`` is ``"verified"`` only when the producer compared
+    immutable training and evaluation manifests and found no overlap;
+    ``"unknown"`` when the check was not run or could not be run;
+    ``"contaminated"`` when overlap was found. ``evaluation_hash`` must
+    equal the evaluated record's benchmark fingerprint for the proof to
+    bind to that record.
+    """
+
+    status: str
+    overlap_count: int
+    training_count: int
+    evaluation_count: int
+    training_hash: str | None
+    evaluation_hash: str | None
+
+    def __post_init__(self) -> None:
+        if self.status not in ("verified", "unknown", "contaminated"):
+            raise EvidenceError(
+                "disjointness status must be 'verified', 'unknown' or 'contaminated'."
+            )
+        _require_int(self.overlap_count, "disjointness.overlap_count")
+        _require_int(self.training_count, "disjointness.training_count")
+        _require_int(self.evaluation_count, "disjointness.evaluation_count")
+        for name in ("training_hash", "evaluation_hash"):
+            value = getattr(self, name)
+            if value is not None:
+                _require_nonempty_string(value, f"disjointness.{name}")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "overlap_count": self.overlap_count,
+            "training_count": self.training_count,
+            "evaluation_count": self.evaluation_count,
+            "training_hash": self.training_hash,
+            "evaluation_hash": self.evaluation_hash,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> DisjointnessProof:
+        if not isinstance(payload, Mapping):
+            raise EvidenceError("disjointness proof must be an object.")
+        return cls(
+            status=str(payload["status"]),
+            overlap_count=payload["overlap_count"],
+            training_count=payload["training_count"],
+            evaluation_count=payload["evaluation_count"],
+            training_hash=payload.get("training_hash"),
+            evaluation_hash=payload.get("evaluation_hash"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class EligibilityVerdict:
+    """Result of :func:`check_record_eligibility`.
+
+    ``eligible`` is True only when every eligibility component holds.
+    ``reasons`` lists every failed component (empty when eligible) so a
+    capped dimension can name exactly why. ``unbound_identity_fields``
+    lists identity components the caller supplied that this record type
+    cannot attest (v1 records carry no provider/model/config_hash/
+    native-score-semantics fields); they are disclosed, not assumed.
+    """
+
+    eligible: bool
+    reasons: tuple[str, ...] = ()
+    unbound_identity_fields: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "eligible": self.eligible,
+            "reasons": list(self.reasons),
+            "unbound_identity_fields": list(self.unbound_identity_fields),
+        }
+
+
+def _verification_row_ok(
+    artifact_verification: RegistryVerification | Mapping[str, Any] | None,
+    evidence_id: str,
+) -> tuple[bool, str | None]:
+    """Resolve one record's artifact-verification row.
+
+    Returns ``(True, None)`` only when a row exists and says ``ok``.
+    Accepts a :class:`RegistryVerification` or a mapping of
+    ``evidence_id -> row`` where a row is a bool or a mapping with an
+    ``"ok"`` key. Any other shape is unresolved, never silently ok.
+    """
+    if artifact_verification is None:
+        return False, "artifact integrity is unverified (no verification supplied)"
+    if isinstance(artifact_verification, RegistryVerification):
+        rows: Mapping[str, Any] = artifact_verification.records
+    elif isinstance(artifact_verification, Mapping):
+        rows = artifact_verification
+    else:
+        return False, "artifact verification has an unsupported shape"
+    if evidence_id not in rows:
+        return False, f"no artifact verification row for record {evidence_id!r}"
+    row = rows[evidence_id]
+    if isinstance(row, bool):
+        ok = row
+        detail = None
+    elif isinstance(row, Mapping):
+        ok = bool(row.get("ok", False))
+        errors = row.get("errors")
+        detail = "; ".join(errors) if isinstance(errors, list) and errors else None
+    else:
+        return False, f"artifact verification row for {evidence_id!r} is malformed"
+    if ok:
+        return True, None
+    return False, (
+        f"artifact verification failed for record {evidence_id!r}"
+        + (f": {detail}" if detail else "")
+    )
+
+
+def check_record_eligibility(
+    record: EvidenceRecord,
+    *,
+    identity: InferenceIdentity,
+    disjointness: DisjointnessProof | None = None,
+    artifact_verification: RegistryVerification | Mapping[str, Any] | None = None,
+    now: datetime | str | None = None,
+    max_age_days: int = DEFAULT_MAX_AGE_DAYS,
+) -> EligibilityVerdict:
+    """Decide whether one V2 record may establish ``supported`` (CORE-01).
+
+    Every failed component is reported in ``reasons``; eligibility
+    requires all of them to pass. The caller-supplied
+    :class:`InferenceIdentity` is the statement of what ran — the record
+    is never allowed to attest its own identity. A missing disjointness
+    proof or a missing artifact verification is a failure, not an
+    assumption: unknown contamination and unverified artifacts are
+    ineligible for held-out support.
+    """
+    reasons: list[str] = []
+
+    if record.status != "active":
+        reasons.append(f"record status is {record.status!r}, not 'active'")
+    if record.detector_version == "*":
+        reasons.append("record detector_version is a wildcard '*', not an exact version")
+    if identity.detector_id != record.detector_id:
+        reasons.append(
+            f"identity detector_id {identity.detector_id!r} does not match "
+            f"record detector_id {record.detector_id!r}"
+        )
+    if identity.detector_version != record.detector_version:
+        reasons.append(
+            f"identity detector_version {identity.detector_version!r} does not "
+            f"match record detector_version {record.detector_version!r}"
+        )
+    if identity.calibration_id is not None and (
+        identity.calibration_id not in record.calibration_ids
+    ):
+        reasons.append(
+            f"identity calibration_id {identity.calibration_id!r} is not listed by the record"
+        )
+    if identity.regime is not None and not any(
+        identity.regime in slice_.conditions.editing_regimes
+        or "*" in slice_.conditions.editing_regimes
+        for slice_ in record.slices
+    ):
+        reasons.append(f"identity regime {identity.regime!r} is not declared by any record slice")
+    if record.benchmark.split not in APPROVED_HELD_OUT_SPLITS:
+        reasons.append(
+            f"benchmark split {record.benchmark.split!r} is not an approved "
+            f"held-out role (expected one of {sorted(APPROVED_HELD_OUT_SPLITS)})"
+        )
+    if disjointness is None:
+        reasons.append("no disjointness proof supplied (contamination state unknown)")
+    else:
+        if disjointness.status != "verified":
+            reasons.append(f"disjointness status is {disjointness.status!r}, not 'verified'")
+        if disjointness.overlap_count > 0:
+            reasons.append(f"disjointness overlap_count is {disjointness.overlap_count}, not 0")
+        if disjointness.training_count <= 0 or disjointness.evaluation_count <= 0:
+            reasons.append("disjointness proof has an empty training or evaluation set")
+        if (
+            disjointness.evaluation_hash is None
+            or disjointness.evaluation_hash != record.benchmark.fingerprint_sha256
+        ):
+            reasons.append(
+                "disjointness proof does not bind to this record's benchmark fingerprint"
+            )
+        if (
+            disjointness.training_hash is None
+            or disjointness.training_hash == disjointness.evaluation_hash
+        ):
+            reasons.append("disjointness training and evaluation hashes are not distinct")
+    ok, verification_reason = _verification_row_ok(artifact_verification, record.evidence_id)
+    if not ok and verification_reason is not None:
+        reasons.append(verification_reason)
+    current = _coerce_now(now)
+    if record.age_days(current) > max_age_days:
+        reasons.append(
+            f"record is stale (age {record.age_days(current):.1f} days exceeds "
+            f"max_age_days {max_age_days})"
+        )
+    if not any(
+        slice_.n_human >= MIN_HUMAN_SAMPLES and slice_.n_ai >= MIN_AI_SAMPLES
+        for slice_ in record.slices
+    ):
+        reasons.append(
+            f"no slice meets the sample floor ({MIN_HUMAN_SAMPLES} human + "
+            f"{MIN_AI_SAMPLES} AI samples)"
+        )
+
+    unbound = tuple(
+        name
+        for name in (
+            "provider",
+            "model",
+            "config_hash",
+            "native_score_semantics",
+        )
+        if getattr(identity, name) is not None
+    )
+    return EligibilityVerdict(
+        eligible=not reasons,
+        reasons=tuple(reasons),
+        unbound_identity_fields=unbound,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Coverage engine
 # ---------------------------------------------------------------------------
 
@@ -953,7 +1336,7 @@ def _best_candidate(candidates: list[_Candidate], dimension: str) -> DimensionCo
     )
 
 
-def _record_candidate(
+def _record_candidate_for_dimension(
     *,
     record: EvidenceRecord,
     slice_: ValidationSlice,
@@ -1220,6 +1603,146 @@ def _record_candidate(
     raise EvidenceError(f"Unknown coverage dimension: {dimension!r}.")
 
 
+def _record_candidate(
+    *,
+    record: EvidenceRecord,
+    slice_: ValidationSlice,
+    match: SliceMatch,
+    now: datetime,
+    max_age_days: int,
+    dimension: str,
+    fpr_ceiling: float,
+    eligible: bool = True,
+    ineligibility_reasons: tuple[str, ...] = (),
+) -> _Candidate | None:
+    """Per-slice candidate, capped by the eligibility predicate (CORE-01).
+
+    The underlying dimension logic is unchanged; the cap is applied
+    here, once: an ineligible record's candidate can never be
+    ``supported`` — it is capped at ``partial`` with the ineligibility
+    reasons recorded, so the evidence stays visible without raising a
+    supported dimension. ``unknown`` / ``out_of_scope`` outcomes are
+    not upgraded by the cap (they stay as the dimension logic decided).
+    """
+    candidate = _record_candidate_for_dimension(
+        record=record,
+        slice_=slice_,
+        match=match,
+        now=now,
+        max_age_days=max_age_days,
+        dimension=dimension,
+        fpr_ceiling=fpr_ceiling,
+    )
+    if candidate is None or eligible or candidate.state != "supported":
+        if candidate is not None and not eligible:
+            candidate.limitations = tuple(candidate.limitations) + tuple(
+                f"ineligible for support: {reason}" for reason in ineligibility_reasons
+            )
+        return candidate
+    return _Candidate(
+        state="partial",
+        reason=(
+            "Evidence exists but is ineligible for support: "
+            + "; ".join(ineligibility_reasons)
+            + ". "
+            + candidate.reason
+        ),
+        refs=candidate.refs,
+        observed=candidate.observed,
+        limitations=tuple(candidate.limitations)
+        + tuple(f"ineligible for support: {reason}" for reason in ineligibility_reasons),
+    )
+
+
+def _worst_fpr_dimension(
+    dimension: DimensionCoverage,
+    fpr_pairs: list[tuple[EvidenceRecord, ValidationSlice, MetricEstimate | None]],
+    *,
+    fpr_ceiling: float,
+) -> DimensionCoverage:
+    """Apply the worst-required-slice FPR rule to one V2 dimension (CORE-02).
+
+    ``fpr_pairs`` holds the applicable slices of eligible records that
+    meet the sample floor — every one of them is a required slice. When
+    the best-candidate state is ``supported`` it is re-checked here:
+    any required slice without an FPR confidence interval, or with a
+    CI upper above the ceiling, vetoes support (the dimension drops to
+    ``partial`` with the worst slice named). When support stands, the
+    reported statistic is the WORST upper bound across required slices,
+    never the best. Non-supported states pass through unchanged; the
+    worst statistic is still recorded in ``observed`` when computable
+    so conflicting evidence stays visible.
+    """
+    uppers: dict[str, float] = {}
+    missing: list[str] = []
+    for _record, slice_, fpr in fpr_pairs:
+        if fpr is None or not fpr.has_ci or fpr.ci_upper is None:
+            missing.append(slice_.slice_id)
+        else:
+            uppers[slice_.slice_id] = fpr.ci_upper
+    observed = dict(dimension.observed)
+    if uppers:
+        worst_slice = max(uppers, key=lambda name: uppers[name])
+        observed["fpr_ci_upper"] = uppers[worst_slice]
+        observed["fpr_ci_upper_worst_slice"] = worst_slice
+        observed["fpr_ci_uppers_by_slice"] = dict(uppers)
+        observed["fpr_ceiling"] = fpr_ceiling
+    if dimension.state != "supported":
+        return DimensionCoverage(
+            dimension=dimension.dimension,
+            state=dimension.state,
+            reason=dimension.reason,
+            evidence_refs=dimension.evidence_refs,
+            observed=observed,
+            limitations=dimension.limitations,
+        )
+    if missing or not uppers:
+        return DimensionCoverage(
+            dimension=dimension.dimension,
+            state="partial",
+            reason=(
+                "Human false-positive evidence is present but required "
+                f"slice(s) {', '.join(sorted(set(missing)))} carry no FPR "
+                "confidence interval, so support cannot be established."
+                if missing
+                else (
+                    "Human false-positive evidence is present but no "
+                    "required slice reports an FPR confidence interval, so "
+                    "support cannot be established."
+                )
+            ),
+            evidence_refs=dimension.evidence_refs,
+            observed=observed,
+            limitations=dimension.limitations,
+        )
+    worst_slice = max(uppers, key=lambda name: uppers[name])
+    worst = uppers[worst_slice]
+    if worst > fpr_ceiling:
+        return DimensionCoverage(
+            dimension=dimension.dimension,
+            state="partial",
+            reason=(
+                "Worst required-slice human FPR CI upper is "
+                f"{worst:.3f} (slice {worst_slice}), which exceeds the "
+                f"{fpr_ceiling:.2f} ceiling; a better slice cannot substitute."
+            ),
+            evidence_refs=dimension.evidence_refs,
+            observed=observed,
+            limitations=dimension.limitations,
+        )
+    return DimensionCoverage(
+        dimension=dimension.dimension,
+        state="supported",
+        reason=(
+            dimension.reason + f" Worst required-slice FPR CI upper is {worst:.3f} "
+            f"(slice {worst_slice}; ceiling {fpr_ceiling:.2f})."
+        ),
+        evidence_refs=dimension.evidence_refs,
+        observed=observed,
+        limitations=dimension.limitations,
+    )
+
+
 def assess_detector_coverage(
     *,
     detector_id: str,
@@ -1233,18 +1756,50 @@ def assess_detector_coverage(
     now: datetime | str | None = None,
     max_age_days: int = DEFAULT_MAX_AGE_DAYS,
     fpr_ceiling: float = DEFAULT_FPR_CEILING,
+    identity: InferenceIdentity | None = None,
+    disjointness: DisjointnessProof | None = None,
+    artifact_verification: RegistryVerification | Mapping[str, Any] | None = None,
 ) -> DetectorCoverage:
-    """Assess one detector's evidence coverage for an input condition set."""
+    """Assess one detector's evidence coverage for an input condition set.
+
+    Every record is judged by :func:`check_record_eligibility` before
+    its slices may contribute: ineligible records are capped at
+    ``partial`` (see :func:`_record_candidate`) and can never raise a
+    dimension to ``supported``. When ``identity`` is omitted it is built
+    from ``detector_id`` / ``detector_version`` — the caller's statement
+    of what ran. When ``disjointness`` or ``artifact_verification`` is
+    omitted, contamination state / artifact integrity is unresolved and
+    no record is eligible: unverified declarations are never promoted
+    to support.
+
+    The ``human_false_positive_evidence`` dimension additionally applies
+    the worst-required-slice rule (CORE-02): every applicable slice of
+    an eligible record that meets the sample floor is a required slice;
+    support requires every required slice to carry an FPR confidence
+    interval whose upper bound meets the ceiling, and the reported
+    statistic is the worst (largest) upper bound across required
+    slices.
+    """
     current = _coerce_now(now)
     if max_age_days < 1:
         raise ValueError("max_age_days must be positive.")
     if not 0.0 < fpr_ceiling <= 1.0:
         raise ValueError("fpr_ceiling must be in (0, 1].")
+    effective_identity = identity or InferenceIdentity(
+        detector_id=detector_id,
+        detector_version=detector_version,
+    )
 
     dimensions: dict[str, DimensionCoverage] = {}
     records = registry.records_for(detector_id, detector_version) if registry else []
     record_ids = tuple(record.evidence_id for record in records)
     matched_slice_ids: list[str] = []
+    ineligible_records: list[tuple[str, tuple[str, ...]]] = []
+    unbound_fields: set[str] = set()
+    # (record, slice, fpr metric) for the worst-required-slice FPR gate:
+    # only applicable slices of eligible records that meet the sample
+    # floor count as required slices.
+    fpr_pairs: list[tuple[EvidenceRecord, ValidationSlice, MetricEstimate | None]] = []
 
     if not records:
         dimensions["language"] = _metadata_language(supported_languages, conditions)
@@ -1276,6 +1831,17 @@ def assess_detector_coverage(
             )
         }
         for record in records:
+            verdict = check_record_eligibility(
+                record,
+                identity=effective_identity,
+                disjointness=disjointness,
+                artifact_verification=artifact_verification,
+                now=current,
+                max_age_days=max_age_days,
+            )
+            unbound_fields.update(verdict.unbound_identity_fields)
+            if not verdict.eligible:
+                ineligible_records.append((record.evidence_id, verdict.reasons))
             if record.status != "active":
                 continue
             for slice_ in record.slices:
@@ -1283,6 +1849,8 @@ def assess_detector_coverage(
                 if not match.applicable:
                     continue
                 matched_slice_ids.append(slice_.slice_id)
+                if verdict.eligible and slice_.adequate_samples:
+                    fpr_pairs.append((record, slice_, slice_.metric("fpr")))
                 for dimension in all_candidates:
                     candidate = _record_candidate(
                         record=record,
@@ -1292,12 +1860,20 @@ def assess_detector_coverage(
                         max_age_days=max_age_days,
                         dimension=dimension,
                         fpr_ceiling=fpr_ceiling,
+                        eligible=verdict.eligible,
+                        ineligibility_reasons=verdict.reasons,
                     )
                     if candidate is not None:
                         all_candidates[dimension].append(candidate)
 
         for dimension, candidates in all_candidates.items():
             dimensions[dimension] = _best_candidate(candidates, dimension)
+
+        dimensions["human_false_positive_evidence"] = _worst_fpr_dimension(
+            dimensions["human_false_positive_evidence"],
+            fpr_pairs,
+            fpr_ceiling=fpr_ceiling,
+        )
 
         # Metadata can only downgrade, never upgrade, an evidence-backed state.
         metadata_language = _metadata_language(supported_languages, conditions)
@@ -1310,6 +1886,16 @@ def assess_detector_coverage(
     limitations: list[str] = []
     if not records:
         limitations.append("No registered validation evidence for this detector version.")
+    for evidence_id, reasons in ineligible_records:
+        limitations.append(
+            f"Record {evidence_id} is ineligible for support: " + "; ".join(reasons) + "."
+        )
+    if unbound_fields:
+        limitations.append(
+            "Identity components not attested by v1 records: "
+            + ", ".join(sorted(unbound_fields))
+            + "."
+        )
     if any(item.state in {"unknown", "partial", "out_of_scope"} for item in dimensions.values()):
         limitations.append("At least one Trust Map dimension is not fully supported.")
     limitations.append(
@@ -1380,10 +1966,11 @@ class EvidenceRegistry:
         _require_nonempty_string(detector_id, "detector_id")
         selected = [record for record in self._records if record.detector_id == detector_id]
         if detector_version is not None:
+            # Exact match only (CORE-01): a stored wildcard version "*"
+            # never matches a versioned query. A wildcard record can only
+            # be inspected unversioned; it can never establish support.
             selected = [
-                record
-                for record in selected
-                if record.detector_version == detector_version or record.detector_version == "*"
+                record for record in selected if record.detector_version == detector_version
             ]
         return tuple(sorted(selected, key=lambda record: record.evidence_id))
 
@@ -1571,8 +2158,20 @@ def coverage_for_predictions(
     now: datetime | str | None = None,
     max_age_days: int = DEFAULT_MAX_AGE_DAYS,
     fpr_ceiling: float = DEFAULT_FPR_CEILING,
+    disjointness: DisjointnessProof | None = None,
+    artifact_verification: RegistryVerification | Mapping[str, Any] | None = None,
 ) -> tuple[DetectorCoverage, ...]:
-    """Assess coverage for detector predictions or protocol-like objects."""
+    """Assess coverage for detector predictions or protocol-like objects.
+
+    The per-detector :class:`InferenceIdentity` is built from each
+    prediction's own ``detector_id`` / ``detector_version`` /
+    ``calibration_id`` — the caller's statement of what ran — so an
+    exact-version record for one detector can never cover another.
+    ``disjointness`` and ``artifact_verification`` are shared across the
+    predictions; the proof binds per record via its benchmark
+    fingerprint and the verification binds per record id. When either
+    is omitted, no record is eligible for support (CORE-01).
+    """
     rows: list[DetectorCoverage] = []
     for prediction in predictions:
         supported_length = getattr(prediction, "supported_length", None) or {}
@@ -1594,6 +2193,13 @@ def coverage_for_predictions(
                 now=now,
                 max_age_days=max_age_days,
                 fpr_ceiling=fpr_ceiling,
+                identity=InferenceIdentity(
+                    detector_id=str(prediction.detector_id),
+                    detector_version=str(prediction.detector_version),
+                    calibration_id=getattr(prediction, "calibration_id", None),
+                ),
+                disjointness=disjointness,
+                artifact_verification=artifact_verification,
             )
         )
     return tuple(rows)
@@ -1642,6 +2248,7 @@ __all__ = [
     "ALLOWED_EDITING_REGIMES",
     "ALLOWED_GENERATOR_SCOPES",
     "ALLOWED_METRICS",
+    "APPROVED_HELD_OUT_SPLITS",
     "DEFAULT_FPR_CEILING",
     "DEFAULT_MAX_AGE_DAYS",
     "EVIDENCE_SCHEMA",
@@ -1651,9 +2258,12 @@ __all__ = [
     "BenchmarkProvenance",
     "DetectorCoverage",
     "DimensionCoverage",
+    "DisjointnessProof",
+    "EligibilityVerdict",
     "EvidenceError",
     "EvidenceRecord",
     "EvidenceRegistry",
+    "InferenceIdentity",
     "MetricEstimate",
     "RegistryVerification",
     "RunProvenance",
@@ -1664,6 +2274,7 @@ __all__ = [
     "aggregate_coverage_states",
     "assess_detector_coverage",
     "canonical_json_bytes",
+    "check_record_eligibility",
     "coverage_for_predictions",
     "empty_registry",
     "fresh_until",

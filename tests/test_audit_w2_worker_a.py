@@ -1,0 +1,1419 @@
+"""W2 Worker A regression tests (audit CORE-01/02/07/11, S04, C10).
+
+Each test is written from the audit's stated expected result, not from
+current product output. All fixtures are synthetic and disposable; no
+real user text, no external corpus, no measured numbers.
+
+Run order note: these tests are RED on the W1 head (f1d8c83) and must
+turn green only via the W2-A source fixes.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import tempfile
+import unittest
+from datetime import date
+from pathlib import Path
+from types import SimpleNamespace
+
+from textforensics.conditions import InputConditions
+from textforensics.detectors import DetectorPrediction
+from textforensics.evidence import (
+    BenchmarkProvenance,
+    EvidenceRecord,
+    EvidenceRegistry,
+    MetricEstimate,
+    RunProvenance,
+    SliceConditions,
+    ValidationSlice,
+    assess_detector_coverage,
+)
+from textforensics.models import AnalyzerResult
+from textforensics.validation import (
+    ValidationRecord,
+    ValidationRegistry,
+    compute_signature,
+    derive_trust_map,
+)
+
+NOW = "2026-11-06T00:00:00+00:00"
+V3_VERSION = "0.1.0"
+V3_DETECTOR = "textforensics/builtin-heuristic"
+
+
+def hex64(seed: int) -> str:
+    return f"{seed:064x}"
+
+
+# ---------------------------------------------------------------------------
+# V2 (evidence.py) fixtures
+# ---------------------------------------------------------------------------
+
+
+def _v2_conditions(word_count: int = 200) -> InputConditions:
+    return InputConditions(
+        schema="textforensics.input-conditions/v1",
+        language="en",
+        language_confidence="declared",
+        script="latin",
+        word_count=word_count,
+        char_count=word_count * 5,
+        length_band="medium",
+        domain_genre="general",
+        domain_confidence="declared",
+        editing_regime="human_only",
+        generator=None,
+        human_population="unknown",
+        declared={
+            "source": "caller",
+            "fields": ["language", "domain_genre", "editing_regime"],
+            "values": {
+                "language": "en",
+                "domain_genre": "general",
+                "editing_regime": "human_only",
+            },
+        },
+        cues={},
+        extraction_version="1",
+    )
+
+
+def _v2_record(
+    *,
+    detector_id: str = "a",
+    detector_version: str = "1",
+    split: str = "test",
+    editing: tuple[str, ...] = ("human_only",),
+    evaluated_at: str = "2026-11-01T00:00:00+00:00",
+    n_human: int = 200,
+    n_ai: int = 200,
+    fpr_ci: tuple[float, float] | None = (0.01, 0.03),
+    benchmark_fingerprint: str | None = None,
+    benchmark_hash: str | None = None,
+    run_hash: str | None = None,
+    status: str = "active",
+) -> EvidenceRecord:
+    fpr_metric = MetricEstimate(
+        value=0.02,
+        n=n_human,
+        ci_lower=None if fpr_ci is None else fpr_ci[0],
+        ci_upper=None if fpr_ci is None else fpr_ci[1],
+        method="wilson",
+    )
+    slice_ = ValidationSlice(
+        slice_id="s1",
+        conditions=SliceConditions(
+            languages=("en",),
+            domains=("general",),
+            editing_regimes=editing,
+            min_words=100,
+            max_words=1000,
+            generators=("g1", "g2", "g3"),
+            generator_scope="multi",
+            human_populations=("pop_a", "pop_b"),
+        ),
+        n_human=n_human,
+        n_ai=n_ai,
+        metrics={
+            "fpr": fpr_metric,
+            "auroc": MetricEstimate(
+                value=0.95,
+                n=n_human + n_ai,
+                ci_lower=0.94,
+                ci_upper=0.96,
+                method="wilson",
+            ),
+        },
+        threshold=0.5,
+    )
+    return EvidenceRecord(
+        evidence_id=f"ev-{detector_id}-{detector_version}-{split}",
+        detector_id=detector_id,
+        detector_version=detector_version,
+        detector_family="fam1",
+        evaluated_at_utc=evaluated_at,
+        benchmark=BenchmarkProvenance(
+            name="raid",
+            version="1.0",
+            fingerprint_sha256=benchmark_fingerprint or hex64(1),
+            split=split,
+            license="MIT",
+            artifact_path="data/raid.jsonl",
+            artifact_sha256=benchmark_hash or hex64(2),
+            contamination_controls=["disjoint_sample_ids"],
+        ),
+        slices=(slice_,),
+        provenance=RunProvenance(
+            git_sha="abc1234",
+            command="textforensics benchmark",
+            environment_sha256=hex64(3),
+            executed_at_utc=evaluated_at,
+            run_artifact_path="runs/1.json",
+            run_artifact_sha256=run_hash or hex64(4),
+        ),
+        status=status,
+    )
+
+
+def _write_artifacts(root: Path) -> tuple[str, str, str]:
+    """Write real benchmark/run artifact bytes; return (fingerprint, bench, run) hashes."""
+    bench = root / "data" / "raid.jsonl"
+    run = root / "runs" / "1.json"
+    bench.parent.mkdir(parents=True, exist_ok=True)
+    run.parent.mkdir(parents=True, exist_ok=True)
+    bench.write_bytes(b'{"text": "synthetic", "label": 0}\n')
+    run.write_bytes(b'{"run": "synthetic"}\n')
+    fingerprint = hashlib.sha256(b"synthetic-evaluation-set").hexdigest()
+    return (
+        fingerprint,
+        hashlib.sha256(bench.read_bytes()).hexdigest(),
+        hashlib.sha256(run.read_bytes()).hexdigest(),
+    )
+
+
+def _eligible_inputs(registry: EvidenceRegistry, root: Path):
+    """Build the eligibility inputs for a registry whose artifacts live under root."""
+    from textforensics.evidence import DisjointnessProof, InferenceIdentity
+
+    verification = registry.verify_artifacts(root=root)
+    record = registry.records[0]
+    proof = DisjointnessProof(
+        status="verified",
+        overlap_count=0,
+        training_count=1000,
+        evaluation_count=400,
+        training_hash=hex64(9),
+        evaluation_hash=record.benchmark.fingerprint_sha256,
+    )
+    identity = InferenceIdentity(
+        detector_id=record.detector_id,
+        detector_version=record.detector_version,
+        provider=None,
+        model=None,
+        config_hash=None,
+        native_score_semantics=None,
+        calibration_id=None,
+        regime="human_only",
+    )
+    return {
+        "identity": identity,
+        "disjointness": proof,
+        "artifact_verification": verification,
+    }
+
+
+def _v2_coverage(registry: EvidenceRegistry, **kwargs):
+    return assess_detector_coverage(
+        detector_id="a",
+        detector_version="1",
+        detector_family="fam1",
+        supported_languages=("en",),
+        min_words=80,
+        max_words=1000,
+        conditions=_v2_conditions(),
+        registry=registry,
+        now=NOW,
+        **kwargs,
+    )
+
+
+def _supported_dimensions(coverage) -> set[str]:
+    return {name for name, dim in coverage.dimensions.items() if dim.state == "supported"}
+
+
+# ---------------------------------------------------------------------------
+# V3 (validation.py) fixtures
+# ---------------------------------------------------------------------------
+
+
+def _v3_record_dict(
+    *,
+    status: str = "supported",
+    record_id: str = "evr-20261106-synthetic-test-builtin-heuristic",
+    detector_id: str = V3_DETECTOR,
+    detector_version: str = V3_VERSION,
+    language: str = "en",
+    domain: tuple[str, ...] = ("synthetic",),
+    editing_regime: str = "raw",
+    generator_families: tuple[str, ...] = ("synthetic",),
+    populations: tuple[str, ...] = ("synthetic",),
+    floor_words: int = 80,
+    n_human: int = 120,
+    n_ai: int = 120,
+    contamination: str = "no",
+    split_role: str = "test",
+    due: str = "2027-02-04",
+    demoted_by: str | None = None,
+    fpr_slices: tuple[dict, ...] | None = None,
+) -> dict:
+    """Synthetic U1 record dict, hash-sealed with compute_signature.
+
+    ``fpr_slices``: one entry per declared slice, each
+    ``{"slice_id": ..., "value": ..., "ci": (lower, upper) | None,
+    "worst_slice": bool}``. Defaults to a single slice with CI upper 0.05.
+    """
+    if fpr_slices is None:
+        fpr_slices = (
+            {"slice_id": "synthetic-test", "value": 0.02, "ci": (0.0, 0.05), "worst_slice": True},
+        )
+    metrics = []
+    for spec in fpr_slices:
+        ci = spec["ci"]
+        metric = {
+            "value": 0.8,
+            "n": n_human + n_ai,
+            "ci_lower": 0.7,
+            "ci_upper": 0.9,
+            "method": "bootstrap, 1000 resamples, seed 20261106",
+        }
+        metrics.append(
+            {
+                "slice_id": spec["slice_id"],
+                "n_human": n_human,
+                "n_ai": n_ai,
+                "auroc": dict(metric),
+                "tpr_at_fpr_0_01": dict(metric, value=0.5, n=n_ai, ci_lower=0.4, ci_upper=0.6),
+                "tpr_at_fpr_0_05": dict(metric, value=0.7, n=n_ai, ci_lower=0.6, ci_upper=0.8),
+                "fpr_native": {
+                    "value": spec["value"],
+                    "n": n_human,
+                    "ci_lower": None if ci is None else ci[0],
+                    "ci_upper": None if ci is None else ci[1],
+                    "method": "bootstrap, 1000 resamples, seed 20261106",
+                    "operating_point": (
+                        "builtin-heuristic native verdict (analyze_text); no score threshold"
+                    ),
+                },
+                "coverage": 1.0,
+                "abstention_rate": 0.0,
+                "worst_slice": bool(spec.get("worst_slice", False)),
+            }
+        )
+    record = {
+        "schema": "textforensics.evidence-record/v1",
+        "record_id": record_id,
+        "detector_id": detector_id,
+        "detector_version": detector_version,
+        "detector_family": "stylometric-heuristic",
+        "calibration_id": None,
+        "status": status,
+        "supersedes": None,
+        "regime": {
+            "language": language,
+            "script": "Latn",
+            "language_variety": None,
+            "length_bucket": {
+                "min_words": floor_words,
+                "max_words": None,
+                "floor_words": floor_words,
+                "measured_min_words": floor_words + 5,
+                "measured_median_words": floor_words + 40,
+                "measured_max_words": floor_words + 320,
+            },
+            "domain": list(domain),
+            "genre": "synthetic-test",
+            "generator": {
+                "families": list(generator_families),
+                "vintage": "synthetic",
+                "current_as_of": "2026-11-06",
+            },
+            "editing_regime": editing_regime,
+            "human_population": {
+                "populations": list(populations),
+                "determined_how": "synthetic test fixture",
+            },
+            "attack_slice": None,
+        },
+        "data": {
+            "dataset_name": "synthetic-test",
+            "dataset_version": "1.0",
+            "file_sha256": "a" * 64,
+            "row_hash_method": "sha256 of normalised text (benchmark fingerprint)",
+            "split": "test",
+            "split_role": split_role,
+            "n_human": n_human,
+            "n_ai": n_ai,
+            "licence": "MIT",
+            "licence_reference": "https://example.invalid/synthetic-test-licence",
+            "contamination_flag": contamination,
+            "near_duplicate_rate": None,
+            "near_duplicate_method": None,
+        },
+        "run": {
+            "run_id": "EV-20261106-synthetic-test",
+            "run_artifact": "docs/evidence/runs/EV-20261106-synthetic-test.json",
+            "run_artifact_sha256": "b" * 64,
+            "run_date": "2026-11-06",
+            "runner": "synthetic-test",
+            "code_version": "a" * 40,
+            "dependency_lock_sha": None,
+            "hardware": "synthetic-test",
+            "runtime": "CPython 3.12.3 on Linux",
+            "seeds": {"bootstrap_seed": 20261106},
+            "command": "python scripts/seed_validation.py --synthetic-test",
+            "drops_manifest": [],
+            "reporting_rules": "synthetic test fixture",
+        },
+        "metrics": metrics,
+        "limits": {
+            "known_failure_modes": ["synthetic test fixture"],
+            "limitations": ["not validated for anything real"],
+            "next_revalidation_due": due,
+            "appeal_note": "synthetic test fixture",
+            "reviewer": None,
+            "review_date": None,
+            "demoted_by": demoted_by,
+        },
+        "signature": "0" * 64,
+    }
+    record["signature"] = compute_signature(record)
+    return record
+
+
+def _v3_conditions(**overrides) -> InputConditions:
+    from textforensics.conditions import length_band
+
+    word_count = overrides.get("word_count", 120)
+    base = {
+        "schema": "textforensics.input-conditions/v1",
+        "language": "en",
+        "language_confidence": "high",
+        "script": "Latn",
+        "word_count": word_count,
+        "char_count": word_count * 5,
+        "length_band": length_band(word_count),
+        "domain_genre": "synthetic",
+        "domain_confidence": "high",
+        "editing_regime": "machine_only",
+        "generator": "synthetic",
+        "human_population": "synthetic",
+        "declared": {"source": "caller", "fields": ["language"], "values": {}},
+        "cues": {},
+        "extraction_version": "1",
+    }
+    base.update(overrides)
+    return InputConditions(**base)
+
+
+def _v3_registry(*record_dicts: dict) -> ValidationRegistry:
+    return ValidationRegistry([ValidationRecord.from_dict(item) for item in record_dicts])
+
+
+def _v3_derive(conditions: InputConditions, registry: ValidationRegistry):
+    return derive_trust_map(
+        conditions,
+        registry,
+        detector_id=V3_DETECTOR,
+        detector_version=V3_VERSION,
+        now=NOW,
+    )
+
+
+def _v3_dim(trust_map, name: str):
+    return next(item for item in trust_map.dimensions if item.dimension == name)
+
+
+def _prediction(detector_id: str = "a", family: str = "fam1") -> DetectorPrediction:
+    return DetectorPrediction(
+        schema="textforensics.detector-result/v2",
+        detector_id=detector_id,
+        detector_version="1",
+        detector_family=family,
+        execution="local",
+        score=0.8,
+        score_semantics="test native score",
+        verdict="ai_like",
+        threshold=0.5,
+    )
+
+
+# ---------------------------------------------------------------------------
+# CORE-01 — V2 coverage accepts scientifically ineligible evidence
+# ---------------------------------------------------------------------------
+
+
+class Core01Tests(unittest.TestCase):
+    def test_audit_repro_yields_no_supported_dimension(self):
+        """Wildcard version + train split + incompatible editing regime +
+        missing artifacts must not produce any supported dimension."""
+        record = _v2_record(
+            detector_version="*",
+            split="train",
+            editing=("machine_only",),
+        )
+        coverage = _v2_coverage(EvidenceRegistry([record]))
+        self.assertEqual(_supported_dimensions(coverage), set())
+
+    def test_each_ineligibility_axis_alone_blocks_support(self):
+        """Varying one axis at a time from an otherwise eligible record
+        must never leave a supported dimension."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fingerprint, bench_hash, run_hash = _write_artifacts(root)
+            base_kwargs = {
+                "benchmark_fingerprint": fingerprint,
+                "benchmark_hash": bench_hash,
+                "run_hash": run_hash,
+            }
+            from textforensics.evidence import DisjointnessProof
+
+            def eligible_inputs_for(registry):
+                return _eligible_inputs(registry, root)
+
+            # Control: fully eligible -> supported dimensions exist.
+            control = _v2_record(**base_kwargs)
+            control_cov = _v2_coverage(
+                EvidenceRegistry([control]), **eligible_inputs_for(EvidenceRegistry([control]))
+            )
+            self.assertIn("language", _supported_dimensions(control_cov))
+
+            variants = {
+                "train split": _v2_record(split="train", **base_kwargs),
+                "wildcard version": _v2_record(detector_version="*", **base_kwargs),
+                "retracted": _v2_record(status="retracted", **base_kwargs),
+                "stale": _v2_record(evaluated_at="2024-01-01T00:00:00+00:00", **base_kwargs),
+                "thin samples": _v2_record(n_human=10, n_ai=10, **base_kwargs),
+            }
+            for label, record in variants.items():
+                with self.subTest(axis=label):
+                    registry = EvidenceRegistry([record])
+                    coverage = _v2_coverage(registry, **eligible_inputs_for(registry))
+                    self.assertEqual(
+                        _supported_dimensions(coverage),
+                        set(),
+                        f"{label} must not establish support",
+                    )
+
+            # Missing artifacts: verification reports the record as not ok.
+            missing = _v2_record(**base_kwargs)
+            missing_cov = _v2_coverage(
+                EvidenceRegistry([missing]),
+                **eligible_inputs_for(EvidenceRegistry([missing])),
+            )
+            # The proof/verification inputs above were built against the
+            # same registry, whose artifacts ARE present; rebuild the
+            # verification against an empty root to simulate missing files.
+            empty_root = root / "empty"
+            empty_root.mkdir()
+            _inputs = _eligible_inputs(EvidenceRegistry([missing]), root)
+            identity = _inputs["identity"]
+            proof = _inputs["disjointness"]
+            verification = EvidenceRegistry([missing]).verify_artifacts(root=empty_root)
+            self.assertFalse(verification.verified)
+            missing_cov = _v2_coverage(
+                EvidenceRegistry([missing]),
+                identity=identity,
+                disjointness=proof,
+                artifact_verification=verification,
+            )
+            self.assertEqual(_supported_dimensions(missing_cov), set())
+            self.assertEqual(_supported_dimensions(missing_cov), set())
+
+            # Unknown contamination: proof status unknown -> no support.
+            unknown_proof = DisjointnessProof(
+                status="unknown",
+                overlap_count=0,
+                training_count=1000,
+                evaluation_count=400,
+                training_hash=hex64(9),
+                evaluation_hash=fingerprint,
+            )
+            _inputs = _eligible_inputs(EvidenceRegistry([control]), root)
+            identity = _inputs["identity"]
+            verification = _inputs["artifact_verification"]
+            coverage = _v2_coverage(
+                EvidenceRegistry([control]),
+                identity=identity,
+                disjointness=unknown_proof,
+                artifact_verification=verification,
+            )
+            self.assertEqual(_supported_dimensions(coverage), set())
+
+            # Contaminated proof: overlap > 0 -> no support.
+            contaminated = DisjointnessProof(
+                status="contaminated",
+                overlap_count=3,
+                training_count=1000,
+                evaluation_count=400,
+                training_hash=hex64(9),
+                evaluation_hash=fingerprint,
+            )
+            coverage = _v2_coverage(
+                EvidenceRegistry([control]),
+                identity=identity,
+                disjointness=contaminated,
+                artifact_verification=verification,
+            )
+            self.assertEqual(_supported_dimensions(coverage), set())
+
+            # No eligibility inputs at all (caller-supplied record only)
+            # -> no support: unverified declarations are never promoted.
+            coverage = _v2_coverage(EvidenceRegistry([control]))
+            self.assertEqual(_supported_dimensions(coverage), set())
+
+    def test_ineligible_record_is_preserved_as_partial_not_dropped(self):
+        """A train-split record stays visible as partial evidence; it is
+        capped, not deleted and not relabelled unknown."""
+        record = _v2_record(split="train")
+        coverage = _v2_coverage(EvidenceRegistry([record]))
+        dim = coverage.dimensions["language"]
+        self.assertEqual(dim.state, "partial")
+        self.assertIn("train", " ".join(dim.limitations) + dim.reason)
+
+    def test_records_for_no_longer_matches_wildcard_version(self):
+        registry = EvidenceRegistry([_v2_record(detector_version="*")])
+        self.assertEqual(registry.records_for("a", "1"), ())
+        # An exact-version record still matches exactly.
+        registry = EvidenceRegistry([_v2_record(detector_version="1")])
+        self.assertEqual(len(registry.records_for("a", "1")), 1)
+        self.assertEqual(registry.records_for("a", "2"), ())
+
+    def test_fully_eligible_control_supports_applicable_dimensions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fingerprint, bench_hash, run_hash = _write_artifacts(root)
+            record = _v2_record(
+                benchmark_fingerprint=fingerprint,
+                benchmark_hash=bench_hash,
+                run_hash=run_hash,
+            )
+            registry = EvidenceRegistry([record])
+            coverage = _v2_coverage(registry, **_eligible_inputs(registry, root))
+            supported = _supported_dimensions(coverage)
+            for name in (
+                "language",
+                "text_length",
+                "domain_genre",
+                "editing_revision",
+                "generator_scope",
+                "human_population",
+                "human_false_positive_evidence",
+            ):
+                self.assertIn(name, supported, f"{name} should be supported")
+            # Temporal stability caps at partial from a single snapshot.
+            self.assertEqual(coverage.dimensions["temporal_version_stability"].state, "partial")
+
+
+# ---------------------------------------------------------------------------
+# CORE-02 — Human-FPR support selects the most favorable slice
+# ---------------------------------------------------------------------------
+
+
+class Core02V3Tests(unittest.TestCase):
+    def test_adverse_slice_in_same_record_blocks_support(self):
+        """CI uppers 0.01 and 0.9 in one sealed record: supported is
+        wrong; the reported upper must be the worst (0.9), not the min."""
+        record = _v3_record_dict(
+            fpr_slices=(
+                {"slice_id": "slice-good", "value": 0.005, "ci": (0.0, 0.01), "worst_slice": False},
+                {"slice_id": "slice-bad", "value": 0.5, "ci": (0.1, 0.9), "worst_slice": True},
+            )
+        )
+        trust_map = _v3_derive(_v3_conditions(), _v3_registry(record))
+        dim = _v3_dim(trust_map, "human_false_positive_evidence")
+        self.assertNotEqual(dim.state, "supported")
+        self.assertEqual(dim.observed.get("fpr_ci_upper"), 0.9)
+
+    def test_worst_slice_flag_cannot_hide_adverse_slice(self):
+        """Flagging the GOOD slice as worst_slice must not change the
+        gate: the worst upper across declared slices governs."""
+        record = _v3_record_dict(
+            fpr_slices=(
+                {"slice_id": "slice-good", "value": 0.005, "ci": (0.0, 0.01), "worst_slice": True},
+                {"slice_id": "slice-bad", "value": 0.5, "ci": (0.1, 0.9), "worst_slice": False},
+            )
+        )
+        dim = _v3_dim(
+            _v3_derive(_v3_conditions(), _v3_registry(record)),
+            "human_false_positive_evidence",
+        )
+        self.assertNotEqual(dim.state, "supported")
+        self.assertEqual(dim.observed.get("fpr_ci_upper"), 0.9)
+
+    def test_favorable_record_cannot_hide_adverse_record(self):
+        """Adding a favorable record must not rescue an adverse
+        applicable record: conflicting evidence is preserved, support
+        is vetoed."""
+        good = _v3_record_dict(
+            record_id="evr-20261106-synthetic-good-builtin-heuristic",
+            fpr_slices=(
+                {"slice_id": "slice-good", "value": 0.005, "ci": (0.0, 0.01), "worst_slice": True},
+            ),
+        )
+        bad = _v3_record_dict(
+            record_id="evr-20261106-synthetic-bad-builtin-heuristic",
+            fpr_slices=(
+                {"slice_id": "slice-bad", "value": 0.5, "ci": (0.1, 0.9), "worst_slice": True},
+            ),
+        )
+        dim = _v3_dim(
+            _v3_derive(_v3_conditions(), _v3_registry(good, bad)),
+            "human_false_positive_evidence",
+        )
+        self.assertNotEqual(dim.state, "supported")
+        self.assertEqual(dim.observed.get("fpr_ci_upper"), 0.9)
+
+    def test_slice_without_ci_blocks_support(self):
+        """A required slice with no FPR CI is missing evidence: it must
+        block support, not be skipped in favour of the slices that do
+        have a CI."""
+        record = _v3_record_dict(
+            fpr_slices=(
+                {"slice_id": "slice-good", "value": 0.005, "ci": (0.0, 0.01), "worst_slice": False},
+                {"slice_id": "slice-noci", "value": 0.02, "ci": None, "worst_slice": True},
+            )
+        )
+        dim = _v3_dim(
+            _v3_derive(_v3_conditions(), _v3_registry(record)),
+            "human_false_positive_evidence",
+        )
+        self.assertNotEqual(dim.state, "supported")
+
+    def test_all_slices_under_ceiling_supports_and_reports_worst(self):
+        record = _v3_record_dict(
+            fpr_slices=(
+                {"slice_id": "slice-a", "value": 0.005, "ci": (0.0, 0.01), "worst_slice": False},
+                {"slice_id": "slice-b", "value": 0.02, "ci": (0.0, 0.04), "worst_slice": True},
+            )
+        )
+        dim = _v3_dim(
+            _v3_derive(_v3_conditions(), _v3_registry(record)),
+            "human_false_positive_evidence",
+        )
+        self.assertEqual(dim.state, "supported")
+        self.assertEqual(dim.observed.get("fpr_ci_upper"), 0.04)
+
+    def test_ceiling_boundary_is_inclusive(self):
+        record = _v3_record_dict(
+            fpr_slices=(
+                {"slice_id": "slice-edge", "value": 0.04, "ci": (0.01, 0.05), "worst_slice": True},
+            )
+        )
+        dim = _v3_dim(
+            _v3_derive(_v3_conditions(), _v3_registry(record)),
+            "human_false_positive_evidence",
+        )
+        self.assertEqual(dim.state, "supported")
+        self.assertEqual(dim.observed.get("fpr_ci_upper"), 0.05)
+
+
+class Core02V2Tests(unittest.TestCase):
+    def _two_slice_record(self, uppers):
+        slices = []
+        for index, upper in enumerate(uppers):
+            slices.append(
+                ValidationSlice(
+                    slice_id=f"s{index}",
+                    conditions=SliceConditions(
+                        languages=("en",),
+                        domains=("general",),
+                        editing_regimes=("human_only",),
+                        min_words=100,
+                        max_words=1000,
+                        generators=("g1", "g2", "g3"),
+                        generator_scope="multi",
+                        human_populations=("pop_a", "pop_b"),
+                    ),
+                    n_human=200,
+                    n_ai=200,
+                    metrics={
+                        "fpr": MetricEstimate(
+                            value=upper / 2,
+                            n=200,
+                            ci_lower=0.0,
+                            ci_upper=upper,
+                            method="wilson",
+                        ),
+                    },
+                    threshold=0.5,
+                )
+            )
+        return EvidenceRecord(
+            evidence_id="ev-a-1-test",
+            detector_id="a",
+            detector_version="1",
+            detector_family="fam1",
+            evaluated_at_utc="2026-11-01T00:00:00+00:00",
+            benchmark=BenchmarkProvenance(
+                name="raid",
+                version="1.0",
+                fingerprint_sha256=hex64(1),
+                split="test",
+                license="MIT",
+                artifact_path="data/raid.jsonl",
+                artifact_sha256=hex64(2),
+                contamination_controls=["disjoint_sample_ids"],
+            ),
+            slices=tuple(slices),
+            provenance=RunProvenance(
+                git_sha="abc1234",
+                command="textforensics benchmark",
+                environment_sha256=hex64(3),
+                executed_at_utc="2026-11-01T00:00:00+00:00",
+                run_artifact_path="runs/1.json",
+                run_artifact_sha256=hex64(4),
+            ),
+        )
+
+    def test_v2_worst_slice_governs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fingerprint, bench_hash, run_hash = _write_artifacts(root)
+            record = self._two_slice_record((0.01, 0.9))
+            # Rebuild with the real artifact hashes/fingerprint so the
+            # record is eligible on every axis except the FPR slices.
+            record = EvidenceRecord(
+                evidence_id=record.evidence_id,
+                detector_id=record.detector_id,
+                detector_version=record.detector_version,
+                detector_family=record.detector_family,
+                evaluated_at_utc=record.evaluated_at_utc,
+                benchmark=BenchmarkProvenance(
+                    name="raid",
+                    version="1.0",
+                    fingerprint_sha256=fingerprint,
+                    split="test",
+                    license="MIT",
+                    artifact_path="data/raid.jsonl",
+                    artifact_sha256=bench_hash,
+                    contamination_controls=["disjoint_sample_ids"],
+                ),
+                slices=record.slices,
+                provenance=RunProvenance(
+                    git_sha="abc1234",
+                    command="textforensics benchmark",
+                    environment_sha256=hex64(3),
+                    executed_at_utc=record.evaluated_at_utc,
+                    run_artifact_path="runs/1.json",
+                    run_artifact_sha256=run_hash,
+                ),
+            )
+            registry = EvidenceRegistry([record])
+            coverage = _v2_coverage(registry, **_eligible_inputs(registry, root))
+            dim = coverage.dimensions["human_false_positive_evidence"]
+            self.assertNotEqual(dim.state, "supported")
+            self.assertEqual(dim.observed.get("fpr_ci_upper"), 0.9)
+
+
+# ---------------------------------------------------------------------------
+# CORE-07 — Failed benign probes can yield supported stability (W2 part)
+# ---------------------------------------------------------------------------
+
+
+class Core07Tests(unittest.TestCase):
+    def test_two_failures_never_support_stability_v2(self):
+        """Audit repro: 2 succeed, 2 fail. A row carrying the
+        survivor-only stability 1.0 with failed=2 must not support."""
+        from textforensics.trust import assess_trust_map
+
+        robustness = [
+            {
+                "detector_id": "a",
+                "verdict_stability": 1.0,
+                "verdict_stability_survivors": 1.0,
+                "native_score_range": 0.05,
+                "completeness": {
+                    "selected": 4,
+                    "attempted": 4,
+                    "succeeded": 2,
+                    "abstained": 0,
+                    "failed": 2,
+                },
+            }
+        ]
+        trust_map = assess_trust_map(_v2_conditions(), [_prediction()], robustness=robustness)
+        dim = next(item for item in trust_map.dimensions if item.dimension == "benign_stability")
+        self.assertNotEqual(dim.state, "supported")
+        self.assertEqual(dim.state, "unknown")
+
+    def test_two_failures_never_support_stability_v3(self):
+        """Same repro through the V3 helper (derive_trust_map live dims)."""
+        robustness = [
+            {
+                "detector_id": "a",
+                "verdict_stability": 1.0,
+                "native_score_range": 0.05,
+                "completeness": {
+                    "selected": 4,
+                    "attempted": 4,
+                    "succeeded": 2,
+                    "abstained": 0,
+                    "failed": 2,
+                },
+            }
+        ]
+        trust_map = derive_trust_map(
+            _v3_conditions(),
+            _v3_registry(_v3_record_dict()),
+            detector_id=V3_DETECTOR,
+            detector_version=V3_VERSION,
+            now=NOW,
+            robustness=robustness,
+        )
+        dim = next(item for item in trust_map.dimensions if item.dimension == "benign_stability")
+        self.assertNotEqual(dim.state, "supported")
+
+    def test_malformed_completeness_row_never_supports(self):
+        from textforensics.trust import assess_trust_map
+
+        robustness = [
+            {
+                "detector_id": "a",
+                "verdict_stability": 1.0,
+                "native_score_range": 0.05,
+                "completeness": {
+                    "selected": "four",
+                    "attempted": 4,
+                    "succeeded": 4,
+                    "abstained": 0,
+                    "failed": 0,
+                },
+            }
+        ]
+        trust_map = assess_trust_map(_v2_conditions(), [_prediction()], robustness=robustness)
+        dim = next(item for item in trust_map.dimensions if item.dimension == "benign_stability")
+        self.assertNotEqual(dim.state, "supported")
+
+    def test_all_abstentions_never_support(self):
+        from textforensics.trust import assess_trust_map
+
+        robustness = [
+            {
+                "detector_id": "a",
+                "verdict_stability": None,
+                "native_score_range": 0.05,
+                "completeness": {
+                    "selected": 4,
+                    "attempted": 4,
+                    "succeeded": 0,
+                    "abstained": 4,
+                    "failed": 0,
+                },
+            }
+        ]
+        trust_map = assess_trust_map(_v2_conditions(), [_prediction()], robustness=robustness)
+        dim = next(item for item in trust_map.dimensions if item.dimension == "benign_stability")
+        self.assertNotEqual(dim.state, "supported")
+
+    def test_complete_successful_control_supports(self):
+        from textforensics.trust import assess_trust_map
+
+        robustness = [
+            {
+                "detector_id": "a",
+                "verdict_stability": 1.0,
+                "native_score_range": 0.05,
+                "completeness": {
+                    "selected": 4,
+                    "attempted": 4,
+                    "succeeded": 4,
+                    "abstained": 0,
+                    "failed": 0,
+                },
+            }
+        ]
+        trust_map = assess_trust_map(_v2_conditions(), [_prediction()], robustness=robustness)
+        dim = next(item for item in trust_map.dimensions if item.dimension == "benign_stability")
+        self.assertEqual(dim.state, "supported")
+
+
+# ---------------------------------------------------------------------------
+# CORE-11 — Mixed-origin coverage ignores detector identity and eligibility
+# ---------------------------------------------------------------------------
+
+
+def _segment_record_dict(**overrides) -> dict:
+    """A segment-level U1 record for the builtin heuristic detector."""
+    params = {
+        "status": "supported",
+        "record_id": "evr-20261110-synthetic-segments-builtin-heuristic",
+        "detector_id": V3_DETECTOR,
+        "detector_version": V3_VERSION,
+        "domain": ("news",),
+        "editing_regime": "LLM-edited",
+        "fpr_slices": (
+            {
+                "slice_id": "opai_bench_segments-builtin-heuristic",
+                "value": 0.02,
+                "ci": (0.0, 0.05),
+                "worst_slice": True,
+            },
+        ),
+    }
+    params.update(overrides)
+    return _v3_record_dict(**params)
+
+
+def _fake_analyzer(name: str, score: float) -> AnalyzerResult:
+    return AnalyzerResult(name=name, score=score, reliability=0.9)
+
+
+def _fake_result(score: float):
+    names = ("structural_uniformity", "formulaic_language", "lexical_profile")
+    return SimpleNamespace(
+        score=score,
+        analyzers=[_fake_analyzer(n, 0.1) for n in names],
+        diagnostic_reliability=0.9,
+    )
+
+
+def _sentence(marker: str, n_words: int = 25) -> str:
+    return " ".join(["Filler"] + ["filler"] * (n_words - 2) + [marker]) + "."
+
+
+class Core11Tests(unittest.TestCase):
+    def _covered(self, *record_dicts, **kwargs):
+        from textforensics.mixed_origin import segment_covered_regimes
+
+        registry = _v3_registry(*record_dicts)
+        return segment_covered_regimes(registry, **kwargs)
+
+    def test_audit_repro_does_not_cover(self):
+        """Partial record, unrelated detector, same version, expired
+        revalidation, manual demotion, copying a known slice ID: no cover."""
+        bad = _segment_record_dict(
+            status="partial",
+            detector_id="other/unrelated-detector",
+            due="2020-01-01",
+            demoted_by="manual-review",
+        )
+        self.assertEqual(self._covered(bad), set())
+
+    def test_each_axis_alone_blocks_coverage(self):
+        good = _segment_record_dict()
+        self.assertEqual(self._covered(good), {("en", "news")})
+        variants = {
+            "wrong detector id": _segment_record_dict(detector_id="other/unrelated-detector"),
+            "wrong version": _segment_record_dict(detector_version="9.9.9"),
+            "stored partial": _segment_record_dict(status="partial"),
+            "expired": _segment_record_dict(due="2020-01-01"),
+            "demoted": _segment_record_dict(demoted_by="manual-review"),
+            "contaminated": _segment_record_dict(contamination="yes"),
+            "contamination unknown": _segment_record_dict(contamination="unknown"),
+            "fit split role": _segment_record_dict(split_role="fit"),
+            "thin samples": _segment_record_dict(n_human=10, n_ai=10),
+        }
+        for label, record in variants.items():
+            with self.subTest(axis=label):
+                self.assertEqual(self._covered(record), set(), f"{label} must not cover")
+
+    def test_tampered_signature_does_not_cover(self):
+        record = _segment_record_dict()
+        record["data"]["n_human"] = 4786  # tamper, no re-sign (still valid)
+        self.assertEqual(self._covered(record), set())
+
+    def test_report_path_withholds_on_ineligible_record(self):
+        """The actual report path (not only the helper) must withhold
+        when the only segment record is the audit-style bad one."""
+        import textforensics.mixed_origin as mo
+
+        bad = _segment_record_dict(
+            status="partial",
+            detector_id="other/unrelated-detector",
+            due="2020-01-01",
+            demoted_by="manual-review",
+        )
+        covered = self._covered(bad)
+        sentences = [_sentence(f"human{i}") for i in range(2)]
+        original = mo.analyze_text
+        try:
+            mo.analyze_text = lambda text, *, include_robustness=True: _fake_result(0.1)
+            report = mo.build_mixed_origin_report(
+                " ".join(sentences),
+                language="en",
+                domain="news",
+                covered_regimes=covered,
+            )
+        finally:
+            mo.analyze_text = original
+        self.assertEqual(report["verdict"], "withheld")
+        self.assertTrue(
+            any(reason.startswith("no_validation_slice") for reason in report["withheld_reasons"])
+        )
+        self.assertFalse(report["regime"]["validation_slice_covered"])
+
+    def test_report_path_lifts_withholding_on_eligible_record(self):
+        import textforensics.mixed_origin as mo
+
+        covered = self._covered(_segment_record_dict())
+        self.assertEqual(covered, {("en", "news")})
+        sentences = [_sentence(f"human{i}") for i in range(2)]
+        original = mo.analyze_text
+        try:
+            mo.analyze_text = lambda text, *, include_robustness=True: _fake_result(0.1)
+            report = mo.build_mixed_origin_report(
+                " ".join(sentences),
+                language="en",
+                domain="news",
+                covered_regimes=covered,
+            )
+        finally:
+            mo.analyze_text = original
+        self.assertNotIn("no_validation_slice", report["withheld_reasons"])
+        self.assertTrue(report["regime"]["validation_slice_covered"])
+        self.assertEqual(report["verdict"], "human")
+
+
+# ---------------------------------------------------------------------------
+# S04 — Invalid/expired capability evidence accepted as validated/supported
+# ---------------------------------------------------------------------------
+
+
+class S04Tests(unittest.TestCase):
+    def _ledger(self, **claim_kwargs):
+        from textforensics.policy import (
+            CapabilityClaim,
+            CapabilityLedger,
+            EvidenceLabel,
+            EvidenceRef,
+            EvidenceTier,
+        )
+
+        claim_kwargs.setdefault("detector_id", "audit.example/detector")
+        claim_kwargs.setdefault("capability", "language_coverage.en")
+        claim_kwargs.setdefault("tier", EvidenceTier.VALIDATED)
+        claim_kwargs.setdefault(
+            "evidence",
+            [
+                EvidenceRef(
+                    label=EvidenceLabel.CALCULATED,
+                    tier=EvidenceTier.VALIDATED,
+                    artifact="calc-1",
+                )
+            ],
+        )
+        claim_kwargs.setdefault("valid_until", "2099-01-01")
+        ledger = CapabilityLedger()
+        ledger.register(CapabilityClaim(**claim_kwargs))
+        return ledger
+
+    def test_validated_without_executed_evidence_is_not_validated(self):
+        from textforensics.policy import ledger_to_trust_dimension
+
+        ledger = self._ledger()
+        self.assertFalse(ledger.is_validated("audit.example/detector", "language_coverage.en"))
+        self.assertIsNone(ledger.get("audit.example/detector", "language_coverage.en"))
+        with self.assertRaises(ValueError):
+            ledger.enforce("audit.example/detector", "language_coverage.en")
+        dim = ledger_to_trust_dimension(ledger, "audit.example/detector", "language_coverage")
+        self.assertNotEqual(dim.state, "supported")
+        # The registry view stays honest: the claim is still listed.
+        self.assertEqual(len(ledger.claims()["audit.example/detector"]), 1)
+
+    def test_validated_reported_only_is_not_validated(self):
+        from textforensics.policy import EvidenceLabel, EvidenceRef, EvidenceTier
+
+        ledger = self._ledger(
+            evidence=[
+                EvidenceRef(
+                    label=EvidenceLabel.REPORTED,
+                    tier=EvidenceTier.VALIDATED,
+                    artifact="report-1",
+                )
+            ]
+        )
+        self.assertFalse(ledger.is_validated("audit.example/detector", "language_coverage.en"))
+
+    def test_validated_empty_evidence_is_not_validated(self):
+        ledger = self._ledger(evidence=[])
+        self.assertFalse(ledger.is_validated("audit.example/detector", "language_coverage.en"))
+
+    def test_validated_with_executed_evidence_stays_validated(self):
+        from textforensics.mcp_tools import capability_check
+        from textforensics.policy import EvidenceLabel, EvidenceRef, EvidenceTier
+
+        ledger = self._ledger(
+            evidence=[
+                EvidenceRef(
+                    label=EvidenceLabel.EXECUTED,
+                    tier=EvidenceTier.VALIDATED,
+                    artifact="run/en.json",
+                )
+            ]
+        )
+        self.assertTrue(ledger.is_validated("audit.example/detector", "language_coverage.en"))
+        self.assertIsNotNone(ledger.enforce("audit.example/detector", "language_coverage.en"))
+        result = capability_check(
+            {
+                "ledger": ledger.to_dict(),
+                "detector_id": "audit.example/detector",
+                "capability": "language_coverage.en",
+            }
+        )
+        self.assertTrue(result["is_validated"])
+
+    def test_expiry_boundaries_use_supplied_utc_clock(self):
+        from textforensics.policy import EvidenceLabel, EvidenceRef, EvidenceTier
+
+        executed = [
+            EvidenceRef(
+                label=EvidenceLabel.EXECUTED,
+                tier=EvidenceTier.VALIDATED,
+                artifact="run/en.json",
+            )
+        ]
+        # Expired long ago.
+        ledger = self._ledger(evidence=executed, valid_until="2000-01-01")
+        self.assertFalse(
+            ledger.is_validated(
+                "audit.example/detector",
+                "language_coverage.en",
+                today=date(2026, 11, 11),
+            )
+        )
+        # Expiring today is still effective: valid_until is the last day.
+        ledger = self._ledger(evidence=executed, valid_until="2026-11-11")
+        self.assertTrue(
+            ledger.is_validated(
+                "audit.example/detector",
+                "language_coverage.en",
+                today=date(2026, 11, 11),
+            )
+        )
+        # Malformed date fails closed.
+        ledger = self._ledger(evidence=executed, valid_until="not-a-date")
+        self.assertFalse(
+            ledger.is_validated(
+                "audit.example/detector",
+                "language_coverage.en",
+                today=date(2026, 11, 11),
+            )
+        )
+
+    def test_evidence_resolver_verifies_executed_artifacts(self):
+        from textforensics.policy import (
+            CapabilityClaim,
+            CapabilityLedger,
+            EvidenceLabel,
+            EvidenceRef,
+            EvidenceTier,
+        )
+
+        def ledger_with_resolver(resolver):
+            ledger = CapabilityLedger(evidence_resolver=resolver)
+            ledger.register(
+                CapabilityClaim(
+                    detector_id="audit.example/detector",
+                    capability="language_coverage.en",
+                    tier=EvidenceTier.VALIDATED,
+                    evidence=[
+                        EvidenceRef(
+                            label=EvidenceLabel.EXECUTED,
+                            tier=EvidenceTier.VALIDATED,
+                            artifact="run/en.json",
+                        )
+                    ],
+                    valid_until="2099-01-01",
+                )
+            )
+            return ledger
+
+        # Resolver says the artifact does not exist -> not validated.
+        self.assertFalse(
+            ledger_with_resolver({"run/en.json": False}).is_validated(
+                "audit.example/detector", "language_coverage.en"
+            )
+        )
+        # Resolver confirms it -> validated.
+        self.assertTrue(
+            ledger_with_resolver({"run/en.json": True}).is_validated(
+                "audit.example/detector", "language_coverage.en"
+            )
+        )
+        # No resolver: existence is unchecked (documented limitation),
+        # the EXECUTED label alone carries the claim.
+        self.assertTrue(
+            ledger_with_resolver(None).is_validated(
+                "audit.example/detector", "language_coverage.en"
+            )
+        )
+
+    def test_duplicate_registration_latest_wins(self):
+        from textforensics.policy import (
+            CapabilityClaim,
+            CapabilityLedger,
+            EvidenceLabel,
+            EvidenceRef,
+            EvidenceTier,
+        )
+
+        executed = [
+            EvidenceRef(
+                label=EvidenceLabel.EXECUTED,
+                tier=EvidenceTier.VALIDATED,
+                artifact="run/en.json",
+            )
+        ]
+        ledger = CapabilityLedger()
+        ledger.register(
+            CapabilityClaim(
+                detector_id="d",
+                capability="c",
+                tier=EvidenceTier.VALIDATED,
+                evidence=executed,
+                valid_until="2099-01-01",
+            )
+        )
+        # A later expired registration replaces the current claim: the
+        # old valid claim is NOT resurrected.
+        ledger.register(
+            CapabilityClaim(
+                detector_id="d",
+                capability="c",
+                tier=EvidenceTier.VALIDATED,
+                evidence=executed,
+                valid_until="2000-01-01",
+            )
+        )
+        self.assertIsNone(ledger.get("d", "c"))
+        self.assertEqual(len(ledger.claims()["d"]), 2)  # history preserved
+        # And the reverse order: a later valid claim replaces an expired one.
+        ledger2 = CapabilityLedger()
+        ledger2.register(
+            CapabilityClaim(
+                detector_id="d",
+                capability="c",
+                tier=EvidenceTier.VALIDATED,
+                evidence=executed,
+                valid_until="2000-01-01",
+            )
+        )
+        ledger2.register(
+            CapabilityClaim(
+                detector_id="d",
+                capability="c",
+                tier=EvidenceTier.VALIDATED,
+                evidence=executed,
+                valid_until="2099-01-01",
+            )
+        )
+        self.assertTrue(ledger2.is_validated("d", "c"))
+
+    def test_policy_evaluation_agrees_with_effectiveness(self):
+        from textforensics.policy import CapabilityPolicy, CapabilityPolicyEngine
+
+        engine = CapabilityPolicyEngine()
+        engine.add_policy(
+            CapabilityPolicy(
+                rule_id="calibration-validated",
+                description="Calibration requires validated claims.",
+                required_capabilities=[("language_coverage.en", "validated")],
+                action_on_failure="reject",
+            )
+        )
+        # VALIDATED without EXECUTED evidence must fail the policy.
+        results = engine.evaluate(self._ledger(), "audit.example/detector")
+        self.assertEqual(len(results), 1)
+        self.assertFalse(results[0].passed)
+        # VALIDATED with EXECUTED evidence passes.
+        from textforensics.policy import EvidenceLabel, EvidenceRef
+
+        good = self._ledger(
+            evidence=[
+                EvidenceRef(
+                    label=EvidenceLabel.EXECUTED,
+                    tier=__import__(
+                        "textforensics.policy", fromlist=["EvidenceTier"]
+                    ).EvidenceTier.VALIDATED,
+                    artifact="run/en.json",
+                )
+            ]
+        )
+        results = engine.evaluate(good, "audit.example/detector")
+        self.assertTrue(results[0].passed)
+
+    def test_legacy_trust_map_view_agrees(self):
+        from textforensics.policy import EvidenceLabel, EvidenceRef, EvidenceTier
+        from textforensics.trust import trust_map_from_capability_ledger
+
+        bad = self._ledger()
+        trust_map = trust_map_from_capability_ledger(bad)
+        dim = trust_map.dimension("language")
+        self.assertIsNotNone(dim)
+        self.assertNotEqual(dim.state, "supported")
+        good = self._ledger(
+            evidence=[
+                EvidenceRef(
+                    label=EvidenceLabel.EXECUTED,
+                    tier=EvidenceTier.VALIDATED,
+                    artifact="run/en.json",
+                )
+            ]
+        )
+        trust_map = trust_map_from_capability_ledger(good)
+        dim = trust_map.dimension("language")
+        self.assertEqual(dim.state, "supported")
+
+
+class C10OverallTests(unittest.TestCase):
+    """C10 (coordinator follow-up): overall ``strong`` requires EXACTLY
+    the declared dimension set (name-set equality), never mere count
+    equality — in both derivation paths (``trust._overall_state`` for
+    v2, ``validation._overall_state_v3`` for v3).
+
+    Note: ``TrustDimension`` itself rejects undeclared names at
+    construction, so rogue-name cases are exercised with duck-typed
+    dimensions (the derivation functions only read ``.dimension`` and
+    ``.state``) — exactly the shape untrusted/map-level data takes
+    before it is validated. The one-dimension case uses a real
+    ``TrustDimension``: a single declared dimension, supported, is
+    not the declared SET and must never derive ``strong``."""
+
+    def _dim(self, name: str, state: str = "supported"):
+        from textforensics.trust import TrustDimension
+
+        return TrustDimension(dimension=name, state=state, reason="synthetic")
+
+    def _rogue(self, name: str, state: str = "supported"):
+        return SimpleNamespace(dimension=name, state=state)
+
+    def _declared(self):
+        from textforensics.schema import DECLARED_TRUST_MAP_DIMENSIONS
+
+        return DECLARED_TRUST_MAP_DIMENSIONS
+
+    def test_one_dimension_map_never_strong(self):
+        from textforensics.trust import _overall_state
+        from textforensics.validation import _overall_state_v3
+
+        one = [self._dim("language")]
+        self.assertNotEqual(_overall_state(one), "strong")
+        self.assertNotEqual(_overall_state_v3(one), "strong")
+
+    def test_ten_rogue_dimensions_never_strong(self):
+        from textforensics.trust import _overall_state
+        from textforensics.validation import _overall_state_v3
+
+        rogue = [self._rogue(f"rogue_dimension_{i}") for i in range(10)]
+        self.assertNotEqual(_overall_state(rogue), "strong")
+        self.assertNotEqual(_overall_state_v3(rogue), "strong")
+
+    def test_nine_declared_plus_one_rogue_never_strong(self):
+        from textforensics.trust import _overall_state
+        from textforensics.validation import _overall_state_v3
+
+        declared = sorted(self._declared())
+        dims = [self._dim(name) for name in declared[:9]]
+        dims.append(self._rogue("rogue_dimension"))
+        self.assertNotEqual(_overall_state(dims), "strong")
+        self.assertNotEqual(_overall_state_v3(dims), "strong")
+
+    def test_exact_declared_set_all_supported_is_strong(self):
+        from textforensics.trust import _overall_state
+        from textforensics.validation import _overall_state_v3
+
+        dims = [self._dim(name) for name in sorted(self._declared())]
+        self.assertEqual(_overall_state(dims), "strong")
+        self.assertEqual(_overall_state_v3(dims), "strong")
+
+    def test_declared_set_constant_is_the_trust_dimensions_alias(self):
+        from textforensics.schema import DECLARED_TRUST_MAP_DIMENSIONS
+        from textforensics.trust import TRUST_DIMENSIONS
+
+        self.assertEqual(DECLARED_TRUST_MAP_DIMENSIONS, frozenset(TRUST_DIMENSIONS))
+        self.assertEqual(len(DECLARED_TRUST_MAP_DIMENSIONS), 10)
+
+
+if __name__ == "__main__":
+    unittest.main()

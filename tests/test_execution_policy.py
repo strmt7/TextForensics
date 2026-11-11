@@ -446,14 +446,21 @@ class TestExpiredCapabilityClaim:
         )
         assert result["is_validated"] is True
 
-    def test_unexpired_validated_without_executed_evidence_is_w2_gap(self):
-        """Boundary pin (NOT a support claim): an unexpired VALIDATED
-        claim whose only evidence is CALCULATED still reads as
-        validated here. Whether that tier's evidence is sufficient is
-        the W2 eligibility model (S04) — W1 adjudicates expiry only.
-        ``validate_claim`` already flags the evidence gap as an issue.
+    def test_unexpired_validated_without_executed_evidence_is_ineffective(self):
+        """W2 (S04) resolution of the former W1 gap pin: an unexpired
+        VALIDATED claim whose only evidence is CALCULATED is NOT
+        validated anywhere — ``is_validated`` is False, ``enforce``
+        raises, ``validate_claim`` flags the EXECUTED gap, and the
+        Trust Map view never lifts a dimension to ``supported``. The
+        claim stays visible in the registry view (``claims()`` /
+        ``to_dict()``) and in ``capability_check``-style reads as
+        "registered but ineffective" — it is never deleted.
         """
-        from textforensics.policy import CapabilityLedger, validate_claim
+        from textforensics.policy import (
+            CapabilityLedger,
+            ledger_to_trust_dimension,
+            validate_claim,
+        )
 
         ledger = CapabilityLedger.from_dict(
             {
@@ -476,9 +483,16 @@ class TestExpiredCapabilityClaim:
                 },
             }
         )
-        assert ledger.is_validated("audit.example/detector", "language_coverage.en") is True
+        assert ledger.is_validated("audit.example/detector", "language_coverage.en") is False
+        assert ledger.get("audit.example/detector", "language_coverage.en") is None
+        with pytest.raises(ValueError, match="not currently effective"):
+            ledger.enforce("audit.example/detector", "language_coverage.en")
         claim = ledger.claims()["audit.example/detector"][0]
         assert any("EXECUTED evidence" in issue for issue in validate_claim(claim))
+        dimension = ledger_to_trust_dimension(ledger, "audit.example/detector", "language_coverage")
+        assert dimension.state != "supported"
+        # The registry view still lists the claim (honest record).
+        assert ledger.claims()["audit.example/detector"][0].tier.value == "validated"
 
     def test_expired_claim_does_not_lift_trust_dimension(self):
         from textforensics.policy import CapabilityLedger, ledger_to_trust_dimension

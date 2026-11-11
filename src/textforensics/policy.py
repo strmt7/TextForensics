@@ -123,31 +123,101 @@ def _parse_valid_until(value: str | None) -> date | None:
         return None
 
 
-def claim_is_expired(claim: CapabilityClaim, *, today: date | None = None) -> bool:
+def _coerce_today(today: date | datetime | None) -> date | None:
+    """Normalize a supplied clock value to a ``date`` (or ``None``).
+
+    A naive ``datetime`` is treated as UTC; an aware one is converted
+    to UTC first. ``None`` means "use the real today" at the call site.
+    """
+    if today is None:
+        return None
+    if isinstance(today, datetime):
+        moment = today if today.tzinfo is not None else today.replace(tzinfo=UTC)
+        return moment.astimezone(UTC).date()
+    return today
+
+
+def _resolver_verifies(resolver: Any | None, ref: EvidenceRef) -> bool:
+    """Return ``True`` iff ``resolver`` confirms ``ref``'s artifact.
+
+    The resolver is a callable ``artifact -> bool`` or a mapping
+    ``artifact -> bool``; a ``None`` resolver means existence is
+    unchecked (a documented limitation — see
+    :func:`_claim_is_effective`). A resolver that raises is treated as
+    "not verified" (fail closed) rather than letting the exception
+    decide the claim.
+    """
+    if resolver is None:
+        return True
+    try:
+        if callable(resolver):
+            return bool(resolver(ref.artifact))
+        return bool(resolver.get(ref.artifact, False))
+    except Exception:  # pragma: no cover - defensive fail-closed
+        return False
+
+
+def claim_is_expired(claim: CapabilityClaim, *, today: date | datetime | None = None) -> bool:
     """Return ``True`` iff the claim's ``valid_until`` has passed.
 
     ``valid_until`` is the last valid day (inclusive). A claim with no
     ``valid_until`` never expires on this rule; an unparseable
-    ``valid_until`` is treated as expired (fail closed).
+    ``valid_until`` is treated as expired (fail closed). ``today``
+    accepts a ``date`` or a ``datetime`` (converted to its UTC date);
+    ``None`` uses the real today.
     """
     if claim.valid_until is None:
         return False
     expiry = _parse_valid_until(claim.valid_until)
     if expiry is None:
         return True
-    return (today or date.today()) > expiry
+    return (_coerce_today(today) or date.today()) > expiry
 
 
-def _claim_is_effective(claim: CapabilityClaim, *, today: date | None = None) -> bool:
+def _claim_is_effective(
+    claim: CapabilityClaim,
+    *,
+    today: date | datetime | None = None,
+    evidence_resolver: Any | None = None,
+) -> bool:
     """Return ``True`` iff the claim is currently effective.
 
-    Effective here means not expired. Evidence sufficiency for a tier
-    (for example whether ``VALIDATED`` requires ``EXECUTED`` evidence)
-    is the W2 eligibility model (S04) and is deliberately not folded
-    into this predicate; :func:`validate_claim` reports it as a
-    diagnostic issue instead.
+    The full capability-eligibility model (audit W2, S04), decided at
+    this ONE choke point — every supported/validated predicate and
+    policy evaluation in the codebase agrees with it because they all
+    read it through :meth:`CapabilityLedger.get`,
+    :meth:`CapabilityLedger.enforce`,
+    :func:`ledger_to_trust_dimension` or
+    :meth:`CapabilityPolicyEngine.evaluate`:
+
+    * the claim is not expired (``valid_until`` is its last valid day,
+      inclusive; unparseable expiry fails closed); and
+    * when the claim tier is ``VALIDATED``, at least one of its
+      evidence references is labelled ``EXECUTED`` — an unexpired
+      ``VALIDATED`` claim WITHOUT executed evidence does NOT authorize
+      calibrated output and does NOT raise a Trust Map dimension to
+      ``supported``; and
+    * when an evidence resolver is supplied, at least one
+      ``EXECUTED`` reference must resolve through it (the referenced
+      artifact exists and its provenance verifies). Without a
+      resolver the existence check is skipped — a documented
+      limitation, not a verification.
+
+    ``READABLE`` and ``TOOL_BACKED`` claims require no evidence count
+    at this boundary (a bare documented claim is still a claim); their
+    diagnostic validation (:func:`validate_claim`) still flags empty
+    evidence. ``today`` accepts a ``date`` or ``datetime`` (UTC date).
     """
-    return not claim_is_expired(claim, today=today)
+    if claim_is_expired(claim, today=today):
+        return False
+    if claim.tier != EvidenceTier.VALIDATED:
+        return True
+    executed = [ref for ref in claim.evidence if ref.label == EvidenceLabel.EXECUTED]
+    if not executed:
+        return False
+    if evidence_resolver is None:
+        return True
+    return any(_resolver_verifies(evidence_resolver, ref) for ref in executed)
 
 
 class CapabilityLedger:
@@ -157,26 +227,33 @@ class CapabilityLedger:
     versus registry view (:meth:`claims` / :meth:`to_dict`):
 
     * The registry view lists every registered claim, including
-      expired ones — the ledger stays an honest record of what was
-      registered and when it expires.
+      expired ones and ineffective ones — the ledger stays an honest
+      record of what was registered and when it expires.
     * The effectiveness view returns only claims that are *currently
-      effective*, which here means not expired. An expired claim is
-      therefore not ``validated`` anywhere: not in
-      :func:`mcp_tools.capability_check` (which reads :meth:`get`),
-      not in :meth:`enforce` (the CLI-equivalent path), and not in the
-      Trust Map mapping. This is the W1 adjudication of the audit's
-      cross-auditor lead (``mcp_expired_claim`` /
-      ``cli_equivalent_expired_claim``): expiry is decided here, at
-      the shared source, never by patching one wrapper's boolean.
+      effective* under the full eligibility model
+      (:func:`_claim_is_effective`): not expired, and a ``VALIDATED``
+      claim carries at least one ``EXECUTED`` evidence reference (and,
+      when the ledger has an evidence resolver, at least one
+      ``EXECUTED`` reference that resolves through it). An expired or
+      evidence-less ``VALIDATED`` claim is therefore not ``validated``
+      anywhere: not in :func:`mcp_tools.capability_check` (which reads
+      :meth:`get`), not in :meth:`enforce` (the CLI-equivalent path),
+      and not in the Trust Map mapping. This is the W2 adjudication
+      of the audit's S04 finding: eligibility is decided here, at the
+      shared source, never by patching one wrapper's boolean.
 
-    Deliberately NOT decided here: whether a ``VALIDATED`` claim
-    without ``EXECUTED`` evidence is effective. :func:`validate_claim`
-    already flags that as an issue, but the policy engine's intended
-    tier semantics (a registered ``VALIDATED`` claim passes a
-    ``validated+`` rule) treat evidence sufficiency as a separate
-    eligibility question. That question is the W2 eligibility model
-    (S04); W2 decides it and, if it changes effectiveness, changes it
-    here at this same choke point — not in any wrapper.
+    Duplicate registration: the LATEST registration for a
+    detector+capability replaces the earlier one as the current claim
+    (``_find`` returns the last match); earlier registrations stay in
+    the registry history (:meth:`claims` / :meth:`to_dict`) but never
+    decide effectiveness.
+
+    Evidence resolver: pass ``evidence_resolver`` (a callable
+    ``artifact -> bool`` or a mapping ``artifact -> bool``) to verify
+    that ``EXECUTED`` references point at real, provenance-checked
+    artifacts. Without a resolver the existence check is skipped —
+    a documented limitation. The resolver is consulted only for
+    ``VALIDATED`` claims, only at the effectiveness boundary.
 
     Expiry semantics: ``valid_until`` is the last day the claim is
     valid (inclusive). A claim is expired when today is after
@@ -184,14 +261,32 @@ class CapabilityLedger:
     expired (fail closed).
     """
 
-    def __init__(self):
+    def __init__(self, evidence_resolver: Any | None = None):
         self._claims: dict[str, list[CapabilityClaim]] = {}
+        self._evidence_resolver = evidence_resolver
 
-    def register(self, claim: CapabilityClaim) -> None:
-        """Register a capability claim."""
+    def register(self, claim: CapabilityClaim) -> list[str]:
+        """Register a capability claim.
+
+        The claim is validated at ingestion via
+        :func:`validate_claim`; any issues are logged as a warning and
+        returned (the claim is still recorded — the ledger stays an
+        honest record — but an ineffective claim never authorizes
+        anything). A later registration for the same
+        detector+capability replaces the earlier one as current.
+        """
+        issues = validate_claim(claim)
+        if issues:
+            logger.warning(
+                "Registering capability claim %s/%s with issues: %s",
+                claim.detector_id,
+                claim.capability,
+                "; ".join(issues),
+            )
         if claim.detector_id not in self._claims:
             self._claims[claim.detector_id] = []
         self._claims[claim.detector_id].append(claim)
+        return issues
 
     def claims(self) -> dict[str, list[CapabilityClaim]]:
         """Return a shallow copy of all registered claims, by detector id.
@@ -202,39 +297,67 @@ class CapabilityLedger:
         return {det_id: list(claims) for det_id, claims in self._claims.items()}
 
     def _find(self, detector_id: str, capability: str) -> CapabilityClaim | None:
-        """Return the registered claim, regardless of effectiveness."""
+        """Return the current registered claim, regardless of effectiveness.
+
+        The LATEST registration wins: duplicate claims are replaced,
+        not first-ever-wins.
+        """
         claims = self._claims.get(detector_id, [])
-        for c in claims:
+        for c in reversed(claims):
             if c.capability == capability:
                 return c
         return None
 
-    def get(self, detector_id: str, capability: str) -> CapabilityClaim | None:
+    def get(
+        self,
+        detector_id: str,
+        capability: str,
+        *,
+        today: date | datetime | None = None,
+    ) -> CapabilityClaim | None:
         """Get the current claim for a detector+capability.
 
         Returns ``None`` when no claim is registered OR when the
-        registered claim is expired. Use :meth:`claims` to inspect the
-        raw registry, including expired claims.
+        registered claim is not currently effective (expired, or a
+        ``VALIDATED`` claim without executed evidence — see
+        :func:`_claim_is_effective`). Use :meth:`claims` to inspect
+        the raw registry, including ineffective claims.
         """
         claim = self._find(detector_id, capability)
-        if claim is None or not _claim_is_effective(claim):
+        if claim is None or not _claim_is_effective(
+            claim, today=today, evidence_resolver=self._evidence_resolver
+        ):
             return None
         return claim
 
-    def is_validated(self, detector_id: str, capability: str) -> bool:
+    def is_validated(
+        self,
+        detector_id: str,
+        capability: str,
+        *,
+        today: date | datetime | None = None,
+    ) -> bool:
         """Check if a claim has VALIDATED evidence tier.
 
-        Only a currently effective (unexpired) ``VALIDATED`` claim
-        counts; expired claims return ``False``.
+        Only a currently effective (unexpired, executed-evidence-backed)
+        ``VALIDATED`` claim counts; expired or evidence-less claims
+        return ``False``.
         """
-        claim = self.get(detector_id, capability)
+        claim = self.get(detector_id, capability, today=today)
         return claim is not None and claim.tier == EvidenceTier.VALIDATED
 
-    def enforce(self, detector_id: str, capability: str) -> CapabilityClaim:
+    def enforce(
+        self,
+        detector_id: str,
+        capability: str,
+        *,
+        today: date | datetime | None = None,
+    ) -> CapabilityClaim:
         """Get claim or raise if no claim exists.
 
-        Raises :class:`ValueError` when no claim is registered and when
-        the registered claim is expired.
+        Raises :class:`ValueError` when no claim is registered and
+        when the registered claim is not currently effective (expired,
+        or a ``VALIDATED`` claim without executed evidence).
         """
         claim = self._find(detector_id, capability)
         if claim is None:
@@ -242,11 +365,19 @@ class CapabilityLedger:
                 f"No capability claim for {detector_id}/{capability}. "
                 f"Register a claim before using this capability."
             )
-        if not _claim_is_effective(claim):
+        if not _claim_is_effective(claim, today=today, evidence_resolver=self._evidence_resolver):
+            if claim_is_expired(claim, today=today):
+                raise ValueError(
+                    f"Capability claim for {detector_id}/{capability} expired on "
+                    f"{claim.valid_until}. Register a current claim before "
+                    f"using this capability."
+                )
             raise ValueError(
-                f"Capability claim for {detector_id}/{capability} expired on "
-                f"{claim.valid_until}. Register a current claim before "
-                f"using this capability."
+                f"Capability claim for {detector_id}/{capability} is not "
+                f"currently effective: a VALIDATED claim requires at "
+                f"least one EXECUTED evidence reference (verified, when "
+                f"an evidence resolver is configured). Register a "
+                f"validated claim before using this capability."
             )
         return claim
 
@@ -302,8 +433,15 @@ class CapabilityLedger:
         return ledger
 
 
-def validate_claim(claim: CapabilityClaim) -> list[str]:
-    """Validate a capability claim. Returns list of issues (empty = valid)."""
+def validate_claim(claim: CapabilityClaim, *, today: date | datetime | None = None) -> list[str]:
+    """Validate a capability claim. Returns list of issues (empty = valid).
+
+    Diagnostic validation at ingestion AND at the decision boundary:
+    empty evidence, a ``VALIDATED`` tier without an ``EXECUTED``
+    reference, and expiry (against the supplied clock) are all
+    reported. This is diagnostic only — effectiveness is decided by
+    :func:`_claim_is_effective`, which agrees with these checks.
+    """
     issues = []
     if not claim.evidence:
         issues.append(
@@ -317,7 +455,7 @@ def validate_claim(claim: CapabilityClaim) -> list[str]:
                 f"VALIDATED claim {claim.detector_id}/{claim.capability} "
                 f"requires at least one EXECUTED evidence reference."
             )
-    if claim_is_expired(claim):
+    if claim_is_expired(claim, today=today):
         issues.append(
             f"Claim {claim.detector_id}/{claim.capability} expired on {claim.valid_until}."
         )
@@ -328,18 +466,26 @@ def ledger_to_trust_dimension(
     ledger: CapabilityLedger,
     detector_id: str,
     capability_prefix: str,
+    *,
+    today: date | datetime | None = None,
 ) -> TrustDimension:
     """Map ledger claims for a detector to a TrustDimension for the Trust Map.
 
     Claims at VALIDATED tier map to 'supported'; TOOL_BACKED to 'partial';
     READABLE to 'partial'; no claims to 'unknown'. Only currently
-    effective (unexpired) claims are considered: an expired claim
-    cannot lift a dimension to 'supported' — it maps to 'unknown' with
-    the expiry stated.
+    effective claims are considered (see :func:`_claim_is_effective`):
+    an expired claim, or a ``VALIDATED`` claim without executed
+    (and, when a resolver is configured, resolving) evidence, cannot
+    lift a dimension to 'supported' — it maps to 'unknown' with the
+    reason stated.
     """
     claims = ledger._claims.get(detector_id, [])
     relevant = [c for c in claims if c.capability.startswith(capability_prefix)]
-    effective = [c for c in relevant if _claim_is_effective(c)]
+    effective = [
+        c
+        for c in relevant
+        if _claim_is_effective(c, today=today, evidence_resolver=ledger._evidence_resolver)
+    ]
 
     if not relevant:
         return TrustDimension(
@@ -358,7 +504,8 @@ def ledger_to_trust_dimension(
             reason=(
                 f"Capability claims for {detector_id} under prefix "
                 f"'{capability_prefix}' exist but none is currently "
-                f"effective (all expired)."
+                f"effective (expired, or VALIDATED without executed "
+                f"evidence)."
             ),
             limitations=[
                 f"Claim for {c.capability} expires {c.valid_until}."
@@ -475,10 +622,16 @@ class CapabilityPolicyEngine:
         ledger: CapabilityLedger,
         detector_id: str,
         operation: str = "use",
+        *,
+        today: date | datetime | None = None,
     ) -> list[PolicyResult]:
         """Evaluate all applicable policies for a detector operation.
 
         Returns list of PolicyResult objects, one per matching policy.
+        Claims are read through :meth:`CapabilityLedger.get`, so the
+        full eligibility model (:func:`_claim_is_effective`) applies:
+        an expired or evidence-less ``VALIDATED`` claim counts as
+        missing, never as satisfying a ``validated+`` rule.
         """
 
         results: list[PolicyResult] = []
@@ -492,7 +645,7 @@ class CapabilityPolicyEngine:
             gaps = []
 
             for capability, min_tier_str in policy.required_capabilities:
-                claim = ledger.get(detector_id, capability)
+                claim = ledger.get(detector_id, capability, today=today)
                 if claim is None:
                     missing.append(f"{capability} (required: {min_tier_str}+)")
                     continue

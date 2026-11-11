@@ -62,18 +62,39 @@ class MixedOriginCliTests(unittest.TestCase):
         self.assertNotIn(TEXT, result.stdout)
 
     def test_json_report_human_with_covered_regime(self):
-        # The segment record (commit 5) covers en + news, so a plain
-        # human text in that regime is verdicted "human", exit 0.
-        result = self.run_cli(
-            "mixed-origin",
-            "--text",
-            LIBRARY_TEXT,
-            "--json",
-            "--language",
-            "en",
-            "--domain",
-            "news",
-        )
+        # A synthetic SUPPORTED segment record (hash-sealed, held-out,
+        # unexpired, undemoted) covering en + news is supplied via
+        # --registry, so a plain human text in that regime is verdicted
+        # "human", exit 0. The canonical registry's real segment
+        # record is partial (below-chance segment evidence, U4) and
+        # therefore — honestly, per audit W2 CORE-11 — no longer lifts
+        # withholding; it must NOT be promoted to supported to make
+        # this test pass.
+        from tests.test_audit_w2_worker_a import _segment_record_dict, _v3_registry
+
+        with tempfile.TemporaryDirectory() as tmp:
+            registry_path = Path(tmp) / "registry.json"
+            # to_dict() computes the registry_id from the records, so
+            # the file's hash matches its contents.
+            registry_path.write_text(
+                json.dumps(
+                    _v3_registry(_segment_record_dict()).to_dict(),
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            result = self.run_cli(
+                "mixed-origin",
+                "--text",
+                LIBRARY_TEXT,
+                "--json",
+                "--language",
+                "en",
+                "--domain",
+                "news",
+                "--registry",
+                str(registry_path),
+            )
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["verdict"], "human")

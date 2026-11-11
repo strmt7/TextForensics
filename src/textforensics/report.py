@@ -366,6 +366,7 @@ def build_forensic_bundle(
     trust_fpr_ceiling: float | None = None,
     execution_policy: ExecutionPolicy | None = None,
     cancellation: CancellationToken | None = None,
+    disjointness: Any | None = None,
 ) -> ForensicBundle:
     if not isinstance(text, str) or not text.strip():
         raise ValueError("Text must not be empty.")
@@ -380,11 +381,13 @@ def build_forensic_bundle(
     assert_execution_allowed(effective_policy, cancellation=cancellation)
 
     registry_verified: bool | None = None
+    artifact_verification: Any | None = None
     if verify_evidence:
         if registry is None:
             raise ValueError("verify_evidence requires a registry.")
         verification = registry.verify_artifacts(root=evidence_root or ".")
         registry_verified = verification.verified
+        artifact_verification = verification
         if not verification.verified:
             raise ValueError(
                 "Evidence artifact verification failed: " + "; ".join(verification.errors[:5])
@@ -456,6 +459,10 @@ def build_forensic_bundle(
         trust_kwargs["max_age_days"] = trust_max_age_days
     if trust_fpr_ceiling is not None:
         trust_kwargs["fpr_ceiling"] = trust_fpr_ceiling
+    if disjointness is not None:
+        trust_kwargs["disjointness"] = disjointness
+    if artifact_verification is not None:
+        trust_kwargs["artifact_verification"] = artifact_verification
     trust_map: TrustMap = assess_trust_map(
         conditions,
         predictions,

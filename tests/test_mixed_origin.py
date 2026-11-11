@@ -364,31 +364,26 @@ class MixedOriginLogicTest(unittest.TestCase):
 
 
 class SegmentCoveredRegimesTest(unittest.TestCase):
-    """The registry-coverage helper: only segment records count."""
+    """The registry-coverage helper: only eligible segment records count.
+
+    Fixtures are real, hash-sealed ``ValidationRecord`` objects (audit
+    W2, CORE-11): the old ``SimpleNamespace`` fixtures cannot carry a
+    verifiable signature, so they can no longer establish segment
+    coverage — record existence is not coverage.
+    """
 
     def _record(self, **overrides):
-        regime = SimpleNamespace(
-            language="en",
-            domain=["news", "essays"],
-            editing_regime="LLM-edited",
-        )
-        record = SimpleNamespace(
-            status="partial",
-            detector_version="0.1.0",
-            regime=regime,
-            metrics=[SimpleNamespace(slice_id="opai_bench_segments-builtin-heuristic")],
-        )
-        for key, value in overrides.items():
-            if key in ("language", "domain", "editing_regime"):
-                setattr(regime, key, value)
-            else:
-                setattr(record, key, value)
-        return record
+        from tests.test_audit_w2_worker_a import _segment_record_dict, _v3_registry
+
+        params = {"domain": ("news", "essays")}
+        params.update(overrides)
+        record_dict = _segment_record_dict(**params)
+        return _v3_registry(record_dict)
 
     def test_segment_record_covers_its_domains(self):
         from textforensics.mixed_origin import segment_covered_regimes
 
-        registry = SimpleNamespace(records=(self._record(),))
+        registry = self._record()
         self.assertEqual(
             segment_covered_regimes(registry),
             {("en", "news"), ("en", "essays")},
@@ -397,7 +392,7 @@ class SegmentCoveredRegimesTest(unittest.TestCase):
     def test_document_record_does_not_cover(self):
         from textforensics.mixed_origin import segment_covered_regimes
 
-        registry = SimpleNamespace(records=(self._record(editing_regime="raw"),))
+        registry = self._record(editing_regime="raw")
         self.assertEqual(segment_covered_regimes(registry), set())
 
     def test_wrong_version_wrong_status_wrong_slice_do_not_cover(self):
@@ -405,17 +400,25 @@ class SegmentCoveredRegimesTest(unittest.TestCase):
 
         cases = [
             self._record(detector_version="0.2.0"),
-            self._record(status="rejected"),
-            self._record(metrics=[SimpleNamespace(slice_id="opai-bench-builtin-heuristic")]),
+            self._record(status="stale"),
+            self._record(
+                fpr_slices=(
+                    {
+                        "slice_id": "opai-bench-builtin-heuristic",
+                        "value": 0.02,
+                        "ci": (0.0, 0.05),
+                        "worst_slice": True,
+                    },
+                )
+            ),
         ]
-        for record in cases:
-            registry = SimpleNamespace(records=(record,))
+        for registry in cases:
             self.assertEqual(segment_covered_regimes(registry), set())
 
     def test_explicit_slice_ids(self):
         from textforensics.mixed_origin import segment_covered_regimes
 
-        registry = SimpleNamespace(records=(self._record(),))
+        registry = self._record()
         self.assertEqual(
             segment_covered_regimes(registry, slice_ids=("other-segments-x",)),
             set(),

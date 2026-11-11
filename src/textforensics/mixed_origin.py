@@ -48,6 +48,8 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Mapping
+from datetime import datetime
 from typing import Any
 
 from .detectors import BuiltinHeuristicDetector
@@ -68,6 +70,29 @@ HUMAN_THRESHOLD = 0.32
 TIER_LIGHTLY = 0.25
 TIER_MODERATELY = 0.5
 TIER_AI = 0.75
+
+#: The declared validation bar for segment coverage (audit W2,
+#: CORE-01/CORE-11). A segment record lifts withholding only when it
+#: meets ALL of these: exact detector id and version; effective status
+#: ``"supported"`` (fresh, undemoted, complete — computed, never trusted
+#: from the stored status); held-out ``split_role`` ``"test"``;
+#: ``contamination_flag`` ``"no"``; the CORE-01 sample floor (100 human
+#: + 100 AI samples); a verifying record signature; a segment-level
+#: editing regime; and a known segment slice id. Partial, below-chance,
+#: expired, demoted, contaminated, thin, wrong-detector or tampered
+#: segment evidence stays available in the report — it never lifts
+#: withholding and never authorizes a categorical verdict. Record
+#: existence is not coverage.
+SEGMENT_VALIDATION_BAR: tuple[str, ...] = (
+    "exact detector id and version",
+    "effective status 'supported' (fresh, undemoted, complete)",
+    "held-out split_role 'test'",
+    "contamination_flag 'no'",
+    "sample floor 100 human + 100 AI",
+    "verifying record signature",
+    "segment-level editing regime",
+    "known segment slice id",
+)
 
 NON_MONOTONICITY_WARNING = (
     "Intermediate mixtures are the hardest regime to detect "
@@ -102,38 +127,106 @@ def segment_covered_regimes(
     *,
     slice_ids: tuple[str, ...] | None = None,
     detector_version: str | None = None,
+    detector_id: str | None = None,
+    now: datetime | str | None = None,
+    word_count: int | None = None,
 ) -> set[tuple[str, str]]:
     """(language, domain) pairs a segment-level validation record covers.
 
-    A record counts iff its stored status is ``supported`` or
-    ``partial``, its detector version matches the builtin detector,
-    its editing regime is segment-level (``LLM-edited`` /
-    ``mixed-origin``), and one of its metric slice IDs is a known
-    segment slice. ``registry`` is a ``ValidationRegistry`` (or any
-    object with a ``.records`` attribute of record-like objects).
-    Date staleness (``next_revalidation_due``) is NOT checked here —
-    the Trust Map derivation is the authority for document-level
-    coverage; this helper answers only "does a segment record exist
-    for this detector version and regime".
+    A record counts ONLY when it clears the declared validation bar
+    (:data:`SEGMENT_VALIDATION_BAR`): the exact builtin detector id and
+    version, effective status ``"supported"`` (fresh, undemoted,
+    complete — computed with the CURRENT version and ``now``, never
+    trusted from the stored status), held-out ``split_role`` ``"test"``,
+    ``contamination_flag`` ``"no"``, at least 100 human and 100 AI
+    samples, a verifying record signature, a segment-level editing
+    regime (``LLM-edited`` / ``mixed-origin``), and one of its metric
+    slice IDs is a known segment slice. ``registry`` is a
+    ``ValidationRegistry`` (or any object with a ``.records`` attribute
+    of record-like objects exposing ``to_dict()`` or a mapping — a
+    record without a verifiable signature cannot establish coverage).
+    When ``word_count`` is supplied, the record's length bucket must
+    also admit it. Date staleness, demotion, contamination, thin
+    samples, a wrong detector, a non-held-out split and a tampered
+    signature each independently block coverage; partial or
+    below-chance experimental segment evidence stays available in the
+    report but never lifts withholding.
     """
+    from .validation import (
+        MIN_AI_SAMPLES,
+        MIN_HUMAN_SAMPLES,
+        effective_status,
+        verify_signature,
+    )
+
     version = detector_version or BuiltinHeuristicDetector.detector_version
+    expected_id = detector_id or BuiltinHeuristicDetector.detector_id
     ids = slice_ids if slice_ids is not None else SEGMENT_SLICE_IDS
     covered: set[tuple[str, str]] = set()
     for record in getattr(registry, "records", ()):
-        if getattr(record, "status", None) not in ("supported", "partial"):
+        if hasattr(record, "to_dict"):
+            payload = record.to_dict()
+        elif isinstance(record, Mapping):
+            payload = record
+        else:
+            # No verifiable signed payload: record existence is not
+            # coverage.
             continue
-        if getattr(record, "detector_version", None) != version:
+        if not isinstance(payload, Mapping):
             continue
-        regime = getattr(record, "regime", None)
-        if regime is None:
+        if payload.get("detector_id") != expected_id:
             continue
-        if getattr(regime, "editing_regime", None) not in SEGMENT_EDITING_REGIMES:
+        if payload.get("detector_version") != version:
             continue
-        metrics = getattr(record, "metrics", ())
-        if not any(getattr(m, "slice_id", None) in ids for m in metrics):
+        if effective_status(payload, detector_version=version, now=now) != "supported":
             continue
-        language = getattr(regime, "language", None)
-        for domain in getattr(regime, "domain", []) or []:
+        data = payload.get("data")
+        if not isinstance(data, Mapping):
+            continue
+        if data.get("split_role") != "test":
+            continue
+        if data.get("contamination_flag") != "no":
+            continue
+        n_human = data.get("n_human")
+        n_ai = data.get("n_ai")
+        if (
+            isinstance(n_human, bool)
+            or not isinstance(n_human, int)
+            or n_human < MIN_HUMAN_SAMPLES
+            or isinstance(n_ai, bool)
+            or not isinstance(n_ai, int)
+            or n_ai < MIN_AI_SAMPLES
+        ):
+            continue
+        if not verify_signature(payload):
+            continue
+        regime = payload.get("regime")
+        if not isinstance(regime, Mapping):
+            continue
+        if regime.get("editing_regime") not in SEGMENT_EDITING_REGIMES:
+            continue
+        metrics = payload.get("metrics", [])
+        if not any(isinstance(item, Mapping) and item.get("slice_id") in ids for item in metrics):
+            continue
+        if word_count is not None:
+            bucket = regime.get("length_bucket")
+            if not isinstance(bucket, Mapping):
+                continue
+            floor = bucket.get("floor_words")
+            maximum = bucket.get("max_words")
+            if (
+                isinstance(floor, bool)
+                or not isinstance(floor, int)
+                or word_count < floor
+                or (
+                    maximum is not None
+                    and (isinstance(maximum, bool) or not isinstance(maximum, int))
+                )
+                or (isinstance(maximum, int) and word_count > maximum)
+            ):
+                continue
+        language = regime.get("language")
+        for domain in regime.get("domain") or []:
             if language is not None and domain:
                 covered.add((language, domain))
     return covered

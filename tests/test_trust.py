@@ -7,6 +7,7 @@ from textforensics.detectors import DetectorPrediction
 from textforensics.evidence import (
     DetectorCoverage,
     DimensionCoverage,
+    DisjointnessProof,
     EvidenceRecord,
     EvidenceRegistry,
     MetricEstimate,
@@ -148,6 +149,29 @@ def _registry(*records) -> EvidenceRegistry:
     return EvidenceRegistry(list(records))
 
 
+def _eligible_inputs(*evidence_ids: str):
+    """Eligibility inputs that make the ``_record`` fixtures eligible
+    for support (audit W2, CORE-01).
+
+    The ``_record`` fixture benchmark fingerprint is ``hex64(1)``; the
+    proof attests train/eval disjointness against exactly that
+    fingerprint with zero overlap, and the verification mapping attests
+    the referenced artifacts were verified. Without these inputs the
+    eligibility predicate correctly caps every dimension at
+    ``partial``.
+    """
+    proof = DisjointnessProof(
+        status="verified",
+        overlap_count=0,
+        training_count=1000,
+        evaluation_count=400,
+        training_hash=hex64(9),
+        evaluation_hash=hex64(1),
+    )
+    verification = {evidence_id: True for evidence_id in evidence_ids}
+    return proof, verification
+
+
 def _stale_record(detector_id: str = "a") -> EvidenceRecord:
     """An evidence record old enough to fail the freshness window."""
     return _record(detector_id=detector_id, evaluated_at="2025-06-01T00:00:00+00:00")
@@ -226,12 +250,15 @@ class TrustMapContractTests(unittest.TestCase):
 
     def test_length_supported_when_registry_matches(self):
         registry = _registry(_record(detector_id="detector"))
+        disjointness, verification = _eligible_inputs("ev-detector")
         tm = build_trust_map(
             [prediction(min_words=80)],
             word_count=200,
             robustness=[],
             registry=registry,
             conditions=_declared_conditions(),
+            disjointness=disjointness,
+            artifact_verification=verification,
         )
         dim = next(d for d in tm.dimensions if d.dimension == "text_length")
         self.assertEqual(dim.state, "supported")
@@ -380,6 +407,7 @@ class TrustMapContractTests(unittest.TestCase):
                 "native_score_range": 0.0,
             },
         ]
+        disjointness, verification = _eligible_inputs("ev-a", "ev-b")
         tm = build_trust_map(
             [
                 prediction("a", "fam1", min_words=80),
@@ -389,6 +417,8 @@ class TrustMapContractTests(unittest.TestCase):
             robustness=robustness,
             registry=registry,
             conditions=_declared_conditions(),
+            disjointness=disjointness,
+            artifact_verification=verification,
         )
         # Nine of ten dimensions are supported; temporal_version_stability is
         # partial because no longitudinal drift snapshots are registered, so

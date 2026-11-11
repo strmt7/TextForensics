@@ -381,7 +381,17 @@ def _overall_state(dimensions: list[TrustDimension]) -> str:
     unknown = sum(state == "unknown" for state in by_name.values())
     if by_name.get("language") == "out_of_scope" or by_name.get("text_length") == "out_of_scope":
         return "insufficient"
-    if supported == len(TRUST_DIMENSIONS):
+    # C10: strong requires EXACTLY the declared dimension set, every
+    # dimension supported. Count equality is never name-set equality:
+    # ten supported rogue dimensions, or nine declared plus one rogue,
+    # must not derive strong. The import is deferred: schema.py imports
+    # TRUST_DIMENSIONS from this module, so a top-level import would
+    # be circular (same pattern as the deferred policy import below).
+    from .schema import DECLARED_TRUST_MAP_DIMENSIONS
+
+    if set(by_name) == DECLARED_TRUST_MAP_DIMENSIONS and supported == len(
+        DECLARED_TRUST_MAP_DIMENSIONS
+    ):
         return "strong"
     if supported == 0 and partial == 0:
         return "insufficient"
@@ -418,6 +428,8 @@ def assess_trust_map(
     fpr_ceiling: float = DEFAULT_FPR_CEILING,
     max_native_drift: float | None = 0.10,
     generated_at_utc: str | None = None,
+    disjointness: Any | None = None,
+    artifact_verification: Any | None = None,
 ) -> TrustMap:
     """Build a Trust Map v2 for one input condition set and detector set.
 
@@ -425,6 +437,13 @@ def assess_trust_map(
     (diversity and benign stability) are derived from the observations and
     probes supplied by the caller.  An empty registry can never produce a
     ``supported`` evidence dimension.
+
+    ``disjointness`` (a :class:`evidence.DisjointnessProof`) and
+    ``artifact_verification`` (a registry verification object or
+    evidence-id → row mapping) are the CORE-01 eligibility inputs:
+    without them, records are judged by the eligibility predicate with
+    contamination state and artifact integrity ``unknown`` and can
+    never raise a dimension to ``supported``.
     """
     if not isinstance(conditions, InputConditions):
         raise TypeError("conditions must be an InputConditions instance.")
@@ -444,6 +463,8 @@ def assess_trust_map(
         now=now,
         max_age_days=max_age_days,
         fpr_ceiling=fpr_ceiling,
+        disjointness=disjointness,
+        artifact_verification=artifact_verification,
     )
     dimensions = [_aggregate_evidence_dimension(name, rows) for name in EVIDENCE_DIMENSIONS]
     dimensions.append(_diversity_dimension(prediction_list, failure_count))
@@ -510,6 +531,8 @@ def build_trust_map(
     fpr_ceiling: float = DEFAULT_FPR_CEILING,
     max_native_drift: float | None = 0.10,
     generated_at_utc: str | None = None,
+    disjointness: Any | None = None,
+    artifact_verification: Any | None = None,
 ) -> TrustMap:
     """Compatibility wrapper for :func:`assess_trust_map`.
 
@@ -553,6 +576,8 @@ def build_trust_map(
         fpr_ceiling=fpr_ceiling,
         max_native_drift=max_native_drift,
         generated_at_utc=generated_at_utc,
+        disjointness=disjointness,
+        artifact_verification=artifact_verification,
     )
 
 
@@ -566,9 +591,15 @@ def trust_map_from_capability_ledger(ledger: Any) -> TrustMap:
 
     This view maps claim tiers to states for compatibility.  It is *not*
     evidence-conditioned, intentionally stays on schema v1, and must not be
-    presented as a Trust Map v2 result.
+    presented as a Trust Map v2 result. It DOES agree with the shared
+    eligibility model (:func:`policy._claim_is_effective`): only
+    currently effective claims (not expired; a ``VALIDATED`` claim
+    carries executed — and, when the ledger has a resolver, resolving
+    — evidence) can raise a dimension; ineffective claims are listed
+    with their evidence refs and limitations but map to ``unknown``
+    with the reason stated.
     """
-    from .policy import EvidenceTier
+    from .policy import EvidenceTier, _claim_is_effective
 
     dimensions: list[TrustDimension] = []
     detector_capabilities: dict[str, set[str]] = {}
@@ -578,10 +609,16 @@ def trust_map_from_capability_ledger(ledger: Any) -> TrustMap:
             capabilities.add(claim.capability)
         detector_capabilities[detector_id] = capabilities
 
+    resolver = getattr(ledger, "_evidence_resolver", None)
     for detector_id in sorted(detector_capabilities):
         claims = ledger.claims().get(detector_id, [])
         for capability in sorted(detector_capabilities[detector_id]):
             relevant = [claim for claim in claims if claim.capability == capability]
+            effective = [
+                claim
+                for claim in relevant
+                if _claim_is_effective(claim, evidence_resolver=resolver)
+            ]
             evidence_refs: list[str] = []
             limitations: list[str] = []
             for claim in relevant:
@@ -592,10 +629,17 @@ def trust_map_from_capability_ledger(ledger: Any) -> TrustMap:
             if not relevant:
                 state = "unknown"
                 reason = f"No capability claim registered for {detector_id}/{capability}."
-            elif any(claim.tier == EvidenceTier.VALIDATED for claim in relevant):
+            elif not effective:
+                state = "unknown"
+                reason = (
+                    f"Capability '{capability}' for {detector_id} has "
+                    "registered claims but none is currently effective "
+                    "(expired, or VALIDATED without executed evidence)."
+                )
+            elif any(claim.tier == EvidenceTier.VALIDATED for claim in effective):
                 state = "supported"
                 reason = f"Capability '{capability}' for {detector_id} has VALIDATED-tier evidence."
-            elif any(claim.tier == EvidenceTier.TOOL_BACKED for claim in relevant):
+            elif any(claim.tier == EvidenceTier.TOOL_BACKED for claim in effective):
                 state = "partial"
                 reason = f"Capability '{capability}' for {detector_id} is TOOL_BACKED."
             else:
