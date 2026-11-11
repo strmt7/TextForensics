@@ -15,20 +15,63 @@ regenerate.
 
 import unittest
 
-from w2_f_kill_helpers import (
-    probe_cf_replay
-)
+from w2_f_kill_helpers import probe_cf_replay
 
+EXPECTED_PROBE_CF_REPLAY = [
+    (
+        "v3-one-dim",
+        (
+            "ok",
+            "(['trust_map dimensions are missing declared dimensions: benign_stability, detector_diversity, domain_genre, editing_revision, generator_scope, human_false_positive_evidence, human_population, temporal_version_stability, text_length'], ['validation_registry_not_supplied:trust_map_not_rederived'], {'trust_map': {'status': 'incomplete', 'reason': 'validation_registry_not_supplied', 'errors': ['trust_map dimensions are missing declared dimensions: benign_stability, detector_diversity, domain_genre, editing_revision, generator_scope, human_false_positive_evidence, human_population, temporal_version_stability, text_length']}})",
+        ),
+    ),
+    (
+        "v3-full",
+        (
+            "ok",
+            "(['trust_map dimensions are missing declared dimensions: benign_stability, detector_diversity'], ['validation_registry_not_supplied:trust_map_not_rederived'], {'trust_map': {'status': 'incomplete', 'reason': 'validation_registry_not_supplied', 'errors': ['trust_map dimensions are missing declared dimensions: benign_stability, detector_diversity']}})",
+        ),
+    ),
+    (
+        "v2-map",
+        (
+            "ok",
+            "(['invalid_input_conditions'], [], {'trust_map': {'status': 'not_rederived', 'reason': 'Unsupported input-conditions schema.'}})",
+        ),
+    ),
+    ("no-input-conditions", ("ok", "(['missing_input_conditions'], [], {})")),
+    ("input-conditions-str", ("ok", "(['missing_input_conditions'], [], {})")),
+    ("no-trust-map", ("ok", "(['missing_trust_map'], [], {})")),
+    ("validate-v2-v3", ("ok", "None")),
+    ("validate-v2-v2", ("ok", "None")),
+    (
+        "validate-v1-v3",
+        (
+            "raise",
+            "ValueError",
+            "unsupported forensic-bundle/trust-map version pair: 'textforensics.forensic-bundle/v1' with 'textforensics.trust-map/v3'; accepted pairs are: textforensics.forensic-bundle/v1 + textforensics.trust-map/v1, textforensics.forensic-bundle/v1 + textforensics.trust-map/v2, textforensics.forensic-bundle/v2 + textforensics.trust-map/v2, textforensics.forensic-bundle/v2 + textforensics.trust-map/v3",
+        ),
+    ),
+    ("validate-v1-v1", ("ok", "None")),
+    ("validate-no-tm-schema", ("ok", "None")),
+    (
+        "validate-bad-bundle-schema",
+        (
+            "raise",
+            "ValueError",
+            "Case files require a TextForensics forensic-bundle/v2 object (v1 is accepted for legacy verification).",
+        ),
+    ),
+]
 
-EXPECTED_PROBE_CF_REPLAY = [('v3-one-dim', ('ok', "(['trust_map dimensions are missing declared dimensions: benign_stability, detector_diversity, domain_genre, editing_revision, generator_scope, human_false_positive_evidence, human_population, temporal_version_stability, text_length'], ['validation_registry_not_supplied:trust_map_not_rederived'], {'trust_map': {'status': 'incomplete', 'reason': 'validation_registry_not_supplied', 'errors': ['trust_map dimensions are missing declared dimensions: benign_stability, detector_diversity, domain_genre, editing_revision, generator_scope, human_false_positive_evidence, human_population, temporal_version_stability, text_length']}})")), ('v3-full', ('ok', "(['trust_map dimensions are missing declared dimensions: benign_stability, detector_diversity'], ['validation_registry_not_supplied:trust_map_not_rederived'], {'trust_map': {'status': 'incomplete', 'reason': 'validation_registry_not_supplied', 'errors': ['trust_map dimensions are missing declared dimensions: benign_stability, detector_diversity']}})")), ('v2-map', ('ok', "(['invalid_input_conditions'], [], {'trust_map': {'status': 'not_rederived', 'reason': 'Unsupported input-conditions schema.'}})")), ('no-input-conditions', ('ok', "(['missing_input_conditions'], [], {})")), ('input-conditions-str', ('ok', "(['missing_input_conditions'], [], {})")), ('no-trust-map', ('ok', "(['missing_trust_map'], [], {})")), ('validate-v2-v3', ('ok', 'None')), ('validate-v2-v2', ('ok', 'None')), ('validate-v1-v3', ('raise', 'ValueError', "unsupported forensic-bundle/trust-map version pair: 'textforensics.forensic-bundle/v1' with 'textforensics.trust-map/v3'; accepted pairs are: textforensics.forensic-bundle/v1 + textforensics.trust-map/v1, textforensics.forensic-bundle/v1 + textforensics.trust-map/v2, textforensics.forensic-bundle/v2 + textforensics.trust-map/v2, textforensics.forensic-bundle/v2 + textforensics.trust-map/v3")), ('validate-v1-v1', ('ok', 'None')), ('validate-no-tm-schema', ('ok', 'None')), ('validate-bad-bundle-schema', ('raise', 'ValueError', 'Case files require a TextForensics forensic-bundle/v2 object (v1 is accepted for legacy verification).'))]
 
 class TestWorkerFKillCasefile(unittest.TestCase):
     def test_probe_cf_replay(self):
         got = probe_cf_replay()
         exp = EXPECTED_PROBE_CF_REPLAY
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
 
 if __name__ == "__main__":

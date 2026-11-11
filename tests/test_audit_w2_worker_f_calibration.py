@@ -25,109 +25,2692 @@ from w2_f_kill_helpers import (
     probe_cal_pipeline,
     probe_cal_post_init,
     probe_cal_store,
-    probe_cal_validate_no_contamination
+    probe_cal_validate_no_contamination,
 )
 
+EXPECTED_PROBE_CAL_CALIBRATE = [
+    (("platt", "probability", "higher_means_ai", 0.0), ("ok", "0.5")),
+    (("platt", "probability", "higher_means_ai", 0.25), ("ok", "0.5621765008857981")),
+    (("platt", "probability", "higher_means_ai", 0.5), ("ok", "0.6224593312018546")),
+    (("platt", "probability", "higher_means_ai", 0.75), ("ok", "0.679178699175393")),
+    (("platt", "probability", "higher_means_ai", 1.0), ("ok", "0.7310585786300049")),
+    (
+        ("platt", "probability", "higher_means_ai", -1.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (
+        ("platt", "probability", "higher_means_ai", 2.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (("platt", "probability", "lower_means_ai", 0.0), ("ok", "0.5")),
+    (("platt", "probability", "lower_means_ai", 0.25), ("ok", "0.5621765008857981")),
+    (("platt", "probability", "lower_means_ai", 0.5), ("ok", "0.6224593312018546")),
+    (("platt", "probability", "lower_means_ai", 0.75), ("ok", "0.679178699175393")),
+    (("platt", "probability", "lower_means_ai", 1.0), ("ok", "0.7310585786300049")),
+    (
+        ("platt", "probability", "lower_means_ai", -1.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (
+        ("platt", "probability", "lower_means_ai", 2.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (
+        ("platt", "logit", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("platt", "logit", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("platt", "legacy_raw_score", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("platt", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (("temperature", "probability", "higher_means_ai", 0.0), ("ok", "0.0")),
+    (("temperature", "probability", "higher_means_ai", 0.25), ("ok", "0.3660254037844387")),
+    (("temperature", "probability", "higher_means_ai", 0.5), ("ok", "0.5")),
+    (("temperature", "probability", "higher_means_ai", 0.75), ("ok", "0.6339745962155614")),
+    (("temperature", "probability", "higher_means_ai", 1.0), ("ok", "1.0")),
+    (
+        ("temperature", "probability", "higher_means_ai", -1.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (
+        ("temperature", "probability", "higher_means_ai", 2.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (("temperature", "probability", "lower_means_ai", 0.0), ("ok", "1.0")),
+    (("temperature", "probability", "lower_means_ai", 0.25), ("ok", "0.6339745962155614")),
+    (("temperature", "probability", "lower_means_ai", 0.5), ("ok", "0.5")),
+    (("temperature", "probability", "lower_means_ai", 0.75), ("ok", "0.3660254037844387")),
+    (("temperature", "probability", "lower_means_ai", 1.0), ("ok", "0.0")),
+    (
+        ("temperature", "probability", "lower_means_ai", -1.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (
+        ("temperature", "probability", "lower_means_ai", 2.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (("temperature", "logit", "higher_means_ai", 0.0), ("ok", "0.5")),
+    (("temperature", "logit", "higher_means_ai", 0.25), ("ok", "0.5312093733737563")),
+    (("temperature", "logit", "higher_means_ai", 0.5), ("ok", "0.5621765008857981")),
+    (("temperature", "logit", "higher_means_ai", 0.75), ("ok", "0.5926665999540697")),
+    (("temperature", "logit", "higher_means_ai", 1.0), ("ok", "0.6224593312018546")),
+    (("temperature", "logit", "higher_means_ai", -1.0), ("ok", "0.37754066879814546")),
+    (("temperature", "logit", "higher_means_ai", 2.0), ("ok", "0.7310585786300049")),
+    (("temperature", "logit", "lower_means_ai", 0.0), ("ok", "0.5")),
+    (("temperature", "logit", "lower_means_ai", 0.25), ("ok", "0.46879062662624377")),
+    (("temperature", "logit", "lower_means_ai", 0.5), ("ok", "0.4378234991142019")),
+    (("temperature", "logit", "lower_means_ai", 0.75), ("ok", "0.4073334000459302")),
+    (("temperature", "logit", "lower_means_ai", 1.0), ("ok", "0.37754066879814546")),
+    (("temperature", "logit", "lower_means_ai", -1.0), ("ok", "0.6224593312018546")),
+    (("temperature", "logit", "lower_means_ai", 2.0), ("ok", "0.2689414213699951")),
+    (
+        ("temperature", "legacy_raw_score", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("temperature", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (("isotonic", "probability", "higher_means_ai", 0.0), ("ok", "0.0")),
+    (("isotonic", "probability", "higher_means_ai", 0.25), ("ok", "0.25")),
+    (("isotonic", "probability", "higher_means_ai", 0.5), ("ok", "0.5")),
+    (("isotonic", "probability", "higher_means_ai", 0.75), ("ok", "0.75")),
+    (("isotonic", "probability", "higher_means_ai", 1.0), ("ok", "1.0")),
+    (
+        ("isotonic", "probability", "higher_means_ai", -1.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (
+        ("isotonic", "probability", "higher_means_ai", 2.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (("isotonic", "probability", "lower_means_ai", 0.0), ("ok", "0.0")),
+    (("isotonic", "probability", "lower_means_ai", 0.25), ("ok", "0.25")),
+    (("isotonic", "probability", "lower_means_ai", 0.5), ("ok", "0.5")),
+    (("isotonic", "probability", "lower_means_ai", 0.75), ("ok", "0.75")),
+    (("isotonic", "probability", "lower_means_ai", 1.0), ("ok", "1.0")),
+    (
+        ("isotonic", "probability", "lower_means_ai", -1.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (
+        ("isotonic", "probability", "lower_means_ai", 2.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (
+        ("isotonic", "logit", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("isotonic", "logit", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("isotonic", "legacy_raw_score", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("isotonic", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (("beta", "probability", "higher_means_ai", 0.0), ("ok", "0.0")),
+    (("beta", "probability", "higher_means_ai", 0.25), ("ok", "0.10000000000000003")),
+    (("beta", "probability", "higher_means_ai", 0.5), ("ok", "0.5")),
+    (("beta", "probability", "higher_means_ai", 0.75), ("ok", "0.8999999999999999")),
+    (("beta", "probability", "higher_means_ai", 1.0), ("ok", "1.0")),
+    (
+        ("beta", "probability", "higher_means_ai", -1.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (
+        ("beta", "probability", "higher_means_ai", 2.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (("beta", "probability", "lower_means_ai", 0.0), ("ok", "0.0")),
+    (("beta", "probability", "lower_means_ai", 0.25), ("ok", "0.10000000000000003")),
+    (("beta", "probability", "lower_means_ai", 0.5), ("ok", "0.5")),
+    (("beta", "probability", "lower_means_ai", 0.75), ("ok", "0.8999999999999999")),
+    (("beta", "probability", "lower_means_ai", 1.0), ("ok", "1.0")),
+    (
+        ("beta", "probability", "lower_means_ai", -1.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (
+        ("beta", "probability", "lower_means_ai", 2.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (
+        ("beta", "logit", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("beta", "logit", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("beta", "legacy_raw_score", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("beta", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (("identity", "probability", "higher_means_ai", 0.0), ("ok", "0.0")),
+    (("identity", "probability", "higher_means_ai", 0.25), ("ok", "0.25")),
+    (("identity", "probability", "higher_means_ai", 0.5), ("ok", "0.5")),
+    (("identity", "probability", "higher_means_ai", 0.75), ("ok", "0.75")),
+    (("identity", "probability", "higher_means_ai", 1.0), ("ok", "1.0")),
+    (
+        ("identity", "probability", "higher_means_ai", -1.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (
+        ("identity", "probability", "higher_means_ai", 2.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (("identity", "probability", "lower_means_ai", 0.0), ("ok", "0.0")),
+    (("identity", "probability", "lower_means_ai", 0.25), ("ok", "0.25")),
+    (("identity", "probability", "lower_means_ai", 0.5), ("ok", "0.5")),
+    (("identity", "probability", "lower_means_ai", 0.75), ("ok", "0.75")),
+    (("identity", "probability", "lower_means_ai", 1.0), ("ok", "1.0")),
+    (
+        ("identity", "probability", "lower_means_ai", -1.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (
+        ("identity", "probability", "lower_means_ai", 2.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (
+        ("identity", "logit", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("identity", "logit", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("identity", "legacy_raw_score", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("identity", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (("legacy-temperature", "legacy_raw_score", "higher_means_ai", 0.0), ("ok", "0.5")),
+    (
+        ("legacy-temperature", "legacy_raw_score", "higher_means_ai", 0.25),
+        ("ok", "0.5312093733737563"),
+    ),
+    (
+        ("legacy-temperature", "legacy_raw_score", "higher_means_ai", 0.5),
+        ("ok", "0.5621765008857981"),
+    ),
+    (
+        ("legacy-temperature", "legacy_raw_score", "higher_means_ai", 0.75),
+        ("ok", "0.5926665999540697"),
+    ),
+    (
+        ("legacy-temperature", "legacy_raw_score", "higher_means_ai", 1.0),
+        ("ok", "0.6224593312018546"),
+    ),
+    (
+        ("legacy-temperature", "legacy_raw_score", "higher_means_ai", -1.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (
+        ("legacy-temperature", "legacy_raw_score", "higher_means_ai", 2.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (("legacy-temperature", "legacy_raw_score", "lower_means_ai", 0.0), ("ok", "0.5")),
+    (
+        ("legacy-temperature", "legacy_raw_score", "lower_means_ai", 0.25),
+        ("ok", "0.5312093733737563"),
+    ),
+    (
+        ("legacy-temperature", "legacy_raw_score", "lower_means_ai", 0.5),
+        ("ok", "0.5621765008857981"),
+    ),
+    (
+        ("legacy-temperature", "legacy_raw_score", "lower_means_ai", 0.75),
+        ("ok", "0.5926665999540697"),
+    ),
+    (
+        ("legacy-temperature", "legacy_raw_score", "lower_means_ai", 1.0),
+        ("ok", "0.6224593312018546"),
+    ),
+    (
+        ("legacy-temperature", "legacy_raw_score", "lower_means_ai", -1.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+    (
+        ("legacy-temperature", "legacy_raw_score", "lower_means_ai", 2.0),
+        ("raise", "CalibrationError", "score must lie in [0, 1]."),
+    ),
+]
 
-EXPECTED_PROBE_CAL_CALIBRATE = [(('platt', 'probability', 'higher_means_ai', 0.0), ('ok', '0.5')), (('platt', 'probability', 'higher_means_ai', 0.25), ('ok', '0.5621765008857981')), (('platt', 'probability', 'higher_means_ai', 0.5), ('ok', '0.6224593312018546')), (('platt', 'probability', 'higher_means_ai', 0.75), ('ok', '0.679178699175393')), (('platt', 'probability', 'higher_means_ai', 1.0), ('ok', '0.7310585786300049')), (('platt', 'probability', 'higher_means_ai', -1.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('platt', 'probability', 'higher_means_ai', 2.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('platt', 'probability', 'lower_means_ai', 0.0), ('ok', '0.5')), (('platt', 'probability', 'lower_means_ai', 0.25), ('ok', '0.5621765008857981')), (('platt', 'probability', 'lower_means_ai', 0.5), ('ok', '0.6224593312018546')), (('platt', 'probability', 'lower_means_ai', 0.75), ('ok', '0.679178699175393')), (('platt', 'probability', 'lower_means_ai', 1.0), ('ok', '0.7310585786300049')), (('platt', 'probability', 'lower_means_ai', -1.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('platt', 'probability', 'lower_means_ai', 2.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('platt', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('platt', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('platt', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('platt', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('temperature', 'probability', 'higher_means_ai', 0.0), ('ok', '0.0')), (('temperature', 'probability', 'higher_means_ai', 0.25), ('ok', '0.3660254037844387')), (('temperature', 'probability', 'higher_means_ai', 0.5), ('ok', '0.5')), (('temperature', 'probability', 'higher_means_ai', 0.75), ('ok', '0.6339745962155614')), (('temperature', 'probability', 'higher_means_ai', 1.0), ('ok', '1.0')), (('temperature', 'probability', 'higher_means_ai', -1.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('temperature', 'probability', 'higher_means_ai', 2.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('temperature', 'probability', 'lower_means_ai', 0.0), ('ok', '1.0')), (('temperature', 'probability', 'lower_means_ai', 0.25), ('ok', '0.6339745962155614')), (('temperature', 'probability', 'lower_means_ai', 0.5), ('ok', '0.5')), (('temperature', 'probability', 'lower_means_ai', 0.75), ('ok', '0.3660254037844387')), (('temperature', 'probability', 'lower_means_ai', 1.0), ('ok', '0.0')), (('temperature', 'probability', 'lower_means_ai', -1.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('temperature', 'probability', 'lower_means_ai', 2.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('temperature', 'logit', 'higher_means_ai', 0.0), ('ok', '0.5')), (('temperature', 'logit', 'higher_means_ai', 0.25), ('ok', '0.5312093733737563')), (('temperature', 'logit', 'higher_means_ai', 0.5), ('ok', '0.5621765008857981')), (('temperature', 'logit', 'higher_means_ai', 0.75), ('ok', '0.5926665999540697')), (('temperature', 'logit', 'higher_means_ai', 1.0), ('ok', '0.6224593312018546')), (('temperature', 'logit', 'higher_means_ai', -1.0), ('ok', '0.37754066879814546')), (('temperature', 'logit', 'higher_means_ai', 2.0), ('ok', '0.7310585786300049')), (('temperature', 'logit', 'lower_means_ai', 0.0), ('ok', '0.5')), (('temperature', 'logit', 'lower_means_ai', 0.25), ('ok', '0.46879062662624377')), (('temperature', 'logit', 'lower_means_ai', 0.5), ('ok', '0.4378234991142019')), (('temperature', 'logit', 'lower_means_ai', 0.75), ('ok', '0.4073334000459302')), (('temperature', 'logit', 'lower_means_ai', 1.0), ('ok', '0.37754066879814546')), (('temperature', 'logit', 'lower_means_ai', -1.0), ('ok', '0.6224593312018546')), (('temperature', 'logit', 'lower_means_ai', 2.0), ('ok', '0.2689414213699951')), (('temperature', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('temperature', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('isotonic', 'probability', 'higher_means_ai', 0.0), ('ok', '0.0')), (('isotonic', 'probability', 'higher_means_ai', 0.25), ('ok', '0.25')), (('isotonic', 'probability', 'higher_means_ai', 0.5), ('ok', '0.5')), (('isotonic', 'probability', 'higher_means_ai', 0.75), ('ok', '0.75')), (('isotonic', 'probability', 'higher_means_ai', 1.0), ('ok', '1.0')), (('isotonic', 'probability', 'higher_means_ai', -1.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('isotonic', 'probability', 'higher_means_ai', 2.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('isotonic', 'probability', 'lower_means_ai', 0.0), ('ok', '0.0')), (('isotonic', 'probability', 'lower_means_ai', 0.25), ('ok', '0.25')), (('isotonic', 'probability', 'lower_means_ai', 0.5), ('ok', '0.5')), (('isotonic', 'probability', 'lower_means_ai', 0.75), ('ok', '0.75')), (('isotonic', 'probability', 'lower_means_ai', 1.0), ('ok', '1.0')), (('isotonic', 'probability', 'lower_means_ai', -1.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('isotonic', 'probability', 'lower_means_ai', 2.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('isotonic', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('isotonic', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('isotonic', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('isotonic', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('beta', 'probability', 'higher_means_ai', 0.0), ('ok', '0.0')), (('beta', 'probability', 'higher_means_ai', 0.25), ('ok', '0.10000000000000003')), (('beta', 'probability', 'higher_means_ai', 0.5), ('ok', '0.5')), (('beta', 'probability', 'higher_means_ai', 0.75), ('ok', '0.8999999999999999')), (('beta', 'probability', 'higher_means_ai', 1.0), ('ok', '1.0')), (('beta', 'probability', 'higher_means_ai', -1.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('beta', 'probability', 'higher_means_ai', 2.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('beta', 'probability', 'lower_means_ai', 0.0), ('ok', '0.0')), (('beta', 'probability', 'lower_means_ai', 0.25), ('ok', '0.10000000000000003')), (('beta', 'probability', 'lower_means_ai', 0.5), ('ok', '0.5')), (('beta', 'probability', 'lower_means_ai', 0.75), ('ok', '0.8999999999999999')), (('beta', 'probability', 'lower_means_ai', 1.0), ('ok', '1.0')), (('beta', 'probability', 'lower_means_ai', -1.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('beta', 'probability', 'lower_means_ai', 2.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('beta', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('beta', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('beta', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('beta', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('identity', 'probability', 'higher_means_ai', 0.0), ('ok', '0.0')), (('identity', 'probability', 'higher_means_ai', 0.25), ('ok', '0.25')), (('identity', 'probability', 'higher_means_ai', 0.5), ('ok', '0.5')), (('identity', 'probability', 'higher_means_ai', 0.75), ('ok', '0.75')), (('identity', 'probability', 'higher_means_ai', 1.0), ('ok', '1.0')), (('identity', 'probability', 'higher_means_ai', -1.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('identity', 'probability', 'higher_means_ai', 2.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('identity', 'probability', 'lower_means_ai', 0.0), ('ok', '0.0')), (('identity', 'probability', 'lower_means_ai', 0.25), ('ok', '0.25')), (('identity', 'probability', 'lower_means_ai', 0.5), ('ok', '0.5')), (('identity', 'probability', 'lower_means_ai', 0.75), ('ok', '0.75')), (('identity', 'probability', 'lower_means_ai', 1.0), ('ok', '1.0')), (('identity', 'probability', 'lower_means_ai', -1.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('identity', 'probability', 'lower_means_ai', 2.0), ('raise', 'CalibrationError', 'score must lie in [0, 1].')), (('identity', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('identity', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('identity', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('identity', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.'))]
+
+EXPECTED_PROBE_CAL_EVALUATE_THRESHOLD = [
+    (
+        ("verified", -1, False),
+        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+    ),
+    (
+        ("verified", -1, True),
+        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+    ),
+    (
+        ("verified", 0, False),
+        (
+            "ok",
+            "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='held_out', contamination_detected=False, disjointness_status='verified', overlap_count=0, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')",
+        ),
+    ),
+    (
+        ("verified", 0, True),
+        (
+            "ok",
+            "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='held_out', contamination_detected=False, disjointness_status='verified', overlap_count=0, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')",
+        ),
+    ),
+    (
+        ("verified", 1, False),
+        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+    ),
+    (
+        ("verified", 1, True),
+        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+    ),
+    (
+        ("verified", 2, False),
+        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+    ),
+    (
+        ("verified", 2, True),
+        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+    ),
+    (
+        ("unknown", -1, False),
+        (
+            "raise",
+            "ValueError",
+            "Disjointness could not be verified for the evaluation dataset: unknown reason. Refusing to treat unverifiable datasets as held out.",
+        ),
+    ),
+    (
+        ("unknown", -1, True),
+        (
+            "ok",
+            "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='diagnostic', contamination_detected=False, disjointness_status='unknown', overlap_count=-1, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')",
+        ),
+    ),
+    (
+        ("unknown", 0, False),
+        (
+            "raise",
+            "ValueError",
+            "Disjointness could not be verified for the evaluation dataset: unknown reason. Refusing to treat unverifiable datasets as held out.",
+        ),
+    ),
+    (
+        ("unknown", 0, True),
+        (
+            "ok",
+            "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='diagnostic', contamination_detected=False, disjointness_status='unknown', overlap_count=0, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')",
+        ),
+    ),
+    (
+        ("unknown", 1, False),
+        (
+            "raise",
+            "ValueError",
+            "Disjointness could not be verified for the evaluation dataset: unknown reason. Refusing to treat unverifiable datasets as held out.",
+        ),
+    ),
+    (
+        ("unknown", 1, True),
+        (
+            "ok",
+            "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='diagnostic', contamination_detected=False, disjointness_status='unknown', overlap_count=1, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')",
+        ),
+    ),
+    (
+        ("unknown", 2, False),
+        (
+            "raise",
+            "ValueError",
+            "Disjointness could not be verified for the evaluation dataset: unknown reason. Refusing to treat unverifiable datasets as held out.",
+        ),
+    ),
+    (
+        ("unknown", 2, True),
+        (
+            "ok",
+            "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='diagnostic', contamination_detected=False, disjointness_status='unknown', overlap_count=2, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')",
+        ),
+    ),
+    (
+        ("contaminated", -1, False),
+        (
+            "raise",
+            "ValueError",
+            "Contamination detected: -1 overlapping samples between calibration and evaluation datasets. Use disjoint datasets to prevent data leakage.",
+        ),
+    ),
+    (
+        ("contaminated", -1, True),
+        (
+            "ok",
+            "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='diagnostic', contamination_detected=True, disjointness_status='contaminated', overlap_count=-1, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')",
+        ),
+    ),
+    (
+        ("contaminated", 0, False),
+        ("raise", "ValueError", "A contaminated DisjointnessProof must record overlap."),
+    ),
+    (
+        ("contaminated", 0, True),
+        ("raise", "ValueError", "A contaminated DisjointnessProof must record overlap."),
+    ),
+    (
+        ("contaminated", 1, False),
+        (
+            "raise",
+            "ValueError",
+            "Contamination detected: 1 overlapping samples between calibration and evaluation datasets. Use disjoint datasets to prevent data leakage.",
+        ),
+    ),
+    (
+        ("contaminated", 1, True),
+        (
+            "ok",
+            "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='diagnostic', contamination_detected=True, disjointness_status='contaminated', overlap_count=1, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')",
+        ),
+    ),
+    (
+        ("contaminated", 2, False),
+        (
+            "raise",
+            "ValueError",
+            "Contamination detected: 2 overlapping samples between calibration and evaluation datasets. Use disjoint datasets to prevent data leakage.",
+        ),
+    ),
+    (
+        ("contaminated", 2, True),
+        (
+            "ok",
+            "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='diagnostic', contamination_detected=True, disjointness_status='contaminated', overlap_count=2, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')",
+        ),
+    ),
+    (
+        ("eval-hash-zero", "verified", 0, False),
+        ("raise", "ValueError", "Disjointness proof does not match the evaluation dataset."),
+    ),
+    (
+        ("eval-hash-max", "verified", 0, False),
+        ("raise", "ValueError", "Disjointness proof does not match the evaluation dataset."),
+    ),
+    (
+        ("train-hash-zero", "verified", 0, False),
+        ("raise", "ValueError", "Disjointness proof does not match the calibration dataset."),
+    ),
+    (
+        ("train-hash-max", "verified", 0, False),
+        ("raise", "ValueError", "Disjointness proof does not match the calibration dataset."),
+    ),
+    (
+        ("train-hash-shared", "verified", 0, False),
+        (
+            "ok",
+            "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_mode='held_out', contamination_detected=False, disjointness_status='verified', overlap_count=0, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')",
+        ),
+    ),
+    (
+        ("allow-same-verified", "verified", 0, False),
+        (
+            "ok",
+            "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='diagnostic', contamination_detected=False, disjointness_status='verified', overlap_count=0, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')",
+        ),
+    ),
+    (
+        ("allow-same-unknown", "unknown", 0, False),
+        (
+            "ok",
+            "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='diagnostic', contamination_detected=False, disjointness_status='unknown', overlap_count=0, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')",
+        ),
+    ),
+    (
+        ("allow-same-noproof-cal-low",),
+        (
+            "ok",
+            "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='0000000000000000000000000000000000000000000000000000000000000000', evaluation_mode='diagnostic', contamination_detected=False, disjointness_status='unknown', overlap_count=-1, training_hash='', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')",
+        ),
+    ),
+    (
+        ("noproof-diag-False",),
+        (
+            "ok",
+            "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='diagnostic', contamination_detected=False, disjointness_status='unknown', overlap_count=-1, training_hash='', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')",
+        ),
+    ),
+    (
+        ("noproof-diag-True",),
+        (
+            "ok",
+            "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='diagnostic', contamination_detected=False, disjointness_status='unknown', overlap_count=-1, training_hash='', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')",
+        ),
+    ),
+    (
+        ("hash-match", -1, False),
+        (
+            "ok",
+            "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', evaluation_mode='diagnostic', contamination_detected=True, disjointness_status='contaminated', overlap_count=8, training_hash='', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')",
+        ),
+    ),
+    (
+        ("hash-match", -1, True),
+        (
+            "ok",
+            "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', evaluation_mode='diagnostic', contamination_detected=True, disjointness_status='contaminated', overlap_count=8, training_hash='', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')",
+        ),
+    ),
+]
 
 
-EXPECTED_PROBE_CAL_EVALUATE_THRESHOLD = [(('verified', -1, False), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero sample overlap.')), (('verified', -1, True), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero sample overlap.')), (('verified', 0, False), ('ok', "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='held_out', contamination_detected=False, disjointness_status='verified', overlap_count=0, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')")), (('verified', 0, True), ('ok', "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='held_out', contamination_detected=False, disjointness_status='verified', overlap_count=0, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')")), (('verified', 1, False), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero sample overlap.')), (('verified', 1, True), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero sample overlap.')), (('verified', 2, False), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero sample overlap.')), (('verified', 2, True), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero sample overlap.')), (('unknown', -1, False), ('raise', 'ValueError', 'Disjointness could not be verified for the evaluation dataset: unknown reason. Refusing to treat unverifiable datasets as held out.')), (('unknown', -1, True), ('ok', "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='diagnostic', contamination_detected=False, disjointness_status='unknown', overlap_count=-1, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')")), (('unknown', 0, False), ('raise', 'ValueError', 'Disjointness could not be verified for the evaluation dataset: unknown reason. Refusing to treat unverifiable datasets as held out.')), (('unknown', 0, True), ('ok', "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='diagnostic', contamination_detected=False, disjointness_status='unknown', overlap_count=0, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')")), (('unknown', 1, False), ('raise', 'ValueError', 'Disjointness could not be verified for the evaluation dataset: unknown reason. Refusing to treat unverifiable datasets as held out.')), (('unknown', 1, True), ('ok', "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='diagnostic', contamination_detected=False, disjointness_status='unknown', overlap_count=1, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')")), (('unknown', 2, False), ('raise', 'ValueError', 'Disjointness could not be verified for the evaluation dataset: unknown reason. Refusing to treat unverifiable datasets as held out.')), (('unknown', 2, True), ('ok', "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='diagnostic', contamination_detected=False, disjointness_status='unknown', overlap_count=2, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')")), (('contaminated', -1, False), ('raise', 'ValueError', 'Contamination detected: -1 overlapping samples between calibration and evaluation datasets. Use disjoint datasets to prevent data leakage.')), (('contaminated', -1, True), ('ok', "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='diagnostic', contamination_detected=True, disjointness_status='contaminated', overlap_count=-1, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')")), (('contaminated', 0, False), ('raise', 'ValueError', 'A contaminated DisjointnessProof must record overlap.')), (('contaminated', 0, True), ('raise', 'ValueError', 'A contaminated DisjointnessProof must record overlap.')), (('contaminated', 1, False), ('raise', 'ValueError', 'Contamination detected: 1 overlapping samples between calibration and evaluation datasets. Use disjoint datasets to prevent data leakage.')), (('contaminated', 1, True), ('ok', "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='diagnostic', contamination_detected=True, disjointness_status='contaminated', overlap_count=1, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')")), (('contaminated', 2, False), ('raise', 'ValueError', 'Contamination detected: 2 overlapping samples between calibration and evaluation datasets. Use disjoint datasets to prevent data leakage.')), (('contaminated', 2, True), ('ok', "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='', evaluation_mode='diagnostic', contamination_detected=True, disjointness_status='contaminated', overlap_count=2, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')")), (('hash-match', -1, False), ('ok', "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', evaluation_mode='diagnostic', contamination_detected=True, disjointness_status='contaminated', overlap_count=8, training_hash='', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')")), (('hash-match', -1, True), ('ok', "EvaluationResult(threshold=0.5, tp=0, fp=0, tn=4, fn=4, accuracy=0.5, fpr=0.0, fnr=1.0, tpr=0.0, specificity=1.0, precision=0.0, evaluated=8, test_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', calibration_dataset_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', evaluation_mode='diagnostic', contamination_detected=True, disjointness_status='contaminated', overlap_count=8, training_hash='', evaluation_hash='bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f')"))]
+EXPECTED_PROBE_CAL_FROM_DICT = [
+    (
+        ("textforensics.calibration-curve/v3", "platt"),
+        (
+            "ok",
+            "CalibrationCurve(method='platt', parameters=mappingproxy({'A': 1.0, 'B': 0.0}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v3', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')",
+        ),
+    ),
+    (
+        ("textforensics.calibration-curve/v3", "temperature"),
+        (
+            "ok",
+            "CalibrationCurve(method='temperature', parameters=mappingproxy({'T': 2.0}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v3', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')",
+        ),
+    ),
+    (
+        ("textforensics.calibration-curve/v3", "isotonic"),
+        (
+            "ok",
+            "CalibrationCurve(method='isotonic', parameters=mappingproxy({'x': (0.0, 0.5, 1.0), 'y': (0.0, 0.5, 1.0)}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v3', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')",
+        ),
+    ),
+    (
+        ("textforensics.calibration-curve/v3", "beta"),
+        (
+            "ok",
+            "CalibrationCurve(method='beta', parameters=mappingproxy({'a': 2.0, 'b': 2.0}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v3', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')",
+        ),
+    ),
+    (
+        ("textforensics.calibration-curve/v3", "identity"),
+        (
+            "ok",
+            "CalibrationCurve(method='identity', parameters=mappingproxy({}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v3', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')",
+        ),
+    ),
+    (
+        ("textforensics.calibration-curve/v2", "platt"),
+        (
+            "ok",
+            "CalibrationCurve(method='platt', parameters=mappingproxy({'A': 1.0, 'B': 0.0}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v2', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')",
+        ),
+    ),
+    (
+        ("textforensics.calibration-curve/v2", "temperature"),
+        (
+            "ok",
+            "CalibrationCurve(method='temperature', parameters=mappingproxy({'T': 2.0}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v2', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='legacy_raw_score')",
+        ),
+    ),
+    (
+        ("textforensics.calibration-curve/v2", "isotonic"),
+        (
+            "ok",
+            "CalibrationCurve(method='isotonic', parameters=mappingproxy({'x': (0.0, 0.5, 1.0), 'y': (0.0, 0.5, 1.0)}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v2', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')",
+        ),
+    ),
+    (
+        ("textforensics.calibration-curve/v2", "beta"),
+        (
+            "ok",
+            "CalibrationCurve(method='beta', parameters=mappingproxy({'a': 2.0, 'b': 2.0}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v2', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')",
+        ),
+    ),
+    (
+        ("textforensics.calibration-curve/v2", "identity"),
+        (
+            "ok",
+            "CalibrationCurve(method='identity', parameters=mappingproxy({}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v2', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')",
+        ),
+    ),
+    (("wrong", "platt"), ("raise", "CalibrationError", "Unsupported calibration-curve schema.")),
+    (
+        ("wrong", "temperature"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (("wrong", "isotonic"), ("raise", "CalibrationError", "Unsupported calibration-curve schema.")),
+    (("wrong", "beta"), ("raise", "CalibrationError", "Unsupported calibration-curve schema.")),
+    (("wrong", "identity"), ("raise", "CalibrationError", "Unsupported calibration-curve schema.")),
+]
 
 
-EXPECTED_PROBE_CAL_FROM_DICT = [(('textforensics.calibration-curve/v3', 'platt'), ('ok', "CalibrationCurve(method='platt', parameters=mappingproxy({'A': 1.0, 'B': 0.0}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v3', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')")), (('textforensics.calibration-curve/v3', 'temperature'), ('ok', "CalibrationCurve(method='temperature', parameters=mappingproxy({'T': 2.0}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v3', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')")), (('textforensics.calibration-curve/v3', 'isotonic'), ('ok', "CalibrationCurve(method='isotonic', parameters=mappingproxy({'x': (0.0, 0.5, 1.0), 'y': (0.0, 0.5, 1.0)}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v3', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')")), (('textforensics.calibration-curve/v3', 'beta'), ('ok', "CalibrationCurve(method='beta', parameters=mappingproxy({'a': 2.0, 'b': 2.0}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v3', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')")), (('textforensics.calibration-curve/v3', 'identity'), ('ok', "CalibrationCurve(method='identity', parameters=mappingproxy({}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v3', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')")), (('textforensics.calibration-curve/v2', 'platt'), ('ok', "CalibrationCurve(method='platt', parameters=mappingproxy({'A': 1.0, 'B': 0.0}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v2', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')")), (('textforensics.calibration-curve/v2', 'temperature'), ('ok', "CalibrationCurve(method='temperature', parameters=mappingproxy({'T': 2.0}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v2', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='legacy_raw_score')")), (('textforensics.calibration-curve/v2', 'isotonic'), ('ok', "CalibrationCurve(method='isotonic', parameters=mappingproxy({'x': (0.0, 0.5, 1.0), 'y': (0.0, 0.5, 1.0)}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v2', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')")), (('textforensics.calibration-curve/v2', 'beta'), ('ok', "CalibrationCurve(method='beta', parameters=mappingproxy({'a': 2.0, 'b': 2.0}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v2', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')")), (('textforensics.calibration-curve/v2', 'identity'), ('ok', "CalibrationCurve(method='identity', parameters=mappingproxy({}), reference_dataset_hash='0000000000000000000000000000000000000000000000000000000000000001', reference_dataset_name='test', calibrated_at='2024-01-01T00:00:00Z', sample_count=200, calibration_error=None, schema='textforensics.calibration-curve/v2', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')")), (('wrong', 'platt'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('wrong', 'temperature'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('wrong', 'isotonic'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('wrong', 'beta'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('wrong', 'identity'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.'))]
+EXPECTED_PROBE_CAL_IDENTITY = [
+    (
+        "from-dict-class",
+        (
+            "ok",
+            "InferenceIdentity(detector_id='det1', detector_version='1.0', provider='local', model='m', config_hash='0000000000000000000000000000000000000000000000000000000000000005', native_score_semantics='probability_higher_means_ai', calibration_id='cal1', regime='unedited')",
+        ),
+    ),
+    (
+        "from-dict-nonmapping",
+        ("raise", "CalibrationError", "Inference identity must be a mapping."),
+    ),
+    ("frozen-assign", ("raise", "FrozenInstanceError", "cannot assign to field 'provider'")),
+    ("slots-no-dict", ("ok", "False")),
+    ("evalresult-default", ("ok", "-1")),
+    ("hash-valid", ("ok", "True")),
+    ("hash-computed", ("ok", True)),
+    ("hash-stored-less", ("ok", "False")),
+    ("hash-stored-greater", ("ok", "False")),
+    ("hash-stored-distinct", ("ok", "True")),
+    (
+        "hash-construct-greater",
+        ("raise", "CalibrationError", "content_hash does not match the artifact content."),
+    ),
+    (
+        "payload-all-none",
+        (
+            "ok",
+            "['calibration_id', 'code_version', 'created_at', 'curve', 'detector_id', 'detector_version', 'disjointness', 'evaluation_dataset', 'fit_dataset', 'metadata', 'metrics', 'parent_calibration_id', 'run_artifact_sha256', 'schema', 'validation_results']",
+        ),
+    ),
+    (
+        "payload-some-set",
+        (
+            "ok",
+            "['calibration_id', 'code_version', 'config_hash', 'created_at', 'curve', 'detector_id', 'detector_version', 'disjointness', 'evaluation_dataset', 'fit_dataset', 'metadata', 'metrics', 'model', 'native_score_semantics', 'parent_calibration_id', 'provider', 'regime', 'run_artifact_sha256', 'schema', 'validation_results']",
+        ),
+    ),
+    ("payload-missing-field", ("ok", "False")),
+    ("identity-only-provider-none", ("ok", "None")),
+    ("identity-only-model-none", ("ok", "None")),
+    ("identity-only-config_hash-none", ("ok", "None")),
+    ("identity-only-native_score_semantics-none", ("ok", "None")),
+    ("identity-only-regime-none", ("ok", "None")),
+    ("issues-complete", ("ok", "[]")),
+    (
+        "issues-missing",
+        (
+            "ok",
+            "['inference identity is incomplete: missing provider, model, config_hash, native_score_semantics, regime; an artifact without an exact inference identity cannot support a probability']",
+        ),
+    ),
+    (
+        "issues-semantics-before",
+        (
+            "ok",
+            "[\"native_score_semantics 'aaa' does not match the curve's input semantics and direction ('probability_higher_means_ai')\"]",
+        ),
+    ),
+    (
+        "issues-semantics-after",
+        (
+            "ok",
+            "[\"native_score_semantics 'zzz' does not match the curve's input semantics and direction ('probability_higher_means_ai')\"]",
+        ),
+    ),
+    ("issues-semantics-equal", ("ok", "[]")),
+]
 
 
-EXPECTED_PROBE_CAL_IDENTITY = [('from-dict-class', ('ok', "InferenceIdentity(detector_id='det1', detector_version='1.0', provider='local', model='m', config_hash='0000000000000000000000000000000000000000000000000000000000000005', native_score_semantics='probability_higher_means_ai', calibration_id='cal1', regime='unedited')")), ('from-dict-nonmapping', ('raise', 'CalibrationError', 'Inference identity must be a mapping.')), ('frozen-assign', ('raise', 'FrozenInstanceError', "cannot assign to field 'provider'")), ('slots-no-dict', ('ok', 'False')), ('evalresult-default', ('ok', '-1')), ('hash-valid', ('ok', 'True')), ('hash-computed', ('ok', True)), ('hash-stored-less', ('ok', 'False')), ('hash-stored-greater', ('ok', 'False')), ('hash-stored-distinct', ('ok', 'True')), ('payload-all-none', ('ok', "['calibration_id', 'code_version', 'created_at', 'curve', 'detector_id', 'detector_version', 'disjointness', 'evaluation_dataset', 'fit_dataset', 'metadata', 'metrics', 'parent_calibration_id', 'run_artifact_sha256', 'schema', 'validation_results']")), ('payload-some-set', ('ok', "['calibration_id', 'code_version', 'config_hash', 'created_at', 'curve', 'detector_id', 'detector_version', 'disjointness', 'evaluation_dataset', 'fit_dataset', 'metadata', 'metrics', 'model', 'native_score_semantics', 'parent_calibration_id', 'provider', 'regime', 'run_artifact_sha256', 'schema', 'validation_results']")), ('payload-missing-field', ('ok', 'False')), ('issues-complete', ('ok', '[]')), ('issues-missing', ('ok', "['inference identity is incomplete: missing provider, model, config_hash, native_score_semantics, regime; an artifact without an exact inference identity cannot support a probability']")), ('issues-semantics-before', ('ok', '["native_score_semantics \'aaa\' does not match the curve\'s input semantics and direction (\'probability_higher_means_ai\')"]')), ('issues-semantics-after', ('ok', '["native_score_semantics \'zzz\' does not match the curve\'s input semantics and direction (\'probability_higher_means_ai\')"]')), ('issues-semantics-equal', ('ok', '[]'))]
+EXPECTED_PROBE_CAL_IS_LEGACY = [
+    (("textforensics.calibration-curve/v3", "platt"), ("ok", "False")),
+    (("textforensics.calibration-curve/v3", "temperature"), ("ok", "False")),
+    (("textforensics.calibration-curve/v2", "platt"), ("ok", "True")),
+    (("textforensics.calibration-curve/v2", "temperature"), ("ok", "True")),
+]
 
 
-EXPECTED_PROBE_CAL_IS_LEGACY = [(('textforensics.calibration-curve/v3', 'platt'), ('ok', 'False')), (('textforensics.calibration-curve/v3', 'temperature'), ('ok', 'False')), (('textforensics.calibration-curve/v2', 'platt'), ('ok', 'True')), (('textforensics.calibration-curve/v2', 'temperature'), ('ok', 'True'))]
+EXPECTED_PROBE_CAL_MIGRATE = [
+    (
+        ("temperature", "textforensics.calibration-curve/v2"),
+        (
+            "ok",
+            "CalibrationCurve(method='temperature', parameters=mappingproxy({'T': 2.0}), reference_dataset_hash='', reference_dataset_name='', calibrated_at='', sample_count=0, calibration_error=None, schema='textforensics.calibration-curve/v3', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')",
+        ),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v3"),
+        (
+            "raise",
+            "CalibrationError",
+            "Only legacy v2 temperature curves can be migrated; got method='temperature' schema='textforensics.calibration-curve/v3'.",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v2"),
+        (
+            "raise",
+            "CalibrationError",
+            "Only legacy v2 temperature curves can be migrated; got method='platt' schema='textforensics.calibration-curve/v2'.",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v3"),
+        (
+            "raise",
+            "CalibrationError",
+            "Only legacy v2 temperature curves can be migrated; got method='platt' schema='textforensics.calibration-curve/v3'.",
+        ),
+    ),
+]
 
 
-EXPECTED_PROBE_CAL_MIGRATE = [(('temperature', 'textforensics.calibration-curve/v2'), ('ok', "CalibrationCurve(method='temperature', parameters=mappingproxy({'T': 2.0}), reference_dataset_hash='', reference_dataset_name='', calibrated_at='', sample_count=0, calibration_error=None, schema='textforensics.calibration-curve/v3', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')")), (('temperature', 'textforensics.calibration-curve/v3'), ('raise', 'CalibrationError', "Only legacy v2 temperature curves can be migrated; got method='temperature' schema='textforensics.calibration-curve/v3'.")), (('platt', 'textforensics.calibration-curve/v2'), ('raise', 'CalibrationError', "Only legacy v2 temperature curves can be migrated; got method='platt' schema='textforensics.calibration-curve/v2'.")), (('platt', 'textforensics.calibration-curve/v3'), ('raise', 'CalibrationError', "Only legacy v2 temperature curves can be migrated; got method='platt' schema='textforensics.calibration-curve/v3'."))]
+EXPECTED_PROBE_CAL_PIPELINE = [
+    ("disjoint", ("ok", "held_out", False, 0, True, False)),
+    ("disjoint-diag", ("ok", "held_out", False, 0, True, False)),
+    (
+        "same-file",
+        (
+            "raise",
+            "ValueError",
+            "Contamination detected: -1 overlapping samples. Calibration and evaluation datasets must be disjoint.",
+        ),
+    ),
+    (
+        "same-file-diag",
+        (
+            "raise",
+            "ValueError",
+            "Evaluation dataset matches the calibration dataset. Use a separate held-out dataset for release-quality validation. Use allow_same_dataset=True only for diagnostics.",
+        ),
+    ),
+    ("bad-cal", ("raise", "DatasetFormatError", "Line 2 is not valid JSON.")),
+    ("bad-cal-diag", ("raise", "DatasetFormatError", "Line 2 is not valid JSON.")),
+    ("bad-cal-nostrict", ("ok", "held_out", False, 0, True, False)),
+    ("bad-eval", ("raise", "DatasetFormatError", "Line 2 is not valid JSON.")),
+    ("bad-eval-diag", ("raise", "DatasetFormatError", "Line 2 is not valid JSON.")),
+    (
+        "missing",
+        ("raise", "FileNotFoundError", "[Errno 2] No such file or directory: 'TMP/nope.jsonl'"),
+    ),
+    (
+        "missing-diag",
+        ("raise", "FileNotFoundError", "[Errno 2] No such file or directory: 'TMP/nope.jsonl'"),
+    ),
+    (
+        "unknown",
+        (
+            "raise",
+            "ValueError",
+            "Disjointness could not be verified for calibration and evaluation datasets: An empty dataset cannot prove disjointness.. Refusing to treat unverifiable datasets as held out.",
+        ),
+    ),
+    ("unknown-diag", ("ok", "diagnostic", False, -1, False, False)),
+]
 
 
-EXPECTED_PROBE_CAL_PIPELINE = [('disjoint', ('ok', 'held_out', False, 0, True, False)), ('disjoint-diag', ('ok', 'held_out', False, 0, True, False)), ('same-file', ('raise', 'ValueError', 'Contamination detected: -1 overlapping samples. Calibration and evaluation datasets must be disjoint.')), ('same-file-diag', ('raise', 'ValueError', 'Evaluation dataset matches the calibration dataset. Use a separate held-out dataset for release-quality validation. Use allow_same_dataset=True only for diagnostics.')), ('bad-cal', ('raise', 'DatasetFormatError', 'Line 2 is not valid JSON.')), ('bad-cal-diag', ('raise', 'DatasetFormatError', 'Line 2 is not valid JSON.')), ('bad-cal-nostrict', ('ok', 'held_out', False, 0, True, False)), ('bad-eval', ('raise', 'DatasetFormatError', 'Line 2 is not valid JSON.')), ('bad-eval-diag', ('raise', 'DatasetFormatError', 'Line 2 is not valid JSON.')), ('missing', ('raise', 'FileNotFoundError', "[Errno 2] No such file or directory: 'TMP/nope.jsonl'")), ('missing-diag', ('raise', 'FileNotFoundError', "[Errno 2] No such file or directory: 'TMP/nope.jsonl'"))]
+EXPECTED_PROBE_CAL_POST_INIT = [
+    (
+        ("platt", "textforensics.calibration-curve/v3", "probability", "higher_means_ai"),
+        (
+            "ok",
+            "CalibrationCurve(method='platt', parameters=mappingproxy({'A': 1.0, 'B': 0.0}), reference_dataset_hash='', reference_dataset_name='', calibrated_at='', sample_count=0, calibration_error=None, schema='textforensics.calibration-curve/v3', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v3", "probability", "lower_means_ai"),
+        (
+            "ok",
+            "CalibrationCurve(method='platt', parameters=mappingproxy({'A': 1.0, 'B': 0.0}), reference_dataset_hash='', reference_dataset_name='', calibrated_at='', sample_count=0, calibration_error=None, schema='textforensics.calibration-curve/v3', native_score_direction='lower_means_ai', score_range=(0.0, 1.0), input_semantics='probability')",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v3", "probability", "bogus"),
+        ("raise", "CalibrationError", "Invalid native_score_direction."),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v3", "logit", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v3", "logit", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v3", "logit", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v3", "legacy_raw_score", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v3", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v3", "legacy_raw_score", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v3", "bogus", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v3", "bogus", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v3", "bogus", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v2", "probability", "higher_means_ai"),
+        (
+            "ok",
+            "CalibrationCurve(method='platt', parameters=mappingproxy({'A': 1.0, 'B': 0.0}), reference_dataset_hash='', reference_dataset_name='', calibrated_at='', sample_count=0, calibration_error=None, schema='textforensics.calibration-curve/v2', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v2", "probability", "lower_means_ai"),
+        (
+            "ok",
+            "CalibrationCurve(method='platt', parameters=mappingproxy({'A': 1.0, 'B': 0.0}), reference_dataset_hash='', reference_dataset_name='', calibrated_at='', sample_count=0, calibration_error=None, schema='textforensics.calibration-curve/v2', native_score_direction='lower_means_ai', score_range=(0.0, 1.0), input_semantics='probability')",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v2", "probability", "bogus"),
+        ("raise", "CalibrationError", "Invalid native_score_direction."),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v2", "logit", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v2", "logit", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v2", "logit", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v2", "legacy_raw_score", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v2", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v2", "legacy_raw_score", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v2", "bogus", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v2", "bogus", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("platt", "textforensics.calibration-curve/v2", "bogus", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("platt", "wrong", "probability", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("platt", "wrong", "probability", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("platt", "wrong", "probability", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("platt", "wrong", "logit", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("platt", "wrong", "logit", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("platt", "wrong", "logit", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("platt", "wrong", "legacy_raw_score", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("platt", "wrong", "legacy_raw_score", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("platt", "wrong", "legacy_raw_score", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("platt", "wrong", "bogus", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("platt", "wrong", "bogus", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("platt", "wrong", "bogus", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v3", "probability", "higher_means_ai"),
+        ("raise", "CalibrationError", "parameters.T must be a finite number."),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v3", "probability", "lower_means_ai"),
+        ("raise", "CalibrationError", "parameters.T must be a finite number."),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v3", "probability", "bogus"),
+        ("raise", "CalibrationError", "Invalid native_score_direction."),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v3", "logit", "higher_means_ai"),
+        ("raise", "CalibrationError", "parameters.T must be a finite number."),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v3", "logit", "lower_means_ai"),
+        ("raise", "CalibrationError", "parameters.T must be a finite number."),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v3", "logit", "bogus"),
+        ("raise", "CalibrationError", "Invalid native_score_direction."),
+    ),
+    (
+        (
+            "temperature",
+            "textforensics.calibration-curve/v3",
+            "legacy_raw_score",
+            "higher_means_ai",
+        ),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v3", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v3", "legacy_raw_score", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v3", "bogus", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v3", "bogus", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v3", "bogus", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v2", "probability", "higher_means_ai"),
+        ("raise", "CalibrationError", "parameters.T must be a finite number."),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v2", "probability", "lower_means_ai"),
+        ("raise", "CalibrationError", "parameters.T must be a finite number."),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v2", "probability", "bogus"),
+        ("raise", "CalibrationError", "Invalid native_score_direction."),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v2", "logit", "higher_means_ai"),
+        ("raise", "CalibrationError", "parameters.T must be a finite number."),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v2", "logit", "lower_means_ai"),
+        ("raise", "CalibrationError", "parameters.T must be a finite number."),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v2", "logit", "bogus"),
+        ("raise", "CalibrationError", "Invalid native_score_direction."),
+    ),
+    (
+        (
+            "temperature",
+            "textforensics.calibration-curve/v2",
+            "legacy_raw_score",
+            "higher_means_ai",
+        ),
+        ("raise", "CalibrationError", "parameters.T must be a finite number."),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v2", "legacy_raw_score", "lower_means_ai"),
+        ("raise", "CalibrationError", "parameters.T must be a finite number."),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v2", "legacy_raw_score", "bogus"),
+        ("raise", "CalibrationError", "Invalid native_score_direction."),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v2", "bogus", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v2", "bogus", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("temperature", "textforensics.calibration-curve/v2", "bogus", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("temperature", "wrong", "probability", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("temperature", "wrong", "probability", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("temperature", "wrong", "probability", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("temperature", "wrong", "logit", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("temperature", "wrong", "logit", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("temperature", "wrong", "logit", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("temperature", "wrong", "legacy_raw_score", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("temperature", "wrong", "legacy_raw_score", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("temperature", "wrong", "legacy_raw_score", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("temperature", "wrong", "bogus", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("temperature", "wrong", "bogus", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("temperature", "wrong", "bogus", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v3", "probability", "higher_means_ai"),
+        ("raise", "CalibrationError", "Isotonic parameters require x and y sequences."),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v3", "probability", "lower_means_ai"),
+        ("raise", "CalibrationError", "Isotonic parameters require x and y sequences."),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v3", "probability", "bogus"),
+        ("raise", "CalibrationError", "Invalid native_score_direction."),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v3", "logit", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v3", "logit", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v3", "logit", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v3", "legacy_raw_score", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v3", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v3", "legacy_raw_score", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v3", "bogus", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v3", "bogus", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v3", "bogus", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v2", "probability", "higher_means_ai"),
+        ("raise", "CalibrationError", "Isotonic parameters require x and y sequences."),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v2", "probability", "lower_means_ai"),
+        ("raise", "CalibrationError", "Isotonic parameters require x and y sequences."),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v2", "probability", "bogus"),
+        ("raise", "CalibrationError", "Invalid native_score_direction."),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v2", "logit", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v2", "logit", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v2", "logit", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v2", "legacy_raw_score", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v2", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v2", "legacy_raw_score", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v2", "bogus", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v2", "bogus", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("isotonic", "textforensics.calibration-curve/v2", "bogus", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("isotonic", "wrong", "probability", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("isotonic", "wrong", "probability", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("isotonic", "wrong", "probability", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("isotonic", "wrong", "logit", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("isotonic", "wrong", "logit", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("isotonic", "wrong", "logit", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("isotonic", "wrong", "legacy_raw_score", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("isotonic", "wrong", "legacy_raw_score", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("isotonic", "wrong", "legacy_raw_score", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("isotonic", "wrong", "bogus", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("isotonic", "wrong", "bogus", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("isotonic", "wrong", "bogus", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v3", "probability", "higher_means_ai"),
+        ("raise", "CalibrationError", "parameters.a must be a finite number."),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v3", "probability", "lower_means_ai"),
+        ("raise", "CalibrationError", "parameters.a must be a finite number."),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v3", "probability", "bogus"),
+        ("raise", "CalibrationError", "Invalid native_score_direction."),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v3", "logit", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v3", "logit", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v3", "logit", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v3", "legacy_raw_score", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v3", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v3", "legacy_raw_score", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v3", "bogus", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v3", "bogus", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v3", "bogus", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v2", "probability", "higher_means_ai"),
+        ("raise", "CalibrationError", "parameters.a must be a finite number."),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v2", "probability", "lower_means_ai"),
+        ("raise", "CalibrationError", "parameters.a must be a finite number."),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v2", "probability", "bogus"),
+        ("raise", "CalibrationError", "Invalid native_score_direction."),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v2", "logit", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v2", "logit", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v2", "logit", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v2", "legacy_raw_score", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v2", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v2", "legacy_raw_score", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v2", "bogus", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v2", "bogus", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("beta", "textforensics.calibration-curve/v2", "bogus", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("beta", "wrong", "probability", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("beta", "wrong", "probability", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("beta", "wrong", "probability", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("beta", "wrong", "logit", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("beta", "wrong", "logit", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("beta", "wrong", "logit", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("beta", "wrong", "legacy_raw_score", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("beta", "wrong", "legacy_raw_score", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("beta", "wrong", "legacy_raw_score", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("beta", "wrong", "bogus", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("beta", "wrong", "bogus", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("beta", "wrong", "bogus", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v3", "probability", "higher_means_ai"),
+        ("raise", "CalibrationError", "Identity calibration takes no parameters."),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v3", "probability", "lower_means_ai"),
+        ("raise", "CalibrationError", "Identity calibration takes no parameters."),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v3", "probability", "bogus"),
+        ("raise", "CalibrationError", "Invalid native_score_direction."),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v3", "logit", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v3", "logit", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v3", "logit", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v3", "legacy_raw_score", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v3", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v3", "legacy_raw_score", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v3", "bogus", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v3", "bogus", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v3", "bogus", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v2", "probability", "higher_means_ai"),
+        ("raise", "CalibrationError", "Identity calibration takes no parameters."),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v2", "probability", "lower_means_ai"),
+        ("raise", "CalibrationError", "Identity calibration takes no parameters."),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v2", "probability", "bogus"),
+        ("raise", "CalibrationError", "Invalid native_score_direction."),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v2", "logit", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v2", "logit", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v2", "logit", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.",
+        ),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v2", "legacy_raw_score", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v2", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v2", "legacy_raw_score", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.",
+        ),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v2", "bogus", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v2", "bogus", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("identity", "textforensics.calibration-curve/v2", "bogus", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.",
+        ),
+    ),
+    (
+        ("identity", "wrong", "probability", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("identity", "wrong", "probability", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("identity", "wrong", "probability", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("identity", "wrong", "logit", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("identity", "wrong", "logit", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("identity", "wrong", "logit", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("identity", "wrong", "legacy_raw_score", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("identity", "wrong", "legacy_raw_score", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("identity", "wrong", "legacy_raw_score", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("identity", "wrong", "bogus", "higher_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("identity", "wrong", "bogus", "lower_means_ai"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("identity", "wrong", "bogus", "bogus"),
+        ("raise", "CalibrationError", "Unsupported calibration-curve schema."),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v3", "probability", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v3", "probability", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v3", "probability", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v3", "logit", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v3", "logit", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v3", "logit", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v3", "legacy_raw_score", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v3", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v3", "legacy_raw_score", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v3", "bogus", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v3", "bogus", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v3", "bogus", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v2", "probability", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v2", "probability", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v2", "probability", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v2", "logit", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v2", "logit", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v2", "logit", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v2", "legacy_raw_score", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v2", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v2", "legacy_raw_score", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v2", "bogus", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v2", "bogus", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "textforensics.calibration-curve/v2", "bogus", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "wrong", "probability", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "wrong", "probability", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "wrong", "probability", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "wrong", "logit", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "wrong", "logit", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "wrong", "logit", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "wrong", "legacy_raw_score", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "wrong", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "wrong", "legacy_raw_score", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "wrong", "bogus", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "wrong", "bogus", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("unknown", "wrong", "bogus", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v3", "probability", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v3", "probability", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v3", "probability", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v3", "logit", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v3", "logit", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v3", "logit", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v3", "legacy_raw_score", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v3", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v3", "legacy_raw_score", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v3", "bogus", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v3", "bogus", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v3", "bogus", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v2", "probability", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v2", "probability", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v2", "probability", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v2", "logit", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v2", "logit", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v2", "logit", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v2", "legacy_raw_score", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v2", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v2", "legacy_raw_score", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v2", "bogus", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v2", "bogus", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "textforensics.calibration-curve/v2", "bogus", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "wrong", "probability", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "wrong", "probability", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "wrong", "probability", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "wrong", "logit", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "wrong", "logit", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "wrong", "logit", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "wrong", "legacy_raw_score", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "wrong", "legacy_raw_score", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "wrong", "legacy_raw_score", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "wrong", "bogus", "higher_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "wrong", "bogus", "lower_means_ai"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+    (
+        ("", "wrong", "bogus", "bogus"),
+        (
+            "raise",
+            "CalibrationError",
+            "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.",
+        ),
+    ),
+]
 
 
-EXPECTED_PROBE_CAL_POST_INIT = [(('platt', 'textforensics.calibration-curve/v3', 'probability', 'higher_means_ai'), ('ok', "CalibrationCurve(method='platt', parameters=mappingproxy({'A': 1.0, 'B': 0.0}), reference_dataset_hash='', reference_dataset_name='', calibrated_at='', sample_count=0, calibration_error=None, schema='textforensics.calibration-curve/v3', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')")), (('platt', 'textforensics.calibration-curve/v3', 'probability', 'lower_means_ai'), ('ok', "CalibrationCurve(method='platt', parameters=mappingproxy({'A': 1.0, 'B': 0.0}), reference_dataset_hash='', reference_dataset_name='', calibrated_at='', sample_count=0, calibration_error=None, schema='textforensics.calibration-curve/v3', native_score_direction='lower_means_ai', score_range=(0.0, 1.0), input_semantics='probability')")), (('platt', 'textforensics.calibration-curve/v3', 'probability', 'bogus'), ('raise', 'CalibrationError', 'Invalid native_score_direction.')), (('platt', 'textforensics.calibration-curve/v3', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('platt', 'textforensics.calibration-curve/v3', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('platt', 'textforensics.calibration-curve/v3', 'logit', 'bogus'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('platt', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('platt', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('platt', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('platt', 'textforensics.calibration-curve/v3', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('platt', 'textforensics.calibration-curve/v3', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('platt', 'textforensics.calibration-curve/v3', 'bogus', 'bogus'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('platt', 'textforensics.calibration-curve/v2', 'probability', 'higher_means_ai'), ('ok', "CalibrationCurve(method='platt', parameters=mappingproxy({'A': 1.0, 'B': 0.0}), reference_dataset_hash='', reference_dataset_name='', calibrated_at='', sample_count=0, calibration_error=None, schema='textforensics.calibration-curve/v2', native_score_direction='higher_means_ai', score_range=(0.0, 1.0), input_semantics='probability')")), (('platt', 'textforensics.calibration-curve/v2', 'probability', 'lower_means_ai'), ('ok', "CalibrationCurve(method='platt', parameters=mappingproxy({'A': 1.0, 'B': 0.0}), reference_dataset_hash='', reference_dataset_name='', calibrated_at='', sample_count=0, calibration_error=None, schema='textforensics.calibration-curve/v2', native_score_direction='lower_means_ai', score_range=(0.0, 1.0), input_semantics='probability')")), (('platt', 'textforensics.calibration-curve/v2', 'probability', 'bogus'), ('raise', 'CalibrationError', 'Invalid native_score_direction.')), (('platt', 'textforensics.calibration-curve/v2', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('platt', 'textforensics.calibration-curve/v2', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('platt', 'textforensics.calibration-curve/v2', 'logit', 'bogus'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('platt', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('platt', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('platt', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('platt', 'textforensics.calibration-curve/v2', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('platt', 'textforensics.calibration-curve/v2', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('platt', 'textforensics.calibration-curve/v2', 'bogus', 'bogus'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('platt', 'wrong', 'probability', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('platt', 'wrong', 'probability', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('platt', 'wrong', 'probability', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('platt', 'wrong', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('platt', 'wrong', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('platt', 'wrong', 'logit', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('platt', 'wrong', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('platt', 'wrong', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('platt', 'wrong', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('platt', 'wrong', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('platt', 'wrong', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('platt', 'wrong', 'bogus', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('temperature', 'textforensics.calibration-curve/v3', 'probability', 'higher_means_ai'), ('raise', 'CalibrationError', 'parameters.T must be a finite number.')), (('temperature', 'textforensics.calibration-curve/v3', 'probability', 'lower_means_ai'), ('raise', 'CalibrationError', 'parameters.T must be a finite number.')), (('temperature', 'textforensics.calibration-curve/v3', 'probability', 'bogus'), ('raise', 'CalibrationError', 'Invalid native_score_direction.')), (('temperature', 'textforensics.calibration-curve/v3', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', 'parameters.T must be a finite number.')), (('temperature', 'textforensics.calibration-curve/v3', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', 'parameters.T must be a finite number.')), (('temperature', 'textforensics.calibration-curve/v3', 'logit', 'bogus'), ('raise', 'CalibrationError', 'Invalid native_score_direction.')), (('temperature', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('temperature', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('temperature', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('temperature', 'textforensics.calibration-curve/v3', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('temperature', 'textforensics.calibration-curve/v3', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('temperature', 'textforensics.calibration-curve/v3', 'bogus', 'bogus'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('temperature', 'textforensics.calibration-curve/v2', 'probability', 'higher_means_ai'), ('raise', 'CalibrationError', 'parameters.T must be a finite number.')), (('temperature', 'textforensics.calibration-curve/v2', 'probability', 'lower_means_ai'), ('raise', 'CalibrationError', 'parameters.T must be a finite number.')), (('temperature', 'textforensics.calibration-curve/v2', 'probability', 'bogus'), ('raise', 'CalibrationError', 'Invalid native_score_direction.')), (('temperature', 'textforensics.calibration-curve/v2', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', 'parameters.T must be a finite number.')), (('temperature', 'textforensics.calibration-curve/v2', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', 'parameters.T must be a finite number.')), (('temperature', 'textforensics.calibration-curve/v2', 'logit', 'bogus'), ('raise', 'CalibrationError', 'Invalid native_score_direction.')), (('temperature', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'parameters.T must be a finite number.')), (('temperature', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'parameters.T must be a finite number.')), (('temperature', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', 'Invalid native_score_direction.')), (('temperature', 'textforensics.calibration-curve/v2', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('temperature', 'textforensics.calibration-curve/v2', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('temperature', 'textforensics.calibration-curve/v2', 'bogus', 'bogus'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('temperature', 'wrong', 'probability', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('temperature', 'wrong', 'probability', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('temperature', 'wrong', 'probability', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('temperature', 'wrong', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('temperature', 'wrong', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('temperature', 'wrong', 'logit', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('temperature', 'wrong', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('temperature', 'wrong', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('temperature', 'wrong', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('temperature', 'wrong', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('temperature', 'wrong', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('temperature', 'wrong', 'bogus', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('isotonic', 'textforensics.calibration-curve/v3', 'probability', 'higher_means_ai'), ('raise', 'CalibrationError', 'Isotonic parameters require x and y sequences.')), (('isotonic', 'textforensics.calibration-curve/v3', 'probability', 'lower_means_ai'), ('raise', 'CalibrationError', 'Isotonic parameters require x and y sequences.')), (('isotonic', 'textforensics.calibration-curve/v3', 'probability', 'bogus'), ('raise', 'CalibrationError', 'Invalid native_score_direction.')), (('isotonic', 'textforensics.calibration-curve/v3', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('isotonic', 'textforensics.calibration-curve/v3', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('isotonic', 'textforensics.calibration-curve/v3', 'logit', 'bogus'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('isotonic', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('isotonic', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('isotonic', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('isotonic', 'textforensics.calibration-curve/v3', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('isotonic', 'textforensics.calibration-curve/v3', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('isotonic', 'textforensics.calibration-curve/v3', 'bogus', 'bogus'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('isotonic', 'textforensics.calibration-curve/v2', 'probability', 'higher_means_ai'), ('raise', 'CalibrationError', 'Isotonic parameters require x and y sequences.')), (('isotonic', 'textforensics.calibration-curve/v2', 'probability', 'lower_means_ai'), ('raise', 'CalibrationError', 'Isotonic parameters require x and y sequences.')), (('isotonic', 'textforensics.calibration-curve/v2', 'probability', 'bogus'), ('raise', 'CalibrationError', 'Invalid native_score_direction.')), (('isotonic', 'textforensics.calibration-curve/v2', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('isotonic', 'textforensics.calibration-curve/v2', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('isotonic', 'textforensics.calibration-curve/v2', 'logit', 'bogus'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('isotonic', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('isotonic', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('isotonic', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('isotonic', 'textforensics.calibration-curve/v2', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('isotonic', 'textforensics.calibration-curve/v2', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('isotonic', 'textforensics.calibration-curve/v2', 'bogus', 'bogus'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('isotonic', 'wrong', 'probability', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('isotonic', 'wrong', 'probability', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('isotonic', 'wrong', 'probability', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('isotonic', 'wrong', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('isotonic', 'wrong', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('isotonic', 'wrong', 'logit', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('isotonic', 'wrong', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('isotonic', 'wrong', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('isotonic', 'wrong', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('isotonic', 'wrong', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('isotonic', 'wrong', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('isotonic', 'wrong', 'bogus', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('beta', 'textforensics.calibration-curve/v3', 'probability', 'higher_means_ai'), ('raise', 'CalibrationError', 'parameters.a must be a finite number.')), (('beta', 'textforensics.calibration-curve/v3', 'probability', 'lower_means_ai'), ('raise', 'CalibrationError', 'parameters.a must be a finite number.')), (('beta', 'textforensics.calibration-curve/v3', 'probability', 'bogus'), ('raise', 'CalibrationError', 'Invalid native_score_direction.')), (('beta', 'textforensics.calibration-curve/v3', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('beta', 'textforensics.calibration-curve/v3', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('beta', 'textforensics.calibration-curve/v3', 'logit', 'bogus'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('beta', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('beta', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('beta', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('beta', 'textforensics.calibration-curve/v3', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('beta', 'textforensics.calibration-curve/v3', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('beta', 'textforensics.calibration-curve/v3', 'bogus', 'bogus'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('beta', 'textforensics.calibration-curve/v2', 'probability', 'higher_means_ai'), ('raise', 'CalibrationError', 'parameters.a must be a finite number.')), (('beta', 'textforensics.calibration-curve/v2', 'probability', 'lower_means_ai'), ('raise', 'CalibrationError', 'parameters.a must be a finite number.')), (('beta', 'textforensics.calibration-curve/v2', 'probability', 'bogus'), ('raise', 'CalibrationError', 'Invalid native_score_direction.')), (('beta', 'textforensics.calibration-curve/v2', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('beta', 'textforensics.calibration-curve/v2', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('beta', 'textforensics.calibration-curve/v2', 'logit', 'bogus'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('beta', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('beta', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('beta', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('beta', 'textforensics.calibration-curve/v2', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('beta', 'textforensics.calibration-curve/v2', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('beta', 'textforensics.calibration-curve/v2', 'bogus', 'bogus'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('beta', 'wrong', 'probability', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('beta', 'wrong', 'probability', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('beta', 'wrong', 'probability', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('beta', 'wrong', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('beta', 'wrong', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('beta', 'wrong', 'logit', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('beta', 'wrong', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('beta', 'wrong', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('beta', 'wrong', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('beta', 'wrong', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('beta', 'wrong', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('beta', 'wrong', 'bogus', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('identity', 'textforensics.calibration-curve/v3', 'probability', 'higher_means_ai'), ('raise', 'CalibrationError', 'Identity calibration takes no parameters.')), (('identity', 'textforensics.calibration-curve/v3', 'probability', 'lower_means_ai'), ('raise', 'CalibrationError', 'Identity calibration takes no parameters.')), (('identity', 'textforensics.calibration-curve/v3', 'probability', 'bogus'), ('raise', 'CalibrationError', 'Invalid native_score_direction.')), (('identity', 'textforensics.calibration-curve/v3', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('identity', 'textforensics.calibration-curve/v3', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('identity', 'textforensics.calibration-curve/v3', 'logit', 'bogus'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('identity', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('identity', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('identity', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('identity', 'textforensics.calibration-curve/v3', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('identity', 'textforensics.calibration-curve/v3', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('identity', 'textforensics.calibration-curve/v3', 'bogus', 'bogus'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('identity', 'textforensics.calibration-curve/v2', 'probability', 'higher_means_ai'), ('raise', 'CalibrationError', 'Identity calibration takes no parameters.')), (('identity', 'textforensics.calibration-curve/v2', 'probability', 'lower_means_ai'), ('raise', 'CalibrationError', 'Identity calibration takes no parameters.')), (('identity', 'textforensics.calibration-curve/v2', 'probability', 'bogus'), ('raise', 'CalibrationError', 'Invalid native_score_direction.')), (('identity', 'textforensics.calibration-curve/v2', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('identity', 'textforensics.calibration-curve/v2', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('identity', 'textforensics.calibration-curve/v2', 'logit', 'bogus'), ('raise', 'CalibrationError', 'Logit input semantics are only defined for temperature calibration; other methods take probability-domain inputs.')), (('identity', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('identity', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('identity', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', 'The legacy_raw_score input semantics are only available for v2 temperature curves loaded from stored artifacts.')), (('identity', 'textforensics.calibration-curve/v2', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('identity', 'textforensics.calibration-curve/v2', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('identity', 'textforensics.calibration-curve/v2', 'bogus', 'bogus'), ('raise', 'CalibrationError', "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'.")), (('identity', 'wrong', 'probability', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('identity', 'wrong', 'probability', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('identity', 'wrong', 'probability', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('identity', 'wrong', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('identity', 'wrong', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('identity', 'wrong', 'logit', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('identity', 'wrong', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('identity', 'wrong', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('identity', 'wrong', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('identity', 'wrong', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('identity', 'wrong', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('identity', 'wrong', 'bogus', 'bogus'), ('raise', 'CalibrationError', 'Unsupported calibration-curve schema.')), (('unknown', 'textforensics.calibration-curve/v3', 'probability', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v3', 'probability', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v3', 'probability', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v3', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v3', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v3', 'logit', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v3', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v3', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v3', 'bogus', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v2', 'probability', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v2', 'probability', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v2', 'probability', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v2', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v2', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v2', 'logit', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v2', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v2', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'textforensics.calibration-curve/v2', 'bogus', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'wrong', 'probability', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'wrong', 'probability', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'wrong', 'probability', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'wrong', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'wrong', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'wrong', 'logit', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'wrong', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'wrong', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'wrong', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'wrong', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'wrong', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('unknown', 'wrong', 'bogus', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method 'unknown'; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v3', 'probability', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v3', 'probability', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v3', 'probability', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v3', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v3', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v3', 'logit', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v3', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v3', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v3', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v3', 'bogus', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v2', 'probability', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v2', 'probability', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v2', 'probability', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v2', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v2', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v2', 'logit', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v2', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v2', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v2', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'textforensics.calibration-curve/v2', 'bogus', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'wrong', 'probability', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'wrong', 'probability', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'wrong', 'probability', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'wrong', 'logit', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'wrong', 'logit', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'wrong', 'logit', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'wrong', 'legacy_raw_score', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'wrong', 'legacy_raw_score', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'wrong', 'legacy_raw_score', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'wrong', 'bogus', 'higher_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'wrong', 'bogus', 'lower_means_ai'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature.")), (('', 'wrong', 'bogus', 'bogus'), ('raise', 'CalibrationError', "Unsupported calibration method ''; expected one of beta, identity, isotonic, platt, temperature."))]
+EXPECTED_PROBE_CAL_STORE = [
+    ("store-identity", ("ok", "det1:cal1", "cal1")),
+    (
+        "store-id-aaa",
+        ("raise", "CalibrationError", "identity.detector_id does not match detector_id."),
+    ),
+    (
+        "store-id-zzz",
+        ("raise", "CalibrationError", "identity.detector_id does not match detector_id."),
+    ),
+    (
+        "store-ver-099",
+        ("raise", "CalibrationError", "identity.detector_version does not match detector_version."),
+    ),
+    (
+        "store-ver-200",
+        ("raise", "CalibrationError", "identity.detector_version does not match detector_version."),
+    ),
+    (
+        "store-cal-aaa",
+        ("raise", "CalibrationError", "identity.calibration_id does not match calibration_id."),
+    ),
+    (
+        "store-cal-zzz",
+        ("raise", "CalibrationError", "identity.calibration_id does not match calibration_id."),
+    ),
+    ("store-cal-none", ("ok", "cal1")),
+    (
+        "store-prov-aaa",
+        ("raise", "CalibrationError", "identity.provider does not match the explicit provider."),
+    ),
+    (
+        "store-prov-zzz",
+        ("raise", "CalibrationError", "identity.provider does not match the explicit provider."),
+    ),
+    (
+        "store-model-aaa",
+        ("raise", "CalibrationError", "identity.model does not match the explicit model."),
+    ),
+    (
+        "store-model-zzz",
+        ("raise", "CalibrationError", "identity.model does not match the explicit model."),
+    ),
+    (
+        "store-semantics-aaa",
+        (
+            "raise",
+            "CalibrationError",
+            "identity.native_score_semantics does not match the explicit native_score_semantics.",
+        ),
+    ),
+    (
+        "store-semantics-zzz",
+        (
+            "raise",
+            "CalibrationError",
+            "identity.native_score_semantics does not match the explicit native_score_semantics.",
+        ),
+    ),
+    (
+        "store-regime-aaa",
+        ("raise", "CalibrationError", "identity.regime does not match the explicit regime."),
+    ),
+    (
+        "store-regime-zzz",
+        ("raise", "CalibrationError", "identity.regime does not match the explicit regime."),
+    ),
+    ("score-match", ("ok", "0.6681877721681662")),
+    (
+        "score-id-zzz",
+        ("raise", "CalibrationError", "identity.detector_id does not match detector_id."),
+    ),
+    (
+        "score-id-aaa",
+        ("raise", "CalibrationError", "identity.detector_id does not match detector_id."),
+    ),
+    ("score-id-distinct", ("ok", "0.6681877721681662")),
+    (
+        "score-no-identity",
+        (
+            "raise",
+            "CalibrationError",
+            "An exact InferenceIdentity is required to apply calibration; selecting by detector id alone cannot bind the current detector version, provider, model, configuration or regime. Use get_calibrated_score_for_identity().",
+        ),
+    ),
+    (
+        "result-match",
+        (
+            "ok",
+            "CalibrationResult(value=0.6681877721681662, calibration_id='cal1', status='validated', probability_eligible=True)",
+        ),
+    ),
+    (
+        "result-id-zzz",
+        ("raise", "CalibrationError", "identity.detector_id does not match detector_id."),
+    ),
+    ("result-unvalidated", ("ok", "0.6681877721681662")),
+    ("score-for-identity", ("ok", "0.6681877721681662")),
+    ("score-for-identity-zzz", ("ok", "None")),
+    (
+        "result-for-identity",
+        (
+            "ok",
+            "CalibrationResult(value=0.6681877721681662, calibration_id='cal1', status='validated', probability_eligible=True)",
+        ),
+    ),
+]
 
 
-EXPECTED_PROBE_CAL_STORE = [('store-identity', ('ok', 'det1:cal1', 'cal1')), ('store-id-aaa', ('raise', 'CalibrationError', 'identity.detector_id does not match detector_id.')), ('store-id-zzz', ('raise', 'CalibrationError', 'identity.detector_id does not match detector_id.')), ('store-ver-099', ('raise', 'CalibrationError', 'identity.detector_version does not match detector_version.')), ('store-ver-200', ('raise', 'CalibrationError', 'identity.detector_version does not match detector_version.')), ('store-cal-aaa', ('raise', 'CalibrationError', 'identity.calibration_id does not match calibration_id.')), ('store-cal-zzz', ('raise', 'CalibrationError', 'identity.calibration_id does not match calibration_id.')), ('store-cal-none', ('ok', 'cal1')), ('store-prov-aaa', ('raise', 'CalibrationError', 'identity.provider does not match the explicit provider.')), ('store-prov-zzz', ('raise', 'CalibrationError', 'identity.provider does not match the explicit provider.')), ('store-model-aaa', ('raise', 'CalibrationError', 'identity.model does not match the explicit model.')), ('store-model-zzz', ('raise', 'CalibrationError', 'identity.model does not match the explicit model.')), ('store-semantics-aaa', ('raise', 'CalibrationError', 'identity.native_score_semantics does not match the explicit native_score_semantics.')), ('store-semantics-zzz', ('raise', 'CalibrationError', 'identity.native_score_semantics does not match the explicit native_score_semantics.')), ('store-regime-aaa', ('raise', 'CalibrationError', 'identity.regime does not match the explicit regime.')), ('store-regime-zzz', ('raise', 'CalibrationError', 'identity.regime does not match the explicit regime.')), ('score-match', ('ok', '0.6681877721681662')), ('score-id-zzz', ('raise', 'CalibrationError', 'identity.detector_id does not match detector_id.')), ('score-id-aaa', ('raise', 'CalibrationError', 'identity.detector_id does not match detector_id.')), ('score-id-distinct', ('ok', '0.6681877721681662')), ('score-no-identity', ('raise', 'CalibrationError', 'An exact InferenceIdentity is required to apply calibration; selecting by detector id alone cannot bind the current detector version, provider, model, configuration or regime. Use get_calibrated_score_for_identity().')), ('result-match', ('ok', "CalibrationResult(value=0.6681877721681662, calibration_id='cal1', status='validated', probability_eligible=True)")), ('result-id-zzz', ('raise', 'CalibrationError', 'identity.detector_id does not match detector_id.')), ('result-unvalidated', ('ok', '0.6681877721681662')), ('score-for-identity', ('ok', '0.6681877721681662')), ('score-for-identity-zzz', ('ok', 'None')), ('result-for-identity', ('ok', "CalibrationResult(value=0.6681877721681662, calibration_id='cal1', status='validated', probability_eligible=True)"))]
+EXPECTED_PROBE_CAL_VALIDATE_NO_CONTAMINATION = [
+    (
+        ("identical",),
+        (
+            "ok",
+            "{'valid': False, 'contamination_detected': True, 'calibration_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'test_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'shared_samples': -1, 'shared_hashes': [], 'warning': 'Files are identical; all samples overlap', 'proof': {'schema': 'textforensics.disjointness-proof/v1', 'status': 'contaminated', 'overlap_count': 8, 'group_overlap_count': 8, 'training_count': 8, 'evaluation_count': 8, 'training_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'evaluation_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'errors': []}, 'disjointness_status': 'contaminated', 'group_overlap_count': 8}",
+        ),
+    ),
+    (
+        ("same-content",),
+        (
+            "ok",
+            "{'valid': False, 'contamination_detected': True, 'calibration_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'test_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'shared_samples': -1, 'shared_hashes': [], 'warning': 'Files are identical; all samples overlap', 'proof': {'schema': 'textforensics.disjointness-proof/v1', 'status': 'contaminated', 'overlap_count': 8, 'group_overlap_count': 8, 'training_count': 8, 'evaluation_count': 8, 'training_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'evaluation_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'errors': []}, 'disjointness_status': 'contaminated', 'group_overlap_count': 8}",
+        ),
+    ),
+    (
+        ("extra-row",),
+        (
+            "ok",
+            "{'valid': False, 'contamination_detected': True, 'calibration_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'test_hash': 'daae14551d0359dfc71712a1575959637e8f8f91abeea9bfab2cc59b790686de', 'shared_samples': 8, 'shared_hashes': ['0d82533602249eb0607cbeb311f60df098d68c26e896deb67a880d7c5e0442cc', '1500500d9e5651566b6486fd77075bd8160738117b263f0d5f2a17264d105e9c', '2436b4b385742db954b839aa883525debb3727e6c81c60029102ca5890521dd3', '48264bc53bc9e7fa4f2f41bc0102f1b3312c41de4310ef467d187003e93ff9b8', '53f9ba950ebec904d2689db232133dd89c2064ede5dbfb8586628ef33022279c', '58e64065d774e725c0ac4c6067f4608c669af8960a025ed4cc00a15c40a885c4', '70f8f9f0870a500506acb5851d8195dcdcb8c338ed351687fa4ed9a97817408e', 'cf0b64e53a99989e55817f2a2915a44e22b9e6c06e21687ee251a89de09263a1'], 'proof': {'schema': 'textforensics.disjointness-proof/v1', 'status': 'contaminated', 'overlap_count': 8, 'group_overlap_count': 8, 'training_count': 8, 'evaluation_count': 9, 'training_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'evaluation_hash': 'daae14551d0359dfc71712a1575959637e8f8f91abeea9bfab2cc59b790686de', 'errors': []}, 'disjointness_status': 'contaminated', 'group_overlap_count': 8}",
+        ),
+    ),
+    (
+        ("bad-json-identical",),
+        (
+            "ok",
+            "{'valid': False, 'contamination_detected': True, 'calibration_hash': '65337391be022bb7e3afd0cb9619e4baaa5ca549a8c1771ae5570c6d1dfd2afb', 'test_hash': '65337391be022bb7e3afd0cb9619e4baaa5ca549a8c1771ae5570c6d1dfd2afb', 'shared_samples': -1, 'shared_hashes': [], 'warning': 'Files are identical; all samples overlap', 'proof': {'schema': 'textforensics.disjointness-proof/v1', 'status': 'contaminated', 'overlap_count': 2, 'group_overlap_count': 2, 'training_count': 2, 'evaluation_count': 2, 'training_hash': '65337391be022bb7e3afd0cb9619e4baaa5ca549a8c1771ae5570c6d1dfd2afb', 'evaluation_hash': '65337391be022bb7e3afd0cb9619e4baaa5ca549a8c1771ae5570c6d1dfd2afb', 'errors': []}, 'disjointness_status': 'contaminated', 'group_overlap_count': 2}",
+        ),
+    ),
+    (
+        ("bad-utf8-identical",),
+        ("raise", "ValueError", "A contaminated DisjointnessProof must record overlap."),
+    ),
+    (
+        ("partial-overlap-bad-json",),
+        (
+            "ok",
+            "{'valid': False, 'contamination_detected': True, 'calibration_hash': '2a1a34ef3a5295f62a01f265da98675096d4adac097216a0bb409fb9b758d9c5', 'test_hash': 'fa35c6c722e4a6a14009a2f653aa27b4c8524aabd87bf320ae55cd053064e175', 'shared_samples': 3, 'shared_hashes': ['22cefa64636aa4adbc9cf3ea0b3edca76120dbb95bc66a865542abeb25ee654f', '482f05dd24c14a9297a7e3ff1fae08b9954921521d2044f2ecb7ef7fba3a3c83', '824585fa8bb66cc29071ed5498864ff036e205ab4250089ce8543036f5cab133'], 'proof': {'schema': 'textforensics.disjointness-proof/v1', 'status': 'contaminated', 'overlap_count': 3, 'group_overlap_count': 3, 'training_count': 4, 'evaluation_count': 4, 'training_hash': '2a1a34ef3a5295f62a01f265da98675096d4adac097216a0bb409fb9b758d9c5', 'evaluation_hash': 'fa35c6c722e4a6a14009a2f653aa27b4c8524aabd87bf320ae55cd053064e175', 'errors': ['Line 5 is not valid JSON; skipped', 'Line 5 is not valid JSON; skipped']}, 'disjointness_status': 'contaminated', 'group_overlap_count': 3}",
+        ),
+    ),
+    (
+        ("empty-side",),
+        (
+            "ok",
+            "{'valid': False, 'contamination_detected': False, 'calibration_hash': 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', 'test_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'shared_samples': 0, 'shared_hashes': [], 'proof': {'schema': 'textforensics.disjointness-proof/v1', 'status': 'unknown', 'overlap_count': -1, 'group_overlap_count': -1, 'training_count': 0, 'evaluation_count': 8, 'training_hash': 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', 'evaluation_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'errors': ['An empty dataset cannot prove disjointness.']}, 'disjointness_status': 'unknown', 'group_overlap_count': -1, 'warning': 'An empty dataset cannot prove disjointness.'}",
+        ),
+    ),
+]
 
-
-EXPECTED_PROBE_CAL_VALIDATE_NO_CONTAMINATION = [(('identical',), ('ok', "{'valid': False, 'contamination_detected': True, 'calibration_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'test_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'shared_samples': -1, 'shared_hashes': [], 'warning': 'Files are identical; all samples overlap', 'proof': {'schema': 'textforensics.disjointness-proof/v1', 'status': 'contaminated', 'overlap_count': 8, 'group_overlap_count': 8, 'training_count': 8, 'evaluation_count': 8, 'training_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'evaluation_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'errors': []}, 'disjointness_status': 'contaminated', 'group_overlap_count': 8}")), (('same-content',), ('ok', "{'valid': False, 'contamination_detected': True, 'calibration_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'test_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'shared_samples': -1, 'shared_hashes': [], 'warning': 'Files are identical; all samples overlap', 'proof': {'schema': 'textforensics.disjointness-proof/v1', 'status': 'contaminated', 'overlap_count': 8, 'group_overlap_count': 8, 'training_count': 8, 'evaluation_count': 8, 'training_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'evaluation_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'errors': []}, 'disjointness_status': 'contaminated', 'group_overlap_count': 8}")), (('extra-row',), ('ok', "{'valid': False, 'contamination_detected': True, 'calibration_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'test_hash': 'daae14551d0359dfc71712a1575959637e8f8f91abeea9bfab2cc59b790686de', 'shared_samples': 8, 'shared_hashes': ['0d82533602249eb0607cbeb311f60df098d68c26e896deb67a880d7c5e0442cc', '1500500d9e5651566b6486fd77075bd8160738117b263f0d5f2a17264d105e9c', '2436b4b385742db954b839aa883525debb3727e6c81c60029102ca5890521dd3', '48264bc53bc9e7fa4f2f41bc0102f1b3312c41de4310ef467d187003e93ff9b8', '53f9ba950ebec904d2689db232133dd89c2064ede5dbfb8586628ef33022279c', '58e64065d774e725c0ac4c6067f4608c669af8960a025ed4cc00a15c40a885c4', '70f8f9f0870a500506acb5851d8195dcdcb8c338ed351687fa4ed9a97817408e', 'cf0b64e53a99989e55817f2a2915a44e22b9e6c06e21687ee251a89de09263a1'], 'proof': {'schema': 'textforensics.disjointness-proof/v1', 'status': 'contaminated', 'overlap_count': 8, 'group_overlap_count': 8, 'training_count': 8, 'evaluation_count': 9, 'training_hash': 'bd419b45002a2a157afa27b235b8d292078b65f1f4e06f407826fae9fb72cc6f', 'evaluation_hash': 'daae14551d0359dfc71712a1575959637e8f8f91abeea9bfab2cc59b790686de', 'errors': []}, 'disjointness_status': 'contaminated', 'group_overlap_count': 8}"))]
 
 class TestWorkerFKillCalibration(unittest.TestCase):
     def test_probe_cal_calibrate(self):
         got = probe_cal_calibrate()
         exp = EXPECTED_PROBE_CAL_CALIBRATE
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_cal_evaluate_threshold(self):
         got = probe_cal_evaluate_threshold()
         exp = EXPECTED_PROBE_CAL_EVALUATE_THRESHOLD
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_cal_from_dict(self):
         got = probe_cal_from_dict()
         exp = EXPECTED_PROBE_CAL_FROM_DICT
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_cal_identity(self):
         got = probe_cal_identity()
         exp = EXPECTED_PROBE_CAL_IDENTITY
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_cal_is_legacy(self):
         got = probe_cal_is_legacy()
         exp = EXPECTED_PROBE_CAL_IS_LEGACY
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_cal_migrate(self):
         got = probe_cal_migrate()
         exp = EXPECTED_PROBE_CAL_MIGRATE
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_cal_pipeline(self):
         got = probe_cal_pipeline()
         exp = EXPECTED_PROBE_CAL_PIPELINE
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_cal_post_init(self):
         got = probe_cal_post_init()
         exp = EXPECTED_PROBE_CAL_POST_INIT
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_cal_store(self):
         got = probe_cal_store()
         exp = EXPECTED_PROBE_CAL_STORE
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_cal_validate_no_contamination(self):
         got = probe_cal_validate_no_contamination()
         exp = EXPECTED_PROBE_CAL_VALIDATE_NO_CONTAMINATION
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
 
 if __name__ == "__main__":

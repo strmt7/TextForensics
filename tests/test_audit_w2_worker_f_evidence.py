@@ -24,99 +24,4352 @@ from w2_f_kill_helpers import (
     probe_ev_record_candidate2,
     probe_ev_records_for,
     probe_ev_row_ok,
-    probe_ev_worst_fpr
+    probe_ev_worst_fpr,
 )
 
+EXPECTED_PROBE_EV_ASSESS_COVERAGE = [
+    (
+        ("active", "base"),
+        ["ev-a-1-test"],
+        [
+            ("domain_genre", "partial"),
+            ("editing_revision", "partial"),
+            ("generator_scope", "partial"),
+            ("human_false_positive_evidence", "partial"),
+            ("human_population", "partial"),
+            ("language", "partial"),
+            ("temporal_version_stability", "partial"),
+            ("text_length", "partial"),
+        ],
+        [
+            "Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.",
+            "At least one Trust Map dimension is not fully supported.",
+            "Coverage states describe evidence applicability, not authorship probability.",
+        ],
+    ),
+    (
+        ("retracted", "base"),
+        ["ev-a-1-test"],
+        [
+            ("domain_genre", "unknown"),
+            ("editing_revision", "unknown"),
+            ("generator_scope", "unknown"),
+            ("human_false_positive_evidence", "unknown"),
+            ("human_population", "unknown"),
+            ("language", "unknown"),
+            ("temporal_version_stability", "unknown"),
+            ("text_length", "unknown"),
+        ],
+        [
+            "Record ev-a-1-test is ineligible for support: record status is 'retracted', not 'active'; artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.",
+            "At least one Trust Map dimension is not fully supported.",
+            "Coverage states describe evidence applicability, not authorship probability.",
+        ],
+    ),
+    (
+        ("active", "lang-fr"),
+        ["ev-a-1-test"],
+        [
+            ("domain_genre", "unknown"),
+            ("editing_revision", "unknown"),
+            ("generator_scope", "unknown"),
+            ("human_false_positive_evidence", "unknown"),
+            ("human_population", "unknown"),
+            ("language", "out_of_scope"),
+            ("temporal_version_stability", "unknown"),
+            ("text_length", "unknown"),
+        ],
+        [
+            "Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.",
+            "At least one Trust Map dimension is not fully supported.",
+            "Coverage states describe evidence applicability, not authorship probability.",
+        ],
+    ),
+    (
+        ("active", "words-10"),
+        ["ev-a-1-test"],
+        [
+            ("domain_genre", "unknown"),
+            ("editing_revision", "unknown"),
+            ("generator_scope", "unknown"),
+            ("human_false_positive_evidence", "unknown"),
+            ("human_population", "unknown"),
+            ("language", "unknown"),
+            ("temporal_version_stability", "unknown"),
+            ("text_length", "out_of_scope"),
+        ],
+        [
+            "Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.",
+            "At least one Trust Map dimension is not fully supported.",
+            "Coverage states describe evidence applicability, not authorship probability.",
+        ],
+    ),
+    (
+        ("empty-registry",),
+        [],
+        [
+            ("domain_genre", "unknown"),
+            ("editing_revision", "unknown"),
+            ("generator_scope", "unknown"),
+            ("human_false_positive_evidence", "unknown"),
+            ("human_population", "unknown"),
+            ("language", "partial"),
+            ("temporal_version_stability", "unknown"),
+            ("text_length", "partial"),
+        ],
+        [
+            "No registered validation evidence for this detector version.",
+            "At least one Trust Map dimension is not fully supported.",
+            "Coverage states describe evidence applicability, not authorship probability.",
+        ],
+    ),
+    (
+        ("retracted-then-active",),
+        ["ev-a-1-heldout", "ev-a-1-test"],
+        [
+            ("domain_genre", "partial"),
+            ("editing_revision", "partial"),
+            ("generator_scope", "partial"),
+            ("human_false_positive_evidence", "partial"),
+            ("human_population", "partial"),
+            ("language", "partial"),
+            ("temporal_version_stability", "partial"),
+            ("text_length", "partial"),
+        ],
+        [
+            "Record ev-a-1-heldout is ineligible for support: artifact verification failed for record 'ev-a-1-heldout': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.",
+            "Record ev-a-1-test is ineligible for support: record status is 'retracted', not 'active'; artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.",
+            "At least one Trust Map dimension is not fully supported.",
+            "Coverage states describe evidence applicability, not authorship probability.",
+        ],
+    ),
+    (
+        ("active-then-retracted",),
+        ["ev-a-1-heldout", "ev-a-1-test"],
+        [
+            ("domain_genre", "partial"),
+            ("editing_revision", "partial"),
+            ("generator_scope", "partial"),
+            ("human_false_positive_evidence", "partial"),
+            ("human_population", "partial"),
+            ("language", "partial"),
+            ("temporal_version_stability", "partial"),
+            ("text_length", "partial"),
+        ],
+        [
+            "Record ev-a-1-heldout is ineligible for support: record status is 'retracted', not 'active'; artifact verification failed for record 'ev-a-1-heldout': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.",
+            "Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.",
+            "At least one Trust Map dimension is not fully supported.",
+            "Coverage states describe evidence applicability, not authorship probability.",
+        ],
+    ),
+    (
+        ("thin-then-adequate",),
+        ["ev-a-1-heldout", "ev-a-1-test"],
+        [
+            ("domain_genre", "partial"),
+            ("editing_revision", "partial"),
+            ("generator_scope", "partial"),
+            ("human_false_positive_evidence", "partial"),
+            ("human_population", "partial"),
+            ("language", "partial"),
+            ("temporal_version_stability", "partial"),
+            ("text_length", "partial"),
+        ],
+        [
+            "Record ev-a-1-heldout is ineligible for support: artifact verification failed for record 'ev-a-1-heldout': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.",
+            "Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json; no slice meets the sample floor (100 human + 100 AI samples).",
+            "At least one Trust Map dimension is not fully supported.",
+            "Coverage states describe evidence applicability, not authorship probability.",
+        ],
+    ),
+    (
+        ("adequate-then-thin",),
+        ["ev-a-1-heldout", "ev-a-1-test"],
+        [
+            ("domain_genre", "partial"),
+            ("editing_revision", "partial"),
+            ("generator_scope", "partial"),
+            ("human_false_positive_evidence", "partial"),
+            ("human_population", "partial"),
+            ("language", "partial"),
+            ("temporal_version_stability", "partial"),
+            ("text_length", "partial"),
+        ],
+        [
+            "Record ev-a-1-heldout is ineligible for support: artifact verification failed for record 'ev-a-1-heldout': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json; no slice meets the sample floor (100 human + 100 AI samples).",
+            "Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.",
+            "At least one Trust Map dimension is not fully supported.",
+            "Coverage states describe evidence applicability, not authorship probability.",
+        ],
+    ),
+    (("max-age-0",), ("raise", "ValueError", "max_age_days must be positive.")),
+    (
+        ("max-age-1",),
+        ["ev-a-1-heldout", "ev-a-1-test"],
+        [
+            ("domain_genre", "unknown"),
+            ("editing_revision", "unknown"),
+            ("generator_scope", "unknown"),
+            ("human_false_positive_evidence", "unknown"),
+            ("human_population", "unknown"),
+            ("language", "unknown"),
+            ("temporal_version_stability", "unknown"),
+            ("text_length", "unknown"),
+        ],
+        [
+            "Record ev-a-1-heldout is ineligible for support: artifact verification failed for record 'ev-a-1-heldout': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json; record is stale (age 5.0 days exceeds max_age_days 1); no slice meets the sample floor (100 human + 100 AI samples).",
+            "Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json; record is stale (age 5.0 days exceeds max_age_days 1).",
+            "At least one Trust Map dimension is not fully supported.",
+            "Coverage states describe evidence applicability, not authorship probability.",
+        ],
+    ),
+    (
+        ("max-age-2",),
+        ["ev-a-1-heldout", "ev-a-1-test"],
+        [
+            ("domain_genre", "unknown"),
+            ("editing_revision", "unknown"),
+            ("generator_scope", "unknown"),
+            ("human_false_positive_evidence", "unknown"),
+            ("human_population", "unknown"),
+            ("language", "unknown"),
+            ("temporal_version_stability", "unknown"),
+            ("text_length", "unknown"),
+        ],
+        [
+            "Record ev-a-1-heldout is ineligible for support: artifact verification failed for record 'ev-a-1-heldout': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json; record is stale (age 5.0 days exceeds max_age_days 2); no slice meets the sample floor (100 human + 100 AI samples).",
+            "Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json; record is stale (age 5.0 days exceeds max_age_days 2).",
+            "At least one Trust Map dimension is not fully supported.",
+            "Coverage states describe evidence applicability, not authorship probability.",
+        ],
+    ),
+    (("fpr-ceiling-0",), ("raise", "ValueError", "fpr_ceiling must be in (0, 1].")),
+    (
+        ("fpr-ceiling-1",),
+        ["ev-a-1-heldout", "ev-a-1-test"],
+        [
+            ("domain_genre", "partial"),
+            ("editing_revision", "partial"),
+            ("generator_scope", "partial"),
+            ("human_false_positive_evidence", "partial"),
+            ("human_population", "partial"),
+            ("language", "partial"),
+            ("temporal_version_stability", "partial"),
+            ("text_length", "partial"),
+        ],
+        [
+            "Record ev-a-1-heldout is ineligible for support: artifact verification failed for record 'ev-a-1-heldout': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json; no slice meets the sample floor (100 human + 100 AI samples).",
+            "Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.",
+            "At least one Trust Map dimension is not fully supported.",
+            "Coverage states describe evidence applicability, not authorship probability.",
+        ],
+    ),
+    (("fpr-ceiling-1.5",), ("raise", "ValueError", "fpr_ceiling must be in (0, 1].")),
+    (("fpr-ceiling-neg",), ("raise", "ValueError", "fpr_ceiling must be in (0, 1].")),
+    (
+        ("unbound-identity",),
+        ["ev-a-1-heldout", "ev-a-1-test"],
+        [
+            ("domain_genre", "partial"),
+            ("editing_revision", "partial"),
+            ("generator_scope", "partial"),
+            ("human_false_positive_evidence", "partial"),
+            ("human_population", "partial"),
+            ("language", "partial"),
+            ("temporal_version_stability", "partial"),
+            ("text_length", "partial"),
+        ],
+        [
+            "Record ev-a-1-heldout is ineligible for support: artifact verification failed for record 'ev-a-1-heldout': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json; no slice meets the sample floor (100 human + 100 AI samples).",
+            "Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.",
+            "Identity components not attested by v1 records: config_hash, model, native_score_semantics, provider.",
+            "At least one Trust Map dimension is not fully supported.",
+            "Coverage states describe evidence applicability, not authorship probability.",
+        ],
+    ),
+]
 
-EXPECTED_PROBE_EV_ASSESS_COVERAGE = [(('active', 'base'), ['ev-a-1-test'], [('domain_genre', 'partial'), ('editing_revision', 'partial'), ('generator_scope', 'partial'), ('human_false_positive_evidence', 'partial'), ('human_population', 'partial'), ('language', 'partial'), ('temporal_version_stability', 'partial'), ('text_length', 'partial')], ["Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.", 'At least one Trust Map dimension is not fully supported.', 'Coverage states describe evidence applicability, not authorship probability.']), (('retracted', 'base'), ['ev-a-1-test'], [('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('human_population', 'unknown'), ('language', 'unknown'), ('temporal_version_stability', 'unknown'), ('text_length', 'unknown')], ["Record ev-a-1-test is ineligible for support: record status is 'retracted', not 'active'; artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.", 'At least one Trust Map dimension is not fully supported.', 'Coverage states describe evidence applicability, not authorship probability.']), (('active', 'lang-fr'), ['ev-a-1-test'], [('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('human_population', 'unknown'), ('language', 'out_of_scope'), ('temporal_version_stability', 'unknown'), ('text_length', 'unknown')], ["Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.", 'At least one Trust Map dimension is not fully supported.', 'Coverage states describe evidence applicability, not authorship probability.']), (('active', 'words-10'), ['ev-a-1-test'], [('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('human_population', 'unknown'), ('language', 'unknown'), ('temporal_version_stability', 'unknown'), ('text_length', 'out_of_scope')], ["Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.", 'At least one Trust Map dimension is not fully supported.', 'Coverage states describe evidence applicability, not authorship probability.']), (('empty-registry',), [], [('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('human_population', 'unknown'), ('language', 'partial'), ('temporal_version_stability', 'unknown'), ('text_length', 'partial')], ['No registered validation evidence for this detector version.', 'At least one Trust Map dimension is not fully supported.', 'Coverage states describe evidence applicability, not authorship probability.']), (('retracted-then-active',), ['ev-a-1-heldout', 'ev-a-1-test'], [('domain_genre', 'partial'), ('editing_revision', 'partial'), ('generator_scope', 'partial'), ('human_false_positive_evidence', 'partial'), ('human_population', 'partial'), ('language', 'partial'), ('temporal_version_stability', 'partial'), ('text_length', 'partial')], ["Record ev-a-1-heldout is ineligible for support: artifact verification failed for record 'ev-a-1-heldout': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.", "Record ev-a-1-test is ineligible for support: record status is 'retracted', not 'active'; artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.", 'At least one Trust Map dimension is not fully supported.', 'Coverage states describe evidence applicability, not authorship probability.']), (('active-then-retracted',), ['ev-a-1-heldout', 'ev-a-1-test'], [('domain_genre', 'partial'), ('editing_revision', 'partial'), ('generator_scope', 'partial'), ('human_false_positive_evidence', 'partial'), ('human_population', 'partial'), ('language', 'partial'), ('temporal_version_stability', 'partial'), ('text_length', 'partial')], ["Record ev-a-1-heldout is ineligible for support: record status is 'retracted', not 'active'; artifact verification failed for record 'ev-a-1-heldout': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.", "Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.", 'At least one Trust Map dimension is not fully supported.', 'Coverage states describe evidence applicability, not authorship probability.']), (('thin-then-adequate',), ['ev-a-1-heldout', 'ev-a-1-test'], [('domain_genre', 'partial'), ('editing_revision', 'partial'), ('generator_scope', 'partial'), ('human_false_positive_evidence', 'partial'), ('human_population', 'partial'), ('language', 'partial'), ('temporal_version_stability', 'partial'), ('text_length', 'partial')], ["Record ev-a-1-heldout is ineligible for support: artifact verification failed for record 'ev-a-1-heldout': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.", "Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json; no slice meets the sample floor (100 human + 100 AI samples).", 'At least one Trust Map dimension is not fully supported.', 'Coverage states describe evidence applicability, not authorship probability.']), (('adequate-then-thin',), ['ev-a-1-heldout', 'ev-a-1-test'], [('domain_genre', 'partial'), ('editing_revision', 'partial'), ('generator_scope', 'partial'), ('human_false_positive_evidence', 'partial'), ('human_population', 'partial'), ('language', 'partial'), ('temporal_version_stability', 'partial'), ('text_length', 'partial')], ["Record ev-a-1-heldout is ineligible for support: artifact verification failed for record 'ev-a-1-heldout': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json; no slice meets the sample floor (100 human + 100 AI samples).", "Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.", 'At least one Trust Map dimension is not fully supported.', 'Coverage states describe evidence applicability, not authorship probability.']), (('max-age-0',), ('raise', 'ValueError', 'max_age_days must be positive.')), (('max-age-1',), ['ev-a-1-heldout', 'ev-a-1-test'], [('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('human_population', 'unknown'), ('language', 'unknown'), ('temporal_version_stability', 'unknown'), ('text_length', 'unknown')], ["Record ev-a-1-heldout is ineligible for support: artifact verification failed for record 'ev-a-1-heldout': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json; record is stale (age 5.0 days exceeds max_age_days 1); no slice meets the sample floor (100 human + 100 AI samples).", "Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json; record is stale (age 5.0 days exceeds max_age_days 1).", 'At least one Trust Map dimension is not fully supported.', 'Coverage states describe evidence applicability, not authorship probability.']), (('max-age-2',), ['ev-a-1-heldout', 'ev-a-1-test'], [('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('human_population', 'unknown'), ('language', 'unknown'), ('temporal_version_stability', 'unknown'), ('text_length', 'unknown')], ["Record ev-a-1-heldout is ineligible for support: artifact verification failed for record 'ev-a-1-heldout': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json; record is stale (age 5.0 days exceeds max_age_days 2); no slice meets the sample floor (100 human + 100 AI samples).", "Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json; record is stale (age 5.0 days exceeds max_age_days 2).", 'At least one Trust Map dimension is not fully supported.', 'Coverage states describe evidence applicability, not authorship probability.']), (('fpr-ceiling-0',), ('raise', 'ValueError', 'fpr_ceiling must be in (0, 1].')), (('fpr-ceiling-1',), ['ev-a-1-heldout', 'ev-a-1-test'], [('domain_genre', 'partial'), ('editing_revision', 'partial'), ('generator_scope', 'partial'), ('human_false_positive_evidence', 'partial'), ('human_population', 'partial'), ('language', 'partial'), ('temporal_version_stability', 'partial'), ('text_length', 'partial')], ["Record ev-a-1-heldout is ineligible for support: artifact verification failed for record 'ev-a-1-heldout': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json; no slice meets the sample floor (100 human + 100 AI samples).", "Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.", 'At least one Trust Map dimension is not fully supported.', 'Coverage states describe evidence applicability, not authorship probability.']), (('fpr-ceiling-1.5',), ('raise', 'ValueError', 'fpr_ceiling must be in (0, 1].')), (('fpr-ceiling-neg',), ('raise', 'ValueError', 'fpr_ceiling must be in (0, 1].')), (('unbound-identity',), ['ev-a-1-heldout', 'ev-a-1-test'], [('domain_genre', 'partial'), ('editing_revision', 'partial'), ('generator_scope', 'partial'), ('human_false_positive_evidence', 'partial'), ('human_population', 'partial'), ('language', 'partial'), ('temporal_version_stability', 'partial'), ('text_length', 'partial')], ["Record ev-a-1-heldout is ineligible for support: artifact verification failed for record 'ev-a-1-heldout': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json; no slice meets the sample floor (100 human + 100 AI samples).", "Record ev-a-1-test is ineligible for support: artifact verification failed for record 'ev-a-1-test': benchmark_artifact hash mismatch: data/raid.jsonl; run_artifact hash mismatch: runs/1.json.", 'Identity components not attested by v1 records: config_hash, model, native_score_semantics, provider.', 'At least one Trust Map dimension is not fully supported.', 'Coverage states describe evidence applicability, not authorship probability.'])]
+
+EXPECTED_PROBE_EV_CHECK_ELIGIBILITY = [
+    (
+        ("active", "2026-11-01T00:00:00Z", "human_only", "verified"),
+        ("ok", False, ["artifact integrity is unverified (no verification supplied)"], []),
+    ),
+    (
+        ("active", "2026-11-01T00:00:00Z", "human_only", "unknown"),
+        (
+            "ok",
+            False,
+            [
+                "disjointness status is 'unknown', not 'verified'",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("active", "2026-11-01T00:00:00Z", "human_only", "contaminated"),
+        (
+            "ok",
+            False,
+            [
+                "disjointness status is 'contaminated', not 'verified'",
+                "disjointness overlap_count is 1, not 0",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("active", "2026-11-01T00:00:00Z", "human_only", None),
+        (
+            "ok",
+            False,
+            [
+                "no disjointness proof supplied (contamination state unknown)",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("active", "2026-11-01T00:00:00Z", "raw", "verified"),
+        (
+            "ok",
+            False,
+            [
+                "identity regime 'raw' is not declared by any record slice",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("active", "2026-11-01T00:00:00Z", "raw", "unknown"),
+        (
+            "ok",
+            False,
+            [
+                "identity regime 'raw' is not declared by any record slice",
+                "disjointness status is 'unknown', not 'verified'",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("active", "2026-11-01T00:00:00Z", "raw", "contaminated"),
+        (
+            "ok",
+            False,
+            [
+                "identity regime 'raw' is not declared by any record slice",
+                "disjointness status is 'contaminated', not 'verified'",
+                "disjointness overlap_count is 1, not 0",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("active", "2026-11-01T00:00:00Z", "raw", None),
+        (
+            "ok",
+            False,
+            [
+                "identity regime 'raw' is not declared by any record slice",
+                "no disjointness proof supplied (contamination state unknown)",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("active", "2026-01-01T00:00:00Z", "human_only", "verified"),
+        (
+            "ok",
+            False,
+            [
+                "artifact integrity is unverified (no verification supplied)",
+                "record is stale (age 314.0 days exceeds max_age_days 30)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("active", "2026-01-01T00:00:00Z", "human_only", "unknown"),
+        (
+            "ok",
+            False,
+            [
+                "disjointness status is 'unknown', not 'verified'",
+                "artifact integrity is unverified (no verification supplied)",
+                "record is stale (age 314.0 days exceeds max_age_days 30)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("active", "2026-01-01T00:00:00Z", "human_only", "contaminated"),
+        (
+            "ok",
+            False,
+            [
+                "disjointness status is 'contaminated', not 'verified'",
+                "disjointness overlap_count is 1, not 0",
+                "artifact integrity is unverified (no verification supplied)",
+                "record is stale (age 314.0 days exceeds max_age_days 30)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("active", "2026-01-01T00:00:00Z", "human_only", None),
+        (
+            "ok",
+            False,
+            [
+                "no disjointness proof supplied (contamination state unknown)",
+                "artifact integrity is unverified (no verification supplied)",
+                "record is stale (age 314.0 days exceeds max_age_days 30)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("active", "2026-01-01T00:00:00Z", "raw", "verified"),
+        (
+            "ok",
+            False,
+            [
+                "identity regime 'raw' is not declared by any record slice",
+                "artifact integrity is unverified (no verification supplied)",
+                "record is stale (age 314.0 days exceeds max_age_days 30)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("active", "2026-01-01T00:00:00Z", "raw", "unknown"),
+        (
+            "ok",
+            False,
+            [
+                "identity regime 'raw' is not declared by any record slice",
+                "disjointness status is 'unknown', not 'verified'",
+                "artifact integrity is unverified (no verification supplied)",
+                "record is stale (age 314.0 days exceeds max_age_days 30)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("active", "2026-01-01T00:00:00Z", "raw", "contaminated"),
+        (
+            "ok",
+            False,
+            [
+                "identity regime 'raw' is not declared by any record slice",
+                "disjointness status is 'contaminated', not 'verified'",
+                "disjointness overlap_count is 1, not 0",
+                "artifact integrity is unverified (no verification supplied)",
+                "record is stale (age 314.0 days exceeds max_age_days 30)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("active", "2026-01-01T00:00:00Z", "raw", None),
+        (
+            "ok",
+            False,
+            [
+                "identity regime 'raw' is not declared by any record slice",
+                "no disjointness proof supplied (contamination state unknown)",
+                "artifact integrity is unverified (no verification supplied)",
+                "record is stale (age 314.0 days exceeds max_age_days 30)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("retracted", "2026-11-01T00:00:00Z", "human_only", "verified"),
+        (
+            "ok",
+            False,
+            [
+                "record status is 'retracted', not 'active'",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("retracted", "2026-11-01T00:00:00Z", "human_only", "unknown"),
+        (
+            "ok",
+            False,
+            [
+                "record status is 'retracted', not 'active'",
+                "disjointness status is 'unknown', not 'verified'",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("retracted", "2026-11-01T00:00:00Z", "human_only", "contaminated"),
+        (
+            "ok",
+            False,
+            [
+                "record status is 'retracted', not 'active'",
+                "disjointness status is 'contaminated', not 'verified'",
+                "disjointness overlap_count is 1, not 0",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("retracted", "2026-11-01T00:00:00Z", "human_only", None),
+        (
+            "ok",
+            False,
+            [
+                "record status is 'retracted', not 'active'",
+                "no disjointness proof supplied (contamination state unknown)",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("retracted", "2026-11-01T00:00:00Z", "raw", "verified"),
+        (
+            "ok",
+            False,
+            [
+                "record status is 'retracted', not 'active'",
+                "identity regime 'raw' is not declared by any record slice",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("retracted", "2026-11-01T00:00:00Z", "raw", "unknown"),
+        (
+            "ok",
+            False,
+            [
+                "record status is 'retracted', not 'active'",
+                "identity regime 'raw' is not declared by any record slice",
+                "disjointness status is 'unknown', not 'verified'",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("retracted", "2026-11-01T00:00:00Z", "raw", "contaminated"),
+        (
+            "ok",
+            False,
+            [
+                "record status is 'retracted', not 'active'",
+                "identity regime 'raw' is not declared by any record slice",
+                "disjointness status is 'contaminated', not 'verified'",
+                "disjointness overlap_count is 1, not 0",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("retracted", "2026-11-01T00:00:00Z", "raw", None),
+        (
+            "ok",
+            False,
+            [
+                "record status is 'retracted', not 'active'",
+                "identity regime 'raw' is not declared by any record slice",
+                "no disjointness proof supplied (contamination state unknown)",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("retracted", "2026-01-01T00:00:00Z", "human_only", "verified"),
+        (
+            "ok",
+            False,
+            [
+                "record status is 'retracted', not 'active'",
+                "artifact integrity is unverified (no verification supplied)",
+                "record is stale (age 314.0 days exceeds max_age_days 30)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("retracted", "2026-01-01T00:00:00Z", "human_only", "unknown"),
+        (
+            "ok",
+            False,
+            [
+                "record status is 'retracted', not 'active'",
+                "disjointness status is 'unknown', not 'verified'",
+                "artifact integrity is unverified (no verification supplied)",
+                "record is stale (age 314.0 days exceeds max_age_days 30)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("retracted", "2026-01-01T00:00:00Z", "human_only", "contaminated"),
+        (
+            "ok",
+            False,
+            [
+                "record status is 'retracted', not 'active'",
+                "disjointness status is 'contaminated', not 'verified'",
+                "disjointness overlap_count is 1, not 0",
+                "artifact integrity is unverified (no verification supplied)",
+                "record is stale (age 314.0 days exceeds max_age_days 30)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("retracted", "2026-01-01T00:00:00Z", "human_only", None),
+        (
+            "ok",
+            False,
+            [
+                "record status is 'retracted', not 'active'",
+                "no disjointness proof supplied (contamination state unknown)",
+                "artifact integrity is unverified (no verification supplied)",
+                "record is stale (age 314.0 days exceeds max_age_days 30)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("retracted", "2026-01-01T00:00:00Z", "raw", "verified"),
+        (
+            "ok",
+            False,
+            [
+                "record status is 'retracted', not 'active'",
+                "identity regime 'raw' is not declared by any record slice",
+                "artifact integrity is unverified (no verification supplied)",
+                "record is stale (age 314.0 days exceeds max_age_days 30)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("retracted", "2026-01-01T00:00:00Z", "raw", "unknown"),
+        (
+            "ok",
+            False,
+            [
+                "record status is 'retracted', not 'active'",
+                "identity regime 'raw' is not declared by any record slice",
+                "disjointness status is 'unknown', not 'verified'",
+                "artifact integrity is unverified (no verification supplied)",
+                "record is stale (age 314.0 days exceeds max_age_days 30)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("retracted", "2026-01-01T00:00:00Z", "raw", "contaminated"),
+        (
+            "ok",
+            False,
+            [
+                "record status is 'retracted', not 'active'",
+                "identity regime 'raw' is not declared by any record slice",
+                "disjointness status is 'contaminated', not 'verified'",
+                "disjointness overlap_count is 1, not 0",
+                "artifact integrity is unverified (no verification supplied)",
+                "record is stale (age 314.0 days exceeds max_age_days 30)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("retracted", "2026-01-01T00:00:00Z", "raw", None),
+        (
+            "ok",
+            False,
+            [
+                "record status is 'retracted', not 'active'",
+                "identity regime 'raw' is not declared by any record slice",
+                "no disjointness proof supplied (contamination state unknown)",
+                "artifact integrity is unverified (no verification supplied)",
+                "record is stale (age 314.0 days exceeds max_age_days 30)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("active", "2026-11-01T00:00:00Z", "human_only", "verified-*"),
+        (
+            "ok",
+            False,
+            [
+                "record detector_version is a wildcard '*', not an exact version",
+                "identity detector_version '1' does not match record detector_version '*'",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("active", "2026-11-01T00:00:00Z", "human_only", "verified-0-400"),
+        (
+            "ok",
+            False,
+            [
+                "disjointness proof has an empty training or evaluation set",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("active", "2026-11-01T00:00:00Z", "human_only", "verified-1000-0"),
+        (
+            "ok",
+            False,
+            [
+                "disjointness proof has an empty training or evaluation set",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("id-aaa",),
+        (
+            "ok",
+            False,
+            [
+                "identity detector_id 'aaa' does not match record detector_id 'det'",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("id-zzz",),
+        (
+            "ok",
+            False,
+            [
+                "identity detector_id 'zzz' does not match record detector_id 'det'",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("ver-0.9",),
+        (
+            "ok",
+            False,
+            [
+                "identity detector_version '0.9' does not match record detector_version '1'",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("ver-2",),
+        (
+            "ok",
+            False,
+            [
+                "identity detector_version '2' does not match record detector_version '1'",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("rec-ver-bang",),
+        (
+            "ok",
+            False,
+            [
+                "identity detector_version '1' does not match record detector_version '!'",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("rec-ver-0.9",),
+        (
+            "ok",
+            False,
+            [
+                "identity detector_version '1' does not match record detector_version '0.9'",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("overlap-1",),
+        (
+            "ok",
+            False,
+            [
+                "disjointness overlap_count is 1, not 0",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("id-distinct",),
+        ("ok", False, ["artifact integrity is unverified (no verification supplied)"], []),
+    ),
+    (
+        ("ver-distinct",),
+        ("ok", False, ["artifact integrity is unverified (no verification supplied)"], []),
+    ),
+    (
+        ("overlap-neg1-unknown",),
+        (
+            "ok",
+            False,
+            [
+                "disjointness status is 'unknown', not 'verified'",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("train-1",),
+        ("ok", False, ["artifact integrity is unverified (no verification supplied)"], []),
+    ),
+    (
+        ("eval-1",),
+        ("ok", False, ["artifact integrity is unverified (no verification supplied)"], []),
+    ),
+    (
+        ("train-1-eval-1",),
+        ("ok", False, ["artifact integrity is unverified (no verification supplied)"], []),
+    ),
+    (
+        ("eval-hash-diff-lo",),
+        (
+            "ok",
+            False,
+            [
+                "disjointness proof does not bind to this record's benchmark fingerprint",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("eval-hash-diff-hi",),
+        (
+            "ok",
+            False,
+            [
+                "disjointness proof does not bind to this record's benchmark fingerprint",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("eval-hash-none",),
+        (
+            "ok",
+            False,
+            [
+                "disjointness proof does not bind to this record's benchmark fingerprint",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("hashes-equal",),
+        (
+            "ok",
+            False,
+            [
+                "disjointness training and evaluation hashes are not distinct",
+                "artifact integrity is unverified (no verification supplied)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("age-30",),
+        ("ok", False, ["artifact integrity is unverified (no verification supplied)"], []),
+    ),
+    (
+        ("age-31",),
+        (
+            "ok",
+            False,
+            [
+                "artifact integrity is unverified (no verification supplied)",
+                "record is stale (age 31.0 days exceeds max_age_days 30)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("samples-99-120",),
+        (
+            "ok",
+            False,
+            [
+                "artifact integrity is unverified (no verification supplied)",
+                "no slice meets the sample floor (100 human + 100 AI samples)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("samples-100-120",),
+        ("ok", False, ["artifact integrity is unverified (no verification supplied)"], []),
+    ),
+    (
+        ("samples-101-120",),
+        ("ok", False, ["artifact integrity is unverified (no verification supplied)"], []),
+    ),
+    (
+        ("samples-120-99",),
+        (
+            "ok",
+            False,
+            [
+                "artifact integrity is unverified (no verification supplied)",
+                "no slice meets the sample floor (100 human + 100 AI samples)",
+            ],
+            [],
+        ),
+    ),
+    (
+        ("samples-120-100",),
+        ("ok", False, ["artifact integrity is unverified (no verification supplied)"], []),
+    ),
+    (
+        ("samples-120-101",),
+        ("ok", False, ["artifact integrity is unverified (no verification supplied)"], []),
+    ),
+    (
+        ("samples-99-99",),
+        (
+            "ok",
+            False,
+            [
+                "artifact integrity is unverified (no verification supplied)",
+                "no slice meets the sample floor (100 human + 100 AI samples)",
+            ],
+            [],
+        ),
+    ),
+    (("artifact-ok",), ("ok", True, [], [])),
+    (("artifact-fail",), ("ok", False, ["artifact verification failed for record 'ev-1'"], [])),
+    (
+        ("artifact-missing-row",),
+        ("ok", False, ["no artifact verification row for record 'ev-1'"], []),
+    ),
+    (
+        ("artifact-none",),
+        ("ok", False, ["artifact integrity is unverified (no verification supplied)"], []),
+    ),
+    (
+        ("artifact-bad-shape",),
+        ("ok", False, ["artifact verification has an unsupported shape"], []),
+    ),
+]
 
 
-EXPECTED_PROBE_EV_CHECK_ELIGIBILITY = [(('active', '2026-11-01T00:00:00Z', 'human_only', 'verified'), ('ok', False, ['artifact integrity is unverified (no verification supplied)'], [])), (('active', '2026-11-01T00:00:00Z', 'human_only', 'unknown'), ('ok', False, ["disjointness status is 'unknown', not 'verified'", 'artifact integrity is unverified (no verification supplied)'], [])), (('active', '2026-11-01T00:00:00Z', 'human_only', 'contaminated'), ('ok', False, ["disjointness status is 'contaminated', not 'verified'", 'disjointness overlap_count is 1, not 0', 'artifact integrity is unverified (no verification supplied)'], [])), (('active', '2026-11-01T00:00:00Z', 'human_only', None), ('ok', False, ['no disjointness proof supplied (contamination state unknown)', 'artifact integrity is unverified (no verification supplied)'], [])), (('active', '2026-11-01T00:00:00Z', 'raw', 'verified'), ('ok', False, ["identity regime 'raw' is not declared by any record slice", 'artifact integrity is unverified (no verification supplied)'], [])), (('active', '2026-11-01T00:00:00Z', 'raw', 'unknown'), ('ok', False, ["identity regime 'raw' is not declared by any record slice", "disjointness status is 'unknown', not 'verified'", 'artifact integrity is unverified (no verification supplied)'], [])), (('active', '2026-11-01T00:00:00Z', 'raw', 'contaminated'), ('ok', False, ["identity regime 'raw' is not declared by any record slice", "disjointness status is 'contaminated', not 'verified'", 'disjointness overlap_count is 1, not 0', 'artifact integrity is unverified (no verification supplied)'], [])), (('active', '2026-11-01T00:00:00Z', 'raw', None), ('ok', False, ["identity regime 'raw' is not declared by any record slice", 'no disjointness proof supplied (contamination state unknown)', 'artifact integrity is unverified (no verification supplied)'], [])), (('active', '2026-01-01T00:00:00Z', 'human_only', 'verified'), ('ok', False, ['artifact integrity is unverified (no verification supplied)', 'record is stale (age 314.0 days exceeds max_age_days 30)'], [])), (('active', '2026-01-01T00:00:00Z', 'human_only', 'unknown'), ('ok', False, ["disjointness status is 'unknown', not 'verified'", 'artifact integrity is unverified (no verification supplied)', 'record is stale (age 314.0 days exceeds max_age_days 30)'], [])), (('active', '2026-01-01T00:00:00Z', 'human_only', 'contaminated'), ('ok', False, ["disjointness status is 'contaminated', not 'verified'", 'disjointness overlap_count is 1, not 0', 'artifact integrity is unverified (no verification supplied)', 'record is stale (age 314.0 days exceeds max_age_days 30)'], [])), (('active', '2026-01-01T00:00:00Z', 'human_only', None), ('ok', False, ['no disjointness proof supplied (contamination state unknown)', 'artifact integrity is unverified (no verification supplied)', 'record is stale (age 314.0 days exceeds max_age_days 30)'], [])), (('active', '2026-01-01T00:00:00Z', 'raw', 'verified'), ('ok', False, ["identity regime 'raw' is not declared by any record slice", 'artifact integrity is unverified (no verification supplied)', 'record is stale (age 314.0 days exceeds max_age_days 30)'], [])), (('active', '2026-01-01T00:00:00Z', 'raw', 'unknown'), ('ok', False, ["identity regime 'raw' is not declared by any record slice", "disjointness status is 'unknown', not 'verified'", 'artifact integrity is unverified (no verification supplied)', 'record is stale (age 314.0 days exceeds max_age_days 30)'], [])), (('active', '2026-01-01T00:00:00Z', 'raw', 'contaminated'), ('ok', False, ["identity regime 'raw' is not declared by any record slice", "disjointness status is 'contaminated', not 'verified'", 'disjointness overlap_count is 1, not 0', 'artifact integrity is unverified (no verification supplied)', 'record is stale (age 314.0 days exceeds max_age_days 30)'], [])), (('active', '2026-01-01T00:00:00Z', 'raw', None), ('ok', False, ["identity regime 'raw' is not declared by any record slice", 'no disjointness proof supplied (contamination state unknown)', 'artifact integrity is unverified (no verification supplied)', 'record is stale (age 314.0 days exceeds max_age_days 30)'], [])), (('retracted', '2026-11-01T00:00:00Z', 'human_only', 'verified'), ('ok', False, ["record status is 'retracted', not 'active'", 'artifact integrity is unverified (no verification supplied)'], [])), (('retracted', '2026-11-01T00:00:00Z', 'human_only', 'unknown'), ('ok', False, ["record status is 'retracted', not 'active'", "disjointness status is 'unknown', not 'verified'", 'artifact integrity is unverified (no verification supplied)'], [])), (('retracted', '2026-11-01T00:00:00Z', 'human_only', 'contaminated'), ('ok', False, ["record status is 'retracted', not 'active'", "disjointness status is 'contaminated', not 'verified'", 'disjointness overlap_count is 1, not 0', 'artifact integrity is unverified (no verification supplied)'], [])), (('retracted', '2026-11-01T00:00:00Z', 'human_only', None), ('ok', False, ["record status is 'retracted', not 'active'", 'no disjointness proof supplied (contamination state unknown)', 'artifact integrity is unverified (no verification supplied)'], [])), (('retracted', '2026-11-01T00:00:00Z', 'raw', 'verified'), ('ok', False, ["record status is 'retracted', not 'active'", "identity regime 'raw' is not declared by any record slice", 'artifact integrity is unverified (no verification supplied)'], [])), (('retracted', '2026-11-01T00:00:00Z', 'raw', 'unknown'), ('ok', False, ["record status is 'retracted', not 'active'", "identity regime 'raw' is not declared by any record slice", "disjointness status is 'unknown', not 'verified'", 'artifact integrity is unverified (no verification supplied)'], [])), (('retracted', '2026-11-01T00:00:00Z', 'raw', 'contaminated'), ('ok', False, ["record status is 'retracted', not 'active'", "identity regime 'raw' is not declared by any record slice", "disjointness status is 'contaminated', not 'verified'", 'disjointness overlap_count is 1, not 0', 'artifact integrity is unverified (no verification supplied)'], [])), (('retracted', '2026-11-01T00:00:00Z', 'raw', None), ('ok', False, ["record status is 'retracted', not 'active'", "identity regime 'raw' is not declared by any record slice", 'no disjointness proof supplied (contamination state unknown)', 'artifact integrity is unverified (no verification supplied)'], [])), (('retracted', '2026-01-01T00:00:00Z', 'human_only', 'verified'), ('ok', False, ["record status is 'retracted', not 'active'", 'artifact integrity is unverified (no verification supplied)', 'record is stale (age 314.0 days exceeds max_age_days 30)'], [])), (('retracted', '2026-01-01T00:00:00Z', 'human_only', 'unknown'), ('ok', False, ["record status is 'retracted', not 'active'", "disjointness status is 'unknown', not 'verified'", 'artifact integrity is unverified (no verification supplied)', 'record is stale (age 314.0 days exceeds max_age_days 30)'], [])), (('retracted', '2026-01-01T00:00:00Z', 'human_only', 'contaminated'), ('ok', False, ["record status is 'retracted', not 'active'", "disjointness status is 'contaminated', not 'verified'", 'disjointness overlap_count is 1, not 0', 'artifact integrity is unverified (no verification supplied)', 'record is stale (age 314.0 days exceeds max_age_days 30)'], [])), (('retracted', '2026-01-01T00:00:00Z', 'human_only', None), ('ok', False, ["record status is 'retracted', not 'active'", 'no disjointness proof supplied (contamination state unknown)', 'artifact integrity is unverified (no verification supplied)', 'record is stale (age 314.0 days exceeds max_age_days 30)'], [])), (('retracted', '2026-01-01T00:00:00Z', 'raw', 'verified'), ('ok', False, ["record status is 'retracted', not 'active'", "identity regime 'raw' is not declared by any record slice", 'artifact integrity is unverified (no verification supplied)', 'record is stale (age 314.0 days exceeds max_age_days 30)'], [])), (('retracted', '2026-01-01T00:00:00Z', 'raw', 'unknown'), ('ok', False, ["record status is 'retracted', not 'active'", "identity regime 'raw' is not declared by any record slice", "disjointness status is 'unknown', not 'verified'", 'artifact integrity is unverified (no verification supplied)', 'record is stale (age 314.0 days exceeds max_age_days 30)'], [])), (('retracted', '2026-01-01T00:00:00Z', 'raw', 'contaminated'), ('ok', False, ["record status is 'retracted', not 'active'", "identity regime 'raw' is not declared by any record slice", "disjointness status is 'contaminated', not 'verified'", 'disjointness overlap_count is 1, not 0', 'artifact integrity is unverified (no verification supplied)', 'record is stale (age 314.0 days exceeds max_age_days 30)'], [])), (('retracted', '2026-01-01T00:00:00Z', 'raw', None), ('ok', False, ["record status is 'retracted', not 'active'", "identity regime 'raw' is not declared by any record slice", 'no disjointness proof supplied (contamination state unknown)', 'artifact integrity is unverified (no verification supplied)', 'record is stale (age 314.0 days exceeds max_age_days 30)'], [])), (('active', '2026-11-01T00:00:00Z', 'human_only', 'verified-*'), ('ok', False, ["record detector_version is a wildcard '*', not an exact version", "identity detector_version '1' does not match record detector_version '*'", 'artifact integrity is unverified (no verification supplied)'], [])), (('active', '2026-11-01T00:00:00Z', 'human_only', 'verified-0-400'), ('ok', False, ['disjointness proof has an empty training or evaluation set', 'artifact integrity is unverified (no verification supplied)'], [])), (('active', '2026-11-01T00:00:00Z', 'human_only', 'verified-1000-0'), ('ok', False, ['disjointness proof has an empty training or evaluation set', 'artifact integrity is unverified (no verification supplied)'], [])), (('id-aaa',), ('ok', False, ["identity detector_id 'aaa' does not match record detector_id 'det'", 'artifact integrity is unverified (no verification supplied)'], [])), (('id-zzz',), ('ok', False, ["identity detector_id 'zzz' does not match record detector_id 'det'", 'artifact integrity is unverified (no verification supplied)'], [])), (('ver-0.9',), ('ok', False, ["identity detector_version '0.9' does not match record detector_version '1'", 'artifact integrity is unverified (no verification supplied)'], [])), (('ver-2',), ('ok', False, ["identity detector_version '2' does not match record detector_version '1'", 'artifact integrity is unverified (no verification supplied)'], [])), (('rec-ver-bang',), ('ok', False, ["identity detector_version '1' does not match record detector_version '!'", 'artifact integrity is unverified (no verification supplied)'], [])), (('rec-ver-0.9',), ('ok', False, ["identity detector_version '1' does not match record detector_version '0.9'", 'artifact integrity is unverified (no verification supplied)'], [])), (('overlap-1',), ('ok', False, ['disjointness overlap_count is 1, not 0', 'artifact integrity is unverified (no verification supplied)'], [])), (('train-1',), ('ok', False, ['artifact integrity is unverified (no verification supplied)'], [])), (('eval-1',), ('ok', False, ['artifact integrity is unverified (no verification supplied)'], [])), (('train-1-eval-1',), ('ok', False, ['artifact integrity is unverified (no verification supplied)'], [])), (('eval-hash-diff-lo',), ('ok', False, ["disjointness proof does not bind to this record's benchmark fingerprint", 'artifact integrity is unverified (no verification supplied)'], [])), (('eval-hash-diff-hi',), ('ok', False, ["disjointness proof does not bind to this record's benchmark fingerprint", 'artifact integrity is unverified (no verification supplied)'], [])), (('eval-hash-none',), ('ok', False, ["disjointness proof does not bind to this record's benchmark fingerprint", 'artifact integrity is unverified (no verification supplied)'], [])), (('hashes-equal',), ('ok', False, ['disjointness training and evaluation hashes are not distinct', 'artifact integrity is unverified (no verification supplied)'], [])), (('age-30',), ('ok', False, ['artifact integrity is unverified (no verification supplied)'], [])), (('age-31',), ('ok', False, ['artifact integrity is unverified (no verification supplied)', 'record is stale (age 31.0 days exceeds max_age_days 30)'], [])), (('samples-99-120',), ('ok', False, ['artifact integrity is unverified (no verification supplied)', 'no slice meets the sample floor (100 human + 100 AI samples)'], [])), (('samples-100-120',), ('ok', False, ['artifact integrity is unverified (no verification supplied)'], [])), (('samples-101-120',), ('ok', False, ['artifact integrity is unverified (no verification supplied)'], [])), (('samples-120-99',), ('ok', False, ['artifact integrity is unverified (no verification supplied)', 'no slice meets the sample floor (100 human + 100 AI samples)'], [])), (('samples-120-100',), ('ok', False, ['artifact integrity is unverified (no verification supplied)'], [])), (('samples-120-101',), ('ok', False, ['artifact integrity is unverified (no verification supplied)'], [])), (('samples-99-99',), ('ok', False, ['artifact integrity is unverified (no verification supplied)', 'no slice meets the sample floor (100 human + 100 AI samples)'], [])), (('artifact-ok',), ('ok', True, [], [])), (('artifact-fail',), ('ok', False, ["artifact verification failed for record 'ev-1'"], [])), (('artifact-missing-row',), ('ok', False, ["no artifact verification row for record 'ev-1'"], [])), (('artifact-none',), ('ok', False, ['artifact integrity is unverified (no verification supplied)'], [])), (('artifact-bad-shape',), ('ok', False, ['artifact verification has an unsupported shape'], []))]
+EXPECTED_PROBE_EV_COVERAGE_PREDS = [
+    (
+        "one-supported-length",
+        (
+            "ok",
+            [
+                (
+                    "a",
+                    (
+                        ("domain_genre", "partial"),
+                        ("editing_revision", "partial"),
+                        ("generator_scope", "partial"),
+                        ("human_false_positive_evidence", "partial"),
+                        ("human_population", "partial"),
+                        ("language", "partial"),
+                        ("temporal_version_stability", "partial"),
+                        ("text_length", "partial"),
+                    ),
+                )
+            ],
+        ),
+    ),
+    (
+        "one-no-supported-length",
+        (
+            "ok",
+            [
+                (
+                    "a",
+                    (
+                        ("domain_genre", "partial"),
+                        ("editing_revision", "partial"),
+                        ("generator_scope", "partial"),
+                        ("human_false_positive_evidence", "partial"),
+                        ("human_population", "partial"),
+                        ("language", "partial"),
+                        ("temporal_version_stability", "partial"),
+                        ("text_length", "partial"),
+                    ),
+                )
+            ],
+        ),
+    ),
+    (
+        "one-supported-length-list",
+        (
+            "ok",
+            [
+                (
+                    "a",
+                    (
+                        ("domain_genre", "partial"),
+                        ("editing_revision", "partial"),
+                        ("generator_scope", "partial"),
+                        ("human_false_positive_evidence", "partial"),
+                        ("human_population", "partial"),
+                        ("language", "partial"),
+                        ("temporal_version_stability", "partial"),
+                        ("text_length", "partial"),
+                    ),
+                )
+            ],
+        ),
+    ),
+    (
+        "one-supported-length-str",
+        (
+            "ok",
+            [
+                (
+                    "a",
+                    (
+                        ("domain_genre", "partial"),
+                        ("editing_revision", "partial"),
+                        ("generator_scope", "partial"),
+                        ("human_false_positive_evidence", "partial"),
+                        ("human_population", "partial"),
+                        ("language", "partial"),
+                        ("temporal_version_stability", "partial"),
+                        ("text_length", "partial"),
+                    ),
+                )
+            ],
+        ),
+    ),
+    (
+        "one-empty-supported-length",
+        (
+            "ok",
+            [
+                (
+                    "a",
+                    (
+                        ("domain_genre", "partial"),
+                        ("editing_revision", "partial"),
+                        ("generator_scope", "partial"),
+                        ("human_false_positive_evidence", "partial"),
+                        ("human_population", "partial"),
+                        ("language", "partial"),
+                        ("temporal_version_stability", "partial"),
+                        ("text_length", "partial"),
+                    ),
+                )
+            ],
+        ),
+    ),
+    (
+        "two-preds",
+        (
+            "ok",
+            [
+                (
+                    "a",
+                    (
+                        ("domain_genre", "partial"),
+                        ("editing_revision", "partial"),
+                        ("generator_scope", "partial"),
+                        ("human_false_positive_evidence", "partial"),
+                        ("human_population", "partial"),
+                        ("language", "partial"),
+                        ("temporal_version_stability", "partial"),
+                        ("text_length", "partial"),
+                    ),
+                ),
+                (
+                    "b",
+                    (
+                        ("domain_genre", "unknown"),
+                        ("editing_revision", "unknown"),
+                        ("generator_scope", "unknown"),
+                        ("human_false_positive_evidence", "unknown"),
+                        ("human_population", "unknown"),
+                        ("language", "unknown"),
+                        ("temporal_version_stability", "unknown"),
+                        ("text_length", "partial"),
+                    ),
+                ),
+            ],
+        ),
+    ),
+    ("no-preds", ("ok", [])),
+    (
+        "min-only",
+        (
+            "ok",
+            [
+                (
+                    "a",
+                    (
+                        ("domain_genre", "partial"),
+                        ("editing_revision", "partial"),
+                        ("generator_scope", "partial"),
+                        ("human_false_positive_evidence", "partial"),
+                        ("human_population", "partial"),
+                        ("language", "partial"),
+                        ("temporal_version_stability", "partial"),
+                        ("text_length", "partial"),
+                    ),
+                )
+            ],
+        ),
+    ),
+    (
+        "max-only",
+        (
+            "ok",
+            [
+                (
+                    "a",
+                    (
+                        ("domain_genre", "partial"),
+                        ("editing_revision", "partial"),
+                        ("generator_scope", "partial"),
+                        ("human_false_positive_evidence", "partial"),
+                        ("human_population", "partial"),
+                        ("language", "partial"),
+                        ("temporal_version_stability", "partial"),
+                        ("text_length", "partial"),
+                    ),
+                )
+            ],
+        ),
+    ),
+    (
+        "narrow-500-600",
+        (
+            "ok",
+            [
+                (
+                    "a",
+                    (
+                        ("domain_genre", "partial"),
+                        ("editing_revision", "partial"),
+                        ("generator_scope", "partial"),
+                        ("human_false_positive_evidence", "partial"),
+                        ("human_population", "partial"),
+                        ("language", "partial"),
+                        ("temporal_version_stability", "partial"),
+                        ("text_length", "out_of_scope"),
+                    ),
+                )
+            ],
+        ),
+    ),
+    (
+        "narrow-attrs",
+        (
+            "ok",
+            [
+                (
+                    "a",
+                    (
+                        ("domain_genre", "partial"),
+                        ("editing_revision", "partial"),
+                        ("generator_scope", "partial"),
+                        ("human_false_positive_evidence", "partial"),
+                        ("human_population", "partial"),
+                        ("language", "partial"),
+                        ("temporal_version_stability", "partial"),
+                        ("text_length", "out_of_scope"),
+                    ),
+                )
+            ],
+        ),
+    ),
+    (
+        "narrow-list",
+        (
+            "ok",
+            [
+                (
+                    "a",
+                    (
+                        ("domain_genre", "partial"),
+                        ("editing_revision", "partial"),
+                        ("generator_scope", "partial"),
+                        ("human_false_positive_evidence", "partial"),
+                        ("human_population", "partial"),
+                        ("language", "partial"),
+                        ("temporal_version_stability", "partial"),
+                        ("text_length", "out_of_scope"),
+                    ),
+                )
+            ],
+        ),
+    ),
+]
 
 
-EXPECTED_PROBE_EV_COVERAGE_PREDS = [('one-supported-length', ('ok', [('a', (('domain_genre', 'partial'), ('editing_revision', 'partial'), ('generator_scope', 'partial'), ('human_false_positive_evidence', 'partial'), ('human_population', 'partial'), ('language', 'partial'), ('temporal_version_stability', 'partial'), ('text_length', 'partial')))])), ('one-no-supported-length', ('ok', [('a', (('domain_genre', 'partial'), ('editing_revision', 'partial'), ('generator_scope', 'partial'), ('human_false_positive_evidence', 'partial'), ('human_population', 'partial'), ('language', 'partial'), ('temporal_version_stability', 'partial'), ('text_length', 'partial')))])), ('one-supported-length-list', ('ok', [('a', (('domain_genre', 'partial'), ('editing_revision', 'partial'), ('generator_scope', 'partial'), ('human_false_positive_evidence', 'partial'), ('human_population', 'partial'), ('language', 'partial'), ('temporal_version_stability', 'partial'), ('text_length', 'partial')))])), ('one-supported-length-str', ('ok', [('a', (('domain_genre', 'partial'), ('editing_revision', 'partial'), ('generator_scope', 'partial'), ('human_false_positive_evidence', 'partial'), ('human_population', 'partial'), ('language', 'partial'), ('temporal_version_stability', 'partial'), ('text_length', 'partial')))])), ('one-empty-supported-length', ('ok', [('a', (('domain_genre', 'partial'), ('editing_revision', 'partial'), ('generator_scope', 'partial'), ('human_false_positive_evidence', 'partial'), ('human_population', 'partial'), ('language', 'partial'), ('temporal_version_stability', 'partial'), ('text_length', 'partial')))])), ('two-preds', ('ok', [('a', (('domain_genre', 'partial'), ('editing_revision', 'partial'), ('generator_scope', 'partial'), ('human_false_positive_evidence', 'partial'), ('human_population', 'partial'), ('language', 'partial'), ('temporal_version_stability', 'partial'), ('text_length', 'partial'))), ('b', (('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('human_population', 'unknown'), ('language', 'unknown'), ('temporal_version_stability', 'unknown'), ('text_length', 'partial')))])), ('no-preds', ('ok', [])), ('min-only', ('ok', [('a', (('domain_genre', 'partial'), ('editing_revision', 'partial'), ('generator_scope', 'partial'), ('human_false_positive_evidence', 'partial'), ('human_population', 'partial'), ('language', 'partial'), ('temporal_version_stability', 'partial'), ('text_length', 'partial')))])), ('max-only', ('ok', [('a', (('domain_genre', 'partial'), ('editing_revision', 'partial'), ('generator_scope', 'partial'), ('human_false_positive_evidence', 'partial'), ('human_population', 'partial'), ('language', 'partial'), ('temporal_version_stability', 'partial'), ('text_length', 'partial')))])), ('narrow-500-600', ('ok', [('a', (('domain_genre', 'partial'), ('editing_revision', 'partial'), ('generator_scope', 'partial'), ('human_false_positive_evidence', 'partial'), ('human_population', 'partial'), ('language', 'partial'), ('temporal_version_stability', 'partial'), ('text_length', 'out_of_scope')))])), ('narrow-attrs', ('ok', [('a', (('domain_genre', 'partial'), ('editing_revision', 'partial'), ('generator_scope', 'partial'), ('human_false_positive_evidence', 'partial'), ('human_population', 'partial'), ('language', 'partial'), ('temporal_version_stability', 'partial'), ('text_length', 'out_of_scope')))])), ('narrow-list', ('ok', [('a', (('domain_genre', 'partial'), ('editing_revision', 'partial'), ('generator_scope', 'partial'), ('human_false_positive_evidence', 'partial'), ('human_population', 'partial'), ('language', 'partial'), ('temporal_version_stability', 'partial'), ('text_length', 'out_of_scope')))]))]
+EXPECTED_PROBE_EV_IDENTITY_PROOF = [
+    (
+        "ident-fromdict-class",
+        (
+            "ok",
+            "InferenceIdentity(detector_id='d', detector_version='1', provider=None, model=None, config_hash=None, native_score_semantics=None, calibration_id=None, regime=None)",
+        ),
+    ),
+    (
+        "proof-fromdict-class",
+        (
+            "ok",
+            "DisjointnessProof(status='verified', overlap_count=0, training_count=10, evaluation_count=10, training_hash='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', evaluation_hash='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')",
+        ),
+    ),
+    ("ident-fromdict-nonmap", ("raise", "EvidenceError", "inference identity must be an object.")),
+    ("proof-fromdict-nonmap", ("raise", "EvidenceError", "disjointness proof must be an object.")),
+    ("ident-frozen", ("raise", "FrozenInstanceError", "cannot assign to field 'detector_id'")),
+    ("ident-slots", ("ok", False)),
+    ("proof-frozen", ("raise", "FrozenInstanceError", "cannot assign to field 'status'")),
+    ("proof-slots", ("ok", False)),
+    ("verdict-frozen", ("raise", "FrozenInstanceError", "cannot assign to field 'eligible'")),
+    ("verdict-slots", ("ok", False)),
+    (
+        "ident-empty-id",
+        ("raise", "EvidenceError", "identity.detector_id must be a non-empty string."),
+    ),
+    (
+        "ident-empty-ver",
+        ("raise", "EvidenceError", "identity.detector_version must be a non-empty string."),
+    ),
+    (
+        "ident-empty-provider",
+        ("raise", "EvidenceError", "identity.provider must be a non-empty string."),
+    ),
+    (
+        "ident-provider-set",
+        (
+            "ok",
+            "InferenceIdentity(detector_id='d', detector_version='1', provider='p', model=None, config_hash=None, native_score_semantics=None, calibration_id=None, regime=None)",
+        ),
+    ),
+    (
+        "proof-bad-status",
+        (
+            "raise",
+            "EvidenceError",
+            "disjointness status must be 'verified', 'unknown' or 'contaminated'.",
+        ),
+    ),
+    ("proof-neg-overlap", ("raise", "EvidenceError", "disjointness.overlap_count must be >= 0.")),
+    ("proof-neg-training", ("raise", "EvidenceError", "disjointness.training_count must be >= 0.")),
+    (
+        "proof-empty-hash",
+        ("raise", "EvidenceError", "disjointness.training_hash must be a non-empty string."),
+    ),
+    (
+        "proof-hash-set",
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=0, training_count=0, evaluation_count=0, training_hash='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', evaluation_hash=None)",
+        ),
+    ),
+]
 
 
-EXPECTED_PROBE_EV_IDENTITY_PROOF = [('ident-fromdict-class', ('ok', "InferenceIdentity(detector_id='d', detector_version='1', provider=None, model=None, config_hash=None, native_score_semantics=None, calibration_id=None, regime=None)")), ('proof-fromdict-class', ('ok', "DisjointnessProof(status='verified', overlap_count=0, training_count=10, evaluation_count=10, training_hash='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', evaluation_hash='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')")), ('ident-fromdict-nonmap', ('raise', 'EvidenceError', 'inference identity must be an object.')), ('proof-fromdict-nonmap', ('raise', 'EvidenceError', 'disjointness proof must be an object.')), ('ident-frozen', ('raise', 'FrozenInstanceError', "cannot assign to field 'detector_id'")), ('ident-slots', ('ok', False)), ('proof-frozen', ('raise', 'FrozenInstanceError', "cannot assign to field 'status'")), ('proof-slots', ('ok', False)), ('ident-empty-id', ('raise', 'EvidenceError', 'identity.detector_id must be a non-empty string.')), ('ident-empty-ver', ('raise', 'EvidenceError', 'identity.detector_version must be a non-empty string.')), ('ident-empty-provider', ('raise', 'EvidenceError', 'identity.provider must be a non-empty string.')), ('ident-provider-set', ('ok', "InferenceIdentity(detector_id='d', detector_version='1', provider='p', model=None, config_hash=None, native_score_semantics=None, calibration_id=None, regime=None)")), ('proof-bad-status', ('raise', 'EvidenceError', "disjointness status must be 'verified', 'unknown' or 'contaminated'.")), ('proof-neg-overlap', ('raise', 'EvidenceError', 'disjointness.overlap_count must be >= 0.')), ('proof-neg-training', ('raise', 'EvidenceError', 'disjointness.training_count must be >= 0.')), ('proof-empty-hash', ('raise', 'EvidenceError', 'disjointness.training_hash must be a non-empty string.')), ('proof-hash-set', ('ok', "DisjointnessProof(status='unknown', overlap_count=0, training_count=0, evaluation_count=0, training_hash='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', evaluation_hash=None)"))]
+EXPECTED_PROBE_EV_RECORD_CANDIDATE = [
+    (
+        ("language", ("match", "match", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching language slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("language", ("match", "match", "match", "match"), "2026-09-01T00:00:00Z", 120),
+        ("ok", "unknown", "Language evidence exists but is partial or stale.", 71.0),
+    ),
+    (
+        ("language", ("match", "match", "match", "match"), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Language evidence exists but is partial or stale.", 314.0),
+    ),
+    (
+        ("language", ("match", "match", "match", "match"), "2026-11-01T00:00:00Z", 10),
+        ("ok", "partial", "Language evidence exists but is partial or stale.", 10.0),
+    ),
+    (
+        ("language", ("unknown", "unknown", "unknown", "unknown"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Input language is unknown; a language match cannot be established.",
+            10.0,
+        ),
+    ),
+    (
+        ("language", ("unknown", "unknown", "unknown", "unknown"), "2026-09-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Input language is unknown; a language match cannot be established.",
+            71.0,
+        ),
+    ),
+    (
+        ("language", ("unknown", "unknown", "unknown", "unknown"), "2026-01-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Input language is unknown; a language match cannot be established.",
+            314.0,
+        ),
+    ),
+    (
+        ("language", ("unknown", "unknown", "unknown", "unknown"), "2026-11-01T00:00:00Z", 10),
+        (
+            "ok",
+            "unknown",
+            "Input language is unknown; a language match cannot be established.",
+            10.0,
+        ),
+    ),
+    (
+        ("language", ("mismatch", "mismatch", "mismatch", "mismatch"), "2026-11-01T00:00:00Z", 120),
+        ("ok", None),
+    ),
+    (
+        ("language", ("mismatch", "mismatch", "mismatch", "mismatch"), "2026-09-01T00:00:00Z", 120),
+        ("ok", None),
+    ),
+    (
+        ("language", ("mismatch", "mismatch", "mismatch", "mismatch"), "2026-01-01T00:00:00Z", 120),
+        ("ok", None),
+    ),
+    (
+        ("language", ("mismatch", "mismatch", "mismatch", "mismatch"), "2026-11-01T00:00:00Z", 10),
+        ("ok", None),
+    ),
+    (
+        ("language", ("match", "mismatch", "unknown", "match"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching language slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("language", ("match", "mismatch", "unknown", "match"), "2026-09-01T00:00:00Z", 120),
+        ("ok", "unknown", "Language evidence exists but is partial or stale.", 71.0),
+    ),
+    (
+        ("language", ("match", "mismatch", "unknown", "match"), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Language evidence exists but is partial or stale.", 314.0),
+    ),
+    (
+        ("language", ("match", "mismatch", "unknown", "match"), "2026-11-01T00:00:00Z", 10),
+        ("ok", "partial", "Language evidence exists but is partial or stale.", 10.0),
+    ),
+    (
+        ("text_length", ("match", "match", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching length slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("text_length", ("match", "match", "match", "match"), "2026-09-01T00:00:00Z", 120),
+        ("ok", "unknown", "Length evidence exists but is partial or stale.", 71.0),
+    ),
+    (
+        ("text_length", ("match", "match", "match", "match"), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Length evidence exists but is partial or stale.", 314.0),
+    ),
+    (
+        ("text_length", ("match", "match", "match", "match"), "2026-11-01T00:00:00Z", 10),
+        ("ok", "partial", "Length evidence exists but is partial or stale.", 10.0),
+    ),
+    (
+        ("text_length", ("unknown", "unknown", "unknown", "unknown"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching length slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("text_length", ("unknown", "unknown", "unknown", "unknown"), "2026-09-01T00:00:00Z", 120),
+        ("ok", "unknown", "Length evidence exists but is partial or stale.", 71.0),
+    ),
+    (
+        ("text_length", ("unknown", "unknown", "unknown", "unknown"), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Length evidence exists but is partial or stale.", 314.0),
+    ),
+    (
+        ("text_length", ("unknown", "unknown", "unknown", "unknown"), "2026-11-01T00:00:00Z", 10),
+        ("ok", "partial", "Length evidence exists but is partial or stale.", 10.0),
+    ),
+    (
+        (
+            "text_length",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "text_length",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-09-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "text_length",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "text_length",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-11-01T00:00:00Z",
+            10,
+        ),
+        ("ok", None),
+    ),
+    (
+        ("text_length", ("match", "mismatch", "unknown", "match"), "2026-11-01T00:00:00Z", 120),
+        ("ok", None),
+    ),
+    (
+        ("text_length", ("match", "mismatch", "unknown", "match"), "2026-09-01T00:00:00Z", 120),
+        ("ok", None),
+    ),
+    (
+        ("text_length", ("match", "mismatch", "unknown", "match"), "2026-01-01T00:00:00Z", 120),
+        ("ok", None),
+    ),
+    (
+        ("text_length", ("match", "mismatch", "unknown", "match"), "2026-11-01T00:00:00Z", 10),
+        ("ok", None),
+    ),
+    (
+        ("domain_genre", ("match", "match", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching domain slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("match", "match", "match", "match"), "2026-09-01T00:00:00Z", 120),
+        ("ok", "unknown", "Domain evidence exists but is partial or stale.", 71.0),
+    ),
+    (
+        ("domain_genre", ("match", "match", "match", "match"), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Domain evidence exists but is partial or stale.", 314.0),
+    ),
+    (
+        ("domain_genre", ("match", "match", "match", "match"), "2026-11-01T00:00:00Z", 10),
+        ("ok", "partial", "Domain evidence exists but is partial or stale.", 10.0),
+    ),
+    (
+        ("domain_genre", ("unknown", "unknown", "unknown", "unknown"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Input domain is unknown or low confidence; a domain match cannot be established.",
+            10.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("unknown", "unknown", "unknown", "unknown"), "2026-09-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Input domain is unknown or low confidence; a domain match cannot be established.",
+            71.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("unknown", "unknown", "unknown", "unknown"), "2026-01-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Input domain is unknown or low confidence; a domain match cannot be established.",
+            314.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("unknown", "unknown", "unknown", "unknown"), "2026-11-01T00:00:00Z", 10),
+        (
+            "ok",
+            "unknown",
+            "Input domain is unknown or low confidence; a domain match cannot be established.",
+            10.0,
+        ),
+    ),
+    (
+        (
+            "domain_genre",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "No registered slice covers the input domain.", 10.0),
+    ),
+    (
+        (
+            "domain_genre",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-09-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "No registered slice covers the input domain.", 71.0),
+    ),
+    (
+        (
+            "domain_genre",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "No registered slice covers the input domain.", 314.0),
+    ),
+    (
+        (
+            "domain_genre",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-11-01T00:00:00Z",
+            10,
+        ),
+        ("ok", "unknown", "No registered slice covers the input domain.", 10.0),
+    ),
+    (
+        ("domain_genre", ("match", "mismatch", "unknown", "match"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Input domain is unknown or low confidence; a domain match cannot be established.",
+            10.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("match", "mismatch", "unknown", "match"), "2026-09-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Input domain is unknown or low confidence; a domain match cannot be established.",
+            71.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("match", "mismatch", "unknown", "match"), "2026-01-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Input domain is unknown or low confidence; a domain match cannot be established.",
+            314.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("match", "mismatch", "unknown", "match"), "2026-11-01T00:00:00Z", 10),
+        (
+            "ok",
+            "unknown",
+            "Input domain is unknown or low confidence; a domain match cannot be established.",
+            10.0,
+        ),
+    ),
+    (
+        ("editing_revision", ("match", "match", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching editing-regime slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("editing_revision", ("match", "match", "match", "match"), "2026-09-01T00:00:00Z", 120),
+        ("ok", "unknown", "Editing-regime evidence exists but is partial or stale.", 71.0),
+    ),
+    (
+        ("editing_revision", ("match", "match", "match", "match"), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Editing-regime evidence exists but is partial or stale.", 314.0),
+    ),
+    (
+        ("editing_revision", ("match", "match", "match", "match"), "2026-11-01T00:00:00Z", 10),
+        ("ok", "partial", "Editing-regime evidence exists but is partial or stale.", 10.0),
+    ),
+    (
+        (
+            "editing_revision",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Editing regime is undeclared; evidence cannot be matched to it.", 10.0),
+    ),
+    (
+        (
+            "editing_revision",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-09-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Editing regime is undeclared; evidence cannot be matched to it.", 71.0),
+    ),
+    (
+        (
+            "editing_revision",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Editing regime is undeclared; evidence cannot be matched to it.", 314.0),
+    ),
+    (
+        (
+            "editing_revision",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-11-01T00:00:00Z",
+            10,
+        ),
+        ("ok", "unknown", "Editing regime is undeclared; evidence cannot be matched to it.", 10.0),
+    ),
+    (
+        (
+            "editing_revision",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "No registered slice covers the declared editing regime.", 10.0),
+    ),
+    (
+        (
+            "editing_revision",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-09-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "No registered slice covers the declared editing regime.", 71.0),
+    ),
+    (
+        (
+            "editing_revision",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "No registered slice covers the declared editing regime.", 314.0),
+    ),
+    (
+        (
+            "editing_revision",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-11-01T00:00:00Z",
+            10,
+        ),
+        ("ok", "unknown", "No registered slice covers the declared editing regime.", 10.0),
+    ),
+    (
+        (
+            "editing_revision",
+            ("match", "mismatch", "unknown", "match"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "supported",
+            "A matching editing-regime slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        (
+            "editing_revision",
+            ("match", "mismatch", "unknown", "match"),
+            "2026-09-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Editing-regime evidence exists but is partial or stale.", 71.0),
+    ),
+    (
+        (
+            "editing_revision",
+            ("match", "mismatch", "unknown", "match"),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Editing-regime evidence exists but is partial or stale.", 314.0),
+    ),
+    (
+        ("editing_revision", ("match", "mismatch", "unknown", "match"), "2026-11-01T00:00:00Z", 10),
+        ("ok", "partial", "Editing-regime evidence exists but is partial or stale.", 10.0),
+    ),
+    (
+        ("generator_scope", ("match", "match", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 10.0),
+    ),
+    (
+        ("generator_scope", ("match", "match", "match", "match"), "2026-09-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 71.0),
+    ),
+    (
+        ("generator_scope", ("match", "match", "match", "match"), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 314.0),
+    ),
+    (
+        ("generator_scope", ("match", "match", "match", "match"), "2026-11-01T00:00:00Z", 10),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 10.0),
+    ),
+    (
+        (
+            "generator_scope",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 10.0),
+    ),
+    (
+        (
+            "generator_scope",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-09-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 71.0),
+    ),
+    (
+        (
+            "generator_scope",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 314.0),
+    ),
+    (
+        (
+            "generator_scope",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-11-01T00:00:00Z",
+            10,
+        ),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 10.0),
+    ),
+    (
+        (
+            "generator_scope",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "generator_scope",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-09-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "generator_scope",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "generator_scope",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-11-01T00:00:00Z",
+            10,
+        ),
+        ("ok", None),
+    ),
+    (
+        ("generator_scope", ("match", "mismatch", "unknown", "match"), "2026-11-01T00:00:00Z", 120),
+        ("ok", None),
+    ),
+    (
+        ("generator_scope", ("match", "mismatch", "unknown", "match"), "2026-09-01T00:00:00Z", 120),
+        ("ok", None),
+    ),
+    (
+        ("generator_scope", ("match", "mismatch", "unknown", "match"), "2026-01-01T00:00:00Z", 120),
+        ("ok", None),
+    ),
+    (
+        ("generator_scope", ("match", "mismatch", "unknown", "match"), "2026-11-01T00:00:00Z", 10),
+        ("ok", None),
+    ),
+    (
+        ("human_population", ("match", "match", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 10.0),
+    ),
+    (
+        ("human_population", ("match", "match", "match", "match"), "2026-09-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 71.0),
+    ),
+    (
+        ("human_population", ("match", "match", "match", "match"), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 314.0),
+    ),
+    (
+        ("human_population", ("match", "match", "match", "match"), "2026-11-01T00:00:00Z", 10),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 10.0),
+    ),
+    (
+        (
+            "human_population",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 10.0),
+    ),
+    (
+        (
+            "human_population",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-09-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 71.0),
+    ),
+    (
+        (
+            "human_population",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 314.0),
+    ),
+    (
+        (
+            "human_population",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-11-01T00:00:00Z",
+            10,
+        ),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 10.0),
+    ),
+    (
+        (
+            "human_population",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "human_population",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-09-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "human_population",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "human_population",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-11-01T00:00:00Z",
+            10,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "human_population",
+            ("match", "mismatch", "unknown", "match"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "human_population",
+            ("match", "mismatch", "unknown", "match"),
+            "2026-09-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "human_population",
+            ("match", "mismatch", "unknown", "match"),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        ("human_population", ("match", "mismatch", "unknown", "match"), "2026-11-01T00:00:00Z", 10),
+        ("ok", None),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("match", "match", "match", "match"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 10.0),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("match", "match", "match", "match"),
+            "2026-09-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 71.0),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("match", "match", "match", "match"),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 314.0),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("match", "match", "match", "match"),
+            "2026-11-01T00:00:00Z",
+            10,
+        ),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 10.0),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "unknown",
+            "Input domain is unknown; human false-positive evidence cannot be matched.",
+            10.0,
+        ),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-09-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "unknown",
+            "Input domain is unknown; human false-positive evidence cannot be matched.",
+            71.0,
+        ),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "unknown",
+            "Input domain is unknown; human false-positive evidence cannot be matched.",
+            314.0,
+        ),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-11-01T00:00:00Z",
+            10,
+        ),
+        (
+            "ok",
+            "unknown",
+            "Input domain is unknown; human false-positive evidence cannot be matched.",
+            10.0,
+        ),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-09-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-11-01T00:00:00Z",
+            10,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("match", "mismatch", "unknown", "match"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("match", "mismatch", "unknown", "match"),
+            "2026-09-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("match", "mismatch", "unknown", "match"),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("match", "mismatch", "unknown", "match"),
+            "2026-11-01T00:00:00Z",
+            10,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("match", "match", "match", "match"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("match", "match", "match", "match"),
+            "2026-09-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "unknown",
+            "Evidence is stale and no longitudinal drift snapshots are registered.",
+            71.0,
+        ),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("match", "match", "match", "match"),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "unknown",
+            "Evidence is stale and no longitudinal drift snapshots are registered.",
+            314.0,
+        ),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("match", "match", "match", "match"),
+            "2026-11-01T00:00:00Z",
+            10,
+        ),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-09-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "unknown",
+            "Evidence is stale and no longitudinal drift snapshots are registered.",
+            71.0,
+        ),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "unknown",
+            "Evidence is stale and no longitudinal drift snapshots are registered.",
+            314.0,
+        ),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("unknown", "unknown", "unknown", "unknown"),
+            "2026-11-01T00:00:00Z",
+            10,
+        ),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-09-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "unknown",
+            "Evidence is stale and no longitudinal drift snapshots are registered.",
+            71.0,
+        ),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "unknown",
+            "Evidence is stale and no longitudinal drift snapshots are registered.",
+            314.0,
+        ),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("mismatch", "mismatch", "mismatch", "mismatch"),
+            "2026-11-01T00:00:00Z",
+            10,
+        ),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("match", "mismatch", "unknown", "match"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("match", "mismatch", "unknown", "match"),
+            "2026-09-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "unknown",
+            "Evidence is stale and no longitudinal drift snapshots are registered.",
+            71.0,
+        ),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("match", "mismatch", "unknown", "match"),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "unknown",
+            "Evidence is stale and no longitudinal drift snapshots are registered.",
+            314.0,
+        ),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("match", "mismatch", "unknown", "match"),
+            "2026-11-01T00:00:00Z",
+            10,
+        ),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        ("language", ("match", "match", "match", "match"), "2026-10-01T00:00:00Z", 120),
+        ("ok", "partial", "Language evidence exists but is partial or stale.", 41.0),
+    ),
+    (
+        ("text_length", ("match", "match", "match", "match"), "2026-10-01T00:00:00Z", 120),
+        ("ok", "partial", "Length evidence exists but is partial or stale.", 41.0),
+    ),
+    (
+        ("domain_genre", ("match", "match", "match", "match"), "2026-10-01T00:00:00Z", 120),
+        ("ok", "partial", "Domain evidence exists but is partial or stale.", 41.0),
+    ),
+    (
+        ("editing_revision", ("match", "match", "match", "match"), "2026-10-01T00:00:00Z", 120),
+        ("ok", "partial", "Editing-regime evidence exists but is partial or stale.", 41.0),
+    ),
+    (
+        ("generator_scope", ("match", "match", "match", "match"), "2026-10-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 41.0),
+    ),
+    (
+        ("human_population", ("match", "match", "match", "match"), "2026-10-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 41.0),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("match", "match", "match", "match"),
+            "2026-10-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 41.0),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("match", "match", "match", "match"),
+            "2026-10-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "unknown",
+            "Evidence is stale and no longitudinal drift snapshots are registered.",
+            41.0,
+        ),
+    ),
+    (
+        ("language", ("match", "match", "match", "match"), "2026-10-01T00:00:00Z", 10),
+        ("ok", "partial", "Language evidence exists but is partial or stale.", 41.0),
+    ),
+    (
+        ("text_length", ("match", "match", "match", "match"), "2026-10-01T00:00:00Z", 10),
+        ("ok", "partial", "Length evidence exists but is partial or stale.", 41.0),
+    ),
+    (
+        ("domain_genre", ("match", "match", "match", "match"), "2026-10-01T00:00:00Z", 10),
+        ("ok", "partial", "Domain evidence exists but is partial or stale.", 41.0),
+    ),
+    (
+        ("editing_revision", ("match", "match", "match", "match"), "2026-10-01T00:00:00Z", 10),
+        ("ok", "partial", "Editing-regime evidence exists but is partial or stale.", 41.0),
+    ),
+    (
+        ("generator_scope", ("match", "match", "match", "match"), "2026-10-01T00:00:00Z", 10),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 41.0),
+    ),
+    (
+        ("human_population", ("match", "match", "match", "match"), "2026-10-01T00:00:00Z", 10),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 41.0),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("match", "match", "match", "match"),
+            "2026-10-01T00:00:00Z",
+            10,
+        ),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 41.0),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("match", "match", "match", "match"),
+            "2026-10-01T00:00:00Z",
+            10,
+        ),
+        (
+            "ok",
+            "unknown",
+            "Evidence is stale and no longitudinal drift snapshots are registered.",
+            41.0,
+        ),
+    ),
+    (
+        ("language", ("match", "match", "match", "match"), "2026-11-10T10:40:48Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching language slice has adequate held-out samples and is fresh.",
+            0.56,
+        ),
+    ),
+    (
+        ("text_length", ("match", "match", "match", "match"), "2026-11-10T10:40:48Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching length slice has adequate held-out samples and is fresh.",
+            0.56,
+        ),
+    ),
+    (
+        ("domain_genre", ("match", "match", "match", "match"), "2026-11-10T10:40:48Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching domain slice has adequate held-out samples and is fresh.",
+            0.56,
+        ),
+    ),
+    (
+        ("editing_revision", ("match", "match", "match", "match"), "2026-11-10T10:40:48Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching editing-regime slice has adequate held-out samples and is fresh.",
+            0.56,
+        ),
+    ),
+    (
+        ("generator_scope", ("match", "match", "match", "match"), "2026-11-10T10:40:48Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 0.56),
+    ),
+    (
+        ("human_population", ("match", "match", "match", "match"), "2026-11-10T10:40:48Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 0.56),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("match", "match", "match", "match"),
+            "2026-11-10T10:40:48Z",
+            120,
+        ),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 0.56),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("match", "match", "match", "match"),
+            "2026-11-10T10:40:48Z",
+            120,
+        ),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            0.56,
+        ),
+    ),
+    (
+        ("language", ("match", "match", "match", "match"), "2026-10-12T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching language slice has adequate held-out samples and is fresh.",
+            30.0,
+        ),
+    ),
+    (
+        ("text_length", ("match", "match", "match", "match"), "2026-10-12T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching length slice has adequate held-out samples and is fresh.",
+            30.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("match", "match", "match", "match"), "2026-10-12T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching domain slice has adequate held-out samples and is fresh.",
+            30.0,
+        ),
+    ),
+    (
+        ("editing_revision", ("match", "match", "match", "match"), "2026-10-12T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching editing-regime slice has adequate held-out samples and is fresh.",
+            30.0,
+        ),
+    ),
+    (
+        ("generator_scope", ("match", "match", "match", "match"), "2026-10-12T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 30.0),
+    ),
+    (
+        ("human_population", ("match", "match", "match", "match"), "2026-10-12T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 30.0),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("match", "match", "match", "match"),
+            "2026-10-12T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 30.0),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("match", "match", "match", "match"),
+            "2026-10-12T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            30.0,
+        ),
+    ),
+    (
+        (
+            "generator_scope",
+            ("representative", ("g1", "g2", "g3"), ("p1", "p2")),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "supported", "Evidence covers multiple generators.", 10.0),
+    ),
+    (
+        (
+            "human_population",
+            ("representative", ("g1", "g2", "g3"), ("p1", "p2")),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "supported", "Evidence covers multiple human populations.", 10.0),
+    ),
+    (
+        (
+            "generator_scope",
+            ("representative", ("g1", "g2", "g3"), ("p1", "p2")),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Evidence covers multiple generators.", 314.0),
+    ),
+    (
+        (
+            "human_population",
+            ("representative", ("g1", "g2", "g3"), ("p1", "p2")),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Evidence covers multiple human populations.", 314.0),
+    ),
+    (
+        ("generator_scope", ("multi", ("g1", "g2", "g3"), ("p1",)), "2026-11-01T00:00:00Z", 120),
+        ("ok", "supported", "Evidence covers multiple generators.", 10.0),
+    ),
+    (
+        ("human_population", ("multi", ("g1", "g2", "g3"), ("p1",)), "2026-11-01T00:00:00Z", 120),
+        ("ok", "partial", "Evidence covers only one human population.", 10.0),
+    ),
+    (
+        ("generator_scope", ("multi", ("g1", "g2", "g3"), ("p1",)), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence covers multiple generators.", 314.0),
+    ),
+    (
+        ("human_population", ("multi", ("g1", "g2", "g3"), ("p1",)), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence covers only one human population.", 314.0),
+    ),
+    (
+        ("generator_scope", ("multi", ("g1", "g2"), ("p1", "p2")), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Evidence covers a limited generator set; scope is not representative.",
+            10.0,
+        ),
+    ),
+    (
+        ("human_population", ("multi", ("g1", "g2"), ("p1", "p2")), "2026-11-01T00:00:00Z", 120),
+        ("ok", "supported", "Evidence covers multiple human populations.", 10.0),
+    ),
+    (
+        ("generator_scope", ("multi", ("g1", "g2"), ("p1", "p2")), "2026-01-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Evidence covers a limited generator set; scope is not representative.",
+            314.0,
+        ),
+    ),
+    (
+        ("human_population", ("multi", ("g1", "g2"), ("p1", "p2")), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence covers multiple human populations.", 314.0),
+    ),
+    (
+        ("generator_scope", ("multi", ("g1",), ("representative",)), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Evidence covers a limited generator set; scope is not representative.",
+            10.0,
+        ),
+    ),
+    (
+        ("human_population", ("multi", ("g1",), ("representative",)), "2026-11-01T00:00:00Z", 120),
+        ("ok", "supported", "Evidence covers multiple human populations.", 10.0),
+    ),
+    (
+        ("generator_scope", ("multi", ("g1",), ("representative",)), "2026-01-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Evidence covers a limited generator set; scope is not representative.",
+            314.0,
+        ),
+    ),
+    (
+        ("human_population", ("multi", ("g1",), ("representative",)), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence covers multiple human populations.", 314.0),
+    ),
+    (
+        ("generator_scope", ("single", ("g1",), ("p1",)), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Evidence covers a limited generator set; scope is not representative.",
+            10.0,
+        ),
+    ),
+    (
+        ("human_population", ("single", ("g1",), ("p1",)), "2026-11-01T00:00:00Z", 120),
+        ("ok", "partial", "Evidence covers only one human population.", 10.0),
+    ),
+    (
+        ("generator_scope", ("single", ("g1",), ("p1",)), "2026-01-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Evidence covers a limited generator set; scope is not representative.",
+            314.0,
+        ),
+    ),
+    (
+        ("human_population", ("single", ("g1",), ("p1",)), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence covers only one human population.", 314.0),
+    ),
+    (
+        ("generator_scope", ("single", (), ()), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 10.0),
+    ),
+    (
+        ("human_population", ("single", (), ()), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 10.0),
+    ),
+    (
+        ("generator_scope", ("single", (), ()), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 314.0),
+    ),
+    (
+        ("human_population", ("single", (), ()), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 314.0),
+    ),
+    (
+        ("generator_scope", ("unknown", (), ("p1",)), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 10.0),
+    ),
+    (
+        ("human_population", ("unknown", (), ("p1",)), "2026-11-01T00:00:00Z", 120),
+        ("ok", "partial", "Evidence covers only one human population.", 10.0),
+    ),
+    (
+        ("generator_scope", ("unknown", (), ("p1",)), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 314.0),
+    ),
+    (
+        ("human_population", ("unknown", (), ("p1",)), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence covers only one human population.", 314.0),
+    ),
+    (
+        ("generator_scope", ("unknown", ("g1",), ()), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Evidence covers a limited generator set; scope is not representative.",
+            10.0,
+        ),
+    ),
+    (
+        ("human_population", ("unknown", ("g1",), ()), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 10.0),
+    ),
+    (
+        ("generator_scope", ("unknown", ("g1",), ()), "2026-01-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Evidence covers a limited generator set; scope is not representative.",
+            314.0,
+        ),
+    ),
+    (
+        ("human_population", ("unknown", ("g1",), ()), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 314.0),
+    ),
+    (
+        ("generator_scope", ("single", ("g1", "g2", "g3"), ("p1",)), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Evidence covers a limited generator set; scope is not representative.",
+            10.0,
+        ),
+    ),
+    (
+        ("human_population", ("single", ("g1", "g2", "g3"), ("p1",)), "2026-11-01T00:00:00Z", 120),
+        ("ok", "partial", "Evidence covers only one human population.", 10.0),
+    ),
+    (
+        ("generator_scope", ("single", ("g1", "g2", "g3"), ("p1",)), "2026-01-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Evidence covers a limited generator set; scope is not representative.",
+            314.0,
+        ),
+    ),
+    (
+        ("human_population", ("single", ("g1", "g2", "g3"), ("p1",)), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence covers only one human population.", 314.0),
+    ),
+    (
+        ("generator_scope", ("unknown", ("g1", "g2", "g3"), ("p1",)), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Evidence covers a limited generator set; scope is not representative.",
+            10.0,
+        ),
+    ),
+    (
+        ("human_population", ("unknown", ("g1", "g2", "g3"), ("p1",)), "2026-11-01T00:00:00Z", 120),
+        ("ok", "partial", "Evidence covers only one human population.", 10.0),
+    ),
+    (
+        ("generator_scope", ("unknown", ("g1", "g2", "g3"), ("p1",)), "2026-01-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Evidence covers a limited generator set; scope is not representative.",
+            314.0,
+        ),
+    ),
+    (
+        ("human_population", ("unknown", ("g1", "g2", "g3"), ("p1",)), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence covers only one human population.", 314.0),
+    ),
+    (
+        (
+            "generator_scope",
+            ("multi", ("g1", "g2", "g3", "g4"), ("p1",)),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "supported", "Evidence covers multiple generators.", 10.0),
+    ),
+    (
+        (
+            "human_population",
+            ("multi", ("g1", "g2", "g3", "g4"), ("p1",)),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "partial", "Evidence covers only one human population.", 10.0),
+    ),
+    (
+        (
+            "generator_scope",
+            ("multi", ("g1", "g2", "g3", "g4"), ("p1",)),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Evidence covers multiple generators.", 314.0),
+    ),
+    (
+        (
+            "human_population",
+            ("multi", ("g1", "g2", "g3", "g4"), ("p1",)),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Evidence covers only one human population.", 314.0),
+    ),
+    (
+        (
+            "generator_scope",
+            ("multi", ("g1", "g2", "g3"), ("p1", "p2", "p3")),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "supported", "Evidence covers multiple generators.", 10.0),
+    ),
+    (
+        (
+            "human_population",
+            ("multi", ("g1", "g2", "g3"), ("p1", "p2", "p3")),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "supported", "Evidence covers multiple human populations.", 10.0),
+    ),
+    (
+        (
+            "generator_scope",
+            ("multi", ("g1", "g2", "g3"), ("p1", "p2", "p3")),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Evidence covers multiple generators.", 314.0),
+    ),
+    (
+        (
+            "human_population",
+            ("multi", ("g1", "g2", "g3"), ("p1", "p2", "p3")),
+            "2026-01-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Evidence covers multiple human populations.", 314.0),
+    ),
+    (
+        ("generator_scope", ("multi", ("g1", "g2", "g3"), ("p1",)), "2026-10-01T00:00:00Z", 120),
+        ("ok", "partial", "Evidence covers multiple generators.", 41.0),
+    ),
+    (
+        ("human_population", ("multi", ("g1", "g2", "g3"), ("p1",)), "2026-10-01T00:00:00Z", 120),
+        ("ok", "partial", "Evidence covers only one human population.", 41.0),
+    ),
+    (
+        ("generator_scope", ("multi", ("g1", "g2", "g3"), ("p1",)), "2026-11-01T00:00:00Z", 10),
+        ("ok", "partial", "Evidence covers multiple generators.", 10.0),
+    ),
+    (
+        ("human_population", ("multi", ("g1", "g2", "g3"), ("p1",)), "2026-11-01T00:00:00Z", 10),
+        ("ok", "partial", "Evidence covers only one human population.", 10.0),
+    ),
+    (
+        (
+            "generator_scope",
+            ("multi", ("g1", "g2", "g3"), ("p1", "p2")),
+            "2026-10-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "partial", "Evidence covers multiple generators.", 41.0),
+    ),
+    (
+        (
+            "human_population",
+            ("multi", ("g1", "g2", "g3"), ("p1", "p2")),
+            "2026-10-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "partial", "Evidence covers multiple human populations.", 41.0),
+    ),
+    (
+        (
+            "generator_scope",
+            ("multi", ("g1", "g2", "g3"), ("p1", "p2")),
+            "2026-11-01T00:00:00Z",
+            10,
+        ),
+        ("ok", "partial", "Evidence covers multiple generators.", 10.0),
+    ),
+    (
+        (
+            "human_population",
+            ("multi", ("g1", "g2", "g3"), ("p1", "p2")),
+            "2026-11-01T00:00:00Z",
+            10,
+        ),
+        ("ok", "partial", "Evidence covers multiple human populations.", 10.0),
+    ),
+    (
+        ("language", ("mismatch", "match", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        ("ok", None),
+    ),
+    (
+        ("text_length", ("mismatch", "match", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching length slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("mismatch", "match", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching domain slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("editing_revision", ("mismatch", "match", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching editing-regime slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("generator_scope", ("mismatch", "match", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        ("ok", None),
+    ),
+    (
+        ("human_population", ("mismatch", "match", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        ("ok", None),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("mismatch", "match", "match", "match"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("mismatch", "match", "match", "match"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        ("language", ("match", "mismatch", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching language slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("text_length", ("match", "mismatch", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        ("ok", None),
+    ),
+    (
+        ("domain_genre", ("match", "mismatch", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching domain slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("editing_revision", ("match", "mismatch", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching editing-regime slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("generator_scope", ("match", "mismatch", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        ("ok", None),
+    ),
+    (
+        ("human_population", ("match", "mismatch", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        ("ok", None),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("match", "mismatch", "match", "match"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("match", "mismatch", "match", "match"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        ("language", ("match", "match", "mismatch", "match"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching language slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("text_length", ("match", "match", "mismatch", "match"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching length slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("match", "match", "mismatch", "match"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "No registered slice covers the input domain.", 10.0),
+    ),
+    (
+        ("editing_revision", ("match", "match", "mismatch", "match"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching editing-regime slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("generator_scope", ("match", "match", "mismatch", "match"), "2026-11-01T00:00:00Z", 120),
+        ("ok", None),
+    ),
+    (
+        ("human_population", ("match", "match", "mismatch", "match"), "2026-11-01T00:00:00Z", 120),
+        ("ok", None),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("match", "match", "mismatch", "match"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", None),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("match", "match", "mismatch", "match"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        ("language", ("match", "match", "match", "mismatch"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching language slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("text_length", ("match", "match", "match", "mismatch"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching length slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("match", "match", "match", "mismatch"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching domain slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("editing_revision", ("match", "match", "match", "mismatch"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "No registered slice covers the declared editing regime.", 10.0),
+    ),
+    (
+        ("generator_scope", ("match", "match", "match", "mismatch"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 10.0),
+    ),
+    (
+        ("human_population", ("match", "match", "match", "mismatch"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 10.0),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("match", "match", "match", "mismatch"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 10.0),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("match", "match", "match", "mismatch"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        ("language", ("match", "match", "unknown", "match"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching language slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("text_length", ("match", "match", "unknown", "match"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching length slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("match", "match", "unknown", "match"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Input domain is unknown or low confidence; a domain match cannot be established.",
+            10.0,
+        ),
+    ),
+    (
+        ("editing_revision", ("match", "match", "unknown", "match"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching editing-regime slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("generator_scope", ("match", "match", "unknown", "match"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 10.0),
+    ),
+    (
+        ("human_population", ("match", "match", "unknown", "match"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 10.0),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("match", "match", "unknown", "match"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "unknown",
+            "Input domain is unknown; human false-positive evidence cannot be matched.",
+            10.0,
+        ),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("match", "match", "unknown", "match"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        ("language", ("match", "match", "match", "unknown"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching language slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("text_length", ("match", "match", "match", "unknown"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching length slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("match", "match", "match", "unknown"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching domain slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("editing_revision", ("match", "match", "match", "unknown"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Editing regime is undeclared; evidence cannot be matched to it.", 10.0),
+    ),
+    (
+        ("generator_scope", ("match", "match", "match", "unknown"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 10.0),
+    ),
+    (
+        ("human_population", ("match", "match", "match", "unknown"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 10.0),
+    ),
+    (
+        (
+            "human_false_positive_evidence",
+            ("match", "match", "match", "unknown"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 10.0),
+    ),
+    (
+        (
+            "temporal_version_stability",
+            ("match", "match", "match", "unknown"),
+            "2026-11-01T00:00:00Z",
+            120,
+        ),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        ("language", ("language", "zzz"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "partial", "Language evidence exists but is partial or stale.", 10.0),
+    ),
+    (
+        ("text_length", ("language", "zzz"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching length slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("language", "zzz"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching domain slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("editing_revision", ("language", "zzz"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching editing-regime slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("generator_scope", ("language", "zzz"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 10.0),
+    ),
+    (
+        ("human_population", ("language", "zzz"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 10.0),
+    ),
+    (
+        ("human_false_positive_evidence", ("language", "zzz"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 10.0),
+    ),
+    (
+        ("temporal_version_stability", ("language", "zzz"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        ("language", ("language", "aaa"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "partial", "Language evidence exists but is partial or stale.", 10.0),
+    ),
+    (
+        ("text_length", ("language", "aaa"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching length slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("language", "aaa"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching domain slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("editing_revision", ("language", "aaa"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching editing-regime slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("generator_scope", ("language", "aaa"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 10.0),
+    ),
+    (
+        ("human_population", ("language", "aaa"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 10.0),
+    ),
+    (
+        ("human_false_positive_evidence", ("language", "aaa"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 10.0),
+    ),
+    (
+        ("temporal_version_stability", ("language", "aaa"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        ("language", ("length", "zzz"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching language slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("text_length", ("length", "zzz"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching length slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("length", "zzz"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching domain slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("editing_revision", ("length", "zzz"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching editing-regime slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("generator_scope", ("length", "zzz"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 10.0),
+    ),
+    (
+        ("human_population", ("length", "zzz"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 10.0),
+    ),
+    (
+        ("human_false_positive_evidence", ("length", "zzz"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 10.0),
+    ),
+    (
+        ("temporal_version_stability", ("length", "zzz"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        ("language", ("length", "aaa"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching language slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("text_length", ("length", "aaa"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching length slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("length", "aaa"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching domain slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("editing_revision", ("length", "aaa"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching editing-regime slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("generator_scope", ("length", "aaa"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 10.0),
+    ),
+    (
+        ("human_population", ("length", "aaa"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 10.0),
+    ),
+    (
+        ("human_false_positive_evidence", ("length", "aaa"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 10.0),
+    ),
+    (
+        ("temporal_version_stability", ("length", "aaa"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        ("language", ("domain", "zzz"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching language slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("text_length", ("domain", "zzz"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching length slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("domain", "zzz"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching domain slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("editing_revision", ("domain", "zzz"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching editing-regime slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("generator_scope", ("domain", "zzz"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 10.0),
+    ),
+    (
+        ("human_population", ("domain", "zzz"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 10.0),
+    ),
+    (
+        ("human_false_positive_evidence", ("domain", "zzz"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 10.0),
+    ),
+    (
+        ("temporal_version_stability", ("domain", "zzz"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        ("language", ("domain", "aaa"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching language slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("text_length", ("domain", "aaa"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching length slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("domain", "aaa"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching domain slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("editing_revision", ("domain", "aaa"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching editing-regime slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("generator_scope", ("domain", "aaa"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 10.0),
+    ),
+    (
+        ("human_population", ("domain", "aaa"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 10.0),
+    ),
+    (
+        ("human_false_positive_evidence", ("domain", "aaa"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 10.0),
+    ),
+    (
+        ("temporal_version_stability", ("domain", "aaa"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        ("language", ("editing", "zzz"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching language slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("text_length", ("editing", "zzz"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching length slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("editing", "zzz"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching domain slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("editing_revision", ("editing", "zzz"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching editing-regime slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("generator_scope", ("editing", "zzz"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 10.0),
+    ),
+    (
+        ("human_population", ("editing", "zzz"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 10.0),
+    ),
+    (
+        ("human_false_positive_evidence", ("editing", "zzz"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 10.0),
+    ),
+    (
+        ("temporal_version_stability", ("editing", "zzz"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        ("language", ("editing", "aaa"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching language slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("text_length", ("editing", "aaa"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching length slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("domain_genre", ("editing", "aaa"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching domain slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("editing_revision", ("editing", "aaa"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "A matching editing-regime slice has adequate held-out samples and is fresh.",
+            10.0,
+        ),
+    ),
+    (
+        ("generator_scope", ("editing", "aaa"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare generator scope.", 10.0),
+    ),
+    (
+        ("human_population", ("editing", "aaa"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Evidence does not declare human-population coverage.", 10.0),
+    ),
+    (
+        ("human_false_positive_evidence", ("editing", "aaa"), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 10.0),
+    ),
+    (
+        ("temporal_version_stability", ("editing", "aaa"), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Current evidence is fresh, but no longitudinal drift snapshots are registered.",
+            10.0,
+        ),
+    ),
+    (
+        ("zzz", ("match", "match", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        ("raise", "EvidenceError", "Unknown coverage dimension: 'zzz'."),
+    ),
+    (
+        ("aaa", ("match", "match", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        ("raise", "EvidenceError", "Unknown coverage dimension: 'aaa'."),
+    ),
+    (
+        ("LANGUAGE", ("match", "match", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        ("raise", "EvidenceError", "Unknown coverage dimension: 'LANGUAGE'."),
+    ),
+    (
+        ("", ("match", "match", "match", "match"), "2026-11-01T00:00:00Z", 120),
+        ("raise", "EvidenceError", "Unknown coverage dimension: ''."),
+    ),
+    (
+        ("human_false_positive_evidence", (120, 0.03, True), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "Human FPR 0.020 with 95% CI upper 0.030 is at or below the 0.05 ceiling.",
+            10.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (120, 0.03, True), "2026-10-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Human false-positive evidence is present but is insufficient, stale, or above the ceiling.",
+            41.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (120, 0.03, True), "2026-01-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Human false-positive evidence is present but is insufficient, stale, or above the ceiling.",
+            314.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (99, 0.03, True), "2026-11-01T00:00:00Z", 99),
+        (
+            "ok",
+            "partial",
+            "Human false-positive evidence is present but is insufficient, stale, or above the ceiling.",
+            10.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (99, 0.03, True), "2026-10-01T00:00:00Z", 99),
+        (
+            "ok",
+            "partial",
+            "Human false-positive evidence is present but is insufficient, stale, or above the ceiling.",
+            41.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (99, 0.03, True), "2026-01-01T00:00:00Z", 99),
+        (
+            "ok",
+            "unknown",
+            "Human false-positive evidence is present but is insufficient, stale, or above the ceiling.",
+            314.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (100, 0.03, True), "2026-11-01T00:00:00Z", 100),
+        (
+            "ok",
+            "supported",
+            "Human FPR 0.020 with 95% CI upper 0.030 is at or below the 0.05 ceiling.",
+            10.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (100, 0.03, True), "2026-10-01T00:00:00Z", 100),
+        (
+            "ok",
+            "partial",
+            "Human false-positive evidence is present but is insufficient, stale, or above the ceiling.",
+            41.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (100, 0.03, True), "2026-01-01T00:00:00Z", 100),
+        (
+            "ok",
+            "unknown",
+            "Human false-positive evidence is present but is insufficient, stale, or above the ceiling.",
+            314.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (101, 0.03, True), "2026-11-01T00:00:00Z", 101),
+        (
+            "ok",
+            "supported",
+            "Human FPR 0.020 with 95% CI upper 0.030 is at or below the 0.05 ceiling.",
+            10.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (101, 0.03, True), "2026-10-01T00:00:00Z", 101),
+        (
+            "ok",
+            "partial",
+            "Human false-positive evidence is present but is insufficient, stale, or above the ceiling.",
+            41.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (101, 0.03, True), "2026-01-01T00:00:00Z", 101),
+        (
+            "ok",
+            "unknown",
+            "Human false-positive evidence is present but is insufficient, stale, or above the ceiling.",
+            314.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (120, 0.05, True), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "supported",
+            "Human FPR 0.020 with 95% CI upper 0.050 is at or below the 0.05 ceiling.",
+            10.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (120, 0.05, True), "2026-10-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Human false-positive evidence is present but is insufficient, stale, or above the ceiling.",
+            41.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (120, 0.05, True), "2026-01-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Human false-positive evidence is present but is insufficient, stale, or above the ceiling.",
+            314.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (120, 0.07, True), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Human false-positive evidence is present but is insufficient, stale, or above the ceiling.",
+            10.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (120, 0.07, True), "2026-10-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Human false-positive evidence is present but is insufficient, stale, or above the ceiling.",
+            41.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (120, 0.07, True), "2026-01-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Human false-positive evidence is present but is insufficient, stale, or above the ceiling.",
+            314.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (120, None, False), "2026-11-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Human false-positive evidence is present but is insufficient, stale, or above the ceiling.",
+            10.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (120, None, False), "2026-10-01T00:00:00Z", 120),
+        (
+            "ok",
+            "partial",
+            "Human false-positive evidence is present but is insufficient, stale, or above the ceiling.",
+            41.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (120, None, False), "2026-01-01T00:00:00Z", 120),
+        (
+            "ok",
+            "unknown",
+            "Human false-positive evidence is present but is insufficient, stale, or above the ceiling.",
+            314.0,
+        ),
+    ),
+    (
+        ("human_false_positive_evidence", (120, None, None), "2026-11-01T00:00:00Z", 120),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 10.0),
+    ),
+    (
+        ("human_false_positive_evidence", (120, None, None), "2026-10-01T00:00:00Z", 120),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 41.0),
+    ),
+    (
+        ("human_false_positive_evidence", (120, None, None), "2026-01-01T00:00:00Z", 120),
+        ("ok", "unknown", "Matching slice does not report a human false-positive rate.", 314.0),
+    ),
+]
 
 
-EXPECTED_PROBE_EV_RECORD_CANDIDATE = [(('language', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching language slice has adequate held-out samples and is fresh.', 10.0)), (('language', ('match', 'match', 'match', 'match'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Language evidence exists but is partial or stale.', 71.0)), (('language', ('match', 'match', 'match', 'match'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Language evidence exists but is partial or stale.', 314.0)), (('language', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 10), ('ok', 'partial', 'Language evidence exists but is partial or stale.', 10.0)), (('language', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Input language is unknown; a language match cannot be established.', 10.0)), (('language', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Input language is unknown; a language match cannot be established.', 71.0)), (('language', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Input language is unknown; a language match cannot be established.', 314.0)), (('language', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-11-01T00:00:00Z', 10), ('ok', 'unknown', 'Input language is unknown; a language match cannot be established.', 10.0)), (('language', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('language', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-09-01T00:00:00Z', 120), ('ok', None)), (('language', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-01-01T00:00:00Z', 120), ('ok', None)), (('language', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-11-01T00:00:00Z', 10), ('ok', None)), (('language', ('match', 'mismatch', 'unknown', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching language slice has adequate held-out samples and is fresh.', 10.0)), (('language', ('match', 'mismatch', 'unknown', 'match'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Language evidence exists but is partial or stale.', 71.0)), (('language', ('match', 'mismatch', 'unknown', 'match'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Language evidence exists but is partial or stale.', 314.0)), (('language', ('match', 'mismatch', 'unknown', 'match'), '2026-11-01T00:00:00Z', 10), ('ok', 'partial', 'Language evidence exists but is partial or stale.', 10.0)), (('text_length', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching length slice has adequate held-out samples and is fresh.', 10.0)), (('text_length', ('match', 'match', 'match', 'match'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Length evidence exists but is partial or stale.', 71.0)), (('text_length', ('match', 'match', 'match', 'match'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Length evidence exists but is partial or stale.', 314.0)), (('text_length', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 10), ('ok', 'partial', 'Length evidence exists but is partial or stale.', 10.0)), (('text_length', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching length slice has adequate held-out samples and is fresh.', 10.0)), (('text_length', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Length evidence exists but is partial or stale.', 71.0)), (('text_length', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Length evidence exists but is partial or stale.', 314.0)), (('text_length', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-11-01T00:00:00Z', 10), ('ok', 'partial', 'Length evidence exists but is partial or stale.', 10.0)), (('text_length', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('text_length', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-09-01T00:00:00Z', 120), ('ok', None)), (('text_length', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-01-01T00:00:00Z', 120), ('ok', None)), (('text_length', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-11-01T00:00:00Z', 10), ('ok', None)), (('text_length', ('match', 'mismatch', 'unknown', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('text_length', ('match', 'mismatch', 'unknown', 'match'), '2026-09-01T00:00:00Z', 120), ('ok', None)), (('text_length', ('match', 'mismatch', 'unknown', 'match'), '2026-01-01T00:00:00Z', 120), ('ok', None)), (('text_length', ('match', 'mismatch', 'unknown', 'match'), '2026-11-01T00:00:00Z', 10), ('ok', None)), (('domain_genre', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching domain slice has adequate held-out samples and is fresh.', 10.0)), (('domain_genre', ('match', 'match', 'match', 'match'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Domain evidence exists but is partial or stale.', 71.0)), (('domain_genre', ('match', 'match', 'match', 'match'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Domain evidence exists but is partial or stale.', 314.0)), (('domain_genre', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 10), ('ok', 'partial', 'Domain evidence exists but is partial or stale.', 10.0)), (('domain_genre', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Input domain is unknown or low confidence; a domain match cannot be established.', 10.0)), (('domain_genre', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Input domain is unknown or low confidence; a domain match cannot be established.', 71.0)), (('domain_genre', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Input domain is unknown or low confidence; a domain match cannot be established.', 314.0)), (('domain_genre', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-11-01T00:00:00Z', 10), ('ok', 'unknown', 'Input domain is unknown or low confidence; a domain match cannot be established.', 10.0)), (('domain_genre', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'No registered slice covers the input domain.', 10.0)), (('domain_genre', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'No registered slice covers the input domain.', 71.0)), (('domain_genre', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'No registered slice covers the input domain.', 314.0)), (('domain_genre', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-11-01T00:00:00Z', 10), ('ok', 'unknown', 'No registered slice covers the input domain.', 10.0)), (('domain_genre', ('match', 'mismatch', 'unknown', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Input domain is unknown or low confidence; a domain match cannot be established.', 10.0)), (('domain_genre', ('match', 'mismatch', 'unknown', 'match'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Input domain is unknown or low confidence; a domain match cannot be established.', 71.0)), (('domain_genre', ('match', 'mismatch', 'unknown', 'match'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Input domain is unknown or low confidence; a domain match cannot be established.', 314.0)), (('domain_genre', ('match', 'mismatch', 'unknown', 'match'), '2026-11-01T00:00:00Z', 10), ('ok', 'unknown', 'Input domain is unknown or low confidence; a domain match cannot be established.', 10.0)), (('editing_revision', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching editing-regime slice has adequate held-out samples and is fresh.', 10.0)), (('editing_revision', ('match', 'match', 'match', 'match'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Editing-regime evidence exists but is partial or stale.', 71.0)), (('editing_revision', ('match', 'match', 'match', 'match'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Editing-regime evidence exists but is partial or stale.', 314.0)), (('editing_revision', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 10), ('ok', 'partial', 'Editing-regime evidence exists but is partial or stale.', 10.0)), (('editing_revision', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Editing regime is undeclared; evidence cannot be matched to it.', 10.0)), (('editing_revision', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Editing regime is undeclared; evidence cannot be matched to it.', 71.0)), (('editing_revision', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Editing regime is undeclared; evidence cannot be matched to it.', 314.0)), (('editing_revision', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-11-01T00:00:00Z', 10), ('ok', 'unknown', 'Editing regime is undeclared; evidence cannot be matched to it.', 10.0)), (('editing_revision', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'No registered slice covers the declared editing regime.', 10.0)), (('editing_revision', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'No registered slice covers the declared editing regime.', 71.0)), (('editing_revision', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'No registered slice covers the declared editing regime.', 314.0)), (('editing_revision', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-11-01T00:00:00Z', 10), ('ok', 'unknown', 'No registered slice covers the declared editing regime.', 10.0)), (('editing_revision', ('match', 'mismatch', 'unknown', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching editing-regime slice has adequate held-out samples and is fresh.', 10.0)), (('editing_revision', ('match', 'mismatch', 'unknown', 'match'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Editing-regime evidence exists but is partial or stale.', 71.0)), (('editing_revision', ('match', 'mismatch', 'unknown', 'match'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Editing-regime evidence exists but is partial or stale.', 314.0)), (('editing_revision', ('match', 'mismatch', 'unknown', 'match'), '2026-11-01T00:00:00Z', 10), ('ok', 'partial', 'Editing-regime evidence exists but is partial or stale.', 10.0)), (('generator_scope', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 10.0)), (('generator_scope', ('match', 'match', 'match', 'match'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 71.0)), (('generator_scope', ('match', 'match', 'match', 'match'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 314.0)), (('generator_scope', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 10), ('ok', 'unknown', 'Evidence does not declare generator scope.', 10.0)), (('generator_scope', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 10.0)), (('generator_scope', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 71.0)), (('generator_scope', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 314.0)), (('generator_scope', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-11-01T00:00:00Z', 10), ('ok', 'unknown', 'Evidence does not declare generator scope.', 10.0)), (('generator_scope', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('generator_scope', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-09-01T00:00:00Z', 120), ('ok', None)), (('generator_scope', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-01-01T00:00:00Z', 120), ('ok', None)), (('generator_scope', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-11-01T00:00:00Z', 10), ('ok', None)), (('generator_scope', ('match', 'mismatch', 'unknown', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('generator_scope', ('match', 'mismatch', 'unknown', 'match'), '2026-09-01T00:00:00Z', 120), ('ok', None)), (('generator_scope', ('match', 'mismatch', 'unknown', 'match'), '2026-01-01T00:00:00Z', 120), ('ok', None)), (('generator_scope', ('match', 'mismatch', 'unknown', 'match'), '2026-11-01T00:00:00Z', 10), ('ok', None)), (('human_population', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 10.0)), (('human_population', ('match', 'match', 'match', 'match'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 71.0)), (('human_population', ('match', 'match', 'match', 'match'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 314.0)), (('human_population', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 10), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 10.0)), (('human_population', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 10.0)), (('human_population', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 71.0)), (('human_population', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 314.0)), (('human_population', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-11-01T00:00:00Z', 10), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 10.0)), (('human_population', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('human_population', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-09-01T00:00:00Z', 120), ('ok', None)), (('human_population', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-01-01T00:00:00Z', 120), ('ok', None)), (('human_population', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-11-01T00:00:00Z', 10), ('ok', None)), (('human_population', ('match', 'mismatch', 'unknown', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('human_population', ('match', 'mismatch', 'unknown', 'match'), '2026-09-01T00:00:00Z', 120), ('ok', None)), (('human_population', ('match', 'mismatch', 'unknown', 'match'), '2026-01-01T00:00:00Z', 120), ('ok', None)), (('human_population', ('match', 'mismatch', 'unknown', 'match'), '2026-11-01T00:00:00Z', 10), ('ok', None)), (('human_false_positive_evidence', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 10.0)), (('human_false_positive_evidence', ('match', 'match', 'match', 'match'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 71.0)), (('human_false_positive_evidence', ('match', 'match', 'match', 'match'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 314.0)), (('human_false_positive_evidence', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 10), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 10.0)), (('human_false_positive_evidence', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Input domain is unknown; human false-positive evidence cannot be matched.', 10.0)), (('human_false_positive_evidence', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Input domain is unknown; human false-positive evidence cannot be matched.', 71.0)), (('human_false_positive_evidence', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Input domain is unknown; human false-positive evidence cannot be matched.', 314.0)), (('human_false_positive_evidence', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-11-01T00:00:00Z', 10), ('ok', 'unknown', 'Input domain is unknown; human false-positive evidence cannot be matched.', 10.0)), (('human_false_positive_evidence', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('human_false_positive_evidence', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-09-01T00:00:00Z', 120), ('ok', None)), (('human_false_positive_evidence', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-01-01T00:00:00Z', 120), ('ok', None)), (('human_false_positive_evidence', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-11-01T00:00:00Z', 10), ('ok', None)), (('human_false_positive_evidence', ('match', 'mismatch', 'unknown', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('human_false_positive_evidence', ('match', 'mismatch', 'unknown', 'match'), '2026-09-01T00:00:00Z', 120), ('ok', None)), (('human_false_positive_evidence', ('match', 'mismatch', 'unknown', 'match'), '2026-01-01T00:00:00Z', 120), ('ok', None)), (('human_false_positive_evidence', ('match', 'mismatch', 'unknown', 'match'), '2026-11-01T00:00:00Z', 10), ('ok', None)), (('temporal_version_stability', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('temporal_version_stability', ('match', 'match', 'match', 'match'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence is stale and no longitudinal drift snapshots are registered.', 71.0)), (('temporal_version_stability', ('match', 'match', 'match', 'match'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence is stale and no longitudinal drift snapshots are registered.', 314.0)), (('temporal_version_stability', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 10), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('temporal_version_stability', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('temporal_version_stability', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence is stale and no longitudinal drift snapshots are registered.', 71.0)), (('temporal_version_stability', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence is stale and no longitudinal drift snapshots are registered.', 314.0)), (('temporal_version_stability', ('unknown', 'unknown', 'unknown', 'unknown'), '2026-11-01T00:00:00Z', 10), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('temporal_version_stability', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('temporal_version_stability', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence is stale and no longitudinal drift snapshots are registered.', 71.0)), (('temporal_version_stability', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence is stale and no longitudinal drift snapshots are registered.', 314.0)), (('temporal_version_stability', ('mismatch', 'mismatch', 'mismatch', 'mismatch'), '2026-11-01T00:00:00Z', 10), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('temporal_version_stability', ('match', 'mismatch', 'unknown', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('temporal_version_stability', ('match', 'mismatch', 'unknown', 'match'), '2026-09-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence is stale and no longitudinal drift snapshots are registered.', 71.0)), (('temporal_version_stability', ('match', 'mismatch', 'unknown', 'match'), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence is stale and no longitudinal drift snapshots are registered.', 314.0)), (('temporal_version_stability', ('match', 'mismatch', 'unknown', 'match'), '2026-11-01T00:00:00Z', 10), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('language', ('match', 'match', 'match', 'match'), '2026-10-01T00:00:00Z', 120), ('ok', 'partial', 'Language evidence exists but is partial or stale.', 41.0)), (('text_length', ('match', 'match', 'match', 'match'), '2026-10-01T00:00:00Z', 120), ('ok', 'partial', 'Length evidence exists but is partial or stale.', 41.0)), (('domain_genre', ('match', 'match', 'match', 'match'), '2026-10-01T00:00:00Z', 120), ('ok', 'partial', 'Domain evidence exists but is partial or stale.', 41.0)), (('editing_revision', ('match', 'match', 'match', 'match'), '2026-10-01T00:00:00Z', 120), ('ok', 'partial', 'Editing-regime evidence exists but is partial or stale.', 41.0)), (('generator_scope', ('match', 'match', 'match', 'match'), '2026-10-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 41.0)), (('human_population', ('match', 'match', 'match', 'match'), '2026-10-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 41.0)), (('human_false_positive_evidence', ('match', 'match', 'match', 'match'), '2026-10-01T00:00:00Z', 120), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 41.0)), (('temporal_version_stability', ('match', 'match', 'match', 'match'), '2026-10-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence is stale and no longitudinal drift snapshots are registered.', 41.0)), (('language', ('match', 'match', 'match', 'match'), '2026-10-01T00:00:00Z', 10), ('ok', 'partial', 'Language evidence exists but is partial or stale.', 41.0)), (('text_length', ('match', 'match', 'match', 'match'), '2026-10-01T00:00:00Z', 10), ('ok', 'partial', 'Length evidence exists but is partial or stale.', 41.0)), (('domain_genre', ('match', 'match', 'match', 'match'), '2026-10-01T00:00:00Z', 10), ('ok', 'partial', 'Domain evidence exists but is partial or stale.', 41.0)), (('editing_revision', ('match', 'match', 'match', 'match'), '2026-10-01T00:00:00Z', 10), ('ok', 'partial', 'Editing-regime evidence exists but is partial or stale.', 41.0)), (('generator_scope', ('match', 'match', 'match', 'match'), '2026-10-01T00:00:00Z', 10), ('ok', 'unknown', 'Evidence does not declare generator scope.', 41.0)), (('human_population', ('match', 'match', 'match', 'match'), '2026-10-01T00:00:00Z', 10), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 41.0)), (('human_false_positive_evidence', ('match', 'match', 'match', 'match'), '2026-10-01T00:00:00Z', 10), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 41.0)), (('temporal_version_stability', ('match', 'match', 'match', 'match'), '2026-10-01T00:00:00Z', 10), ('ok', 'unknown', 'Evidence is stale and no longitudinal drift snapshots are registered.', 41.0)), (('language', ('match', 'match', 'match', 'match'), '2026-11-10T10:40:48Z', 120), ('ok', 'supported', 'A matching language slice has adequate held-out samples and is fresh.', 0.56)), (('text_length', ('match', 'match', 'match', 'match'), '2026-11-10T10:40:48Z', 120), ('ok', 'supported', 'A matching length slice has adequate held-out samples and is fresh.', 0.56)), (('domain_genre', ('match', 'match', 'match', 'match'), '2026-11-10T10:40:48Z', 120), ('ok', 'supported', 'A matching domain slice has adequate held-out samples and is fresh.', 0.56)), (('editing_revision', ('match', 'match', 'match', 'match'), '2026-11-10T10:40:48Z', 120), ('ok', 'supported', 'A matching editing-regime slice has adequate held-out samples and is fresh.', 0.56)), (('generator_scope', ('match', 'match', 'match', 'match'), '2026-11-10T10:40:48Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 0.56)), (('human_population', ('match', 'match', 'match', 'match'), '2026-11-10T10:40:48Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 0.56)), (('human_false_positive_evidence', ('match', 'match', 'match', 'match'), '2026-11-10T10:40:48Z', 120), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 0.56)), (('temporal_version_stability', ('match', 'match', 'match', 'match'), '2026-11-10T10:40:48Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 0.56)), (('language', ('match', 'match', 'match', 'match'), '2026-10-12T00:00:00Z', 120), ('ok', 'supported', 'A matching language slice has adequate held-out samples and is fresh.', 30.0)), (('text_length', ('match', 'match', 'match', 'match'), '2026-10-12T00:00:00Z', 120), ('ok', 'supported', 'A matching length slice has adequate held-out samples and is fresh.', 30.0)), (('domain_genre', ('match', 'match', 'match', 'match'), '2026-10-12T00:00:00Z', 120), ('ok', 'supported', 'A matching domain slice has adequate held-out samples and is fresh.', 30.0)), (('editing_revision', ('match', 'match', 'match', 'match'), '2026-10-12T00:00:00Z', 120), ('ok', 'supported', 'A matching editing-regime slice has adequate held-out samples and is fresh.', 30.0)), (('generator_scope', ('match', 'match', 'match', 'match'), '2026-10-12T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 30.0)), (('human_population', ('match', 'match', 'match', 'match'), '2026-10-12T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 30.0)), (('human_false_positive_evidence', ('match', 'match', 'match', 'match'), '2026-10-12T00:00:00Z', 120), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 30.0)), (('temporal_version_stability', ('match', 'match', 'match', 'match'), '2026-10-12T00:00:00Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 30.0)), (('generator_scope', ('representative', ('g1', 'g2', 'g3'), ('p1', 'p2')), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'Evidence covers multiple generators.', 10.0)), (('human_population', ('representative', ('g1', 'g2', 'g3'), ('p1', 'p2')), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'Evidence covers multiple human populations.', 10.0)), (('generator_scope', ('representative', ('g1', 'g2', 'g3'), ('p1', 'p2')), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence covers multiple generators.', 314.0)), (('human_population', ('representative', ('g1', 'g2', 'g3'), ('p1', 'p2')), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence covers multiple human populations.', 314.0)), (('generator_scope', ('multi', ('g1', 'g2', 'g3'), ('p1',)), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'Evidence covers multiple generators.', 10.0)), (('human_population', ('multi', ('g1', 'g2', 'g3'), ('p1',)), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Evidence covers only one human population.', 10.0)), (('generator_scope', ('multi', ('g1', 'g2', 'g3'), ('p1',)), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence covers multiple generators.', 314.0)), (('human_population', ('multi', ('g1', 'g2', 'g3'), ('p1',)), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence covers only one human population.', 314.0)), (('generator_scope', ('multi', ('g1', 'g2'), ('p1', 'p2')), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Evidence covers a limited generator set; scope is not representative.', 10.0)), (('human_population', ('multi', ('g1', 'g2'), ('p1', 'p2')), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'Evidence covers multiple human populations.', 10.0)), (('generator_scope', ('multi', ('g1', 'g2'), ('p1', 'p2')), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence covers a limited generator set; scope is not representative.', 314.0)), (('human_population', ('multi', ('g1', 'g2'), ('p1', 'p2')), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence covers multiple human populations.', 314.0)), (('generator_scope', ('multi', ('g1',), ('representative',)), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Evidence covers a limited generator set; scope is not representative.', 10.0)), (('human_population', ('multi', ('g1',), ('representative',)), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'Evidence covers multiple human populations.', 10.0)), (('generator_scope', ('multi', ('g1',), ('representative',)), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence covers a limited generator set; scope is not representative.', 314.0)), (('human_population', ('multi', ('g1',), ('representative',)), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence covers multiple human populations.', 314.0)), (('generator_scope', ('single', ('g1',), ('p1',)), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Evidence covers a limited generator set; scope is not representative.', 10.0)), (('human_population', ('single', ('g1',), ('p1',)), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Evidence covers only one human population.', 10.0)), (('generator_scope', ('single', ('g1',), ('p1',)), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence covers a limited generator set; scope is not representative.', 314.0)), (('human_population', ('single', ('g1',), ('p1',)), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence covers only one human population.', 314.0)), (('generator_scope', ('single', (), ()), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 10.0)), (('human_population', ('single', (), ()), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 10.0)), (('generator_scope', ('single', (), ()), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 314.0)), (('human_population', ('single', (), ()), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 314.0)), (('generator_scope', ('unknown', (), ('p1',)), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 10.0)), (('human_population', ('unknown', (), ('p1',)), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Evidence covers only one human population.', 10.0)), (('generator_scope', ('unknown', (), ('p1',)), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 314.0)), (('human_population', ('unknown', (), ('p1',)), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence covers only one human population.', 314.0)), (('generator_scope', ('unknown', ('g1',), ()), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Evidence covers a limited generator set; scope is not representative.', 10.0)), (('human_population', ('unknown', ('g1',), ()), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 10.0)), (('generator_scope', ('unknown', ('g1',), ()), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence covers a limited generator set; scope is not representative.', 314.0)), (('human_population', ('unknown', ('g1',), ()), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 314.0)), (('language', ('mismatch', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('text_length', ('mismatch', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching length slice has adequate held-out samples and is fresh.', 10.0)), (('domain_genre', ('mismatch', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching domain slice has adequate held-out samples and is fresh.', 10.0)), (('editing_revision', ('mismatch', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching editing-regime slice has adequate held-out samples and is fresh.', 10.0)), (('generator_scope', ('mismatch', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('human_population', ('mismatch', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('human_false_positive_evidence', ('mismatch', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('temporal_version_stability', ('mismatch', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('language', ('match', 'mismatch', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching language slice has adequate held-out samples and is fresh.', 10.0)), (('text_length', ('match', 'mismatch', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('domain_genre', ('match', 'mismatch', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching domain slice has adequate held-out samples and is fresh.', 10.0)), (('editing_revision', ('match', 'mismatch', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching editing-regime slice has adequate held-out samples and is fresh.', 10.0)), (('generator_scope', ('match', 'mismatch', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('human_population', ('match', 'mismatch', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('human_false_positive_evidence', ('match', 'mismatch', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('temporal_version_stability', ('match', 'mismatch', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('language', ('match', 'match', 'mismatch', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching language slice has adequate held-out samples and is fresh.', 10.0)), (('text_length', ('match', 'match', 'mismatch', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching length slice has adequate held-out samples and is fresh.', 10.0)), (('domain_genre', ('match', 'match', 'mismatch', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'No registered slice covers the input domain.', 10.0)), (('editing_revision', ('match', 'match', 'mismatch', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching editing-regime slice has adequate held-out samples and is fresh.', 10.0)), (('generator_scope', ('match', 'match', 'mismatch', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('human_population', ('match', 'match', 'mismatch', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('human_false_positive_evidence', ('match', 'match', 'mismatch', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', None)), (('temporal_version_stability', ('match', 'match', 'mismatch', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('language', ('match', 'match', 'match', 'mismatch'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching language slice has adequate held-out samples and is fresh.', 10.0)), (('text_length', ('match', 'match', 'match', 'mismatch'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching length slice has adequate held-out samples and is fresh.', 10.0)), (('domain_genre', ('match', 'match', 'match', 'mismatch'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching domain slice has adequate held-out samples and is fresh.', 10.0)), (('editing_revision', ('match', 'match', 'match', 'mismatch'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'No registered slice covers the declared editing regime.', 10.0)), (('generator_scope', ('match', 'match', 'match', 'mismatch'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 10.0)), (('human_population', ('match', 'match', 'match', 'mismatch'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 10.0)), (('human_false_positive_evidence', ('match', 'match', 'match', 'mismatch'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 10.0)), (('temporal_version_stability', ('match', 'match', 'match', 'mismatch'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('language', ('match', 'match', 'unknown', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching language slice has adequate held-out samples and is fresh.', 10.0)), (('text_length', ('match', 'match', 'unknown', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching length slice has adequate held-out samples and is fresh.', 10.0)), (('domain_genre', ('match', 'match', 'unknown', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Input domain is unknown or low confidence; a domain match cannot be established.', 10.0)), (('editing_revision', ('match', 'match', 'unknown', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching editing-regime slice has adequate held-out samples and is fresh.', 10.0)), (('generator_scope', ('match', 'match', 'unknown', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 10.0)), (('human_population', ('match', 'match', 'unknown', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 10.0)), (('human_false_positive_evidence', ('match', 'match', 'unknown', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Input domain is unknown; human false-positive evidence cannot be matched.', 10.0)), (('temporal_version_stability', ('match', 'match', 'unknown', 'match'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('language', ('match', 'match', 'match', 'unknown'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching language slice has adequate held-out samples and is fresh.', 10.0)), (('text_length', ('match', 'match', 'match', 'unknown'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching length slice has adequate held-out samples and is fresh.', 10.0)), (('domain_genre', ('match', 'match', 'match', 'unknown'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching domain slice has adequate held-out samples and is fresh.', 10.0)), (('editing_revision', ('match', 'match', 'match', 'unknown'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Editing regime is undeclared; evidence cannot be matched to it.', 10.0)), (('generator_scope', ('match', 'match', 'match', 'unknown'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 10.0)), (('human_population', ('match', 'match', 'match', 'unknown'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 10.0)), (('human_false_positive_evidence', ('match', 'match', 'match', 'unknown'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 10.0)), (('temporal_version_stability', ('match', 'match', 'match', 'unknown'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('language', ('language', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Language evidence exists but is partial or stale.', 10.0)), (('text_length', ('language', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching length slice has adequate held-out samples and is fresh.', 10.0)), (('domain_genre', ('language', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching domain slice has adequate held-out samples and is fresh.', 10.0)), (('editing_revision', ('language', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching editing-regime slice has adequate held-out samples and is fresh.', 10.0)), (('generator_scope', ('language', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 10.0)), (('human_population', ('language', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 10.0)), (('human_false_positive_evidence', ('language', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 10.0)), (('temporal_version_stability', ('language', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('language', ('language', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Language evidence exists but is partial or stale.', 10.0)), (('text_length', ('language', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching length slice has adequate held-out samples and is fresh.', 10.0)), (('domain_genre', ('language', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching domain slice has adequate held-out samples and is fresh.', 10.0)), (('editing_revision', ('language', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching editing-regime slice has adequate held-out samples and is fresh.', 10.0)), (('generator_scope', ('language', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 10.0)), (('human_population', ('language', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 10.0)), (('human_false_positive_evidence', ('language', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 10.0)), (('temporal_version_stability', ('language', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('language', ('length', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching language slice has adequate held-out samples and is fresh.', 10.0)), (('text_length', ('length', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching length slice has adequate held-out samples and is fresh.', 10.0)), (('domain_genre', ('length', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching domain slice has adequate held-out samples and is fresh.', 10.0)), (('editing_revision', ('length', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching editing-regime slice has adequate held-out samples and is fresh.', 10.0)), (('generator_scope', ('length', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 10.0)), (('human_population', ('length', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 10.0)), (('human_false_positive_evidence', ('length', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 10.0)), (('temporal_version_stability', ('length', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('language', ('length', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching language slice has adequate held-out samples and is fresh.', 10.0)), (('text_length', ('length', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching length slice has adequate held-out samples and is fresh.', 10.0)), (('domain_genre', ('length', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching domain slice has adequate held-out samples and is fresh.', 10.0)), (('editing_revision', ('length', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching editing-regime slice has adequate held-out samples and is fresh.', 10.0)), (('generator_scope', ('length', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 10.0)), (('human_population', ('length', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 10.0)), (('human_false_positive_evidence', ('length', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 10.0)), (('temporal_version_stability', ('length', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('language', ('domain', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching language slice has adequate held-out samples and is fresh.', 10.0)), (('text_length', ('domain', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching length slice has adequate held-out samples and is fresh.', 10.0)), (('domain_genre', ('domain', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching domain slice has adequate held-out samples and is fresh.', 10.0)), (('editing_revision', ('domain', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching editing-regime slice has adequate held-out samples and is fresh.', 10.0)), (('generator_scope', ('domain', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 10.0)), (('human_population', ('domain', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 10.0)), (('human_false_positive_evidence', ('domain', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 10.0)), (('temporal_version_stability', ('domain', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('language', ('domain', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching language slice has adequate held-out samples and is fresh.', 10.0)), (('text_length', ('domain', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching length slice has adequate held-out samples and is fresh.', 10.0)), (('domain_genre', ('domain', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching domain slice has adequate held-out samples and is fresh.', 10.0)), (('editing_revision', ('domain', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching editing-regime slice has adequate held-out samples and is fresh.', 10.0)), (('generator_scope', ('domain', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 10.0)), (('human_population', ('domain', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 10.0)), (('human_false_positive_evidence', ('domain', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 10.0)), (('temporal_version_stability', ('domain', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('language', ('editing', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching language slice has adequate held-out samples and is fresh.', 10.0)), (('text_length', ('editing', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching length slice has adequate held-out samples and is fresh.', 10.0)), (('domain_genre', ('editing', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching domain slice has adequate held-out samples and is fresh.', 10.0)), (('editing_revision', ('editing', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching editing-regime slice has adequate held-out samples and is fresh.', 10.0)), (('generator_scope', ('editing', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 10.0)), (('human_population', ('editing', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 10.0)), (('human_false_positive_evidence', ('editing', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 10.0)), (('temporal_version_stability', ('editing', 'zzz'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('language', ('editing', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching language slice has adequate held-out samples and is fresh.', 10.0)), (('text_length', ('editing', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching length slice has adequate held-out samples and is fresh.', 10.0)), (('domain_genre', ('editing', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching domain slice has adequate held-out samples and is fresh.', 10.0)), (('editing_revision', ('editing', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'A matching editing-regime slice has adequate held-out samples and is fresh.', 10.0)), (('generator_scope', ('editing', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare generator scope.', 10.0)), (('human_population', ('editing', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Evidence does not declare human-population coverage.', 10.0)), (('human_false_positive_evidence', ('editing', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 10.0)), (('temporal_version_stability', ('editing', 'aaa'), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Current evidence is fresh, but no longitudinal drift snapshots are registered.', 10.0)), (('zzz', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('raise', 'EvidenceError', "Unknown coverage dimension: 'zzz'.")), (('aaa', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('raise', 'EvidenceError', "Unknown coverage dimension: 'aaa'.")), (('LANGUAGE', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('raise', 'EvidenceError', "Unknown coverage dimension: 'LANGUAGE'.")), (('', ('match', 'match', 'match', 'match'), '2026-11-01T00:00:00Z', 120), ('raise', 'EvidenceError', "Unknown coverage dimension: ''.")), (('human_false_positive_evidence', (120, 0.03, True), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'Human FPR 0.020 with 95% CI upper 0.030 is at or below the 0.05 ceiling.', 10.0)), (('human_false_positive_evidence', (120, 0.03, True), '2026-10-01T00:00:00Z', 120), ('ok', 'partial', 'Human false-positive evidence is present but is insufficient, stale, or above the ceiling.', 41.0)), (('human_false_positive_evidence', (120, 0.03, True), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Human false-positive evidence is present but is insufficient, stale, or above the ceiling.', 314.0)), (('human_false_positive_evidence', (99, 0.03, True), '2026-11-01T00:00:00Z', 99), ('ok', 'partial', 'Human false-positive evidence is present but is insufficient, stale, or above the ceiling.', 10.0)), (('human_false_positive_evidence', (99, 0.03, True), '2026-10-01T00:00:00Z', 99), ('ok', 'partial', 'Human false-positive evidence is present but is insufficient, stale, or above the ceiling.', 41.0)), (('human_false_positive_evidence', (99, 0.03, True), '2026-01-01T00:00:00Z', 99), ('ok', 'unknown', 'Human false-positive evidence is present but is insufficient, stale, or above the ceiling.', 314.0)), (('human_false_positive_evidence', (100, 0.03, True), '2026-11-01T00:00:00Z', 100), ('ok', 'supported', 'Human FPR 0.020 with 95% CI upper 0.030 is at or below the 0.05 ceiling.', 10.0)), (('human_false_positive_evidence', (100, 0.03, True), '2026-10-01T00:00:00Z', 100), ('ok', 'partial', 'Human false-positive evidence is present but is insufficient, stale, or above the ceiling.', 41.0)), (('human_false_positive_evidence', (100, 0.03, True), '2026-01-01T00:00:00Z', 100), ('ok', 'unknown', 'Human false-positive evidence is present but is insufficient, stale, or above the ceiling.', 314.0)), (('human_false_positive_evidence', (101, 0.03, True), '2026-11-01T00:00:00Z', 101), ('ok', 'supported', 'Human FPR 0.020 with 95% CI upper 0.030 is at or below the 0.05 ceiling.', 10.0)), (('human_false_positive_evidence', (101, 0.03, True), '2026-10-01T00:00:00Z', 101), ('ok', 'partial', 'Human false-positive evidence is present but is insufficient, stale, or above the ceiling.', 41.0)), (('human_false_positive_evidence', (101, 0.03, True), '2026-01-01T00:00:00Z', 101), ('ok', 'unknown', 'Human false-positive evidence is present but is insufficient, stale, or above the ceiling.', 314.0)), (('human_false_positive_evidence', (120, 0.05, True), '2026-11-01T00:00:00Z', 120), ('ok', 'supported', 'Human FPR 0.020 with 95% CI upper 0.050 is at or below the 0.05 ceiling.', 10.0)), (('human_false_positive_evidence', (120, 0.05, True), '2026-10-01T00:00:00Z', 120), ('ok', 'partial', 'Human false-positive evidence is present but is insufficient, stale, or above the ceiling.', 41.0)), (('human_false_positive_evidence', (120, 0.05, True), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Human false-positive evidence is present but is insufficient, stale, or above the ceiling.', 314.0)), (('human_false_positive_evidence', (120, 0.07, True), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Human false-positive evidence is present but is insufficient, stale, or above the ceiling.', 10.0)), (('human_false_positive_evidence', (120, 0.07, True), '2026-10-01T00:00:00Z', 120), ('ok', 'partial', 'Human false-positive evidence is present but is insufficient, stale, or above the ceiling.', 41.0)), (('human_false_positive_evidence', (120, 0.07, True), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Human false-positive evidence is present but is insufficient, stale, or above the ceiling.', 314.0)), (('human_false_positive_evidence', (120, None, False), '2026-11-01T00:00:00Z', 120), ('ok', 'partial', 'Human false-positive evidence is present but is insufficient, stale, or above the ceiling.', 10.0)), (('human_false_positive_evidence', (120, None, False), '2026-10-01T00:00:00Z', 120), ('ok', 'partial', 'Human false-positive evidence is present but is insufficient, stale, or above the ceiling.', 41.0)), (('human_false_positive_evidence', (120, None, False), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Human false-positive evidence is present but is insufficient, stale, or above the ceiling.', 314.0)), (('human_false_positive_evidence', (120, None, None), '2026-11-01T00:00:00Z', 120), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 10.0)), (('human_false_positive_evidence', (120, None, None), '2026-10-01T00:00:00Z', 120), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 41.0)), (('human_false_positive_evidence', (120, None, None), '2026-01-01T00:00:00Z', 120), ('ok', 'unknown', 'Matching slice does not report a human false-positive rate.', 314.0))]
+EXPECTED_PROBE_EV_RECORD_CANDIDATE2 = [
+    (
+        "supported-default",
+        (
+            "ok",
+            "supported",
+            "A matching language slice has adequate held-out samples and is fresh.",
+            (),
+        ),
+    ),
+    (
+        "supported-eligible",
+        (
+            "ok",
+            "supported",
+            "A matching language slice has adequate held-out samples and is fresh.",
+            (),
+        ),
+    ),
+    (
+        "supported-ineligible",
+        (
+            "ok",
+            "partial",
+            "Evidence exists but is ineligible for support: stale. A matching language slice has adequate held-out samples and is fresh.",
+            ("ineligible for support: stale",),
+        ),
+    ),
+    (
+        "supported-ineligible-2reasons",
+        (
+            "ok",
+            "partial",
+            "Evidence exists but is ineligible for support: stale; no-proof. A matching language slice has adequate held-out samples and is fresh.",
+            ("ineligible for support: stale", "ineligible for support: no-proof"),
+        ),
+    ),
+    (
+        "partial-ineligible",
+        (
+            "ok",
+            "partial",
+            "Evidence exists but is ineligible for support: stale. A matching language slice has adequate held-out samples and is fresh.",
+            ("ineligible for support: stale",),
+        ),
+    ),
+    ("unknown-ineligible", ("ok", None)),
+    (
+        "text-length-ineligible",
+        (
+            "ok",
+            "partial",
+            "Evidence exists but is ineligible for support: stale. A matching length slice has adequate held-out samples and is fresh.",
+            ("ineligible for support: stale",),
+        ),
+    ),
+    ("none-ineligible", ("ok", None)),
+    (
+        "unknown-state-ineligible",
+        (
+            "ok",
+            "unknown",
+            "Input domain is unknown; human false-positive evidence cannot be matched.",
+            ("ineligible for support: stale",),
+        ),
+    ),
+    (
+        "partial-state-ineligible",
+        (
+            "ok",
+            "partial",
+            "Language evidence exists but is partial or stale.",
+            ("ineligible for support: stale",),
+        ),
+    ),
+    (
+        "eligible-with-reasons",
+        (
+            "ok",
+            "supported",
+            "A matching language slice has adequate held-out samples and is fresh.",
+            (),
+        ),
+    ),
+]
 
 
-EXPECTED_PROBE_EV_RECORD_CANDIDATE2 = [('supported-default', ('ok', 'supported', 'A matching language slice has adequate held-out samples and is fresh.', ())), ('supported-eligible', ('ok', 'supported', 'A matching language slice has adequate held-out samples and is fresh.', ())), ('supported-ineligible', ('ok', 'partial', 'Evidence exists but is ineligible for support: stale. A matching language slice has adequate held-out samples and is fresh.', ('ineligible for support: stale',))), ('supported-ineligible-2reasons', ('ok', 'partial', 'Evidence exists but is ineligible for support: stale; no-proof. A matching language slice has adequate held-out samples and is fresh.', ('ineligible for support: stale', 'ineligible for support: no-proof'))), ('partial-ineligible', ('ok', 'partial', 'Evidence exists but is ineligible for support: stale. A matching language slice has adequate held-out samples and is fresh.', ('ineligible for support: stale',))), ('unknown-ineligible', ('ok', None)), ('text-length-ineligible', ('ok', 'partial', 'Evidence exists but is ineligible for support: stale. A matching length slice has adequate held-out samples and is fresh.', ('ineligible for support: stale',))), ('none-ineligible', ('ok', None))]
+EXPECTED_PROBE_EV_RECORDS_FOR = [
+    ("aaa-unversioned", ("ok", ["ev-aaa-*-test", "ev-aaa-1-test", "ev-aaa-2-test"])),
+    ("aaa-v1", ("ok", ["ev-aaa-1-test"])),
+    ("aaa-v2", ("ok", ["ev-aaa-2-test"])),
+    ("aaa-vstar", ("ok", ["ev-aaa-*-test"])),
+    ("aaa-v9", ("ok", [])),
+    ("zzz-unversioned", ("ok", ["ev-zzz-2-test"])),
+    ("missing", ("ok", [])),
+    ("aaa-v1-distinct", ("ok", ["ev-aaa-1-test"])),
+    ("aaa-distinct-obj", ("ok", ["ev-aaa-*-test", "ev-aaa-1-test", "ev-aaa-2-test"])),
+    ("aaa-v1-distinct-obj", ("ok", ["ev-aaa-1-test"])),
+    ("empty-id", ("raise", "EvidenceError", "detector_id must be a non-empty string.")),
+    ("ids", ("ok", "('aaa', 'mmm', 'zzz')")),
+]
 
 
-EXPECTED_PROBE_EV_RECORDS_FOR = [('aaa-unversioned', ('ok', ['ev-aaa-*-test', 'ev-aaa-1-test', 'ev-aaa-2-test'])), ('aaa-v1', ('ok', ['ev-aaa-1-test'])), ('aaa-v2', ('ok', ['ev-aaa-2-test'])), ('aaa-vstar', ('ok', ['ev-aaa-*-test'])), ('aaa-v9', ('ok', [])), ('zzz-unversioned', ('ok', ['ev-zzz-2-test'])), ('missing', ('ok', [])), ('aaa-v1-distinct', ('ok', ['ev-aaa-1-test'])), ('empty-id', ('raise', 'EvidenceError', 'detector_id must be a non-empty string.')), ('ids', ('ok', "('aaa', 'mmm', 'zzz')"))]
+EXPECTED_PROBE_EV_ROW_OK = [
+    ("none", ("ok", "(False, 'artifact integrity is unverified (no verification supplied)')")),
+    ("unsupported-int", ("ok", "(False, 'artifact verification has an unsupported shape')")),
+    ("unsupported-list", ("ok", "(False, 'artifact verification has an unsupported shape')")),
+    ("ver-ok", ("ok", "(True, None)")),
+    (
+        "ver-fail-errors",
+        ("ok", "(False, \"artifact verification failed for record 'ev2': bad sha\")"),
+    ),
+    ("ver-fail-noerr", ("ok", "(False, \"artifact verification failed for record 'ev3'\")")),
+    ("ver-bool-true", ("ok", "(True, None)")),
+    ("ver-bool-false", ("ok", "(False, \"artifact verification failed for record 'ev5'\")")),
+    ("ver-malformed", ("ok", "(False, \"artifact verification row for 'ev6' is malformed\")")),
+    ("ver-ok-errors", ("ok", "(True, None)")),
+    ("ver-fail-errors-str", ("ok", "(False, \"artifact verification failed for record 'ev8'\")")),
+    ("ver-missing", ("ok", "(False, \"no artifact verification row for record 'ev9'\")")),
+    ("map-ok", ("ok", "(True, None)")),
+    ("map-false", ("ok", "(False, \"artifact verification failed for record 'ev1'\")")),
+    ("map-dict-ok", ("ok", "(True, None)")),
+    ("map-dict-fail", ("ok", "(False, \"artifact verification failed for record 'ev1': e1; e2\")")),
+    ("map-dict-nook", ("ok", "(False, \"artifact verification failed for record 'ev1': e1\")")),
+    ("map-missing", ("ok", "(False, \"no artifact verification row for record 'ev9'\")")),
+    ("map-malformed", ("ok", "(False, \"artifact verification row for 'ev1' is malformed\")")),
+]
 
 
-EXPECTED_PROBE_EV_ROW_OK = [('none', ('ok', "(False, 'artifact integrity is unverified (no verification supplied)')")), ('unsupported-int', ('ok', "(False, 'artifact verification has an unsupported shape')")), ('unsupported-list', ('ok', "(False, 'artifact verification has an unsupported shape')")), ('ver-ok', ('ok', '(True, None)')), ('ver-fail-errors', ('ok', '(False, "artifact verification failed for record \'ev2\': bad sha")')), ('ver-fail-noerr', ('ok', '(False, "artifact verification failed for record \'ev3\'")')), ('ver-bool-true', ('ok', '(True, None)')), ('ver-bool-false', ('ok', '(False, "artifact verification failed for record \'ev5\'")')), ('ver-malformed', ('ok', '(False, "artifact verification row for \'ev6\' is malformed")')), ('ver-ok-errors', ('ok', '(True, None)')), ('ver-missing', ('ok', '(False, "no artifact verification row for record \'ev9\'")')), ('map-ok', ('ok', '(True, None)')), ('map-false', ('ok', '(False, "artifact verification failed for record \'ev1\'")')), ('map-dict-ok', ('ok', '(True, None)')), ('map-dict-fail', ('ok', '(False, "artifact verification failed for record \'ev1\': e1; e2")')), ('map-dict-nook', ('ok', '(False, "artifact verification failed for record \'ev1\': e1")')), ('map-missing', ('ok', '(False, "no artifact verification row for record \'ev9\'")')), ('map-malformed', ('ok', '(False, "artifact verification row for \'ev1\' is malformed")'))]
+EXPECTED_PROBE_EV_WORST_FPR = [
+    (
+        "supported-one-below",
+        (
+            "ok",
+            "supported",
+            "base reason Worst required-slice FPR CI upper is 0.030 (slice s1; ceiling 0.05).",
+            [
+                ("fpr_ceiling", 0.05),
+                ("fpr_ci_upper", 0.03),
+                ("fpr_ci_upper_worst_slice", "s1"),
+                ("fpr_ci_uppers_by_slice", {"s1": 0.03}),
+            ],
+        ),
+    ),
+    (
+        "supported-one-eq-ceiling",
+        (
+            "ok",
+            "supported",
+            "base reason Worst required-slice FPR CI upper is 0.050 (slice s1; ceiling 0.05).",
+            [
+                ("fpr_ceiling", 0.05),
+                ("fpr_ci_upper", 0.05),
+                ("fpr_ci_upper_worst_slice", "s1"),
+                ("fpr_ci_uppers_by_slice", {"s1": 0.05}),
+            ],
+        ),
+    ),
+    (
+        "supported-one-above",
+        (
+            "ok",
+            "partial",
+            "Worst required-slice human FPR CI upper is 0.060 (slice s1), which exceeds the 0.05 ceiling; a better slice cannot substitute.",
+            [
+                ("fpr_ceiling", 0.05),
+                ("fpr_ci_upper", 0.06),
+                ("fpr_ci_upper_worst_slice", "s1"),
+                ("fpr_ci_uppers_by_slice", {"s1": 0.06}),
+            ],
+        ),
+    ),
+    (
+        "supported-two-worst-second",
+        (
+            "ok",
+            "supported",
+            "base reason Worst required-slice FPR CI upper is 0.040 (slice s2; ceiling 0.05).",
+            [
+                ("fpr_ceiling", 0.05),
+                ("fpr_ci_upper", 0.04),
+                ("fpr_ci_upper_worst_slice", "s2"),
+                ("fpr_ci_uppers_by_slice", {"s1": 0.02, "s2": 0.04}),
+            ],
+        ),
+    ),
+    (
+        "supported-two-worst-first",
+        (
+            "ok",
+            "supported",
+            "base reason Worst required-slice FPR CI upper is 0.040 (slice s1; ceiling 0.05).",
+            [
+                ("fpr_ceiling", 0.05),
+                ("fpr_ci_upper", 0.04),
+                ("fpr_ci_upper_worst_slice", "s1"),
+                ("fpr_ci_uppers_by_slice", {"s1": 0.04, "s2": 0.02}),
+            ],
+        ),
+    ),
+    (
+        "supported-no-ci",
+        (
+            "ok",
+            "partial",
+            "Human false-positive evidence is present but required slice(s) s1 carry no FPR confidence interval, so support cannot be established.",
+            [],
+        ),
+    ),
+    (
+        "supported-no-ci-flag",
+        (
+            "ok",
+            "partial",
+            "Human false-positive evidence is present but required slice(s) s1 carry no FPR confidence interval, so support cannot be established.",
+            [],
+        ),
+    ),
+    (
+        "supported-ci-upper-none",
+        (
+            "ok",
+            "partial",
+            "Human false-positive evidence is present but required slice(s) s1 carry no FPR confidence interval, so support cannot be established.",
+            [],
+        ),
+    ),
+    (
+        "supported-none-fpr",
+        (
+            "ok",
+            "partial",
+            "Human false-positive evidence is present but required slice(s) s1 carry no FPR confidence interval, so support cannot be established.",
+            [],
+        ),
+    ),
+    (
+        "supported-empty",
+        (
+            "ok",
+            "partial",
+            "Human false-positive evidence is present but no required slice reports an FPR confidence interval, so support cannot be established.",
+            [],
+        ),
+    ),
+    (
+        "partial-one-above",
+        (
+            "ok",
+            "partial",
+            "base reason",
+            [
+                ("fpr_ceiling", 0.05),
+                ("fpr_ci_upper", 0.09),
+                ("fpr_ci_upper_worst_slice", "s1"),
+                ("fpr_ci_uppers_by_slice", {"s1": 0.09}),
+            ],
+        ),
+    ),
+    (
+        "unknown-one-above",
+        (
+            "ok",
+            "unknown",
+            "base reason",
+            [
+                ("fpr_ceiling", 0.05),
+                ("fpr_ci_upper", 0.09),
+                ("fpr_ci_upper_worst_slice", "s1"),
+                ("fpr_ci_uppers_by_slice", {"s1": 0.09}),
+            ],
+        ),
+    ),
+    ("partial-empty", ("ok", "partial", "base reason", [])),
+    (
+        "supported-missing-plus-ok",
+        (
+            "ok",
+            "partial",
+            "Human false-positive evidence is present but required slice(s) s2 carry no FPR confidence interval, so support cannot be established.",
+            [
+                ("fpr_ceiling", 0.05),
+                ("fpr_ci_upper", 0.02),
+                ("fpr_ci_upper_worst_slice", "s1"),
+                ("fpr_ci_uppers_by_slice", {"s1": 0.02}),
+            ],
+        ),
+    ),
+]
 
-
-EXPECTED_PROBE_EV_WORST_FPR = [('supported-one-below', ('ok', 'supported', 'base reason Worst required-slice FPR CI upper is 0.030 (slice s1; ceiling 0.05).', [('fpr_ceiling', 0.05), ('fpr_ci_upper', 0.03), ('fpr_ci_upper_worst_slice', 's1'), ('fpr_ci_uppers_by_slice', {'s1': 0.03})])), ('supported-one-eq-ceiling', ('ok', 'supported', 'base reason Worst required-slice FPR CI upper is 0.050 (slice s1; ceiling 0.05).', [('fpr_ceiling', 0.05), ('fpr_ci_upper', 0.05), ('fpr_ci_upper_worst_slice', 's1'), ('fpr_ci_uppers_by_slice', {'s1': 0.05})])), ('supported-one-above', ('ok', 'partial', 'Worst required-slice human FPR CI upper is 0.060 (slice s1), which exceeds the 0.05 ceiling; a better slice cannot substitute.', [('fpr_ceiling', 0.05), ('fpr_ci_upper', 0.06), ('fpr_ci_upper_worst_slice', 's1'), ('fpr_ci_uppers_by_slice', {'s1': 0.06})])), ('supported-two-worst-second', ('ok', 'supported', 'base reason Worst required-slice FPR CI upper is 0.040 (slice s2; ceiling 0.05).', [('fpr_ceiling', 0.05), ('fpr_ci_upper', 0.04), ('fpr_ci_upper_worst_slice', 's2'), ('fpr_ci_uppers_by_slice', {'s1': 0.02, 's2': 0.04})])), ('supported-two-worst-first', ('ok', 'supported', 'base reason Worst required-slice FPR CI upper is 0.040 (slice s1; ceiling 0.05).', [('fpr_ceiling', 0.05), ('fpr_ci_upper', 0.04), ('fpr_ci_upper_worst_slice', 's1'), ('fpr_ci_uppers_by_slice', {'s1': 0.04, 's2': 0.02})])), ('supported-no-ci', ('ok', 'partial', 'Human false-positive evidence is present but required slice(s) s1 carry no FPR confidence interval, so support cannot be established.', [])), ('supported-no-ci-flag', ('ok', 'partial', 'Human false-positive evidence is present but required slice(s) s1 carry no FPR confidence interval, so support cannot be established.', [])), ('supported-ci-upper-none', ('ok', 'partial', 'Human false-positive evidence is present but required slice(s) s1 carry no FPR confidence interval, so support cannot be established.', [])), ('supported-none-fpr', ('ok', 'partial', 'Human false-positive evidence is present but required slice(s) s1 carry no FPR confidence interval, so support cannot be established.', [])), ('supported-empty', ('ok', 'partial', 'Human false-positive evidence is present but no required slice reports an FPR confidence interval, so support cannot be established.', [])), ('partial-one-above', ('ok', 'partial', 'base reason', [('fpr_ceiling', 0.05), ('fpr_ci_upper', 0.09), ('fpr_ci_upper_worst_slice', 's1'), ('fpr_ci_uppers_by_slice', {'s1': 0.09})])), ('unknown-one-above', ('ok', 'unknown', 'base reason', [('fpr_ceiling', 0.05), ('fpr_ci_upper', 0.09), ('fpr_ci_upper_worst_slice', 's1'), ('fpr_ci_uppers_by_slice', {'s1': 0.09})])), ('partial-empty', ('ok', 'partial', 'base reason', [])), ('supported-missing-plus-ok', ('ok', 'partial', 'Human false-positive evidence is present but required slice(s) s2 carry no FPR confidence interval, so support cannot be established.', [('fpr_ceiling', 0.05), ('fpr_ci_upper', 0.02), ('fpr_ci_upper_worst_slice', 's1'), ('fpr_ci_uppers_by_slice', {'s1': 0.02})]))]
 
 class TestWorkerFKillEvidence(unittest.TestCase):
     def test_probe_ev_assess_coverage(self):
         got = probe_ev_assess_coverage()
         exp = EXPECTED_PROBE_EV_ASSESS_COVERAGE
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_ev_check_eligibility(self):
         got = probe_ev_check_eligibility()
         exp = EXPECTED_PROBE_EV_CHECK_ELIGIBILITY
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_ev_coverage_preds(self):
         got = probe_ev_coverage_preds()
         exp = EXPECTED_PROBE_EV_COVERAGE_PREDS
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_ev_identity_proof(self):
         got = probe_ev_identity_proof()
         exp = EXPECTED_PROBE_EV_IDENTITY_PROOF
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_ev_record_candidate(self):
         got = probe_ev_record_candidate()
         exp = EXPECTED_PROBE_EV_RECORD_CANDIDATE
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_ev_record_candidate2(self):
         got = probe_ev_record_candidate2()
         exp = EXPECTED_PROBE_EV_RECORD_CANDIDATE2
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_ev_records_for(self):
         got = probe_ev_records_for()
         exp = EXPECTED_PROBE_EV_RECORDS_FOR
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_ev_row_ok(self):
         got = probe_ev_row_ok()
         exp = EXPECTED_PROBE_EV_ROW_OK
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_ev_worst_fpr(self):
         got = probe_ev_worst_fpr()
         exp = EXPECTED_PROBE_EV_WORST_FPR
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
 
 if __name__ == "__main__":

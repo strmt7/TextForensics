@@ -20,59 +20,1004 @@ from w2_f_kill_helpers import (
     probe_val_derive_dimension,
     probe_val_derive_trust_map,
     probe_val_support_blockers,
-    probe_validation_overall_v3
+    probe_validation_overall_v3,
 )
 
+EXPECTED_PROBE_VAL_COMMON_BLOCKERS = [
+    ("clean", ("ok", "[]")),
+    ("status-unknown", ("ok", "[\"effective record status is 'unknown'\"]")),
+    ("status-stale", ("ok", "[\"effective record status is 'stale'\"]")),
+    ("status-partial", ("ok", "[\"effective record status is 'partial'\"]")),
+    ("status-contested", ("ok", "[\"effective record status is 'contested'\"]")),
+    (
+        "n-human-99",
+        ("ok", "['sample counts are thin (n_human=99, n_ai=120; at least 100 each are required)']"),
+    ),
+    ("n-human-100", ("ok", "[]")),
+    ("n-human-101", ("ok", "[]")),
+    (
+        "n-ai-99",
+        ("ok", "['sample counts are thin (n_human=120, n_ai=99; at least 100 each are required)']"),
+    ),
+    ("n-ai-100", ("ok", "[]")),
+    ("split-fit", ("ok", "[\"split_role is 'fit', not the approved held-out role 'test'\"]")),
+    (
+        "split-threshold",
+        ("ok", "[\"split_role is 'threshold', not the approved held-out role 'test'\"]"),
+    ),
+    ("contamination-yes", ("ok", "['contaminated — do not report as generalisation']")),
+    (
+        "contamination-unknown",
+        ("ok", "['contamination unknown — do not report as generalisation']"),
+    ),
+    (
+        "split-train",
+        (
+            "ok",
+            "[\"split_role is 'train', not the approved held-out role 'test'\", 'record signature does not verify against its contents']",
+        ),
+    ),
+    (
+        "split-validation",
+        (
+            "ok",
+            "[\"split_role is 'validation', not the approved held-out role 'test'\", 'record signature does not verify against its contents']",
+        ),
+    ),
+    ("bad-signature", ("ok", "['record signature does not verify against its contents']")),
+    ("fpr-one-below-worst", ("ok", "(0.03, 's1', ())")),
+    ("fpr-one-below-blockers", ("ok", "[]")),
+    ("fpr-one-eq-worst", ("ok", "(0.05, 's1', ())")),
+    ("fpr-one-eq-blockers", ("ok", "[]")),
+    ("fpr-one-above-worst", ("ok", "(0.06, 's1', ())")),
+    (
+        "fpr-one-above-blockers",
+        (
+            "ok",
+            "['worst required-slice fpr_native ci_upper is 0.06 (slice s1), which exceeds the ceiling 0.05']",
+        ),
+    ),
+    ("fpr-two-worst-worst", ("ok", "(0.04, 's2', ())")),
+    ("fpr-two-worst-blockers", ("ok", "[]")),
+    ("fpr-no-ci-worst", ("ok", "(None, None, ('s1',))")),
+    (
+        "fpr-no-ci-blockers",
+        ("ok", "['required FPR slice(s) s1 carry no fpr_native confidence interval']"),
+    ),
+    ("fpr-mixed-worst", ("ok", "(0.03, 's1', ('s2',))")),
+    (
+        "fpr-mixed-blockers",
+        ("ok", "['required FPR slice(s) s2 carry no fpr_native confidence interval']"),
+    ),
+    ("duck-ci-true-upper-none-worst", ("ok", "(None, None, ('s1',))")),
+    (
+        "duck-ci-true-upper-none-blockers",
+        ("ok", "['required FPR slice(s) s1 carry no fpr_native confidence interval']"),
+    ),
+    ("duck-ci-false-upper-set-worst", ("ok", "(None, None, ('s1',))")),
+    (
+        "duck-ci-false-upper-set-blockers",
+        ("ok", "['required FPR slice(s) s1 carry no fpr_native confidence interval']"),
+    ),
+]
 
-EXPECTED_PROBE_VAL_COMMON_BLOCKERS = [('clean', ('ok', '[]')), ('status-unknown', ('ok', '["effective record status is \'unknown\'"]')), ('status-stale', ('ok', '["effective record status is \'stale\'"]')), ('status-partial', ('ok', '["effective record status is \'partial\'"]')), ('status-contested', ('ok', '["effective record status is \'contested\'"]')), ('n-human-99', ('ok', "['sample counts are thin (n_human=99, n_ai=120; at least 100 each are required)']")), ('n-human-100', ('ok', '[]')), ('n-human-101', ('ok', '[]')), ('n-ai-99', ('ok', "['sample counts are thin (n_human=120, n_ai=99; at least 100 each are required)']")), ('n-ai-100', ('ok', '[]')), ('split-fit', ('ok', '["split_role is \'fit\', not the approved held-out role \'test\'"]')), ('split-threshold', ('ok', '["split_role is \'threshold\', not the approved held-out role \'test\'"]')), ('contamination-yes', ('ok', "['contaminated — do not report as generalisation']")), ('contamination-unknown', ('ok', "['contamination unknown — do not report as generalisation']")), ('split-train', ('ok', '["split_role is \'train\', not the approved held-out role \'test\'", \'record signature does not verify against its contents\']')), ('split-validation', ('ok', '["split_role is \'validation\', not the approved held-out role \'test\'", \'record signature does not verify against its contents\']')), ('bad-signature', ('ok', "['record signature does not verify against its contents']")), ('fpr-one-below-worst', ('ok', "(0.03, 's1', ())")), ('fpr-one-below-blockers', ('ok', '[]')), ('fpr-one-eq-worst', ('ok', "(0.05, 's1', ())")), ('fpr-one-eq-blockers', ('ok', '[]')), ('fpr-one-above-worst', ('ok', "(0.06, 's1', ())")), ('fpr-one-above-blockers', ('ok', "['worst required-slice fpr_native ci_upper is 0.06 (slice s1), which exceeds the ceiling 0.05']")), ('fpr-two-worst-worst', ('ok', "(0.04, 's2', ())")), ('fpr-two-worst-blockers', ('ok', '[]')), ('fpr-no-ci-worst', ('ok', "(None, None, ('s1',))")), ('fpr-no-ci-blockers', ('ok', "['required FPR slice(s) s1 carry no fpr_native confidence interval']")), ('fpr-mixed-worst', ('ok', "(0.03, 's1', ('s2',))")), ('fpr-mixed-blockers', ('ok', "['required FPR slice(s) s2 carry no fpr_native confidence interval']")), ('duck-ci-true-upper-none-worst', ('ok', "(None, None, ('s1',))")), ('duck-ci-true-upper-none-blockers', ('ok', "['required FPR slice(s) s1 carry no fpr_native confidence interval']")), ('duck-ci-false-upper-set-worst', ('ok', "(None, None, ('s1',))")), ('duck-ci-false-upper-set-blockers', ('ok', "['required FPR slice(s) s1 carry no fpr_native confidence interval']"))]
+
+EXPECTED_PROBE_VAL_DERIVE_DIMENSION = [
+    (
+        ("supported", False),
+        (
+            "ok",
+            "TrustDimension(dimension='language', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})",
+        ),
+    ),
+    (
+        ("partial", False),
+        (
+            "ok",
+            "TrustDimension(dimension='language', state='partial', reason=\"Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input but cannot support language: evr-20261106-synthetic-test-builtin-heuristic: effective record status is 'partial'.\", evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'partial'})",
+        ),
+    ),
+    (
+        ("unknown", False),
+        (
+            "ok",
+            "TrustDimension(dimension='language', state='partial', reason=\"Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input but cannot support language: evr-20261106-synthetic-test-builtin-heuristic: effective record status is 'unknown'.\", evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'partial'})",
+        ),
+    ),
+    (
+        ("stale", False),
+        (
+            "ok",
+            "TrustDimension(dimension='language', state='stale', reason='Matching record(s) are stale: evr-20261106-synthetic-test-builtin-heuristic: stale for an unspecified reason.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'stale'})",
+        ),
+    ),
+    (
+        ("contested", False),
+        (
+            "ok",
+            "TrustDimension(dimension='language', state='partial', reason=\"Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input but cannot support language: evr-20261106-synthetic-test-builtin-heuristic: effective record status is 'contested'.\", evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=['A matching record is contested; it can never yield supported.'], detectors={'textforensics/builtin-heuristic': 'partial'})",
+        ),
+    ),
+    (
+        ("mixed", False),
+        (
+            "ok",
+            "TrustDimension(dimension='language', state='supported', reason='Matching record(s) evr-20261106-synthsupported-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthcontested-builtin-heuristic', 'evr-20261106-synthsupported-builtin-heuristic', 'evr-20261106-synthunknown-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthcontested-builtin-heuristic', 'evr-20261106-synthsupported-builtin-heuristic', 'evr-20261106-synthunknown-builtin-heuristic']}, limitations=['A matching record is contested; it can never yield supported.'], detectors={'textforensics/builtin-heuristic': 'supported'})",
+        ),
+    ),
+    (
+        ("empty-unobs", True),
+        (
+            "ok",
+            "TrustDimension(dimension='language', state='unknown', reason=\"No validation records exist for detector 'textforensics/builtin-heuristic'.\", evidence_refs=[], observed={'record_count_for_detector': 0}, limitations=[], detectors={'textforensics/builtin-heuristic': 'unknown'})",
+        ),
+    ),
+    (
+        ("empty-oos", False),
+        (
+            "ok",
+            "TrustDimension(dimension='language', state='out_of_scope', reason='no matching record for language', evidence_refs=[], observed={}, limitations=[], detectors={'textforensics/builtin-heuristic': 'out_of_scope'})",
+        ),
+    ),
+    (
+        ("name-language", False),
+        (
+            "ok",
+            "TrustDimension(dimension='language', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})",
+        ),
+    ),
+    (
+        ("name-text_length", False),
+        (
+            "ok",
+            "TrustDimension(dimension='text_length', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})",
+        ),
+    ),
+    (
+        ("name-domain_genre", False),
+        (
+            "ok",
+            "TrustDimension(dimension='domain_genre', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})",
+        ),
+    ),
+    (
+        ("name-editing_revision", False),
+        (
+            "ok",
+            "TrustDimension(dimension='editing_revision', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})",
+        ),
+    ),
+    (
+        ("name-generator_scope", False),
+        (
+            "ok",
+            "TrustDimension(dimension='generator_scope', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})",
+        ),
+    ),
+    (
+        ("name-human_population", False),
+        (
+            "ok",
+            "TrustDimension(dimension='human_population', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})",
+        ),
+    ),
+    (
+        ("name-human_false_positive_evidence", False),
+        (
+            "ok",
+            "TrustDimension(dimension='human_false_positive_evidence', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination. Worst required-slice fpr_native ci_upper is 0.05 (slice synthetic-test; ceiling 0.05).', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic'], 'fpr_ci_upper': 0.05, 'fpr_ci_upper_worst_slice': 'synthetic-test', 'fpr_ci_uppers_by_slice': {'synthetic-test': 0.05}, 'fpr_ceiling': 0.05}, limitations=[\"FPR is measured at the detector's native categorical operating point; no score threshold is fitted.\"], detectors={'textforensics/builtin-heuristic': 'supported'})",
+        ),
+    ),
+    (
+        ("name-temporal_version_stability", False),
+        (
+            "ok",
+            "TrustDimension(dimension='temporal_version_stability', state='partial', reason=\"Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input but cannot support temporal_version_stability: evr-20261106-synthetic-test-builtin-heuristic: a single snapshot cannot establish version stability; longitudinal data is U3's job.\", evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[\"A single snapshot cannot establish version stability; longitudinal data is U3's job.\"], detectors={'textforensics/builtin-heuristic': 'partial'})",
+        ),
+    ),
+    (
+        ("temporal-runs0", False),
+        (
+            "ok",
+            "TrustDimension(dimension='temporal_version_stability', state='partial', reason=\"Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input but cannot support temporal_version_stability: evr-20261106-synthetic-test-builtin-heuristic: a single snapshot cannot establish version stability; longitudinal data is U3's job.\", evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic'], 'u3_clean_full_runs': 0, 'u3_clean_full_run_ids': [], 'u3_corpus_fingerprint': 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}, limitations=[\"A single snapshot cannot establish version stability; longitudinal data is U3's job.\"], detectors={'textforensics/builtin-heuristic': 'partial'})",
+        ),
+    ),
+    (
+        ("temporal-runs1", False),
+        (
+            "ok",
+            "TrustDimension(dimension='temporal_version_stability', state='partial', reason=\"Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input but cannot support temporal_version_stability: evr-20261106-synthetic-test-builtin-heuristic: a single snapshot cannot establish version stability; longitudinal data is U3's job.\", evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic'], 'u3_clean_full_runs': 1, 'u3_clean_full_run_ids': ['run-0'], 'u3_corpus_fingerprint': 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}, limitations=[\"A single snapshot cannot establish version stability; longitudinal data is U3's job.\"], detectors={'textforensics/builtin-heuristic': 'partial'})",
+        ),
+    ),
+    (
+        ("temporal-runs2", False),
+        (
+            "ok",
+            "TrustDimension(dimension='temporal_version_stability', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination. Longitudinal U3 evidence: 2 consecutive clean full-corpus probe runs at this detector version (run-0, run-1).', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic'], 'u3_clean_full_runs': 2, 'u3_clean_full_run_ids': ['run-0', 'run-1'], 'u3_corpus_fingerprint': 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})",
+        ),
+    ),
+    (
+        ("temporal-runs3", False),
+        (
+            "ok",
+            "TrustDimension(dimension='temporal_version_stability', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination. Longitudinal U3 evidence: 3 consecutive clean full-corpus probe runs at this detector version (run-0, run-1, run-2).', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic'], 'u3_clean_full_runs': 3, 'u3_clean_full_run_ids': ['run-0', 'run-1', 'run-2'], 'u3_corpus_fingerprint': 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})",
+        ),
+    ),
+    (
+        ("temporal-watch-False", False),
+        (
+            "ok",
+            "TrustDimension(dimension='temporal_version_stability', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination. Longitudinal U3 evidence: 2 consecutive clean full-corpus probe runs at this detector version (run-0, run-1).', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic'], 'u3_clean_full_runs': 2, 'u3_clean_full_run_ids': ['run-0', 'run-1'], 'u3_corpus_fingerprint': 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})",
+        ),
+    ),
+    (
+        ("temporal-watch-True", False),
+        (
+            "ok",
+            "TrustDimension(dimension='temporal_version_stability', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination. Longitudinal U3 evidence: 2 consecutive clean full-corpus probe runs at this detector version (run-0, run-1).', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic'], 'u3_clean_full_runs': 2, 'u3_clean_full_run_ids': ['run-0', 'run-1'], 'u3_corpus_fingerprint': 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'u3_watch': {'reason': 'drift'}}, limitations=['A U3 observatory watch is active for this detector; human review is required (see u3_watch in observed).'], detectors={'textforensics/builtin-heuristic': 'supported'})",
+        ),
+    ),
+    (
+        ("temporal-watch-True", False),
+        (
+            "ok",
+            "TrustDimension(dimension='temporal_version_stability', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination. Longitudinal U3 evidence: 2 consecutive clean full-corpus probe runs at this detector version (run-0, run-1).', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic'], 'u3_clean_full_runs': 2, 'u3_clean_full_run_ids': ['run-0', 'run-1'], 'u3_corpus_fingerprint': 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'u3_watch': {'reason': 'drift', 'since': '2026-11-01'}}, limitations=['A U3 observatory watch is active for this detector; human review is required (see u3_watch in observed).'], detectors={'textforensics/builtin-heuristic': 'supported'})",
+        ),
+    ),
+    (("temporal-long-empty", False), ("raise", "KeyError", "'clean_full_run_ids'")),
+    (
+        ("temporal-long-none", False),
+        (
+            "ok",
+            "TrustDimension(dimension='temporal_version_stability', state='partial', reason=\"Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input but cannot support temporal_version_stability: evr-20261106-synthetic-test-builtin-heuristic: a single snapshot cannot establish version stability; longitudinal data is U3's job.\", evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[\"A single snapshot cannot establish version stability; longitudinal data is U3's job.\"], detectors={'textforensics/builtin-heuristic': 'partial'})",
+        ),
+    ),
+    (
+        ("hfp-domain_genre", False),
+        (
+            "ok",
+            "TrustDimension(dimension='domain_genre', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})",
+        ),
+    ),
+    (
+        ("hfp-editing_revision", False),
+        (
+            "ok",
+            "TrustDimension(dimension='editing_revision', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})",
+        ),
+    ),
+    (
+        ("hfp-generator_scope", False),
+        (
+            "ok",
+            "TrustDimension(dimension='generator_scope', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})",
+        ),
+    ),
+    (
+        ("hfp-language", False),
+        (
+            "ok",
+            "TrustDimension(dimension='language', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})",
+        ),
+    ),
+    (
+        ("hfp-human_false_positive_evidence", False),
+        (
+            "ok",
+            "TrustDimension(dimension='human_false_positive_evidence', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination. Worst required-slice fpr_native ci_upper is 0.05 (slice synthetic-test; ceiling 0.05).', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic'], 'fpr_ci_upper': 0.05, 'fpr_ci_upper_worst_slice': 'synthetic-test', 'fpr_ci_uppers_by_slice': {'synthetic-test': 0.05}, 'fpr_ceiling': 0.05}, limitations=[\"FPR is measured at the detector's native categorical operating point; no score threshold is fitted.\"], detectors={'textforensics/builtin-heuristic': 'supported'})",
+        ),
+    ),
+]
 
 
-EXPECTED_PROBE_VAL_DERIVE_DIMENSION = [(('supported', False), ('ok', "TrustDimension(dimension='language', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})")), (('partial', False), ('ok', 'TrustDimension(dimension=\'language\', state=\'partial\', reason="Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input but cannot support language: evr-20261106-synthetic-test-builtin-heuristic: effective record status is \'partial\'.", evidence_refs=[\'evr-20261106-synthetic-test-builtin-heuristic\'], observed={\'record_ids\': [\'evr-20261106-synthetic-test-builtin-heuristic\']}, limitations=[], detectors={\'textforensics/builtin-heuristic\': \'partial\'})')), (('unknown', False), ('ok', 'TrustDimension(dimension=\'language\', state=\'partial\', reason="Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input but cannot support language: evr-20261106-synthetic-test-builtin-heuristic: effective record status is \'unknown\'.", evidence_refs=[\'evr-20261106-synthetic-test-builtin-heuristic\'], observed={\'record_ids\': [\'evr-20261106-synthetic-test-builtin-heuristic\']}, limitations=[], detectors={\'textforensics/builtin-heuristic\': \'partial\'})')), (('stale', False), ('ok', "TrustDimension(dimension='language', state='stale', reason='Matching record(s) are stale: evr-20261106-synthetic-test-builtin-heuristic: stale for an unspecified reason.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'stale'})")), (('contested', False), ('ok', 'TrustDimension(dimension=\'language\', state=\'partial\', reason="Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input but cannot support language: evr-20261106-synthetic-test-builtin-heuristic: effective record status is \'contested\'.", evidence_refs=[\'evr-20261106-synthetic-test-builtin-heuristic\'], observed={\'record_ids\': [\'evr-20261106-synthetic-test-builtin-heuristic\']}, limitations=[\'A matching record is contested; it can never yield supported.\'], detectors={\'textforensics/builtin-heuristic\': \'partial\'})')), (('mixed', False), ('ok', "TrustDimension(dimension='language', state='supported', reason='Matching record(s) evr-20261106-synthsupported-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthcontested-builtin-heuristic', 'evr-20261106-synthsupported-builtin-heuristic', 'evr-20261106-synthunknown-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthcontested-builtin-heuristic', 'evr-20261106-synthsupported-builtin-heuristic', 'evr-20261106-synthunknown-builtin-heuristic']}, limitations=['A matching record is contested; it can never yield supported.'], detectors={'textforensics/builtin-heuristic': 'supported'})")), (('empty-unobs', True), ('ok', 'TrustDimension(dimension=\'language\', state=\'unknown\', reason="No validation records exist for detector \'textforensics/builtin-heuristic\'.", evidence_refs=[], observed={\'record_count_for_detector\': 0}, limitations=[], detectors={\'textforensics/builtin-heuristic\': \'unknown\'})')), (('empty-oos', False), ('ok', "TrustDimension(dimension='language', state='out_of_scope', reason='no matching record for language', evidence_refs=[], observed={}, limitations=[], detectors={'textforensics/builtin-heuristic': 'out_of_scope'})")), (('name-language', False), ('ok', "TrustDimension(dimension='language', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})")), (('name-text_length', False), ('ok', "TrustDimension(dimension='text_length', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})")), (('name-domain_genre', False), ('ok', "TrustDimension(dimension='domain_genre', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})")), (('name-editing_revision', False), ('ok', "TrustDimension(dimension='editing_revision', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})")), (('name-generator_scope', False), ('ok', "TrustDimension(dimension='generator_scope', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})")), (('name-human_population', False), ('ok', "TrustDimension(dimension='human_population', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})")), (('name-human_false_positive_evidence', False), ('ok', 'TrustDimension(dimension=\'human_false_positive_evidence\', state=\'supported\', reason=\'Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination. Worst required-slice fpr_native ci_upper is 0.05 (slice synthetic-test; ceiling 0.05).\', evidence_refs=[\'evr-20261106-synthetic-test-builtin-heuristic\'], observed={\'record_ids\': [\'evr-20261106-synthetic-test-builtin-heuristic\'], \'fpr_ci_upper\': 0.05, \'fpr_ci_upper_worst_slice\': \'synthetic-test\', \'fpr_ci_uppers_by_slice\': {\'synthetic-test\': 0.05}, \'fpr_ceiling\': 0.05}, limitations=["FPR is measured at the detector\'s native categorical operating point; no score threshold is fitted."], detectors={\'textforensics/builtin-heuristic\': \'supported\'})')), (('name-temporal_version_stability', False), ('ok', 'TrustDimension(dimension=\'temporal_version_stability\', state=\'partial\', reason="Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input but cannot support temporal_version_stability: evr-20261106-synthetic-test-builtin-heuristic: a single snapshot cannot establish version stability; longitudinal data is U3\'s job.", evidence_refs=[\'evr-20261106-synthetic-test-builtin-heuristic\'], observed={\'record_ids\': [\'evr-20261106-synthetic-test-builtin-heuristic\']}, limitations=["A single snapshot cannot establish version stability; longitudinal data is U3\'s job."], detectors={\'textforensics/builtin-heuristic\': \'partial\'})')), (('temporal-runs0', False), ('ok', 'TrustDimension(dimension=\'temporal_version_stability\', state=\'partial\', reason="Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input but cannot support temporal_version_stability: evr-20261106-synthetic-test-builtin-heuristic: a single snapshot cannot establish version stability; longitudinal data is U3\'s job.", evidence_refs=[\'evr-20261106-synthetic-test-builtin-heuristic\'], observed={\'record_ids\': [\'evr-20261106-synthetic-test-builtin-heuristic\'], \'u3_clean_full_runs\': 0, \'u3_clean_full_run_ids\': [], \'u3_corpus_fingerprint\': \'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\'}, limitations=["A single snapshot cannot establish version stability; longitudinal data is U3\'s job."], detectors={\'textforensics/builtin-heuristic\': \'partial\'})')), (('temporal-runs1', False), ('ok', 'TrustDimension(dimension=\'temporal_version_stability\', state=\'partial\', reason="Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input but cannot support temporal_version_stability: evr-20261106-synthetic-test-builtin-heuristic: a single snapshot cannot establish version stability; longitudinal data is U3\'s job.", evidence_refs=[\'evr-20261106-synthetic-test-builtin-heuristic\'], observed={\'record_ids\': [\'evr-20261106-synthetic-test-builtin-heuristic\'], \'u3_clean_full_runs\': 1, \'u3_clean_full_run_ids\': [\'run-0\'], \'u3_corpus_fingerprint\': \'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\'}, limitations=["A single snapshot cannot establish version stability; longitudinal data is U3\'s job."], detectors={\'textforensics/builtin-heuristic\': \'partial\'})')), (('temporal-runs2', False), ('ok', "TrustDimension(dimension='temporal_version_stability', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination. Longitudinal U3 evidence: 2 consecutive clean full-corpus probe runs at this detector version (run-0, run-1).', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic'], 'u3_clean_full_runs': 2, 'u3_clean_full_run_ids': ['run-0', 'run-1'], 'u3_corpus_fingerprint': 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})")), (('temporal-runs3', False), ('ok', "TrustDimension(dimension='temporal_version_stability', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination. Longitudinal U3 evidence: 3 consecutive clean full-corpus probe runs at this detector version (run-0, run-1, run-2).', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic'], 'u3_clean_full_runs': 3, 'u3_clean_full_run_ids': ['run-0', 'run-1', 'run-2'], 'u3_corpus_fingerprint': 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})")), (('temporal-watch-False', False), ('ok', "TrustDimension(dimension='temporal_version_stability', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination. Longitudinal U3 evidence: 2 consecutive clean full-corpus probe runs at this detector version (run-0, run-1).', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic'], 'u3_clean_full_runs': 2, 'u3_clean_full_run_ids': ['run-0', 'run-1'], 'u3_corpus_fingerprint': 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})")), (('temporal-watch-True', False), ('ok', "TrustDimension(dimension='temporal_version_stability', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination. Longitudinal U3 evidence: 2 consecutive clean full-corpus probe runs at this detector version (run-0, run-1).', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic'], 'u3_clean_full_runs': 2, 'u3_clean_full_run_ids': ['run-0', 'run-1'], 'u3_corpus_fingerprint': 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'u3_watch': {'reason': 'drift'}}, limitations=['A U3 observatory watch is active for this detector; human review is required (see u3_watch in observed).'], detectors={'textforensics/builtin-heuristic': 'supported'})")), (('temporal-watch-True', False), ('ok', "TrustDimension(dimension='temporal_version_stability', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination. Longitudinal U3 evidence: 2 consecutive clean full-corpus probe runs at this detector version (run-0, run-1).', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic'], 'u3_clean_full_runs': 2, 'u3_clean_full_run_ids': ['run-0', 'run-1'], 'u3_corpus_fingerprint': 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'u3_watch': {'reason': 'drift', 'since': '2026-11-01'}}, limitations=['A U3 observatory watch is active for this detector; human review is required (see u3_watch in observed).'], detectors={'textforensics/builtin-heuristic': 'supported'})")), (('temporal-long-empty', False), ('raise', 'KeyError', "'clean_full_run_ids'")), (('temporal-long-none', False), ('ok', 'TrustDimension(dimension=\'temporal_version_stability\', state=\'partial\', reason="Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input but cannot support temporal_version_stability: evr-20261106-synthetic-test-builtin-heuristic: a single snapshot cannot establish version stability; longitudinal data is U3\'s job.", evidence_refs=[\'evr-20261106-synthetic-test-builtin-heuristic\'], observed={\'record_ids\': [\'evr-20261106-synthetic-test-builtin-heuristic\']}, limitations=["A single snapshot cannot establish version stability; longitudinal data is U3\'s job."], detectors={\'textforensics/builtin-heuristic\': \'partial\'})')), (('hfp-domain_genre', False), ('ok', "TrustDimension(dimension='domain_genre', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})")), (('hfp-editing_revision', False), ('ok', "TrustDimension(dimension='editing_revision', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})")), (('hfp-generator_scope', False), ('ok', "TrustDimension(dimension='generator_scope', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})")), (('hfp-language', False), ('ok', "TrustDimension(dimension='language', state='supported', reason='Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination.', evidence_refs=['evr-20261106-synthetic-test-builtin-heuristic'], observed={'record_ids': ['evr-20261106-synthetic-test-builtin-heuristic']}, limitations=[], detectors={'textforensics/builtin-heuristic': 'supported'})")), (('hfp-human_false_positive_evidence', False), ('ok', 'TrustDimension(dimension=\'human_false_positive_evidence\', state=\'supported\', reason=\'Matching record(s) evr-20261106-synthetic-test-builtin-heuristic cover this input with effective status supported, n_human >= 100, n_ai >= 100, and no contamination. Worst required-slice fpr_native ci_upper is 0.05 (slice synthetic-test; ceiling 0.05).\', evidence_refs=[\'evr-20261106-synthetic-test-builtin-heuristic\'], observed={\'record_ids\': [\'evr-20261106-synthetic-test-builtin-heuristic\'], \'fpr_ci_upper\': 0.05, \'fpr_ci_upper_worst_slice\': \'synthetic-test\', \'fpr_ci_uppers_by_slice\': {\'synthetic-test\': 0.05}, \'fpr_ceiling\': 0.05}, limitations=["FPR is measured at the detector\'s native categorical operating point; no score threshold is fitted."], detectors={\'textforensics/builtin-heuristic\': \'supported\'})'))]
+EXPECTED_PROBE_VAL_DERIVE_TRUST_MAP = [
+    (
+        (0, ()),
+        "insufficient",
+        [
+            ("language", "unknown"),
+            ("text_length", "unknown"),
+            ("domain_genre", "unknown"),
+            ("editing_revision", "unknown"),
+            ("generator_scope", "unknown"),
+            ("human_population", "unknown"),
+            ("human_false_positive_evidence", "unknown"),
+            ("temporal_version_stability", "unknown"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+    ),
+    (
+        (1, ("supported",)),
+        "mixed",
+        [
+            ("language", "supported"),
+            ("text_length", "supported"),
+            ("domain_genre", "supported"),
+            ("editing_revision", "supported"),
+            ("generator_scope", "supported"),
+            ("human_population", "supported"),
+            ("human_false_positive_evidence", "supported"),
+            ("temporal_version_stability", "partial"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+    ),
+    (
+        (2, ("supported", "supported")),
+        "mixed",
+        [
+            ("language", "supported"),
+            ("text_length", "supported"),
+            ("domain_genre", "supported"),
+            ("editing_revision", "supported"),
+            ("generator_scope", "supported"),
+            ("human_population", "supported"),
+            ("human_false_positive_evidence", "supported"),
+            ("temporal_version_stability", "partial"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+    ),
+    (
+        (3, ("supported", "partial", "unknown")),
+        "mixed",
+        [
+            ("language", "supported"),
+            ("text_length", "supported"),
+            ("domain_genre", "supported"),
+            ("editing_revision", "supported"),
+            ("generator_scope", "supported"),
+            ("human_population", "supported"),
+            ("human_false_positive_evidence", "supported"),
+            ("temporal_version_stability", "partial"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+    ),
+    (("fpr-ceiling-True",), ("raise", "TypeError", "fpr_ceiling must be a number.")),
+    (("fpr-ceiling-False",), ("raise", "TypeError", "fpr_ceiling must be a number.")),
+    (
+        ("fpr-ceiling-0.0",),
+        "mixed",
+        [
+            ("language", "supported"),
+            ("text_length", "supported"),
+            ("domain_genre", "supported"),
+            ("editing_revision", "supported"),
+            ("generator_scope", "supported"),
+            ("human_population", "supported"),
+            ("human_false_positive_evidence", "partial"),
+            ("temporal_version_stability", "partial"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+        [
+            ("record_count", 1),
+            ("registry_id", "0c9f8da1dd195045b0c2b82621c9fec4fbfaf2aa17dc869c11f06a4d952091b3"),
+            ("verification_status", "not_checked"),
+            ("verified", False),
+        ],
+    ),
+    (
+        ("fpr-ceiling-0.5",),
+        "mixed",
+        [
+            ("language", "supported"),
+            ("text_length", "supported"),
+            ("domain_genre", "supported"),
+            ("editing_revision", "supported"),
+            ("generator_scope", "supported"),
+            ("human_population", "supported"),
+            ("human_false_positive_evidence", "supported"),
+            ("temporal_version_stability", "partial"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+        [
+            ("record_count", 1),
+            ("registry_id", "0c9f8da1dd195045b0c2b82621c9fec4fbfaf2aa17dc869c11f06a4d952091b3"),
+            ("verification_status", "not_checked"),
+            ("verified", False),
+        ],
+    ),
+    (
+        ("fpr-ceiling-1.0",),
+        "mixed",
+        [
+            ("language", "supported"),
+            ("text_length", "supported"),
+            ("domain_genre", "supported"),
+            ("editing_revision", "supported"),
+            ("generator_scope", "supported"),
+            ("human_population", "supported"),
+            ("human_false_positive_evidence", "supported"),
+            ("temporal_version_stability", "partial"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+        [
+            ("record_count", 1),
+            ("registry_id", "0c9f8da1dd195045b0c2b82621c9fec4fbfaf2aa17dc869c11f06a4d952091b3"),
+            ("verification_status", "not_checked"),
+            ("verified", False),
+        ],
+    ),
+    (("fpr-ceiling--0.1",), ("raise", "ValueError", "fpr_ceiling must be between 0 and 1.")),
+    (("fpr-ceiling-1.1",), ("raise", "ValueError", "fpr_ceiling must be between 0 and 1.")),
+    (("fpr-ceiling-'x'",), ("raise", "TypeError", "fpr_ceiling must be a number.")),
+    (("fpr-ceiling-None",), ("raise", "TypeError", "fpr_ceiling must be a number.")),
+    (("failure-count-True",), ("raise", "TypeError", "failure_count must be an integer.")),
+    (("failure-count--1",), ("raise", "ValueError", "failure_count must be non-negative.")),
+    (
+        ("failure-count-0",),
+        "mixed",
+        [
+            ("language", "supported"),
+            ("text_length", "supported"),
+            ("domain_genre", "supported"),
+            ("editing_revision", "supported"),
+            ("generator_scope", "supported"),
+            ("human_population", "supported"),
+            ("human_false_positive_evidence", "supported"),
+            ("temporal_version_stability", "partial"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+    ),
+    (
+        ("failure-count-1",),
+        "mixed",
+        [
+            ("language", "supported"),
+            ("text_length", "supported"),
+            ("domain_genre", "supported"),
+            ("editing_revision", "supported"),
+            ("generator_scope", "supported"),
+            ("human_population", "supported"),
+            ("human_false_positive_evidence", "supported"),
+            ("temporal_version_stability", "partial"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+    ),
+    (
+        ("failure-count-2",),
+        "mixed",
+        [
+            ("language", "supported"),
+            ("text_length", "supported"),
+            ("domain_genre", "supported"),
+            ("editing_revision", "supported"),
+            ("generator_scope", "supported"),
+            ("human_population", "supported"),
+            ("human_false_positive_evidence", "supported"),
+            ("temporal_version_stability", "partial"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+    ),
+    (
+        ("lang-zho",),
+        "insufficient",
+        [
+            ("language", "out_of_scope"),
+            ("text_length", "supported"),
+            ("domain_genre", "supported"),
+            ("editing_revision", "supported"),
+            ("generator_scope", "supported"),
+            ("human_population", "supported"),
+            ("human_false_positive_evidence", "out_of_scope"),
+            ("temporal_version_stability", "out_of_scope"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+    ),
+    (
+        ("lang-und",),
+        "mixed",
+        [
+            ("language", "unknown"),
+            ("text_length", "supported"),
+            ("domain_genre", "supported"),
+            ("editing_revision", "supported"),
+            ("generator_scope", "supported"),
+            ("human_population", "supported"),
+            ("human_false_positive_evidence", "unknown"),
+            ("temporal_version_stability", "unknown"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+    ),
+    (
+        ("lang-lowconf",),
+        "mixed",
+        [
+            ("language", "unknown"),
+            ("text_length", "supported"),
+            ("domain_genre", "supported"),
+            ("editing_revision", "supported"),
+            ("generator_scope", "supported"),
+            ("human_population", "supported"),
+            ("human_false_positive_evidence", "unknown"),
+            ("temporal_version_stability", "unknown"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+    ),
+    (
+        ("domain-zzz",),
+        "mixed",
+        [
+            ("language", "supported"),
+            ("text_length", "supported"),
+            ("domain_genre", "out_of_scope"),
+            ("editing_revision", "supported"),
+            ("generator_scope", "supported"),
+            ("human_population", "supported"),
+            ("human_false_positive_evidence", "out_of_scope"),
+            ("temporal_version_stability", "out_of_scope"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+    ),
+    (
+        ("domain-lowconf",),
+        "mixed",
+        [
+            ("language", "supported"),
+            ("text_length", "supported"),
+            ("domain_genre", "unknown"),
+            ("editing_revision", "supported"),
+            ("generator_scope", "supported"),
+            ("human_population", "supported"),
+            ("human_false_positive_evidence", "unknown"),
+            ("temporal_version_stability", "unknown"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+    ),
+    (
+        ("editing-zzz",),
+        "mixed",
+        [
+            ("language", "supported"),
+            ("text_length", "supported"),
+            ("domain_genre", "supported"),
+            ("editing_revision", "unknown"),
+            ("generator_scope", "supported"),
+            ("human_population", "supported"),
+            ("human_false_positive_evidence", "unknown"),
+            ("temporal_version_stability", "unknown"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+    ),
+    (
+        ("editing-mixed",),
+        "mixed",
+        [
+            ("language", "supported"),
+            ("text_length", "supported"),
+            ("domain_genre", "supported"),
+            ("editing_revision", "out_of_scope"),
+            ("generator_scope", "supported"),
+            ("human_population", "supported"),
+            ("human_false_positive_evidence", "out_of_scope"),
+            ("temporal_version_stability", "out_of_scope"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+    ),
+    (
+        ("pop-zzz",),
+        "mixed",
+        [
+            ("language", "supported"),
+            ("text_length", "supported"),
+            ("domain_genre", "supported"),
+            ("editing_revision", "supported"),
+            ("generator_scope", "supported"),
+            ("human_population", "out_of_scope"),
+            ("human_false_positive_evidence", "out_of_scope"),
+            ("temporal_version_stability", "out_of_scope"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+    ),
+    (
+        ("pop-unknown",),
+        "mixed",
+        [
+            ("language", "supported"),
+            ("text_length", "supported"),
+            ("domain_genre", "supported"),
+            ("editing_revision", "supported"),
+            ("generator_scope", "supported"),
+            ("human_population", "unknown"),
+            ("human_false_positive_evidence", "supported"),
+            ("temporal_version_stability", "partial"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+    ),
+    (
+        ("long-none",),
+        "mixed",
+        [
+            ("language", "supported"),
+            ("text_length", "supported"),
+            ("domain_genre", "supported"),
+            ("editing_revision", "supported"),
+            ("generator_scope", "supported"),
+            ("human_population", "supported"),
+            ("human_false_positive_evidence", "supported"),
+            ("temporal_version_stability", "partial"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+    ),
+    (
+        ("long-empty",),
+        (
+            "raise",
+            "ValidationError",
+            "longitudinal evidence is for detector None version None, not 'textforensics/builtin-heuristic' version '0.1.0'; refusing to apply it.",
+        ),
+    ),
+    (
+        ("long-watch-none",),
+        (
+            "raise",
+            "ValidationError",
+            "longitudinal evidence is for detector None version None, not 'textforensics/builtin-heuristic' version '0.1.0'; refusing to apply it.",
+        ),
+    ),
+    (
+        ("long-watch",),
+        (
+            "raise",
+            "ValidationError",
+            "longitudinal evidence is for detector None version None, not 'textforensics/builtin-heuristic' version '0.1.0'; refusing to apply it.",
+        ),
+    ),
+    (
+        ("now-bad",),
+        "insufficient",
+        [
+            ("language", "stale"),
+            ("text_length", "stale"),
+            ("domain_genre", "stale"),
+            ("editing_revision", "stale"),
+            ("generator_scope", "stale"),
+            ("human_population", "stale"),
+            ("human_false_positive_evidence", "stale"),
+            ("temporal_version_stability", "stale"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+    ),
+    (
+        ("now-none",),
+        "mixed",
+        [
+            ("language", "supported"),
+            ("text_length", "supported"),
+            ("domain_genre", "supported"),
+            ("editing_revision", "supported"),
+            ("generator_scope", "supported"),
+            ("human_population", "supported"),
+            ("human_false_positive_evidence", "supported"),
+            ("temporal_version_stability", "partial"),
+            ("detector_diversity", "unknown"),
+            ("benign_stability", "unknown"),
+        ],
+    ),
+]
 
 
-EXPECTED_PROBE_VAL_DERIVE_TRUST_MAP = [((0, ()), 'insufficient', [('language', 'unknown'), ('text_length', 'unknown'), ('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_population', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('temporal_version_stability', 'unknown'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')]), ((1, ('supported',)), 'mixed', [('language', 'supported'), ('text_length', 'supported'), ('domain_genre', 'supported'), ('editing_revision', 'supported'), ('generator_scope', 'supported'), ('human_population', 'supported'), ('human_false_positive_evidence', 'supported'), ('temporal_version_stability', 'partial'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')]), ((2, ('supported', 'supported')), 'mixed', [('language', 'supported'), ('text_length', 'supported'), ('domain_genre', 'supported'), ('editing_revision', 'supported'), ('generator_scope', 'supported'), ('human_population', 'supported'), ('human_false_positive_evidence', 'supported'), ('temporal_version_stability', 'partial'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')]), ((3, ('supported', 'partial', 'unknown')), 'mixed', [('language', 'supported'), ('text_length', 'supported'), ('domain_genre', 'supported'), ('editing_revision', 'supported'), ('generator_scope', 'supported'), ('human_population', 'supported'), ('human_false_positive_evidence', 'supported'), ('temporal_version_stability', 'partial'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')]), (('fpr-ceiling-True',), ('raise', 'TypeError', 'fpr_ceiling must be a number.')), (('fpr-ceiling-False',), ('raise', 'TypeError', 'fpr_ceiling must be a number.')), (('fpr-ceiling-0.0',), 'mixed', [('language', 'supported'), ('text_length', 'supported'), ('domain_genre', 'supported'), ('editing_revision', 'supported'), ('generator_scope', 'supported'), ('human_population', 'supported'), ('human_false_positive_evidence', 'partial'), ('temporal_version_stability', 'partial'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')], [('record_count', 1), ('registry_id', '0c9f8da1dd195045b0c2b82621c9fec4fbfaf2aa17dc869c11f06a4d952091b3'), ('verification_status', 'not_checked'), ('verified', False)]), (('fpr-ceiling-0.5',), 'mixed', [('language', 'supported'), ('text_length', 'supported'), ('domain_genre', 'supported'), ('editing_revision', 'supported'), ('generator_scope', 'supported'), ('human_population', 'supported'), ('human_false_positive_evidence', 'supported'), ('temporal_version_stability', 'partial'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')], [('record_count', 1), ('registry_id', '0c9f8da1dd195045b0c2b82621c9fec4fbfaf2aa17dc869c11f06a4d952091b3'), ('verification_status', 'not_checked'), ('verified', False)]), (('fpr-ceiling-1.0',), 'mixed', [('language', 'supported'), ('text_length', 'supported'), ('domain_genre', 'supported'), ('editing_revision', 'supported'), ('generator_scope', 'supported'), ('human_population', 'supported'), ('human_false_positive_evidence', 'supported'), ('temporal_version_stability', 'partial'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')], [('record_count', 1), ('registry_id', '0c9f8da1dd195045b0c2b82621c9fec4fbfaf2aa17dc869c11f06a4d952091b3'), ('verification_status', 'not_checked'), ('verified', False)]), (('fpr-ceiling--0.1',), ('raise', 'ValueError', 'fpr_ceiling must be between 0 and 1.')), (('fpr-ceiling-1.1',), ('raise', 'ValueError', 'fpr_ceiling must be between 0 and 1.')), (("fpr-ceiling-'x'",), ('raise', 'TypeError', 'fpr_ceiling must be a number.')), (('fpr-ceiling-None',), ('raise', 'TypeError', 'fpr_ceiling must be a number.')), (('failure-count-True',), ('raise', 'TypeError', 'failure_count must be an integer.')), (('failure-count--1',), ('raise', 'ValueError', 'failure_count must be non-negative.')), (('failure-count-0',), 'mixed', [('language', 'supported'), ('text_length', 'supported'), ('domain_genre', 'supported'), ('editing_revision', 'supported'), ('generator_scope', 'supported'), ('human_population', 'supported'), ('human_false_positive_evidence', 'supported'), ('temporal_version_stability', 'partial'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')]), (('failure-count-1',), 'mixed', [('language', 'supported'), ('text_length', 'supported'), ('domain_genre', 'supported'), ('editing_revision', 'supported'), ('generator_scope', 'supported'), ('human_population', 'supported'), ('human_false_positive_evidence', 'supported'), ('temporal_version_stability', 'partial'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')]), (('failure-count-2',), 'mixed', [('language', 'supported'), ('text_length', 'supported'), ('domain_genre', 'supported'), ('editing_revision', 'supported'), ('generator_scope', 'supported'), ('human_population', 'supported'), ('human_false_positive_evidence', 'supported'), ('temporal_version_stability', 'partial'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')]), (('lang-zho',), 'insufficient', [('language', 'out_of_scope'), ('text_length', 'supported'), ('domain_genre', 'supported'), ('editing_revision', 'supported'), ('generator_scope', 'supported'), ('human_population', 'supported'), ('human_false_positive_evidence', 'out_of_scope'), ('temporal_version_stability', 'out_of_scope'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')]), (('lang-und',), 'mixed', [('language', 'unknown'), ('text_length', 'supported'), ('domain_genre', 'supported'), ('editing_revision', 'supported'), ('generator_scope', 'supported'), ('human_population', 'supported'), ('human_false_positive_evidence', 'unknown'), ('temporal_version_stability', 'unknown'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')]), (('lang-lowconf',), 'mixed', [('language', 'unknown'), ('text_length', 'supported'), ('domain_genre', 'supported'), ('editing_revision', 'supported'), ('generator_scope', 'supported'), ('human_population', 'supported'), ('human_false_positive_evidence', 'unknown'), ('temporal_version_stability', 'unknown'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')]), (('domain-zzz',), 'mixed', [('language', 'supported'), ('text_length', 'supported'), ('domain_genre', 'out_of_scope'), ('editing_revision', 'supported'), ('generator_scope', 'supported'), ('human_population', 'supported'), ('human_false_positive_evidence', 'out_of_scope'), ('temporal_version_stability', 'out_of_scope'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')]), (('domain-lowconf',), 'mixed', [('language', 'supported'), ('text_length', 'supported'), ('domain_genre', 'unknown'), ('editing_revision', 'supported'), ('generator_scope', 'supported'), ('human_population', 'supported'), ('human_false_positive_evidence', 'unknown'), ('temporal_version_stability', 'unknown'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')]), (('editing-zzz',), 'mixed', [('language', 'supported'), ('text_length', 'supported'), ('domain_genre', 'supported'), ('editing_revision', 'unknown'), ('generator_scope', 'supported'), ('human_population', 'supported'), ('human_false_positive_evidence', 'unknown'), ('temporal_version_stability', 'unknown'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')]), (('editing-mixed',), 'mixed', [('language', 'supported'), ('text_length', 'supported'), ('domain_genre', 'supported'), ('editing_revision', 'out_of_scope'), ('generator_scope', 'supported'), ('human_population', 'supported'), ('human_false_positive_evidence', 'out_of_scope'), ('temporal_version_stability', 'out_of_scope'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')]), (('pop-zzz',), 'mixed', [('language', 'supported'), ('text_length', 'supported'), ('domain_genre', 'supported'), ('editing_revision', 'supported'), ('generator_scope', 'supported'), ('human_population', 'out_of_scope'), ('human_false_positive_evidence', 'out_of_scope'), ('temporal_version_stability', 'out_of_scope'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')]), (('pop-unknown',), 'mixed', [('language', 'supported'), ('text_length', 'supported'), ('domain_genre', 'supported'), ('editing_revision', 'supported'), ('generator_scope', 'supported'), ('human_population', 'unknown'), ('human_false_positive_evidence', 'supported'), ('temporal_version_stability', 'partial'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')]), (('long-none',), 'mixed', [('language', 'supported'), ('text_length', 'supported'), ('domain_genre', 'supported'), ('editing_revision', 'supported'), ('generator_scope', 'supported'), ('human_population', 'supported'), ('human_false_positive_evidence', 'supported'), ('temporal_version_stability', 'partial'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')]), (('long-empty',), ('raise', 'ValidationError', "longitudinal evidence is for detector None version None, not 'textforensics/builtin-heuristic' version '0.1.0'; refusing to apply it.")), (('long-watch-none',), ('raise', 'ValidationError', "longitudinal evidence is for detector None version None, not 'textforensics/builtin-heuristic' version '0.1.0'; refusing to apply it.")), (('long-watch',), ('raise', 'ValidationError', "longitudinal evidence is for detector None version None, not 'textforensics/builtin-heuristic' version '0.1.0'; refusing to apply it.")), (('now-bad',), 'insufficient', [('language', 'stale'), ('text_length', 'stale'), ('domain_genre', 'stale'), ('editing_revision', 'stale'), ('generator_scope', 'stale'), ('human_population', 'stale'), ('human_false_positive_evidence', 'stale'), ('temporal_version_stability', 'stale'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')]), (('now-none',), 'mixed', [('language', 'supported'), ('text_length', 'supported'), ('domain_genre', 'supported'), ('editing_revision', 'supported'), ('generator_scope', 'supported'), ('human_population', 'supported'), ('human_false_positive_evidence', 'supported'), ('temporal_version_stability', 'partial'), ('detector_diversity', 'unknown'), ('benign_stability', 'unknown')])]
+EXPECTED_PROBE_VAL_SUPPORT_BLOCKERS = [
+    (("language", None), ("ok", "[]")),
+    (("language", 0), ("ok", "[]")),
+    (("language", 1), ("ok", "[]")),
+    (("language", 2), ("ok", "[]")),
+    (("language", 3), ("ok", "[]")),
+    (("human_false_positive_evidence", None), ("ok", "[]")),
+    (("human_false_positive_evidence", 0), ("ok", "[]")),
+    (("human_false_positive_evidence", 1), ("ok", "[]")),
+    (("human_false_positive_evidence", 2), ("ok", "[]")),
+    (("human_false_positive_evidence", 3), ("ok", "[]")),
+    (
+        ("temporal_version_stability", None),
+        (
+            "ok",
+            '["a single snapshot cannot establish version stability; longitudinal data is U3\'s job"]',
+        ),
+    ),
+    (
+        ("temporal_version_stability", 0),
+        (
+            "ok",
+            '["a single snapshot cannot establish version stability; longitudinal data is U3\'s job"]',
+        ),
+    ),
+    (
+        ("temporal_version_stability", 1),
+        (
+            "ok",
+            '["a single snapshot cannot establish version stability; longitudinal data is U3\'s job"]',
+        ),
+    ),
+    (("temporal_version_stability", 2), ("ok", "[]")),
+    (("temporal_version_stability", 3), ("ok", "[]")),
+]
 
 
-EXPECTED_PROBE_VAL_SUPPORT_BLOCKERS = [(('language', None), ('ok', '[]')), (('language', 0), ('ok', '[]')), (('language', 1), ('ok', '[]')), (('language', 2), ('ok', '[]')), (('language', 3), ('ok', '[]')), (('human_false_positive_evidence', None), ('ok', '[]')), (('human_false_positive_evidence', 0), ('ok', '[]')), (('human_false_positive_evidence', 1), ('ok', '[]')), (('human_false_positive_evidence', 2), ('ok', '[]')), (('human_false_positive_evidence', 3), ('ok', '[]')), (('temporal_version_stability', None), ('ok', '["a single snapshot cannot establish version stability; longitudinal data is U3\'s job"]')), (('temporal_version_stability', 0), ('ok', '["a single snapshot cannot establish version stability; longitudinal data is U3\'s job"]')), (('temporal_version_stability', 1), ('ok', '["a single snapshot cannot establish version stability; longitudinal data is U3\'s job"]')), (('temporal_version_stability', 2), ('ok', '[]')), (('temporal_version_stability', 3), ('ok', '[]'))]
+EXPECTED_PROBE_VALIDATION_OVERALL_V3 = [
+    ((0, 0, 0, 8), ("ok", "'insufficient'")),
+    ((0, 0, 1, 7), ("ok", "'insufficient'")),
+    ((0, 0, 2, 6), ("ok", "'insufficient'")),
+    ((0, 0, 3, 5), ("ok", "'insufficient'")),
+    ((0, 0, 4, 4), ("ok", "'insufficient'")),
+    ((0, 0, 5, 3), ("ok", "'insufficient'")),
+    ((0, 0, 6, 2), ("ok", "'insufficient'")),
+    ((0, 0, 7, 1), ("ok", "'insufficient'")),
+    ((0, 0, 8, 0), ("ok", "'insufficient'")),
+    ((0, 1, 0, 7), ("ok", "'insufficient'")),
+    ((0, 1, 1, 6), ("ok", "'mixed'")),
+    ((0, 1, 2, 5), ("ok", "'mixed'")),
+    ((0, 1, 3, 4), ("ok", "'mixed'")),
+    ((0, 1, 4, 3), ("ok", "'mixed'")),
+    ((0, 1, 5, 2), ("ok", "'mixed'")),
+    ((0, 1, 6, 1), ("ok", "'mixed'")),
+    ((0, 1, 7, 0), ("ok", "'mixed'")),
+    ((0, 2, 0, 6), ("ok", "'mixed'")),
+    ((0, 2, 1, 5), ("ok", "'mixed'")),
+    ((0, 2, 2, 4), ("ok", "'mixed'")),
+    ((0, 2, 3, 3), ("ok", "'mixed'")),
+    ((0, 2, 4, 2), ("ok", "'mixed'")),
+    ((0, 2, 5, 1), ("ok", "'mixed'")),
+    ((0, 2, 6, 0), ("ok", "'mixed'")),
+    ((0, 3, 0, 5), ("ok", "'mixed'")),
+    ((0, 3, 1, 4), ("ok", "'mixed'")),
+    ((0, 3, 2, 3), ("ok", "'mixed'")),
+    ((0, 3, 3, 2), ("ok", "'mixed'")),
+    ((0, 3, 4, 1), ("ok", "'mixed'")),
+    ((0, 3, 5, 0), ("ok", "'mixed'")),
+    ((0, 4, 0, 4), ("ok", "'mixed'")),
+    ((0, 4, 1, 3), ("ok", "'mixed'")),
+    ((0, 4, 2, 2), ("ok", "'mixed'")),
+    ((0, 4, 3, 1), ("ok", "'mixed'")),
+    ((0, 4, 4, 0), ("ok", "'mixed'")),
+    ((0, 5, 0, 3), ("ok", "'mixed'")),
+    ((0, 5, 1, 2), ("ok", "'mixed'")),
+    ((0, 5, 2, 1), ("ok", "'mixed'")),
+    ((0, 5, 3, 0), ("ok", "'mixed'")),
+    ((0, 6, 0, 2), ("ok", "'mixed'")),
+    ((0, 6, 1, 1), ("ok", "'mixed'")),
+    ((0, 6, 2, 0), ("ok", "'mixed'")),
+    ((0, 7, 0, 1), ("ok", "'mixed'")),
+    ((0, 7, 1, 0), ("ok", "'mixed'")),
+    ((0, 8, 0, 0), ("ok", "'mixed'")),
+    ((1, 0, 0, 7), ("ok", "'insufficient'")),
+    ((1, 0, 1, 6), ("ok", "'mixed'")),
+    ((1, 0, 2, 5), ("ok", "'mixed'")),
+    ((1, 0, 3, 4), ("ok", "'mixed'")),
+    ((1, 0, 4, 3), ("ok", "'mixed'")),
+    ((1, 0, 5, 2), ("ok", "'mixed'")),
+    ((1, 0, 6, 1), ("ok", "'mixed'")),
+    ((1, 0, 7, 0), ("ok", "'mixed'")),
+    ((1, 1, 0, 6), ("ok", "'mixed'")),
+    ((1, 1, 1, 5), ("ok", "'mixed'")),
+    ((1, 1, 2, 4), ("ok", "'mixed'")),
+    ((1, 1, 3, 3), ("ok", "'mixed'")),
+    ((1, 1, 4, 2), ("ok", "'mixed'")),
+    ((1, 1, 5, 1), ("ok", "'mixed'")),
+    ((1, 1, 6, 0), ("ok", "'mixed'")),
+    ((1, 2, 0, 5), ("ok", "'mixed'")),
+    ((1, 2, 1, 4), ("ok", "'mixed'")),
+    ((1, 2, 2, 3), ("ok", "'mixed'")),
+    ((1, 2, 3, 2), ("ok", "'mixed'")),
+    ((1, 2, 4, 1), ("ok", "'mixed'")),
+    ((1, 2, 5, 0), ("ok", "'mixed'")),
+    ((1, 3, 0, 4), ("ok", "'mixed'")),
+    ((1, 3, 1, 3), ("ok", "'mixed'")),
+    ((1, 3, 2, 2), ("ok", "'mixed'")),
+    ((1, 3, 3, 1), ("ok", "'mixed'")),
+    ((1, 3, 4, 0), ("ok", "'mixed'")),
+    ((1, 4, 0, 3), ("ok", "'mixed'")),
+    ((1, 4, 1, 2), ("ok", "'mixed'")),
+    ((1, 4, 2, 1), ("ok", "'mixed'")),
+    ((1, 4, 3, 0), ("ok", "'mixed'")),
+    ((1, 5, 0, 2), ("ok", "'mixed'")),
+    ((1, 5, 1, 1), ("ok", "'mixed'")),
+    ((1, 5, 2, 0), ("ok", "'mixed'")),
+    ((1, 6, 0, 1), ("ok", "'mixed'")),
+    ((1, 6, 1, 0), ("ok", "'mixed'")),
+    ((1, 7, 0, 0), ("ok", "'mixed'")),
+    ((2, 0, 0, 6), ("ok", "'mixed'")),
+    ((2, 0, 1, 5), ("ok", "'mixed'")),
+    ((2, 0, 2, 4), ("ok", "'mixed'")),
+    ((2, 0, 3, 3), ("ok", "'mixed'")),
+    ((2, 0, 4, 2), ("ok", "'mixed'")),
+    ((2, 0, 5, 1), ("ok", "'mixed'")),
+    ((2, 0, 6, 0), ("ok", "'mixed'")),
+    ((2, 1, 0, 5), ("ok", "'mixed'")),
+    ((2, 1, 1, 4), ("ok", "'mixed'")),
+    ((2, 1, 2, 3), ("ok", "'mixed'")),
+    ((2, 1, 3, 2), ("ok", "'mixed'")),
+    ((2, 1, 4, 1), ("ok", "'mixed'")),
+    ((2, 1, 5, 0), ("ok", "'mixed'")),
+    ((2, 2, 0, 4), ("ok", "'mixed'")),
+    ((2, 2, 1, 3), ("ok", "'mixed'")),
+    ((2, 2, 2, 2), ("ok", "'mixed'")),
+    ((2, 2, 3, 1), ("ok", "'mixed'")),
+    ((2, 2, 4, 0), ("ok", "'mixed'")),
+    ((2, 3, 0, 3), ("ok", "'mixed'")),
+    ((2, 3, 1, 2), ("ok", "'mixed'")),
+    ((2, 3, 2, 1), ("ok", "'mixed'")),
+    ((2, 3, 3, 0), ("ok", "'mixed'")),
+    ((2, 4, 0, 2), ("ok", "'mixed'")),
+    ((2, 4, 1, 1), ("ok", "'mixed'")),
+    ((2, 4, 2, 0), ("ok", "'mixed'")),
+    ((2, 5, 0, 1), ("ok", "'mixed'")),
+    ((2, 5, 1, 0), ("ok", "'mixed'")),
+    ((2, 6, 0, 0), ("ok", "'mixed'")),
+    ((3, 0, 0, 5), ("ok", "'mixed'")),
+    ((3, 0, 1, 4), ("ok", "'mixed'")),
+    ((3, 0, 2, 3), ("ok", "'mixed'")),
+    ((3, 0, 3, 2), ("ok", "'mixed'")),
+    ((3, 0, 4, 1), ("ok", "'mixed'")),
+    ((3, 0, 5, 0), ("ok", "'mixed'")),
+    ((3, 1, 0, 4), ("ok", "'mixed'")),
+    ((3, 1, 1, 3), ("ok", "'mixed'")),
+    ((3, 1, 2, 2), ("ok", "'mixed'")),
+    ((3, 1, 3, 1), ("ok", "'mixed'")),
+    ((3, 1, 4, 0), ("ok", "'mixed'")),
+    ((3, 2, 0, 3), ("ok", "'mixed'")),
+    ((3, 2, 1, 2), ("ok", "'mixed'")),
+    ((3, 2, 2, 1), ("ok", "'mixed'")),
+    ((3, 2, 3, 0), ("ok", "'mixed'")),
+    ((3, 3, 0, 2), ("ok", "'mixed'")),
+    ((3, 3, 1, 1), ("ok", "'mixed'")),
+    ((3, 3, 2, 0), ("ok", "'mixed'")),
+    ((3, 4, 0, 1), ("ok", "'mixed'")),
+    ((3, 4, 1, 0), ("ok", "'mixed'")),
+    ((3, 5, 0, 0), ("ok", "'mixed'")),
+    ((4, 0, 0, 4), ("ok", "'mixed'")),
+    ((4, 0, 1, 3), ("ok", "'mixed'")),
+    ((4, 0, 2, 2), ("ok", "'mixed'")),
+    ((4, 0, 3, 1), ("ok", "'mixed'")),
+    ((4, 0, 4, 0), ("ok", "'mixed'")),
+    ((4, 1, 0, 3), ("ok", "'mixed'")),
+    ((4, 1, 1, 2), ("ok", "'mixed'")),
+    ((4, 1, 2, 1), ("ok", "'mixed'")),
+    ((4, 1, 3, 0), ("ok", "'mixed'")),
+    ((4, 2, 0, 2), ("ok", "'mixed'")),
+    ((4, 2, 1, 1), ("ok", "'mixed'")),
+    ((4, 2, 2, 0), ("ok", "'mixed'")),
+    ((4, 3, 0, 1), ("ok", "'mixed'")),
+    ((4, 3, 1, 0), ("ok", "'mixed'")),
+    ((4, 4, 0, 0), ("ok", "'mixed'")),
+    ((5, 0, 0, 3), ("ok", "'mixed'")),
+    ((5, 0, 1, 2), ("ok", "'mixed'")),
+    ((5, 0, 2, 1), ("ok", "'mixed'")),
+    ((5, 0, 3, 0), ("ok", "'mixed'")),
+    ((5, 1, 0, 2), ("ok", "'mixed'")),
+    ((5, 1, 1, 1), ("ok", "'mixed'")),
+    ((5, 1, 2, 0), ("ok", "'mixed'")),
+    ((5, 2, 0, 1), ("ok", "'mixed'")),
+    ((5, 2, 1, 0), ("ok", "'mixed'")),
+    ((5, 3, 0, 0), ("ok", "'mixed'")),
+    ((6, 0, 0, 2), ("ok", "'mixed'")),
+    ((6, 0, 1, 1), ("ok", "'mixed'")),
+    ((6, 0, 2, 0), ("ok", "'mixed'")),
+    ((6, 1, 0, 1), ("ok", "'mixed'")),
+    ((6, 1, 1, 0), ("ok", "'mixed'")),
+    ((6, 2, 0, 0), ("ok", "'mixed'")),
+    ((7, 0, 0, 1), ("ok", "'mixed'")),
+    ((7, 0, 1, 0), ("ok", "'mixed'")),
+    ((7, 1, 0, 0), ("ok", "'mixed'")),
+    ((8, 0, 0, 0), ("ok", "'mixed'")),
+    (
+        (
+            "set",
+            (
+                "language",
+                "text_length",
+                "domain_genre",
+                "editing_revision",
+                "generator_scope",
+                "human_population",
+                "human_false_positive_evidence",
+                "temporal_version_stability",
+                "detector_diversity",
+                "benign_stability",
+            ),
+        ),
+        ("ok", "'strong'"),
+    ),
+    (
+        (
+            "set",
+            (
+                "language",
+                "text_length",
+                "domain_genre",
+                "editing_revision",
+                "generator_scope",
+                "human_population",
+                "human_false_positive_evidence",
+            ),
+        ),
+        ("ok", "'mixed'"),
+    ),
+    (
+        (
+            "set",
+            (
+                "language",
+                "text_length",
+                "domain_genre",
+                "editing_revision",
+                "generator_scope",
+                "human_population",
+                "human_false_positive_evidence",
+                "temporal_version_stability",
+                "detector_diversity",
+                "benign_stability",
+                "rogue_dim",
+            ),
+        ),
+        ("ok", "'mixed'"),
+    ),
+    (("set", ()), ("ok", "'insufficient'")),
+    (("exact10",), ("ok", "'strong'")),
+    (("exact10-one-partial",), ("ok", "'mixed'")),
+    (("exact10-one-unknown",), ("ok", "'mixed'")),
+    (("ten-plus-rogue",), ("ok", "'mixed'")),
+    (("nine-plus-rogue",), ("ok", "'mixed'")),
+    (("ten-rogue-names",), ("ok", "'mixed'")),
+    (("ten-plus-rogue-partial",), ("ok", "'mixed'")),
+    (("eleven-supported",), ("ok", "'mixed'")),
+]
 
-
-EXPECTED_PROBE_VALIDATION_OVERALL_V3 = [((0, 0, 0, 8), ('ok', "'insufficient'")), ((0, 0, 1, 7), ('ok', "'insufficient'")), ((0, 0, 2, 6), ('ok', "'insufficient'")), ((0, 0, 3, 5), ('ok', "'insufficient'")), ((0, 0, 4, 4), ('ok', "'insufficient'")), ((0, 0, 5, 3), ('ok', "'insufficient'")), ((0, 0, 6, 2), ('ok', "'insufficient'")), ((0, 0, 7, 1), ('ok', "'insufficient'")), ((0, 0, 8, 0), ('ok', "'insufficient'")), ((0, 1, 0, 7), ('ok', "'insufficient'")), ((0, 1, 1, 6), ('ok', "'mixed'")), ((0, 1, 2, 5), ('ok', "'mixed'")), ((0, 1, 3, 4), ('ok', "'mixed'")), ((0, 1, 4, 3), ('ok', "'mixed'")), ((0, 1, 5, 2), ('ok', "'mixed'")), ((0, 1, 6, 1), ('ok', "'mixed'")), ((0, 1, 7, 0), ('ok', "'mixed'")), ((0, 2, 0, 6), ('ok', "'mixed'")), ((0, 2, 1, 5), ('ok', "'mixed'")), ((0, 2, 2, 4), ('ok', "'mixed'")), ((0, 2, 3, 3), ('ok', "'mixed'")), ((0, 2, 4, 2), ('ok', "'mixed'")), ((0, 2, 5, 1), ('ok', "'mixed'")), ((0, 2, 6, 0), ('ok', "'mixed'")), ((0, 3, 0, 5), ('ok', "'mixed'")), ((0, 3, 1, 4), ('ok', "'mixed'")), ((0, 3, 2, 3), ('ok', "'mixed'")), ((0, 3, 3, 2), ('ok', "'mixed'")), ((0, 3, 4, 1), ('ok', "'mixed'")), ((0, 3, 5, 0), ('ok', "'mixed'")), ((0, 4, 0, 4), ('ok', "'mixed'")), ((0, 4, 1, 3), ('ok', "'mixed'")), ((0, 4, 2, 2), ('ok', "'mixed'")), ((0, 4, 3, 1), ('ok', "'mixed'")), ((0, 4, 4, 0), ('ok', "'mixed'")), ((0, 5, 0, 3), ('ok', "'mixed'")), ((0, 5, 1, 2), ('ok', "'mixed'")), ((0, 5, 2, 1), ('ok', "'mixed'")), ((0, 5, 3, 0), ('ok', "'mixed'")), ((0, 6, 0, 2), ('ok', "'mixed'")), ((0, 6, 1, 1), ('ok', "'mixed'")), ((0, 6, 2, 0), ('ok', "'mixed'")), ((0, 7, 0, 1), ('ok', "'mixed'")), ((0, 7, 1, 0), ('ok', "'mixed'")), ((0, 8, 0, 0), ('ok', "'mixed'")), ((1, 0, 0, 7), ('ok', "'insufficient'")), ((1, 0, 1, 6), ('ok', "'mixed'")), ((1, 0, 2, 5), ('ok', "'mixed'")), ((1, 0, 3, 4), ('ok', "'mixed'")), ((1, 0, 4, 3), ('ok', "'mixed'")), ((1, 0, 5, 2), ('ok', "'mixed'")), ((1, 0, 6, 1), ('ok', "'mixed'")), ((1, 0, 7, 0), ('ok', "'mixed'")), ((1, 1, 0, 6), ('ok', "'mixed'")), ((1, 1, 1, 5), ('ok', "'mixed'")), ((1, 1, 2, 4), ('ok', "'mixed'")), ((1, 1, 3, 3), ('ok', "'mixed'")), ((1, 1, 4, 2), ('ok', "'mixed'")), ((1, 1, 5, 1), ('ok', "'mixed'")), ((1, 1, 6, 0), ('ok', "'mixed'")), ((1, 2, 0, 5), ('ok', "'mixed'")), ((1, 2, 1, 4), ('ok', "'mixed'")), ((1, 2, 2, 3), ('ok', "'mixed'")), ((1, 2, 3, 2), ('ok', "'mixed'")), ((1, 2, 4, 1), ('ok', "'mixed'")), ((1, 2, 5, 0), ('ok', "'mixed'")), ((1, 3, 0, 4), ('ok', "'mixed'")), ((1, 3, 1, 3), ('ok', "'mixed'")), ((1, 3, 2, 2), ('ok', "'mixed'")), ((1, 3, 3, 1), ('ok', "'mixed'")), ((1, 3, 4, 0), ('ok', "'mixed'")), ((1, 4, 0, 3), ('ok', "'mixed'")), ((1, 4, 1, 2), ('ok', "'mixed'")), ((1, 4, 2, 1), ('ok', "'mixed'")), ((1, 4, 3, 0), ('ok', "'mixed'")), ((1, 5, 0, 2), ('ok', "'mixed'")), ((1, 5, 1, 1), ('ok', "'mixed'")), ((1, 5, 2, 0), ('ok', "'mixed'")), ((1, 6, 0, 1), ('ok', "'mixed'")), ((1, 6, 1, 0), ('ok', "'mixed'")), ((1, 7, 0, 0), ('ok', "'mixed'")), ((2, 0, 0, 6), ('ok', "'mixed'")), ((2, 0, 1, 5), ('ok', "'mixed'")), ((2, 0, 2, 4), ('ok', "'mixed'")), ((2, 0, 3, 3), ('ok', "'mixed'")), ((2, 0, 4, 2), ('ok', "'mixed'")), ((2, 0, 5, 1), ('ok', "'mixed'")), ((2, 0, 6, 0), ('ok', "'mixed'")), ((2, 1, 0, 5), ('ok', "'mixed'")), ((2, 1, 1, 4), ('ok', "'mixed'")), ((2, 1, 2, 3), ('ok', "'mixed'")), ((2, 1, 3, 2), ('ok', "'mixed'")), ((2, 1, 4, 1), ('ok', "'mixed'")), ((2, 1, 5, 0), ('ok', "'mixed'")), ((2, 2, 0, 4), ('ok', "'mixed'")), ((2, 2, 1, 3), ('ok', "'mixed'")), ((2, 2, 2, 2), ('ok', "'mixed'")), ((2, 2, 3, 1), ('ok', "'mixed'")), ((2, 2, 4, 0), ('ok', "'mixed'")), ((2, 3, 0, 3), ('ok', "'mixed'")), ((2, 3, 1, 2), ('ok', "'mixed'")), ((2, 3, 2, 1), ('ok', "'mixed'")), ((2, 3, 3, 0), ('ok', "'mixed'")), ((2, 4, 0, 2), ('ok', "'mixed'")), ((2, 4, 1, 1), ('ok', "'mixed'")), ((2, 4, 2, 0), ('ok', "'mixed'")), ((2, 5, 0, 1), ('ok', "'mixed'")), ((2, 5, 1, 0), ('ok', "'mixed'")), ((2, 6, 0, 0), ('ok', "'mixed'")), ((3, 0, 0, 5), ('ok', "'mixed'")), ((3, 0, 1, 4), ('ok', "'mixed'")), ((3, 0, 2, 3), ('ok', "'mixed'")), ((3, 0, 3, 2), ('ok', "'mixed'")), ((3, 0, 4, 1), ('ok', "'mixed'")), ((3, 0, 5, 0), ('ok', "'mixed'")), ((3, 1, 0, 4), ('ok', "'mixed'")), ((3, 1, 1, 3), ('ok', "'mixed'")), ((3, 1, 2, 2), ('ok', "'mixed'")), ((3, 1, 3, 1), ('ok', "'mixed'")), ((3, 1, 4, 0), ('ok', "'mixed'")), ((3, 2, 0, 3), ('ok', "'mixed'")), ((3, 2, 1, 2), ('ok', "'mixed'")), ((3, 2, 2, 1), ('ok', "'mixed'")), ((3, 2, 3, 0), ('ok', "'mixed'")), ((3, 3, 0, 2), ('ok', "'mixed'")), ((3, 3, 1, 1), ('ok', "'mixed'")), ((3, 3, 2, 0), ('ok', "'mixed'")), ((3, 4, 0, 1), ('ok', "'mixed'")), ((3, 4, 1, 0), ('ok', "'mixed'")), ((3, 5, 0, 0), ('ok', "'mixed'")), ((4, 0, 0, 4), ('ok', "'mixed'")), ((4, 0, 1, 3), ('ok', "'mixed'")), ((4, 0, 2, 2), ('ok', "'mixed'")), ((4, 0, 3, 1), ('ok', "'mixed'")), ((4, 0, 4, 0), ('ok', "'mixed'")), ((4, 1, 0, 3), ('ok', "'mixed'")), ((4, 1, 1, 2), ('ok', "'mixed'")), ((4, 1, 2, 1), ('ok', "'mixed'")), ((4, 1, 3, 0), ('ok', "'mixed'")), ((4, 2, 0, 2), ('ok', "'mixed'")), ((4, 2, 1, 1), ('ok', "'mixed'")), ((4, 2, 2, 0), ('ok', "'mixed'")), ((4, 3, 0, 1), ('ok', "'mixed'")), ((4, 3, 1, 0), ('ok', "'mixed'")), ((4, 4, 0, 0), ('ok', "'mixed'")), ((5, 0, 0, 3), ('ok', "'mixed'")), ((5, 0, 1, 2), ('ok', "'mixed'")), ((5, 0, 2, 1), ('ok', "'mixed'")), ((5, 0, 3, 0), ('ok', "'mixed'")), ((5, 1, 0, 2), ('ok', "'mixed'")), ((5, 1, 1, 1), ('ok', "'mixed'")), ((5, 1, 2, 0), ('ok', "'mixed'")), ((5, 2, 0, 1), ('ok', "'mixed'")), ((5, 2, 1, 0), ('ok', "'mixed'")), ((5, 3, 0, 0), ('ok', "'mixed'")), ((6, 0, 0, 2), ('ok', "'mixed'")), ((6, 0, 1, 1), ('ok', "'mixed'")), ((6, 0, 2, 0), ('ok', "'mixed'")), ((6, 1, 0, 1), ('ok', "'mixed'")), ((6, 1, 1, 0), ('ok', "'mixed'")), ((6, 2, 0, 0), ('ok', "'mixed'")), ((7, 0, 0, 1), ('ok', "'mixed'")), ((7, 0, 1, 0), ('ok', "'mixed'")), ((7, 1, 0, 0), ('ok', "'mixed'")), ((8, 0, 0, 0), ('ok', "'mixed'")), (('set', ('language', 'text_length', 'domain_genre', 'editing_revision', 'generator_scope', 'human_population', 'human_false_positive_evidence', 'temporal_version_stability', 'detector_diversity', 'benign_stability')), ('ok', "'strong'")), (('set', ('language', 'text_length', 'domain_genre', 'editing_revision', 'generator_scope', 'human_population', 'human_false_positive_evidence')), ('ok', "'mixed'")), (('set', ('language', 'text_length', 'domain_genre', 'editing_revision', 'generator_scope', 'human_population', 'human_false_positive_evidence', 'temporal_version_stability', 'detector_diversity', 'benign_stability', 'rogue_dim')), ('ok', "'mixed'")), (('set', ()), ('ok', "'insufficient'")), (('exact10',), ('ok', "'strong'")), (('exact10-one-partial',), ('ok', "'mixed'")), (('exact10-one-unknown',), ('ok', "'mixed'")), (('ten-plus-rogue',), ('ok', "'mixed'")), (('nine-plus-rogue',), ('ok', "'mixed'")), (('ten-rogue-names',), ('ok', "'mixed'")), (('ten-plus-rogue-partial',), ('ok', "'mixed'")), (('eleven-supported',), ('ok', "'mixed'"))]
 
 class TestWorkerFKillValidation(unittest.TestCase):
     def test_probe_val_common_blockers(self):
         got = probe_val_common_blockers()
         exp = EXPECTED_PROBE_VAL_COMMON_BLOCKERS
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_val_derive_dimension(self):
         got = probe_val_derive_dimension()
         exp = EXPECTED_PROBE_VAL_DERIVE_DIMENSION
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_val_derive_trust_map(self):
         got = probe_val_derive_trust_map()
         exp = EXPECTED_PROBE_VAL_DERIVE_TRUST_MAP
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_val_support_blockers(self):
         got = probe_val_support_blockers()
         exp = EXPECTED_PROBE_VAL_SUPPORT_BLOCKERS
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_validation_overall_v3(self):
         got = probe_validation_overall_v3()
         exp = EXPECTED_PROBE_VALIDATION_OVERALL_V3
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
 
 if __name__ == "__main__":

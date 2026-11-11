@@ -15,20 +15,130 @@ regenerate.
 
 import unittest
 
-from w2_f_kill_helpers import (
-    probe_rc_codec
-)
+from w2_f_kill_helpers import probe_rc_codec
 
+EXPECTED_PROBE_RC_CODEC = [
+    (
+        "encode-canonical",
+        (
+            "ok",
+            'b\'{"consensus":{"ai_probability":0.75,"independent_families":1,"verdict":"ai_like"},"content_sha256":"0000000000000000000000000000000000000000000000000000000000000000","detector_failures":[],"detector_protocols":{},"detector_results":[],"evidence_registry":{},"generated_at_utc":"2024-01-01T00:00:00+00:00","input":{"paragraph_count":2,"raw_text_included":false,"sentence_count":5,"word_count":100},"input_conditions":{},"limitations":[],"plugin_health":[],"provenance":null,"robustness":{},"schema":"textforensics.forensic-bundle/v2","trust_map":{"coverage":{"out_of_scope":0,"partial":0,"supported":0,"unknown":0},"dimensions":[],"evidence_registry":{},"generated_at_utc":"2024-01-01T00:00:00+00:00","input_conditions":{},"limitations":[],"overall":"strong","schema":"textforensics.trust-map/v2"},"verdict_integrity":{}}\'',
+        ),
+    ),
+    (
+        "encode-noncanonical",
+        (
+            "ok",
+            'b\'{"schema": "textforensics.forensic-bundle/v2", "generated_at_utc": "2024-01-01T00:00:00+00:00", "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000", "input": {"word_count": 100, "sentence_count": 5, "paragraph_count": 2, "raw_text_included": false}, "detector_results": [], "detector_failures": [], "plugin_health": [], "consensus": {"verdict": "ai_like", "ai_probability": 0.75, "independent_families": 1}, "trust_map": {"schema": "textforensics.trust-map/v2", "overall": "strong", "dimensions": [], "limitations": [], "input_conditions": {}, "evidence_registry": {}, "coverage": {"supported": 0, "partial": 0, "unknown": 0, "out_of_scope": 0}, "generated_at_utc": "2024-01-01T00:00:00+00:00"}, "verdict_integrity": {}, "robustness": {}, "provenance": null, "limitations": [], "input_conditions": {}, "detector_protocols": {}, "evidence_registry": {}}\'',
+        ),
+    ),
+    (
+        "encode-ascii-canonical",
+        ("ok", 'b\'{"a":"caf\\xc3\\xa9","b":1,"schema":"textforensics.forensic-bundle/v2"}\''),
+    ),
+    (
+        "encode-ascii-noncanonical",
+        ("ok", 'b\'{"b": 1, "a": "caf\\xc3\\xa9", "schema": "textforensics.forensic-bundle/v2"}\''),
+    ),
+    (
+        "encode-keys-out-of-order",
+        ("ok", 'b\'{"a":2,"m":3,"schema":"textforensics.forensic-bundle/v2","z":1}\''),
+    ),
+    (
+        "encode-inf",
+        ("raise", "CodecError", "Non-finite numeric value: non-finite number at result['x']: inf."),
+    ),
+    (
+        "encode-nan",
+        ("raise", "CodecError", "Non-finite numeric value: non-finite number at result['x']: nan."),
+    ),
+    (
+        "decode-validate-override",
+        ("raise", "CodecError", "Validation failed: : 'content_sha256' is a required property"),
+    ),
+    (
+        "decode-validate-off",
+        (
+            "ok",
+            "{'schema': 'textforensics.forensic-bundle/v2', 'generated_at_utc': '2024-01-01T00:00:00+00:00', 'input': {'word_count': 100, 'sentence_count': 5, 'paragraph_count': 2, 'raw_text_included': False}, 'detector_results': [], 'detector_failures': [], 'plugin_health': [], 'consensus': {'verdict': 'ai_like', 'ai_probability': 0.75, 'independent_families': 1}, 'trust_map': {'schema': 'textforensics.trust-map/v2', 'overall': 'strong', 'dimensions': [], 'limitations': [], 'input_conditions': {}, 'evidence_registry': {}, 'coverage': {'supported': 0, 'partial': 0, 'unknown': 0, 'out_of_scope': 0}, 'generated_at_utc': '2024-01-01T00:00:00+00:00'}, 'verdict_integrity': {}, 'robustness': {}, 'provenance': None, 'limitations': [], 'input_conditions': {}, 'detector_protocols': {}, 'evidence_registry': {}}",
+        ),
+    ),
+    (
+        "decode-validate-on",
+        ("raise", "CodecError", "Validation failed: : 'content_sha256' is a required property"),
+    ),
+    (
+        "decode-version-greater",
+        (
+            "raise",
+            "VersionMigrationError",
+            "Schema version mismatch: expected textforensics.forensic-bundle/v2, got textforensics.forensic-bundle/v3",
+        ),
+    ),
+    (
+        "decode-version-equal",
+        (
+            "ok",
+            "{'schema': 'textforensics.forensic-bundle/v2', 'generated_at_utc': '2024-01-01T00:00:00+00:00', 'content_sha256': '0000000000000000000000000000000000000000000000000000000000000000', 'input': {'word_count': 100, 'sentence_count': 5, 'paragraph_count': 2, 'raw_text_included': False}, 'detector_results': [], 'detector_failures': [], 'plugin_health': [], 'consensus': {'verdict': 'ai_like', 'ai_probability': 0.75, 'independent_families': 1}, 'trust_map': {'schema': 'textforensics.trust-map/v2', 'overall': 'strong', 'dimensions': [], 'limitations': [], 'input_conditions': {}, 'evidence_registry': {}, 'coverage': {'supported': 0, 'partial': 0, 'unknown': 0, 'out_of_scope': 0}, 'generated_at_utc': '2024-01-01T00:00:00+00:00'}, 'verdict_integrity': {}, 'robustness': {}, 'provenance': None, 'limitations': [], 'input_conditions': {}, 'detector_protocols': {}, 'evidence_registry': {}}",
+        ),
+    ),
+    (
+        "decode-version-none",
+        ("raise", "CodecError", "Validation failed: : 'schema' is a required property"),
+    ),
+    (
+        "decode-version-lower",
+        (
+            "raise",
+            "VersionMigrationError",
+            "Schema version mismatch: expected textforensics.forensic-bundle/v2, got textforensics.forensic-bundle/v1",
+        ),
+    ),
+    (
+        "decode-infinity",
+        (
+            "raise",
+            "CodecError",
+            "Invalid JSON: non-finite JSON constant 'Infinity' is not valid JSON.",
+        ),
+    ),
+    (
+        "decode-nan-literal",
+        ("raise", "CodecError", "Invalid JSON: non-finite JSON constant 'NaN' is not valid JSON."),
+    ),
+    ("decode-list", ("raise", "CodecError", "Decoded JSON must be an object")),
+    (
+        "decode-bad-json",
+        (
+            "raise",
+            "CodecError",
+            "Invalid JSON: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)",
+        ),
+    ),
+    (
+        "decode-str-input",
+        (
+            "ok",
+            "{'schema': 'textforensics.forensic-bundle/v2', 'generated_at_utc': '2024-01-01T00:00:00+00:00', 'content_sha256': '0000000000000000000000000000000000000000000000000000000000000000', 'input': {'word_count': 100, 'sentence_count': 5, 'paragraph_count': 2, 'raw_text_included': False}, 'detector_results': [], 'detector_failures': [], 'plugin_health': [], 'consensus': {'verdict': 'ai_like', 'ai_probability': 0.75, 'independent_families': 1}, 'trust_map': {'schema': 'textforensics.trust-map/v2', 'overall': 'strong', 'dimensions': [], 'limitations': [], 'input_conditions': {}, 'evidence_registry': {}, 'coverage': {'supported': 0, 'partial': 0, 'unknown': 0, 'out_of_scope': 0}, 'generated_at_utc': '2024-01-01T00:00:00+00:00'}, 'verdict_integrity': {}, 'robustness': {}, 'provenance': None, 'limitations': [], 'input_conditions': {}, 'detector_protocols': {}, 'evidence_registry': {}}",
+        ),
+    ),
+    ("validate-runtimeerror", ("ok", "['Validation unavailable: boom']")),
+    ("validate-valueerror", ("ok", "['Schema error: bad schema']")),
+    ("validate-valid", ("ok", "[]")),
+    (
+        "validate-nonfinite",
+        ("ok", "[\"Non-finite numeric value: non-finite number at result['x']: inf.\"]"),
+    ),
+]
 
-EXPECTED_PROBE_RC_CODEC = [('encode-canonical', ('ok', 'b\'{"consensus":{"ai_probability":0.75,"independent_families":1,"verdict":"ai_like"},"content_sha256":"0000000000000000000000000000000000000000000000000000000000000000","detector_failures":[],"detector_protocols":{},"detector_results":[],"evidence_registry":{},"generated_at_utc":"2024-01-01T00:00:00+00:00","input":{"paragraph_count":2,"raw_text_included":false,"sentence_count":5,"word_count":100},"input_conditions":{},"limitations":[],"plugin_health":[],"provenance":null,"robustness":{},"schema":"textforensics.forensic-bundle/v2","trust_map":{"coverage":{"out_of_scope":0,"partial":0,"supported":0,"unknown":0},"dimensions":[],"evidence_registry":{},"generated_at_utc":"2024-01-01T00:00:00+00:00","input_conditions":{},"limitations":[],"overall":"strong","schema":"textforensics.trust-map/v2"},"verdict_integrity":{}}\'')), ('encode-noncanonical', ('ok', 'b\'{"schema": "textforensics.forensic-bundle/v2", "generated_at_utc": "2024-01-01T00:00:00+00:00", "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000", "input": {"word_count": 100, "sentence_count": 5, "paragraph_count": 2, "raw_text_included": false}, "detector_results": [], "detector_failures": [], "plugin_health": [], "consensus": {"verdict": "ai_like", "ai_probability": 0.75, "independent_families": 1}, "trust_map": {"schema": "textforensics.trust-map/v2", "overall": "strong", "dimensions": [], "limitations": [], "input_conditions": {}, "evidence_registry": {}, "coverage": {"supported": 0, "partial": 0, "unknown": 0, "out_of_scope": 0}, "generated_at_utc": "2024-01-01T00:00:00+00:00"}, "verdict_integrity": {}, "robustness": {}, "provenance": null, "limitations": [], "input_conditions": {}, "detector_protocols": {}, "evidence_registry": {}}\'')), ('encode-ascii-canonical', ('ok', 'b\'{"a":"caf\\xc3\\xa9","b":1,"schema":"textforensics.forensic-bundle/v2"}\'')), ('encode-ascii-noncanonical', ('ok', 'b\'{"b": 1, "a": "caf\\xc3\\xa9", "schema": "textforensics.forensic-bundle/v2"}\'')), ('encode-keys-out-of-order', ('ok', 'b\'{"a":2,"m":3,"schema":"textforensics.forensic-bundle/v2","z":1}\'')), ('encode-inf', ('raise', 'CodecError', "Non-finite numeric value: non-finite number at result['x']: inf.")), ('encode-nan', ('raise', 'CodecError', "Non-finite numeric value: non-finite number at result['x']: nan.")), ('decode-validate-override', ('raise', 'CodecError', "Validation failed: : 'content_sha256' is a required property")), ('decode-validate-off', ('ok', "{'schema': 'textforensics.forensic-bundle/v2', 'generated_at_utc': '2024-01-01T00:00:00+00:00', 'input': {'word_count': 100, 'sentence_count': 5, 'paragraph_count': 2, 'raw_text_included': False}, 'detector_results': [], 'detector_failures': [], 'plugin_health': [], 'consensus': {'verdict': 'ai_like', 'ai_probability': 0.75, 'independent_families': 1}, 'trust_map': {'schema': 'textforensics.trust-map/v2', 'overall': 'strong', 'dimensions': [], 'limitations': [], 'input_conditions': {}, 'evidence_registry': {}, 'coverage': {'supported': 0, 'partial': 0, 'unknown': 0, 'out_of_scope': 0}, 'generated_at_utc': '2024-01-01T00:00:00+00:00'}, 'verdict_integrity': {}, 'robustness': {}, 'provenance': None, 'limitations': [], 'input_conditions': {}, 'detector_protocols': {}, 'evidence_registry': {}}")), ('decode-validate-on', ('raise', 'CodecError', "Validation failed: : 'content_sha256' is a required property")), ('decode-version-greater', ('raise', 'VersionMigrationError', 'Schema version mismatch: expected textforensics.forensic-bundle/v2, got textforensics.forensic-bundle/v3')), ('decode-version-equal', ('ok', "{'schema': 'textforensics.forensic-bundle/v2', 'generated_at_utc': '2024-01-01T00:00:00+00:00', 'content_sha256': '0000000000000000000000000000000000000000000000000000000000000000', 'input': {'word_count': 100, 'sentence_count': 5, 'paragraph_count': 2, 'raw_text_included': False}, 'detector_results': [], 'detector_failures': [], 'plugin_health': [], 'consensus': {'verdict': 'ai_like', 'ai_probability': 0.75, 'independent_families': 1}, 'trust_map': {'schema': 'textforensics.trust-map/v2', 'overall': 'strong', 'dimensions': [], 'limitations': [], 'input_conditions': {}, 'evidence_registry': {}, 'coverage': {'supported': 0, 'partial': 0, 'unknown': 0, 'out_of_scope': 0}, 'generated_at_utc': '2024-01-01T00:00:00+00:00'}, 'verdict_integrity': {}, 'robustness': {}, 'provenance': None, 'limitations': [], 'input_conditions': {}, 'detector_protocols': {}, 'evidence_registry': {}}")), ('decode-version-none', ('raise', 'CodecError', "Validation failed: : 'schema' is a required property")), ('decode-version-lower', ('raise', 'VersionMigrationError', 'Schema version mismatch: expected textforensics.forensic-bundle/v2, got textforensics.forensic-bundle/v1')), ('decode-infinity', ('raise', 'CodecError', "Invalid JSON: non-finite JSON constant 'Infinity' is not valid JSON.")), ('decode-nan-literal', ('raise', 'CodecError', "Invalid JSON: non-finite JSON constant 'NaN' is not valid JSON.")), ('decode-list', ('raise', 'CodecError', 'Decoded JSON must be an object')), ('decode-bad-json', ('raise', 'CodecError', 'Invalid JSON: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)')), ('decode-str-input', ('ok', "{'schema': 'textforensics.forensic-bundle/v2', 'generated_at_utc': '2024-01-01T00:00:00+00:00', 'content_sha256': '0000000000000000000000000000000000000000000000000000000000000000', 'input': {'word_count': 100, 'sentence_count': 5, 'paragraph_count': 2, 'raw_text_included': False}, 'detector_results': [], 'detector_failures': [], 'plugin_health': [], 'consensus': {'verdict': 'ai_like', 'ai_probability': 0.75, 'independent_families': 1}, 'trust_map': {'schema': 'textforensics.trust-map/v2', 'overall': 'strong', 'dimensions': [], 'limitations': [], 'input_conditions': {}, 'evidence_registry': {}, 'coverage': {'supported': 0, 'partial': 0, 'unknown': 0, 'out_of_scope': 0}, 'generated_at_utc': '2024-01-01T00:00:00+00:00'}, 'verdict_integrity': {}, 'robustness': {}, 'provenance': None, 'limitations': [], 'input_conditions': {}, 'detector_protocols': {}, 'evidence_registry': {}}")), ('validate-runtimeerror', ('ok', "['Validation unavailable: boom']")), ('validate-valueerror', ('ok', "['Schema error: bad schema']")), ('validate-valid', ('ok', '[]')), ('validate-nonfinite', ('ok', '["Non-finite numeric value: non-finite number at result[\'x\']: inf."]'))]
 
 class TestWorkerFKillResultCodec(unittest.TestCase):
     def test_probe_rc_codec(self):
         got = probe_rc_codec()
         exp = EXPECTED_PROBE_RC_CODEC
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
 
 if __name__ == "__main__":

@@ -21,69 +21,950 @@ from w2_f_kill_helpers import (
     probe_bm_post_init,
     probe_bm_proof_dict,
     probe_bm_prove_disjointness,
-    probe_bm_sample_hashes
+    probe_bm_sample_hashes,
 )
 
+EXPECTED_PROBE_BM_CHECK_DISJOINTNESS = [
+    ("disjoint", ("ok", True, 0, [], True, [], [], "verified", 0, 4, 4, -1)),
+    (
+        "self",
+        (
+            "ok",
+            False,
+            4,
+            [
+                "517aa2b3bde3438546e213bb2b371e3827c7a0bd99e17223cf03feaf93dce174",
+                "6dfdf92f5263b6d6e62ad6c70f70a60dafc8a25652a6984a55e5d3dba0a33e93",
+                "bb0d5029dedc2eac9ee057442dea2e1e7ccf085123964e278f7ee1c21dc932f1",
+                "e299031b5ccba3c94583773c3ae9f2899a45d7e7df513cb619419afd9c78623e",
+            ],
+            True,
+            [],
+            [],
+            "contaminated",
+            4,
+            4,
+            4,
+            -1,
+        ),
+    ),
+    ("empty-vs-a", ("ok", True, 0, [], True, [], [], "verified", 0, 0, 4, -1)),
+    ("a-vs-empty", ("ok", True, 0, [], True, [], [], "verified", 0, 4, 0, -1)),
+    ("empty-vs-empty", ("ok", True, 0, [], True, [], [], "verified", 0, 0, 0, -1)),
+    (
+        "missing",
+        (
+            "ok",
+            False,
+            0,
+            [],
+            False,
+            [
+                "Could not compute hashes for path1: [Errno 2] No such file or directory: 'TMP/nope.jsonl'"
+            ],
+            [
+                "Could not compute hashes for path1: [Errno 2] No such file or directory: 'TMP/nope.jsonl'"
+            ],
+            "unknown",
+            -1,
+            0,
+            0,
+            -1,
+        ),
+    ),
+    (
+        "missing2",
+        (
+            "ok",
+            False,
+            0,
+            [],
+            False,
+            [
+                "Could not compute hashes for path2: [Errno 2] No such file or directory: 'TMP/nope.jsonl'"
+            ],
+            [
+                "Could not compute hashes for path2: [Errno 2] No such file or directory: 'TMP/nope.jsonl'"
+            ],
+            "unknown",
+            -1,
+            0,
+            0,
+            -1,
+        ),
+    ),
+]
 
-EXPECTED_PROBE_BM_CHECK_DISJOINTNESS = [('disjoint', ('ok', True, 0, [], True, [], [], 'verified', 0, 4, 4, -1)), ('self', ('ok', False, 4, ['517aa2b3bde3438546e213bb2b371e3827c7a0bd99e17223cf03feaf93dce174', '6dfdf92f5263b6d6e62ad6c70f70a60dafc8a25652a6984a55e5d3dba0a33e93', 'bb0d5029dedc2eac9ee057442dea2e1e7ccf085123964e278f7ee1c21dc932f1', 'e299031b5ccba3c94583773c3ae9f2899a45d7e7df513cb619419afd9c78623e'], True, [], [], 'contaminated', 4, 4, 4, -1)), ('empty-vs-a', ('ok', True, 0, [], True, [], [], 'verified', 0, 0, 4, -1)), ('a-vs-empty', ('ok', True, 0, [], True, [], [], 'verified', 0, 4, 0, -1)), ('empty-vs-empty', ('ok', True, 0, [], True, [], [], 'verified', 0, 0, 0, -1)), ('missing', ('ok', False, 0, [], False, ["Could not compute hashes for path1: [Errno 2] No such file or directory: 'TMP/nope.jsonl'"], ["Could not compute hashes for path1: [Errno 2] No such file or directory: 'TMP/nope.jsonl'"], 'unknown', -1, 0, 0, -1)), ('missing2', ('ok', False, 0, [], False, ["Could not compute hashes for path2: [Errno 2] No such file or directory: 'TMP/nope.jsonl'"], ["Could not compute hashes for path2: [Errno 2] No such file or directory: 'TMP/nope.jsonl'"], 'unknown', -1, 0, 0, -1))]
+
+EXPECTED_PROBE_BM_JSONL = [
+    (
+        ("verified",),
+        (
+            "ok",
+            "{'threshold': 0.4318000000000001, 'evaluated': 2, 'tp': 0, 'fp': 0, 'tn': 1, 'fn': 1, 'accuracy': 0.5, 'precision': 0.0, 'true_positive_rate': 0.0, 'specificity': 1.0, 'false_positive_rate': 0.0, 'false_negative_rate': 1.0, 'schema': 'textforensics.benchmark-result/v1', 'dataset_sha256': '75e7b49665710a90731a59379639305831ec133da1e4dcc247a50d4e364d2ddb', 'calibration_dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'detector_id': 'textforensics/builtin-heuristic', 'detector_version': '0.1.0', 'skipped': 0, 'mode': 'held_out_evaluation', 'disjointness_status': 'verified', 'overlap_count': 0}",
+        ),
+    ),
+    (
+        ("unknown",),
+        (
+            "raise",
+            "ValueError",
+            "Disjointness could not be verified for the evaluation dataset: unknown reason. Refusing to treat unverifiable datasets as held out.",
+        ),
+    ),
+    (
+        ("contaminated",),
+        (
+            "raise",
+            "ValueError",
+            "Contamination detected: 1 overlapping samples between calibration and evaluation datasets. Use disjoint datasets to prevent data leakage.",
+        ),
+    ),
+    (
+        ("none",),
+        (
+            "ok",
+            "{'threshold': 0.4318000000000001, 'evaluated': 2, 'tp': 0, 'fp': 0, 'tn': 1, 'fn': 1, 'accuracy': 0.5, 'precision': 0.0, 'true_positive_rate': 0.0, 'specificity': 1.0, 'false_positive_rate': 0.0, 'false_negative_rate': 1.0, 'schema': 'textforensics.benchmark-result/v1', 'dataset_sha256': '75e7b49665710a90731a59379639305831ec133da1e4dcc247a50d4e364d2ddb', 'calibration_dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'detector_id': 'textforensics/builtin-heuristic', 'detector_version': '0.1.0', 'skipped': 0, 'mode': 'diagnostic', 'disjointness_status': 'unknown', 'overlap_count': -1}",
+        ),
+    ),
+    (
+        ("eval-hash-lo",),
+        ("raise", "ValueError", "Disjointness proof does not match the evaluation dataset."),
+    ),
+    (
+        ("eval-hash-hi",),
+        ("raise", "ValueError", "Disjointness proof does not match the evaluation dataset."),
+    ),
+    (
+        ("train-hash-lo",),
+        ("raise", "ValueError", "Disjointness proof does not match the calibration dataset."),
+    ),
+    (
+        ("train-hash-hi",),
+        ("raise", "ValueError", "Disjointness proof does not match the calibration dataset."),
+    ),
+    (
+        ("eval-hash-none",),
+        (
+            "ok",
+            "{'threshold': 0.4318000000000001, 'evaluated': 2, 'tp': 0, 'fp': 0, 'tn': 1, 'fn': 1, 'accuracy': 0.5, 'precision': 0.0, 'true_positive_rate': 0.0, 'specificity': 1.0, 'false_positive_rate': 0.0, 'false_negative_rate': 1.0, 'schema': 'textforensics.benchmark-result/v1', 'dataset_sha256': '75e7b49665710a90731a59379639305831ec133da1e4dcc247a50d4e364d2ddb', 'calibration_dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'detector_id': 'textforensics/builtin-heuristic', 'detector_version': '0.1.0', 'skipped': 0, 'mode': 'held_out_evaluation', 'disjointness_status': 'verified', 'overlap_count': 0}",
+        ),
+    ),
+    (
+        ("train-hash-none",),
+        (
+            "ok",
+            "{'threshold': 0.4318000000000001, 'evaluated': 2, 'tp': 0, 'fp': 0, 'tn': 1, 'fn': 1, 'accuracy': 0.5, 'precision': 0.0, 'true_positive_rate': 0.0, 'specificity': 1.0, 'false_positive_rate': 0.0, 'false_negative_rate': 1.0, 'schema': 'textforensics.benchmark-result/v1', 'dataset_sha256': '75e7b49665710a90731a59379639305831ec133da1e4dcc247a50d4e364d2ddb', 'calibration_dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'detector_id': 'textforensics/builtin-heuristic', 'detector_version': '0.1.0', 'skipped': 0, 'mode': 'held_out_evaluation', 'disjointness_status': 'verified', 'overlap_count': 0}",
+        ),
+    ),
+    (
+        ("same-file-allowed",),
+        (
+            "ok",
+            "{'threshold': 0.4318000000000001, 'evaluated': 2, 'tp': 0, 'fp': 0, 'tn': 1, 'fn': 1, 'accuracy': 0.5, 'precision': 0.0, 'true_positive_rate': 0.0, 'specificity': 1.0, 'false_positive_rate': 0.0, 'false_negative_rate': 1.0, 'schema': 'textforensics.benchmark-result/v1', 'dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'calibration_dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'detector_id': 'textforensics/builtin-heuristic', 'detector_version': '0.1.0', 'skipped': 0, 'mode': 'diagnostic', 'disjointness_status': 'contaminated', 'overlap_count': 2}",
+        ),
+    ),
+    (
+        ("same-file-allowed-proof",),
+        (
+            "ok",
+            "{'threshold': 0.4318000000000001, 'evaluated': 2, 'tp': 0, 'fp': 0, 'tn': 1, 'fn': 1, 'accuracy': 0.5, 'precision': 0.0, 'true_positive_rate': 0.0, 'specificity': 1.0, 'false_positive_rate': 0.0, 'false_negative_rate': 1.0, 'schema': 'textforensics.benchmark-result/v1', 'dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'calibration_dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'detector_id': 'textforensics/builtin-heuristic', 'detector_version': '0.1.0', 'skipped': 0, 'mode': 'diagnostic', 'disjointness_status': 'verified', 'overlap_count': 0}",
+        ),
+    ),
+    (
+        ("diff-file-allowed-noproof",),
+        (
+            "ok",
+            "{'threshold': 0.4318000000000001, 'evaluated': 2, 'tp': 0, 'fp': 0, 'tn': 1, 'fn': 1, 'accuracy': 0.5, 'precision': 0.0, 'true_positive_rate': 0.0, 'specificity': 1.0, 'false_positive_rate': 0.0, 'false_negative_rate': 1.0, 'schema': 'textforensics.benchmark-result/v1', 'dataset_sha256': '75e7b49665710a90731a59379639305831ec133da1e4dcc247a50d4e364d2ddb', 'calibration_dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'detector_id': 'textforensics/builtin-heuristic', 'detector_version': '0.1.0', 'skipped': 0, 'mode': 'diagnostic', 'disjointness_status': 'unknown', 'overlap_count': -1}",
+        ),
+    ),
+    (
+        ("same-file-not-allowed",),
+        (
+            "raise",
+            "ValueError",
+            "Evaluation dataset matches the calibration dataset. Use a separate held-out dataset for release-quality validation.",
+        ),
+    ),
+    (
+        ("swapped-allowed-noproof",),
+        (
+            "ok",
+            "{'threshold': 0.4318000000000001, 'evaluated': 2, 'tp': 0, 'fp': 0, 'tn': 1, 'fn': 1, 'accuracy': 0.5, 'precision': 0.0, 'true_positive_rate': 0.0, 'specificity': 1.0, 'false_positive_rate': 0.0, 'false_negative_rate': 1.0, 'schema': 'textforensics.benchmark-result/v1', 'dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'calibration_dataset_sha256': '75e7b49665710a90731a59379639305831ec133da1e4dcc247a50d4e364d2ddb', 'detector_id': 'textforensics/builtin-heuristic', 'detector_version': '0.1.0', 'skipped': 0, 'mode': 'diagnostic', 'disjointness_status': 'unknown', 'overlap_count': -1}",
+        ),
+    ),
+    (
+        ("contaminated-nodq",),
+        (
+            "raise",
+            "ValueError",
+            "Contamination detected: 1 overlapping samples between calibration and evaluation datasets. Use disjoint datasets to prevent data leakage.",
+        ),
+    ),
+    (
+        ("contaminated-dq",),
+        (
+            "ok",
+            "{'threshold': 0.4318000000000001, 'evaluated': 2, 'tp': 0, 'fp': 0, 'tn': 1, 'fn': 1, 'accuracy': 0.5, 'precision': 0.0, 'true_positive_rate': 0.0, 'specificity': 1.0, 'false_positive_rate': 0.0, 'false_negative_rate': 1.0, 'schema': 'textforensics.benchmark-result/v1', 'dataset_sha256': '75e7b49665710a90731a59379639305831ec133da1e4dcc247a50d4e364d2ddb', 'calibration_dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'detector_id': 'textforensics/builtin-heuristic', 'detector_version': '0.1.0', 'skipped': 0, 'mode': 'diagnostic', 'disjointness_status': 'contaminated', 'overlap_count': 1}",
+        ),
+    ),
+    (
+        ("unknown-nodq",),
+        (
+            "raise",
+            "ValueError",
+            "Disjointness could not be verified for the evaluation dataset: test error. Refusing to treat unverifiable datasets as held out.",
+        ),
+    ),
+    (
+        ("unknown-dq",),
+        (
+            "ok",
+            "{'threshold': 0.4318000000000001, 'evaluated': 2, 'tp': 0, 'fp': 0, 'tn': 1, 'fn': 1, 'accuracy': 0.5, 'precision': 0.0, 'true_positive_rate': 0.0, 'specificity': 1.0, 'false_positive_rate': 0.0, 'false_negative_rate': 1.0, 'schema': 'textforensics.benchmark-result/v1', 'dataset_sha256': '75e7b49665710a90731a59379639305831ec133da1e4dcc247a50d4e364d2ddb', 'calibration_dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'detector_id': 'textforensics/builtin-heuristic', 'detector_version': '0.1.0', 'skipped': 0, 'mode': 'diagnostic', 'disjointness_status': 'unknown', 'overlap_count': -1}",
+        ),
+    ),
+]
 
 
-EXPECTED_PROBE_BM_JSONL = [(('verified',), ('ok', "{'threshold': 0.4318000000000001, 'evaluated': 2, 'tp': 0, 'fp': 0, 'tn': 1, 'fn': 1, 'accuracy': 0.5, 'precision': 0.0, 'true_positive_rate': 0.0, 'specificity': 1.0, 'false_positive_rate': 0.0, 'false_negative_rate': 1.0, 'schema': 'textforensics.benchmark-result/v1', 'dataset_sha256': '75e7b49665710a90731a59379639305831ec133da1e4dcc247a50d4e364d2ddb', 'calibration_dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'detector_id': 'textforensics/builtin-heuristic', 'detector_version': '0.1.0', 'skipped': 0, 'mode': 'held_out_evaluation', 'disjointness_status': 'verified', 'overlap_count': 0}")), (('unknown',), ('raise', 'ValueError', 'Disjointness could not be verified for the evaluation dataset: unknown reason. Refusing to treat unverifiable datasets as held out.')), (('contaminated',), ('raise', 'ValueError', 'Contamination detected: 1 overlapping samples between calibration and evaluation datasets. Use disjoint datasets to prevent data leakage.')), (('none',), ('ok', "{'threshold': 0.4318000000000001, 'evaluated': 2, 'tp': 0, 'fp': 0, 'tn': 1, 'fn': 1, 'accuracy': 0.5, 'precision': 0.0, 'true_positive_rate': 0.0, 'specificity': 1.0, 'false_positive_rate': 0.0, 'false_negative_rate': 1.0, 'schema': 'textforensics.benchmark-result/v1', 'dataset_sha256': '75e7b49665710a90731a59379639305831ec133da1e4dcc247a50d4e364d2ddb', 'calibration_dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'detector_id': 'textforensics/builtin-heuristic', 'detector_version': '0.1.0', 'skipped': 0, 'mode': 'diagnostic', 'disjointness_status': 'unknown', 'overlap_count': -1}")), (('eval-hash-lo',), ('raise', 'ValueError', 'Disjointness proof does not match the evaluation dataset.')), (('eval-hash-hi',), ('raise', 'ValueError', 'Disjointness proof does not match the evaluation dataset.')), (('train-hash-lo',), ('raise', 'ValueError', 'Disjointness proof does not match the calibration dataset.')), (('train-hash-hi',), ('raise', 'ValueError', 'Disjointness proof does not match the calibration dataset.')), (('eval-hash-none',), ('ok', "{'threshold': 0.4318000000000001, 'evaluated': 2, 'tp': 0, 'fp': 0, 'tn': 1, 'fn': 1, 'accuracy': 0.5, 'precision': 0.0, 'true_positive_rate': 0.0, 'specificity': 1.0, 'false_positive_rate': 0.0, 'false_negative_rate': 1.0, 'schema': 'textforensics.benchmark-result/v1', 'dataset_sha256': '75e7b49665710a90731a59379639305831ec133da1e4dcc247a50d4e364d2ddb', 'calibration_dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'detector_id': 'textforensics/builtin-heuristic', 'detector_version': '0.1.0', 'skipped': 0, 'mode': 'held_out_evaluation', 'disjointness_status': 'verified', 'overlap_count': 0}")), (('train-hash-none',), ('ok', "{'threshold': 0.4318000000000001, 'evaluated': 2, 'tp': 0, 'fp': 0, 'tn': 1, 'fn': 1, 'accuracy': 0.5, 'precision': 0.0, 'true_positive_rate': 0.0, 'specificity': 1.0, 'false_positive_rate': 0.0, 'false_negative_rate': 1.0, 'schema': 'textforensics.benchmark-result/v1', 'dataset_sha256': '75e7b49665710a90731a59379639305831ec133da1e4dcc247a50d4e364d2ddb', 'calibration_dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'detector_id': 'textforensics/builtin-heuristic', 'detector_version': '0.1.0', 'skipped': 0, 'mode': 'held_out_evaluation', 'disjointness_status': 'verified', 'overlap_count': 0}")), (('same-file-allowed',), ('ok', "{'threshold': 0.4318000000000001, 'evaluated': 2, 'tp': 0, 'fp': 0, 'tn': 1, 'fn': 1, 'accuracy': 0.5, 'precision': 0.0, 'true_positive_rate': 0.0, 'specificity': 1.0, 'false_positive_rate': 0.0, 'false_negative_rate': 1.0, 'schema': 'textforensics.benchmark-result/v1', 'dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'calibration_dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'detector_id': 'textforensics/builtin-heuristic', 'detector_version': '0.1.0', 'skipped': 0, 'mode': 'diagnostic', 'disjointness_status': 'contaminated', 'overlap_count': 2}")), (('same-file-allowed-proof',), ('ok', "{'threshold': 0.4318000000000001, 'evaluated': 2, 'tp': 0, 'fp': 0, 'tn': 1, 'fn': 1, 'accuracy': 0.5, 'precision': 0.0, 'true_positive_rate': 0.0, 'specificity': 1.0, 'false_positive_rate': 0.0, 'false_negative_rate': 1.0, 'schema': 'textforensics.benchmark-result/v1', 'dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'calibration_dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'detector_id': 'textforensics/builtin-heuristic', 'detector_version': '0.1.0', 'skipped': 0, 'mode': 'diagnostic', 'disjointness_status': 'verified', 'overlap_count': 0}")), (('diff-file-allowed-noproof',), ('ok', "{'threshold': 0.4318000000000001, 'evaluated': 2, 'tp': 0, 'fp': 0, 'tn': 1, 'fn': 1, 'accuracy': 0.5, 'precision': 0.0, 'true_positive_rate': 0.0, 'specificity': 1.0, 'false_positive_rate': 0.0, 'false_negative_rate': 1.0, 'schema': 'textforensics.benchmark-result/v1', 'dataset_sha256': '75e7b49665710a90731a59379639305831ec133da1e4dcc247a50d4e364d2ddb', 'calibration_dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'detector_id': 'textforensics/builtin-heuristic', 'detector_version': '0.1.0', 'skipped': 0, 'mode': 'diagnostic', 'disjointness_status': 'unknown', 'overlap_count': -1}")), (('same-file-not-allowed',), ('raise', 'ValueError', 'Evaluation dataset matches the calibration dataset. Use a separate held-out dataset for release-quality validation.')), (('contaminated-nodq',), ('raise', 'ValueError', 'Contamination detected: 1 overlapping samples between calibration and evaluation datasets. Use disjoint datasets to prevent data leakage.')), (('contaminated-dq',), ('ok', "{'threshold': 0.4318000000000001, 'evaluated': 2, 'tp': 0, 'fp': 0, 'tn': 1, 'fn': 1, 'accuracy': 0.5, 'precision': 0.0, 'true_positive_rate': 0.0, 'specificity': 1.0, 'false_positive_rate': 0.0, 'false_negative_rate': 1.0, 'schema': 'textforensics.benchmark-result/v1', 'dataset_sha256': '75e7b49665710a90731a59379639305831ec133da1e4dcc247a50d4e364d2ddb', 'calibration_dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'detector_id': 'textforensics/builtin-heuristic', 'detector_version': '0.1.0', 'skipped': 0, 'mode': 'diagnostic', 'disjointness_status': 'contaminated', 'overlap_count': 1}")), (('unknown-nodq',), ('raise', 'ValueError', 'Disjointness could not be verified for the evaluation dataset: test error. Refusing to treat unverifiable datasets as held out.')), (('unknown-dq',), ('ok', "{'threshold': 0.4318000000000001, 'evaluated': 2, 'tp': 0, 'fp': 0, 'tn': 1, 'fn': 1, 'accuracy': 0.5, 'precision': 0.0, 'true_positive_rate': 0.0, 'specificity': 1.0, 'false_positive_rate': 0.0, 'false_negative_rate': 1.0, 'schema': 'textforensics.benchmark-result/v1', 'dataset_sha256': '75e7b49665710a90731a59379639305831ec133da1e4dcc247a50d4e364d2ddb', 'calibration_dataset_sha256': '78b447d5229be7e8a8d850b3f426a6f1aaac7ab01a0f401a0b0932848f1e04d6', 'detector_id': 'textforensics/builtin-heuristic', 'detector_version': '0.1.0', 'skipped': 0, 'mode': 'diagnostic', 'disjointness_status': 'unknown', 'overlap_count': -1}"))]
+EXPECTED_PROBE_BM_POST_INIT = [
+    (
+        ("verified", -1, -1),
+        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+    ),
+    (
+        ("verified", -1, 0),
+        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+    ),
+    (
+        ("verified", -1, 1),
+        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+    ),
+    (
+        ("verified", -1, 2),
+        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+    ),
+    (
+        ("verified", 0, -1),
+        (
+            "ok",
+            "DisjointnessProof(status='verified', overlap_count=0, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=-1, errors=())",
+        ),
+    ),
+    (
+        ("verified", 0, 0),
+        (
+            "ok",
+            "DisjointnessProof(status='verified', overlap_count=0, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=0, errors=())",
+        ),
+    ),
+    (
+        ("verified", 0, 1),
+        (
+            "raise",
+            "ValueError",
+            "A verified DisjointnessProof must have zero group overlap or unevaluated group overlap (-1, sample-only proof).",
+        ),
+    ),
+    (
+        ("verified", 0, 2),
+        (
+            "raise",
+            "ValueError",
+            "A verified DisjointnessProof must have zero group overlap or unevaluated group overlap (-1, sample-only proof).",
+        ),
+    ),
+    (
+        ("verified", 1, -1),
+        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+    ),
+    (
+        ("verified", 1, 0),
+        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+    ),
+    (
+        ("verified", 1, 1),
+        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+    ),
+    (
+        ("verified", 1, 2),
+        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+    ),
+    (
+        ("verified", 2, -1),
+        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+    ),
+    (
+        ("verified", 2, 0),
+        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+    ),
+    (
+        ("verified", 2, 1),
+        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+    ),
+    (
+        ("verified", 2, 2),
+        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+    ),
+    (
+        ("unknown", -1, -1),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=-1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=-1, errors=())",
+        ),
+    ),
+    (
+        ("unknown", -1, 0),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=-1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=0, errors=())",
+        ),
+    ),
+    (
+        ("unknown", -1, 1),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=-1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=1, errors=())",
+        ),
+    ),
+    (
+        ("unknown", -1, 2),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=-1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=2, errors=())",
+        ),
+    ),
+    (
+        ("unknown", 0, -1),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=0, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=-1, errors=())",
+        ),
+    ),
+    (
+        ("unknown", 0, 0),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=0, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=0, errors=())",
+        ),
+    ),
+    (
+        ("unknown", 0, 1),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=0, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=1, errors=())",
+        ),
+    ),
+    (
+        ("unknown", 0, 2),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=0, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=2, errors=())",
+        ),
+    ),
+    (
+        ("unknown", 1, -1),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=-1, errors=())",
+        ),
+    ),
+    (
+        ("unknown", 1, 0),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=0, errors=())",
+        ),
+    ),
+    (
+        ("unknown", 1, 1),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=1, errors=())",
+        ),
+    ),
+    (
+        ("unknown", 1, 2),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=2, errors=())",
+        ),
+    ),
+    (
+        ("unknown", 2, -1),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=2, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=-1, errors=())",
+        ),
+    ),
+    (
+        ("unknown", 2, 0),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=2, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=0, errors=())",
+        ),
+    ),
+    (
+        ("unknown", 2, 1),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=2, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=1, errors=())",
+        ),
+    ),
+    (
+        ("unknown", 2, 2),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=2, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=2, errors=())",
+        ),
+    ),
+    (
+        ("contaminated", -1, -1),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=-1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=-1, errors=())",
+        ),
+    ),
+    (
+        ("contaminated", -1, 0),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=-1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=0, errors=())",
+        ),
+    ),
+    (
+        ("contaminated", -1, 1),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=-1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=1, errors=())",
+        ),
+    ),
+    (
+        ("contaminated", -1, 2),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=-1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=2, errors=())",
+        ),
+    ),
+    (
+        ("contaminated", 0, -1),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=0, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=-1, errors=())",
+        ),
+    ),
+    (
+        ("contaminated", 0, 0),
+        ("raise", "ValueError", "A contaminated DisjointnessProof must record overlap."),
+    ),
+    (
+        ("contaminated", 0, 1),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=0, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=1, errors=())",
+        ),
+    ),
+    (
+        ("contaminated", 0, 2),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=0, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=2, errors=())",
+        ),
+    ),
+    (
+        ("contaminated", 1, -1),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=-1, errors=())",
+        ),
+    ),
+    (
+        ("contaminated", 1, 0),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=0, errors=())",
+        ),
+    ),
+    (
+        ("contaminated", 1, 1),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=1, errors=())",
+        ),
+    ),
+    (
+        ("contaminated", 1, 2),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=2, errors=())",
+        ),
+    ),
+    (
+        ("contaminated", 2, -1),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=2, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=-1, errors=())",
+        ),
+    ),
+    (
+        ("contaminated", 2, 0),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=2, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=0, errors=())",
+        ),
+    ),
+    (
+        ("contaminated", 2, 1),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=2, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=1, errors=())",
+        ),
+    ),
+    (
+        ("contaminated", 2, 2),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=2, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=2, errors=())",
+        ),
+    ),
+    (
+        ("bogus", -1, -1),
+        (
+            "raise",
+            "ValueError",
+            "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
+        ),
+    ),
+    (
+        ("bogus", -1, 0),
+        (
+            "raise",
+            "ValueError",
+            "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
+        ),
+    ),
+    (
+        ("bogus", -1, 1),
+        (
+            "raise",
+            "ValueError",
+            "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
+        ),
+    ),
+    (
+        ("bogus", -1, 2),
+        (
+            "raise",
+            "ValueError",
+            "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
+        ),
+    ),
+    (
+        ("bogus", 0, -1),
+        (
+            "raise",
+            "ValueError",
+            "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
+        ),
+    ),
+    (
+        ("bogus", 0, 0),
+        (
+            "raise",
+            "ValueError",
+            "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
+        ),
+    ),
+    (
+        ("bogus", 0, 1),
+        (
+            "raise",
+            "ValueError",
+            "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
+        ),
+    ),
+    (
+        ("bogus", 0, 2),
+        (
+            "raise",
+            "ValueError",
+            "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
+        ),
+    ),
+    (
+        ("bogus", 1, -1),
+        (
+            "raise",
+            "ValueError",
+            "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
+        ),
+    ),
+    (
+        ("bogus", 1, 0),
+        (
+            "raise",
+            "ValueError",
+            "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
+        ),
+    ),
+    (
+        ("bogus", 1, 1),
+        (
+            "raise",
+            "ValueError",
+            "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
+        ),
+    ),
+    (
+        ("bogus", 1, 2),
+        (
+            "raise",
+            "ValueError",
+            "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
+        ),
+    ),
+    (
+        ("bogus", 2, -1),
+        (
+            "raise",
+            "ValueError",
+            "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
+        ),
+    ),
+    (
+        ("bogus", 2, 0),
+        (
+            "raise",
+            "ValueError",
+            "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
+        ),
+    ),
+    (
+        ("bogus", 2, 1),
+        (
+            "raise",
+            "ValueError",
+            "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
+        ),
+    ),
+    (
+        ("bogus", 2, 2),
+        (
+            "raise",
+            "ValueError",
+            "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
+        ),
+    ),
+    (
+        ("invalid-overlap_count", True),
+        ("raise", "ValueError", "DisjointnessProof overlap_count must be an integer >= -1."),
+    ),
+    (
+        ("invalid-overlap_count", -2),
+        ("raise", "ValueError", "DisjointnessProof overlap_count must be an integer >= -1."),
+    ),
+    (
+        ("invalid-overlap_count", "x"),
+        ("raise", "ValueError", "DisjointnessProof overlap_count must be an integer >= -1."),
+    ),
+    (
+        ("invalid-group_overlap_count", True),
+        ("raise", "ValueError", "DisjointnessProof group_overlap_count must be an integer >= -1."),
+    ),
+    (
+        ("invalid-group_overlap_count", -2),
+        ("raise", "ValueError", "DisjointnessProof group_overlap_count must be an integer >= -1."),
+    ),
+    (
+        ("invalid-group_overlap_count", "x"),
+        ("raise", "ValueError", "DisjointnessProof group_overlap_count must be an integer >= -1."),
+    ),
+    (
+        ("invalid-training_count", True),
+        ("raise", "ValueError", "DisjointnessProof training_count must be a non-negative integer."),
+    ),
+    (
+        ("invalid-training_count", -1),
+        ("raise", "ValueError", "DisjointnessProof training_count must be a non-negative integer."),
+    ),
+    (
+        ("invalid-training_count", "x"),
+        ("raise", "ValueError", "DisjointnessProof training_count must be a non-negative integer."),
+    ),
+    (
+        ("invalid-evaluation_count", True),
+        (
+            "raise",
+            "ValueError",
+            "DisjointnessProof evaluation_count must be a non-negative integer.",
+        ),
+    ),
+    (
+        ("invalid-evaluation_count", -1),
+        (
+            "raise",
+            "ValueError",
+            "DisjointnessProof evaluation_count must be a non-negative integer.",
+        ),
+    ),
+    (
+        ("invalid-evaluation_count", "x"),
+        (
+            "raise",
+            "ValueError",
+            "DisjointnessProof evaluation_count must be a non-negative integer.",
+        ),
+    ),
+]
 
 
-EXPECTED_PROBE_BM_POST_INIT = [(('verified', -1, -1), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero sample overlap.')), (('verified', -1, 0), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero sample overlap.')), (('verified', -1, 1), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero sample overlap.')), (('verified', -1, 2), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero sample overlap.')), (('verified', 0, -1), ('ok', "DisjointnessProof(status='verified', overlap_count=0, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=-1, errors=())")), (('verified', 0, 0), ('ok', "DisjointnessProof(status='verified', overlap_count=0, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=0, errors=())")), (('verified', 0, 1), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero group overlap or unevaluated group overlap (-1, sample-only proof).')), (('verified', 0, 2), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero group overlap or unevaluated group overlap (-1, sample-only proof).')), (('verified', 1, -1), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero sample overlap.')), (('verified', 1, 0), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero sample overlap.')), (('verified', 1, 1), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero sample overlap.')), (('verified', 1, 2), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero sample overlap.')), (('verified', 2, -1), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero sample overlap.')), (('verified', 2, 0), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero sample overlap.')), (('verified', 2, 1), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero sample overlap.')), (('verified', 2, 2), ('raise', 'ValueError', 'A verified DisjointnessProof must have zero sample overlap.')), (('unknown', -1, -1), ('ok', "DisjointnessProof(status='unknown', overlap_count=-1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=-1, errors=())")), (('unknown', -1, 0), ('ok', "DisjointnessProof(status='unknown', overlap_count=-1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=0, errors=())")), (('unknown', -1, 1), ('ok', "DisjointnessProof(status='unknown', overlap_count=-1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=1, errors=())")), (('unknown', -1, 2), ('ok', "DisjointnessProof(status='unknown', overlap_count=-1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=2, errors=())")), (('unknown', 0, -1), ('ok', "DisjointnessProof(status='unknown', overlap_count=0, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=-1, errors=())")), (('unknown', 0, 0), ('ok', "DisjointnessProof(status='unknown', overlap_count=0, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=0, errors=())")), (('unknown', 0, 1), ('ok', "DisjointnessProof(status='unknown', overlap_count=0, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=1, errors=())")), (('unknown', 0, 2), ('ok', "DisjointnessProof(status='unknown', overlap_count=0, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=2, errors=())")), (('unknown', 1, -1), ('ok', "DisjointnessProof(status='unknown', overlap_count=1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=-1, errors=())")), (('unknown', 1, 0), ('ok', "DisjointnessProof(status='unknown', overlap_count=1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=0, errors=())")), (('unknown', 1, 1), ('ok', "DisjointnessProof(status='unknown', overlap_count=1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=1, errors=())")), (('unknown', 1, 2), ('ok', "DisjointnessProof(status='unknown', overlap_count=1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=2, errors=())")), (('unknown', 2, -1), ('ok', "DisjointnessProof(status='unknown', overlap_count=2, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=-1, errors=())")), (('unknown', 2, 0), ('ok', "DisjointnessProof(status='unknown', overlap_count=2, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=0, errors=())")), (('unknown', 2, 1), ('ok', "DisjointnessProof(status='unknown', overlap_count=2, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=1, errors=())")), (('unknown', 2, 2), ('ok', "DisjointnessProof(status='unknown', overlap_count=2, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=2, errors=())")), (('contaminated', -1, -1), ('ok', "DisjointnessProof(status='contaminated', overlap_count=-1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=-1, errors=())")), (('contaminated', -1, 0), ('ok', "DisjointnessProof(status='contaminated', overlap_count=-1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=0, errors=())")), (('contaminated', -1, 1), ('ok', "DisjointnessProof(status='contaminated', overlap_count=-1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=1, errors=())")), (('contaminated', -1, 2), ('ok', "DisjointnessProof(status='contaminated', overlap_count=-1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=2, errors=())")), (('contaminated', 0, -1), ('ok', "DisjointnessProof(status='contaminated', overlap_count=0, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=-1, errors=())")), (('contaminated', 0, 0), ('raise', 'ValueError', 'A contaminated DisjointnessProof must record overlap.')), (('contaminated', 0, 1), ('ok', "DisjointnessProof(status='contaminated', overlap_count=0, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=1, errors=())")), (('contaminated', 0, 2), ('ok', "DisjointnessProof(status='contaminated', overlap_count=0, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=2, errors=())")), (('contaminated', 1, -1), ('ok', "DisjointnessProof(status='contaminated', overlap_count=1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=-1, errors=())")), (('contaminated', 1, 0), ('ok', "DisjointnessProof(status='contaminated', overlap_count=1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=0, errors=())")), (('contaminated', 1, 1), ('ok', "DisjointnessProof(status='contaminated', overlap_count=1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=1, errors=())")), (('contaminated', 1, 2), ('ok', "DisjointnessProof(status='contaminated', overlap_count=1, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=2, errors=())")), (('contaminated', 2, -1), ('ok', "DisjointnessProof(status='contaminated', overlap_count=2, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=-1, errors=())")), (('contaminated', 2, 0), ('ok', "DisjointnessProof(status='contaminated', overlap_count=2, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=0, errors=())")), (('contaminated', 2, 1), ('ok', "DisjointnessProof(status='contaminated', overlap_count=2, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=1, errors=())")), (('contaminated', 2, 2), ('ok', "DisjointnessProof(status='contaminated', overlap_count=2, training_count=8, evaluation_count=8, training_hash='0000000000000000000000000000000000000000000000000000000000000001', evaluation_hash='0000000000000000000000000000000000000000000000000000000000000002', group_overlap_count=2, errors=())")), (('bogus', -1, -1), ('raise', 'ValueError', "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.")), (('bogus', -1, 0), ('raise', 'ValueError', "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.")), (('bogus', -1, 1), ('raise', 'ValueError', "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.")), (('bogus', -1, 2), ('raise', 'ValueError', "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.")), (('bogus', 0, -1), ('raise', 'ValueError', "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.")), (('bogus', 0, 0), ('raise', 'ValueError', "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.")), (('bogus', 0, 1), ('raise', 'ValueError', "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.")), (('bogus', 0, 2), ('raise', 'ValueError', "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.")), (('bogus', 1, -1), ('raise', 'ValueError', "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.")), (('bogus', 1, 0), ('raise', 'ValueError', "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.")), (('bogus', 1, 1), ('raise', 'ValueError', "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.")), (('bogus', 1, 2), ('raise', 'ValueError', "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.")), (('bogus', 2, -1), ('raise', 'ValueError', "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.")), (('bogus', 2, 0), ('raise', 'ValueError', "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.")), (('bogus', 2, 1), ('raise', 'ValueError', "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.")), (('bogus', 2, 2), ('raise', 'ValueError', "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'."))]
+EXPECTED_PROBE_BM_PROOF_DICT = [
+    ("fromdict-no-group", ("ok", 0, ())),
+    ("fromdict-group-0", ("ok", 0, ())),
+    (
+        "fromdict-group-3",
+        (
+            "raise",
+            "ValueError",
+            "A verified DisjointnessProof must have zero group overlap or unevaluated group overlap (-1, sample-only proof).",
+        ),
+    ),
+    ("fromdict-group-neg1", ("ok", -1, ())),
+    ("fromdict-no-errors", ("ok", 0, ())),
+    ("fromdict-errors", ("ok", 0, ("e1", "e2"))),
+    ("fromdict-non-dict", ("raise", "ValueError", "Disjointness proof must be a JSON object.")),
+    ("proof-frozen", ("raise", "FrozenInstanceError", "cannot assign to field 'status'")),
+    ("proof-slots", ("ok", False)),
+    ("proof-default-group", ("ok", 0)),
+    ("proof-default-errors", ("ok", ())),
+    ("proof-to-dict", ("ok", "0")),
+]
 
 
-EXPECTED_PROBE_BM_PROOF_DICT = [('fromdict-no-group', ('ok', 0, ())), ('fromdict-group-0', ('ok', 0, ())), ('fromdict-group-3', ('raise', 'ValueError', 'A verified DisjointnessProof must have zero group overlap or unevaluated group overlap (-1, sample-only proof).')), ('fromdict-group-neg1', ('ok', -1, ())), ('fromdict-no-errors', ('ok', 0, ())), ('fromdict-errors', ('ok', 0, ('e1', 'e2'))), ('fromdict-non-dict', ('raise', 'ValueError', 'Disjointness proof must be a JSON object.')), ('proof-frozen', ('raise', 'FrozenInstanceError', "cannot assign to field 'status'")), ('proof-slots', ('ok', False)), ('proof-default-group', ('ok', 0)), ('proof-default-errors', ('ok', ())), ('proof-to-dict', ('ok', '0'))]
+EXPECTED_PROBE_BM_PROVE_DISJOINTNESS = [
+    (
+        ("disjoint",),
+        (
+            "ok",
+            "DisjointnessProof(status='verified', overlap_count=0, training_count=6, evaluation_count=2, training_hash='a45be381ac5b9b3339f3bdea0da1057cb7faeb7033d59a3ec7c35d3633b5adc0', evaluation_hash='5789bf76705b19bedbac45a9b783c500c46ef75e1b64be135420bf11459cd0fe', group_overlap_count=0, errors=())",
+        ),
+    ),
+    (
+        ("overlap",),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=1, training_count=6, evaluation_count=2, training_hash='a45be381ac5b9b3339f3bdea0da1057cb7faeb7033d59a3ec7c35d3633b5adc0', evaluation_hash='8cd49dbc5ad28bc953e2d83f8221d8ae33ba3801ea1c9be4b2856c682ffe4129', group_overlap_count=1, errors=())",
+        ),
+    ),
+    (
+        ("empty-eval",),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=-1, training_count=6, evaluation_count=0, training_hash='a45be381ac5b9b3339f3bdea0da1057cb7faeb7033d59a3ec7c35d3633b5adc0', evaluation_hash='e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', group_overlap_count=-1, errors=('An empty dataset cannot prove disjointness.',))",
+        ),
+    ),
+    (
+        ("train-only-human",),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=1, training_count=6, evaluation_count=1, training_hash='a45be381ac5b9b3339f3bdea0da1057cb7faeb7033d59a3ec7c35d3633b5adc0', evaluation_hash='f97fb3861985edce72727b8892e10c3422606ace8b87e4a6323f200663134397', group_overlap_count=1, errors=())",
+        ),
+    ),
+    (
+        ("empty-train",),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=-1, training_count=0, evaluation_count=3, training_hash='e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', evaluation_hash='28e96b00490ed85ad24d8be8b9714e006ddc889d004e9cab6043c40614cd6506', group_overlap_count=-1, errors=('An empty dataset cannot prove disjointness.',))",
+        ),
+    ),
+    (
+        ("missing-train",),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=-1, training_count=0, evaluation_count=0, training_hash='', evaluation_hash='', group_overlap_count=-1, errors=(\"Could not hash training file: [Errno 2] No such file or directory: 'TMP/nope.jsonl'\",))",
+        ),
+    ),
+    (
+        ("missing-eval",),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=-1, training_count=0, evaluation_count=0, training_hash='e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', evaluation_hash='', group_overlap_count=-1, errors=(\"Could not hash evaluation file: [Errno 2] No such file or directory: 'TMP/nope.jsonl'\",))",
+        ),
+    ),
+    (
+        ("missing-both",),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=-1, training_count=0, evaluation_count=0, training_hash='', evaluation_hash='', group_overlap_count=-1, errors=(\"Could not hash training file: [Errno 2] No such file or directory: 'TMP/nope1.jsonl'\",))",
+        ),
+    ),
+    (
+        ("bad-train-strict",),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=-1, training_count=0, evaluation_count=0, training_hash='ae4fb3ddaf90f63a1713f5e26bf90b78b86743698c15b54d1beeb2d81615a084', evaluation_hash='a45be381ac5b9b3339f3bdea0da1057cb7faeb7033d59a3ec7c35d3633b5adc0', group_overlap_count=-1, errors=('Could not read training samples: Line 2 is not valid JSON',))",
+        ),
+    ),
+    (
+        ("bad-eval-strict",),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=-1, training_count=6, evaluation_count=0, training_hash='a45be381ac5b9b3339f3bdea0da1057cb7faeb7033d59a3ec7c35d3633b5adc0', evaluation_hash='ae4fb3ddaf90f63a1713f5e26bf90b78b86743698c15b54d1beeb2d81615a084', group_overlap_count=-1, errors=('Could not read evaluation samples: Line 2 is not valid JSON',))",
+        ),
+    ),
+    (
+        ("bad-train-lenient",),
+        (
+            "ok",
+            "DisjointnessProof(status='verified', overlap_count=0, training_count=1, evaluation_count=6, training_hash='ae4fb3ddaf90f63a1713f5e26bf90b78b86743698c15b54d1beeb2d81615a084', evaluation_hash='a45be381ac5b9b3339f3bdea0da1057cb7faeb7033d59a3ec7c35d3633b5adc0', group_overlap_count=0, errors=('Line 2 is not valid JSON; skipped',))",
+        ),
+    ),
+    (
+        ("bad-eval-lenient",),
+        (
+            "ok",
+            "DisjointnessProof(status='verified', overlap_count=0, training_count=6, evaluation_count=1, training_hash='a45be381ac5b9b3339f3bdea0da1057cb7faeb7033d59a3ec7c35d3633b5adc0', evaluation_hash='ae4fb3ddaf90f63a1713f5e26bf90b78b86743698c15b54d1beeb2d81615a084', group_overlap_count=0, errors=('Line 2 is not valid JSON; skipped',))",
+        ),
+    ),
+    (
+        ("bad-both-lenient",),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=1, training_count=1, evaluation_count=1, training_hash='ae4fb3ddaf90f63a1713f5e26bf90b78b86743698c15b54d1beeb2d81615a084', evaluation_hash='ae4fb3ddaf90f63a1713f5e26bf90b78b86743698c15b54d1beeb2d81615a084', group_overlap_count=1, errors=('Line 2 is not valid JSON; skipped', 'Line 2 is not valid JSON; skipped'))",
+        ),
+    ),
+    (
+        ("group-overlap",),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=0, training_count=2, evaluation_count=2, training_hash='29b2986c13f91c6d474a885722a5b2b7eba198618da509fd21ce94ae482d7546', evaluation_hash='fffc382ef740e324318d54a4f646842d0c58b1515d607ece92a23394e82cb7f3', group_overlap_count=1, errors=())",
+        ),
+    ),
+    (
+        ("group-normalized-overlap",),
+        (
+            "ok",
+            "DisjointnessProof(status='contaminated', overlap_count=0, training_count=1, evaluation_count=1, training_hash='a5c9c6cc5280445267fee15b31c54229bd2b73879c683f9fe0ade65681206e99', evaluation_hash='95867c42baad891636f2c4360901100de088e8a33cab913f435c545bb2186caa', group_overlap_count=1, errors=())",
+        ),
+    ),
+]
 
 
-EXPECTED_PROBE_BM_PROVE_DISJOINTNESS = [(('disjoint',), ('ok', "DisjointnessProof(status='verified', overlap_count=0, training_count=6, evaluation_count=2, training_hash='a45be381ac5b9b3339f3bdea0da1057cb7faeb7033d59a3ec7c35d3633b5adc0', evaluation_hash='5789bf76705b19bedbac45a9b783c500c46ef75e1b64be135420bf11459cd0fe', group_overlap_count=0, errors=())")), (('overlap',), ('ok', "DisjointnessProof(status='contaminated', overlap_count=1, training_count=6, evaluation_count=2, training_hash='a45be381ac5b9b3339f3bdea0da1057cb7faeb7033d59a3ec7c35d3633b5adc0', evaluation_hash='8cd49dbc5ad28bc953e2d83f8221d8ae33ba3801ea1c9be4b2856c682ffe4129', group_overlap_count=1, errors=())")), (('empty-eval',), ('ok', "DisjointnessProof(status='unknown', overlap_count=-1, training_count=6, evaluation_count=0, training_hash='a45be381ac5b9b3339f3bdea0da1057cb7faeb7033d59a3ec7c35d3633b5adc0', evaluation_hash='e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', group_overlap_count=-1, errors=('An empty dataset cannot prove disjointness.',))")), (('train-only-human',), ('ok', "DisjointnessProof(status='contaminated', overlap_count=1, training_count=6, evaluation_count=1, training_hash='a45be381ac5b9b3339f3bdea0da1057cb7faeb7033d59a3ec7c35d3633b5adc0', evaluation_hash='f97fb3861985edce72727b8892e10c3422606ace8b87e4a6323f200663134397', group_overlap_count=1, errors=())")), (('empty-train',), ('ok', "DisjointnessProof(status='unknown', overlap_count=-1, training_count=0, evaluation_count=3, training_hash='e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', evaluation_hash='28e96b00490ed85ad24d8be8b9714e006ddc889d004e9cab6043c40614cd6506', group_overlap_count=-1, errors=('An empty dataset cannot prove disjointness.',))")), (('missing-train',), ('ok', 'DisjointnessProof(status=\'unknown\', overlap_count=-1, training_count=0, evaluation_count=0, training_hash=\'\', evaluation_hash=\'\', group_overlap_count=-1, errors=("Could not hash training file: [Errno 2] No such file or directory: \'TMP/nope.jsonl\'",))')), (('missing-eval',), ('ok', 'DisjointnessProof(status=\'unknown\', overlap_count=-1, training_count=0, evaluation_count=0, training_hash=\'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\', evaluation_hash=\'\', group_overlap_count=-1, errors=("Could not hash evaluation file: [Errno 2] No such file or directory: \'TMP/nope.jsonl\'",))')), (('missing-both',), ('ok', 'DisjointnessProof(status=\'unknown\', overlap_count=-1, training_count=0, evaluation_count=0, training_hash=\'\', evaluation_hash=\'\', group_overlap_count=-1, errors=("Could not hash training file: [Errno 2] No such file or directory: \'TMP/nope1.jsonl\'",))')), (('bad-train-strict',), ('ok', "DisjointnessProof(status='unknown', overlap_count=-1, training_count=0, evaluation_count=0, training_hash='ae4fb3ddaf90f63a1713f5e26bf90b78b86743698c15b54d1beeb2d81615a084', evaluation_hash='a45be381ac5b9b3339f3bdea0da1057cb7faeb7033d59a3ec7c35d3633b5adc0', group_overlap_count=-1, errors=('Could not read training samples: Line 2 is not valid JSON',))")), (('bad-eval-strict',), ('ok', "DisjointnessProof(status='unknown', overlap_count=-1, training_count=6, evaluation_count=0, training_hash='a45be381ac5b9b3339f3bdea0da1057cb7faeb7033d59a3ec7c35d3633b5adc0', evaluation_hash='ae4fb3ddaf90f63a1713f5e26bf90b78b86743698c15b54d1beeb2d81615a084', group_overlap_count=-1, errors=('Could not read evaluation samples: Line 2 is not valid JSON',))")), (('bad-train-lenient',), ('ok', "DisjointnessProof(status='verified', overlap_count=0, training_count=1, evaluation_count=6, training_hash='ae4fb3ddaf90f63a1713f5e26bf90b78b86743698c15b54d1beeb2d81615a084', evaluation_hash='a45be381ac5b9b3339f3bdea0da1057cb7faeb7033d59a3ec7c35d3633b5adc0', group_overlap_count=0, errors=('Line 2 is not valid JSON; skipped',))")), (('bad-eval-lenient',), ('ok', "DisjointnessProof(status='verified', overlap_count=0, training_count=6, evaluation_count=1, training_hash='a45be381ac5b9b3339f3bdea0da1057cb7faeb7033d59a3ec7c35d3633b5adc0', evaluation_hash='ae4fb3ddaf90f63a1713f5e26bf90b78b86743698c15b54d1beeb2d81615a084', group_overlap_count=0, errors=('Line 2 is not valid JSON; skipped',))")), (('bad-both-lenient',), ('ok', "DisjointnessProof(status='contaminated', overlap_count=1, training_count=1, evaluation_count=1, training_hash='ae4fb3ddaf90f63a1713f5e26bf90b78b86743698c15b54d1beeb2d81615a084', evaluation_hash='ae4fb3ddaf90f63a1713f5e26bf90b78b86743698c15b54d1beeb2d81615a084', group_overlap_count=1, errors=('Line 2 is not valid JSON; skipped', 'Line 2 is not valid JSON; skipped'))")), (('group-overlap',), ('ok', "DisjointnessProof(status='contaminated', overlap_count=0, training_count=2, evaluation_count=2, training_hash='29b2986c13f91c6d474a885722a5b2b7eba198618da509fd21ce94ae482d7546', evaluation_hash='fffc382ef740e324318d54a4f646842d0c58b1515d607ece92a23394e82cb7f3', group_overlap_count=1, errors=())")), (('group-normalized-overlap',), ('ok', "DisjointnessProof(status='contaminated', overlap_count=0, training_count=1, evaluation_count=1, training_hash='a5c9c6cc5280445267fee15b31c54229bd2b73879c683f9fe0ade65681206e99', evaluation_hash='95867c42baad891636f2c4360901100de088e8a33cab913f435c545bb2186caa', group_overlap_count=1, errors=())"))]
+EXPECTED_PROBE_BM_SAMPLE_HASHES = [
+    (
+        "valid",
+        (
+            "ok",
+            "(['e0cde269fd5fba43c1382a8a6e0981da28eded97c171c7337afe6c232c21077b', '64cc56ffdcaa2b1d48dfa58e5b691de261846c7a3dbed10677a23eaadbdf4241', '54f449b90db31abba73a14ddced4ee46f260dc54be303d2e37a7388e2a076569', '44901d5a8c3b2ceb98a6bd69608d29db76d2e012840e6dbb8dd7b176988bb100', 'f8a6da8522053dabb3b56ae0290a991b8e3d59618cdd50d9fe5a452012f1ebd7', '0b2dbf68babe258df5ed9b60f748efe3635edbc7fcf87c8ecb1f126a346846ae'], ['a7116605894550e8f0e476d830643572df8b7a75c66c9b519c086e63e9639b2e', '2a6542a308ea33e92d46ec31f2a50984bb726bb9a7a5df411a99308ffd42deab', '72c29b8750ec33f6ab860a8ec173f242ce5c7d3857dc156ab17f6ae3c95bc3ca', '67cd37406cd82d3a75a08e3b57b810dc81cae1047d18f2edae4e9eb1c0f77d7f', 'c1da8366881c69ccfa3bc87952a9d3401e91f9dca421775b18899e213bfa94ec', 'b9043ce33c07e6e8a92a5dd5b493f5257e6114bf117e69c6169505823945e134'], 6, [])",
+        ),
+    ),
+    (
+        "nonascii",
+        (
+            "ok",
+            "(['f0464def1b620234dd6dd6d16b9657eea046dae24980a63ac25f168440de837f', '1f8f27800fefd091631ffa4a40de1f3770a8844c2c2cfe1c024979627b146183'], ['512917a9edf44c4881e7409974ee19b263c16fb8d14c51a5a3718bff0067c3c4', 'c104791c6d5d4b02a04b56aac44830fd167667552fb36e89031d495a14a8fa16'], 2, [])",
+        ),
+    ),
+    (
+        "nontext",
+        (
+            "ok",
+            "(['c9614dfb839defaafbe88f94eb91979a3887c598b5d2b0cd7f3216b2fd5d4630', 'cc0bfe9bec92d06ff983878b85c7302f002ff2b9ea73669f87ad239b5771670d'], ['282a3287dacf73163c28bf24dd6e244d6c50ac331fe6316dc2cf4e620c6a5e1f', '6f96ee183bbee1762b9e52f0fb6a4bd6bd4a18385d502f78f1e112e7b9860d5d'], 2, [])",
+        ),
+    ),
+    ("empty", ("ok", "([], [], 0, [])")),
+    ("bad-strict", ("raise", "ValueError", "Line 2 is not valid JSON")),
+    (
+        "bad-lenient",
+        (
+            "ok",
+            "(['15c823ee73cf4a5a711e7b0e5350c5c0aee310faecec762f0c137ef6567fa0c6', '73ce5542ff7d7f90f5fe1f81ef6afc987c23bcf0c286fdc8baaa3278ef9d7712'], ['f2bb3486a82164e48f49fa3ab0818f4e7b4a0cec21f80764e769ec17694f1085', '59e16a1d585f18f8b14a45f555de7e65db55749d3dcfeaa5df92bf2c5a780545'], 2, ['Line 2 is not valid JSON; skipped', 'Line 3 must be a JSON object; skipped'])",
+        ),
+    ),
+    (
+        "missing",
+        ("raise", "FileNotFoundError", "[Errno 2] No such file or directory: 'TMP/nope.jsonl'"),
+    ),
+    (
+        "group-precedence",
+        (
+            "ok",
+            "(['437989768f0e6cc1e565d7b08e477026d7147a83df6928918fe11bfaf0d456ba'], ['c05c4d840d17242644bbf003113301194b08f08363a86840619ae3a50027b3eb'], 1, [])",
+        ),
+    ),
+    (
+        "group-normalized",
+        (
+            "ok",
+            "(['7e585d2dc899ac71a4a1430af3de08b318244dd5c12f5fa82cf37652d968c8c7', '72c4e2b870b2e7e342f50b58d9a58cff12b00649f941602ce706a872d038e2e0'], ['43751f2758aba8b3c14d5efd1a2bc8bdcd2dceb6cbb2794fc1f7e294913e75a2', '43751f2758aba8b3c14d5efd1a2bc8bdcd2dceb6cbb2794fc1f7e294913e75a2'], 2, [])",
+        ),
+    ),
+    ("bad-default-strict", ("raise", "ValueError", "Line 2 is not valid JSON")),
+    (
+        "blank-middle",
+        (
+            "ok",
+            "(['af71f18a36bb503721a7264db141977bd40899a6b8ebe892a709a3604ae6d61e', 'a08a674ae7e723a72600b50b46e50bed0cfc700df74475fd89f9985a2edd464d'], ['e4d57d45bd6db496ae3eb4b2f1ed4126cb4f15240510db4ecb52a23dfd2ca770', '8f06a2f6cd534bc008b5e75255bf3c1cbd836440fad63823e4d39273a8621e69'], 2, [])",
+        ),
+    ),
+    (
+        "dict-text",
+        (
+            "ok",
+            "(['1db142fba02657097834255e29cbcc5e925aedff8531d4130c0f0f33b3a36501', 'd552d6e375f6388068e533bad6724728286bddd128b87cc92483478f7a288e08'], ['7740a808aec80a0d608f984e0635b8550239e2585de318b5980934b762c704f3', 'fb041212a3554168f4738980a7106dccfce1a3f35ee6ca36c667bed05c43ffa8'], 2, [])",
+        ),
+    ),
+    (
+        "two-group-fields",
+        (
+            "ok",
+            "(['69c1fb2f4ff9507494abb39fce47ff3587559942586921b9f00bbab8e2ff6f76', '642742bea12133449656c9ddd1f5c008f0cba643e728d58b78604504f28ef063'], ['102bcd929e9194de9ed89cdf7966c35c189f01a566966dc7e34f36ce9dc76706', '16fa0c78b09e6aecd5cca6d13f142bee6532f8c94ac049cecb2977d71a12da1b'], 2, [])",
+        ),
+    ),
+]
 
-
-EXPECTED_PROBE_BM_SAMPLE_HASHES = [('valid', ('ok', "(['e0cde269fd5fba43c1382a8a6e0981da28eded97c171c7337afe6c232c21077b', '64cc56ffdcaa2b1d48dfa58e5b691de261846c7a3dbed10677a23eaadbdf4241', '54f449b90db31abba73a14ddced4ee46f260dc54be303d2e37a7388e2a076569', '44901d5a8c3b2ceb98a6bd69608d29db76d2e012840e6dbb8dd7b176988bb100', 'f8a6da8522053dabb3b56ae0290a991b8e3d59618cdd50d9fe5a452012f1ebd7', '0b2dbf68babe258df5ed9b60f748efe3635edbc7fcf87c8ecb1f126a346846ae'], ['a7116605894550e8f0e476d830643572df8b7a75c66c9b519c086e63e9639b2e', '2a6542a308ea33e92d46ec31f2a50984bb726bb9a7a5df411a99308ffd42deab', '72c29b8750ec33f6ab860a8ec173f242ce5c7d3857dc156ab17f6ae3c95bc3ca', '67cd37406cd82d3a75a08e3b57b810dc81cae1047d18f2edae4e9eb1c0f77d7f', 'c1da8366881c69ccfa3bc87952a9d3401e91f9dca421775b18899e213bfa94ec', 'b9043ce33c07e6e8a92a5dd5b493f5257e6114bf117e69c6169505823945e134'], 6, [])")), ('nonascii', ('ok', "(['f0464def1b620234dd6dd6d16b9657eea046dae24980a63ac25f168440de837f', '1f8f27800fefd091631ffa4a40de1f3770a8844c2c2cfe1c024979627b146183'], ['512917a9edf44c4881e7409974ee19b263c16fb8d14c51a5a3718bff0067c3c4', 'c104791c6d5d4b02a04b56aac44830fd167667552fb36e89031d495a14a8fa16'], 2, [])")), ('nontext', ('ok', "(['c9614dfb839defaafbe88f94eb91979a3887c598b5d2b0cd7f3216b2fd5d4630', 'cc0bfe9bec92d06ff983878b85c7302f002ff2b9ea73669f87ad239b5771670d'], ['282a3287dacf73163c28bf24dd6e244d6c50ac331fe6316dc2cf4e620c6a5e1f', '6f96ee183bbee1762b9e52f0fb6a4bd6bd4a18385d502f78f1e112e7b9860d5d'], 2, [])")), ('empty', ('ok', '([], [], 0, [])')), ('bad-strict', ('raise', 'ValueError', 'Line 2 is not valid JSON')), ('bad-lenient', ('ok', "(['15c823ee73cf4a5a711e7b0e5350c5c0aee310faecec762f0c137ef6567fa0c6', '73ce5542ff7d7f90f5fe1f81ef6afc987c23bcf0c286fdc8baaa3278ef9d7712'], ['f2bb3486a82164e48f49fa3ab0818f4e7b4a0cec21f80764e769ec17694f1085', '59e16a1d585f18f8b14a45f555de7e65db55749d3dcfeaa5df92bf2c5a780545'], 2, ['Line 2 is not valid JSON; skipped', 'Line 3 must be a JSON object; skipped'])")), ('missing', ('raise', 'FileNotFoundError', "[Errno 2] No such file or directory: 'TMP/nope.jsonl'")), ('group-precedence', ('ok', "(['437989768f0e6cc1e565d7b08e477026d7147a83df6928918fe11bfaf0d456ba'], ['c05c4d840d17242644bbf003113301194b08f08363a86840619ae3a50027b3eb'], 1, [])")), ('group-normalized', ('ok', "(['7e585d2dc899ac71a4a1430af3de08b318244dd5c12f5fa82cf37652d968c8c7', '72c4e2b870b2e7e342f50b58d9a58cff12b00649f941602ce706a872d038e2e0'], ['43751f2758aba8b3c14d5efd1a2bc8bdcd2dceb6cbb2794fc1f7e294913e75a2', '43751f2758aba8b3c14d5efd1a2bc8bdcd2dceb6cbb2794fc1f7e294913e75a2'], 2, [])")), ('bad-default-strict', ('raise', 'ValueError', 'Line 2 is not valid JSON')), ('blank-middle', ('ok', "(['af71f18a36bb503721a7264db141977bd40899a6b8ebe892a709a3604ae6d61e', 'a08a674ae7e723a72600b50b46e50bed0cfc700df74475fd89f9985a2edd464d'], ['e4d57d45bd6db496ae3eb4b2f1ed4126cb4f15240510db4ecb52a23dfd2ca770', '8f06a2f6cd534bc008b5e75255bf3c1cbd836440fad63823e4d39273a8621e69'], 2, [])")), ('dict-text', ('ok', "(['1db142fba02657097834255e29cbcc5e925aedff8531d4130c0f0f33b3a36501', 'd552d6e375f6388068e533bad6724728286bddd128b87cc92483478f7a288e08'], ['7740a808aec80a0d608f984e0635b8550239e2585de318b5980934b762c704f3', 'fb041212a3554168f4738980a7106dccfce1a3f35ee6ca36c667bed05c43ffa8'], 2, [])")), ('two-group-fields', ('ok', "(['69c1fb2f4ff9507494abb39fce47ff3587559942586921b9f00bbab8e2ff6f76', '642742bea12133449656c9ddd1f5c008f0cba643e728d58b78604504f28ef063'], ['102bcd929e9194de9ed89cdf7966c35c189f01a566966dc7e34f36ce9dc76706', '16fa0c78b09e6aecd5cca6d13f142bee6532f8c94ac049cecb2977d71a12da1b'], 2, [])"))]
 
 class TestWorkerFKillBenchmark(unittest.TestCase):
     def test_probe_bm_check_disjointness(self):
         got = probe_bm_check_disjointness()
         exp = EXPECTED_PROBE_BM_CHECK_DISJOINTNESS
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_bm_jsonl(self):
         got = probe_bm_jsonl()
         exp = EXPECTED_PROBE_BM_JSONL
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_bm_post_init(self):
         got = probe_bm_post_init()
         exp = EXPECTED_PROBE_BM_POST_INIT
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_bm_proof_dict(self):
         got = probe_bm_proof_dict()
         exp = EXPECTED_PROBE_BM_PROOF_DICT
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_bm_prove_disjointness(self):
         got = probe_bm_prove_disjointness()
         exp = EXPECTED_PROBE_BM_PROVE_DISJOINTNESS
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_bm_sample_hashes(self):
         got = probe_bm_sample_hashes()
         exp = EXPECTED_PROBE_BM_SAMPLE_HASHES
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
 
 if __name__ == "__main__":

@@ -15,31 +15,90 @@ regenerate.
 
 import unittest
 
-from w2_f_kill_helpers import (
-    probe_adv_analyze,
-    probe_adv_assess_risk
-)
+from w2_f_kill_helpers import probe_adv_analyze, probe_adv_assess_risk
+
+EXPECTED_PROBE_ADV_ANALYZE = [
+    ((40, None), "none", "sufficient", 0, 203, 16, (), (), 5),
+    ((8, None), "unknown", "insufficient", 0, 39, 16, (), (), 5),
+    ((9, None), "unknown", "insufficient", 0, 43, 16, (), (), 5),
+    ((10, None), "none", "sufficient", 0, 48, 16, (), (), 5),
+    ((11, None), "none", "sufficient", 0, 52, 16, (), (), 5),
+    ((120, None), "medium", "sufficient", 1, 624, 16, (), (), 4),
+    ((33, None), "none", "sufficient", 0, 174, 16, (), (), 5),
+    ((32, None), "none", "sufficient", 0, 232, 16, (), (), 5),
+    ((40, "fr"), "unknown", "insufficient", 0, 203, 16, (), (), 5),
+    ((0, None), "unknown", "insufficient", 0, 0, 0, (), (), 2),
+    ((0, None), "unknown", "insufficient", 0, 0, 0, (), (), 2),
+    ((0, "fr"), "unknown", "insufficient", 0, 0, 0, (), (), 2),
+    ((1, None), "unknown", "insufficient", 0, 33, 16, (), (), 6),
+    ((1, "en"), "unknown", "insufficient", 0, 33, 16, (), (), 6),
+    (("passthrough", False, False), "none", "sufficient", 0, 203, 16, (), (), 5),
+    (("passthrough", True, True), "none", "sufficient", 0, 203, 16, (), (), 5),
+    (("passthrough", True, False), "none", "sufficient", 0, 203, 16, (("d1", 0.9),), (), 5),
+    (("passthrough", False, True), "none", "sufficient", 0, 203, 16, (), (("k", "v"),), 5),
+    (
+        ("passthrough", True, True),
+        "none",
+        "sufficient",
+        0,
+        203,
+        16,
+        (("d1", 0.9),),
+        (("k", "v"),),
+        5,
+    ),
+    (("summary", 40), ("66ad6ae8896f1590...", "none", 0, 8)),
+    (("summary", 10), ("865c881b7e66db5f...", "none", 0, 8)),
+]
 
 
-EXPECTED_PROBE_ADV_ANALYZE = [((40, None), 'none', 'sufficient', 0, 203, 16, (), (), 5), ((8, None), 'unknown', 'insufficient', 0, 39, 16, (), (), 5), ((9, None), 'unknown', 'insufficient', 0, 43, 16, (), (), 5), ((10, None), 'none', 'sufficient', 0, 48, 16, (), (), 5), ((11, None), 'none', 'sufficient', 0, 52, 16, (), (), 5), ((120, None), 'medium', 'sufficient', 1, 624, 16, (), (), 4), ((33, None), 'none', 'sufficient', 0, 174, 16, (), (), 5), ((32, None), 'none', 'sufficient', 0, 232, 16, (), (), 5), ((40, 'fr'), 'unknown', 'insufficient', 0, 203, 16, (), (), 5), ((0, None), 'unknown', 'insufficient', 0, 0, 0, (), (), 2), ((0, None), 'unknown', 'insufficient', 0, 0, 0, (), (), 2), ((0, 'fr'), 'unknown', 'insufficient', 0, 0, 0, (), (), 2), ((1, None), 'unknown', 'insufficient', 0, 33, 16, (), (), 6), ((1, 'en'), 'unknown', 'insufficient', 0, 33, 16, (), (), 6), (('passthrough', False, False), 'none', 'sufficient', 0, 203, 16, (), (), 5), (('passthrough', True, True), 'none', 'sufficient', 0, 203, 16, (), (), 5), (('passthrough', True, False), 'none', 'sufficient', 0, 203, 16, (('d1', 0.9),), (), 5), (('passthrough', False, True), 'none', 'sufficient', 0, 203, 16, (), (('k', 'v'),), 5), (('passthrough', True, True), 'none', 'sufficient', 0, 203, 16, (('d1', 0.9),), (('k', 'v'),), 5), (('summary', 40), ('66ad6ae8896f1590...', 'none', 0, 8)), (('summary', 10), ('865c881b7e66db5f...', 'none', 0, 8))]
+EXPECTED_PROBE_ADV_ASSESS_RISK = [
+    (((),), ("ok", "('none', None)")),
+    (((("low", 0.1),),), ("ok", "('low', None)")),
+    (((("medium", 0.5),),), ("ok", "('medium', None)")),
+    (((("high", 0.7),),), ("ok", "('critical', None)")),
+    (((("critical", 0.9),),), ("ok", "('critical', None)")),
+    (((("low", 0.1), ("high", 0.7)),), ("ok", "('medium', None)")),
+    (((("critical", 0.9), ("critical", 0.9)),), ("ok", "('critical', None)")),
+    (((("medium", 0.5), ("medium", 0.5), ("medium", 0.5)),), ("ok", "('medium', None)")),
+    (((("high", 0.65),),), ("ok", "('critical', None)")),
+    (((("high", 0.45),),), ("ok", "('high', None)")),
+    (((("high", 0.25),),), ("ok", "('medium', None)")),
+    (((("high", 0.15),),), ("ok", "('low', None)")),
+    (((("critical", 0.4875),),), ("ok", "('critical', None)")),
+    (((("critical", 0.3375),),), ("ok", "('high', None)")),
+    (((("critical", 0.1875),),), ("ok", "('medium', None)")),
+    (((("critical", 0.1125),),), ("ok", "('low', None)")),
+    (((("medium", 0.84375),),), ("ok", "('high', None)")),
+    (((("medium", 0.46875),),), ("ok", "('medium', None)")),
+    (((("medium", 0.28125),),), ("ok", "('low', None)")),
+    (((("low", 0.45),),), ("ok", "('low', None)")),
+    (((("low", 0.75),),), ("ok", "('medium', None)")),
+    (((("critical", 0.3),),), ("ok", "('medium', None)")),
+    (((("critical", 0.525),),), ("ok", "('critical', None)")),
+    (((("high", 0.45),),), ("ok", "('high', None)")),
+    (((("high", 0.65),),), ("ok", "('critical', None)")),
+    (((("medium", 0.5),),), ("ok", "('medium', None)")),
+    (((("low", 1.0),),), ("ok", "('medium', None)")),
+    (((("bogus", 0.9),),), ("ok", "('low', None)")),
+    (((("bogus", 0.9), ("critical", 0.9)),), ("ok", "('high', None)")),
+]
 
-
-EXPECTED_PROBE_ADV_ASSESS_RISK = [(((),), ('ok', "('none', None)")), (((('low', 0.1),),), ('ok', "('low', None)")), (((('medium', 0.5),),), ('ok', "('medium', None)")), (((('high', 0.7),),), ('ok', "('critical', None)")), (((('critical', 0.9),),), ('ok', "('critical', None)")), (((('low', 0.1), ('high', 0.7)),), ('ok', "('medium', None)")), (((('critical', 0.9), ('critical', 0.9)),), ('ok', "('critical', None)")), (((('medium', 0.5), ('medium', 0.5), ('medium', 0.5)),), ('ok', "('medium', None)")), (((('high', 0.65),),), ('ok', "('critical', None)")), (((('high', 0.45),),), ('ok', "('high', None)")), (((('high', 0.25),),), ('ok', "('medium', None)")), (((('high', 0.15),),), ('ok', "('low', None)")), (((('critical', 0.4875),),), ('ok', "('critical', None)")), (((('critical', 0.3375),),), ('ok', "('high', None)")), (((('critical', 0.1875),),), ('ok', "('medium', None)")), (((('critical', 0.1125),),), ('ok', "('low', None)")), (((('medium', 0.84375),),), ('ok', "('high', None)")), (((('medium', 0.46875),),), ('ok', "('medium', None)")), (((('medium', 0.28125),),), ('ok', "('low', None)")), (((('low', 0.45),),), ('ok', "('low', None)")), (((('low', 0.75),),), ('ok', "('medium', None)")), (((('critical', 0.3),),), ('ok', "('medium', None)")), (((('critical', 0.525),),), ('ok', "('critical', None)")), (((('high', 0.45),),), ('ok', "('high', None)")), (((('high', 0.65),),), ('ok', "('critical', None)")), (((('medium', 0.5),),), ('ok', "('medium', None)")), (((('low', 1.0),),), ('ok', "('medium', None)")), (((('bogus', 0.9),),), ('ok', "('low', None)")), (((('bogus', 0.9), ('critical', 0.9)),), ('ok', "('high', None)"))]
 
 class TestWorkerFKillAdversarial(unittest.TestCase):
     def test_probe_adv_analyze(self):
         got = probe_adv_analyze()
         exp = EXPECTED_PROBE_ADV_ANALYZE
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_adv_assess_risk(self):
         got = probe_adv_assess_risk()
         exp = EXPECTED_PROBE_ADV_ASSESS_RISK
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
 
 if __name__ == "__main__":

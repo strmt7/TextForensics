@@ -15,20 +15,358 @@ regenerate.
 
 import unittest
 
-from w2_f_kill_helpers import (
-    probe_mc_from_dict
-)
+from w2_f_kill_helpers import probe_mc_from_dict
 
+EXPECTED_PROBE_MC_FROM_DICT = [
+    (
+        "eval-valid",
+        (
+            "ok",
+            "EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.8, 'test': 0.2}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])",
+        ),
+    ),
+    (
+        "eval-bool",
+        ("raise", "ValueError", "evaluation_data field 'split_ratios' must map strings to numbers"),
+    ),
+    (
+        "eval-str",
+        ("raise", "ValueError", "evaluation_data field 'split_ratios' must map strings to numbers"),
+    ),
+    (
+        "eval-neg",
+        (
+            "raise",
+            "ValueError",
+            "evaluation_data field 'split_ratios' values must be in [0, 1], got -0.5 for 'train'",
+        ),
+    ),
+    (
+        "eval-zero",
+        (
+            "ok",
+            "EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.0, 'test': 1.0}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])",
+        ),
+    ),
+    (
+        "eval-one",
+        (
+            "ok",
+            "EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 1.0, 'test': 0.0}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])",
+        ),
+    ),
+    (
+        "eval-over",
+        (
+            "raise",
+            "ValueError",
+            "evaluation_data field 'split_ratios' values must be in [0, 1], got 1.5 for 'train'",
+        ),
+    ),
+    (
+        "eval-sum-1e-6",
+        (
+            "raise",
+            "ValueError",
+            "evaluation_data field 'split_ratios' must sum to 1.0, got 1.0000010000000001",
+        ),
+    ),
+    (
+        "eval-sum-2e-6",
+        (
+            "raise",
+            "ValueError",
+            "evaluation_data field 'split_ratios' must sum to 1.0, got 1.000002",
+        ),
+    ),
+    (
+        "eval-sum-2.0",
+        ("raise", "ValueError", "evaluation_data field 'split_ratios' must sum to 1.0, got 2.0"),
+    ),
+    (
+        "eval-sum-0.0",
+        ("raise", "ValueError", "evaluation_data field 'split_ratios' must sum to 1.0, got 0.0"),
+    ),
+    (
+        "eval-sum-low",
+        ("raise", "ValueError", "evaluation_data field 'split_ratios' must sum to 1.0, got 0.9"),
+    ),
+    (
+        "eval-sum-empty",
+        ("raise", "ValueError", "evaluation_data field 'split_ratios' must sum to 1.0, got 0"),
+    ),
+    (
+        "eval-sum-3way",
+        (
+            "ok",
+            "EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.7, 'val': 0.2, 'test': 0.1}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])",
+        ),
+    ),
+    (
+        "metric-valid",
+        (
+            "ok",
+            "PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})",
+        ),
+    ),
+    (
+        "metric-ci-len1",
+        ("raise", "ValueError", "metric field 'confidence_interval' must be a two-number sequence"),
+    ),
+    (
+        "metric-ci-len3",
+        ("raise", "ValueError", "metric field 'confidence_interval' must be a two-number sequence"),
+    ),
+    (
+        "metric-ci-bool",
+        ("raise", "ValueError", "metric field 'confidence_interval' must be a two-number sequence"),
+    ),
+    (
+        "metric-ci-str",
+        ("raise", "ValueError", "metric field 'confidence_interval' must be a two-number sequence"),
+    ),
+    (
+        "metric-ci-reversed",
+        (
+            "raise",
+            "ValueError",
+            "metric field 'confidence_interval' must be ordered (lo <= hi), got (0.97, 0.93)",
+        ),
+    ),
+    (
+        "metric-ci-eq",
+        (
+            "ok",
+            "PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.95, 0.95), benchmark_dataset='RAID', split='test', metadata={'seed': 42})",
+        ),
+    ),
+    (
+        "metric-ci-none",
+        (
+            "ok",
+            "PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=None, benchmark_dataset='RAID', split='test', metadata={'seed': 42})",
+        ),
+    ),
+    (
+        "metric-split-set",
+        (
+            "ok",
+            "PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='train', metadata={'seed': 42})",
+        ),
+    ),
+    (
+        "metric-split-missing",
+        (
+            "ok",
+            "PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})",
+        ),
+    ),
+    (
+        "quant-valid",
+        (
+            "ok",
+            "QuantitativeAnalysis(metrics=[PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})], confusion_matrix={'tp': 90, 'fp': 5, 'tn': 95, 'fn': 10}, roc_auc=0.97, pr_auc=0.96, calibration_error=0.02, subgroup_analysis={'news': [PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})]}, error_analysis={'short_text': 'degraded'})",
+        ),
+    ),
+    (
+        "quant-zero",
+        (
+            "ok",
+            "QuantitativeAnalysis(metrics=[PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})], confusion_matrix={'tp': 0, 'fp': 0, 'tn': 0, 'fn': 0}, roc_auc=0.97, pr_auc=0.96, calibration_error=0.02, subgroup_analysis={'news': [PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})]}, error_analysis={'short_text': 'degraded'})",
+        ),
+    ),
+    (
+        "quant-neg",
+        (
+            "raise",
+            "ValueError",
+            "quantitative_analysis field 'confusion_matrix' counts must be non-negative, got -1 for 'tp'",
+        ),
+    ),
+    (
+        "quant-bool",
+        (
+            "raise",
+            "ValueError",
+            "quantitative_analysis field 'confusion_matrix' must map strings to integers",
+        ),
+    ),
+    (
+        "quant-none",
+        (
+            "ok",
+            "QuantitativeAnalysis(metrics=[PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})], confusion_matrix=None, roc_auc=0.97, pr_auc=0.96, calibration_error=0.02, subgroup_analysis={'news': [PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})]}, error_analysis={'short_text': 'degraded'})",
+        ),
+    ),
+    (
+        "train-valid",
+        (
+            "ok",
+            "TrainingData(datasets=[EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.8, 'test': 0.2}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])], total_size=10000, preprocessing_pipeline=['tokenize'], augmentation_techniques=['paraphrase'], known_biases=['domain skew'])",
+        ),
+    ),
+    (
+        "train-size-0",
+        (
+            "ok",
+            "TrainingData(datasets=[EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.8, 'test': 0.2}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])], total_size=0, preprocessing_pipeline=['tokenize'], augmentation_techniques=['paraphrase'], known_biases=['domain skew'])",
+        ),
+    ),
+    (
+        "train-size-neg",
+        ("raise", "ValueError", "training_data field 'total_size' must be >= 0, got -1"),
+    ),
+    (
+        "train-no-aug",
+        (
+            "raise",
+            "ValueError",
+            "training_data field 'augmentation_techniques' must be a list of strings",
+        ),
+    ),
+    (
+        "train-no-biases",
+        ("raise", "ValueError", "training_data field 'known_biases' must be a list of strings"),
+    ),
+    (
+        "train-no-both",
+        (
+            "raise",
+            "ValueError",
+            "training_data field 'augmentation_techniques' must be a list of strings",
+        ),
+    ),
+    (
+        "train-missing-aug",
+        (
+            "ok",
+            "TrainingData(datasets=[EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.8, 'test': 0.2}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])], total_size=10000, preprocessing_pipeline=['tokenize'], augmentation_techniques=[], known_biases=['domain skew'])",
+        ),
+    ),
+    (
+        "train-missing-biases",
+        (
+            "ok",
+            "TrainingData(datasets=[EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.8, 'test': 0.2}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])], total_size=10000, preprocessing_pipeline=['tokenize'], augmentation_techniques=['paraphrase'], known_biases=[])",
+        ),
+    ),
+    (
+        "train-missing-both",
+        (
+            "ok",
+            "TrainingData(datasets=[EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.8, 'test': 0.2}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])], total_size=10000, preprocessing_pipeline=['tokenize'], augmentation_techniques=[], known_biases=[])",
+        ),
+    ),
+    ("mc-int-ok", ("ok", "5")),
+    ("mc-int-bool", ("raise", "ValueError", "w field 'size' must be an integer")),
+    ("mc-int-str", ("raise", "ValueError", "w field 'size' must be an integer")),
+    ("mc-int-float", ("raise", "ValueError", "w field 'size' must be an integer")),
+    ("mc-int-neg", ("raise", "ValueError", "w field 'size' must be >= 0, got -1")),
+    ("mc-num-ok", ("ok", "0.5")),
+    ("mc-num-bool", ("raise", "ValueError", "w field 'v' must be a number")),
+    ("mc-num-str", ("raise", "ValueError", "w field 'v' must be a number")),
+    ("mc-num-nan-str", ("raise", "ValueError", "w field 'v' must be a number")),
+    ("mc-opt-ok", ("ok", "0.5")),
+    ("mc-opt-none", ("ok", "None")),
+    ("mc-opt-bool", ("raise", "ValueError", "w field 'v' must be a number or null")),
+    ("mc-opt-str", ("raise", "ValueError", "w field 'v' must be a number or null")),
+    (
+        "fromdict-100",
+        (
+            "ok",
+            "ModelCard(metadata=ModelCardMetadata(version='1.0.0', generated_at='2024-01-01T00:00:00+00:00', generated_by='Test', schema_version='1.0.0', language='en'), model_details=ModelDetails(name='Test Detector', version='1.0.0', detector_id='test/detector', detector_family='test', architecture='transformer', framework='pytorch', license='Apache-2.0', owner='Test', contact='test@test.com', references=['https://example.invalid/ref'], tags=['test']), intended_use=IntendedUse(primary_use_cases=['AI text detection'], out_of_scope=['Creative writing'], target_users=['Researchers'], deployment_environments=['On-premise'], constraints=['Real-time processing required']), factors=['Input text length', 'Language'], metrics=[PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})], evaluation_data=EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.8, 'test': 0.2}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew']), training_data=TrainingData(datasets=[EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.8, 'test': 0.2}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])], total_size=10000, preprocessing_pipeline=['tokenize'], augmentation_techniques=['paraphrase'], known_biases=['domain skew']), quantitative_analysis=QuantitativeAnalysis(metrics=[PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})], confusion_matrix={'tp': 90, 'fp': 5, 'tn': 95, 'fn': 10}, roc_auc=0.97, pr_auc=0.96, calibration_error=0.02, subgroup_analysis={'news': [PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})]}, error_analysis={'short_text': 'degraded'}), ethical_considerations=[EthicalConsideration(category='bias', description='Test bias concern', risk_level=<RiskLevel.HIGH: 'high'>, mitigation='Regular audits', references=['https://example.invalid/bias'])], caveats_and_recommendations=[Caveat(description='Test limitation', priority='high', category='limitation', applies_to=['short_text'])], additional_information={'reviewed_by': 'Test'}, eu_ai_act_transparency_notes={'risk_classification': 'not_assessed'}, _schema_version='1.0.0')",
+        ),
+    ),
+    ("fromdict-090", ("raise", "ValueError", "unsupported model card schema_version: '0.9.0'")),
+    ("fromdict-200", ("raise", "ValueError", "unsupported model card schema_version: '2.0.0'")),
+    (
+        "fromdict-missing",
+        ("raise", "ValueError", "model card is missing required field 'schema_version'"),
+    ),
+    (
+        "json-indent2",
+        (
+            "ok",
+            '\'{\\n  "schema_version": "1.0.0",\\n  "metadata": {\\n    "version": "1.0.0",\\n    "generated_at": "2024-01-01T00:00:00+00:00",\\n    "generated_by": "Test",\\n    "schema_version": "1.0.0",\\n    "language": "en"\\n  },\\n  "model_details": {\\n    "name": "Test Detector",\\n    "version": "1.0.0",\\n    "detector_id": "test/detector",\\n    "detector_family": "test",\\n    "architecture": "transformer",\\n    "framework": "pytorch",\\n    "license": "Apache-2.0",\\n    "owner": "Test",\\n    "contact": "test@test.com",\\n    "references": [\\n      "https://example.invalid/ref"\\n    ],\\n    "tags": [\\n      "test"\\n    ]\\n  },\\n  "intended_use": {\\n    "primary_use_cases": [\\n      "AI text detection"\\n    ],\\n    "out_of_scope": [\\n      "Creative writing"\\n    ],\\n    "target_users": [\\n      "Researchers"\\n    ],\\n    "deployment_environments": [\\n      "On-premise"\\n    ],\\n    "constraints": [\\n      "Real-time processing required"\\n    ]\\n  },\\n  "factors": [\\n    "Input text length",\\n    "Language"\\n  ],\\n  "metrics": [\\n    {\\n      "name": "accuracy",\\n      "value": 0.95,\\n      "unit": "ratio",\\n      "confidence_interval": [\\n        0.93,\\n        0.97\\n      ],\\n      "benchmark_dataset": "RAID",\\n      "split": "test",\\n      "metadata": {\\n        "seed": 42\\n      }\\n    }\\n  ],\\n  "evaluation_data": {\\n    "name": "RAID",\\n    "version": "1.0",\\n    "size": 10000,\\n    "languages": [\\n      "en"\\n    ],\\n    "domains": [\\n      "academic",\\n      "news"\\n    ],\\n    "split_ratios": {\\n      "train": 0.8,\\n      "test": 0.2\\n    },\\n    "source": "HuggingFace",\\n    "license": "Apache-2.0",\\n    "collection_date": "2024-01-01",\\n    "preprocessing": [\\n      "lowercase"\\n    ],\\n    "known_biases": [\\n      "domain skew"\\n    ]\\n  },\\n  "training_data": {\\n    "datasets": [\\n      {\\n        "name": "RAID",\\n        "version": "1.0",\\n        "size": 10000,\\n        "languages": [\\n          "en"\\n        ],\\n        "domains": [\\n          "academic",\\n          "news"\\n        ],\\n        "split_ratios": {\\n          "train": 0.8,\\n          "test": 0.2\\n        },\\n        "source": "HuggingFace",\\n        "license": "Apache-2.0",\\n        "collection_date": "2024-01-01",\\n        "preprocessing": [\\n          "lowercase"\\n        ],\\n        "known_biases": [\\n          "domain skew"\\n        ]\\n      }\\n    ],\\n    "total_size": 10000,\\n    "preprocessing_pipeline": [\\n      "tokenize"\\n    ],\\n    "augmentation_techniques": [\\n      "paraphrase"\\n    ],\\n    "known_biases": [\\n      "domain skew"\\n    ]\\n  },\\n  "quantitative_analysis": {\\n    "metrics": [\\n      {\\n        "name": "accuracy",\\n        "value": 0.95,\\n        "unit": "ratio",\\n        "confidence_interval": [\\n          0.93,\\n          0.97\\n        ],\\n        "benchmark_dataset": "RAID",\\n        "split": "test",\\n        "metadata": {\\n          "seed": 42\\n        }\\n      }\\n    ],\\n    "confusion_matrix": {\\n      "tp": 90,\\n      "fp": 5,\\n      "tn": 95,\\n      "fn": 10\\n    },\\n    "roc_auc": 0.97,\\n    "pr_auc": 0.96,\\n    "calibration_error": 0.02,\\n    "subgroup_analysis": {\\n      "news": [\\n        {\\n          "name": "accuracy",\\n          "value": 0.95,\\n          "unit": "ratio",\\n          "confidence_interval": [\\n            0.93,\\n            0.97\\n          ],\\n          "benchmark_dataset": "RAID",\\n          "split": "test",\\n          "metadata": {\\n            "seed": 42\\n          }\\n        }\\n      ]\\n    },\\n    "error_analysis": {\\n      "short_text": "degraded"\\n    }\\n  },\\n  "ethical_considerations": [\\n    {\\n      "category": "bias",\\n      "description": "Test bias concern",\\n      "risk_level": "high",\\n      "mitigation": "Regular audits",\\n      "references": [\\n        "https://example.invalid/bias"\\n      ]\\n    }\\n  ],\\n  "caveats_and_recommendations": [\\n    {\\n      "description": "Test limitation",\\n      "priority": "high",\\n      "category": "limitation",\\n      "applies_to": [\\n        "short_text"\\n      ]\\n    }\\n  ],\\n  "additional_information": {\\n    "reviewed_by": "Test"\\n  },\\n  "eu_ai_act_transparency_notes": {\\n    "risk_classification": "not_assessed"\\n  }\\n}\'',
+        ),
+    ),
+    (
+        "json-indent3",
+        (
+            "ok",
+            '\'{\\n   "schema_version": "1.0.0",\\n   "metadata": {\\n      "version": "1.0.0",\\n      "generated_at": "2024-01-01T00:00:00+00:00",\\n      "generated_by": "Test",\\n      "schema_version": "1.0.0",\\n      "language": "en"\\n   },\\n   "model_details": {\\n      "name": "Test Detector",\\n      "version": "1.0.0",\\n      "detector_id": "test/detector",\\n      "detector_family": "test",\\n      "architecture": "transformer",\\n      "framework": "pytorch",\\n      "license": "Apache-2.0",\\n      "owner": "Test",\\n      "contact": "test@test.com",\\n      "references": [\\n         "https://example.invalid/ref"\\n      ],\\n      "tags": [\\n         "test"\\n      ]\\n   },\\n   "intended_use": {\\n      "primary_use_cases": [\\n         "AI text detection"\\n      ],\\n      "out_of_scope": [\\n         "Creative writing"\\n      ],\\n      "target_users": [\\n         "Researchers"\\n      ],\\n      "deployment_environments": [\\n         "On-premise"\\n      ],\\n      "constraints": [\\n         "Real-time processing required"\\n      ]\\n   },\\n   "factors": [\\n      "Input text length",\\n      "Language"\\n   ],\\n   "metrics": [\\n      {\\n         "name": "accuracy",\\n         "value": 0.95,\\n         "unit": "ratio",\\n         "confidence_interval": [\\n            0.93,\\n            0.97\\n         ],\\n         "benchmark_dataset": "RAID",\\n         "split": "test",\\n         "metadata": {\\n            "seed": 42\\n         }\\n      }\\n   ],\\n   "evaluation_data": {\\n      "name": "RAID",\\n      "version": "1.0",\\n      "size": 10000,\\n      "languages": [\\n         "en"\\n      ],\\n      "domains": [\\n         "academic",\\n         "news"\\n      ],\\n      "split_ratios": {\\n         "train": 0.8,\\n         "test": 0.2\\n      },\\n      "source": "HuggingFace",\\n      "license": "Apache-2.0",\\n      "collection_date": "2024-01-01",\\n      "preprocessing": [\\n         "lowercase"\\n      ],\\n      "known_biases": [\\n         "domain skew"\\n      ]\\n   },\\n   "training_data": {\\n      "datasets": [\\n         {\\n            "name": "RAID",\\n            "version": "1.0",\\n            "size": 10000,\\n            "languages": [\\n               "en"\\n            ],\\n            "domains": [\\n               "academic",\\n               "news"\\n            ],\\n            "split_ratios": {\\n               "train": 0.8,\\n               "test": 0.2\\n            },\\n            "source": "HuggingFace",\\n            "license": "Apache-2.0",\\n            "collection_date": "2024-01-01",\\n            "preprocessing": [\\n               "lowercase"\\n            ],\\n            "known_biases": [\\n               "domain skew"\\n            ]\\n         }\\n      ],\\n      "total_size": 10000,\\n      "preprocessing_pipeline": [\\n         "tokenize"\\n      ],\\n      "augmentation_techniques": [\\n         "paraphrase"\\n      ],\\n      "known_biases": [\\n         "domain skew"\\n      ]\\n   },\\n   "quantitative_analysis": {\\n      "metrics": [\\n         {\\n            "name": "accuracy",\\n            "value": 0.95,\\n            "unit": "ratio",\\n            "confidence_interval": [\\n               0.93,\\n               0.97\\n            ],\\n            "benchmark_dataset": "RAID",\\n            "split": "test",\\n            "metadata": {\\n               "seed": 42\\n            }\\n         }\\n      ],\\n      "confusion_matrix": {\\n         "tp": 90,\\n         "fp": 5,\\n         "tn": 95,\\n         "fn": 10\\n      },\\n      "roc_auc": 0.97,\\n      "pr_auc": 0.96,\\n      "calibration_error": 0.02,\\n      "subgroup_analysis": {\\n         "news": [\\n            {\\n               "name": "accuracy",\\n               "value": 0.95,\\n               "unit": "ratio",\\n               "confidence_interval": [\\n                  0.93,\\n                  0.97\\n               ],\\n               "benchmark_dataset": "RAID",\\n               "split": "test",\\n               "metadata": {\\n                  "seed": 42\\n               }\\n            }\\n         ]\\n      },\\n      "error_analysis": {\\n         "short_text": "degraded"\\n      }\\n   },\\n   "ethical_considerations": [\\n      {\\n         "category": "bias",\\n         "description": "Test bias concern",\\n         "risk_level": "high",\\n         "mitigation": "Regular audits",\\n         "references": [\\n            "https://example.invalid/bias"\\n         ]\\n      }\\n   ],\\n   "caveats_and_recommendations": [\\n      {\\n         "description": "Test limitation",\\n         "priority": "high",\\n         "category": "limitation",\\n         "applies_to": [\\n            "short_text"\\n         ]\\n      }\\n   ],\\n   "additional_information": {\\n      "reviewed_by": "Test"\\n   },\\n   "eu_ai_act_transparency_notes": {\\n      "risk_classification": "not_assessed"\\n   }\\n}\'',
+        ),
+    ),
+    (
+        "json-indent1",
+        (
+            "ok",
+            '\'{\\n "schema_version": "1.0.0",\\n "metadata": {\\n  "version": "1.0.0",\\n  "generated_at": "2024-01-01T00:00:00+00:00",\\n  "generated_by": "Test",\\n  "schema_version": "1.0.0",\\n  "language": "en"\\n },\\n "model_details": {\\n  "name": "Test Detector",\\n  "version": "1.0.0",\\n  "detector_id": "test/detector",\\n  "detector_family": "test",\\n  "architecture": "transformer",\\n  "framework": "pytorch",\\n  "license": "Apache-2.0",\\n  "owner": "Test",\\n  "contact": "test@test.com",\\n  "references": [\\n   "https://example.invalid/ref"\\n  ],\\n  "tags": [\\n   "test"\\n  ]\\n },\\n "intended_use": {\\n  "primary_use_cases": [\\n   "AI text detection"\\n  ],\\n  "out_of_scope": [\\n   "Creative writing"\\n  ],\\n  "target_users": [\\n   "Researchers"\\n  ],\\n  "deployment_environments": [\\n   "On-premise"\\n  ],\\n  "constraints": [\\n   "Real-time processing required"\\n  ]\\n },\\n "factors": [\\n  "Input text length",\\n  "Language"\\n ],\\n "metrics": [\\n  {\\n   "name": "accuracy",\\n   "value": 0.95,\\n   "unit": "ratio",\\n   "confidence_interval": [\\n    0.93,\\n    0.97\\n   ],\\n   "benchmark_dataset": "RAID",\\n   "split": "test",\\n   "metadata": {\\n    "seed": 42\\n   }\\n  }\\n ],\\n "evaluation_data": {\\n  "name": "RAID",\\n  "version": "1.0",\\n  "size": 10000,\\n  "languages": [\\n   "en"\\n  ],\\n  "domains": [\\n   "academic",\\n   "news"\\n  ],\\n  "split_ratios": {\\n   "train": 0.8,\\n   "test": 0.2\\n  },\\n  "source": "HuggingFace",\\n  "license": "Apache-2.0",\\n  "collection_date": "2024-01-01",\\n  "preprocessing": [\\n   "lowercase"\\n  ],\\n  "known_biases": [\\n   "domain skew"\\n  ]\\n },\\n "training_data": {\\n  "datasets": [\\n   {\\n    "name": "RAID",\\n    "version": "1.0",\\n    "size": 10000,\\n    "languages": [\\n     "en"\\n    ],\\n    "domains": [\\n     "academic",\\n     "news"\\n    ],\\n    "split_ratios": {\\n     "train": 0.8,\\n     "test": 0.2\\n    },\\n    "source": "HuggingFace",\\n    "license": "Apache-2.0",\\n    "collection_date": "2024-01-01",\\n    "preprocessing": [\\n     "lowercase"\\n    ],\\n    "known_biases": [\\n     "domain skew"\\n    ]\\n   }\\n  ],\\n  "total_size": 10000,\\n  "preprocessing_pipeline": [\\n   "tokenize"\\n  ],\\n  "augmentation_techniques": [\\n   "paraphrase"\\n  ],\\n  "known_biases": [\\n   "domain skew"\\n  ]\\n },\\n "quantitative_analysis": {\\n  "metrics": [\\n   {\\n    "name": "accuracy",\\n    "value": 0.95,\\n    "unit": "ratio",\\n    "confidence_interval": [\\n     0.93,\\n     0.97\\n    ],\\n    "benchmark_dataset": "RAID",\\n    "split": "test",\\n    "metadata": {\\n     "seed": 42\\n    }\\n   }\\n  ],\\n  "confusion_matrix": {\\n   "tp": 90,\\n   "fp": 5,\\n   "tn": 95,\\n   "fn": 10\\n  },\\n  "roc_auc": 0.97,\\n  "pr_auc": 0.96,\\n  "calibration_error": 0.02,\\n  "subgroup_analysis": {\\n   "news": [\\n    {\\n     "name": "accuracy",\\n     "value": 0.95,\\n     "unit": "ratio",\\n     "confidence_interval": [\\n      0.93,\\n      0.97\\n     ],\\n     "benchmark_dataset": "RAID",\\n     "split": "test",\\n     "metadata": {\\n      "seed": 42\\n     }\\n    }\\n   ]\\n  },\\n  "error_analysis": {\\n   "short_text": "degraded"\\n  }\\n },\\n "ethical_considerations": [\\n  {\\n   "category": "bias",\\n   "description": "Test bias concern",\\n   "risk_level": "high",\\n   "mitigation": "Regular audits",\\n   "references": [\\n    "https://example.invalid/bias"\\n   ]\\n  }\\n ],\\n "caveats_and_recommendations": [\\n  {\\n   "description": "Test limitation",\\n   "priority": "high",\\n   "category": "limitation",\\n   "applies_to": [\\n    "short_text"\\n   ]\\n  }\\n ],\\n "additional_information": {\\n  "reviewed_by": "Test"\\n },\\n "eu_ai_act_transparency_notes": {\\n  "risk_classification": "not_assessed"\\n }\\n}\'',
+        ),
+    ),
+    (
+        "json-nonascii",
+        (
+            "ok",
+            '\'{\\n  "schema_version": "1.0.0",\\n  "metadata": {\\n    "version": "1.0.0",\\n    "generated_at": "2024-01-01T00:00:00+00:00",\\n    "generated_by": "Test",\\n    "schema_version": "1.0.0",\\n    "language": "en"\\n  },\\n  "model_details": {\\n    "name": "Café Détecteur",\\n    "version": "1.0.0",\\n    "detector_id": "test/detector",\\n    "detector_family": "test",\\n    "architecture": "transformer",\\n    "framework": "pytorch",\\n    "license": "Apache-2.0",\\n    "owner": "Test",\\n    "contact": "test@test.com",\\n    "references": [\\n      "https://example.invalid/ref"\\n    ],\\n    "tags": [\\n      "test"\\n    ]\\n  },\\n  "intended_use": {\\n    "primary_use_cases": [\\n      "AI text detection"\\n    ],\\n    "out_of_scope": [\\n      "Creative writing"\\n    ],\\n    "target_users": [\\n      "Researchers"\\n    ],\\n    "deployment_environments": [\\n      "On-premise"\\n    ],\\n    "constraints": [\\n      "Real-time processing required"\\n    ]\\n  },\\n  "factors": [\\n    "Input text length",\\n    "Language"\\n  ],\\n  "metrics": [\\n    {\\n      "name": "accuracy",\\n      "value": 0.95,\\n      "unit": "ratio",\\n      "confidence_interval": [\\n        0.93,\\n        0.97\\n      ],\\n      "benchmark_dataset": "RAID",\\n      "split": "test",\\n      "metadata": {\\n        "seed": 42\\n      }\\n    }\\n  ],\\n  "evaluation_data": {\\n    "name": "RAID",\\n    "version": "1.0",\\n    "size": 10000,\\n    "languages": [\\n      "en"\\n    ],\\n    "domains": [\\n      "academic",\\n      "news"\\n    ],\\n    "split_ratios": {\\n      "train": 0.8,\\n      "test": 0.2\\n    },\\n    "source": "HuggingFace",\\n    "license": "Apache-2.0",\\n    "collection_date": "2024-01-01",\\n    "preprocessing": [\\n      "lowercase"\\n    ],\\n    "known_biases": [\\n      "domain skew"\\n    ]\\n  },\\n  "training_data": {\\n    "datasets": [\\n      {\\n        "name": "RAID",\\n        "version": "1.0",\\n        "size": 10000,\\n        "languages": [\\n          "en"\\n        ],\\n        "domains": [\\n          "academic",\\n          "news"\\n        ],\\n        "split_ratios": {\\n          "train": 0.8,\\n          "test": 0.2\\n        },\\n        "source": "HuggingFace",\\n        "license": "Apache-2.0",\\n        "collection_date": "2024-01-01",\\n        "preprocessing": [\\n          "lowercase"\\n        ],\\n        "known_biases": [\\n          "domain skew"\\n        ]\\n      }\\n    ],\\n    "total_size": 10000,\\n    "preprocessing_pipeline": [\\n      "tokenize"\\n    ],\\n    "augmentation_techniques": [\\n      "paraphrase"\\n    ],\\n    "known_biases": [\\n      "domain skew"\\n    ]\\n  },\\n  "quantitative_analysis": {\\n    "metrics": [\\n      {\\n        "name": "accuracy",\\n        "value": 0.95,\\n        "unit": "ratio",\\n        "confidence_interval": [\\n          0.93,\\n          0.97\\n        ],\\n        "benchmark_dataset": "RAID",\\n        "split": "test",\\n        "metadata": {\\n          "seed": 42\\n        }\\n      }\\n    ],\\n    "confusion_matrix": {\\n      "tp": 90,\\n      "fp": 5,\\n      "tn": 95,\\n      "fn": 10\\n    },\\n    "roc_auc": 0.97,\\n    "pr_auc": 0.96,\\n    "calibration_error": 0.02,\\n    "subgroup_analysis": {\\n      "news": [\\n        {\\n          "name": "accuracy",\\n          "value": 0.95,\\n          "unit": "ratio",\\n          "confidence_interval": [\\n            0.93,\\n            0.97\\n          ],\\n          "benchmark_dataset": "RAID",\\n          "split": "test",\\n          "metadata": {\\n            "seed": 42\\n          }\\n        }\\n      ]\\n    },\\n    "error_analysis": {\\n      "short_text": "degraded"\\n    }\\n  },\\n  "ethical_considerations": [\\n    {\\n      "category": "bias",\\n      "description": "Test bias concern",\\n      "risk_level": "high",\\n      "mitigation": "Regular audits",\\n      "references": [\\n        "https://example.invalid/bias"\\n      ]\\n    }\\n  ],\\n  "caveats_and_recommendations": [\\n    {\\n      "description": "Test limitation",\\n      "priority": "high",\\n      "category": "limitation",\\n      "applies_to": [\\n        "short_text"\\n      ]\\n    }\\n  ],\\n  "additional_information": {\\n    "reviewed_by": "Test"\\n  },\\n  "eu_ai_act_transparency_notes": {\\n    "risk_classification": "not_assessed"\\n  }\\n}\'',
+        ),
+    ),
+    (
+        "md-full",
+        (
+            "ok",
+            "'# Model Card: Test Detector v1.0.0\\n\\n## Model Details\\n- **Name**: Test Detector\\n- **Version**: 1.0.0\\n- **Detector ID**: test/detector\\n- **Family**: test\\n- **Architecture**: transformer\\n- **Framework**: pytorch\\n- **License**: Apache-2.0\\n- **Owner**: Test\\n- **Contact**: test@test.com\\n\\n## Intended Use\\n**Primary Use Cases**: AI text detection\\n**Out of Scope**: Creative writing\\n**Target Users**: Researchers\\n\\n## Metrics\\n- **accuracy**: 0.95 ratio (CI: (0.93, 0.97)) - RAID/test\\n\\n## Quantitative Analysis\\n- ROC AUC: 0.97\\n- PR AUC: 0.96\\n- Calibration Error: 0.02\\n\\n## Ethical Considerations\\n- **bias** (high): Test bias concern\\n  Mitigation: Regular audits\\n\\n## Caveats and Recommendations\\n- **[HIGH]** Test limitation\\n\\n## EU AI Act Transparency Notes\\n- **risk_classification**: not_assessed'",
+        ),
+    ),
+    (
+        "md-stripped",
+        (
+            "ok",
+            "'# Model Card: Test Detector v1.0.0\\n\\n## Model Details\\n- **Name**: Test Detector\\n- **Version**: 1.0.0\\n- **Detector ID**: test/detector\\n- **Family**: test\\n- **Architecture**: transformer\\n- **Framework**: pytorch\\n- **License**: Apache-2.0\\n- **Owner**: Test\\n- **Contact**: test@test.com\\n\\n## Intended Use\\n**Primary Use Cases**: AI text detection\\n**Out of Scope**: Creative writing\\n**Target Users**: Researchers\\n\\n## Metrics\\n\\n## Quantitative Analysis\\n- ROC AUC: 0.97\\n- PR AUC: 0.96\\n- Calibration Error: 0.02'",
+        ),
+    ),
+    (
+        "md-no-ci",
+        (
+            "ok",
+            "'# Model Card: Test Detector v1.0.0\\n\\n## Model Details\\n- **Name**: Test Detector\\n- **Version**: 1.0.0\\n- **Detector ID**: test/detector\\n- **Family**: test\\n- **Architecture**: transformer\\n- **Framework**: pytorch\\n- **License**: Apache-2.0\\n- **Owner**: Test\\n- **Contact**: test@test.com\\n\\n## Intended Use\\n**Primary Use Cases**: AI text detection\\n**Out of Scope**: Creative writing\\n**Target Users**: Researchers\\n\\n## Metrics\\n- **accuracy**: 0.95 ratio - RAID/test\\n\\n## Quantitative Analysis\\n- ROC AUC: 0.97\\n- PR AUC: 0.96\\n- Calibration Error: 0.02\\n\\n## Ethical Considerations\\n- **bias** (high): Test bias concern\\n  Mitigation: Regular audits\\n\\n## Caveats and Recommendations\\n- **[HIGH]** Test limitation\\n\\n## EU AI Act Transparency Notes\\n- **risk_classification**: not_assessed'",
+        ),
+    ),
+    (
+        "load-missing",
+        ("raise", "FileNotFoundError", "[Errno 2] No such file or directory: 'TMP/nope.json'"),
+    ),
+    ("load-valid", ("ok", "'Test Detector'")),
+    (
+        "load-badjson",
+        (
+            "raise",
+            "ValueError",
+            "invalid JSON in model card TMP/bad.json: Expecting value: line 1 column 1 (char 0)",
+        ),
+    ),
+    (
+        "load-nan",
+        (
+            "raise",
+            "ValueError",
+            "invalid JSON in model card TMP/nan.json: non-finite JSON constant 'NaN' is not valid JSON.",
+        ),
+    ),
+    (
+        "load-dir",
+        ("raise", "ValueError", "cannot read model card TMP: [Errno 21] Is a directory: 'TMP'"),
+    ),
+]
 
-EXPECTED_PROBE_MC_FROM_DICT = [('eval-valid', ('ok', "EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.8, 'test': 0.2}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])")), ('eval-bool', ('raise', 'ValueError', "evaluation_data field 'split_ratios' must map strings to numbers")), ('eval-str', ('raise', 'ValueError', "evaluation_data field 'split_ratios' must map strings to numbers")), ('eval-neg', ('raise', 'ValueError', "evaluation_data field 'split_ratios' values must be in [0, 1], got -0.5 for 'train'")), ('eval-zero', ('ok', "EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.0, 'test': 1.0}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])")), ('eval-one', ('ok', "EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 1.0, 'test': 0.0}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])")), ('eval-over', ('raise', 'ValueError', "evaluation_data field 'split_ratios' values must be in [0, 1], got 1.5 for 'train'")), ('eval-sum-1e-6', ('raise', 'ValueError', "evaluation_data field 'split_ratios' must sum to 1.0, got 1.0000010000000001")), ('eval-sum-2e-6', ('raise', 'ValueError', "evaluation_data field 'split_ratios' must sum to 1.0, got 1.000002")), ('eval-sum-2.0', ('raise', 'ValueError', "evaluation_data field 'split_ratios' must sum to 1.0, got 2.0")), ('eval-sum-0.0', ('raise', 'ValueError', "evaluation_data field 'split_ratios' must sum to 1.0, got 0.0")), ('eval-sum-low', ('raise', 'ValueError', "evaluation_data field 'split_ratios' must sum to 1.0, got 0.9")), ('eval-sum-empty', ('raise', 'ValueError', "evaluation_data field 'split_ratios' must sum to 1.0, got 0")), ('eval-sum-3way', ('ok', "EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.7, 'val': 0.2, 'test': 0.1}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])")), ('metric-valid', ('ok', "PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})")), ('metric-ci-len1', ('raise', 'ValueError', "metric field 'confidence_interval' must be a two-number sequence")), ('metric-ci-len3', ('raise', 'ValueError', "metric field 'confidence_interval' must be a two-number sequence")), ('metric-ci-bool', ('raise', 'ValueError', "metric field 'confidence_interval' must be a two-number sequence")), ('metric-ci-str', ('raise', 'ValueError', "metric field 'confidence_interval' must be a two-number sequence")), ('metric-ci-reversed', ('raise', 'ValueError', "metric field 'confidence_interval' must be ordered (lo <= hi), got (0.97, 0.93)")), ('metric-ci-eq', ('ok', "PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.95, 0.95), benchmark_dataset='RAID', split='test', metadata={'seed': 42})")), ('metric-ci-none', ('ok', "PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=None, benchmark_dataset='RAID', split='test', metadata={'seed': 42})")), ('metric-split-set', ('ok', "PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='train', metadata={'seed': 42})")), ('metric-split-missing', ('ok', "PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})")), ('quant-valid', ('ok', "QuantitativeAnalysis(metrics=[PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})], confusion_matrix={'tp': 90, 'fp': 5, 'tn': 95, 'fn': 10}, roc_auc=0.97, pr_auc=0.96, calibration_error=0.02, subgroup_analysis={'news': [PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})]}, error_analysis={'short_text': 'degraded'})")), ('quant-zero', ('ok', "QuantitativeAnalysis(metrics=[PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})], confusion_matrix={'tp': 0, 'fp': 0, 'tn': 0, 'fn': 0}, roc_auc=0.97, pr_auc=0.96, calibration_error=0.02, subgroup_analysis={'news': [PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})]}, error_analysis={'short_text': 'degraded'})")), ('quant-neg', ('raise', 'ValueError', "quantitative_analysis field 'confusion_matrix' counts must be non-negative, got -1 for 'tp'")), ('quant-bool', ('raise', 'ValueError', "quantitative_analysis field 'confusion_matrix' must map strings to integers")), ('quant-none', ('ok', "QuantitativeAnalysis(metrics=[PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})], confusion_matrix=None, roc_auc=0.97, pr_auc=0.96, calibration_error=0.02, subgroup_analysis={'news': [PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})]}, error_analysis={'short_text': 'degraded'})")), ('train-valid', ('ok', "TrainingData(datasets=[EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.8, 'test': 0.2}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])], total_size=10000, preprocessing_pipeline=['tokenize'], augmentation_techniques=['paraphrase'], known_biases=['domain skew'])")), ('train-size-0', ('ok', "TrainingData(datasets=[EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.8, 'test': 0.2}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])], total_size=0, preprocessing_pipeline=['tokenize'], augmentation_techniques=['paraphrase'], known_biases=['domain skew'])")), ('train-size-neg', ('raise', 'ValueError', "training_data field 'total_size' must be >= 0, got -1")), ('train-no-aug', ('raise', 'ValueError', "training_data field 'augmentation_techniques' must be a list of strings")), ('train-no-biases', ('raise', 'ValueError', "training_data field 'known_biases' must be a list of strings")), ('train-no-both', ('raise', 'ValueError', "training_data field 'augmentation_techniques' must be a list of strings")), ('train-missing-aug', ('ok', "TrainingData(datasets=[EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.8, 'test': 0.2}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])], total_size=10000, preprocessing_pipeline=['tokenize'], augmentation_techniques=[], known_biases=['domain skew'])")), ('train-missing-biases', ('ok', "TrainingData(datasets=[EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.8, 'test': 0.2}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])], total_size=10000, preprocessing_pipeline=['tokenize'], augmentation_techniques=['paraphrase'], known_biases=[])")), ('train-missing-both', ('ok', "TrainingData(datasets=[EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.8, 'test': 0.2}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])], total_size=10000, preprocessing_pipeline=['tokenize'], augmentation_techniques=[], known_biases=[])")), ('mc-int-ok', ('ok', '5')), ('mc-int-bool', ('raise', 'ValueError', "w field 'size' must be an integer")), ('mc-int-str', ('raise', 'ValueError', "w field 'size' must be an integer")), ('mc-int-float', ('raise', 'ValueError', "w field 'size' must be an integer")), ('mc-int-neg', ('raise', 'ValueError', "w field 'size' must be >= 0, got -1")), ('mc-num-ok', ('ok', '0.5')), ('mc-num-bool', ('raise', 'ValueError', "w field 'v' must be a number")), ('mc-num-str', ('raise', 'ValueError', "w field 'v' must be a number")), ('mc-num-nan-str', ('raise', 'ValueError', "w field 'v' must be a number")), ('mc-opt-ok', ('ok', '0.5')), ('mc-opt-none', ('ok', 'None')), ('mc-opt-bool', ('raise', 'ValueError', "w field 'v' must be a number or null")), ('mc-opt-str', ('raise', 'ValueError', "w field 'v' must be a number or null")), ('fromdict-100', ('ok', "ModelCard(metadata=ModelCardMetadata(version='1.0.0', generated_at='2024-01-01T00:00:00+00:00', generated_by='Test', schema_version='1.0.0', language='en'), model_details=ModelDetails(name='Test Detector', version='1.0.0', detector_id='test/detector', detector_family='test', architecture='transformer', framework='pytorch', license='Apache-2.0', owner='Test', contact='test@test.com', references=['https://example.invalid/ref'], tags=['test']), intended_use=IntendedUse(primary_use_cases=['AI text detection'], out_of_scope=['Creative writing'], target_users=['Researchers'], deployment_environments=['On-premise'], constraints=['Real-time processing required']), factors=['Input text length', 'Language'], metrics=[PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})], evaluation_data=EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.8, 'test': 0.2}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew']), training_data=TrainingData(datasets=[EvaluationDataset(name='RAID', version='1.0', size=10000, languages=['en'], domains=['academic', 'news'], split_ratios={'train': 0.8, 'test': 0.2}, source='HuggingFace', license='Apache-2.0', collection_date='2024-01-01', preprocessing=['lowercase'], known_biases=['domain skew'])], total_size=10000, preprocessing_pipeline=['tokenize'], augmentation_techniques=['paraphrase'], known_biases=['domain skew']), quantitative_analysis=QuantitativeAnalysis(metrics=[PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})], confusion_matrix={'tp': 90, 'fp': 5, 'tn': 95, 'fn': 10}, roc_auc=0.97, pr_auc=0.96, calibration_error=0.02, subgroup_analysis={'news': [PerformanceMetric(name='accuracy', value=0.95, unit='ratio', confidence_interval=(0.93, 0.97), benchmark_dataset='RAID', split='test', metadata={'seed': 42})]}, error_analysis={'short_text': 'degraded'}), ethical_considerations=[EthicalConsideration(category='bias', description='Test bias concern', risk_level=<RiskLevel.HIGH: 'high'>, mitigation='Regular audits', references=['https://example.invalid/bias'])], caveats_and_recommendations=[Caveat(description='Test limitation', priority='high', category='limitation', applies_to=['short_text'])], additional_information={'reviewed_by': 'Test'}, eu_ai_act_transparency_notes={'risk_classification': 'not_assessed'}, _schema_version='1.0.0')")), ('fromdict-090', ('raise', 'ValueError', "unsupported model card schema_version: '0.9.0'")), ('fromdict-200', ('raise', 'ValueError', "unsupported model card schema_version: '2.0.0'")), ('fromdict-missing', ('raise', 'ValueError', "model card is missing required field 'schema_version'")), ('json-indent2', ('ok', '\'{\\n  "schema_version": "1.0.0",\\n  "metadata": {\\n    "version": "1.0.0",\\n    "generated_at": "2024-01-01T00:00:00+00:00",\\n    "generated_by": "Test",\\n    "schema_version": "1.0.0",\\n    "language": "en"\\n  },\\n  "model_details": {\\n    "name": "Test Detector",\\n    "version": "1.0.0",\\n    "detector_id": "test/detector",\\n    "detector_family": "test",\\n    "architecture": "transformer",\\n    "framework": "pytorch",\\n    "license": "Apache-2.0",\\n    "owner": "Test",\\n    "contact": "test@test.com",\\n    "references": [\\n      "https://example.invalid/ref"\\n    ],\\n    "tags": [\\n      "test"\\n    ]\\n  },\\n  "intended_use": {\\n    "primary_use_cases": [\\n      "AI text detection"\\n    ],\\n    "out_of_scope": [\\n      "Creative writing"\\n    ],\\n    "target_users": [\\n      "Researchers"\\n    ],\\n    "deployment_environments": [\\n      "On-premise"\\n    ],\\n    "constraints": [\\n      "Real-time processing required"\\n    ]\\n  },\\n  "factors": [\\n    "Input text length",\\n    "Language"\\n  ],\\n  "metrics": [\\n    {\\n      "name": "accuracy",\\n      "value": 0.95,\\n      "unit": "ratio",\\n      "confidence_interval": [\\n        0.93,\\n        0.97\\n      ],\\n      "benchmark_dataset": "RAID",\\n      "split": "test",\\n      "metadata": {\\n        "seed": 42\\n      }\\n    }\\n  ],\\n  "evaluation_data": {\\n    "name": "RAID",\\n    "version": "1.0",\\n    "size": 10000,\\n    "languages": [\\n      "en"\\n    ],\\n    "domains": [\\n      "academic",\\n      "news"\\n    ],\\n    "split_ratios": {\\n      "train": 0.8,\\n      "test": 0.2\\n    },\\n    "source": "HuggingFace",\\n    "license": "Apache-2.0",\\n    "collection_date": "2024-01-01",\\n    "preprocessing": [\\n      "lowercase"\\n    ],\\n    "known_biases": [\\n      "domain skew"\\n    ]\\n  },\\n  "training_data": {\\n    "datasets": [\\n      {\\n        "name": "RAID",\\n        "version": "1.0",\\n        "size": 10000,\\n        "languages": [\\n          "en"\\n        ],\\n        "domains": [\\n          "academic",\\n          "news"\\n        ],\\n        "split_ratios": {\\n          "train": 0.8,\\n          "test": 0.2\\n        },\\n        "source": "HuggingFace",\\n        "license": "Apache-2.0",\\n        "collection_date": "2024-01-01",\\n        "preprocessing": [\\n          "lowercase"\\n        ],\\n        "known_biases": [\\n          "domain skew"\\n        ]\\n      }\\n    ],\\n    "total_size": 10000,\\n    "preprocessing_pipeline": [\\n      "tokenize"\\n    ],\\n    "augmentation_techniques": [\\n      "paraphrase"\\n    ],\\n    "known_biases": [\\n      "domain skew"\\n    ]\\n  },\\n  "quantitative_analysis": {\\n    "metrics": [\\n      {\\n        "name": "accuracy",\\n        "value": 0.95,\\n        "unit": "ratio",\\n        "confidence_interval": [\\n          0.93,\\n          0.97\\n        ],\\n        "benchmark_dataset": "RAID",\\n        "split": "test",\\n        "metadata": {\\n          "seed": 42\\n        }\\n      }\\n    ],\\n    "confusion_matrix": {\\n      "tp": 90,\\n      "fp": 5,\\n      "tn": 95,\\n      "fn": 10\\n    },\\n    "roc_auc": 0.97,\\n    "pr_auc": 0.96,\\n    "calibration_error": 0.02,\\n    "subgroup_analysis": {\\n      "news": [\\n        {\\n          "name": "accuracy",\\n          "value": 0.95,\\n          "unit": "ratio",\\n          "confidence_interval": [\\n            0.93,\\n            0.97\\n          ],\\n          "benchmark_dataset": "RAID",\\n          "split": "test",\\n          "metadata": {\\n            "seed": 42\\n          }\\n        }\\n      ]\\n    },\\n    "error_analysis": {\\n      "short_text": "degraded"\\n    }\\n  },\\n  "ethical_considerations": [\\n    {\\n      "category": "bias",\\n      "description": "Test bias concern",\\n      "risk_level": "high",\\n      "mitigation": "Regular audits",\\n      "references": [\\n        "https://example.invalid/bias"\\n      ]\\n    }\\n  ],\\n  "caveats_and_recommendations": [\\n    {\\n      "description": "Test limitation",\\n      "priority": "high",\\n      "category": "limitation",\\n      "applies_to": [\\n        "short_text"\\n      ]\\n    }\\n  ],\\n  "additional_information": {\\n    "reviewed_by": "Test"\\n  },\\n  "eu_ai_act_transparency_notes": {\\n    "risk_classification": "not_assessed"\\n  }\\n}\'')), ('json-indent3', ('ok', '\'{\\n   "schema_version": "1.0.0",\\n   "metadata": {\\n      "version": "1.0.0",\\n      "generated_at": "2024-01-01T00:00:00+00:00",\\n      "generated_by": "Test",\\n      "schema_version": "1.0.0",\\n      "language": "en"\\n   },\\n   "model_details": {\\n      "name": "Test Detector",\\n      "version": "1.0.0",\\n      "detector_id": "test/detector",\\n      "detector_family": "test",\\n      "architecture": "transformer",\\n      "framework": "pytorch",\\n      "license": "Apache-2.0",\\n      "owner": "Test",\\n      "contact": "test@test.com",\\n      "references": [\\n         "https://example.invalid/ref"\\n      ],\\n      "tags": [\\n         "test"\\n      ]\\n   },\\n   "intended_use": {\\n      "primary_use_cases": [\\n         "AI text detection"\\n      ],\\n      "out_of_scope": [\\n         "Creative writing"\\n      ],\\n      "target_users": [\\n         "Researchers"\\n      ],\\n      "deployment_environments": [\\n         "On-premise"\\n      ],\\n      "constraints": [\\n         "Real-time processing required"\\n      ]\\n   },\\n   "factors": [\\n      "Input text length",\\n      "Language"\\n   ],\\n   "metrics": [\\n      {\\n         "name": "accuracy",\\n         "value": 0.95,\\n         "unit": "ratio",\\n         "confidence_interval": [\\n            0.93,\\n            0.97\\n         ],\\n         "benchmark_dataset": "RAID",\\n         "split": "test",\\n         "metadata": {\\n            "seed": 42\\n         }\\n      }\\n   ],\\n   "evaluation_data": {\\n      "name": "RAID",\\n      "version": "1.0",\\n      "size": 10000,\\n      "languages": [\\n         "en"\\n      ],\\n      "domains": [\\n         "academic",\\n         "news"\\n      ],\\n      "split_ratios": {\\n         "train": 0.8,\\n         "test": 0.2\\n      },\\n      "source": "HuggingFace",\\n      "license": "Apache-2.0",\\n      "collection_date": "2024-01-01",\\n      "preprocessing": [\\n         "lowercase"\\n      ],\\n      "known_biases": [\\n         "domain skew"\\n      ]\\n   },\\n   "training_data": {\\n      "datasets": [\\n         {\\n            "name": "RAID",\\n            "version": "1.0",\\n            "size": 10000,\\n            "languages": [\\n               "en"\\n            ],\\n            "domains": [\\n               "academic",\\n               "news"\\n            ],\\n            "split_ratios": {\\n               "train": 0.8,\\n               "test": 0.2\\n            },\\n            "source": "HuggingFace",\\n            "license": "Apache-2.0",\\n            "collection_date": "2024-01-01",\\n            "preprocessing": [\\n               "lowercase"\\n            ],\\n            "known_biases": [\\n               "domain skew"\\n            ]\\n         }\\n      ],\\n      "total_size": 10000,\\n      "preprocessing_pipeline": [\\n         "tokenize"\\n      ],\\n      "augmentation_techniques": [\\n         "paraphrase"\\n      ],\\n      "known_biases": [\\n         "domain skew"\\n      ]\\n   },\\n   "quantitative_analysis": {\\n      "metrics": [\\n         {\\n            "name": "accuracy",\\n            "value": 0.95,\\n            "unit": "ratio",\\n            "confidence_interval": [\\n               0.93,\\n               0.97\\n            ],\\n            "benchmark_dataset": "RAID",\\n            "split": "test",\\n            "metadata": {\\n               "seed": 42\\n            }\\n         }\\n      ],\\n      "confusion_matrix": {\\n         "tp": 90,\\n         "fp": 5,\\n         "tn": 95,\\n         "fn": 10\\n      },\\n      "roc_auc": 0.97,\\n      "pr_auc": 0.96,\\n      "calibration_error": 0.02,\\n      "subgroup_analysis": {\\n         "news": [\\n            {\\n               "name": "accuracy",\\n               "value": 0.95,\\n               "unit": "ratio",\\n               "confidence_interval": [\\n                  0.93,\\n                  0.97\\n               ],\\n               "benchmark_dataset": "RAID",\\n               "split": "test",\\n               "metadata": {\\n                  "seed": 42\\n               }\\n            }\\n         ]\\n      },\\n      "error_analysis": {\\n         "short_text": "degraded"\\n      }\\n   },\\n   "ethical_considerations": [\\n      {\\n         "category": "bias",\\n         "description": "Test bias concern",\\n         "risk_level": "high",\\n         "mitigation": "Regular audits",\\n         "references": [\\n            "https://example.invalid/bias"\\n         ]\\n      }\\n   ],\\n   "caveats_and_recommendations": [\\n      {\\n         "description": "Test limitation",\\n         "priority": "high",\\n         "category": "limitation",\\n         "applies_to": [\\n            "short_text"\\n         ]\\n      }\\n   ],\\n   "additional_information": {\\n      "reviewed_by": "Test"\\n   },\\n   "eu_ai_act_transparency_notes": {\\n      "risk_classification": "not_assessed"\\n   }\\n}\'')), ('json-indent1', ('ok', '\'{\\n "schema_version": "1.0.0",\\n "metadata": {\\n  "version": "1.0.0",\\n  "generated_at": "2024-01-01T00:00:00+00:00",\\n  "generated_by": "Test",\\n  "schema_version": "1.0.0",\\n  "language": "en"\\n },\\n "model_details": {\\n  "name": "Test Detector",\\n  "version": "1.0.0",\\n  "detector_id": "test/detector",\\n  "detector_family": "test",\\n  "architecture": "transformer",\\n  "framework": "pytorch",\\n  "license": "Apache-2.0",\\n  "owner": "Test",\\n  "contact": "test@test.com",\\n  "references": [\\n   "https://example.invalid/ref"\\n  ],\\n  "tags": [\\n   "test"\\n  ]\\n },\\n "intended_use": {\\n  "primary_use_cases": [\\n   "AI text detection"\\n  ],\\n  "out_of_scope": [\\n   "Creative writing"\\n  ],\\n  "target_users": [\\n   "Researchers"\\n  ],\\n  "deployment_environments": [\\n   "On-premise"\\n  ],\\n  "constraints": [\\n   "Real-time processing required"\\n  ]\\n },\\n "factors": [\\n  "Input text length",\\n  "Language"\\n ],\\n "metrics": [\\n  {\\n   "name": "accuracy",\\n   "value": 0.95,\\n   "unit": "ratio",\\n   "confidence_interval": [\\n    0.93,\\n    0.97\\n   ],\\n   "benchmark_dataset": "RAID",\\n   "split": "test",\\n   "metadata": {\\n    "seed": 42\\n   }\\n  }\\n ],\\n "evaluation_data": {\\n  "name": "RAID",\\n  "version": "1.0",\\n  "size": 10000,\\n  "languages": [\\n   "en"\\n  ],\\n  "domains": [\\n   "academic",\\n   "news"\\n  ],\\n  "split_ratios": {\\n   "train": 0.8,\\n   "test": 0.2\\n  },\\n  "source": "HuggingFace",\\n  "license": "Apache-2.0",\\n  "collection_date": "2024-01-01",\\n  "preprocessing": [\\n   "lowercase"\\n  ],\\n  "known_biases": [\\n   "domain skew"\\n  ]\\n },\\n "training_data": {\\n  "datasets": [\\n   {\\n    "name": "RAID",\\n    "version": "1.0",\\n    "size": 10000,\\n    "languages": [\\n     "en"\\n    ],\\n    "domains": [\\n     "academic",\\n     "news"\\n    ],\\n    "split_ratios": {\\n     "train": 0.8,\\n     "test": 0.2\\n    },\\n    "source": "HuggingFace",\\n    "license": "Apache-2.0",\\n    "collection_date": "2024-01-01",\\n    "preprocessing": [\\n     "lowercase"\\n    ],\\n    "known_biases": [\\n     "domain skew"\\n    ]\\n   }\\n  ],\\n  "total_size": 10000,\\n  "preprocessing_pipeline": [\\n   "tokenize"\\n  ],\\n  "augmentation_techniques": [\\n   "paraphrase"\\n  ],\\n  "known_biases": [\\n   "domain skew"\\n  ]\\n },\\n "quantitative_analysis": {\\n  "metrics": [\\n   {\\n    "name": "accuracy",\\n    "value": 0.95,\\n    "unit": "ratio",\\n    "confidence_interval": [\\n     0.93,\\n     0.97\\n    ],\\n    "benchmark_dataset": "RAID",\\n    "split": "test",\\n    "metadata": {\\n     "seed": 42\\n    }\\n   }\\n  ],\\n  "confusion_matrix": {\\n   "tp": 90,\\n   "fp": 5,\\n   "tn": 95,\\n   "fn": 10\\n  },\\n  "roc_auc": 0.97,\\n  "pr_auc": 0.96,\\n  "calibration_error": 0.02,\\n  "subgroup_analysis": {\\n   "news": [\\n    {\\n     "name": "accuracy",\\n     "value": 0.95,\\n     "unit": "ratio",\\n     "confidence_interval": [\\n      0.93,\\n      0.97\\n     ],\\n     "benchmark_dataset": "RAID",\\n     "split": "test",\\n     "metadata": {\\n      "seed": 42\\n     }\\n    }\\n   ]\\n  },\\n  "error_analysis": {\\n   "short_text": "degraded"\\n  }\\n },\\n "ethical_considerations": [\\n  {\\n   "category": "bias",\\n   "description": "Test bias concern",\\n   "risk_level": "high",\\n   "mitigation": "Regular audits",\\n   "references": [\\n    "https://example.invalid/bias"\\n   ]\\n  }\\n ],\\n "caveats_and_recommendations": [\\n  {\\n   "description": "Test limitation",\\n   "priority": "high",\\n   "category": "limitation",\\n   "applies_to": [\\n    "short_text"\\n   ]\\n  }\\n ],\\n "additional_information": {\\n  "reviewed_by": "Test"\\n },\\n "eu_ai_act_transparency_notes": {\\n  "risk_classification": "not_assessed"\\n }\\n}\'')), ('json-nonascii', ('ok', '\'{\\n  "schema_version": "1.0.0",\\n  "metadata": {\\n    "version": "1.0.0",\\n    "generated_at": "2024-01-01T00:00:00+00:00",\\n    "generated_by": "Test",\\n    "schema_version": "1.0.0",\\n    "language": "en"\\n  },\\n  "model_details": {\\n    "name": "Café Détecteur",\\n    "version": "1.0.0",\\n    "detector_id": "test/detector",\\n    "detector_family": "test",\\n    "architecture": "transformer",\\n    "framework": "pytorch",\\n    "license": "Apache-2.0",\\n    "owner": "Test",\\n    "contact": "test@test.com",\\n    "references": [\\n      "https://example.invalid/ref"\\n    ],\\n    "tags": [\\n      "test"\\n    ]\\n  },\\n  "intended_use": {\\n    "primary_use_cases": [\\n      "AI text detection"\\n    ],\\n    "out_of_scope": [\\n      "Creative writing"\\n    ],\\n    "target_users": [\\n      "Researchers"\\n    ],\\n    "deployment_environments": [\\n      "On-premise"\\n    ],\\n    "constraints": [\\n      "Real-time processing required"\\n    ]\\n  },\\n  "factors": [\\n    "Input text length",\\n    "Language"\\n  ],\\n  "metrics": [\\n    {\\n      "name": "accuracy",\\n      "value": 0.95,\\n      "unit": "ratio",\\n      "confidence_interval": [\\n        0.93,\\n        0.97\\n      ],\\n      "benchmark_dataset": "RAID",\\n      "split": "test",\\n      "metadata": {\\n        "seed": 42\\n      }\\n    }\\n  ],\\n  "evaluation_data": {\\n    "name": "RAID",\\n    "version": "1.0",\\n    "size": 10000,\\n    "languages": [\\n      "en"\\n    ],\\n    "domains": [\\n      "academic",\\n      "news"\\n    ],\\n    "split_ratios": {\\n      "train": 0.8,\\n      "test": 0.2\\n    },\\n    "source": "HuggingFace",\\n    "license": "Apache-2.0",\\n    "collection_date": "2024-01-01",\\n    "preprocessing": [\\n      "lowercase"\\n    ],\\n    "known_biases": [\\n      "domain skew"\\n    ]\\n  },\\n  "training_data": {\\n    "datasets": [\\n      {\\n        "name": "RAID",\\n        "version": "1.0",\\n        "size": 10000,\\n        "languages": [\\n          "en"\\n        ],\\n        "domains": [\\n          "academic",\\n          "news"\\n        ],\\n        "split_ratios": {\\n          "train": 0.8,\\n          "test": 0.2\\n        },\\n        "source": "HuggingFace",\\n        "license": "Apache-2.0",\\n        "collection_date": "2024-01-01",\\n        "preprocessing": [\\n          "lowercase"\\n        ],\\n        "known_biases": [\\n          "domain skew"\\n        ]\\n      }\\n    ],\\n    "total_size": 10000,\\n    "preprocessing_pipeline": [\\n      "tokenize"\\n    ],\\n    "augmentation_techniques": [\\n      "paraphrase"\\n    ],\\n    "known_biases": [\\n      "domain skew"\\n    ]\\n  },\\n  "quantitative_analysis": {\\n    "metrics": [\\n      {\\n        "name": "accuracy",\\n        "value": 0.95,\\n        "unit": "ratio",\\n        "confidence_interval": [\\n          0.93,\\n          0.97\\n        ],\\n        "benchmark_dataset": "RAID",\\n        "split": "test",\\n        "metadata": {\\n          "seed": 42\\n        }\\n      }\\n    ],\\n    "confusion_matrix": {\\n      "tp": 90,\\n      "fp": 5,\\n      "tn": 95,\\n      "fn": 10\\n    },\\n    "roc_auc": 0.97,\\n    "pr_auc": 0.96,\\n    "calibration_error": 0.02,\\n    "subgroup_analysis": {\\n      "news": [\\n        {\\n          "name": "accuracy",\\n          "value": 0.95,\\n          "unit": "ratio",\\n          "confidence_interval": [\\n            0.93,\\n            0.97\\n          ],\\n          "benchmark_dataset": "RAID",\\n          "split": "test",\\n          "metadata": {\\n            "seed": 42\\n          }\\n        }\\n      ]\\n    },\\n    "error_analysis": {\\n      "short_text": "degraded"\\n    }\\n  },\\n  "ethical_considerations": [\\n    {\\n      "category": "bias",\\n      "description": "Test bias concern",\\n      "risk_level": "high",\\n      "mitigation": "Regular audits",\\n      "references": [\\n        "https://example.invalid/bias"\\n      ]\\n    }\\n  ],\\n  "caveats_and_recommendations": [\\n    {\\n      "description": "Test limitation",\\n      "priority": "high",\\n      "category": "limitation",\\n      "applies_to": [\\n        "short_text"\\n      ]\\n    }\\n  ],\\n  "additional_information": {\\n    "reviewed_by": "Test"\\n  },\\n  "eu_ai_act_transparency_notes": {\\n    "risk_classification": "not_assessed"\\n  }\\n}\'')), ('md-full', ('ok', "'# Model Card: Test Detector v1.0.0\\n\\n## Model Details\\n- **Name**: Test Detector\\n- **Version**: 1.0.0\\n- **Detector ID**: test/detector\\n- **Family**: test\\n- **Architecture**: transformer\\n- **Framework**: pytorch\\n- **License**: Apache-2.0\\n- **Owner**: Test\\n- **Contact**: test@test.com\\n\\n## Intended Use\\n**Primary Use Cases**: AI text detection\\n**Out of Scope**: Creative writing\\n**Target Users**: Researchers\\n\\n## Metrics\\n- **accuracy**: 0.95 ratio (CI: (0.93, 0.97)) - RAID/test\\n\\n## Quantitative Analysis\\n- ROC AUC: 0.97\\n- PR AUC: 0.96\\n- Calibration Error: 0.02\\n\\n## Ethical Considerations\\n- **bias** (high): Test bias concern\\n  Mitigation: Regular audits\\n\\n## Caveats and Recommendations\\n- **[HIGH]** Test limitation\\n\\n## EU AI Act Transparency Notes\\n- **risk_classification**: not_assessed'")), ('md-stripped', ('ok', "'# Model Card: Test Detector v1.0.0\\n\\n## Model Details\\n- **Name**: Test Detector\\n- **Version**: 1.0.0\\n- **Detector ID**: test/detector\\n- **Family**: test\\n- **Architecture**: transformer\\n- **Framework**: pytorch\\n- **License**: Apache-2.0\\n- **Owner**: Test\\n- **Contact**: test@test.com\\n\\n## Intended Use\\n**Primary Use Cases**: AI text detection\\n**Out of Scope**: Creative writing\\n**Target Users**: Researchers\\n\\n## Metrics\\n\\n## Quantitative Analysis\\n- ROC AUC: 0.97\\n- PR AUC: 0.96\\n- Calibration Error: 0.02'")), ('md-no-ci', ('ok', "'# Model Card: Test Detector v1.0.0\\n\\n## Model Details\\n- **Name**: Test Detector\\n- **Version**: 1.0.0\\n- **Detector ID**: test/detector\\n- **Family**: test\\n- **Architecture**: transformer\\n- **Framework**: pytorch\\n- **License**: Apache-2.0\\n- **Owner**: Test\\n- **Contact**: test@test.com\\n\\n## Intended Use\\n**Primary Use Cases**: AI text detection\\n**Out of Scope**: Creative writing\\n**Target Users**: Researchers\\n\\n## Metrics\\n- **accuracy**: 0.95 ratio - RAID/test\\n\\n## Quantitative Analysis\\n- ROC AUC: 0.97\\n- PR AUC: 0.96\\n- Calibration Error: 0.02\\n\\n## Ethical Considerations\\n- **bias** (high): Test bias concern\\n  Mitigation: Regular audits\\n\\n## Caveats and Recommendations\\n- **[HIGH]** Test limitation\\n\\n## EU AI Act Transparency Notes\\n- **risk_classification**: not_assessed'")), ('load-missing', ('raise', 'FileNotFoundError', "[Errno 2] No such file or directory: 'TMP/nope.json'")), ('load-valid', ('ok', "'Test Detector'")), ('load-badjson', ('raise', 'ValueError', 'invalid JSON in model card TMP/bad.json: Expecting value: line 1 column 1 (char 0)')), ('load-nan', ('raise', 'ValueError', "invalid JSON in model card TMP/nan.json: non-finite JSON constant 'NaN' is not valid JSON.")), ('load-dir', ('raise', 'ValueError', "cannot read model card TMP: [Errno 21] Is a directory: 'TMP'"))]
 
 class TestWorkerFKillModelCard(unittest.TestCase):
     def test_probe_mc_from_dict(self):
         got = probe_mc_from_dict()
         exp = EXPECTED_PROBE_MC_FROM_DICT
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
 
 if __name__ == "__main__":

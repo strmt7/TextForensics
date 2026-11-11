@@ -19,49 +19,1366 @@ from w2_f_kill_helpers import (
     probe_trust_assess,
     probe_trust_build,
     probe_trust_ledger,
-    probe_trust_overall_state
+    probe_trust_overall_state,
 )
 
+EXPECTED_PROBE_TRUST_ASSESS = [
+    (
+        True,
+        (
+            "ok",
+            "insufficient",
+            [
+                ("language", "unknown"),
+                ("text_length", "unknown"),
+                ("domain_genre", "unknown"),
+                ("editing_revision", "unknown"),
+                ("generator_scope", "unknown"),
+                ("human_population", "unknown"),
+                ("human_false_positive_evidence", "unknown"),
+                ("temporal_version_stability", "unknown"),
+                ("detector_diversity", "partial"),
+                ("benign_stability", "unknown"),
+            ],
+            [
+                ("record_count", 0),
+                ("registry_id", None),
+                ("verification_status", "not_checked"),
+                ("verified", False),
+            ],
+            (
+                "Trust Map states describe evidence coverage, not probability of authorship.",
+                "A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.",
+                "Text-only detection cannot prove authorship.",
+                "No validation evidence registry was supplied.",
+            ),
+        ),
+    ),
+    (
+        False,
+        (
+            "ok",
+            "insufficient",
+            [
+                ("language", "unknown"),
+                ("text_length", "unknown"),
+                ("domain_genre", "unknown"),
+                ("editing_revision", "unknown"),
+                ("generator_scope", "unknown"),
+                ("human_population", "unknown"),
+                ("human_false_positive_evidence", "unknown"),
+                ("temporal_version_stability", "unknown"),
+                ("detector_diversity", "partial"),
+                ("benign_stability", "unknown"),
+            ],
+            [
+                ("record_count", 0),
+                ("registry_id", None),
+                ("verification_status", "not_checked"),
+                ("verified", False),
+            ],
+            (
+                "Trust Map states describe evidence coverage, not probability of authorship.",
+                "A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.",
+                "Text-only detection cannot prove authorship.",
+                "No validation evidence registry was supplied.",
+                "Evidence artifact verification failed.",
+            ),
+        ),
+    ),
+    (
+        None,
+        (
+            "ok",
+            "insufficient",
+            [
+                ("language", "unknown"),
+                ("text_length", "unknown"),
+                ("domain_genre", "unknown"),
+                ("editing_revision", "unknown"),
+                ("generator_scope", "unknown"),
+                ("human_population", "unknown"),
+                ("human_false_positive_evidence", "unknown"),
+                ("temporal_version_stability", "unknown"),
+                ("detector_diversity", "partial"),
+                ("benign_stability", "unknown"),
+            ],
+            [
+                ("record_count", 0),
+                ("registry_id", None),
+                ("verification_status", "not_checked"),
+                ("verified", False),
+            ],
+            (
+                "Trust Map states describe evidence coverage, not probability of authorship.",
+                "A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.",
+                "Text-only detection cannot prove authorship.",
+                "No validation evidence registry was supplied.",
+            ),
+        ),
+    ),
+    (("failure-true",), ("raise", "TypeError", "failure_count must be an integer.")),
+    (("failure-neg",), ("raise", "ValueError", "failure_count must be non-negative.")),
+    (
+        ("failure-1",),
+        (
+            "ok",
+            "insufficient",
+            [
+                ("language", "unknown"),
+                ("text_length", "unknown"),
+                ("domain_genre", "unknown"),
+                ("editing_revision", "unknown"),
+                ("generator_scope", "unknown"),
+                ("human_population", "unknown"),
+                ("human_false_positive_evidence", "unknown"),
+                ("temporal_version_stability", "unknown"),
+                ("detector_diversity", "partial"),
+                ("benign_stability", "unknown"),
+            ],
+            [
+                ("record_count", 0),
+                ("registry_id", None),
+                ("verification_status", "not_checked"),
+                ("verified", False),
+            ],
+            (
+                "Trust Map states describe evidence coverage, not probability of authorship.",
+                "A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.",
+                "Text-only detection cannot prove authorship.",
+                "No validation evidence registry was supplied.",
+            ),
+            None,
+        ),
+    ),
+    (
+        ("drift-0",),
+        (
+            "ok",
+            "insufficient",
+            [
+                ("language", "unknown"),
+                ("text_length", "unknown"),
+                ("domain_genre", "unknown"),
+                ("editing_revision", "unknown"),
+                ("generator_scope", "unknown"),
+                ("human_population", "unknown"),
+                ("human_false_positive_evidence", "unknown"),
+                ("temporal_version_stability", "unknown"),
+                ("detector_diversity", "partial"),
+                ("benign_stability", "unknown"),
+            ],
+            [
+                ("record_count", 0),
+                ("registry_id", None),
+                ("verification_status", "not_checked"),
+                ("verified", False),
+            ],
+            (
+                "Trust Map states describe evidence coverage, not probability of authorship.",
+                "A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.",
+                "Text-only detection cannot prove authorship.",
+                "No validation evidence registry was supplied.",
+            ),
+            None,
+        ),
+    ),
+    (("drift-neg",), ("raise", "ValueError", "max_native_drift must be non-negative or None.")),
+    (
+        ("drift-1",),
+        (
+            "ok",
+            "insufficient",
+            [
+                ("language", "unknown"),
+                ("text_length", "unknown"),
+                ("domain_genre", "unknown"),
+                ("editing_revision", "unknown"),
+                ("generator_scope", "unknown"),
+                ("human_population", "unknown"),
+                ("human_false_positive_evidence", "unknown"),
+                ("temporal_version_stability", "unknown"),
+                ("detector_diversity", "partial"),
+                ("benign_stability", "unknown"),
+            ],
+            [
+                ("record_count", 0),
+                ("registry_id", None),
+                ("verification_status", "not_checked"),
+                ("verified", False),
+            ],
+            (
+                "Trust Map states describe evidence coverage, not probability of authorship.",
+                "A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.",
+                "Text-only detection cannot prove authorship.",
+                "No validation evidence registry was supplied.",
+            ),
+            None,
+        ),
+    ),
+    (
+        ("generated-fixed",),
+        (
+            "ok",
+            "insufficient",
+            [
+                ("language", "unknown"),
+                ("text_length", "unknown"),
+                ("domain_genre", "unknown"),
+                ("editing_revision", "unknown"),
+                ("generator_scope", "unknown"),
+                ("human_population", "unknown"),
+                ("human_false_positive_evidence", "unknown"),
+                ("temporal_version_stability", "unknown"),
+                ("detector_diversity", "partial"),
+                ("benign_stability", "unknown"),
+            ],
+            [
+                ("record_count", 0),
+                ("registry_id", None),
+                ("verification_status", "not_checked"),
+                ("verified", False),
+            ],
+            (
+                "Trust Map states describe evidence coverage, not probability of authorship.",
+                "A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.",
+                "Text-only detection cannot prove authorship.",
+                "No validation evidence registry was supplied.",
+            ),
+            True,
+        ),
+    ),
+    (
+        ("registry-empty",),
+        (
+            "ok",
+            "insufficient",
+            [
+                ("language", "unknown"),
+                ("text_length", "unknown"),
+                ("domain_genre", "unknown"),
+                ("editing_revision", "unknown"),
+                ("generator_scope", "unknown"),
+                ("human_population", "unknown"),
+                ("human_false_positive_evidence", "unknown"),
+                ("temporal_version_stability", "unknown"),
+                ("detector_diversity", "partial"),
+                ("benign_stability", "unknown"),
+            ],
+            [
+                ("record_count", 0),
+                ("registry_id", "c84240c49f4ce2a3e5c428065362a8f908d23df29e4ee00b0950008092519088"),
+                ("verification_status", "not_checked"),
+                ("verified", False),
+            ],
+            (
+                "Trust Map states describe evidence coverage, not probability of authorship.",
+                "A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.",
+                "Text-only detection cannot prove authorship.",
+                "The supplied validation evidence registry is empty.",
+            ),
+        ),
+    ),
+    (
+        ("registry-one",),
+        (
+            "ok",
+            "insufficient",
+            [
+                ("language", "unknown"),
+                ("text_length", "unknown"),
+                ("domain_genre", "unknown"),
+                ("editing_revision", "unknown"),
+                ("generator_scope", "unknown"),
+                ("human_population", "unknown"),
+                ("human_false_positive_evidence", "unknown"),
+                ("temporal_version_stability", "unknown"),
+                ("detector_diversity", "partial"),
+                ("benign_stability", "unknown"),
+            ],
+            [
+                ("record_count", 1),
+                ("registry_id", "0c9f8da1dd195045b0c2b82621c9fec4fbfaf2aa17dc869c11f06a4d952091b3"),
+                ("verification_status", "not_checked"),
+                ("verified", False),
+            ],
+            (
+                "Trust Map states describe evidence coverage, not probability of authorship.",
+                "A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.",
+                "Text-only detection cannot prove authorship.",
+            ),
+        ),
+    ),
+]
 
-EXPECTED_PROBE_TRUST_ASSESS = [(True, ('ok', 'insufficient', [('language', 'unknown'), ('text_length', 'unknown'), ('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_population', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('temporal_version_stability', 'unknown'), ('detector_diversity', 'partial'), ('benign_stability', 'unknown')], [('record_count', 0), ('registry_id', None), ('verification_status', 'not_checked'), ('verified', False)], ('Trust Map states describe evidence coverage, not probability of authorship.', 'A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.', 'Text-only detection cannot prove authorship.', 'No validation evidence registry was supplied.'))), (False, ('ok', 'insufficient', [('language', 'unknown'), ('text_length', 'unknown'), ('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_population', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('temporal_version_stability', 'unknown'), ('detector_diversity', 'partial'), ('benign_stability', 'unknown')], [('record_count', 0), ('registry_id', None), ('verification_status', 'not_checked'), ('verified', False)], ('Trust Map states describe evidence coverage, not probability of authorship.', 'A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.', 'Text-only detection cannot prove authorship.', 'No validation evidence registry was supplied.', 'Evidence artifact verification failed.'))), (None, ('ok', 'insufficient', [('language', 'unknown'), ('text_length', 'unknown'), ('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_population', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('temporal_version_stability', 'unknown'), ('detector_diversity', 'partial'), ('benign_stability', 'unknown')], [('record_count', 0), ('registry_id', None), ('verification_status', 'not_checked'), ('verified', False)], ('Trust Map states describe evidence coverage, not probability of authorship.', 'A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.', 'Text-only detection cannot prove authorship.', 'No validation evidence registry was supplied.'))), (('failure-true',), ('raise', 'TypeError', 'failure_count must be an integer.')), (('failure-neg',), ('raise', 'ValueError', 'failure_count must be non-negative.')), (('failure-1',), ('ok', 'insufficient', [('language', 'unknown'), ('text_length', 'unknown'), ('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_population', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('temporal_version_stability', 'unknown'), ('detector_diversity', 'partial'), ('benign_stability', 'unknown')], [('record_count', 0), ('registry_id', None), ('verification_status', 'not_checked'), ('verified', False)], ('Trust Map states describe evidence coverage, not probability of authorship.', 'A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.', 'Text-only detection cannot prove authorship.', 'No validation evidence registry was supplied.'), None)), (('drift-0',), ('ok', 'insufficient', [('language', 'unknown'), ('text_length', 'unknown'), ('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_population', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('temporal_version_stability', 'unknown'), ('detector_diversity', 'partial'), ('benign_stability', 'unknown')], [('record_count', 0), ('registry_id', None), ('verification_status', 'not_checked'), ('verified', False)], ('Trust Map states describe evidence coverage, not probability of authorship.', 'A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.', 'Text-only detection cannot prove authorship.', 'No validation evidence registry was supplied.'), None)), (('drift-neg',), ('raise', 'ValueError', 'max_native_drift must be non-negative or None.')), (('drift-1',), ('ok', 'insufficient', [('language', 'unknown'), ('text_length', 'unknown'), ('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_population', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('temporal_version_stability', 'unknown'), ('detector_diversity', 'partial'), ('benign_stability', 'unknown')], [('record_count', 0), ('registry_id', None), ('verification_status', 'not_checked'), ('verified', False)], ('Trust Map states describe evidence coverage, not probability of authorship.', 'A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.', 'Text-only detection cannot prove authorship.', 'No validation evidence registry was supplied.'), None)), (('generated-fixed',), ('ok', 'insufficient', [('language', 'unknown'), ('text_length', 'unknown'), ('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_population', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('temporal_version_stability', 'unknown'), ('detector_diversity', 'partial'), ('benign_stability', 'unknown')], [('record_count', 0), ('registry_id', None), ('verification_status', 'not_checked'), ('verified', False)], ('Trust Map states describe evidence coverage, not probability of authorship.', 'A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.', 'Text-only detection cannot prove authorship.', 'No validation evidence registry was supplied.'), '2026-01-01T00:00:00+00:00')), (('registry-empty',), ('ok', 'insufficient', [('language', 'unknown'), ('text_length', 'unknown'), ('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_population', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('temporal_version_stability', 'unknown'), ('detector_diversity', 'partial'), ('benign_stability', 'unknown')], [('record_count', 0), ('registry_id', 'c84240c49f4ce2a3e5c428065362a8f908d23df29e4ee00b0950008092519088'), ('verification_status', 'not_checked'), ('verified', False)], ('Trust Map states describe evidence coverage, not probability of authorship.', 'A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.', 'Text-only detection cannot prove authorship.', 'The supplied validation evidence registry is empty.'))), (('registry-one',), ('ok', 'insufficient', [('language', 'unknown'), ('text_length', 'unknown'), ('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_population', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('temporal_version_stability', 'unknown'), ('detector_diversity', 'partial'), ('benign_stability', 'unknown')], [('record_count', 1), ('registry_id', '0c9f8da1dd195045b0c2b82621c9fec4fbfaf2aa17dc869c11f06a4d952091b3'), ('verification_status', 'not_checked'), ('verified', False)], ('Trust Map states describe evidence coverage, not probability of authorship.', 'A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.', 'Text-only detection cannot prove authorship.')))]
+
+EXPECTED_PROBE_TRUST_BUILD = [
+    (
+        "no-cond-200",
+        (
+            "ok",
+            (
+                "insufficient",
+                (
+                    ("language", "unknown"),
+                    ("text_length", "unknown"),
+                    ("domain_genre", "unknown"),
+                    ("editing_revision", "unknown"),
+                    ("generator_scope", "unknown"),
+                    ("human_population", "unknown"),
+                    ("human_false_positive_evidence", "unknown"),
+                    ("temporal_version_stability", "unknown"),
+                    ("detector_diversity", "partial"),
+                    ("benign_stability", "unknown"),
+                ),
+            ),
+        ),
+    ),
+    (
+        "no-cond-0",
+        (
+            "ok",
+            (
+                "insufficient",
+                (
+                    ("language", "unknown"),
+                    ("text_length", "unknown"),
+                    ("domain_genre", "unknown"),
+                    ("editing_revision", "unknown"),
+                    ("generator_scope", "unknown"),
+                    ("human_population", "unknown"),
+                    ("human_false_positive_evidence", "unknown"),
+                    ("temporal_version_stability", "unknown"),
+                    ("detector_diversity", "partial"),
+                    ("benign_stability", "unknown"),
+                ),
+            ),
+        ),
+    ),
+    ("no-cond-neg", ("raise", "ValueError", "word_count must be non-negative.")),
+    ("no-cond-bool", ("raise", "TypeError", "word_count must be an integer.")),
+    ("no-cond-str", ("raise", "TypeError", "word_count must be an integer.")),
+    ("no-cond-float", ("raise", "TypeError", "word_count must be an integer.")),
+    (
+        "cond-match",
+        (
+            "ok",
+            (
+                "insufficient",
+                (
+                    ("language", "unknown"),
+                    ("text_length", "unknown"),
+                    ("domain_genre", "unknown"),
+                    ("editing_revision", "unknown"),
+                    ("generator_scope", "unknown"),
+                    ("human_population", "unknown"),
+                    ("human_false_positive_evidence", "unknown"),
+                    ("temporal_version_stability", "unknown"),
+                    ("detector_diversity", "partial"),
+                    ("benign_stability", "unknown"),
+                ),
+            ),
+        ),
+    ),
+    ("cond-lower", ("raise", "ValueError", "conditions.word_count does not match word_count.")),
+    ("cond-higher", ("raise", "ValueError", "conditions.word_count does not match word_count.")),
+    (
+        "cond-equal-distinct",
+        (
+            "ok",
+            (
+                "insufficient",
+                (
+                    ("language", "unknown"),
+                    ("text_length", "unknown"),
+                    ("domain_genre", "unknown"),
+                    ("editing_revision", "unknown"),
+                    ("generator_scope", "unknown"),
+                    ("human_population", "unknown"),
+                    ("human_false_positive_evidence", "unknown"),
+                    ("temporal_version_stability", "unknown"),
+                    ("detector_diversity", "partial"),
+                    ("benign_stability", "unknown"),
+                ),
+            ),
+        ),
+    ),
+    (
+        "cond-equal-distinct-low",
+        (
+            "ok",
+            (
+                "insufficient",
+                (
+                    ("language", "unknown"),
+                    ("text_length", "unknown"),
+                    ("domain_genre", "unknown"),
+                    ("editing_revision", "unknown"),
+                    ("generator_scope", "unknown"),
+                    ("human_population", "unknown"),
+                    ("human_false_positive_evidence", "unknown"),
+                    ("temporal_version_stability", "unknown"),
+                    ("detector_diversity", "partial"),
+                    ("benign_stability", "unknown"),
+                ),
+            ),
+        ),
+    ),
+]
 
 
-EXPECTED_PROBE_TRUST_BUILD = [('no-cond-200', ('ok', ('insufficient', (('language', 'unknown'), ('text_length', 'unknown'), ('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_population', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('temporal_version_stability', 'unknown'), ('detector_diversity', 'partial'), ('benign_stability', 'unknown'))))), ('no-cond-0', ('ok', ('insufficient', (('language', 'unknown'), ('text_length', 'unknown'), ('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_population', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('temporal_version_stability', 'unknown'), ('detector_diversity', 'partial'), ('benign_stability', 'unknown'))))), ('no-cond-neg', ('raise', 'ValueError', 'word_count must be non-negative.')), ('no-cond-bool', ('raise', 'TypeError', 'word_count must be an integer.')), ('no-cond-str', ('raise', 'TypeError', 'word_count must be an integer.')), ('no-cond-float', ('raise', 'TypeError', 'word_count must be an integer.')), ('cond-match', ('ok', ('insufficient', (('language', 'unknown'), ('text_length', 'unknown'), ('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_population', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('temporal_version_stability', 'unknown'), ('detector_diversity', 'partial'), ('benign_stability', 'unknown'))))), ('cond-lower', ('raise', 'ValueError', 'conditions.word_count does not match word_count.')), ('cond-higher', ('raise', 'ValueError', 'conditions.word_count does not match word_count.')), ('cond-equal-distinct', ('ok', ('insufficient', (('language', 'unknown'), ('text_length', 'unknown'), ('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_population', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('temporal_version_stability', 'unknown'), ('detector_diversity', 'partial'), ('benign_stability', 'unknown'))))), ('cond-equal-distinct-low', ('ok', ('insufficient', (('language', 'unknown'), ('text_length', 'unknown'), ('domain_genre', 'unknown'), ('editing_revision', 'unknown'), ('generator_scope', 'unknown'), ('human_population', 'unknown'), ('human_false_positive_evidence', 'unknown'), ('temporal_version_stability', 'unknown'), ('detector_diversity', 'partial'), ('benign_stability', 'unknown')))))]
+EXPECTED_PROBE_TRUST_LEDGER = [
+    (
+        ("language", "VALIDATED"),
+        "strong",
+        [
+            (
+                "language",
+                "supported",
+                "Capability 'language' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            )
+        ],
+    ),
+    (
+        ("language", "READABLE"),
+        "mixed",
+        [
+            (
+                "language",
+                "partial",
+                "Capability 'language' for a is documented but not machine-verifiable.",
+                ("runs/1.json",),
+                (),
+            )
+        ],
+    ),
+    (
+        ("language", "TOOL_BACKED"),
+        "mixed",
+        [
+            (
+                "language",
+                "partial",
+                "Capability 'language' for a is TOOL_BACKED.",
+                ("runs/1.json",),
+                (),
+            )
+        ],
+    ),
+    (
+        ("length", "VALIDATED"),
+        "strong",
+        [
+            (
+                "text_length",
+                "supported",
+                "Capability 'length' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            )
+        ],
+    ),
+    (
+        ("length", "READABLE"),
+        "mixed",
+        [
+            (
+                "text_length",
+                "partial",
+                "Capability 'length' for a is documented but not machine-verifiable.",
+                ("runs/1.json",),
+                (),
+            )
+        ],
+    ),
+    (
+        ("length", "TOOL_BACKED"),
+        "mixed",
+        [
+            (
+                "text_length",
+                "partial",
+                "Capability 'length' for a is TOOL_BACKED.",
+                ("runs/1.json",),
+                (),
+            )
+        ],
+    ),
+    (
+        ("domain", "VALIDATED"),
+        "strong",
+        [
+            (
+                "domain_genre",
+                "supported",
+                "Capability 'domain' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            )
+        ],
+    ),
+    (
+        ("domain", "READABLE"),
+        "mixed",
+        [
+            (
+                "domain_genre",
+                "partial",
+                "Capability 'domain' for a is documented but not machine-verifiable.",
+                ("runs/1.json",),
+                (),
+            )
+        ],
+    ),
+    (
+        ("domain", "TOOL_BACKED"),
+        "mixed",
+        [
+            (
+                "domain_genre",
+                "partial",
+                "Capability 'domain' for a is TOOL_BACKED.",
+                ("runs/1.json",),
+                (),
+            )
+        ],
+    ),
+    (
+        ("editing", "VALIDATED"),
+        "strong",
+        [
+            (
+                "editing_revision",
+                "supported",
+                "Capability 'editing' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            )
+        ],
+    ),
+    (
+        ("editing", "READABLE"),
+        "mixed",
+        [
+            (
+                "editing_revision",
+                "partial",
+                "Capability 'editing' for a is documented but not machine-verifiable.",
+                ("runs/1.json",),
+                (),
+            )
+        ],
+    ),
+    (
+        ("editing", "TOOL_BACKED"),
+        "mixed",
+        [
+            (
+                "editing_revision",
+                "partial",
+                "Capability 'editing' for a is TOOL_BACKED.",
+                ("runs/1.json",),
+                (),
+            )
+        ],
+    ),
+    (
+        ("generator", "VALIDATED"),
+        "strong",
+        [
+            (
+                "generator_scope",
+                "supported",
+                "Capability 'generator' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            )
+        ],
+    ),
+    (
+        ("generator", "READABLE"),
+        "mixed",
+        [
+            (
+                "generator_scope",
+                "partial",
+                "Capability 'generator' for a is documented but not machine-verifiable.",
+                ("runs/1.json",),
+                (),
+            )
+        ],
+    ),
+    (
+        ("generator", "TOOL_BACKED"),
+        "mixed",
+        [
+            (
+                "generator_scope",
+                "partial",
+                "Capability 'generator' for a is TOOL_BACKED.",
+                ("runs/1.json",),
+                (),
+            )
+        ],
+    ),
+    (
+        ("human_population", "VALIDATED"),
+        "strong",
+        [
+            (
+                "human_population",
+                "supported",
+                "Capability 'human_population' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            )
+        ],
+    ),
+    (
+        ("human_population", "READABLE"),
+        "mixed",
+        [
+            (
+                "human_population",
+                "partial",
+                "Capability 'human_population' for a is documented but not machine-verifiable.",
+                ("runs/1.json",),
+                (),
+            )
+        ],
+    ),
+    (
+        ("human_population", "TOOL_BACKED"),
+        "mixed",
+        [
+            (
+                "human_population",
+                "partial",
+                "Capability 'human_population' for a is TOOL_BACKED.",
+                ("runs/1.json",),
+                (),
+            )
+        ],
+    ),
+    (
+        ("ineffective", (("valid_until", "2000-01-01"),)),
+        "insufficient",
+        [
+            (
+                "language",
+                "unknown",
+                "Capability 'language' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).",
+                ("runs/1.json",),
+                ("Claim for language expires 2000-01-01.",),
+            )
+        ],
+    ),
+    (
+        ("ineffective", (("evidence", False),)),
+        "insufficient",
+        [
+            (
+                "language",
+                "unknown",
+                "Capability 'language' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).",
+                (),
+                (),
+            )
+        ],
+    ),
+    (
+        ("ineffective", (("evidence", False), ("tier_name", "READABLE"))),
+        "mixed",
+        [
+            (
+                "language",
+                "partial",
+                "Capability 'language' for a is documented but not machine-verifiable.",
+                (),
+                (),
+            )
+        ],
+    ),
+    (
+        ("unknown-count", 0),
+        "strong",
+        [
+            (
+                "domain_genre",
+                "supported",
+                "Capability 'domain' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "editing_revision",
+                "supported",
+                "Capability 'editing' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "generator_scope",
+                "supported",
+                "Capability 'generator' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "human_population",
+                "supported",
+                "Capability 'human_population' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "language",
+                "supported",
+                "Capability 'language' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "text_length",
+                "supported",
+                "Capability 'length' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+        ],
+    ),
+    (
+        ("unknown-count", 1),
+        "mixed",
+        [
+            (
+                "domain_genre",
+                "supported",
+                "Capability 'domain' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "editing_revision",
+                "supported",
+                "Capability 'editing' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "generator_scope",
+                "supported",
+                "Capability 'generator' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "human_population",
+                "supported",
+                "Capability 'human_population' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "language",
+                "unknown",
+                "Capability 'language' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).",
+                ("runs/1.json",),
+                ("Claim for language expires 2000-01-01.",),
+            ),
+            (
+                "text_length",
+                "supported",
+                "Capability 'length' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+        ],
+    ),
+    (
+        ("unknown-count", 2),
+        "mixed",
+        [
+            (
+                "domain_genre",
+                "supported",
+                "Capability 'domain' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "editing_revision",
+                "supported",
+                "Capability 'editing' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "generator_scope",
+                "supported",
+                "Capability 'generator' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "human_population",
+                "supported",
+                "Capability 'human_population' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "language",
+                "unknown",
+                "Capability 'language' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).",
+                ("runs/1.json",),
+                ("Claim for language expires 2000-01-01.",),
+            ),
+            (
+                "text_length",
+                "unknown",
+                "Capability 'length' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).",
+                ("runs/1.json",),
+                ("Claim for length expires 2000-01-01.",),
+            ),
+        ],
+    ),
+    (
+        ("unknown-count", 3),
+        "insufficient",
+        [
+            (
+                "domain_genre",
+                "unknown",
+                "Capability 'domain' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).",
+                ("runs/1.json",),
+                ("Claim for domain expires 2000-01-01.",),
+            ),
+            (
+                "editing_revision",
+                "supported",
+                "Capability 'editing' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "generator_scope",
+                "supported",
+                "Capability 'generator' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "human_population",
+                "supported",
+                "Capability 'human_population' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "language",
+                "unknown",
+                "Capability 'language' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).",
+                ("runs/1.json",),
+                ("Claim for language expires 2000-01-01.",),
+            ),
+            (
+                "text_length",
+                "unknown",
+                "Capability 'length' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).",
+                ("runs/1.json",),
+                ("Claim for length expires 2000-01-01.",),
+            ),
+        ],
+    ),
+    (
+        ("unknown-count", 4),
+        "insufficient",
+        [
+            (
+                "domain_genre",
+                "unknown",
+                "Capability 'domain' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).",
+                ("runs/1.json",),
+                ("Claim for domain expires 2000-01-01.",),
+            ),
+            (
+                "editing_revision",
+                "unknown",
+                "Capability 'editing' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).",
+                ("runs/1.json",),
+                ("Claim for editing expires 2000-01-01.",),
+            ),
+            (
+                "generator_scope",
+                "supported",
+                "Capability 'generator' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "human_population",
+                "supported",
+                "Capability 'human_population' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "language",
+                "unknown",
+                "Capability 'language' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).",
+                ("runs/1.json",),
+                ("Claim for language expires 2000-01-01.",),
+            ),
+            (
+                "text_length",
+                "unknown",
+                "Capability 'length' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).",
+                ("runs/1.json",),
+                ("Claim for length expires 2000-01-01.",),
+            ),
+        ],
+    ),
+    (
+        ("unknown-count-5", 0),
+        "strong",
+        [
+            (
+                "domain_genre",
+                "supported",
+                "Capability 'domain' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "editing_revision",
+                "supported",
+                "Capability 'editing' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "generator_scope",
+                "supported",
+                "Capability 'generator' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "language",
+                "supported",
+                "Capability 'language' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "text_length",
+                "supported",
+                "Capability 'length' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+        ],
+    ),
+    (
+        ("unknown-count-5", 1),
+        "mixed",
+        [
+            (
+                "domain_genre",
+                "supported",
+                "Capability 'domain' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "editing_revision",
+                "supported",
+                "Capability 'editing' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "generator_scope",
+                "supported",
+                "Capability 'generator' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "language",
+                "unknown",
+                "Capability 'language' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).",
+                ("runs/1.json",),
+                ("Claim for language expires 2000-01-01.",),
+            ),
+            (
+                "text_length",
+                "supported",
+                "Capability 'length' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+        ],
+    ),
+    (
+        ("unknown-count-5", 2),
+        "insufficient",
+        [
+            (
+                "domain_genre",
+                "supported",
+                "Capability 'domain' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "editing_revision",
+                "supported",
+                "Capability 'editing' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "generator_scope",
+                "supported",
+                "Capability 'generator' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "language",
+                "unknown",
+                "Capability 'language' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).",
+                ("runs/1.json",),
+                ("Claim for language expires 2000-01-01.",),
+            ),
+            (
+                "text_length",
+                "unknown",
+                "Capability 'length' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).",
+                ("runs/1.json",),
+                ("Claim for length expires 2000-01-01.",),
+            ),
+        ],
+    ),
+    (
+        ("unknown-count-5", 3),
+        "insufficient",
+        [
+            (
+                "domain_genre",
+                "unknown",
+                "Capability 'domain' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).",
+                ("runs/1.json",),
+                ("Claim for domain expires 2000-01-01.",),
+            ),
+            (
+                "editing_revision",
+                "supported",
+                "Capability 'editing' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "generator_scope",
+                "supported",
+                "Capability 'generator' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                (),
+            ),
+            (
+                "language",
+                "unknown",
+                "Capability 'language' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).",
+                ("runs/1.json",),
+                ("Claim for language expires 2000-01-01.",),
+            ),
+            (
+                "text_length",
+                "unknown",
+                "Capability 'length' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).",
+                ("runs/1.json",),
+                ("Claim for length expires 2000-01-01.",),
+            ),
+        ],
+    ),
+    (
+        ("cap-joined",),
+        "strong",
+        [
+            (
+                "language",
+                "supported",
+                "Capability 'language' for a has VALIDATED-tier evidence.",
+                ("runs/1.json",),
+                ("Claim for language expires 2000-01-01.",),
+            )
+        ],
+    ),
+]
 
 
-EXPECTED_PROBE_TRUST_LEDGER = [(('language', 'VALIDATED'), 'strong', [('language', 'supported', "Capability 'language' for a has VALIDATED-tier evidence.", ('runs/1.json',))]), (('language', 'READABLE'), 'mixed', [('language', 'partial', "Capability 'language' for a is documented but not machine-verifiable.", ('runs/1.json',))]), (('language', 'TOOL_BACKED'), 'mixed', [('language', 'partial', "Capability 'language' for a is TOOL_BACKED.", ('runs/1.json',))]), (('length', 'VALIDATED'), 'strong', [('text_length', 'supported', "Capability 'length' for a has VALIDATED-tier evidence.", ('runs/1.json',))]), (('length', 'READABLE'), 'mixed', [('text_length', 'partial', "Capability 'length' for a is documented but not machine-verifiable.", ('runs/1.json',))]), (('length', 'TOOL_BACKED'), 'mixed', [('text_length', 'partial', "Capability 'length' for a is TOOL_BACKED.", ('runs/1.json',))]), (('domain', 'VALIDATED'), 'strong', [('domain_genre', 'supported', "Capability 'domain' for a has VALIDATED-tier evidence.", ('runs/1.json',))]), (('domain', 'READABLE'), 'mixed', [('domain_genre', 'partial', "Capability 'domain' for a is documented but not machine-verifiable.", ('runs/1.json',))]), (('domain', 'TOOL_BACKED'), 'mixed', [('domain_genre', 'partial', "Capability 'domain' for a is TOOL_BACKED.", ('runs/1.json',))]), (('editing', 'VALIDATED'), 'strong', [('editing_revision', 'supported', "Capability 'editing' for a has VALIDATED-tier evidence.", ('runs/1.json',))]), (('editing', 'READABLE'), 'mixed', [('editing_revision', 'partial', "Capability 'editing' for a is documented but not machine-verifiable.", ('runs/1.json',))]), (('editing', 'TOOL_BACKED'), 'mixed', [('editing_revision', 'partial', "Capability 'editing' for a is TOOL_BACKED.", ('runs/1.json',))]), (('generator', 'VALIDATED'), 'strong', [('generator_scope', 'supported', "Capability 'generator' for a has VALIDATED-tier evidence.", ('runs/1.json',))]), (('generator', 'READABLE'), 'mixed', [('generator_scope', 'partial', "Capability 'generator' for a is documented but not machine-verifiable.", ('runs/1.json',))]), (('generator', 'TOOL_BACKED'), 'mixed', [('generator_scope', 'partial', "Capability 'generator' for a is TOOL_BACKED.", ('runs/1.json',))]), (('human_population', 'VALIDATED'), 'strong', [('human_population', 'supported', "Capability 'human_population' for a has VALIDATED-tier evidence.", ('runs/1.json',))]), (('human_population', 'READABLE'), 'mixed', [('human_population', 'partial', "Capability 'human_population' for a is documented but not machine-verifiable.", ('runs/1.json',))]), (('human_population', 'TOOL_BACKED'), 'mixed', [('human_population', 'partial', "Capability 'human_population' for a is TOOL_BACKED.", ('runs/1.json',))]), (('ineffective', (('valid_until', '2000-01-01'),)), 'insufficient', [('language', 'unknown', "Capability 'language' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).", ('runs/1.json',))]), (('ineffective', (('evidence', False),)), 'insufficient', [('language', 'unknown', "Capability 'language' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).", ())]), (('ineffective', (('evidence', False), ('tier_name', 'READABLE'))), 'mixed', [('language', 'partial', "Capability 'language' for a is documented but not machine-verifiable.", ())]), (('unknown-count', 0), 'strong', [('domain_genre', 'supported', "Capability 'domain' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('editing_revision', 'supported', "Capability 'editing' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('generator_scope', 'supported', "Capability 'generator' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('human_population', 'supported', "Capability 'human_population' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('language', 'supported', "Capability 'language' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('text_length', 'supported', "Capability 'length' for a has VALIDATED-tier evidence.", ('runs/1.json',))]), (('unknown-count', 1), 'mixed', [('domain_genre', 'supported', "Capability 'domain' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('editing_revision', 'supported', "Capability 'editing' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('generator_scope', 'supported', "Capability 'generator' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('human_population', 'supported', "Capability 'human_population' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('language', 'unknown', "Capability 'language' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).", ('runs/1.json',)), ('text_length', 'supported', "Capability 'length' for a has VALIDATED-tier evidence.", ('runs/1.json',))]), (('unknown-count', 2), 'mixed', [('domain_genre', 'supported', "Capability 'domain' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('editing_revision', 'supported', "Capability 'editing' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('generator_scope', 'supported', "Capability 'generator' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('human_population', 'supported', "Capability 'human_population' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('language', 'unknown', "Capability 'language' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).", ('runs/1.json',)), ('text_length', 'unknown', "Capability 'length' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).", ('runs/1.json',))]), (('unknown-count', 3), 'insufficient', [('domain_genre', 'unknown', "Capability 'domain' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).", ('runs/1.json',)), ('editing_revision', 'supported', "Capability 'editing' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('generator_scope', 'supported', "Capability 'generator' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('human_population', 'supported', "Capability 'human_population' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('language', 'unknown', "Capability 'language' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).", ('runs/1.json',)), ('text_length', 'unknown', "Capability 'length' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).", ('runs/1.json',))]), (('unknown-count', 4), 'insufficient', [('domain_genre', 'unknown', "Capability 'domain' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).", ('runs/1.json',)), ('editing_revision', 'unknown', "Capability 'editing' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).", ('runs/1.json',)), ('generator_scope', 'supported', "Capability 'generator' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('human_population', 'supported', "Capability 'human_population' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('language', 'unknown', "Capability 'language' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).", ('runs/1.json',)), ('text_length', 'unknown', "Capability 'length' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).", ('runs/1.json',))]), (('unknown-count-5', 0), 'strong', [('domain_genre', 'supported', "Capability 'domain' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('editing_revision', 'supported', "Capability 'editing' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('generator_scope', 'supported', "Capability 'generator' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('language', 'supported', "Capability 'language' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('text_length', 'supported', "Capability 'length' for a has VALIDATED-tier evidence.", ('runs/1.json',))]), (('unknown-count-5', 1), 'mixed', [('domain_genre', 'supported', "Capability 'domain' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('editing_revision', 'supported', "Capability 'editing' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('generator_scope', 'supported', "Capability 'generator' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('language', 'unknown', "Capability 'language' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).", ('runs/1.json',)), ('text_length', 'supported', "Capability 'length' for a has VALIDATED-tier evidence.", ('runs/1.json',))]), (('unknown-count-5', 2), 'insufficient', [('domain_genre', 'supported', "Capability 'domain' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('editing_revision', 'supported', "Capability 'editing' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('generator_scope', 'supported', "Capability 'generator' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('language', 'unknown', "Capability 'language' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).", ('runs/1.json',)), ('text_length', 'unknown', "Capability 'length' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).", ('runs/1.json',))]), (('unknown-count-5', 3), 'insufficient', [('domain_genre', 'unknown', "Capability 'domain' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).", ('runs/1.json',)), ('editing_revision', 'supported', "Capability 'editing' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('generator_scope', 'supported', "Capability 'generator' for a has VALIDATED-tier evidence.", ('runs/1.json',)), ('language', 'unknown', "Capability 'language' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).", ('runs/1.json',)), ('text_length', 'unknown', "Capability 'length' for a has registered claims but none is currently effective (expired, or VALIDATED without executed evidence).", ('runs/1.json',))]), (('cap-joined',), 'strong', [('language', 'supported', "Capability 'language' for a has VALIDATED-tier evidence.", ('runs/1.json',))])]
+EXPECTED_PROBE_TRUST_OVERALL_STATE = [
+    ((0, 0, 0, 8), ("ok", "'insufficient'")),
+    ((0, 0, 1, 7), ("ok", "'insufficient'")),
+    ((0, 0, 2, 6), ("ok", "'insufficient'")),
+    ((0, 0, 3, 5), ("ok", "'insufficient'")),
+    ((0, 0, 4, 4), ("ok", "'insufficient'")),
+    ((0, 0, 5, 3), ("ok", "'insufficient'")),
+    ((0, 0, 6, 2), ("ok", "'insufficient'")),
+    ((0, 0, 7, 1), ("ok", "'insufficient'")),
+    ((0, 0, 8, 0), ("ok", "'insufficient'")),
+    ((0, 1, 0, 7), ("ok", "'insufficient'")),
+    ((0, 1, 1, 6), ("ok", "'mixed'")),
+    ((0, 1, 2, 5), ("ok", "'mixed'")),
+    ((0, 1, 3, 4), ("ok", "'mixed'")),
+    ((0, 1, 4, 3), ("ok", "'insufficient'")),
+    ((0, 1, 5, 2), ("ok", "'insufficient'")),
+    ((0, 1, 6, 1), ("ok", "'insufficient'")),
+    ((0, 1, 7, 0), ("ok", "'insufficient'")),
+    ((0, 2, 0, 6), ("ok", "'mixed'")),
+    ((0, 2, 1, 5), ("ok", "'mixed'")),
+    ((0, 2, 2, 4), ("ok", "'mixed'")),
+    ((0, 2, 3, 3), ("ok", "'mixed'")),
+    ((0, 2, 4, 2), ("ok", "'insufficient'")),
+    ((0, 2, 5, 1), ("ok", "'insufficient'")),
+    ((0, 2, 6, 0), ("ok", "'insufficient'")),
+    ((0, 3, 0, 5), ("ok", "'mixed'")),
+    ((0, 3, 1, 4), ("ok", "'mixed'")),
+    ((0, 3, 2, 3), ("ok", "'mixed'")),
+    ((0, 3, 3, 2), ("ok", "'mixed'")),
+    ((0, 3, 4, 1), ("ok", "'insufficient'")),
+    ((0, 3, 5, 0), ("ok", "'insufficient'")),
+    ((0, 4, 0, 4), ("ok", "'mixed'")),
+    ((0, 4, 1, 3), ("ok", "'mixed'")),
+    ((0, 4, 2, 2), ("ok", "'mixed'")),
+    ((0, 4, 3, 1), ("ok", "'mixed'")),
+    ((0, 4, 4, 0), ("ok", "'insufficient'")),
+    ((0, 5, 0, 3), ("ok", "'mixed'")),
+    ((0, 5, 1, 2), ("ok", "'mixed'")),
+    ((0, 5, 2, 1), ("ok", "'mixed'")),
+    ((0, 5, 3, 0), ("ok", "'mixed'")),
+    ((0, 6, 0, 2), ("ok", "'mixed'")),
+    ((0, 6, 1, 1), ("ok", "'mixed'")),
+    ((0, 6, 2, 0), ("ok", "'mixed'")),
+    ((0, 7, 0, 1), ("ok", "'mixed'")),
+    ((0, 7, 1, 0), ("ok", "'mixed'")),
+    ((0, 8, 0, 0), ("ok", "'mixed'")),
+    ((1, 0, 0, 7), ("ok", "'insufficient'")),
+    ((1, 0, 1, 6), ("ok", "'mixed'")),
+    ((1, 0, 2, 5), ("ok", "'mixed'")),
+    ((1, 0, 3, 4), ("ok", "'mixed'")),
+    ((1, 0, 4, 3), ("ok", "'mixed'")),
+    ((1, 0, 5, 2), ("ok", "'mixed'")),
+    ((1, 0, 6, 1), ("ok", "'mixed'")),
+    ((1, 0, 7, 0), ("ok", "'mixed'")),
+    ((1, 1, 0, 6), ("ok", "'mixed'")),
+    ((1, 1, 1, 5), ("ok", "'mixed'")),
+    ((1, 1, 2, 4), ("ok", "'mixed'")),
+    ((1, 1, 3, 3), ("ok", "'mixed'")),
+    ((1, 1, 4, 2), ("ok", "'mixed'")),
+    ((1, 1, 5, 1), ("ok", "'mixed'")),
+    ((1, 1, 6, 0), ("ok", "'mixed'")),
+    ((1, 2, 0, 5), ("ok", "'mixed'")),
+    ((1, 2, 1, 4), ("ok", "'mixed'")),
+    ((1, 2, 2, 3), ("ok", "'mixed'")),
+    ((1, 2, 3, 2), ("ok", "'mixed'")),
+    ((1, 2, 4, 1), ("ok", "'mixed'")),
+    ((1, 2, 5, 0), ("ok", "'mixed'")),
+    ((1, 3, 0, 4), ("ok", "'mixed'")),
+    ((1, 3, 1, 3), ("ok", "'mixed'")),
+    ((1, 3, 2, 2), ("ok", "'mixed'")),
+    ((1, 3, 3, 1), ("ok", "'mixed'")),
+    ((1, 3, 4, 0), ("ok", "'mixed'")),
+    ((1, 4, 0, 3), ("ok", "'mixed'")),
+    ((1, 4, 1, 2), ("ok", "'mixed'")),
+    ((1, 4, 2, 1), ("ok", "'mixed'")),
+    ((1, 4, 3, 0), ("ok", "'mixed'")),
+    ((1, 5, 0, 2), ("ok", "'mixed'")),
+    ((1, 5, 1, 1), ("ok", "'mixed'")),
+    ((1, 5, 2, 0), ("ok", "'mixed'")),
+    ((1, 6, 0, 1), ("ok", "'mixed'")),
+    ((1, 6, 1, 0), ("ok", "'mixed'")),
+    ((1, 7, 0, 0), ("ok", "'mixed'")),
+    ((2, 0, 0, 6), ("ok", "'mixed'")),
+    ((2, 0, 1, 5), ("ok", "'mixed'")),
+    ((2, 0, 2, 4), ("ok", "'mixed'")),
+    ((2, 0, 3, 3), ("ok", "'mixed'")),
+    ((2, 0, 4, 2), ("ok", "'mixed'")),
+    ((2, 0, 5, 1), ("ok", "'mixed'")),
+    ((2, 0, 6, 0), ("ok", "'mixed'")),
+    ((2, 1, 0, 5), ("ok", "'mixed'")),
+    ((2, 1, 1, 4), ("ok", "'mixed'")),
+    ((2, 1, 2, 3), ("ok", "'mixed'")),
+    ((2, 1, 3, 2), ("ok", "'mixed'")),
+    ((2, 1, 4, 1), ("ok", "'mixed'")),
+    ((2, 1, 5, 0), ("ok", "'mixed'")),
+    ((2, 2, 0, 4), ("ok", "'mixed'")),
+    ((2, 2, 1, 3), ("ok", "'mixed'")),
+    ((2, 2, 2, 2), ("ok", "'mixed'")),
+    ((2, 2, 3, 1), ("ok", "'mixed'")),
+    ((2, 2, 4, 0), ("ok", "'mixed'")),
+    ((2, 3, 0, 3), ("ok", "'mixed'")),
+    ((2, 3, 1, 2), ("ok", "'mixed'")),
+    ((2, 3, 2, 1), ("ok", "'mixed'")),
+    ((2, 3, 3, 0), ("ok", "'mixed'")),
+    ((2, 4, 0, 2), ("ok", "'mixed'")),
+    ((2, 4, 1, 1), ("ok", "'mixed'")),
+    ((2, 4, 2, 0), ("ok", "'mixed'")),
+    ((2, 5, 0, 1), ("ok", "'mixed'")),
+    ((2, 5, 1, 0), ("ok", "'mixed'")),
+    ((2, 6, 0, 0), ("ok", "'mixed'")),
+    ((3, 0, 0, 5), ("ok", "'mixed'")),
+    ((3, 0, 1, 4), ("ok", "'mixed'")),
+    ((3, 0, 2, 3), ("ok", "'mixed'")),
+    ((3, 0, 3, 2), ("ok", "'mixed'")),
+    ((3, 0, 4, 1), ("ok", "'mixed'")),
+    ((3, 0, 5, 0), ("ok", "'mixed'")),
+    ((3, 1, 0, 4), ("ok", "'mixed'")),
+    ((3, 1, 1, 3), ("ok", "'mixed'")),
+    ((3, 1, 2, 2), ("ok", "'mixed'")),
+    ((3, 1, 3, 1), ("ok", "'mixed'")),
+    ((3, 1, 4, 0), ("ok", "'mixed'")),
+    ((3, 2, 0, 3), ("ok", "'mixed'")),
+    ((3, 2, 1, 2), ("ok", "'mixed'")),
+    ((3, 2, 2, 1), ("ok", "'mixed'")),
+    ((3, 2, 3, 0), ("ok", "'mixed'")),
+    ((3, 3, 0, 2), ("ok", "'mixed'")),
+    ((3, 3, 1, 1), ("ok", "'mixed'")),
+    ((3, 3, 2, 0), ("ok", "'mixed'")),
+    ((3, 4, 0, 1), ("ok", "'mixed'")),
+    ((3, 4, 1, 0), ("ok", "'mixed'")),
+    ((3, 5, 0, 0), ("ok", "'mixed'")),
+    ((4, 0, 0, 4), ("ok", "'mixed'")),
+    ((4, 0, 1, 3), ("ok", "'mixed'")),
+    ((4, 0, 2, 2), ("ok", "'mixed'")),
+    ((4, 0, 3, 1), ("ok", "'mixed'")),
+    ((4, 0, 4, 0), ("ok", "'mixed'")),
+    ((4, 1, 0, 3), ("ok", "'mixed'")),
+    ((4, 1, 1, 2), ("ok", "'mixed'")),
+    ((4, 1, 2, 1), ("ok", "'mixed'")),
+    ((4, 1, 3, 0), ("ok", "'mixed'")),
+    ((4, 2, 0, 2), ("ok", "'mixed'")),
+    ((4, 2, 1, 1), ("ok", "'mixed'")),
+    ((4, 2, 2, 0), ("ok", "'mixed'")),
+    ((4, 3, 0, 1), ("ok", "'mixed'")),
+    ((4, 3, 1, 0), ("ok", "'mixed'")),
+    ((4, 4, 0, 0), ("ok", "'mixed'")),
+    ((5, 0, 0, 3), ("ok", "'mixed'")),
+    ((5, 0, 1, 2), ("ok", "'mixed'")),
+    ((5, 0, 2, 1), ("ok", "'mixed'")),
+    ((5, 0, 3, 0), ("ok", "'mixed'")),
+    ((5, 1, 0, 2), ("ok", "'mixed'")),
+    ((5, 1, 1, 1), ("ok", "'mixed'")),
+    ((5, 1, 2, 0), ("ok", "'mixed'")),
+    ((5, 2, 0, 1), ("ok", "'mixed'")),
+    ((5, 2, 1, 0), ("ok", "'mixed'")),
+    ((5, 3, 0, 0), ("ok", "'mixed'")),
+    ((6, 0, 0, 2), ("ok", "'mixed'")),
+    ((6, 0, 1, 1), ("ok", "'mixed'")),
+    ((6, 0, 2, 0), ("ok", "'mixed'")),
+    ((6, 1, 0, 1), ("ok", "'mixed'")),
+    ((6, 1, 1, 0), ("ok", "'mixed'")),
+    ((6, 2, 0, 0), ("ok", "'mixed'")),
+    ((7, 0, 0, 1), ("ok", "'mixed'")),
+    ((7, 0, 1, 0), ("ok", "'mixed'")),
+    ((7, 1, 0, 0), ("ok", "'mixed'")),
+    ((8, 0, 0, 0), ("ok", "'mixed'")),
+    (
+        (
+            "set",
+            (
+                "language",
+                "text_length",
+                "domain_genre",
+                "editing_revision",
+                "generator_scope",
+                "human_population",
+                "human_false_positive_evidence",
+                "temporal_version_stability",
+                "detector_diversity",
+                "benign_stability",
+            ),
+        ),
+        ("ok", "'strong'"),
+    ),
+    (
+        (
+            "set",
+            (
+                "language",
+                "text_length",
+                "domain_genre",
+                "editing_revision",
+                "generator_scope",
+                "human_population",
+                "human_false_positive_evidence",
+            ),
+        ),
+        ("ok", "'mixed'"),
+    ),
+    (
+        (
+            "set",
+            (
+                "language",
+                "text_length",
+                "domain_genre",
+                "editing_revision",
+                "generator_scope",
+                "human_population",
+                "human_false_positive_evidence",
+                "temporal_version_stability",
+                "detector_diversity",
+                "benign_stability",
+                "rogue_dim",
+            ),
+        ),
+        ("ok", "'mixed'"),
+    ),
+    (("set", ()), ("ok", "'insufficient'")),
+    (("exact10",), ("ok", "'strong'")),
+    (("exact10-one-partial",), ("ok", "'mixed'")),
+    (("ten-plus-rogue",), ("ok", "'mixed'")),
+    (("ten-plus-rogue-partial",), ("ok", "'mixed'")),
+    (("nine-plus-rogue",), ("ok", "'mixed'")),
+    (("ten-rogue-names",), ("ok", "'mixed'")),
+    (("rogue",), ("ok", "'mixed'")),
+    (("rogue2",), ("ok", "'mixed'")),
+]
 
-
-EXPECTED_PROBE_TRUST_OVERALL_STATE = [((0, 0, 0, 8), ('ok', "'insufficient'")), ((0, 0, 1, 7), ('ok', "'insufficient'")), ((0, 0, 2, 6), ('ok', "'insufficient'")), ((0, 0, 3, 5), ('ok', "'insufficient'")), ((0, 0, 4, 4), ('ok', "'insufficient'")), ((0, 0, 5, 3), ('ok', "'insufficient'")), ((0, 0, 6, 2), ('ok', "'insufficient'")), ((0, 0, 7, 1), ('ok', "'insufficient'")), ((0, 0, 8, 0), ('ok', "'insufficient'")), ((0, 1, 0, 7), ('ok', "'insufficient'")), ((0, 1, 1, 6), ('ok', "'mixed'")), ((0, 1, 2, 5), ('ok', "'mixed'")), ((0, 1, 3, 4), ('ok', "'mixed'")), ((0, 1, 4, 3), ('ok', "'insufficient'")), ((0, 1, 5, 2), ('ok', "'insufficient'")), ((0, 1, 6, 1), ('ok', "'insufficient'")), ((0, 1, 7, 0), ('ok', "'insufficient'")), ((0, 2, 0, 6), ('ok', "'mixed'")), ((0, 2, 1, 5), ('ok', "'mixed'")), ((0, 2, 2, 4), ('ok', "'mixed'")), ((0, 2, 3, 3), ('ok', "'mixed'")), ((0, 2, 4, 2), ('ok', "'insufficient'")), ((0, 2, 5, 1), ('ok', "'insufficient'")), ((0, 2, 6, 0), ('ok', "'insufficient'")), ((0, 3, 0, 5), ('ok', "'mixed'")), ((0, 3, 1, 4), ('ok', "'mixed'")), ((0, 3, 2, 3), ('ok', "'mixed'")), ((0, 3, 3, 2), ('ok', "'mixed'")), ((0, 3, 4, 1), ('ok', "'insufficient'")), ((0, 3, 5, 0), ('ok', "'insufficient'")), ((0, 4, 0, 4), ('ok', "'mixed'")), ((0, 4, 1, 3), ('ok', "'mixed'")), ((0, 4, 2, 2), ('ok', "'mixed'")), ((0, 4, 3, 1), ('ok', "'mixed'")), ((0, 4, 4, 0), ('ok', "'insufficient'")), ((0, 5, 0, 3), ('ok', "'mixed'")), ((0, 5, 1, 2), ('ok', "'mixed'")), ((0, 5, 2, 1), ('ok', "'mixed'")), ((0, 5, 3, 0), ('ok', "'mixed'")), ((0, 6, 0, 2), ('ok', "'mixed'")), ((0, 6, 1, 1), ('ok', "'mixed'")), ((0, 6, 2, 0), ('ok', "'mixed'")), ((0, 7, 0, 1), ('ok', "'mixed'")), ((0, 7, 1, 0), ('ok', "'mixed'")), ((0, 8, 0, 0), ('ok', "'mixed'")), ((1, 0, 0, 7), ('ok', "'insufficient'")), ((1, 0, 1, 6), ('ok', "'mixed'")), ((1, 0, 2, 5), ('ok', "'mixed'")), ((1, 0, 3, 4), ('ok', "'mixed'")), ((1, 0, 4, 3), ('ok', "'mixed'")), ((1, 0, 5, 2), ('ok', "'mixed'")), ((1, 0, 6, 1), ('ok', "'mixed'")), ((1, 0, 7, 0), ('ok', "'mixed'")), ((1, 1, 0, 6), ('ok', "'mixed'")), ((1, 1, 1, 5), ('ok', "'mixed'")), ((1, 1, 2, 4), ('ok', "'mixed'")), ((1, 1, 3, 3), ('ok', "'mixed'")), ((1, 1, 4, 2), ('ok', "'mixed'")), ((1, 1, 5, 1), ('ok', "'mixed'")), ((1, 1, 6, 0), ('ok', "'mixed'")), ((1, 2, 0, 5), ('ok', "'mixed'")), ((1, 2, 1, 4), ('ok', "'mixed'")), ((1, 2, 2, 3), ('ok', "'mixed'")), ((1, 2, 3, 2), ('ok', "'mixed'")), ((1, 2, 4, 1), ('ok', "'mixed'")), ((1, 2, 5, 0), ('ok', "'mixed'")), ((1, 3, 0, 4), ('ok', "'mixed'")), ((1, 3, 1, 3), ('ok', "'mixed'")), ((1, 3, 2, 2), ('ok', "'mixed'")), ((1, 3, 3, 1), ('ok', "'mixed'")), ((1, 3, 4, 0), ('ok', "'mixed'")), ((1, 4, 0, 3), ('ok', "'mixed'")), ((1, 4, 1, 2), ('ok', "'mixed'")), ((1, 4, 2, 1), ('ok', "'mixed'")), ((1, 4, 3, 0), ('ok', "'mixed'")), ((1, 5, 0, 2), ('ok', "'mixed'")), ((1, 5, 1, 1), ('ok', "'mixed'")), ((1, 5, 2, 0), ('ok', "'mixed'")), ((1, 6, 0, 1), ('ok', "'mixed'")), ((1, 6, 1, 0), ('ok', "'mixed'")), ((1, 7, 0, 0), ('ok', "'mixed'")), ((2, 0, 0, 6), ('ok', "'mixed'")), ((2, 0, 1, 5), ('ok', "'mixed'")), ((2, 0, 2, 4), ('ok', "'mixed'")), ((2, 0, 3, 3), ('ok', "'mixed'")), ((2, 0, 4, 2), ('ok', "'mixed'")), ((2, 0, 5, 1), ('ok', "'mixed'")), ((2, 0, 6, 0), ('ok', "'mixed'")), ((2, 1, 0, 5), ('ok', "'mixed'")), ((2, 1, 1, 4), ('ok', "'mixed'")), ((2, 1, 2, 3), ('ok', "'mixed'")), ((2, 1, 3, 2), ('ok', "'mixed'")), ((2, 1, 4, 1), ('ok', "'mixed'")), ((2, 1, 5, 0), ('ok', "'mixed'")), ((2, 2, 0, 4), ('ok', "'mixed'")), ((2, 2, 1, 3), ('ok', "'mixed'")), ((2, 2, 2, 2), ('ok', "'mixed'")), ((2, 2, 3, 1), ('ok', "'mixed'")), ((2, 2, 4, 0), ('ok', "'mixed'")), ((2, 3, 0, 3), ('ok', "'mixed'")), ((2, 3, 1, 2), ('ok', "'mixed'")), ((2, 3, 2, 1), ('ok', "'mixed'")), ((2, 3, 3, 0), ('ok', "'mixed'")), ((2, 4, 0, 2), ('ok', "'mixed'")), ((2, 4, 1, 1), ('ok', "'mixed'")), ((2, 4, 2, 0), ('ok', "'mixed'")), ((2, 5, 0, 1), ('ok', "'mixed'")), ((2, 5, 1, 0), ('ok', "'mixed'")), ((2, 6, 0, 0), ('ok', "'mixed'")), ((3, 0, 0, 5), ('ok', "'mixed'")), ((3, 0, 1, 4), ('ok', "'mixed'")), ((3, 0, 2, 3), ('ok', "'mixed'")), ((3, 0, 3, 2), ('ok', "'mixed'")), ((3, 0, 4, 1), ('ok', "'mixed'")), ((3, 0, 5, 0), ('ok', "'mixed'")), ((3, 1, 0, 4), ('ok', "'mixed'")), ((3, 1, 1, 3), ('ok', "'mixed'")), ((3, 1, 2, 2), ('ok', "'mixed'")), ((3, 1, 3, 1), ('ok', "'mixed'")), ((3, 1, 4, 0), ('ok', "'mixed'")), ((3, 2, 0, 3), ('ok', "'mixed'")), ((3, 2, 1, 2), ('ok', "'mixed'")), ((3, 2, 2, 1), ('ok', "'mixed'")), ((3, 2, 3, 0), ('ok', "'mixed'")), ((3, 3, 0, 2), ('ok', "'mixed'")), ((3, 3, 1, 1), ('ok', "'mixed'")), ((3, 3, 2, 0), ('ok', "'mixed'")), ((3, 4, 0, 1), ('ok', "'mixed'")), ((3, 4, 1, 0), ('ok', "'mixed'")), ((3, 5, 0, 0), ('ok', "'mixed'")), ((4, 0, 0, 4), ('ok', "'mixed'")), ((4, 0, 1, 3), ('ok', "'mixed'")), ((4, 0, 2, 2), ('ok', "'mixed'")), ((4, 0, 3, 1), ('ok', "'mixed'")), ((4, 0, 4, 0), ('ok', "'mixed'")), ((4, 1, 0, 3), ('ok', "'mixed'")), ((4, 1, 1, 2), ('ok', "'mixed'")), ((4, 1, 2, 1), ('ok', "'mixed'")), ((4, 1, 3, 0), ('ok', "'mixed'")), ((4, 2, 0, 2), ('ok', "'mixed'")), ((4, 2, 1, 1), ('ok', "'mixed'")), ((4, 2, 2, 0), ('ok', "'mixed'")), ((4, 3, 0, 1), ('ok', "'mixed'")), ((4, 3, 1, 0), ('ok', "'mixed'")), ((4, 4, 0, 0), ('ok', "'mixed'")), ((5, 0, 0, 3), ('ok', "'mixed'")), ((5, 0, 1, 2), ('ok', "'mixed'")), ((5, 0, 2, 1), ('ok', "'mixed'")), ((5, 0, 3, 0), ('ok', "'mixed'")), ((5, 1, 0, 2), ('ok', "'mixed'")), ((5, 1, 1, 1), ('ok', "'mixed'")), ((5, 1, 2, 0), ('ok', "'mixed'")), ((5, 2, 0, 1), ('ok', "'mixed'")), ((5, 2, 1, 0), ('ok', "'mixed'")), ((5, 3, 0, 0), ('ok', "'mixed'")), ((6, 0, 0, 2), ('ok', "'mixed'")), ((6, 0, 1, 1), ('ok', "'mixed'")), ((6, 0, 2, 0), ('ok', "'mixed'")), ((6, 1, 0, 1), ('ok', "'mixed'")), ((6, 1, 1, 0), ('ok', "'mixed'")), ((6, 2, 0, 0), ('ok', "'mixed'")), ((7, 0, 0, 1), ('ok', "'mixed'")), ((7, 0, 1, 0), ('ok', "'mixed'")), ((7, 1, 0, 0), ('ok', "'mixed'")), ((8, 0, 0, 0), ('ok', "'mixed'")), (('set', ('language', 'text_length', 'domain_genre', 'editing_revision', 'generator_scope', 'human_population', 'human_false_positive_evidence', 'temporal_version_stability', 'detector_diversity', 'benign_stability')), ('ok', "'strong'")), (('set', ('language', 'text_length', 'domain_genre', 'editing_revision', 'generator_scope', 'human_population', 'human_false_positive_evidence')), ('ok', "'mixed'")), (('set', ('language', 'text_length', 'domain_genre', 'editing_revision', 'generator_scope', 'human_population', 'human_false_positive_evidence', 'temporal_version_stability', 'detector_diversity', 'benign_stability', 'rogue_dim')), ('ok', "'mixed'")), (('set', ()), ('ok', "'insufficient'")), (('exact10',), ('ok', "'strong'")), (('exact10-one-partial',), ('ok', "'mixed'")), (('ten-plus-rogue',), ('ok', "'mixed'")), (('ten-plus-rogue-partial',), ('ok', "'mixed'")), (('nine-plus-rogue',), ('ok', "'mixed'")), (('ten-rogue-names',), ('ok', "'mixed'")), (('rogue',), ('ok', "'mixed'")), (('rogue2',), ('ok', "'mixed'"))]
 
 class TestWorkerFKillTrust(unittest.TestCase):
     def test_probe_trust_assess(self):
         got = probe_trust_assess()
         exp = EXPECTED_PROBE_TRUST_ASSESS
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_trust_build(self):
         got = probe_trust_build()
         exp = EXPECTED_PROBE_TRUST_BUILD
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_trust_ledger(self):
         got = probe_trust_ledger()
         exp = EXPECTED_PROBE_TRUST_LEDGER
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
     def test_probe_trust_overall_state(self):
         got = probe_trust_overall_state()
         exp = EXPECTED_PROBE_TRUST_OVERALL_STATE
         self.assertEqual(len(got), len(exp))
-        for i, (g, e) in enumerate(zip(got, exp)):
-            self.assertEqual(g, e, f'row {i}')
+        for i, (g, e) in enumerate(zip(got, exp, strict=True)):
+            self.assertEqual(g, e, f"row {i}")
 
 
 if __name__ == "__main__":
