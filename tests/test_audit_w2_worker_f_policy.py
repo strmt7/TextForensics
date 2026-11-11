@@ -16,15 +16,22 @@ regenerate.
 import unittest
 
 from w2_f_kill_helpers import (
-    probe_policy_claim_effective
+    probe_policy_claim_effective,
+    probe_policy_helpers
 )
 
 
 EXPECTED_PROBE_POLICY_CLAIM_EFFECTIVE = [(('VALIDATED', None), ('ok', 'True')), (('VALIDATED', '2999-01-01'), ('ok', 'True')), (('VALIDATED', '2000-01-01'), ('ok', 'False')), (('READABLE', None), ('ok', 'True')), (('READABLE', '2999-01-01'), ('ok', 'True')), (('READABLE', '2000-01-01'), ('ok', 'False')), (('TOOL_BACKED', None), ('ok', 'True')), (('TOOL_BACKED', '2999-01-01'), ('ok', 'True')), (('TOOL_BACKED', '2000-01-01'), ('ok', 'False')), (('label', 'EXECUTED'), ('ok', 'True')), (('label', 'REPORTED'), ('ok', 'False')), (('label', 'CALCULATED'), ('ok', 'False')), (('label', 'PROPOSED'), ('ok', 'False'))]
 
+
+EXPECTED_PROBE_POLICY_HELPERS = [('today-none', ('ok', 'None')), ('today-date', ('ok', 'datetime.date(2026, 1, 15)')), ('today-naive', ('ok', 'datetime.date(2026, 1, 15)')), ('today-aware-utc', ('ok', 'datetime.date(2026, 1, 15)')), ('today-aware-plus5', ('ok', 'datetime.date(2025, 12, 31)')), ('today-aware-minus5', ('ok', 'datetime.date(2026, 1, 1)')), ('today-aware-plus5-midnight', ('ok', 'datetime.date(2025, 12, 31)')), ('resolver-none', ('ok', 'True')), ('resolver-map-hit', ('ok', 'True')), ('resolver-map-miss', ('ok', 'False')), ('resolver-map-false', ('ok', 'False')), ('resolver-call-true', ('ok', 'True')), ('resolver-call-false', ('ok', 'False')), ('resolver-call-raises', ('ok', 'False')), ('resolver-map-raises', ('ok', 'False')), ('register-valid', ('ok', '([], 1)')), ('register-no-evidence', ('ok', "(['No evidence for claim a/language. Every claim must carry at least one evidence reference.'], 1)")), ('register-validated-no-exec', ('ok', "(['VALIDATED claim a/language requires at least one EXECUTED evidence reference.'], 1)")), ('register-expired', ('ok', "(['Claim a/language expired on 2020-01-01.'], 1)")), ('ltd-no-expiry', ('ok', 'supported', "Capability 'language' for a has VALIDATED-tier evidence.", [])), ('ltd-with-expiry', ('ok', 'supported', "Capability 'language' for a has VALIDATED-tier evidence.", ['Claim for language expires 2027-01-01.'])), ('ltd-expired', ('ok', 'unknown', "Capability claims for a under prefix 'language' exist but none is currently effective (expired, or VALIDATED without executed evidence).", ['Claim for language expires 2020-01-01.'])), ('ltd-no-claims', ('ok', "'unknown'"))]
+
 class TestWorkerFKillPolicy(unittest.TestCase):
     def test_probe_policy_claim_effective(self):
         self.assertEqual(probe_policy_claim_effective(), EXPECTED_PROBE_POLICY_CLAIM_EFFECTIVE)
+
+    def test_probe_policy_helpers(self):
+        self.assertEqual(probe_policy_helpers(), EXPECTED_PROBE_POLICY_HELPERS)
 
 
 if __name__ == "__main__":

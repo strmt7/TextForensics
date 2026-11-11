@@ -2290,3 +2290,805 @@ def probe_bm_check_disjointness():
                 rows.append((name, ("raise", type(exc).__name__,
                                     str(exc).replace(str(tmp), "TMP"))))
     return rows
+
+
+# ---------------------------------------------------------------------------
+# observatory._normalize_observation / _validate_score_range /
+# _validate_snapshot_schema / _observation_from_prediction (new probe)
+# ---------------------------------------------------------------------------
+def _obs_corpus():
+    from textforensics.observatory import DriftObservatory
+    corpus = {"schema": "textforensics.drift-corpus/v1",
+              "samples": [{"id": "s1", "text": "synthetic probe sentence one."},
+                          {"id": "s2", "text": "synthetic probe sentence two."}]}
+    return DriftObservatory(corpus=corpus)
+
+
+def _obs_valid(obs, **over):
+    base = {"sample_id": "s1", "detector_id": "d", "detector_version": "0.1.0",
+            "detector_family": "f", "execution": "local", "score": 0.1,
+            "score_semantics": "lower means more machine-like",
+            "verdict": "ai_like", "threshold": 0.2,
+            "native_score_direction": "lower_means_ai", "score_range": [-5.0, 5.0],
+            "observed_at": "2026-01-01T00:00:00+00:00"}
+    base.update(over)
+    return base
+
+
+def _scrub_path(value, tmp):
+    if isinstance(value, tuple) and len(value) == 3 and value[0] == "raise":
+        return (value[0], value[1], value[2].replace(tmp, "TMP"))
+    return value
+
+
+def _scrub_time(value):
+    import re
+    if isinstance(value, str):
+        return re.sub(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(\+00:00|Z)?", "TIME", value)
+    if isinstance(value, dict):
+        return {k: _scrub_time(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_scrub_time(v) for v in value]
+    return value
+
+
+def probe_obs_normalize():
+    from textforensics.observatory import _validate_score_range, DRIFT_SNAPSHOT_SCHEMA
+    obs = _obs_corpus()
+    real_sha = obs.samples["s1"].text_sha256
+    rows = []
+    cases = [
+        ("valid", _obs_valid(obs)),
+        ("no-observed-at", {k: v for k, v in _obs_valid(obs).items() if k != "observed_at"}),
+        ("observed-at-set", _obs_valid(obs, observed_at="2025-06-01T12:00:00+00:00")),
+        ("sha-before", _obs_valid(obs, text_sha256="0" * 64)),
+        ("sha-after", _obs_valid(obs, text_sha256="f" * 64)),
+        ("sha-distinct", _obs_valid(obs, text_sha256="".join(real_sha))),
+        ("sha-badhex", _obs_valid(obs, text_sha256="g" * 64)),
+        ("sha-short", _obs_valid(obs, text_sha256="a" * 63)),
+        ("score-neg", _obs_valid(obs, score=-0.5)),
+        ("score-mid", _obs_valid(obs, score=0.5)),
+        ("score-over", _obs_valid(obs, score=1.5)),
+        ("reliability-neg", _obs_valid(obs, reliability=-0.5)),
+        ("reliability-mid", _obs_valid(obs, reliability=0.5)),
+        ("reliability-over", _obs_valid(obs, reliability=1.5)),
+        ("calibrated-neg", _obs_valid(obs, calibrated_ai_probability=-0.5, calibration_id="c1")),
+        ("calibrated-mid", _obs_valid(obs, calibrated_ai_probability=0.5, calibration_id="c1")),
+        ("calibrated-over", _obs_valid(obs, calibrated_ai_probability=1.5, calibration_id="c1")),
+        ("calibrated-no-id", _obs_valid(obs, calibrated_ai_probability=0.5)),
+        ("calibration-id-only", _obs_valid(obs, calibration_id="c1")),
+        ("lang-unsupported", _obs_valid(obs, supported_languages=["xx"])),
+        ("lang-empty", _obs_valid(obs, supported_languages=[""])),
+        ("lang-mixed-empty", _obs_valid(obs, supported_languages=["en", ""])),
+        ("lang-ok", _obs_valid(obs, supported_languages=["en", "fr"])),
+        ("lang-not-list", _obs_valid(obs, supported_languages="en")),
+        ("score-range-eq", _obs_valid(obs, score_range=[0.0, 0.0])),
+        ("score-range-lo", _obs_valid(obs, score_range=[0.0, 1.0])),
+        ("score-range-hi", _obs_valid(obs, score_range=[-1.0, 0.0])),
+        ("score-range-none", _obs_valid(obs, score_range=None)),
+        ("not-mapping", "x"),
+        ("unknown-sample", _obs_valid(obs, sample_id="s9")),
+    ]
+    for name, ob in cases:
+        try:
+            rows.append((name, ("ok", _scrub_time(obs._normalize_observation(ob)))))
+        except Exception as exc:  # noqa: BLE001
+            rows.append((name, ("raise", type(exc).__name__, str(exc))))
+    # _validate_score_range
+    for name, value in [
+        ("range-none", None), ("range-ok", [0.0, 1.0]), ("range-len1", [0.0]),
+        ("range-len3", [0.0, 0.5, 1.0]), ("range-not-list", "x"),
+        ("range-lo-none", [None, 1.0]), ("range-hi-none", [0.0, None]),
+        ("range-eq", [1.0, 1.0]), ("range-eq-distinct", [float("1.0"), float("1.0")]),
+        ("range-reversed", [1.0, 0.0]), ("range-bool", [True, 1.0]),
+        ("range-str", ["0", "1"]), ("range-nan", [float("nan"), 1.0]),
+    ]:
+        rows.append((name, outcome(_validate_score_range, value)))
+    # _validate_snapshot_schema
+    for name, snap in [
+        ("snap-valid", {"schema": DRIFT_SNAPSHOT_SCHEMA, "records": [], "failures": []}),
+        ("snap-records", {"schema": DRIFT_SNAPSHOT_SCHEMA,
+                          "records": [{"native_score_direction": "higher_means_ai",
+                                       "score_range": [0.0, 1.0]}], "failures": []}),
+        ("snap-no-direction", {"schema": DRIFT_SNAPSHOT_SCHEMA,
+                               "records": [{"score_range": [0.0, 1.0]}], "failures": []}),
+        ("snap-no-range", {"schema": DRIFT_SNAPSHOT_SCHEMA,
+                           "records": [{"native_score_direction": "lower_means_ai"}], "failures": []}),
+        ("snap-bad-schema", {"schema": "textforensics.drift-snapshot/v9", "records": []}),
+        ("snap-old-schema", {"schema": "textforensics.drift-snapshot/v1", "records": []}),
+        ("snap-records-not-list", {"schema": DRIFT_SNAPSHOT_SCHEMA, "records": "x"}),
+        ("snap-record-not-obj", {"schema": DRIFT_SNAPSHOT_SCHEMA, "records": ["x"]}),
+        ("snap-bad-direction", {"schema": DRIFT_SNAPSHOT_SCHEMA,
+                                "records": [{"native_score_direction": "sideways"}]}),
+        ("snap-bad-range", {"schema": DRIFT_SNAPSHOT_SCHEMA,
+                            "records": [{"score_range": [1.0, 0.0]}]}),
+    ]:
+        rows.append((name, outcome(obs._validate_snapshot_schema, snap)))
+    # _observation_from_prediction (score_range set vs None)
+    from textforensics.detectors import DetectorPrediction
+    sample = obs.samples["s1"]
+    from types import SimpleNamespace
+    det = SimpleNamespace(detector_id="d", detector_version="0.1.0", detector_family="f")
+    for name, score_range, direction in [
+        ("pred-range", [-5.0, 5.0], "lower_means_ai"),
+        ("pred-no-range", None, "lower_means_ai"),
+        ("pred-no-direction", [-5.0, 5.0], None),
+    ]:
+        pred = DetectorPrediction(schema="textforensics.detector-result/v2",
+                                  detector_id="d", detector_version="0.1.0",
+                                  detector_family="f", execution="local",
+                                  score=0.1, score_semantics="s", verdict="ai_like",
+                                  threshold=0.2)
+        object.__setattr__(pred, "native_score_direction", direction)
+        object.__setattr__(pred, "score_range", score_range)
+        rows.append((name, outcome(lambda p=pred: _scrub_time(obs._observation_from_prediction(sample, det, p)))))
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# model_card from_dict helpers / to_json / to_markdown / load (new probe)
+# ---------------------------------------------------------------------------
+def _mc_full_card():
+    import test_model_card as T
+    return T.TestModelCardLoad()._full_card()
+
+
+def probe_mc_from_dict():
+    import copy, tempfile
+    from pathlib import Path
+    from textforensics.model_card import (
+        ModelCard, _evaluation_dataset_from_dict, _metric_from_dict,
+        _quantitative_analysis_from_dict, _training_data_from_dict,
+        _mc_int, _mc_number, _mc_opt_number, load_model_card)
+    card = _mc_full_card()
+    d = card.to_dict()
+    eval_d = d["evaluation_data"]
+    metric_d = d["quantitative_analysis"]["metrics"][0]
+    quant_d = d["quantitative_analysis"]
+    train_d = d["training_data"]
+    rows = []
+    # _evaluation_dataset_from_dict: split ratios
+    for name, ratios in [
+        ("eval-valid", {"train": 0.8, "test": 0.2}),
+        ("eval-bool", {"train": True, "test": 0.2}),
+        ("eval-str", {"train": "0.8", "test": 0.2}),
+        ("eval-neg", {"train": -0.5, "test": 1.5}),
+        ("eval-zero", {"train": 0.0, "test": 1.0}),
+        ("eval-one", {"train": 1.0, "test": 0.0}),
+        ("eval-over", {"train": 1.5, "test": -0.5}),
+        ("eval-sum-1e-6", {"train": 0.8 + 1e-6, "test": 0.2}),
+        ("eval-sum-2e-6", {"train": 0.8 + 2e-6, "test": 0.2}),
+        ("eval-sum-low", {"train": 0.8, "test": 0.1}),
+        ("eval-sum-empty", {}),
+        ("eval-sum-3way", {"train": 0.7, "val": 0.2, "test": 0.1}),
+    ]:
+        m = copy.deepcopy(eval_d)
+        m["split_ratios"] = ratios
+        rows.append((name, outcome(_evaluation_dataset_from_dict, m)))
+    # _metric_from_dict: CI shapes
+    for name, over in [
+        ("metric-valid", {}),
+        ("metric-ci-len1", {"confidence_interval": [0.9]}),
+        ("metric-ci-len3", {"confidence_interval": [0.9, 0.95, 0.99]}),
+        ("metric-ci-bool", {"confidence_interval": [True, 0.95]}),
+        ("metric-ci-str", {"confidence_interval": ["0.9", 0.95]}),
+        ("metric-ci-reversed", {"confidence_interval": [0.97, 0.93]}),
+        ("metric-ci-eq", {"confidence_interval": [0.95, 0.95]}),
+        ("metric-ci-none", {"confidence_interval": None}),
+        ("metric-split-set", {"split": "train"}),
+        ("metric-split-missing", {"split": None}),
+    ]:
+        m = copy.deepcopy(metric_d)
+        if "split" in over and over["split"] is None:
+            m.pop("split", None)
+        else:
+            m.update(over)
+        rows.append((name, outcome(_metric_from_dict, m)))
+    # _quantitative_analysis_from_dict: confusion values
+    for name, cm in [
+        ("quant-valid", {"tp": 90, "fp": 5, "tn": 95, "fn": 10}),
+        ("quant-zero", {"tp": 0, "fp": 0, "tn": 0, "fn": 0}),
+        ("quant-neg", {"tp": -1, "fp": 5, "tn": 95, "fn": 10}),
+        ("quant-bool", {"tp": True, "fp": 5, "tn": 95, "fn": 10}),
+        ("quant-none", None),
+    ]:
+        m = copy.deepcopy(quant_d)
+        m["confusion_matrix"] = cm
+        rows.append((name, outcome(_quantitative_analysis_from_dict, m)))
+    # _training_data_from_dict: total_size + optional lists
+    for name, over in [
+        ("train-valid", {}),
+        ("train-size-0", {"total_size": 0}),
+        ("train-size-neg", {"total_size": -1}),
+        ("train-no-aug", {"augmentation_techniques": None}),
+        ("train-no-biases", {"known_biases": None}),
+        ("train-no-both", {"augmentation_techniques": None, "known_biases": None}),
+    ]:
+        m = copy.deepcopy(train_d)
+        m.update(over)
+        rows.append((name, outcome(_training_data_from_dict, m)))
+    # _mc_int / _mc_number / _mc_opt_number
+    for name, fn in [
+        ("mc-int-ok", lambda: _mc_int({"size": 5}, "size", "w")),
+        ("mc-int-bool", lambda: _mc_int({"size": True}, "size", "w")),
+        ("mc-int-str", lambda: _mc_int({"size": "5"}, "size", "w")),
+        ("mc-int-float", lambda: _mc_int({"size": 5.0}, "size", "w")),
+        ("mc-int-neg", lambda: _mc_int({"size": -1}, "size", "w", minimum=0)),
+        ("mc-num-ok", lambda: _mc_number({"v": 0.5}, "v", "w")),
+        ("mc-num-bool", lambda: _mc_number({"v": True}, "v", "w")),
+        ("mc-num-str", lambda: _mc_number({"v": "x"}, "v", "w")),
+        ("mc-num-nan-str", lambda: _mc_number({"v": "nan"}, "v", "w")),
+        ("mc-opt-ok", lambda: _mc_opt_number({"v": 0.5}, "v", "w")),
+        ("mc-opt-none", lambda: _mc_opt_number({"v": None}, "v", "w")),
+        ("mc-opt-bool", lambda: _mc_opt_number({"v": True}, "v", "w")),
+        ("mc-opt-str", lambda: _mc_opt_number({"v": "x"}, "v", "w")),
+    ]:
+        rows.append((name, outcome(fn)))
+    # from_dict schema_version
+    for name, ver in [("fromdict-100", "1.0.0"), ("fromdict-090", "0.9.0"),
+                      ("fromdict-200", "2.0.0"), ("fromdict-missing", None)]:
+        m = copy.deepcopy(d)
+        if ver is None:
+            m.pop("schema_version", None)
+        else:
+            m["schema_version"] = ver
+        rows.append((name, outcome(ModelCard.from_dict, m)))
+    # to_json: indent + non-ASCII
+    rows.append(("json-indent2", outcome(card.to_json, 2)))
+    rows.append(("json-indent3", outcome(card.to_json, 3)))
+    rows.append(("json-indent1", outcome(card.to_json, 1)))
+    import dataclasses
+    card_na = dataclasses.replace(card.model_details, name="Café Détecteur")
+    card2 = dataclasses.replace(card, model_details=card_na)
+    rows.append(("json-nonascii", outcome(card2.to_json)))
+    # to_markdown: full vs stripped sections
+    rows.append(("md-full", outcome(card.to_markdown)))
+    card_nom = dataclasses.replace(card, metrics=[], ethical_considerations=[],
+                                   caveats_and_recommendations=[],
+                                   eu_ai_act_transparency_notes={})
+    rows.append(("md-stripped", outcome(card_nom.to_markdown)))
+    card_noci = dataclasses.replace(card, metrics=[
+        dataclasses.replace(card.metrics[0], confidence_interval=None)])
+    rows.append(("md-no-ci", outcome(card_noci.to_markdown)))
+    # load: missing file (scrub the tmp path from the error message)
+    with tempfile.TemporaryDirectory() as tmp:
+        rows.append(("load-missing", _scrub_path(outcome(load_model_card, Path(tmp) / "nope.json"), tmp)))
+        p = Path(tmp) / "card.json"
+        p.write_text(card.to_json(), encoding="utf-8")
+        rows.append(("load-valid", outcome(lambda: load_model_card(p).model_details.name)))
+        bad = Path(tmp) / "bad.json"
+        bad.write_text("not json {", encoding="utf-8")
+        rows.append(("load-badjson", _scrub_path(outcome(load_model_card, bad), tmp)))
+        nan = Path(tmp) / "nan.json"
+        nan.write_text('{"schema_version": "1.0.0", "x": NaN}', encoding="utf-8")
+        rows.append(("load-nan", _scrub_path(outcome(load_model_card, nan), tmp)))
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# evidence._verification_row_ok / _record_candidate / _worst_fpr_dimension /
+# records_for / InferenceIdentity+DisjointnessProof / coverage_for_predictions
+# (new probes)
+# ---------------------------------------------------------------------------
+def probe_ev_row_ok():
+    from textforensics.evidence import RegistryVerification, _verification_row_ok
+    ver = RegistryVerification(verified=True, errors=(),
+                               records={"ev1": {"ok": True},
+                                        "ev2": {"ok": False, "errors": ["bad sha"]},
+                                        "ev3": {"ok": False},
+                                        "ev4": True,
+                                        "ev5": False,
+                                        "ev6": "not-a-row",
+                                        "ev7": {"ok": True, "errors": ["ignored"]}},
+                               checked_at_utc="2026-01-01T00:00:00+00:00")
+    rows = []
+    for name, av, eid in [
+        ("none", None, "ev1"),
+        ("unsupported-int", 42, "ev1"),
+        ("unsupported-list", [], "ev1"),
+        ("ver-ok", ver, "ev1"),
+        ("ver-fail-errors", ver, "ev2"),
+        ("ver-fail-noerr", ver, "ev3"),
+        ("ver-bool-true", ver, "ev4"),
+        ("ver-bool-false", ver, "ev5"),
+        ("ver-malformed", ver, "ev6"),
+        ("ver-ok-errors", ver, "ev7"),
+        ("ver-missing", ver, "ev9"),
+        ("map-ok", {"ev1": True}, "ev1"),
+        ("map-false", {"ev1": False}, "ev1"),
+        ("map-dict-ok", {"ev1": {"ok": True}}, "ev1"),
+        ("map-dict-fail", {"ev1": {"ok": False, "errors": ["e1", "e2"]}}, "ev1"),
+        ("map-dict-nook", {"ev1": {"errors": ["e1"]}}, "ev1"),
+        ("map-missing", {"ev1": True}, "ev9"),
+        ("map-malformed", {"ev1": 3}, "ev1"),
+    ]:
+        rows.append((name, outcome(_verification_row_ok, av, eid)))
+    return rows
+
+
+def probe_ev_record_candidate2():
+    from datetime import datetime, UTC
+    from textforensics.evidence import _record_candidate, SliceMatch
+    now = datetime(2026, 11, 11, tzinfo=UTC)
+    rows = []
+    match_all = SliceMatch(language="match", length="match", domain="match",
+                           editing="match", applicable=True)
+    match_mix = SliceMatch(language="match", length="mismatch", domain="unknown",
+                           editing="match", applicable=True)
+    for name, dim, match, eligible, reasons in [
+        ("supported-default", "language", match_all, None, ()),
+        ("supported-eligible", "language", match_all, True, ()),
+        ("supported-ineligible", "language", match_all, False, ("stale",)),
+        ("supported-ineligible-2reasons", "language", match_all, False, ("stale", "no-proof")),
+        ("partial-ineligible", "language", match_mix, False, ("stale",)),
+        ("unknown-ineligible", "human_false_positive_evidence", match_mix, False, ("stale",)),
+        ("text-length-ineligible", "text_length", match_all, False, ("stale",)),
+    ]:
+        record = _ev_record(evaluated_at="2026-11-01T00:00:00Z", n_human=120, n_ai=120)
+        slice_ = _ev_slice(n_human=120, n_ai=120)
+        kwargs = dict(record=record, slice_=slice_, match=match, now=now,
+                      max_age_days=30, dimension=dim, fpr_ceiling=0.05)
+        if eligible is not None:
+            kwargs["eligible"] = eligible
+            kwargs["ineligibility_reasons"] = reasons
+        try:
+            cand = _record_candidate(**kwargs)
+            if cand is None:
+                rows.append((name, ("ok", None)))
+            else:
+                rows.append((name, ("ok", cand.state, cand.reason, cand.limitations)))
+        except Exception as exc:  # noqa: BLE001
+            rows.append((name, ("raise", type(exc).__name__, str(exc))))
+    # candidate None + ineligible (dimension with no candidate: out-of-scope slice)
+    record = _ev_record(evaluated_at="2026-11-01T00:00:00Z", n_human=120, n_ai=120)
+    slice_ = _ev_slice(n_human=120, n_ai=120)
+    nomatch = SliceMatch(language="mismatch", length="mismatch", domain="mismatch",
+                         editing="mismatch", applicable=False)
+    try:
+        cand = _record_candidate(record=record, slice_=slice_, match=nomatch, now=now,
+                                 max_age_days=30, dimension="language", fpr_ceiling=0.05,
+                                 eligible=False, ineligibility_reasons=("stale",))
+        rows.append(("none-ineligible", ("ok", None if cand is None else cand.state)))
+    except Exception as exc:  # noqa: BLE001
+        rows.append(("none-ineligible", ("raise", type(exc).__name__, str(exc))))
+    return rows
+
+
+def probe_ev_worst_fpr():
+    from types import SimpleNamespace
+    from textforensics.evidence import (
+        DimensionCoverage, MetricEstimate, _worst_fpr_dimension)
+    import test_audit_w2_worker_a as A
+    rec = A._v2_record()
+    slice_ = rec.slices[0]
+    rows = []
+    def _dim(state):
+        return DimensionCoverage(dimension="human_false_positive_evidence",
+                                 state=state, reason="base reason",
+                                 evidence_refs=("ev-a-1-test",), observed={})
+    def _fpr(upper, has_ci=True):
+        if upper is None:
+            return MetricEstimate(value=0.02, n=200, ci_lower=None, ci_upper=None)
+        return MetricEstimate(value=0.02, n=200, ci_lower=0.01, ci_upper=upper)
+    import dataclasses
+    slice2 = dataclasses.replace(slice_, slice_id="s2")
+    cases = [
+        ("supported-one-below", _dim("supported"), [(rec, slice_, _fpr(0.03))], 0.05),
+        ("supported-one-eq-ceiling", _dim("supported"), [(rec, slice_, _fpr(0.05))], 0.05),
+        ("supported-one-above", _dim("supported"), [(rec, slice_, _fpr(0.06))], 0.05),
+        ("supported-two-worst-second", _dim("supported"),
+         [(rec, slice_, _fpr(0.02)), (rec, slice2, _fpr(0.04))], 0.05),
+        ("supported-two-worst-first", _dim("supported"),
+         [(rec, slice_, _fpr(0.04)), (rec, slice2, _fpr(0.02))], 0.05),
+        ("supported-no-ci", _dim("supported"), [(rec, slice_, _fpr(None))], 0.05),
+        ("supported-no-ci-flag", _dim("supported"),
+         [(rec, slice_, SimpleNamespace(has_ci=False, ci_upper=0.04))], 0.05),
+        ("supported-ci-upper-none", _dim("supported"),
+         [(rec, slice_, SimpleNamespace(has_ci=True, ci_upper=None))], 0.05),
+        ("supported-none-fpr", _dim("supported"), [(rec, slice_, None)], 0.05),
+        ("supported-empty", _dim("supported"), [], 0.05),
+        ("partial-one-above", _dim("partial"), [(rec, slice_, _fpr(0.09))], 0.05),
+        ("unknown-one-above", _dim("unknown"), [(rec, slice_, _fpr(0.09))], 0.05),
+        ("partial-empty", _dim("partial"), [], 0.05),
+        ("supported-missing-plus-ok", _dim("supported"),
+         [(rec, slice_, _fpr(0.02)), (rec, slice2, None)], 0.05),
+    ]
+    for name, dim, pairs, ceiling in cases:
+        try:
+            out = _worst_fpr_dimension(dim, pairs, fpr_ceiling=ceiling)
+            rows.append((name, ("ok", out.state, out.reason,
+                                sorted(out.observed.items(), key=lambda kv: str(kv[0])))))
+        except Exception as exc:  # noqa: BLE001
+            rows.append((name, ("raise", type(exc).__name__, str(exc))))
+    return rows
+
+
+def probe_ev_records_for():
+    import test_audit_w2_worker_a as A
+    from textforensics.evidence import EvidenceRegistry
+    recs = [
+        A._v2_record(detector_id="zzz", detector_version="2"),
+        A._v2_record(detector_id="aaa", detector_version="1"),
+        A._v2_record(detector_id="aaa", detector_version="2"),
+        A._v2_record(detector_id="aaa", detector_version="*"),
+        A._v2_record(detector_id="mmm", detector_version="1"),
+    ]
+    reg = EvidenceRegistry(recs)
+    rows = []
+    for name, did, ver in [
+        ("aaa-unversioned", "aaa", None),
+        ("aaa-v1", "aaa", "1"),
+        ("aaa-v2", "aaa", "2"),
+        ("aaa-vstar", "aaa", "*"),
+        ("aaa-v9", "aaa", "9"),
+        ("zzz-unversioned", "zzz", None),
+        ("missing", "qqq", None),
+        ("aaa-v1-distinct", "aaa", "".join("1")),
+    ]:
+        try:
+            sel = reg.records_for(did, ver) if ver is not None else reg.records_for(did)
+            rows.append((name, ("ok", [r.evidence_id for r in sel])))
+        except Exception as exc:  # noqa: BLE001
+            rows.append((name, ("raise", type(exc).__name__, str(exc))))
+    rows.append(("empty-id", outcome(reg.records_for, "")))
+    rows.append(("ids", outcome(lambda: reg.detector_ids())))
+    return rows
+
+
+def probe_ev_identity_proof():
+    from textforensics.evidence import DisjointnessProof, InferenceIdentity
+    rows = []
+    # from_dict on the class (RemoveDecorator mutant)
+    rows.append(("ident-fromdict-class", outcome(InferenceIdentity.from_dict,
+                                                 {"detector_id": "d", "detector_version": "1"})))
+    rows.append(("proof-fromdict-class", outcome(DisjointnessProof.from_dict,
+                                                 {"status": "verified", "overlap_count": 0,
+                                                  "training_count": 10, "evaluation_count": 10,
+                                                  "training_hash": "a" * 64,
+                                                  "evaluation_hash": "b" * 64})))
+    rows.append(("ident-fromdict-nonmap", outcome(InferenceIdentity.from_dict, ["x"])))
+    rows.append(("proof-fromdict-nonmap", outcome(DisjointnessProof.from_dict, "x")))
+    # frozen / slots
+    ident = InferenceIdentity(detector_id="d", detector_version="1")
+    rows.append(("ident-frozen", outcome(lambda: setattr(ident, "detector_id", "e"))))
+    rows.append(("ident-slots", ("ok", hasattr(ident, "__dict__"))))
+    proof = DisjointnessProof(status="unknown", overlap_count=0, training_count=0,
+                              evaluation_count=0, training_hash=None, evaluation_hash=None)
+    rows.append(("proof-frozen", outcome(lambda: setattr(proof, "status", "verified"))))
+    rows.append(("proof-slots", ("ok", hasattr(proof, "__dict__"))))
+    # __post_init__ validation
+    for name, fn in [
+        ("ident-empty-id", lambda: InferenceIdentity(detector_id="", detector_version="1")),
+        ("ident-empty-ver", lambda: InferenceIdentity(detector_id="d", detector_version="")),
+        ("ident-empty-provider", lambda: InferenceIdentity(detector_id="d", detector_version="1", provider="")),
+        ("ident-provider-set", lambda: InferenceIdentity(detector_id="d", detector_version="1", provider="p")),
+        ("proof-bad-status", lambda: DisjointnessProof(status="maybe", overlap_count=0,
+                                                        training_count=0, evaluation_count=0,
+                                                        training_hash=None, evaluation_hash=None)),
+        ("proof-neg-overlap", lambda: DisjointnessProof(status="unknown", overlap_count=-1,
+                                                         training_count=0, evaluation_count=0,
+                                                         training_hash=None, evaluation_hash=None)),
+        ("proof-neg-training", lambda: DisjointnessProof(status="unknown", overlap_count=0,
+                                                          training_count=-1, evaluation_count=0,
+                                                          training_hash=None, evaluation_hash=None)),
+        ("proof-empty-hash", lambda: DisjointnessProof(status="unknown", overlap_count=0,
+                                                       training_count=0, evaluation_count=0,
+                                                       training_hash="", evaluation_hash=None)),
+        ("proof-hash-set", lambda: DisjointnessProof(status="unknown", overlap_count=0,
+                                                     training_count=0, evaluation_count=0,
+                                                     training_hash="a" * 64, evaluation_hash=None)),
+    ]:
+        rows.append((name, outcome(fn)))
+    return rows
+
+
+def probe_ev_coverage_preds():
+    import test_audit_w2_worker_a as A
+    from types import SimpleNamespace
+    from textforensics.evidence import EvidenceRegistry, coverage_for_predictions
+    rec = A._v2_record()
+    reg = EvidenceRegistry([rec])
+    cond = A._v2_conditions()
+    rows = []
+    def _pred(**over):
+        base = dict(detector_id="a", detector_version="1", detector_family="fam1",
+                    supported_length={"min_words": 100, "max_words": 1000},
+                    min_words=None, max_words=None)
+        base.update(over)
+        return SimpleNamespace(**base)
+    def _summarize(covs):
+        out = []
+        for cov in covs:
+            out.append((cov.detector_id,
+                        tuple((dim, dc.state) for dim, dc in sorted(cov.dimensions.items()))))
+        return out
+    cases = [
+        ("one-supported-length", [_pred()]),
+        ("one-no-supported-length", [_pred(supported_length=None)]),
+        ("one-supported-length-list", [_pred(supported_length=[100, 1000])]),
+        ("one-supported-length-str", [_pred(supported_length="100-1000")]),
+        ("one-empty-supported-length", [_pred(supported_length={})]),
+        ("two-preds", [_pred(), _pred(detector_id="b")]),
+        ("no-preds", []),
+        ("min-only", [_pred(supported_length={"min_words": 100})]),
+        ("max-only", [_pred(supported_length={"max_words": 1000})]),
+        ("narrow-500-600", [_pred(supported_length={"min_words": 500, "max_words": 600})]),
+        ("narrow-attrs", [_pred(supported_length=None, min_words=500, max_words=600)]),
+        ("narrow-list", [_pred(supported_length=[500, 600], min_words=500, max_words=600)]),
+    ]
+    for name, preds in cases:
+        try:
+            covs = coverage_for_predictions(preds, cond, registry=reg)
+            rows.append((name, ("ok", _summarize(covs))))
+        except Exception as exc:  # noqa: BLE001
+            rows.append((name, ("raise", type(exc).__name__, str(exc))))
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# result_codec encode/decode/_validate (new probe)
+# ---------------------------------------------------------------------------
+def probe_rc_codec():
+    import copy, json
+    from unittest import mock
+    import test_result_codec as T
+    from textforensics.result_codec import CodecConfig, ResultCodec
+    import textforensics.result_codec as rc
+    _validate = ResultCodec()._validate
+    rows = []
+    bundle = copy.deepcopy(T.MINIMAL_BUNDLE)
+    # encode: canonical vs non-canonical, sort_keys, ensure_ascii
+    codec = ResultCodec()
+    rows.append(("encode-canonical", outcome(codec.encode, bundle, "forensic-bundle")))
+    codec_nc = ResultCodec(CodecConfig(canonical_json=False))
+    rows.append(("encode-noncanonical", outcome(codec_nc.encode, bundle, "forensic-bundle")))
+    rows.append(("encode-ascii-canonical", outcome(codec.encode, {"b": 1, "a": "café"},
+                                                   "forensic-bundle", validate=False)))
+    rows.append(("encode-ascii-noncanonical", outcome(codec_nc.encode, {"b": 1, "a": "café"},
+                                                      "forensic-bundle", validate=False)))
+    rows.append(("encode-keys-out-of-order", outcome(codec.encode, {"z": 1, "a": 2, "m": 3},
+                                                     "forensic-bundle", validate=False)))
+    rows.append(("encode-inf", outcome(codec.encode, {"x": float("inf")},
+                                       "forensic-bundle", validate=False)))
+    rows.append(("encode-nan", outcome(codec.encode, {"x": float("nan")},
+                                       "forensic-bundle", validate=False)))
+    # decode: validate override (config False, explicit True, invalid payload)
+    codec_nv = ResultCodec(CodecConfig(validate_on_decode=False))
+    bad = copy.deepcopy(bundle)
+    del bad["content_sha256"]  # required property: fails validation when validated
+    rows.append(("decode-validate-override", outcome(codec_nv.decode,
+                                                     json.dumps(bad), "forensic-bundle",
+                                                     validate=True)))
+    rows.append(("decode-validate-off", outcome(codec_nv.decode,
+                                                json.dumps(bad), "forensic-bundle")))
+    rows.append(("decode-validate-on", outcome(codec.decode,
+                                              json.dumps(bad), "forensic-bundle")))
+    # decode: version comparisons under strict_version
+    codec_strict = ResultCodec(CodecConfig(strict_version=True))
+    v3 = copy.deepcopy(bundle)
+    v3["schema"] = "textforensics.forensic-bundle/v3"
+    rows.append(("decode-version-greater", outcome(codec_strict.decode,
+                                                   json.dumps(v3), "forensic-bundle")))
+    rows.append(("decode-version-equal", outcome(codec_strict.decode,
+                                                json.dumps(bundle), "forensic-bundle")))
+    noschema = copy.deepcopy(bundle)
+    del noschema["schema"]
+    rows.append(("decode-version-none", outcome(codec_strict.decode,
+                                               json.dumps(noschema), "forensic-bundle")))
+    v1 = copy.deepcopy(bundle)
+    v1["schema"] = "textforensics.forensic-bundle/v1"
+    rows.append(("decode-version-lower", outcome(codec_strict.decode,
+                                                json.dumps(v1), "forensic-bundle")))
+    # decode: nonfinite literal + non-object + invalid JSON
+    rows.append(("decode-infinity", outcome(codec.decode,
+                                            b'{"x": Infinity}', "forensic-bundle")))
+    rows.append(("decode-nan-literal", outcome(codec.decode,
+                                               b'{"x": NaN}', "forensic-bundle")))
+    rows.append(("decode-list", outcome(codec.decode, b'[1, 2]', "forensic-bundle")))
+    rows.append(("decode-bad-json", outcome(codec.decode, b'{oops', "forensic-bundle")))
+    rows.append(("decode-str-input", outcome(codec.decode,
+                                             json.dumps(bundle), "forensic-bundle")))
+    # _validate: RuntimeError / ValueError from the schema validator
+    with mock.patch.object(rc, "validate", side_effect=RuntimeError("boom")):
+        rows.append(("validate-runtimeerror", outcome(_validate, bundle, "forensic-bundle")))
+    with mock.patch.object(rc, "validate", side_effect=ValueError("bad schema")):
+        rows.append(("validate-valueerror", outcome(_validate, bundle, "forensic-bundle")))
+    rows.append(("validate-valid", outcome(_validate, bundle, "forensic-bundle")))
+    rows.append(("validate-nonfinite", outcome(_validate, {"x": float("inf")}, "forensic-bundle")))
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# validation._common_support_blockers / _fpr_blockers / worst_fpr_upper
+# (new probe)
+# ---------------------------------------------------------------------------
+def probe_val_common_blockers():
+    import dataclasses
+    from types import SimpleNamespace
+    from textforensics.validation import (
+        _common_support_blockers, _fpr_blockers, worst_fpr_upper)
+    A = _v3()
+    rows = []
+    def _rec(**kw):
+        return A.ValidationRecord.from_dict(A._v3_record_dict(**kw))
+    # _common_support_blockers: status / samples / split_role / contamination / signature
+    for name, kw in [
+        ("clean", {}),
+        ("status-unknown", {"status": "unknown"}),
+        ("status-stale", {"status": "stale"}),
+        ("status-partial", {"status": "partial"}),
+        ("status-contested", {"status": "contested"}),
+        ("n-human-99", {"n_human": 99}),
+        ("n-human-100", {"n_human": 100}),
+        ("n-human-101", {"n_human": 101}),
+        ("n-ai-99", {"n_ai": 99}),
+        ("n-ai-100", {"n_ai": 100}),
+        ("split-fit", {"split_role": "fit"}),
+        ("split-threshold", {"split_role": "threshold"}),
+        ("contamination-yes", {"contamination": "yes"}),
+        ("contamination-unknown", {"contamination": "unknown"}),
+    ]:
+        rows.append((name, outcome(_common_support_blockers, _rec(**kw),
+                                   detector_version=A.V3_VERSION, now=A.NOW)))
+    # split_role values rejected by from_dict ("train"/"validation") via
+    # object.__setattr__ on the frozen data object (bypasses validation)
+    for name, role in [("split-train", "train"), ("split-validation", "validation")]:
+        rec = _rec()
+        object.__setattr__(rec.data, "split_role", role)
+        rows.append((name, outcome(_common_support_blockers, rec,
+                                   detector_version=A.V3_VERSION, now=A.NOW)))
+    # tampered signature (change n_human after sealing)
+    tampered = A._v3_record_dict()
+    tampered["data"]["n_human"] = 121
+    rows.append(("bad-signature", outcome(_common_support_blockers,
+                                          A.ValidationRecord.from_dict(tampered),
+                                          detector_version=A.V3_VERSION, now=A.NOW)))
+    # worst_fpr_upper / _fpr_blockers via fpr_slices
+    def _fpr_rec(slices):
+        return A.ValidationRecord.from_dict(A._v3_record_dict(fpr_slices=slices))
+    fpr_cases = [
+        ("fpr-one-below", [{"slice_id": "s1", "value": 0.02, "ci": (0.0, 0.03)}]),
+        ("fpr-one-eq", [{"slice_id": "s1", "value": 0.02, "ci": (0.0, 0.05)}]),
+        ("fpr-one-above", [{"slice_id": "s1", "value": 0.02, "ci": (0.0, 0.06)}]),
+        ("fpr-two-worst", [{"slice_id": "s1", "value": 0.02, "ci": (0.0, 0.03)},
+                           {"slice_id": "s2", "value": 0.02, "ci": (0.0, 0.04)}]),
+        ("fpr-no-ci", [{"slice_id": "s1", "value": 0.02, "ci": None}]),
+        ("fpr-mixed", [{"slice_id": "s1", "value": 0.02, "ci": (0.0, 0.03)},
+                       {"slice_id": "s2", "value": 0.02, "ci": None}]),
+    ]
+    for name, slices in fpr_cases:
+        rec = _fpr_rec(slices)
+        rows.append((name + "-worst", outcome(worst_fpr_upper, rec)))
+        rows.append((name + "-blockers", outcome(_fpr_blockers, rec, 0.05)))
+    # inconsistent has_ci / ci_upper shapes via duck-typed metrics
+    base = _fpr_rec([{"slice_id": "s1", "value": 0.02, "ci": (0.0, 0.03)}])
+    for name, fpr in [
+        ("duck-ci-true-upper-none", SimpleNamespace(has_ci=True, ci_upper=None)),
+        ("duck-ci-false-upper-set", SimpleNamespace(has_ci=False, ci_upper=0.04)),
+    ]:
+        # duck-typed metric (bypasses the MetricEstimate __post_init__ that
+        # forbids inconsistent has_ci / ci_upper shapes)
+        duck_metric = SimpleNamespace(slice_id="s1", fpr_native=fpr)
+        rec2 = dataclasses.replace(base, metrics=(duck_metric,))
+        rows.append((name + "-worst", outcome(worst_fpr_upper, rec2)))
+        rows.append((name + "-blockers", outcome(_fpr_blockers, rec2, 0.05)))
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# policy._coerce_today / _resolver_verifies / register /
+# ledger_to_trust_dimension (new probe)
+# ---------------------------------------------------------------------------
+def probe_policy_helpers():
+    from datetime import date, datetime, timezone, timedelta
+    import test_trust as TT
+    from textforensics.policy import (
+        CapabilityClaim, CapabilityLedger, EvidenceLabel, EvidenceRef,
+        EvidenceTier, _coerce_today, _resolver_verifies,
+        ledger_to_trust_dimension)
+    rows = []
+    # _coerce_today
+    for name, value in [
+        ("today-none", None),
+        ("today-date", date(2026, 1, 15)),
+        ("today-naive", datetime(2026, 1, 15, 12, 30)),
+        ("today-aware-utc", datetime(2026, 1, 15, 12, 30, tzinfo=timezone.utc)),
+        ("today-aware-plus5", datetime(2026, 1, 1, 2, 0, tzinfo=timezone(timedelta(hours=5)))),
+        ("today-aware-minus5", datetime(2026, 1, 1, 2, 0, tzinfo=timezone(timedelta(hours=-5)))),
+        ("today-aware-plus5-midnight", datetime(2026, 1, 1, 0, 30, tzinfo=timezone(timedelta(hours=5)))),
+    ]:
+        rows.append((name, outcome(_coerce_today, value)))
+    # _resolver_verifies
+    ref = EvidenceRef(label=EvidenceLabel.EXECUTED, tier=EvidenceTier.VALIDATED,
+                      artifact="runs/1.json")
+    def _raising(artifact):
+        raise RuntimeError("resolver boom")
+    class _RaisingMap(dict):
+        def get(self, key, default=None):
+            raise RuntimeError("map boom")
+    for name, resolver in [
+        ("resolver-none", None),
+        ("resolver-map-hit", {"runs/1.json": True}),
+        ("resolver-map-miss", {"other.json": True}),
+        ("resolver-map-false", {"runs/1.json": False}),
+        ("resolver-call-true", lambda a: True),
+        ("resolver-call-false", lambda a: False),
+        ("resolver-call-raises", _raising),
+        ("resolver-map-raises", _RaisingMap({"runs/1.json": True})),
+    ]:
+        rows.append((name, outcome(_resolver_verifies, resolver, ref)))
+    # register: valid vs invalid claims
+    valid = TT._ledger_claim()
+    no_evidence = CapabilityClaim(detector_id="a", capability="language",
+                                  tier=EvidenceTier.READABLE, evidence=[])
+    validated_no_exec = CapabilityClaim(
+        detector_id="a", capability="language", tier=EvidenceTier.VALIDATED,
+        evidence=[EvidenceRef(label=EvidenceLabel.REPORTED, tier=EvidenceTier.VALIDATED,
+                              artifact="runs/1.json")])
+    expired = TT._ledger_claim(valid_until="2020-01-01")
+    for name, claim in [("register-valid", valid), ("register-no-evidence", no_evidence),
+                        ("register-validated-no-exec", validated_no_exec),
+                        ("register-expired", expired)]:
+        ledger = CapabilityLedger()
+        rows.append((name, outcome(lambda c=claim, l=ledger: (l.register(c), len(l.claims().get("a", []))))))
+    # ledger_to_trust_dimension: valid_until limitation present/absent
+    for name, claim in [
+        ("ltd-no-expiry", TT._ledger_claim()),
+        ("ltd-with-expiry", TT._ledger_claim(valid_until="2027-01-01")),
+        ("ltd-expired", TT._ledger_claim(valid_until="2020-01-01")),
+    ]:
+        ledger = TT._ledger_with(claim)
+        try:
+            dim = ledger_to_trust_dimension(ledger, "a", "language",
+                                            today=date(2026, 11, 11))
+            rows.append((name, ("ok", dim.state, dim.reason, dim.limitations)))
+        except Exception as exc:  # noqa: BLE001
+            rows.append((name, ("raise", type(exc).__name__, str(exc))))
+    ledger_empty = CapabilityLedger()
+    rows.append(("ltd-no-claims", outcome(lambda: ledger_to_trust_dimension(
+        ledger_empty, "a", "language", today=date(2026, 11, 11)).state)))
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# trust.build_trust_map (new probe)
+# ---------------------------------------------------------------------------
+def probe_trust_build():
+    from textforensics.trust import build_trust_map
+    from textforensics.evidence import InputConditions
+    from textforensics.detectors import DetectorPrediction
+    rows = []
+    def _cond(wc):
+        return InputConditions(schema="textforensics.input-conditions/v1", language="en",
+                               language_confidence="declared", script="latin",
+                               word_count=wc, char_count=1000, length_band="medium",
+                               domain_genre="general", domain_confidence="declared",
+                               editing_regime="human_only", generator=None,
+                               human_population="unknown")
+    pred = DetectorPrediction(schema="textforensics.detector-result/v2",
+                              detector_id="detector", detector_version="1",
+                              detector_family="family", execution="local",
+                              score=0.8, score_semantics="test", verdict="ai_like",
+                              threshold=0.5)
+    def _summarize(tm):
+        return (tm.overall, tuple((d.dimension, d.state) for d in tm.dimensions))
+    for name, wc, cond in [
+        ("no-cond-200", 200, None),
+        ("no-cond-0", 0, None),
+        ("no-cond-neg", -1, None),
+        ("no-cond-bool", True, None),
+        ("no-cond-str", "100", None),
+        ("no-cond-float", 100.5, None),
+        ("cond-match", 200, _cond(200)),
+        ("cond-lower", 200, _cond(100)),
+        ("cond-higher", 200, _cond(300)),
+        ("cond-equal-distinct", 1000, _cond(int("1000"))),
+        ("cond-equal-distinct-low", 200, _cond(int("200"))),
+    ]:
+        try:
+            tm = build_trust_map([pred], word_count=wc,
+                                 conditions=cond) if cond is not None else build_trust_map([pred], word_count=wc)
+            rows.append((name, ("ok", _summarize(tm))))
+        except Exception as exc:  # noqa: BLE001
+            rows.append((name, ("raise", type(exc).__name__, str(exc))))
+    return rows
