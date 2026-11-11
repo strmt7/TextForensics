@@ -577,67 +577,79 @@ class EquivalentBaselineTests(unittest.TestCase):
     survivor (exit 2) and on any stale entry (exit 1).
     """
 
-    #: The 318 distinct start positions of the 1994 baseline entries,
+    #: The 810 distinct start positions of the 4361 baseline entries,
     #: grouped by module. Re-derived from the resolved baseline (see
-    #: hidden_files/audit-w1-e-derive.json); the W1 refresh (956
+    #: hidden_files/audit-w2-f2-test-literals.json); the W1 refresh (956
     #: entries re-derived on audit-w1 head 0da6013) moved 137 of the
     #: 278 pre-W1 positions, and the W1 proof added 40 new ones
     #: (execution_policy is new; the rest are new annotation/runtime
-    #: sites in the changed W1 functions).
+    #: sites in the changed W1 functions). The W2 refresh (1425
+    #: entries re-derived on audit-w2 head 739efc0) and the W2 proof
+    #: (2179 appended) took the set to 669 positions over 25 modules;
+    #: the F2 re-proof append (214 entries) took it to 810.
     EXPECTED_POSITIONS = {
-        # textforensics.trust (20 positions: 16 annotation + 4 runtime).
-        (142, 53),
-        (187, 78),
-        (213, 4),
-        (214, 28),
-        (412, 31),
-        (415, 28),
-        (416, 18),
-        (416, 24),
-        (419, 28),
-        (420, 26),
-        (505, 32),
-        (506, 31),
-        (507, 28),
-        (508, 18),
-        (508, 24),
-        (511, 28),
-        (512, 26),
-        (523, 24),
-        (628, 54),
-        (628, 76),
-        # textforensics.policy (30 positions: 14 annotation + 16 runtime).
-        (107, 34),
-        (107, 50),
-        (126, 45),
-        (126, 60),
-        (141, 48),
-        (141, 63),
-        (204, 74),
-        (212, 72),
-        (231, 48),
-        (313, 18),
-        (314, 35),
-        (370, 31),
-        (371, 33),
-        (504, 33),
-        (509, 77),
-        (509, 78),
-        (512, 34),
-        (512, 53),
-        (668, 19),
-        (798, 25),
-        (799, 19),
-        (800, 23),
-        (859, 39),
-        (976, 29),
-        (1004, 40),
-        (1040, 33),
-        (1041, 35),
-        (1047, 41),
-        (1055, 43),
-        (1062, 35),
-        # textforensics.benchmark (34 positions: 15 annotation + 19 runtime).
+        # textforensics._standalone_verify (33 positions).
+        (133, 24),
+        (133, 72),
+        (137, 21),
+        (137, 38),
+        (140, 24),
+        (141, 20),
+        (141, 68),
+        (145, 17),
+        (145, 34),
+        (147, 17),
+        (177, 23),
+        (199, 73),
+        (1346, 30),
+        (1365, 21),
+        (1414, 13),
+        (1420, 36),
+        (1432, 35),
+        (1434, 33),
+        (1436, 34),
+        (1437, 36),
+        (1467, 46),
+        (1468, 20),
+        (1470, 74),
+        (1470, 76),
+        (1471, 52),
+        (1484, 30),
+        (1566, 22),
+        (1667, 34),
+        (1701, 30),
+        (1860, 27),
+        (1862, 29),
+        (1864, 29),
+        (1879, 86),
+        # textforensics.adversarial (21 positions).
+        (289, 47),
+        (289, 74),
+        (307, 11),
+        (723, 8),
+        (724, 41),
+        (725, 33),
+        (726, 22),
+        (771, 27),
+        (800, 26),
+        (810, 26),
+        (837, 26),
+        (855, 65),
+        (855, 67),
+        (855, 74),
+        (863, 24),
+        (863, 27),
+        (871, 4),
+        (872, 37),
+        (873, 74),
+        (874, 29),
+        (875, 18),
+        # textforensics.analyzers (4 positions).
+        (32, 13),
+        (34, 13),
+        (41, 13),
+        (43, 13),
+        # textforensics.benchmark (49 positions).
         (32, 29),
         (35, 46),
         (35, 51),
@@ -658,21 +670,240 @@ class EquivalentBaselineTests(unittest.TestCase):
         (175, 36),
         (176, 41),
         (242, 14),
-        (272, 40),
-        (361, 18),
-        (420, 30),
-        (428, 30),
-        (442, 14),
-        (446, 28),
-        (490, 14),
-        (538, 44),
-        (543, 15),
-        (545, 15),
-        (619, 31),
-        (630, 14),
-        (643, 26),
-        (645, 25),
-        # textforensics.consensus (28 positions: 11 annotation + 17 runtime).
+        (247, 42),
+        (297, 35),
+        (301, 35),
+        (338, 40),
+        (404, 23),
+        (406, 23),
+        (412, 24),
+        (464, 4),
+        (514, 34),
+        (525, 23),
+        (526, 25),
+        (527, 4),
+        (602, 19),
+        (602, 38),
+        (699, 18),
+        (758, 30),
+        (766, 30),
+        (780, 14),
+        (784, 28),
+        (828, 14),
+        (876, 44),
+        (881, 15),
+        (883, 15),
+        (976, 11),
+        (980, 11),
+        (999, 31),
+        (1010, 14),
+        (1023, 26),
+        (1025, 25),
+        # textforensics.calibration (106 positions).
+        (160, 13),
+        (160, 16),
+        (397, 32),
+        (398, 24),
+        (398, 62),
+        (404, 23),
+        (404, 64),
+        (409, 32),
+        (409, 59),
+        (436, 27),
+        (454, 25),
+        (458, 25),
+        (461, 47),
+        (464, 17),
+        (464, 30),
+        (468, 25),
+        (506, 23),
+        (508, 43),
+        (514, 23),
+        (515, 36),
+        (517, 69),
+        (518, 27),
+        (520, 27),
+        (523, 23),
+        (525, 23),
+        (527, 23),
+        (536, 17),
+        (551, 31),
+        (551, 56),
+        (552, 31),
+        (552, 56),
+        (580, 18),
+        (580, 52),
+        (615, 20),
+        (676, 54),
+        (885, 54),
+        (950, 15),
+        (1058, 36),
+        (1086, 36),
+        (1122, 41),
+        (1146, 62),
+        (1161, 36),
+        (1197, 28),
+        (1198, 35),
+        (1199, 46),
+        (1200, 36),
+        (1202, 38),
+        (1203, 45),
+        (1204, 40),
+        (1205, 35),
+        (1206, 26),
+        (1207, 33),
+        (1208, 24),
+        (1209, 36),
+        (1210, 22),
+        (1211, 19),
+        (1212, 25),
+        (1213, 36),
+        (1214, 20),
+        (1292, 59),
+        (1295, 79),
+        (1307, 83),
+        (1331, 37),
+        (1383, 8),
+        (1385, 15),
+        (1404, 8),
+        (1406, 27),
+        (1424, 36),
+        (1426, 15),
+        (1453, 36),
+        (1455, 27),
+        (1476, 37),
+        (1479, 17),
+        (1479, 20),
+        (1497, 83),
+        (1501, 18),
+        (1504, 53),
+        (1506, 29),
+        (1520, 17),
+        (1521, 61),
+        (1546, 49),
+        (1550, 40),
+        (1562, 71),
+        (1734, 26),
+        (1770, 54),
+        (1771, 51),
+        (1809, 39),
+        (1810, 16),
+        (1811, 43),
+        (1812, 44),
+        (1820, 65),
+        (1820, 91),
+        (1827, 19),
+        (1830, 34),
+        (1833, 42),
+        (1905, 53),
+        (1911, 35),
+        (1916, 35),
+        (1967, 26),
+        (1968, 19),
+        (2031, 20),
+        (2036, 15),
+        (2046, 38),
+        (2080, 21),
+        (2097, 26),
+        (2098, 25),
+        # textforensics.casefile (96 positions).
+        (244, 41),
+        (317, 4),
+        (318, 24),
+        (319, 15),
+        (320, 16),
+        (321, 14),
+        (335, 43),
+        (336, 4),
+        (337, 24),
+        (338, 27),
+        (339, 32),
+        (340, 30),
+        (341, 33),
+        (342, 47),
+        (343, 59),
+        (344, 62),
+        (345, 40),
+        (459, 55),
+        (473, 4),
+        (477, 14),
+        (534, 4),
+        (535, 30),
+        (536, 21),
+        (537, 28),
+        (538, 27),
+        (539, 25),
+        (540, 23),
+        (618, 58),
+        (637, 69),
+        (660, 4),
+        (661, 50),
+        (769, 35),
+        (770, 43),
+        (825, 18),
+        (826, 4),
+        (827, 13),
+        (882, 43),
+        (884, 60),
+        (930, 42),
+        (931, 4),
+        (932, 31),
+        (1004, 37),
+        (1108, 54),
+        (1117, 15),
+        (1136, 56),
+        (1150, 29),
+        (1167, 27),
+        (1276, 25),
+        (1279, 31),
+        (1280, 41),
+        (1281, 29),
+        (1282, 34),
+        (1283, 24),
+        (1284, 30),
+        (1285, 42),
+        (1286, 35),
+        (1287, 35),
+        (1288, 43),
+        (1352, 28),
+        (1353, 19),
+        (1367, 15),
+        (1370, 15),
+        (1475, 44),
+        (1540, 32),
+        (1540, 53),
+        (1600, 60),
+        (1639, 4),
+        (1642, 16),
+        (1643, 14),
+        (1673, 14),
+        (1676, 25),
+        (1687, 72),
+        (1712, 36),
+        (1712, 44),
+        (1712, 65),
+        (1765, 48),
+        (1766, 24),
+        (1781, 61),
+        (1895, 25),
+        (1895, 56),
+        (1945, 31),
+        (1947, 29),
+        (1991, 31),
+        (1992, 4),
+        (1993, 29),
+        (2134, 14),
+        (2135, 34),
+        (2136, 31),
+        (2137, 29),
+        (2257, 16),
+        (2259, 63),
+        (2282, 14),
+        (2284, 14),
+        (2285, 34),
+        (2286, 31),
+        (2287, 29),
+        # textforensics.consensus (28 positions).
         (77, 69),
         (81, 24),
         (82, 34),
@@ -701,76 +932,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         (412, 12),
         (430, 46),
         (483, 90),
-        # textforensics.calibration (68 positions: 30 annotation + 38 runtime).
-        (105, 13),
-        (105, 16),
-        (248, 25),
-        (252, 25),
-        (255, 47),
-        (258, 17),
-        (258, 30),
-        (262, 25),
-        (294, 23),
-        (296, 23),
-        (298, 23),
-        (300, 23),
-        (309, 17),
-        (324, 31),
-        (324, 56),
-        (325, 31),
-        (325, 56),
-        (411, 54),
-        (596, 15),
-        (715, 41),
-        (739, 62),
-        (754, 36),
-        (790, 28),
-        (791, 35),
-        (792, 46),
-        (793, 36),
-        (795, 38),
-        (796, 45),
-        (797, 40),
-        (798, 35),
-        (799, 26),
-        (800, 33),
-        (801, 24),
-        (845, 59),
-        (848, 79),
-        (861, 37),
-        (915, 15),
-        (932, 27),
-        (939, 37),
-        (942, 17),
-        (942, 20),
-        (960, 83),
-        (964, 18),
-        (967, 53),
-        (969, 29),
-        (983, 17),
-        (984, 61),
-        (1009, 49),
-        (1013, 40),
-        (1025, 71),
-        (1186, 26),
-        (1222, 54),
-        (1223, 51),
-        (1261, 39),
-        (1262, 16),
-        (1263, 43),
-        (1264, 44),
-        (1272, 65),
-        (1272, 91),
-        (1279, 19),
-        (1282, 34),
-        (1341, 26),
-        (1342, 19),
-        (1410, 38),
-        (1444, 21),
-        (1461, 26),
-        (1462, 25),
-        (1505, 27),
-        # textforensics.detectors (14 positions: 9 annotation + 4 runtime).
+        # textforensics.detectors (14 positions).
         (74, 36),
         (84, 45),
         (155, 58),
@@ -785,111 +947,83 @@ class EquivalentBaselineTests(unittest.TestCase):
         (786, 4),
         (787, 28),
         (788, 36),
-        # textforensics.analyzers (4 positions: 0 annotation + 4 runtime).
-        (32, 13),
-        (34, 13),
-        (41, 13),
-        (43, 13),
-        # textforensics.engine (5 positions: 0 annotation + 5 runtime).
+        # textforensics.engine (5 positions).
         (17, 81),
         (22, 22),
         (84, 16),
         (93, 8),
         (94, 12),
-        # textforensics.casefile (92 positions: 61 annotation + 31 runtime).
-        (305, 4),
-        (306, 24),
-        (307, 15),
-        (308, 16),
-        (309, 14),
-        (323, 43),
-        (324, 4),
-        (325, 24),
-        (326, 27),
-        (327, 32),
-        (328, 30),
-        (329, 33),
-        (330, 47),
-        (331, 59),
-        (332, 62),
-        (333, 40),
-        (447, 55),
-        (461, 4),
-        (465, 14),
-        (522, 4),
-        (523, 30),
-        (524, 21),
-        (525, 28),
-        (526, 27),
-        (527, 25),
-        (528, 23),
-        (606, 58),
-        (625, 69),
-        (648, 4),
-        (649, 50),
-        (757, 35),
-        (758, 43),
-        (813, 18),
-        (814, 4),
-        (815, 13),
-        (870, 43),
-        (872, 60),
-        (918, 42),
-        (919, 4),
-        (920, 31),
-        (992, 37),
-        (1096, 54),
-        (1105, 15),
-        (1124, 56),
-        (1138, 29),
-        (1155, 27),
-        (1264, 25),
-        (1267, 31),
-        (1268, 41),
-        (1269, 29),
-        (1270, 34),
-        (1271, 24),
-        (1272, 30),
-        (1273, 42),
-        (1274, 35),
-        (1275, 35),
-        (1276, 43),
-        (1340, 28),
-        (1341, 19),
-        (1355, 15),
-        (1358, 15),
-        (1463, 44),
-        (1528, 32),
-        (1528, 53),
-        (1588, 60),
-        (1627, 4),
-        (1630, 16),
-        (1631, 14),
-        (1661, 14),
-        (1664, 25),
-        (1675, 72),
-        (1700, 36),
-        (1700, 44),
-        (1700, 65),
-        (1753, 48),
-        (1754, 24),
-        (1769, 61),
-        (1883, 25),
-        (1883, 56),
-        (1933, 31),
-        (1935, 29),
-        (2076, 14),
-        (2077, 34),
-        (2078, 31),
-        (2079, 29),
-        (2199, 16),
-        (2201, 63),
-        (2224, 14),
-        (2226, 14),
-        (2227, 34),
-        (2228, 31),
-        (2229, 29),
-        # textforensics.execution_policy (24 positions: 15 annotation + 9 runtime).
+        # textforensics.evidence (69 positions).
+        (1009, 48),
+        (1009, 68),
+        (1011, 21),
+        (1049, 4),
+        (1051, 36),
+        (1052, 48),
+        (1052, 68),
+        (1053, 18),
+        (1053, 24),
+        (1068, 21),
+        (1070, 31),
+        (1102, 31),
+        (1106, 39),
+        (1106, 77),
+        (1121, 14),
+        (1348, 16),
+        (1368, 26),
+        (1378, 33),
+        (1381, 47),
+        (1384, 17),
+        (1398, 17),
+        (1401, 37),
+        (1401, 63),
+        (1402, 17),
+        (1416, 17),
+        (1417, 24),
+        (1433, 37),
+        (1433, 63),
+        (1434, 17),
+        (1449, 25),
+        (1466, 37),
+        (1466, 63),
+        (1467, 17),
+        (1488, 47),
+        (1489, 41),
+        (1489, 67),
+        (1497, 17),
+        (1497, 40),
+        (1514, 41),
+        (1514, 67),
+        (1522, 17),
+        (1522, 40),
+        (1535, 24),
+        (1561, 17),
+        (1563, 34),
+        (1617, 16),
+        (1659, 74),
+        (1660, 4),
+        (1752, 19),
+        (1753, 19),
+        (1755, 31),
+        (1756, 18),
+        (1756, 24),
+        (1759, 32),
+        (1760, 36),
+        (1761, 48),
+        (1761, 68),
+        (1802, 74),
+        (1845, 29),
+        (1880, 35),
+        (1883, 33),
+        (1964, 30),
+        (2156, 4),
+        (2157, 31),
+        (2158, 18),
+        (2158, 24),
+        (2161, 36),
+        (2162, 48),
+        (2162, 68),
+        # textforensics.execution_policy (24 positions).
         (171, 8),
         (172, 29),
         (173, 30),
@@ -914,6 +1048,384 @@ class EquivalentBaselineTests(unittest.TestCase):
         (484, 14),
         (485, 20),
         (526, 42),
+        # textforensics.explain (12 positions).
+        (143, 22),
+        (185, 22),
+        (225, 57),
+        (232, 54),
+        (234, 30),
+        (320, 8),
+        (321, 45),
+        (356, 50),
+        (362, 56),
+        (402, 27),
+        (439, 23),
+        (455, 54),
+        # textforensics.mixed_origin (11 positions).
+        (127, 4),
+        (128, 31),
+        (129, 26),
+        (130, 21),
+        (131, 18),
+        (131, 24),
+        (132, 20),
+        (179, 43),
+        (185, 12),
+        (205, 12),
+        (214, 16),
+        # textforensics.model_card (8 positions).
+        (267, 11),
+        (271, 80),
+        (279, 11),
+        (287, 4),
+        (290, 11),
+        (299, 56),
+        (299, 72),
+        (474, 65),
+        # textforensics.observatory (1 positions).
+        (124, 53),
+        # textforensics.policy (58 positions).
+        (107, 34),
+        (107, 50),
+        (126, 30),
+        (126, 41),
+        (126, 57),
+        (140, 37),
+        (160, 45),
+        (160, 60),
+        (160, 71),
+        (179, 4),
+        (180, 16),
+        (180, 27),
+        (181, 27),
+        (213, 18),
+        (215, 59),
+        (264, 46),
+        (299, 74),
+        (315, 8),
+        (316, 20),
+        (316, 31),
+        (317, 25),
+        (337, 8),
+        (338, 20),
+        (338, 31),
+        (347, 48),
+        (353, 8),
+        (354, 20),
+        (354, 31),
+        (436, 43),
+        (436, 58),
+        (436, 69),
+        (451, 18),
+        (452, 35),
+        (469, 4),
+        (470, 16),
+        (470, 27),
+        (517, 31),
+        (518, 33),
+        (625, 8),
+        (626, 20),
+        (626, 31),
+        (657, 33),
+        (662, 77),
+        (662, 78),
+        (665, 34),
+        (665, 53),
+        (821, 19),
+        (951, 25),
+        (952, 19),
+        (953, 23),
+        (1012, 39),
+        (1129, 29),
+        (1157, 40),
+        (1193, 33),
+        (1194, 35),
+        (1200, 41),
+        (1208, 43),
+        (1215, 35),
+        # textforensics.probe_metrics (58 positions).
+        (114, 27),
+        (114, 43),
+        (114, 71),
+        (131, 71),
+        (158, 32),
+        (158, 40),
+        (181, 47),
+        (193, 17),
+        (195, 17),
+        (203, 41),
+        (213, 17),
+        (215, 17),
+        (223, 30),
+        (260, 8),
+        (261, 12),
+        (261, 16),
+        (261, 21),
+        (262, 13),
+        (262, 24),
+        (265, 15),
+        (265, 28),
+        (270, 20),
+        (270, 33),
+        (272, 20),
+        (272, 33),
+        (295, 9),
+        (295, 12),
+        (302, 19),
+        (302, 35),
+        (304, 21),
+        (307, 15),
+        (310, 52),
+        (330, 26),
+        (330, 28),
+        (341, 51),
+        (399, 47),
+        (423, 50),
+        (424, 36),
+        (424, 56),
+        (447, 66),
+        (450, 91),
+        (466, 73),
+        (482, 62),
+        (483, 19),
+        (483, 27),
+        (503, 55),
+        (503, 66),
+        (542, 4),
+        (576, 57),
+        (576, 68),
+        (577, 59),
+        (577, 70),
+        (581, 38),
+        (587, 30),
+        (588, 35),
+        (592, 47),
+        (642, 16),
+        (643, 18),
+        # textforensics.probe_runs (49 positions).
+        (415, 47),
+        (480, 43),
+        (481, 43),
+        (482, 29),
+        (488, 46),
+        (504, 46),
+        (505, 43),
+        (572, 49),
+        (639, 52),
+        (694, 34),
+        (697, 61),
+        (698, 17),
+        (727, 61),
+        (728, 17),
+        (750, 56),
+        (776, 17),
+        (801, 50),
+        (802, 50),
+        (803, 29),
+        (807, 46),
+        (808, 18),
+        (896, 69),
+        (904, 49),
+        (1022, 51),
+        (1023, 25),
+        (1025, 35),
+        (1026, 50),
+        (1027, 41),
+        (1028, 16),
+        (1117, 23),
+        (1171, 32),
+        (1177, 56),
+        (1178, 62),
+        (1181, 56),
+        (1182, 85),
+        (1242, 39),
+        (1631, 16),
+        (1632, 20),
+        (1636, 32),
+        (1639, 41),
+        (1640, 18),
+        (1641, 25),
+        (1643, 26),
+        (1644, 25),
+        (1648, 41),
+        (1649, 41),
+        (1650, 41),
+        (1651, 24),
+        (1652, 50),
+        # textforensics.report (18 positions).
+        (354, 4),
+        (355, 34),
+        (356, 21),
+        (357, 31),
+        (358, 23),
+        (359, 43),
+        (361, 23),
+        (363, 25),
+        (365, 28),
+        (366, 29),
+        (367, 38),
+        (368, 36),
+        (369, 22),
+        (439, 82),
+        (484, 75),
+        (489, 66),
+        (499, 76),
+        (529, 93),
+        # textforensics.result_codec (7 positions).
+        (124, 8),
+        (125, 23),
+        (172, 15),
+        (177, 20),
+        (179, 8),
+        (180, 23),
+        (216, 15),
+        # textforensics.schema (6 positions).
+        (94, 27),
+        (94, 43),
+        (357, 60),
+        (383, 48),
+        (403, 69),
+        (461, 19),
+        # textforensics.semantic (50 positions).
+        (480, 47),
+        (480, 74),
+        (497, 11),
+        (507, 25),
+        (507, 53),
+        (507, 82),
+        (567, 27),
+        (603, 26),
+        (614, 26),
+        (639, 83),
+        (654, 68),
+        (654, 70),
+        (654, 77),
+        (655, 24),
+        (656, 26),
+        (656, 35),
+        (660, 80),
+        (660, 82),
+        (660, 89),
+        (661, 28),
+        (662, 26),
+        (662, 35),
+        (666, 74),
+        (666, 76),
+        (666, 83),
+        (667, 26),
+        (668, 26),
+        (668, 35),
+        (672, 69),
+        (672, 71),
+        (672, 78),
+        (673, 23),
+        (674, 26),
+        (674, 35),
+        (678, 74),
+        (678, 76),
+        (678, 83),
+        (679, 26),
+        (680, 26),
+        (680, 35),
+        (682, 54),
+        (687, 26),
+        (710, 65),
+        (710, 67),
+        (710, 74),
+        (718, 24),
+        (718, 27),
+        (734, 4),
+        (736, 29),
+        (737, 18),
+        # textforensics.trust (38 positions).
+        (142, 53),
+        (187, 78),
+        (213, 4),
+        (214, 28),
+        (381, 24),
+        (392, 20),
+        (392, 67),
+        (396, 17),
+        (396, 34),
+        (398, 17),
+        (421, 4),
+        (422, 31),
+        (425, 28),
+        (426, 18),
+        (426, 24),
+        (429, 28),
+        (430, 26),
+        (431, 22),
+        (432, 31),
+        (483, 25),
+        (501, 37),
+        (503, 37),
+        (522, 4),
+        (526, 32),
+        (527, 31),
+        (528, 28),
+        (529, 18),
+        (529, 24),
+        (532, 28),
+        (533, 26),
+        (534, 22),
+        (535, 31),
+        (546, 24),
+        (639, 32),
+        (642, 32),
+        (669, 39),
+        (670, 44),
+        (671, 39),
+        # textforensics.validation (29 positions).
+        (1983, 17),
+        (1983, 29),
+        (2020, 21),
+        (2032, 4),
+        (2034, 18),
+        (2034, 24),
+        (2062, 4),
+        (2065, 18),
+        (2065, 24),
+        (2067, 35),
+        (2154, 4),
+        (2159, 18),
+        (2159, 24),
+        (2165, 33),
+        (2209, 77),
+        (2213, 87),
+        (2301, 46),
+        (2342, 42),
+        (2392, 20),
+        (2392, 67),
+        (2396, 17),
+        (2396, 34),
+        (2443, 4),
+        (2446, 18),
+        (2446, 24),
+        (2451, 36),
+        (2615, 40),
+        (2700, 54),
+        (2740, 51),
+        # textforensics.verify (19 positions).
+        (80, 64),
+        (112, 24),
+        (116, 20),
+        (116, 67),
+        (120, 17),
+        (120, 34),
+        (122, 17),
+        (127, 67),
+        (155, 20),
+        (155, 67),
+        (159, 17),
+        (159, 34),
+        (254, 31),
+        (289, 26),
+        (658, 33),
+        (663, 33),
+        (668, 33),
+        (673, 33),
+        (678, 33),
     }
 
     @classmethod
@@ -979,8 +1491,8 @@ class EquivalentBaselineTests(unittest.TestCase):
         finally:
             Path(temp_path).unlink(missing_ok=True)
 
-    def test_baseline_file_loads_with_1994_entries(self):
-        """The baseline has exactly the 1994 verified equivalent mutants.
+    def test_baseline_file_loads_with_4361_entries(self):
+        """The baseline has exactly the 4361 verified equivalent mutants.
 
         69 annotation BitOr mutants + 4 unreachable-condition
         NumberReplacer mutants for trust (see the baseline file's header
@@ -1069,13 +1581,41 @@ class EquivalentBaselineTests(unittest.TestCase):
         +47 (44 annotation + 3 domain), trust +18 (17 annotation +
         1 domain), casefile +0 (no new equivalents; its 294 new
         mutants were 291 killed / 3 proven killable).
+        W2 (audit-w2, head 739efc0): the audit's source changes
+        shifted lines in calibration.py, benchmark.py, casefile.py,
+        policy.py and trust.py and added new mutation points, so all
+        1425 stale entries were re-derived from the live cosmic-ray
+        enumeration on that head by line-text-anchored matching
+        (identical source line + columns + enclosing function +
+        annotation text), never by blind line shifting; 1399 entries
+        were refreshed, 26 were DROPPED (22 policy `date | None`
+        annotation entries whose annotation W2 changed to
+        `date | datetime | None`, and 4 entries whose recorded
+        equivalence W2 broke — calibration ReplaceFalseWithTrue:24
+        and trust NumberReplacer:48/50/51, all proven killable by
+        differential probe), and 737 ids were renamed to the current
+        occurrence. The W2 proof then ran the 10,983-item proof set
+        over the 20 W2-changed modules and appended 2179 new entries
+        (1976 annotation BitOr + 203 domain-equivalent), taking the
+        baseline 1994 -> 1968 -> 4147. The 2288 remaining
+        new/changed-code mutants were proven killable (1154 in the
+        first reprove) and are NOT baselined.
+        F2 (audit-w2-f2, 2026-11-11): the re-proof of the 1134
+        first-reprove survivors against the Batch 6c-strengthened
+        kill tests killed 891 and left 243; the 29 killable survivors
+        were killed by Batch 6d follow-up tests (29/29 disk-verified
+        DISTINGUISHED, then 29/29 KILLED in the re-proof), and the
+        214 proven-equivalent survivors were appended here (208
+        domain-equivalent + 6 unobservable-value, each with a
+        source-verified reason), taking the baseline 4147 -> 4361
+        with 0 unexplained.
         """
         self.assertEqual(self.baseline["version"], 1)
         self.assertEqual(self.baseline["source_run"], "42393966895")
         self.assertEqual(self.baseline["source_commit"], "153b5ab")
         entries = self.baseline["entries"]
-        self.assertEqual(len(entries), 1994)
-        self.assertEqual(len({e["id"] for e in entries}), 1994, "entry ids must be unique")
+        self.assertEqual(len(entries), 4361)
+        self.assertEqual(len({e["id"] for e in entries}), 4361, "entry ids must be unique")
         keys = {
             (
                 e["module"],
@@ -1086,27 +1626,32 @@ class EquivalentBaselineTests(unittest.TestCase):
             )
             for e in entries
         }
-        self.assertEqual(len(keys), 1994, "match keys must be unique")
+        self.assertEqual(len(keys), 4361, "match keys must be unique")
         from collections import Counter
 
         self.assertEqual(
             Counter(e["operator"] for e in entries),
             {
-                "core/ExceptionReplacer": 1,
-                "core/NumberReplacer": 30,
-                "core/ReplaceBinaryOperator_BitOr_Add": 172,
-                "core/ReplaceBinaryOperator_BitOr_BitAnd": 173,
-                "core/ReplaceBinaryOperator_BitOr_BitXor": 172,
-                "core/ReplaceBinaryOperator_BitOr_Div": 172,
-                "core/ReplaceBinaryOperator_BitOr_FloorDiv": 166,
-                "core/ReplaceBinaryOperator_BitOr_LShift": 158,
-                "core/ReplaceBinaryOperator_BitOr_Mod": 158,
-                "core/ReplaceBinaryOperator_BitOr_Mul": 158,
-                "core/ReplaceBinaryOperator_BitOr_Pow": 158,
-                "core/ReplaceBinaryOperator_BitOr_RShift": 158,
-                "core/ReplaceBinaryOperator_BitOr_Sub": 158,
-                "core/ReplaceBinaryOperator_Add_BitOr": 5,
-                "core/ReplaceBinaryOperator_Add_LShift": 5,
+                "core/ExceptionReplacer": 8,
+                "core/NumberReplacer": 108,
+                "core/ReplaceAndWithOr": 5,
+                "core/ReplaceBinaryOperator_Add_BitOr": 11,
+                "core/ReplaceBinaryOperator_Add_BitXor": 1,
+                "core/ReplaceBinaryOperator_Add_FloorDiv": 1,
+                "core/ReplaceBinaryOperator_Add_LShift": 11,
+                "core/ReplaceBinaryOperator_Add_Mul": 1,
+                "core/ReplaceBinaryOperator_Add_Pow": 1,
+                "core/ReplaceBinaryOperator_BitOr_Add": 342,
+                "core/ReplaceBinaryOperator_BitOr_BitAnd": 343,
+                "core/ReplaceBinaryOperator_BitOr_BitXor": 343,
+                "core/ReplaceBinaryOperator_BitOr_Div": 342,
+                "core/ReplaceBinaryOperator_BitOr_FloorDiv": 342,
+                "core/ReplaceBinaryOperator_BitOr_LShift": 341,
+                "core/ReplaceBinaryOperator_BitOr_Mod": 341,
+                "core/ReplaceBinaryOperator_BitOr_Mul": 341,
+                "core/ReplaceBinaryOperator_BitOr_Pow": 341,
+                "core/ReplaceBinaryOperator_BitOr_RShift": 341,
+                "core/ReplaceBinaryOperator_BitOr_Sub": 341,
                 "core/ReplaceBinaryOperator_Div_Add": 1,
                 "core/ReplaceBinaryOperator_Div_BitAnd": 1,
                 "core/ReplaceBinaryOperator_Div_BitOr": 1,
@@ -1121,45 +1666,55 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "core/ReplaceBinaryOperator_Mul_Add": 1,
                 "core/ReplaceBinaryOperator_Mul_BitAnd": 1,
                 "core/ReplaceBinaryOperator_Mul_BitOr": 1,
-                "core/ReplaceBinaryOperator_Mul_Div": 24,
-                "core/ReplaceBinaryOperator_Mul_FloorDiv": 1,
-                "core/ReplaceBinaryOperator_Sub_BitXor": 1,
+                "core/ReplaceBinaryOperator_Mul_Div": 68,
+                "core/ReplaceBinaryOperator_Mul_FloorDiv": 2,
+                "core/ReplaceBinaryOperator_Sub_Add": 2,
+                "core/ReplaceBinaryOperator_Sub_BitOr": 1,
+                "core/ReplaceBinaryOperator_Sub_BitXor": 3,
+                "core/ReplaceBinaryOperator_Sub_Div": 1,
+                "core/ReplaceBinaryOperator_Sub_FloorDiv": 1,
+                "core/ReplaceBinaryOperator_Sub_LShift": 1,
+                "core/ReplaceBinaryOperator_Sub_Mul": 1,
+                "core/ReplaceBinaryOperator_Sub_Pow": 1,
                 "core/ReplaceBinaryOperator_Sub_RShift": 1,
-                "core/ReplaceComparisonOperator_Eq_Gt": 1,
-                "core/ReplaceComparisonOperator_Eq_GtE": 18,
-                "core/ReplaceComparisonOperator_Eq_Is": 6,
-                "core/ReplaceComparisonOperator_Eq_IsNot": 1,
-                "core/ReplaceComparisonOperator_Eq_Lt": 1,
-                "core/ReplaceComparisonOperator_Eq_LtE": 24,
+                "core/ReplaceComparisonOperator_Eq_Gt": 2,
+                "core/ReplaceComparisonOperator_Eq_GtE": 87,
+                "core/ReplaceComparisonOperator_Eq_Is": 17,
+                "core/ReplaceComparisonOperator_Eq_IsNot": 2,
+                "core/ReplaceComparisonOperator_Eq_Lt": 4,
+                "core/ReplaceComparisonOperator_Eq_LtE": 89,
                 "core/ReplaceComparisonOperator_Eq_NotEq": 1,
-                "core/ReplaceComparisonOperator_GtE_Eq": 2,
-                "core/ReplaceComparisonOperator_GtE_Gt": 4,
+                "core/ReplaceComparisonOperator_GtE_Eq": 5,
+                "core/ReplaceComparisonOperator_GtE_Gt": 6,
                 "core/ReplaceComparisonOperator_GtE_Is": 1,
                 "core/ReplaceComparisonOperator_GtE_IsNot": 1,
-                "core/ReplaceComparisonOperator_GtE_Lt": 1,
-                "core/ReplaceComparisonOperator_GtE_LtE": 1,
-                "core/ReplaceComparisonOperator_GtE_NotEq": 2,
-                "core/ReplaceComparisonOperator_Gt_GtE": 2,
-                "core/ReplaceComparisonOperator_Gt_Is": 1,
-                "core/ReplaceComparisonOperator_Gt_NotEq": 3,
+                "core/ReplaceComparisonOperator_GtE_Lt": 3,
+                "core/ReplaceComparisonOperator_GtE_LtE": 3,
+                "core/ReplaceComparisonOperator_GtE_NotEq": 4,
+                "core/ReplaceComparisonOperator_Gt_GtE": 11,
+                "core/ReplaceComparisonOperator_Gt_Is": 3,
+                "core/ReplaceComparisonOperator_Gt_NotEq": 16,
                 "core/ReplaceComparisonOperator_IsNot_Is": 1,
-                "core/ReplaceComparisonOperator_LtE_Eq": 1,
+                "core/ReplaceComparisonOperator_Is_Eq": 4,
+                "core/ReplaceComparisonOperator_LtE_Eq": 3,
                 "core/ReplaceComparisonOperator_LtE_Lt": 3,
                 "core/ReplaceComparisonOperator_Lt_Eq": 1,
+                "core/ReplaceComparisonOperator_Lt_Gt": 3,
                 "core/ReplaceComparisonOperator_Lt_Is": 1,
-                "core/ReplaceComparisonOperator_Lt_LtE": 1,
-                "core/ReplaceComparisonOperator_Lt_NotEq": 1,
-                "core/ReplaceComparisonOperator_NotEq_Gt": 3,
-                "core/ReplaceComparisonOperator_NotEq_IsNot": 2,
-                "core/ReplaceComparisonOperator_NotEq_Lt": 2,
-                "core/ReplaceContinueWithBreak": 1,
+                "core/ReplaceComparisonOperator_Lt_LtE": 2,
+                "core/ReplaceComparisonOperator_Lt_NotEq": 7,
+                "core/ReplaceComparisonOperator_NotEq_Gt": 14,
+                "core/ReplaceComparisonOperator_NotEq_IsNot": 4,
+                "core/ReplaceComparisonOperator_NotEq_Lt": 12,
+                "core/ReplaceComparisonOperator_NotEq_LtE": 2,
+                "core/ReplaceContinueWithBreak": 5,
                 "core/ReplaceFalseWithTrue": 8,
-                "core/ReplaceOrWithAnd": 2,
-                "core/ReplaceTrueWithFalse": 8,
-                "core/ReplaceUnaryOperator_Delete_USub": 1,
+                "core/ReplaceOrWithAnd": 5,
+                "core/ReplaceTrueWithFalse": 23,
+                "core/ReplaceUnaryOperator_Delete_USub": 2,
                 "core/ReplaceUnaryOperator_USub_Invert": 1,
-                "core/ReplaceUnaryOperator_USub_Not": 1,
-                "core/ReplaceUnaryOperator_USub_UAdd": 1,
+                "core/ReplaceUnaryOperator_USub_Not": 2,
+                "core/ReplaceUnaryOperator_USub_UAdd": 2,
             },
         )
         self.assertEqual({tuple(e["start_pos"]) for e in entries}, self.EXPECTED_POSITIONS)
@@ -1167,16 +1722,31 @@ class EquivalentBaselineTests(unittest.TestCase):
             self.assertIn(
                 entry["module"],
                 {
-                    "textforensics.trust",
-                    "textforensics.policy",
-                    "textforensics.benchmark",
-                    "textforensics.consensus",
-                    "textforensics.calibration",
-                    "textforensics.detectors",
+                    "textforensics._standalone_verify",
+                    "textforensics.adversarial",
                     "textforensics.analyzers",
-                    "textforensics.engine",
+                    "textforensics.benchmark",
+                    "textforensics.calibration",
                     "textforensics.casefile",
+                    "textforensics.consensus",
+                    "textforensics.detectors",
+                    "textforensics.engine",
+                    "textforensics.evidence",
                     "textforensics.execution_policy",
+                    "textforensics.explain",
+                    "textforensics.mixed_origin",
+                    "textforensics.model_card",
+                    "textforensics.observatory",
+                    "textforensics.policy",
+                    "textforensics.probe_metrics",
+                    "textforensics.probe_runs",
+                    "textforensics.report",
+                    "textforensics.result_codec",
+                    "textforensics.schema",
+                    "textforensics.semantic",
+                    "textforensics.trust",
+                    "textforensics.validation",
+                    "textforensics.verify",
                 },
             )
             self.assertTrue(entry["reason"], f"entry {entry['id']} needs a reason")
@@ -1197,41 +1767,76 @@ class EquivalentBaselineTests(unittest.TestCase):
                 self.assertEqual(len(entry["source_fingerprint"]), 64)
 
     def test_runtime_entries(self):
-        """The 192 runtime entries carry their equivalence proofs."""
+        """The 605 runtime entries carry their equivalence proofs."""
         runtime = [
             e for e in self.baseline["entries"] if e["kind"] in self.runner.BASELINE_RUNTIME_KINDS
         ]
-        self.assertEqual(len(runtime), 192)
+        self.assertEqual(len(runtime), 605)
         unreachable = [e for e in runtime if e["kind"] == "unreachable-condition"]
-        self.assertEqual(len(unreachable), 6)
+        self.assertEqual(len(unreachable), 3)
         by_id = {e["id"]: e for e in runtime}
         self.assertEqual(
             {e["occurrence"] for e in unreachable},
-            {12, 45, 48, 50, 51, 95},
-            "occurrences must match the CI dump (survivor indices 41/44/46/47, "
-            "renumbered by the W1 refresh to 45/48/50/51) "
-            "plus the consensus full-run dump (fleiss_kappa n_i < 1) "
-            "plus the policy-298 full-session dump "
-            "(_atomic_write_bytes missing_ok=True, occ 12, was 11)",
+            {15, 45, 95},
+            "occurrences must match the W2 refresh (the W1 set was "
+            "{12, 45, 48, 50, 51, 95}; the trust entries 48/50/51 were "
+            "DROPPED in the W2 refresh because W2 broke their recorded "
+            "equivalence — see the baseline header note — and 12 was "
+            "renumbered to 15 by the same refresh: it is the "
+            "PolicyRevisionFloor._atomic_write_bytes missing_ok entry)",
         )
-        # Two entries share one position and differ only by occurrence.
+        # The two entries that shared L628:76 (occurrences 50 and 51)
+        # are gone: they were among the trust entries dropped in the
+        # W2 refresh, so no unreachable-condition entry sits there now.
         at_628_76 = [e for e in unreachable if tuple(e["start_pos"]) == (628, 76)]
-        self.assertEqual(len(at_628_76), 2)
-        self.assertEqual({e["occurrence"] for e in at_628_76}, {50, 51})
-        self.assertEqual({e["source_text"] for e in at_628_76}, {"2"})
-        # Same enclosing function, hence the same fingerprint.
-        self.assertEqual(len({e["source_fingerprint"] for e in at_628_76}), 1)
+        self.assertEqual(len(at_628_76), 0)
         self.assertEqual(
             by_id["textforensics.trust:core/NumberReplacer:45"]["function"],
             "build_trust_map",
         )
         self.assertEqual(by_id["textforensics.trust:core/NumberReplacer:45"]["source_text"], "0")
         unobservable = [e for e in runtime if e["kind"] == "unobservable-value"]
-        self.assertEqual(len(unobservable), 29)
+        self.assertEqual(len(unobservable), 35)
         self.assertEqual(
             {e["occurrence"] for e in unobservable},
-            {0, 1, 2, 3, 4, 8, 9, 10, 19, 22, 23, 24, 25, 27, 36, 37, 38, 48, 64, 65, 81, 95, 118},
-            "occurrences must match the policy budget-200 dump + the benchmark, consensus, calibration-prefix, calibration-remainder and engine full-session dumps + the casefile re-derived survivor list",
+            {
+                0,
+                1,
+                2,
+                3,
+                4,
+                8,
+                10,
+                11,
+                19,
+                22,
+                23,
+                24,
+                25,
+                27,
+                36,
+                37,
+                38,
+                50,
+                64,
+                65,
+                80,
+                81,
+                105,
+                128,
+                172,
+                173,
+                486,
+                487,
+            },
+            "occurrences must match the W2 refresh + W2 proof + F2 "
+            "re-proof append (the W1 set was {0, 1, 2, 3, 4, 8, 9, 10, "
+            "19, 22, 23, 24, 25, 27, 36, 37, 38, 48, 64, 65, 81, 95, "
+            "118}; W2 renumbered the calibration _coerce_label entries "
+            "9 -> 11 and 118 -> 128 and the casefile entry 48 -> 50, "
+            "dropped the trust 95 entry, and added 80/81 (probe_runs "
+            "abstention n), 105 (casefile), 172/173 (probe_metrics "
+            "holm_adjusted) and 486/487 (_standalone_verify exit_code))",
         )
         self.assertEqual(
             {e["function"] for e in unobservable},
@@ -1252,6 +1857,9 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "_replay_trust_map_v3",
                 "replay_case_file",
                 "write_case_file",
+                "_slice_metrics",
+                "holm_adjusted",
+                "verify_bundle_bytes",
             },
         )
         self.assertEqual(
@@ -1259,10 +1867,11 @@ class EquivalentBaselineTests(unittest.TestCase):
             {"2", "1", "4", "1024", "0", "0.0", "1.0", "False", "!=", "==", "or"},
         )
         # The two lru_cache entries share one position and function.
-        at_668_19 = [e for e in unobservable if tuple(e["start_pos"]) == (668, 19)]
-        self.assertEqual(len(at_668_19), 2)
-        self.assertEqual({e["occurrence"] for e in at_668_19}, {22, 23})
-        self.assertEqual(len({e["source_fingerprint"] for e in at_668_19}), 1)
+        # (W2 moved the decorator L668:19 -> L821:19.)
+        at_821_19 = [e for e in unobservable if tuple(e["start_pos"]) == (821, 19)]
+        self.assertEqual(len(at_821_19), 2)
+        self.assertEqual({e["occurrence"] for e in at_821_19}, {22, 23})
+        self.assertEqual(len({e["source_fingerprint"] for e in at_821_19}), 1)
         # The four benchmark chunk-size entries share one function (and
         # hence one fingerprint) across two positions.
         bench = [e for e in unobservable if e["module"] == "textforensics.benchmark"]
@@ -1300,11 +1909,12 @@ class EquivalentBaselineTests(unittest.TestCase):
             },
         )
         # The two calibration entries share one position and function.
-        at_255_47 = [e for e in unobservable if tuple(e["start_pos"]) == (255, 47)]
-        self.assertEqual(len(at_255_47), 2)
-        self.assertEqual({e["occurrence"] for e in at_255_47}, {36, 37})
-        self.assertEqual({e["source_text"] for e in at_255_47}, {"0.0"})
-        self.assertEqual(len({e["source_fingerprint"] for e in at_255_47}), 1)
+        # (W2 moved them L255:47 -> L461:47.)
+        at_461_47 = [e for e in unobservable if tuple(e["start_pos"]) == (461, 47)]
+        self.assertEqual(len(at_461_47), 2)
+        self.assertEqual({e["occurrence"] for e in at_461_47}, {36, 37})
+        self.assertEqual({e["source_text"] for e in at_461_47}, {"0.0"})
+        self.assertEqual(len({e["source_fingerprint"] for e in at_461_47}), 1)
         # The calibration _coerce_label False entry (remainder wave).
         coerce_false = [
             e
@@ -1312,14 +1922,16 @@ class EquivalentBaselineTests(unittest.TestCase):
             if e["source_text"] == "False" and e["module"] == "textforensics.calibration"
         ]
         self.assertEqual(len(coerce_false), 1)
-        self.assertEqual({e["occurrence"] for e in coerce_false}, {9})
+        self.assertEqual({e["occurrence"] for e in coerce_false}, {11})
         self.assertEqual({e["function"] for e in coerce_false}, {"_coerce_label"})
-        self.assertEqual({tuple(e["start_pos"]) for e in coerce_false}, {(942, 20)})
+        self.assertEqual({tuple(e["start_pos"]) for e in coerce_false}, {(1479, 20)})
         # The two _coerce_label entries share one function (and hence
         # one fingerprint) but sit at different positions in it.
+        # (W2 renumbered 9 -> 11 and 118 -> 128 and moved the False
+        # entry L942:20 -> L1479:20.)
         coerce = [e for e in unobservable if e["function"] == "_coerce_label"]
         self.assertEqual(len(coerce), 2)
-        self.assertEqual({e["occurrence"] for e in coerce}, {9, 118})
+        self.assertEqual({e["occurrence"] for e in coerce}, {11, 128})
         self.assertEqual({e["source_text"] for e in coerce}, {"0", "False"})
         self.assertEqual(len({e["source_fingerprint"] for e in coerce}), 1)
         # The four engine entries (full 322-item session at dd8bd83):
@@ -1347,14 +1959,14 @@ class EquivalentBaselineTests(unittest.TestCase):
         # _replay_trust_map_v3, occ 48/27 in replay_case_file.
         casefile_unobs = [e for e in unobservable if e["module"] == "textforensics.casefile"]
         self.assertEqual(len(casefile_unobs), 6)
-        self.assertEqual({e["occurrence"] for e in casefile_unobs}, {10, 24, 25, 27, 48, 81})
+        self.assertEqual({e["occurrence"] for e in casefile_unobs}, {10, 24, 25, 27, 50, 81})
         self.assertEqual(
             {e["function"] for e in casefile_unobs},
             {"_compare_scores", "_replay_trust_map_v3", "replay_case_file", "write_case_file"},
         )
         self.assertEqual(
             {tuple(e["start_pos"]) for e in casefile_unobs},
-            {(1675, 72), (1754, 24), (1883, 25), (1883, 56), (2199, 16), (2201, 63)},
+            {(1687, 72), (1766, 24), (1895, 25), (1895, 56), (2257, 16), (2259, 63)},
         )
         self.assertEqual(
             {e["source_text"] for e in casefile_unobs},
@@ -1362,46 +1974,61 @@ class EquivalentBaselineTests(unittest.TestCase):
         )
         # Four functions, hence four fingerprints.
         self.assertEqual(len({e["source_fingerprint"] for e in casefile_unobs}), 4)
-        # The 151 domain-equivalent entries (kind wave, 2026-11-08,
-        # plus casefile Phase 2, 2026-11-09, plus policy-298, 2026-11-09,
-        # plus the W1 proof, 2026-11-11): 27 in textforensics.benchmark
-        # + 11 in textforensics.consensus + 56 in
-        # textforensics.calibration + 4 in textforensics.detectors
-        # + 4 in textforensics.analyzers + 1 in textforensics.engine
-        # (Phase 2, 2026-11-08) + 25 in textforensics.casefile
-        # (Phase 2, 2026-11-09) + 12 in textforensics.policy (Phase 5
-        # policy-298, full 506-item session, 2026-11-09, + 2 W1
-        # Mul_Div keyword-only markers) + 10 in
-        # textforensics.execution_policy (W1 proof: 6 Mul_Div + 3
-        # Eq_GtE + 1 Eq_LtE) + 1 in textforensics.trust (W1 proof:
-        # 1 Mul_Div keyword-only marker).
+        # The 561 domain-equivalent entries (151 from the pre-W2
+        # waves — kind wave 2026-11-08 + casefile Phase 2 2026-11-09
+        # + policy-298 2026-11-09 + the W1 proof 2026-11-11 — plus
+        # 203 from the W2 proof append 2026-11-11, plus 208 from the
+        # F2 re-proof append 2026-11-11, minus 1 dropped in the W2
+        # refresh: 151 + 203 + 208 - 1 = 561). Final per-module
+        # counts: _standalone_verify 43, adversarial 19, analyzers 4,
+        # benchmark 39, calibration 83, casefile 27, consensus 11,
+        # detectors 4, engine 1, evidence 43, execution_policy 10,
+        # explain 11, mixed_origin 6, model_card 5, policy 20,
+        # probe_metrics 64, probe_runs 25, report 6, result_codec 4,
+        # schema 4, semantic 66, trust 19, validation 22, verify 25.
         domain = [e for e in runtime if e["kind"] == "domain-equivalent"]
-        self.assertEqual(len(domain), 151)
+        self.assertEqual(len(domain), 561)
         self.assertEqual(
             {e["module"] for e in domain},
             {
-                "textforensics.benchmark",
-                "textforensics.consensus",
-                "textforensics.calibration",
-                "textforensics.detectors",
+                "textforensics._standalone_verify",
+                "textforensics.adversarial",
                 "textforensics.analyzers",
-                "textforensics.engine",
+                "textforensics.benchmark",
+                "textforensics.calibration",
                 "textforensics.casefile",
-                "textforensics.policy",
+                "textforensics.consensus",
+                "textforensics.detectors",
+                "textforensics.engine",
+                "textforensics.evidence",
                 "textforensics.execution_policy",
+                "textforensics.explain",
+                "textforensics.mixed_origin",
+                "textforensics.model_card",
+                "textforensics.policy",
+                "textforensics.probe_metrics",
+                "textforensics.probe_runs",
+                "textforensics.report",
+                "textforensics.result_codec",
+                "textforensics.schema",
+                "textforensics.semantic",
                 "textforensics.trust",
+                "textforensics.validation",
+                "textforensics.verify",
             },
         )
         self.assertTrue(all("ulp_bound_ulps" not in e for e in domain))
-        # Benchmark's 27 (13 round-1 + 14 round-2 genuinely-equivalent
-        # survivors of the full 909-item session).
+        # Benchmark's 39 (27 from the full 909-item session — 13
+        # round-1 + 14 round-2 genuinely-equivalent survivors — plus
+        # 9 from the W2 proof and 3 from the F2 re-proof append).
         bench_domain = [e for e in domain if e["module"] == "textforensics.benchmark"]
-        self.assertEqual(len(bench_domain), 27)
+        self.assertEqual(len(bench_domain), 39)
         self.assertEqual(
             {e["occurrence"] for e in bench_domain},
-            {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+            {0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17},
             "occurrences must match the benchmark full-session dump "
-            "(13 round-1 + 14 round-2 genuinely-equivalent survivors)",
+            "(13 round-1 + 14 round-2 genuinely-equivalent survivors) "
+            "plus the W2 proof and F2 re-proof appends",
         )
         self.assertEqual(
             {e["function"] for e in bench_domain},
@@ -1413,6 +2040,11 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "calibrate_threshold_jsonl",
                 "verify_fingerprint",
                 "_metrics",
+                "DisjointnessProof.__post_init__",
+                "_sample_and_group_hashes",
+                "benchmark_with_calibration_jsonl",
+                "check_disjointness",
+                "prove_disjointness",
             },
         )
         self.assertEqual(
@@ -1420,12 +2052,8 @@ class EquivalentBaselineTests(unittest.TestCase):
             {
                 (74, 58),
                 (35, 51),
-                (361, 18),
-                (420, 30),
-                (428, 30),
                 (175, 36),
                 (176, 41),
-                (538, 44),
                 (100, 32),
                 (101, 32),
                 (102, 32),
@@ -1435,18 +2063,35 @@ class EquivalentBaselineTests(unittest.TestCase):
                 (93, 18),
                 (156, 51),
                 (155, 54),
+                (297, 35),
+                (301, 35),
+                (404, 23),
+                (406, 23),
+                (412, 24),
+                (464, 4),
+                (514, 34),
+                (527, 4),
+                (602, 19),
+                (602, 38),
+                (699, 18),
+                (758, 30),
+                (766, 30),
+                (876, 44),
+                (976, 11),
+                (980, 11),
             },
         )
-        # The four chunk-size Mul entries share one position and function
+        # The six chunk-size Mul entries share one position and function
         # (and hence one fingerprint) with the four baselined
-        # NumberReplacer entries at the same line.
+        # NumberReplacer entries at the same line, plus two more at
+        # their own positions (W2 proof).
         mul = [
             e for e in bench_domain if e["operator"].startswith("core/ReplaceBinaryOperator_Mul_")
         ]
-        self.assertEqual(len(mul), 4)
-        self.assertEqual({tuple(e["start_pos"]) for e in mul}, {(35, 51)})
+        self.assertEqual(len(mul), 6)
+        self.assertEqual({tuple(e["start_pos"]) for e in mul}, {(35, 51), (464, 4), (527, 4)})
         self.assertEqual({e["source_text"] for e in mul}, {"*"})
-        self.assertEqual(len({e["source_fingerprint"] for e in mul}), 1)
+        self.assertEqual(len({e["source_fingerprint"] for e in mul}), 3)
         # The ten _metrics denominator-guard entries (Add_LShift / Add_BitOr
         # at the same five positions) share one function and fingerprint.
         guard = [
@@ -1491,28 +2136,71 @@ class EquivalentBaselineTests(unittest.TestCase):
             {e["module"] for e in cons_domain},
             {"textforensics.consensus"},
         )
-        # Calibration's 56: the domain equivalents from the full
-        # 1937-item calibration session.
+        # Calibration's 83: the 56 domain equivalents from the full
+        # 1937-item calibration session, plus 22 from the W2 proof
+        # and 5 from the F2 re-proof append.
         calib_domain = [e for e in domain if e["module"] == "textforensics.calibration"]
-        self.assertEqual(len(calib_domain), 56)
+        self.assertEqual(len(calib_domain), 83)
         self.assertEqual(
             {e["occurrence"] for e in calib_domain},
-            {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 16, 17, 18, 23, 24},
-            "occurrences must match the calibration full-session dump (1937/1539/397/335/62)",
+            {
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                29,
+                32,
+                33,
+                34,
+                37,
+                38,
+                39,
+                42,
+            },
+            "occurrences must match the calibration full-session dump (1937/1539/397/335/62) "
+            "plus the W2 proof and F2 re-proof appends",
         )
         self.assertEqual(
             {e["function"] for e in calib_domain},
             {
                 "CalibrationArtifact.validation_issues",
+                "CalibrationCurve.__post_init__",
                 "CalibrationCurve._calibrate_beta",
                 "CalibrationCurve._calibrate_isotonic",
                 "CalibrationCurve._validate_parameters",
                 "CalibrationCurve.calibrate",
+                "CalibrationCurve.from_dict",
+                "CalibrationCurve.is_legacy",
                 "CalibrationManager._load_all",
                 "CalibrationManager._save_artifact",
+                "CalibrationManager.get_calibrated_result_for_identity",
+                "CalibrationManager.get_calibrated_score_for_identity",
                 "_probability_metrics",
-                "run_calibration_evaluation",
+                "evaluate_threshold",
+                "migrate_legacy_temperature_curve",
                 "select_threshold",
+                "validate_no_contamination",
             },
         )
         self.assertEqual(
@@ -1597,7 +2285,7 @@ class EquivalentBaselineTests(unittest.TestCase):
             {e["operator"] for e in engine_domain},
             {"core/ReplaceFalseWithTrue"},
         )
-        # Casefile's 25: the domain equivalents from the re-derived
+        # Casefile's 27: the 25 domain equivalents from the re-derived
         # 2118-item session (1330 killed / 788 surviving, probe-proven
         # 2026-11-09; the Phase-1 dump was lost, so the survivor set
         # was re-derived structurally and each entry re-validated).
@@ -1607,12 +2295,13 @@ class EquivalentBaselineTests(unittest.TestCase):
         # Every entry carries a hand-applied differential probe with
         # 0 diffs (specs casefile-mut-tools/p2/probes/spec-<idx>.json).
         casefile_domain = [e for e in domain if e["module"] == "textforensics.casefile"]
-        self.assertEqual(len(casefile_domain), 25)
+        self.assertEqual(len(casefile_domain), 27)
         self.assertEqual(
             {e["occurrence"] for e in casefile_domain},
             {1, 2, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22},
             "occurrences must match the casefile re-derived survivor list "
-            "(2118-item session, 1330 killed / 788 surviving)",
+            "(2118-item session, 1330 killed / 788 surviving) plus the "
+            "W2 proof and F2 re-proof appends",
         )
         self.assertEqual(
             {e["function"] for e in casefile_domain},
@@ -1620,6 +2309,8 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "_checklist_item",
                 "_compare_scores",
                 "_observations_match",
+                "_replay_trust_map_inner",
+                "_validate_portable_bundle",
                 "_verify_case_sections",
                 "append_custody_entry",
                 "build_case_input",
@@ -1635,38 +2326,44 @@ class EquivalentBaselineTests(unittest.TestCase):
         )
         self.assertEqual(
             {e["source_text"] for e in casefile_domain},
-            {"!=", "*", "1", "=="},
+            {"!=", "*", "0", "1", "=="},
         )
-        # The thirteen Mul_Div entries share the `*,` marker (and one
-        # source text) across thirteen functions, hence thirteen
+        # The fourteen Mul_Div entries share the `*,` marker (and one
+        # source text) across fourteen functions, hence fourteen
         # fingerprints.
         mul_div = [
             e for e in casefile_domain if e["operator"] == "core/ReplaceBinaryOperator_Mul_Div"
         ]
-        self.assertEqual(len(mul_div), 13)
+        self.assertEqual(len(mul_div), 14)
         self.assertEqual({e["source_text"] for e in mul_div}, {"*"})
-        self.assertEqual(len({e["source_fingerprint"] for e in mul_div}), 13)
-        # Fourteen functions, hence fourteen fingerprints overall.
-        self.assertEqual(len({e["source_fingerprint"] for e in casefile_domain}), 14)
-        # Policy's 12: the domain equivalents from the full 506-item
+        self.assertEqual(len({e["source_fingerprint"] for e in mul_div}), 14)
+        # Sixteen functions, hence sixteen fingerprints overall.
+        self.assertEqual(len({e["source_fingerprint"] for e in casefile_domain}), 16)
+        # Policy's 20: the 12 domain equivalents from the full 506-item
         # policy-298 session (352 killed / 154 surviving / 0 error) at
         # 928dbc0, classified in hidden_files/policy-298-classification.md
         # (positions refreshed by the W1 refresh: 137->231, 209->313,
         # 210->314, 242->370, 243->371, 381->509, 384->512, 848->976,
         # 876->1004), plus 2 W1 proof Mul_Div `*,` keyword-only
-        # markers (claim_is_expired, _claim_is_effective).
+        # markers (claim_is_expired, _claim_is_effective), plus 8 from
+        # the W2 proof (6 more Mul_Div markers and the Eq_Is /
+        # Eq_LtE / NotEq_IsNot coincidences; the W2 refresh
+        # renumbered the policy-298 occurrences, e.g. Eq_Is 1-5 ->
+        # 0/2/3/4/5/6 and Eq_LtE 6/7/11/12 -> 7/8/12/13).
         policy_domain = [e for e in domain if e["module"] == "textforensics.policy"]
-        self.assertEqual(len(policy_domain), 12)
+        self.assertEqual(len(policy_domain), 20)
         self.assertEqual(
             {e["occurrence"] for e in policy_domain},
-            {0, 1, 2, 3, 4, 5, 6, 7, 11, 12},
+            {0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 13},
             "occurrences must match the policy-298 full-session dump "
-            "(Eq_Is 1-5, Eq_LtE 6/7/11/12, USub_Invert 1) plus the "
-            "W1 Mul_Div 0/1",
+            "as renumbered by the W2 refresh plus the W1 Mul_Div 0/1 "
+            "and the W2 proof Mul_Div 2-7",
         )
         self.assertEqual(
             {e["function"] for e in policy_domain},
             {
+                "CapabilityLedger.enforce",
+                "CapabilityLedger.get",
                 "CapabilityLedger.is_validated",
                 "validate_claim",
                 "ledger_to_trust_dimension",
@@ -1680,29 +2377,38 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(
             {tuple(e["start_pos"]) for e in policy_domain},
             {
-                (126, 45),
-                (141, 48),
-                (231, 48),
-                (313, 18),
-                (314, 35),
-                (370, 31),
-                (371, 33),
-                (509, 77),
-                (512, 34),
-                (512, 53),
-                (976, 29),
-                (1004, 40),
+                (160, 45),
+                (179, 4),
+                (213, 18),
+                (215, 59),
+                (315, 8),
+                (337, 8),
+                (347, 48),
+                (353, 8),
+                (436, 43),
+                (451, 18),
+                (452, 35),
+                (469, 4),
+                (517, 31),
+                (518, 33),
+                (625, 8),
+                (662, 77),
+                (665, 34),
+                (665, 53),
+                (1129, 29),
+                (1157, 40),
             },
         )
         self.assertEqual(
             {e["source_text"] for e in policy_domain},
-            {"==", "-", "*"},
+            {"==", "-", "*", "!="},
         )
         self.assertEqual(
             {e["operator"] for e in policy_domain},
             {
                 "core/ReplaceComparisonOperator_Eq_Is",
                 "core/ReplaceComparisonOperator_Eq_LtE",
+                "core/ReplaceComparisonOperator_NotEq_IsNot",
                 "core/ReplaceUnaryOperator_USub_Invert",
                 "core/ReplaceBinaryOperator_Mul_Div",
             },
@@ -1710,18 +2416,26 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(
             {e["id"] for e in policy_domain},
             {
-                "textforensics.policy:core/ReplaceComparisonOperator_Eq_Is:1",
+                "textforensics.policy:core/ReplaceBinaryOperator_Mul_Div:0",
+                "textforensics.policy:core/ReplaceBinaryOperator_Mul_Div:1",
+                "textforensics.policy:core/ReplaceBinaryOperator_Mul_Div:2",
+                "textforensics.policy:core/ReplaceBinaryOperator_Mul_Div:3",
+                "textforensics.policy:core/ReplaceBinaryOperator_Mul_Div:4",
+                "textforensics.policy:core/ReplaceBinaryOperator_Mul_Div:5",
+                "textforensics.policy:core/ReplaceBinaryOperator_Mul_Div:6",
+                "textforensics.policy:core/ReplaceBinaryOperator_Mul_Div:7",
+                "textforensics.policy:core/ReplaceComparisonOperator_Eq_Is:0",
                 "textforensics.policy:core/ReplaceComparisonOperator_Eq_Is:2",
                 "textforensics.policy:core/ReplaceComparisonOperator_Eq_Is:3",
                 "textforensics.policy:core/ReplaceComparisonOperator_Eq_Is:4",
                 "textforensics.policy:core/ReplaceComparisonOperator_Eq_Is:5",
-                "textforensics.policy:core/ReplaceComparisonOperator_Eq_LtE:6",
+                "textforensics.policy:core/ReplaceComparisonOperator_Eq_Is:6",
                 "textforensics.policy:core/ReplaceComparisonOperator_Eq_LtE:7",
-                "textforensics.policy:core/ReplaceComparisonOperator_Eq_LtE:11",
+                "textforensics.policy:core/ReplaceComparisonOperator_Eq_LtE:8",
                 "textforensics.policy:core/ReplaceComparisonOperator_Eq_LtE:12",
+                "textforensics.policy:core/ReplaceComparisonOperator_Eq_LtE:13",
+                "textforensics.policy:core/ReplaceComparisonOperator_NotEq_IsNot:0",
                 "textforensics.policy:core/ReplaceUnaryOperator_USub_Invert:1",
-                "textforensics.policy:core/ReplaceBinaryOperator_Mul_Div:0",
-                "textforensics.policy:core/ReplaceBinaryOperator_Mul_Div:1",
             },
         )
         # Execution_policy's 10 (W1 proof, new module): 6 Mul_Div
@@ -1771,17 +2485,59 @@ class EquivalentBaselineTests(unittest.TestCase):
         # position and function (hence one fingerprint); the six
         # Mul_Div entries sit in six functions (six fingerprints).
         self.assertEqual(len({e["source_fingerprint"] for e in exec_domain}), 8)
-        # Trust's 1 (W1 proof): the Mul_Div `*,` keyword-only marker
-        # in _stability_dimension.
+        # Trust's 19: the 1 Mul_Div `*,` keyword-only marker from the
+        # W1 proof in _stability_dimension, plus 17 from the W2 proof
+        # and 1 from the F2 re-proof append (the Eq_Lt:18
+        # out_of_scope-minimum entry).
         trust_domain = [e for e in domain if e["module"] == "textforensics.trust"]
-        self.assertEqual(len(trust_domain), 1)
-        self.assertEqual({e["occurrence"] for e in trust_domain}, {0})
-        self.assertEqual({e["function"] for e in trust_domain}, {"_stability_dimension"})
-        self.assertEqual({tuple(e["start_pos"]) for e in trust_domain}, {(213, 4)})
-        self.assertEqual({e["source_text"] for e in trust_domain}, {"*"})
+        self.assertEqual(len(trust_domain), 19)
+        self.assertEqual(
+            {e["occurrence"] for e in trust_domain},
+            {0, 1, 2, 6, 8, 9, 10, 11, 12, 13, 17, 18, 19},
+        )
+        self.assertEqual(
+            {e["function"] for e in trust_domain},
+            {
+                "_overall_state",
+                "_stability_dimension",
+                "assess_trust_map",
+                "build_trust_map",
+                "trust_map_from_capability_ledger",
+            },
+        )
+        self.assertEqual(
+            {tuple(e["start_pos"]) for e in trust_domain},
+            {
+                (213, 4),
+                (381, 24),
+                (392, 20),
+                (392, 67),
+                (396, 17),
+                (396, 34),
+                (398, 17),
+                (421, 4),
+                (483, 25),
+                (501, 37),
+                (503, 37),
+                (522, 4),
+                (639, 32),
+                (642, 32),
+                (669, 39),
+                (670, 44),
+                (671, 39),
+            },
+        )
+        self.assertEqual({e["source_text"] for e in trust_domain}, {"*", "==", "is"})
         self.assertEqual(
             {e["operator"] for e in trust_domain},
-            {"core/ReplaceBinaryOperator_Mul_Div"},
+            {
+                "core/ReplaceBinaryOperator_Mul_Div",
+                "core/ReplaceComparisonOperator_Eq_GtE",
+                "core/ReplaceComparisonOperator_Eq_Is",
+                "core/ReplaceComparisonOperator_Eq_Lt",
+                "core/ReplaceComparisonOperator_Eq_LtE",
+                "core/ReplaceComparisonOperator_Is_Eq",
+            },
         )
         # The 6 ulp-equivalent entries (kind wave, calibration only).
         ulp = [e for e in runtime if e["kind"] == "ulp-equivalent"]
@@ -1951,10 +2707,10 @@ class EquivalentBaselineTests(unittest.TestCase):
             "baseline_entries",
         ):
             self.assertIn(key, summary, f"summary is missing {key}")
-        self.assertEqual(summary["baseline_entries"], 1994)
+        self.assertEqual(summary["baseline_entries"], 4361)
         self.assertEqual(summary["equivalent"], 2)
-        # The other 1992 entries matched no live survivor in this run.
-        self.assertEqual(summary["equivalent_dormant"], 1992)
+        # The other 4359 entries matched no live survivor in this run.
+        self.assertEqual(summary["equivalent_dormant"], 4359)
         self.assertEqual(summary["equivalent_superseded"], 0)
         self.assertEqual(summary["stale_baseline_entries"], [])
         # Raw counts are never relabelled: the survivors stay in `surviving`.
@@ -1973,7 +2729,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(summary["equivalent_mutants"], [entries[0]["id"]])
         self.assertEqual(summary["equivalent_superseded"], 1)
         self.assertEqual(summary["equivalent_superseded_ids"], [entries[1]["id"]])
-        self.assertEqual(summary["equivalent_dormant"], 1992)
+        self.assertEqual(summary["equivalent_dormant"], 4359)
         self.assertEqual(summary["unexplained_surviving"], 0)
         result = self._check_summary(summary)
         self.assertEqual(result.returncode, 0, result.stdout)
@@ -2020,8 +2776,8 @@ class EquivalentBaselineTests(unittest.TestCase):
         Regression test for the Core 3.11 CI stall (test 2562 exceeded
         10 minutes on CPython 3.11.18): ``validate_baseline_entry``
         used to re-read, re-parse and re-walk the module for every one
-        of the 1994 entries. The per-module context cache must parse
-        each of the 10 modules once, and a second full classify must
+        of the 4361 entries. The per-module context cache must parse
+        each of the 25 modules once, and a second full classify must
         parse nothing.
         """
         runner = self.runner
@@ -2036,14 +2792,14 @@ class EquivalentBaselineTests(unittest.TestCase):
         try:
             runner.ast.parse = counting_parse
             summary = runner.classify_baseline([], self.baseline, self.project_root)
-            self.assertEqual(summary["baseline_entries"], 1994)
+            self.assertEqual(summary["baseline_entries"], 4361)
             self.assertEqual(len(summary["stale_baseline_entries"]), 0)
-            self.assertEqual(calls["n"], 10, "one parse per distinct module")
+            self.assertEqual(calls["n"], 25, "one parse per distinct module")
             # A second full classify hits the cache: no further parses,
             # and the result is identical.
             summary2 = runner.classify_baseline([], self.baseline, self.project_root)
             self.assertEqual(summary2, summary)
-            self.assertEqual(calls["n"], 10, "second classify must parse nothing")
+            self.assertEqual(calls["n"], 25, "second classify must parse nothing")
         finally:
             runner.ast.parse = real_parse
             runner._clear_module_context_cache()
@@ -2108,12 +2864,12 @@ class EquivalentBaselineTests(unittest.TestCase):
     def test_unreachable_condition_mutants_accepted(self):
         """Survivors matching re-validated runtime entries are accepted (exit 0)."""
         runtime = [e for e in self.baseline["entries"] if e["kind"] == "unreachable-condition"]
-        self.assertEqual(len(runtime), 6)
+        self.assertEqual(len(runtime), 3)
         records = [self._record_for_entry(e, "survived") for e in runtime]
         summary = self.runner.parse_results(records, self.baseline, self.project_root)
-        self.assertEqual(summary["total"], 6)
-        self.assertEqual(summary["surviving"], 6)
-        self.assertEqual(summary["equivalent"], 6)
+        self.assertEqual(summary["total"], 3)
+        self.assertEqual(summary["surviving"], 3)
+        self.assertEqual(summary["equivalent"], 3)
         self.assertEqual(summary["unexplained_surviving"], 0)
         self.assertEqual(summary["equivalent_mutants"], [e["id"] for e in runtime])
         result = self._check_summary(summary)
@@ -2123,27 +2879,41 @@ class EquivalentBaselineTests(unittest.TestCase):
     def test_domain_equivalent_mutants_accepted(self):
         """Survivors matching re-validated domain-equivalent entries are accepted (exit 0)."""
         runtime = [e for e in self.baseline["entries"] if e["kind"] == "domain-equivalent"]
-        self.assertEqual(len(runtime), 151)
+        self.assertEqual(len(runtime), 561)
         self.assertEqual(
             {e["module"] for e in runtime},
             {
-                "textforensics.benchmark",
-                "textforensics.consensus",
-                "textforensics.calibration",
-                "textforensics.detectors",
+                "textforensics._standalone_verify",
+                "textforensics.adversarial",
                 "textforensics.analyzers",
-                "textforensics.engine",
+                "textforensics.benchmark",
+                "textforensics.calibration",
                 "textforensics.casefile",
-                "textforensics.policy",
+                "textforensics.consensus",
+                "textforensics.detectors",
+                "textforensics.engine",
+                "textforensics.evidence",
                 "textforensics.execution_policy",
+                "textforensics.explain",
+                "textforensics.mixed_origin",
+                "textforensics.model_card",
+                "textforensics.policy",
+                "textforensics.probe_metrics",
+                "textforensics.probe_runs",
+                "textforensics.report",
+                "textforensics.result_codec",
+                "textforensics.schema",
+                "textforensics.semantic",
                 "textforensics.trust",
+                "textforensics.validation",
+                "textforensics.verify",
             },
         )
         records = [self._record_for_entry(e, "survived") for e in runtime]
         summary = self.runner.parse_results(records, self.baseline, self.project_root)
-        self.assertEqual(summary["total"], 151)
-        self.assertEqual(summary["surviving"], 151)
-        self.assertEqual(summary["equivalent"], 151)
+        self.assertEqual(summary["total"], 561)
+        self.assertEqual(summary["surviving"], 561)
+        self.assertEqual(summary["equivalent"], 561)
         self.assertEqual(summary["unexplained_surviving"], 0)
         self.assertEqual(summary["equivalent_mutants"], [e["id"] for e in runtime])
         result = self._check_summary(summary)
@@ -2153,7 +2923,7 @@ class EquivalentBaselineTests(unittest.TestCase):
     def test_unobservable_value_mutants_accepted(self):
         """Survivors matching re-validated unobservable-value entries are accepted (exit 0)."""
         runtime = [e for e in self.baseline["entries"] if e["kind"] == "unobservable-value"]
-        self.assertEqual(len(runtime), 29)
+        self.assertEqual(len(runtime), 35)
         module_paths = {
             "textforensics.policy": str(self.project_root / "src" / "textforensics" / "policy.py"),
             "textforensics.benchmark": str(
@@ -2169,6 +2939,15 @@ class EquivalentBaselineTests(unittest.TestCase):
             "textforensics.casefile": str(
                 self.project_root / "src" / "textforensics" / "casefile.py"
             ),
+            "textforensics._standalone_verify": str(
+                self.project_root / "src" / "textforensics" / "_standalone_verify.py"
+            ),
+            "textforensics.probe_runs": str(
+                self.project_root / "src" / "textforensics" / "probe_runs.py"
+            ),
+            "textforensics.probe_metrics": str(
+                self.project_root / "src" / "textforensics" / "probe_metrics.py"
+            ),
         }
         records = [
             self._record(
@@ -2182,9 +2961,9 @@ class EquivalentBaselineTests(unittest.TestCase):
             for e in runtime
         ]
         summary = self.runner.parse_results(records, self.baseline, self.project_root)
-        self.assertEqual(summary["total"], 29)
-        self.assertEqual(summary["surviving"], 29)
-        self.assertEqual(summary["equivalent"], 29)
+        self.assertEqual(summary["total"], 35)
+        self.assertEqual(summary["surviving"], 35)
+        self.assertEqual(summary["equivalent"], 35)
         self.assertEqual(summary["unexplained_surviving"], 0)
         self.assertEqual(summary["equivalent_mutants"], [e["id"] for e in runtime])
         result = self._check_summary(summary)
@@ -2194,37 +2973,46 @@ class EquivalentBaselineTests(unittest.TestCase):
     def test_occurrence_disambiguates_same_position_mutants(self):
         """Two entries at one position differ only by occurrence — and match only their own mutant.
 
-        L628:76 carries occurrences 50 (`2` -> `3`, equivalent) and 51
-        (`2` -> `1`, equivalent) — renumbered from L553:76 / 44 / 45
-        by the W1 refresh. A survivor with an occurrence that
-        matches neither entry (e.g. a hypothetical `2` -> `0`) must stay
-        unexplained even though its position matches both entries.
+        L1365:21 in verify_bundle_bytes carries occurrences 486 (`2` ->
+        `3`, unobservable-value) and 487 (`2` -> `1`, unobservable-value)
+        — the report dict's initial exit_code, overwritten on every path
+        before return. A survivor with an occurrence that matches neither
+        entry (e.g. a hypothetical `2` -> `0`) must stay unexplained
+        even though its position matches both entries.
+        (The W1 pair at L628:76, occurrences 50/51, is gone: those trust
+        entries were dropped in the W2 refresh, so the test moved to the
+        F2 re-proof pair.)
         """
         runtime = {
             e["occurrence"]: e
             for e in self.baseline["entries"]
-            if e["kind"] == "unreachable-condition"
+            if e["kind"] == "unobservable-value"
+            and e["module"] == "textforensics._standalone_verify"
+            and tuple(e["start_pos"]) == (1365, 21)
         }
-        entry_44 = runtime[50]
-        entry_45 = runtime[51]
-        self.assertEqual(tuple(entry_44["start_pos"]), tuple(entry_45["start_pos"]))
-        self.assertEqual(tuple(entry_44["end_pos"]), tuple(entry_45["end_pos"]))
+        entry_486 = runtime[486]
+        entry_487 = runtime[487]
+        self.assertEqual(tuple(entry_486["start_pos"]), tuple(entry_487["start_pos"]))
+        self.assertEqual(tuple(entry_486["end_pos"]), tuple(entry_487["end_pos"]))
 
         records = [
-            self._record_for_entry(entry_44, "survived"),
-            self._record_for_entry(entry_45, "survived"),
+            self._record_for_entry(entry_486, "survived"),
+            self._record_for_entry(entry_487, "survived"),
             self._record(
                 operator="core/NumberReplacer",
                 occurrence=99,
-                start_pos=(628, 76),
-                end_pos=(628, 77),
+                start_pos=(1365, 21),
+                end_pos=(1365, 22),
                 outcome="survived",
+                module_path=str(
+                    self.project_root / "src" / "textforensics" / "_standalone_verify.py"
+                ),
             ),
         ]
         summary = self.runner.parse_results(records, self.baseline, self.project_root)
         self.assertEqual(summary["surviving"], 3)
         self.assertEqual(summary["equivalent"], 2)
-        self.assertEqual(summary["equivalent_mutants"], [entry_44["id"], entry_45["id"]])
+        self.assertEqual(summary["equivalent_mutants"], [entry_486["id"], entry_487["id"]])
         self.assertEqual(summary["unexplained_surviving"], 1)
         result = self._check_summary(summary)
         self.assertEqual(result.returncode, 2, result.stdout)
@@ -2327,7 +3115,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         The entry is built with the runner's own helpers (enclosing
         function + fingerprint from the current policy.py source) at
         the real position of the `2` in `"validated": 2`
-        (CapabilityPolicyEngine.evaluate, L504:33) — the dispatch for
+        (CapabilityPolicyEngine.evaluate, L657:33) — the dispatch for
         the new runtime kind must accept it exactly like an
         unreachable-condition entry.
         """
@@ -2335,15 +3123,15 @@ class EquivalentBaselineTests(unittest.TestCase):
 
         source = (self.project_root / "src" / "textforensics" / "policy.py").read_text()
         tree = ast.parse(source)
-        name, node = self.runner._enclosing_function(tree, 504, 33)
+        name, node = self.runner._enclosing_function(tree, 657, 33)
         self.assertEqual(name, "CapabilityPolicyEngine.evaluate")
         entry = {
             "id": "test:unobservable-value",
             "module": "textforensics.policy",
             "operator": "core/NumberReplacer",
             "occurrence": 4,
-            "start_pos": [504, 33],
-            "end_pos": [504, 34],
+            "start_pos": [657, 33],
+            "end_pos": [657, 34],
             "function": name,
             "kind": "unobservable-value",
             "reason": "synthetic test entry",
@@ -2358,14 +3146,14 @@ class EquivalentBaselineTests(unittest.TestCase):
 
         Built with the runner's own helpers at the real position of the
         `2` in `"validated": 2` (CapabilityPolicyEngine.evaluate,
-        L504:33); the reason names the proof shape (closed-domain value
+        L657:33); the reason names the proof shape (closed-domain value
         identity), as the kind requires.
         """
         import ast
 
         source = (self.project_root / "src" / "textforensics" / "policy.py").read_text()
         tree = ast.parse(source)
-        name, node = self.runner._enclosing_function(tree, 504, 33)
+        name, node = self.runner._enclosing_function(tree, 657, 33)
         self.assertEqual(name, "CapabilityPolicyEngine.evaluate")
         return {
             "id": "test:domain-equivalent",
@@ -2376,8 +3164,8 @@ class EquivalentBaselineTests(unittest.TestCase):
             # occurrence 4, and a synthetic entry sharing its match key
             # would be shadowed by it in classify_baseline.
             "occurrence": 999,
-            "start_pos": [504, 33],
-            "end_pos": [504, 34],
+            "start_pos": [657, 33],
+            "end_pos": [657, 34],
             "function": name,
             "kind": "domain-equivalent",
             "reason": (
@@ -2394,13 +3182,13 @@ class EquivalentBaselineTests(unittest.TestCase):
 
         Built with the runner's own helpers at the real position of the
         `0.0` in `_sigmoid`'s `if value >= 0.0:` (calibration.py,
-        L105:16), with the recorded sweep bound (2 ulps) and domain.
+        L160:16), with the recorded sweep bound (2 ulps) and domain.
         """
         import ast
 
         source = (self.project_root / "src" / "textforensics" / "calibration.py").read_text()
         tree = ast.parse(source)
-        name, node = self.runner._enclosing_function(tree, 105, 16)
+        name, node = self.runner._enclosing_function(tree, 160, 16)
         self.assertEqual(name, "_sigmoid")
         return {
             "id": "test:ulp-equivalent",
@@ -2409,8 +3197,8 @@ class EquivalentBaselineTests(unittest.TestCase):
             # 999, as above: keep the synthetic entry's match key clear
             # of every real baseline entry.
             "occurrence": 999,
-            "start_pos": [105, 16],
-            "end_pos": [105, 19],
+            "start_pos": [160, 16],
+            "end_pos": [160, 19],
             "function": name,
             "kind": "ulp-equivalent",
             "reason": ("at most 2 ulps apart in _sigmoid over the swept domain (source_text 0.0)"),
@@ -2487,7 +3275,7 @@ class EquivalentBaselineTests(unittest.TestCase):
             "version = 1\n"
             '[[equivalent]]\nid = "x"\nmodule = "textforensics.calibration"\n'
             'operator = "core/ReplaceComparisonOperator_GtE_Gt"\noccurrence = 2\n'
-            'start_pos = [105, 16]\nend_pos = [105, 19]\nfunction = "_sigmoid"\n'
+            'start_pos = [160, 16]\nend_pos = [160, 19]\nfunction = "_sigmoid"\n'
             'reason = "r"\nsource_text = "0.0"\nsource_fingerprint = "' + "0" * 64 + '"\n'
         )
         cases = {
@@ -2559,7 +3347,7 @@ class EquivalentBaselineTests(unittest.TestCase):
             "version = 1\n"
             '[[equivalent]]\nid = "x"\nmodule = "textforensics.calibration"\n'
             'operator = "core/ReplaceComparisonOperator_GtE_Gt"\noccurrence = 2\n'
-            'start_pos = [105, 16]\nend_pos = [105, 19]\nfunction = "_sigmoid"\n'
+            'start_pos = [160, 16]\nend_pos = [160, 19]\nfunction = "_sigmoid"\n'
             'reason = "r"\nsource_text = "0.0"\nsource_fingerprint = "' + "0" * 64 + '"\n'
             'kind = "ulp-equivalent"\nulp_bound_ulps = 0\n'
             'swept_domain = "[-20, 20]"\n'
@@ -2622,7 +3410,7 @@ class EquivalentBaselineTests(unittest.TestCase):
     def test_decorator_position_entry_validates(self):
         """A runtime entry on a decorator line re-validates.
 
-        The `4` in `@lru_cache(maxsize=4)` (L668:19) sits on the
+        The `4` in `@lru_cache(maxsize=4)` (L821:19) sits on the
         decorator line, above the `def` line: the enclosing-function
         lookup and the function fingerprint must both cover the
         decorator, or the entry for it could never validate.
@@ -2631,15 +3419,15 @@ class EquivalentBaselineTests(unittest.TestCase):
 
         source = (self.project_root / "src" / "textforensics" / "policy.py").read_text()
         tree = ast.parse(source)
-        name, node = self.runner._enclosing_function(tree, 668, 19)
+        name, node = self.runner._enclosing_function(tree, 821, 19)
         self.assertEqual(name, "_load_enterprise_policy_schema")
         entry = {
             "id": "test:decorator-position",
             "module": "textforensics.policy",
             "operator": "core/NumberReplacer",
             "occurrence": 22,
-            "start_pos": [668, 19],
-            "end_pos": [668, 20],
+            "start_pos": [821, 19],
+            "end_pos": [821, 20],
             "function": name,
             "kind": "unobservable-value",
             "reason": "synthetic test entry",
@@ -2652,7 +3440,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         # change the fingerprint.
         changed = source.replace("@lru_cache(maxsize=4)", "@lru_cache(maxsize=9)", 1)
         changed_tree = ast.parse(changed)
-        _, changed_node = self.runner._enclosing_function(changed_tree, 668, 19)
+        _, changed_node = self.runner._enclosing_function(changed_tree, 821, 19)
         self.assertNotEqual(
             self.runner._function_fingerprint(changed, changed_node),
             entry["source_fingerprint"],
