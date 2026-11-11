@@ -1201,3 +1201,469 @@ def probe_sa_verify_bundle():
         else:
             rows.append(((name,), out))
     return rows
+
+
+# ---------------------------------------------------------------------------
+# semantic._compute_consistency_score (new probe, W2-F kill tests)
+# ---------------------------------------------------------------------------
+def _sem_segment(ttr=0.5, entropy=1.0, hapax=0.2, wc=10, index=0):
+    from textforensics.semantic import SemanticSegment
+    return SemanticSegment(index=index, text="x", word_count=wc, sentence_count=1,
+                           avg_word_length=4.0, type_token_ratio=ttr, hapax_ratio=hapax,
+                           pos_distribution={}, semantic_density=1.0, entropy=entropy)
+
+
+def probe_sem_consistency_score():
+    from textforensics.semantic import SemanticConsistencyChecker
+    checker = SemanticConsistencyChecker()
+    # value triples chosen so statistics.stdev lands exactly on the scale
+    # boundaries: [0, s, 2s] -> stdev == s (ttr/hapax scale 0.05, entropy 0.3)
+    rows = []
+    cases = [
+        ("empty", []),
+        ("one", [_sem_segment()]),
+        ("two", [_sem_segment(), _sem_segment()]),
+        ("uniform3", [_sem_segment(index=i) for i in range(3)]),
+        ("ttr-boundary", [_sem_segment(ttr=v) for v in (0.0, 0.05, 0.10)]),
+        ("ttr-double", [_sem_segment(ttr=v) for v in (0.0, 0.10, 0.20)]),
+        ("ttr-half", [_sem_segment(ttr=v) for v in (0.0, 0.025, 0.05)]),
+        ("entropy-boundary", [_sem_segment(entropy=v) for v in (0.0, 0.30, 0.60)]),
+        ("entropy-half", [_sem_segment(entropy=v) for v in (0.0, 0.15, 0.30)]),
+        ("hapax-boundary", [_sem_segment(hapax=v) for v in (0.0, 0.05, 0.10)]),
+        ("hapax-half", [_sem_segment(hapax=v) for v in (0.0, 0.025, 0.05)]),
+        ("wc-boundary", [_sem_segment(wc=v) for v in (10, 20, 30)]),
+        ("wc-half", [_sem_segment(wc=v) for v in (10, 15, 20)]),
+        ("wc-double", [_sem_segment(wc=v) for v in (0, 20, 40)]),
+        ("all-spread", [_sem_segment(ttr=v, entropy=2 * v, hapax=v, wc=int(100 * v))
+                        for v in (0.0, 0.05, 0.10)]),
+        ("uniform4", [_sem_segment(index=i) for i in range(4)]),
+        ("ttr-boundary4", [_sem_segment(ttr=v) for v in (0.0, 0.05, 0.10, 0.15)]),
+    ]
+    for name, segs in cases:
+        rows.append((name, outcome(checker._compute_consistency_score, segs)))
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# semantic MIN_SEGMENTS_FOR_ASSESSMENT floor (module-level constant)
+# ---------------------------------------------------------------------------
+def probe_sem_min_segments():
+    from textforensics.semantic import SemanticConsistencyChecker
+    checker = SemanticConsistencyChecker(segment_word_target=20)
+    # 10-word sentences; 2 sentences per segment at target 20
+    sent = "The quick brown fox jumps over the lazy dog today."
+    rows = []
+    for n_sent in (2, 4, 6, 8):
+        text = " ".join([sent] * n_sent)
+        try:
+            rep = checker.analyze(text)
+            rows.append((n_sent, rep.n_segments, rep.support_status,
+                         rep.overall_consistency_score is None, rep.risk_level))
+        except Exception as exc:  # noqa: BLE001
+            rows.append((n_sent, ("raise", type(exc).__name__, str(exc))))
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# schema trust-map validators (new probes, W2-F kill tests)
+# ---------------------------------------------------------------------------
+def _schema_map(version="v3", dims=None, **overrides):
+    from textforensics.trust import TRUST_DIMENSIONS
+    if dims is None:
+        dims = [{"dimension": d, "state": "supported", "reason": "ok"}
+                for d in sorted(TRUST_DIMENSIONS)]
+    m = {"schema": f"textforensics.trust-map/{version}",
+         "dimensions": dims,
+         "input_conditions": {"language": "en"},
+         "evidence_registry": {},
+         "generated_at_utc": "2026-01-01T00:00:00Z",
+         "coverage": {"supported": len(dims), "partial": 0, "unknown": 0,
+                      "out_of_scope": 0}}
+    if version == "v3":
+        m["coverage"]["stale"] = 0
+    m.update(overrides)
+    return m
+
+
+def _schema_cov(m, **changes):
+    import copy
+    m = copy.deepcopy(m)
+    m["coverage"].update(changes)
+    return m
+
+
+def probe_schema_dimensions():
+    from textforensics.schema import validate_trust_map_dimensions
+    from textforensics.trust import TRUST_DIMENSIONS
+    import copy
+    dims = sorted(TRUST_DIMENSIONS)
+    base = _schema_map("v3")
+    base2 = _schema_map("v2")
+    cases = [
+        ("valid-v3", base),
+        ("valid-v2", base2),
+        ("list-map", []),
+        ("v1", _schema_map("v1")),
+        ("v4", {"schema": "textforensics.trust-map/v4", "dimensions": []}),
+        ("no-schema", {"dimensions": []}),
+        ("dims-dict", _schema_map("v3", dims={"a": 1})),
+        ("dim-string", _schema_map("v3", dims=["language"])),
+        ("dim-no-name", _schema_map("v3", dims=[{"state": "supported"}])),
+        ("dim-empty-name", _schema_map("v3", dims=[{"dimension": "", "state": "supported"}])),
+        ("state-bogus", _schema_map("v3", dims=[{"dimension": dims[0], "state": "bogus"}] + [
+            {"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]])),
+        ("v2-stale-state", _schema_map("v2", dims=[{"dimension": dims[0], "state": "stale"}] + [
+            {"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]])),
+        ("v3-stale-state-ok", _schema_map("v3", dims=[{"dimension": dims[0], "state": "stale"}] + [
+            {"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]])),
+        ("dup2", _schema_map("v3", dims=[{"dimension": dims[0], "state": "supported"}] * 2 + [
+            {"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]])),
+        ("dup3", _schema_map("v3", dims=[{"dimension": dims[0], "state": "supported"}] * 3 + [
+            {"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]])),
+        ("unknown-dim", _schema_map("v3", dims=[{"dimension": "nope", "state": "supported"}] + [
+            {"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]])),
+        ("missing-dim", _schema_map("v3", dims=[
+            {"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]])),
+        ("two-invalid", _schema_map("v3", dims=[{"dimension": dims[0], "state": "bogus"},
+                                                 {"dimension": dims[1], "state": "bogus"}] + [
+            {"dimension": d, "state": "supported", "reason": "ok"} for d in dims[2:]])),
+        ("empty-dims", _schema_map("v3", dims=[])),
+    ]
+    return [(name, outcome(validate_trust_map_dimensions, m)) for name, m in cases]
+
+
+def probe_schema_completeness():
+    from textforensics.schema import validate_trust_map_completeness
+    from textforensics.trust import TRUST_DIMENSIONS
+    import copy
+    dims = sorted(TRUST_DIMENSIONS)
+    base = _schema_map("v3")
+    cases = [
+        ("valid-v3", base),
+        ("valid-v2", _schema_map("v2")),
+        ("list-map", []),
+        ("v1", _schema_map("v1")),
+        ("reason-123", _schema_map("v3", dims=[{"dimension": dims[0], "state": "supported", "reason": 123}] + [
+            {"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]])),
+        ("reason-empty", _schema_map("v3", dims=[{"dimension": dims[0], "state": "supported", "reason": ""}] + [
+            {"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]])),
+        ("reason-missing", _schema_map("v3", dims=[{"dimension": dims[0], "state": "supported"}] + [
+            {"dimension": d, "state": "supported", "reason": "ok"} for d in dims[1:]])),
+        ("two-bad-reasons", _schema_map("v3", dims=[{"dimension": dims[0], "state": "supported", "reason": ""},
+                                                     {"dimension": dims[1], "state": "supported", "reason": 1}] + [
+            {"dimension": d, "state": "supported", "reason": "ok"} for d in dims[2:]])),
+        ("no-input-conditions", {k: v for k, v in base.items() if k != "input_conditions"}),
+        ("input-conditions-list", _schema_map("v3", input_conditions=[])),
+        ("no-evidence-registry", {k: v for k, v in base.items() if k != "evidence_registry"}),
+        ("generated-none", _schema_map("v3", generated_at_utc=None)),
+        ("generated-empty", _schema_map("v3", generated_at_utc="")),
+        ("coverage-list", _schema_map("v3", coverage=[])),
+        ("coverage-extra", _schema_cov(base, bogus=1)),
+        ("coverage-missing", {k: v for k, v in base.items() if k != "coverage"}),
+        ("coverage-missing-key", _schema_map("v3", coverage={"supported": len(dims), "partial": 0, "unknown": 0, "out_of_scope": 0})),
+        ("coverage-bool", _schema_cov(base, supported=True)),
+        ("coverage-str", _schema_cov(base, supported="x")),
+        ("coverage-neg", _schema_cov(base, supported=-1)),
+        ("coverage-zero", _schema_cov(base, supported=0)),
+        ("coverage-wrong-count", _schema_cov(base, supported=len(dims) - 1, partial=1)),
+        ("coverage-300", _schema_map("v3", dims=[{"dimension": dims[0], "state": "supported", "reason": "ok"}] * 300,
+                                     coverage={"supported": 300, "partial": 0, "unknown": 0, "out_of_scope": 0, "stale": 0})),
+        ("coverage-300-off", _schema_map("v3", dims=[{"dimension": dims[0], "state": "supported", "reason": "ok"}] * 300,
+                                         coverage={"supported": 299, "partial": 0, "unknown": 0, "out_of_scope": 0, "stale": 0})),
+    ]
+    return [(name, outcome(validate_trust_map_completeness, m)) for name, m in cases]
+
+
+def probe_schema_load():
+    from textforensics.schema import load_schema
+    rows = []
+    rows.append(("maxsize", outcome(lambda: load_schema.cache_info().maxsize)))
+    rows.append(("bogus-name", outcome(load_schema, "no-such-schema")))
+    rows.append(("valid", outcome(lambda: sorted(load_schema("case-file").keys())[:3])))
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# verify.verify_benchmark (new probe, W2-F kill tests)
+# ---------------------------------------------------------------------------
+def _bm_result(tp=2, fn=1, fp=1, tn=1, evaluated=None, rates=None, fp_sha=None):
+    if evaluated is None:
+        try:
+            evaluated = tp + fp + tn + fn
+        except TypeError:
+            evaluated = 5
+    try:
+        total = tp + fp + tn + fn
+    except TypeError:
+        total = 5
+    def rate(num, den):
+        try:
+            return round(num / den, 4) if den else 0.0
+        except TypeError:
+            return 0.5
+    try:
+        acc, tpr = rate(tp + tn, total), rate(tp, tp + fn)
+        fpr, spec = rate(fp, fp + tn), rate(tn, tn + fp)
+        fnr, prec = rate(fn, fn + tp), rate(tp, tp + fp)
+    except TypeError:
+        acc = tpr = fpr = spec = fnr = prec = 0.5
+    r = {"tp": tp, "fp": fp, "tn": tn, "fn": fn, "evaluated": evaluated,
+         "accuracy": acc, "true_positive_rate": tpr, "false_positive_rate": fpr,
+         "specificity": spec, "false_negative_rate": fnr, "precision": prec,
+         "dataset_sha256": fp_sha if fp_sha is not None else "a" * 64}
+    if rates:
+        r.update(rates)
+    return r
+
+
+def probe_verify_benchmark():
+    from textforensics.verify import verify_benchmark
+    cases = [
+        ("valid-2211", _bm_result()),
+        ("valid-300", _bm_result(tp=300, fn=0, fp=0, tn=0, evaluated=300)),
+        ("thirds", _bm_result(tp=1, fn=2, fp=1, tn=2)),
+        ("sixths", _bm_result(tp=1, fn=5, fp=1, tn=5)),
+        ("sevenths", _bm_result(tp=1, fn=6, fp=2, tn=5)),
+        ("all-zero", _bm_result(tp=0, fn=0, fp=0, tn=0, evaluated=0)),
+        ("tp-fn-21", _bm_result(tp=2, fn=1, fp=0, tn=0)),
+        ("tp-fp-11", _bm_result(tp=1, fn=0, fp=1, tn=0)),
+        ("neg-count", _bm_result(tp=-1)),
+        ("bool-count", _bm_result(tp=True)),
+        ("str-count", _bm_result(tp="2")),
+        ("frac-count", _bm_result(tp=1.5)),
+        ("rate-neg", _bm_result(rates={"accuracy": -0.5})),
+        ("rate-over", _bm_result(rates={"accuracy": 1.5})),
+        ("rate-nan", _bm_result(rates={"accuracy": float("nan")})),
+        ("rate-missing", {k: v for k, v in _bm_result().items() if k != "accuracy"}),
+        ("total-mismatch", _bm_result(evaluated=4)),
+        ("total-mismatch-big", _bm_result(tp=300, fn=0, fp=0, tn=0, evaluated=299)),
+        ("diff-exact-001", _bm_result(tp=0, fn=0, fp=0, tn=0, evaluated=0,
+                                      rates={"true_positive_rate": 0.001})),
+        ("diff-01", _bm_result(tp=0, fn=0, fp=0, tn=0, evaluated=0,
+                               rates={"true_positive_rate": 0.1})),
+        ("diff-05", _bm_result(tp=0, fn=0, fp=0, tn=0, evaluated=0,
+                               rates={"true_positive_rate": 0.5})),
+        ("rate-mismatch", _bm_result(rates={"accuracy": 0.9})),
+        ("not-dict", "not a dict"),
+        ("hash-63", _bm_result(fp_sha="a" * 63)),
+        ("hash-65", _bm_result(fp_sha="a" * 65)),
+        ("hash-upper", _bm_result(fp_sha="A" * 64)),
+        ("hash-nonhex", _bm_result(fp_sha="g" * 64)),
+        ("hash-missing", {k: v for k, v in _bm_result().items() if k != "dataset_sha256"}),
+    ]
+    return [(name, outcome(verify_benchmark, m)) for name, m in cases]
+
+
+# ---------------------------------------------------------------------------
+# verify.verify_case_file (new probe, W2-F kill tests)
+# ---------------------------------------------------------------------------
+def _vc_case(text, **tamper):
+    from textforensics.report import build_forensic_bundle
+    from textforensics.casefile import seal_case_file
+    import copy
+    case = seal_case_file(build_forensic_bundle(text).to_dict())
+    for path, value in tamper.items():
+        obj = case
+        keys = path.split(".")
+        for k in keys[:-1]:
+            obj = obj[k]
+        obj[keys[-1]] = value
+    return case
+
+
+def probe_verify_case_file():
+    from textforensics.verify import verify_case_file
+    import copy
+    ascii_text = "The city council approved the budget on Tuesday. " * 20
+    nonascii_text = "Café naïve façade — the résumé was über. " * 20
+    base = _vc_case(ascii_text)
+    base_na = _vc_case(nonascii_text)
+    tm = base["forensic_bundle"]["trust_map"]
+    derived = tm["overall"]
+    cases = [
+        ("valid", base),
+        ("valid-nonascii", base_na),
+        ("overall-partial", _vc_case(ascii_text, **{"forensic_bundle.trust_map.overall": "partial"})),
+        ("overall-unknown", _vc_case(ascii_text, **{"forensic_bundle.trust_map.overall": "unknown"})),
+        ("overall-supported", _vc_case(ascii_text, **{"forensic_bundle.trust_map.overall": "supported"})),
+        ("overall-same", _vc_case(ascii_text, **{"forensic_bundle.trust_map.overall": derived})),
+        ("raw-0", _vc_case(ascii_text, **{"raw_text_included": 0})),
+        ("raw-1", _vc_case(ascii_text, **{"raw_text_included": 1})),
+        ("raw-true", _vc_case(ascii_text, **{"raw_text_included": True})),
+        ("raw-none", _vc_case(ascii_text, **{"raw_text_included": None})),
+        ("input-raw-0", _vc_case(ascii_text, **{"forensic_bundle.input.raw_text_included": 0})),
+        ("input-raw-true", _vc_case(ascii_text, **{"forensic_bundle.input.raw_text_included": True})),
+        ("not-dict", "x"),
+        ("list-payload", []),
+        ("seal-63", _vc_case(ascii_text, **{"case_sha256": "a" * 63})),
+        ("seal-65", _vc_case(ascii_text, **{"case_sha256": "a" * 65})),
+        ("seal-upper", _vc_case(ascii_text, **{"case_sha256": "A" * 64})),
+        ("content-63", _vc_case(ascii_text, **{"forensic_bundle.content_sha256": "a" * 63})),
+        ("content-65", _vc_case(ascii_text, **{"forensic_bundle.content_sha256": "a" * 65})),
+        ("content-upper", _vc_case(ascii_text, **{"forensic_bundle.content_sha256": "A" * 64})),
+        ("tm-v2", _vc_case(ascii_text, **{"forensic_bundle.trust_map.schema": "textforensics.trust-map/v2"})),
+        ("tm-v1", _vc_case(ascii_text, **{"forensic_bundle.trust_map.schema": "textforensics.trust-map/v1"})),
+        ("tm-bad-schema", _vc_case(ascii_text, **{"forensic_bundle.trust_map.schema": "textforensics.trust-map/v9"})),
+        ("tm-dims-empty", _vc_case(ascii_text, **{"forensic_bundle.trust_map.dimensions": []})),
+        ("tm-dim-string", _vc_case(ascii_text, **{"forensic_bundle.trust_map.dimensions": ["language"]})),
+        ("tm-no-trust-map", {k: v for k, v in copy.deepcopy(base)["forensic_bundle"].items() if k != "trust_map"} and _vc_case(ascii_text)),
+        ("bundle-not-dict", _vc_case(ascii_text, **{"forensic_bundle": "x"})),
+        ("no-bundle", {k: v for k, v in base.items() if k != "forensic_bundle"}),
+        ("bad-case-schema", _vc_case(ascii_text, **{"schema": "textforensics.case-file/v9"})),
+        ("bad-bundle-schema", _vc_case(ascii_text, **{"forensic_bundle.schema": "textforensics.forensic-bundle/v9"})),
+        ("dr-not-list", _vc_case(ascii_text, **{"forensic_bundle.detector_results": "x"})),
+        ("dr-wrong-schema", _vc_case(ascii_text, **{"forensic_bundle.detector_results": [{"schema": "wrong", "detector_id": "d1", "score": 0.5, "verdict": "ai_like"}]})),
+        ("dr-score-str", _vc_case(ascii_text, **{"forensic_bundle.detector_results": [{"schema": "textforensics.detector-result/v2", "detector_id": "d1", "score": "0.5", "verdict": "ai_like"}]})),
+        ("dr-score-nan", _vc_case(ascii_text, **{"forensic_bundle.detector_results": [{"schema": "textforensics.detector-result/v2", "detector_id": "d1", "score": float("nan"), "verdict": "ai_like"}]})),
+        ("dr-verdict-bad", _vc_case(ascii_text, **{"forensic_bundle.detector_results": [{"schema": "textforensics.detector-result/v2", "detector_id": "d1", "score": 0.5, "verdict": "maybe"}]})),
+    ]
+    # v2/v3-divergent map: 1 partial + 8 unknown -> v3 derives "mixed",
+    # v2 derives "insufficient" (unknown >= 4 rule). Hand-sealed minimal case.
+    import hashlib, json, math
+    from textforensics.trust import TRUST_DIMENSIONS
+    dims9 = sorted(TRUST_DIMENSIONS)
+    v3dims = [{"dimension": dims9[0], "state": "partial", "reason": "ok"}] + [
+        {"dimension": d, "state": "unknown", "reason": "ok"} for d in dims9[1:]]
+    tm3 = _schema_map("v3", dims=v3dims)
+    tm3["overall"] = "mixed"
+    tm3["coverage"] = {"supported": 0, "partial": 1, "unknown": 9,
+                       "out_of_scope": 0, "stale": 0}
+    minimal = {"schema": "textforensics.case-file/v1", "raw_text_included": False,
+               "forensic_bundle": {"schema": "textforensics.forensic-bundle/v2",
+                                   "content_sha256": "a" * 64, "trust_map": tm3,
+                                   "input": {"raw_text_included": False},
+                                   "detector_results": []},
+               "case_sha256": "x" * 64}
+    def _sanitize(obj):
+        if isinstance(obj, float):
+            if not math.isfinite(obj):
+                return "Infinity" if obj > 0 else "-Infinity" if obj < 0 else "NaN"
+            return obj
+        if isinstance(obj, dict):
+            return {k: _sanitize(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_sanitize(v) for v in obj]
+        return obj
+    stripped = _sanitize(copy.deepcopy(minimal))
+    stripped.pop("case_sha256", None)
+    stripped.pop("created_at_utc", None)
+    minimal["case_sha256"] = hashlib.sha256(json.dumps(
+        stripped, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+        allow_nan=False).encode("utf-8")).hexdigest()
+    cases.append(("v3-partial-unknown", minimal))
+    # fix the tm-no-trust-map case (built above as a placeholder)
+    cases = [(n, c) for n, c in cases if n != "tm-no-trust-map"]
+    no_tm = copy.deepcopy(base)
+    del no_tm["forensic_bundle"]["trust_map"]
+    cases.append(("tm-no-trust-map", no_tm))
+    raw = copy.deepcopy(base)
+    raw["raw_text"] = "forbidden"
+    cases.append(("raw-text-key", raw))
+    rows = []
+    for name, payload in cases:
+        try:
+            out = verify_case_file(payload)
+            rows.append((name, ("ok", out["valid"], out["seal_verified"],
+                                out["trust_map_verified"], sorted(out["errors"]),
+                                sorted(out["dimensions"].items()))))
+        except Exception as exc:  # noqa: BLE001
+            rows.append((name, ("raise", type(exc).__name__, str(exc))))
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# mixed_origin.segment_covered_regimes (new probe, W2-F kill tests)
+# ---------------------------------------------------------------------------
+def _mo_record(**overrides):
+    import test_audit_w2_worker_a as A
+    return A._segment_record_dict(**overrides)
+
+
+def _mo_resign(record):
+    from textforensics.validation import compute_signature
+    record["signature"] = compute_signature(record)
+    return record
+
+
+def _mo_set(record, path, value, resign=True):
+    import copy
+    record = copy.deepcopy(record)
+    obj = record
+    keys = path.split(".")
+    for k in keys[:-1]:
+        obj = obj[k]
+    obj[keys[-1]] = value
+    if resign:
+        _mo_resign(record)
+    return record
+
+
+def _mo_registry(*records):
+    # Raw-dict registry: segment_covered_regimes accepts any object with a
+    # .records attribute of mappings (or to_dict() objects). Raw dicts let
+    # the probe use values ValidationRecord.from_dict would reject
+    # (e.g. contamination_flag "clean") while keeping a valid signature.
+    from types import SimpleNamespace
+    return SimpleNamespace(records=list(records))
+
+
+def probe_mixed_origin_regimes():
+    from textforensics.mixed_origin import segment_covered_regimes
+    good = _mo_record(domain=("news", "essays"))
+    rows = []
+    cases = [
+        ("valid", [good], {}),
+        ("valid-wc80", [good], {"word_count": 80}),
+        ("valid-wc79", [good], {"word_count": 79}),
+        ("valid-wc81", [good], {"word_count": 81}),
+        ("detector-zzz", [_mo_set(good, "detector_id", "zzz")], {}),
+        ("detector-aaa", [_mo_set(good, "detector_id", "aaa")], {}),
+        ("version-999", [_mo_set(good, "detector_version", "9.9.9")], {}),
+        ("version-001", [_mo_set(good, "detector_version", "0.0.1")], {}),
+        ("version-020", [_mo_record(detector_version="0.2.0", domain=("news", "essays"))], {}),
+        ("status-stale", [_mo_record(status="stale", domain=("news", "essays"))], {}),
+        ("status-partial", [_mo_record(status="partial", domain=("news", "essays"))], {}),
+        ("split-fit", [_mo_record(split_role="fit", domain=("news", "essays"))], {}),
+        ("split-threshold", [_mo_record(split_role="threshold", domain=("news", "essays"))], {}),
+        ("contamination-yes", [_mo_record(contamination="yes", domain=("news", "essays"))], {}),
+        ("contamination-clean", [_mo_record(contamination="clean", domain=("news", "essays"))], {}),
+        ("n-human-99", [_mo_record(n_human=99, domain=("news", "essays"))], {}),
+        ("n-human-100", [_mo_record(n_human=100, domain=("news", "essays"))], {}),
+        ("n-human-true", [_mo_set(good, "data.n_human", True)], {}),
+        ("n-human-str", [_mo_set(good, "data.n_human", "x")], {}),
+        ("n-ai-99", [_mo_record(n_ai=99, domain=("news", "essays"))], {}),
+        ("n-ai-100", [_mo_record(n_ai=100, domain=("news", "essays"))], {}),
+        ("n-ai-true", [_mo_set(good, "data.n_ai", True)], {}),
+        ("n-ai-str", [_mo_set(good, "data.n_ai", "x")], {}),
+        ("bad-signature", [_mo_set(good, "data.n_human", 121, resign=False)], {}),
+        ("regime-not-mapping", [_mo_set(good, "regime", ["x"])], {}),
+        ("regime-raw", [_mo_record(editing_regime="raw", domain=("news", "essays"))], {}),
+        ("regime-mixed", [_mo_record(editing_regime="mixed-origin", domain=("news", "essays"))], {}),
+        ("slice-unknown", [_mo_record(fpr_slices=({"slice_id": "other", "value": 0.02, "ci": (0.0, 0.05), "worst_slice": True},), domain=("news", "essays"))], {}),
+        ("bucket-list", [_mo_set(good, "regime.length_bucket", ["x"])], {"word_count": 80}),
+        ("floor-true", [_mo_set(good, "regime.length_bucket.floor_words", True)], {"word_count": 80}),
+        ("floor-str", [_mo_set(good, "regime.length_bucket.floor_words", "x")], {"word_count": 80}),
+        ("floor-100-wc99", [_mo_set(good, "regime.length_bucket.floor_words", 100)], {"word_count": 99}),
+        ("floor-100-wc100", [_mo_set(good, "regime.length_bucket.floor_words", 100)], {"word_count": 100}),
+        ("max-100-wc100", [_mo_set(_mo_set(good, "regime.length_bucket.max_words", 100), "regime.length_bucket.floor_words", 80)], {"word_count": 100}),
+        ("max-100-wc101", [_mo_set(_mo_set(good, "regime.length_bucket.max_words", 100), "regime.length_bucket.floor_words", 80)], {"word_count": 101}),
+        ("max-100-wc99", [_mo_set(_mo_set(good, "regime.length_bucket.max_words", 100), "regime.length_bucket.floor_words", 80)], {"word_count": 99}),
+        ("max-true", [_mo_set(good, "regime.length_bucket.max_words", True)], {"word_count": 80}),
+        ("max-str", [_mo_set(good, "regime.length_bucket.max_words", "x")], {"word_count": 80}),
+        ("max-none", [good], {"word_count": 500}),
+        ("language-none", [_mo_set(good, "regime.language", None)], {}),
+        ("domain-empty", [_mo_set(good, "regime.domain", [])], {}),
+        ("language-none-domain-set", [_mo_set(good, "regime.language", None)], {}),
+        ("fail-detector-then-good", [_mo_set(good, "detector_id", "zzz"), good], {}),
+        ("fail-nhuman-then-good", [_mo_record(n_human=99, domain=("news",)), good], {}),
+        ("fail-regime-then-good", [_mo_record(editing_regime="raw", domain=("news",)), good], {}),
+        ("fail-slice-then-good", [_mo_record(fpr_slices=({"slice_id": "other", "value": 0.02, "ci": (0.0, 0.05)},), domain=("news",)), good], {}),
+        ("two-good", [good, _mo_record(domain=("science",))], {}),
+    ]
+    for name, records, kwargs in cases:
+        # sorted list: set repr order varies across processes (hash seed)
+        try:
+            rows.append((name, ("ok", sorted(segment_covered_regimes(_mo_registry(*records), **kwargs)))))
+        except Exception as exc:  # noqa: BLE001
+            rows.append((name, ("raise", type(exc).__name__, str(exc))))
+    return rows

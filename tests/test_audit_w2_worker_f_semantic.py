@@ -17,7 +17,9 @@ import unittest
 
 from w2_f_kill_helpers import (
     probe_sem_analyze,
-    probe_sem_assess_risk
+    probe_sem_assess_risk,
+    probe_sem_consistency_score,
+    probe_sem_min_segments
 )
 
 
@@ -26,12 +28,24 @@ EXPECTED_PROBE_SEM_ANALYZE = [((28, None), 'unknown', 'insufficient', 0), ((17, 
 
 EXPECTED_PROBE_SEM_ASSESS_RISK = [(((),), ('ok', "('none', None)")), (((('low', 0.1),),), ('ok', "('low', None)")), (((('medium', 0.5),),), ('ok', "('low', None)")), (((('high', 0.7),),), ('ok', "('medium', None)")), (((('critical', 0.9),),), ('ok', "('critical', None)")), (((('low', 0.1), ('high', 0.7)),), ('ok', "('low', None)")), (((('critical', 0.9), ('critical', 0.9)),), ('ok', "('critical', None)"))]
 
+
+EXPECTED_PROBE_SEM_CONSISTENCY_SCORE = [('empty', ('ok', 'None')), ('one', ('ok', 'None')), ('two', ('ok', 'None')), ('uniform3', ('ok', '1.0')), ('ttr-boundary', ('ok', '0.8')), ('ttr-double', ('ok', '0.8')), ('ttr-half', ('ok', '0.9')), ('entropy-boundary', ('ok', '0.8')), ('entropy-half', ('ok', '0.9')), ('hapax-boundary', ('ok', '0.6')), ('hapax-half', ('ok', '0.8')), ('wc-boundary', ('ok', '0.8')), ('wc-half', ('ok', '0.9')), ('wc-double', ('ok', '0.8')), ('all-spread', ('ok', '0.23333333333333334')), ('uniform4', ('ok', '1.0')), ('ttr-boundary4', ('ok', '0.8'))]
+
+
+EXPECTED_PROBE_SEM_MIN_SEGMENTS = [(2, 1, 'insufficient', True, 'unknown'), (4, 2, 'insufficient', True, 'unknown'), (6, 3, 'sufficient', False, 'medium'), (8, 4, 'sufficient', False, 'medium')]
+
 class TestWorkerFKillSemantic(unittest.TestCase):
     def test_probe_sem_analyze(self):
         self.assertEqual(probe_sem_analyze(), EXPECTED_PROBE_SEM_ANALYZE)
 
     def test_probe_sem_assess_risk(self):
         self.assertEqual(probe_sem_assess_risk(), EXPECTED_PROBE_SEM_ASSESS_RISK)
+
+    def test_probe_sem_consistency_score(self):
+        self.assertEqual(probe_sem_consistency_score(), EXPECTED_PROBE_SEM_CONSISTENCY_SCORE)
+
+    def test_probe_sem_min_segments(self):
+        self.assertEqual(probe_sem_min_segments(), EXPECTED_PROBE_SEM_MIN_SEGMENTS)
 
 
 if __name__ == "__main__":
