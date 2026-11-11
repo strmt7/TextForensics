@@ -39,10 +39,21 @@ PLAIN = (
 DETECTOR = "test/detector"
 
 
-def _write_ledger(tmp: Path, claims: list[tuple[str, EvidenceTier]]) -> Path:
-    """Build a capability ledger JSON file with the given claims."""
+def _write_ledger(
+    tmp: Path,
+    claims: list[tuple[str, EvidenceTier] | tuple[str, EvidenceTier, EvidenceLabel]],
+) -> Path:
+    """Build a capability ledger JSON file with the given claims.
+
+    Each claim is ``(capability, tier)`` or ``(capability, tier, label)``;
+    the evidence label defaults to ``CALCULATED``. A ``VALIDATED`` claim
+    needs an ``EXECUTED`` evidence reference to be effective (W2, S04),
+    so a genuinely passing ledger must label it so explicitly.
+    """
     ledger = CapabilityLedger()
-    for capability, tier in claims:
+    for entry in claims:
+        capability, tier = entry[0], entry[1]
+        label = entry[2] if len(entry) > 2 else EvidenceLabel.CALCULATED
         ledger.register(
             CapabilityClaim(
                 detector_id=DETECTOR,
@@ -50,7 +61,7 @@ def _write_ledger(tmp: Path, claims: list[tuple[str, EvidenceTier]]) -> Path:
                 tier=tier,
                 evidence=[
                     EvidenceRef(
-                        label=EvidenceLabel.CALCULATED,
+                        label=label,
                         tier=tier,
                         artifact="test",
                     )
@@ -129,7 +140,10 @@ class TestCapabilityPolicyCLI(_RunMainMixin, unittest.TestCase):
             ledger_path = _write_ledger(
                 Path(tmp),
                 [
-                    ("language_coverage", EvidenceTier.VALIDATED),
+                    # A VALIDATED claim needs an EXECUTED evidence reference
+                    # to be effective (W2, S04); CALCULATED alone no longer
+                    # authorizes it.
+                    ("language_coverage", EvidenceTier.VALIDATED, EvidenceLabel.EXECUTED),
                     ("length_robustness", EvidenceTier.TOOL_BACKED),
                     ("domain_accuracy", EvidenceTier.TOOL_BACKED),
                 ],
@@ -140,6 +154,24 @@ class TestCapabilityPolicyCLI(_RunMainMixin, unittest.TestCase):
             self.assertEqual(code, EXIT_OK)
             self.assertIn("[PASS]", out)
             self.assertNotIn("MISSING:", out)
+
+    def test_policy_validated_without_executed_evidence_fails(self):
+        """W2, S04: a VALIDATED claim with only CALCULATED evidence is
+        ineffective, so the ledger cannot pass the production policy."""
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger_path = _write_ledger(
+                Path(tmp),
+                [
+                    ("language_coverage", EvidenceTier.VALIDATED),
+                    ("length_robustness", EvidenceTier.TOOL_BACKED),
+                    ("domain_accuracy", EvidenceTier.TOOL_BACKED),
+                ],
+            )
+            code, out, _err = self._run_main(
+                ["capability", "policy", DETECTOR, "--ledger", str(ledger_path)]
+            )
+            self.assertEqual(code, EXIT_INCOMPLETE)
+            self.assertIn("MISSING: language_coverage", out)
 
     def test_policy_minimum_bundle(self):
         with tempfile.TemporaryDirectory() as tmp:
