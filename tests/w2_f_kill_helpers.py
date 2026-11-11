@@ -849,7 +849,59 @@ def probe_bm_prove_disjointness():
         _proof_rows(train, [])
         _proof_rows(ev, human)
         rows.append((("empty-train",), outcome(prove_disjointness, train, ev)))
+        # --- missing files (hash OSError excepts) -------------------------
+        rows.append((("missing-train",),
+                     outcome(prove_disjointness, Path(tmp) / "nope.jsonl", ev)))
+        rows.append((("missing-eval",),
+                     outcome(prove_disjointness, train, Path(tmp) / "nope.jsonl")))
+        rows.append((("missing-both",),
+                     outcome(prove_disjointness, Path(tmp) / "nope1.jsonl",
+                             Path(tmp) / "nope2.jsonl")))
+        # --- bad lines (samples Exception excepts; strict True/False) -----
+        import json
+        _proof_rows(train, human + ai)
+        bad_train = Path(tmp) / "bad-train.jsonl"
+        bad_train.write_text('{"label": "human", "text": "Good one."}\nNOT JSON\n',
+                             encoding="utf-8")
+        bad_ev = Path(tmp) / "bad-eval.jsonl"
+        bad_ev.write_text('{"label": "human", "text": "Good one."}\nNOT JSON\n',
+                          encoding="utf-8")
+        _proof_rows(ev, human + ai)
+        rows.append((("bad-train-strict",),
+                     outcome(prove_disjointness, bad_train, ev)))
+        rows.append((("bad-eval-strict",),
+                     outcome(prove_disjointness, train, bad_ev)))
+        rows.append((("bad-train-lenient",),
+                     outcome(prove_disjointness, bad_train, ev, strict=False)))
+        rows.append((("bad-eval-lenient",),
+                     outcome(prove_disjointness, train, bad_ev, strict=False)))
+        rows.append((("bad-both-lenient",),
+                     outcome(prove_disjointness, bad_train, bad_ev, strict=False)))
+        # --- group overlap (same source id, different text) --------------
+        _proof_rows(train, [{"label": "human", "text": "train text one.",
+                            "source_document_id": "doc-shared"},
+                           {"label": "ai", "text": "train text two."}])
+        _proof_rows(ev, [{"label": "human", "text": "eval text one.",
+                          "source_document_id": "doc-shared"},
+                         {"label": "ai", "text": "eval text two."}])
+        rows.append((("group-overlap",), outcome(prove_disjointness, train, ev)))
+        # --- group overlap via normalized text (case/whitespace variant) --
+        _proof_rows(train, [{"label": "human", "text": "  Hello   WORLD. "}])
+        _proof_rows(ev, [{"label": "human", "text": "hello world."}])
+        rows.append((("group-normalized-overlap",),
+                     outcome(prove_disjointness, train, ev)))
+        # Scrub the temp-dir path out of error messages (non-deterministic).
+        tmp_s = str(tmp)
+        rows = [(k, _scrub_value(v, tmp_s)) for k, v in rows]
     return rows
+
+
+def _scrub_value(value, tmp_s):
+    if isinstance(value, tuple):
+        return tuple(_scrub_value(v, tmp_s) for v in value)
+    if isinstance(value, str):
+        return value.replace(tmp_s, "TMP")
+    return value
 
 
 def probe_bm_jsonl():
@@ -885,6 +937,54 @@ def probe_bm_jsonl():
         # no proof at all (diagnostic mode)
         rows.append((("none",),
                      outcome(benchmark_with_calibration_jsonl, ev, artifact, diagnostic=True)))
+        # --- hash-mismatch proofs (both orderings) -------------------------
+        ev_sha = dataset_sha256(ev)
+        cal_sha = artifact["calibration_dataset_sha256"]
+        for tag, ehash, thash in (
+                ("eval-hash-lo", "0" * 64, dataset_sha256(cal)),
+                ("eval-hash-hi", "f" * 64, dataset_sha256(cal)),
+                ("train-hash-lo", ev_sha, "0" * 64),
+                ("train-hash-hi", ev_sha, "f" * 64),
+                ("eval-hash-none", None, dataset_sha256(cal)),
+                ("train-hash-none", ev_sha, None)):
+            proof = DisjointnessProof(status="verified", overlap_count=0,
+                                      training_count=2, evaluation_count=2,
+                                      training_hash=thash,
+                                      evaluation_hash=ehash,
+                                      errors=())
+            rows.append(((tag,),
+                         outcome(benchmark_with_calibration_jsonl, ev, artifact,
+                                 disjointness_proof=proof)))
+        # --- allow_same_dataset: same file / different file / no proof -----
+        rows.append((("same-file-allowed",),
+                     outcome(benchmark_with_calibration_jsonl, cal, artifact,
+                             allow_same_dataset=True)))
+        same_proof = DisjointnessProof(status="verified", overlap_count=0,
+                                       training_count=2, evaluation_count=2,
+                                       training_hash=dataset_sha256(cal),
+                                       evaluation_hash=dataset_sha256(cal),
+                                       errors=())
+        rows.append((("same-file-allowed-proof",),
+                     outcome(benchmark_with_calibration_jsonl, cal, artifact,
+                             allow_same_dataset=True, disjointness_proof=same_proof)))
+        rows.append((("diff-file-allowed-noproof",),
+                     outcome(benchmark_with_calibration_jsonl, ev, artifact,
+                             allow_same_dataset=True)))
+        rows.append((("same-file-not-allowed",),
+                     outcome(benchmark_with_calibration_jsonl, cal, artifact)))
+        # --- contaminated / unknown proofs without diagnostic (raise) ------
+        for status, overlap in (("contaminated", 1), ("unknown", -1)):
+            proof = DisjointnessProof(status=status, overlap_count=overlap,
+                                      training_count=2, evaluation_count=2,
+                                      training_hash=dataset_sha256(cal),
+                                      evaluation_hash=dataset_sha256(ev),
+                                      errors=("test error",))
+            rows.append(((f"{status}-nodq",),
+                         outcome(benchmark_with_calibration_jsonl, ev, artifact,
+                                 disjointness_proof=proof)))
+            rows.append(((f"{status}-dq",),
+                         outcome(benchmark_with_calibration_jsonl, ev, artifact,
+                                 disjointness_proof=proof, diagnostic=True)))
     return rows
 
 # ---------------------------------------------------------------------------
@@ -2880,6 +2980,28 @@ def probe_bm_sample_hashes():
         norm = tmp / "norm.jsonl"
         norm.write_text(json.dumps({"label": "human", "text": "  Hello   WORLD. "}) + "\n" + json.dumps({"label": "ai", "text": "hello world."}) + "\n", encoding="utf-8")
         rows.append(("group-normalized", outcome(_sample_and_group_hashes, norm)))
+        # --- strict default (no strict arg) on a bad file ------------------
+        rows.append((("bad-default-strict", outcome(_sample_and_group_hashes, bad))))
+        # --- blank line in the middle (continue vs break) ------------------
+        mid_blank = tmp / "midblank.jsonl"
+        mid_blank.write_text('{"label": "human", "text": "First."}\n\n{"label": "ai", "text": "Second."}\n',
+                             encoding="utf-8")
+        rows.append((("blank-middle", outcome(_sample_and_group_hashes, mid_blank))))
+        # --- dict text (sort_keys) + non-ASCII dict text (ensure_ascii) ---
+        dicttext = tmp / "dicttext.jsonl"
+        dicttext.write_text(json.dumps({"label": "human", "text": {"b": 1, "a": 2}}) + "\n"
+                            + json.dumps({"label": "ai", "text": {"k": "café", "a": "x"}}) + "\n",
+                            encoding="utf-8")
+        rows.append((("dict-text", outcome(_sample_and_group_hashes, dicttext))))
+        # --- two group fields set (break vs continue in the field loop) ---
+        two_groups = tmp / "twogroups.jsonl"
+        two_groups.write_text(json.dumps({"label": "human", "text": "T1.",
+                                          "source_document_id": "d1",
+                                          "document_id": "d2"}) + "\n"
+                              + json.dumps({"label": "ai", "text": "T2.",
+                                            "group_id": "g1", "source_id": "s1"}) + "\n",
+                              encoding="utf-8")
+        rows.append((("two-group-fields", outcome(_sample_and_group_hashes, two_groups))))
     return rows
 
 
