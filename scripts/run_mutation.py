@@ -637,10 +637,12 @@ def test_command_for(modules: list[str], project_root: Path) -> str:
 # dedicated file alone would report live kills as unexplained survivors.
 _MODULE_TEST_FILES: dict[str, list[str]] = {
     # Policy tests live in test_enterprise_policy.py, not test_policy.py;
-    # the capability-expiry tests live in test_execution_policy.py.
+    # the capability-expiry tests live in test_execution_policy.py; the
+    # W2 Worker A trust/policy tests live in test_audit_w2_worker_a.py.
     "textforensics.policy": [
         "tests/test_enterprise_policy.py",
         "tests/test_execution_policy.py",
+        "tests/test_audit_w2_worker_a.py",
     ],
     # Execution-policy tests are split across test_execution_policy.py
     # (contract) and test_w1_consent_stop.py (consent/stop behaviour).
@@ -654,10 +656,64 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
         "tests/test_detectors.py",
         "tests/test_w1_consent_stop.py",
     ],
-    # CORE-07 trust-gate tests live in test_w1_worker_d.py.
-    "textforensics.trust": ["tests/test_trust.py", "tests/test_w1_worker_d.py"],
-    # C03/C06/C12 + replay tests live in test_w1_worker_d.py.
-    "textforensics.casefile": ["tests/test_casefile.py", "tests/test_w1_worker_d.py"],
+    # CORE-07 trust-gate tests live in test_w1_worker_d.py; the W2
+    # Worker A trust tests live in test_audit_w2_worker_a.py.
+    "textforensics.trust": [
+        "tests/test_trust.py",
+        "tests/test_w1_worker_d.py",
+        "tests/test_audit_w2_worker_a.py",
+    ],
+    # C03/C06/C12 + replay tests live in test_w1_worker_d.py; the v3
+    # case-file tests live in test_casefile_v3.py. (test_audit_w2_worker_a
+    # is NOT listed: it contains zero casefile references — Worker A
+    # tested trust/policy, not casefile.)
+    "textforensics.casefile": [
+        "tests/test_casefile.py",
+        "tests/test_w1_worker_d.py",
+        "tests/test_casefile_v3.py",
+    ],
+    # W2 Worker D tests (probe_runs / probe_metrics / model_card /
+    # result_codec) live in test_w2_worker_d.py alongside the dedicated
+    # files. Observatory is DELIBERATELY not listed: eight test files
+    # import it (test_drift*.py, test_detector_health.py,
+    # test_w1_worker_d.py, ...), so a bare [test_w2_worker_d.py] override
+    # would narrow coverage; it still falls back to the full suite until
+    # the coordinator decides the file list.
+    "textforensics.probe_runs": [
+        "tests/test_probe_runs.py",
+        "tests/test_w2_worker_d.py",
+    ],
+    "textforensics.probe_metrics": [
+        "tests/test_probe_metrics.py",
+        "tests/test_w2_worker_d.py",
+    ],
+    "textforensics.model_card": [
+        "tests/test_model_card.py",
+        "tests/test_w2_worker_d.py",
+    ],
+    "textforensics.result_codec": [
+        "tests/test_result_codec.py",
+        "tests/test_w2_worker_d.py",
+    ],
+    # W2 Worker E tests: adversarial + semantic in test_w2_worker_e_if12.py
+    # (IF-12), explain in test_w2_worker_e_if19.py (IF-19).
+    "textforensics.adversarial": [
+        "tests/test_adversarial.py",
+        "tests/test_w2_worker_e_if12.py",
+    ],
+    "textforensics.semantic": [
+        "tests/test_semantic.py",
+        "tests/test_w2_worker_e_if12.py",
+    ],
+    "textforensics.explain": [
+        "tests/test_explain.py",
+        "tests/test_w2_worker_e_if19.py",
+    ],
+    # The v3 case-file/verify tests live in test_casefile_v3.py.
+    "textforensics.verify": [
+        "tests/test_verify.py",
+        "tests/test_casefile_v3.py",
+    ],
 }
 
 

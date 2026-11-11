@@ -129,7 +129,9 @@ class CosmicRayIntegrationTests(unittest.TestCase):
         """Verify the per-mutant test command is scoped to the module's tests."""
         scoped = self.runner.test_command_for(["textforensics.trust"], self.project_root)
         self.assertEqual(
-            scoped, "python -m pytest tests/test_trust.py tests/test_w1_worker_d.py -x -q"
+            scoped,
+            "python -m pytest tests/test_trust.py tests/test_w1_worker_d.py "
+            "tests/test_audit_w2_worker_a.py -x -q",
         )
         # Policy tests live in test_enterprise_policy.py, not test_policy.py;
         # the override map scopes them instead of falling back to the full
@@ -138,8 +140,37 @@ class CosmicRayIntegrationTests(unittest.TestCase):
         policy = self.runner.test_command_for(["textforensics.policy"], self.project_root)
         self.assertEqual(
             policy,
-            "python -m pytest tests/test_enterprise_policy.py tests/test_execution_policy.py -x -q",
+            "python -m pytest tests/test_enterprise_policy.py "
+            "tests/test_execution_policy.py tests/test_audit_w2_worker_a.py -x -q",
         )
+        # W2 worker test files are part of the per-mutant command for the
+        # modules they cover (audit-w2-f §10 follow-up).
+        casefile = self.runner.test_command_for(["textforensics.casefile"], self.project_root)
+        self.assertEqual(
+            casefile,
+            "python -m pytest tests/test_casefile.py tests/test_w1_worker_d.py "
+            "tests/test_casefile_v3.py -x -q",
+        )
+        probe_runs = self.runner.test_command_for(["textforensics.probe_runs"], self.project_root)
+        self.assertEqual(
+            probe_runs,
+            "python -m pytest tests/test_probe_runs.py tests/test_w2_worker_d.py -x -q",
+        )
+        verify = self.runner.test_command_for(["textforensics.verify"], self.project_root)
+        self.assertEqual(
+            verify,
+            "python -m pytest tests/test_verify.py tests/test_casefile_v3.py -x -q",
+        )
+        adversarial = self.runner.test_command_for(["textforensics.adversarial"], self.project_root)
+        self.assertEqual(
+            adversarial,
+            "python -m pytest tests/test_adversarial.py tests/test_w2_worker_e_if12.py -x -q",
+        )
+        # Observatory is deliberately NOT in _MODULE_TEST_FILES: eight
+        # test files import it, so a bare override would narrow coverage;
+        # it still falls back to the full suite.
+        observatory = self.runner.test_command_for(["textforensics.observatory"], self.project_root)
+        self.assertEqual(observatory, "python -m pytest tests/ -x -q --tb=short")
         # A module without a dedicated test file still falls back to the
         # full suite.
         full = self.runner.test_command_for(["textforensics.nonexistent"], self.project_root)
