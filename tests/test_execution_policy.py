@@ -11,6 +11,11 @@ current product output (plan rule 3).
 
 from __future__ import annotations
 
+import asyncio
+import dataclasses
+import json
+import sys
+
 import pytest
 from pydantic import BaseModel as _PydanticBaseModel
 
@@ -20,13 +25,16 @@ from textforensics.execution_policy import (
     CompletenessAccounting,
     ExecutionCancelled,
     ExecutionPolicy,
+    ExecutionPolicyError,
     RemoteConsentError,
     assert_execution_allowed,
+    check_execution_allowed,
     diagnostic_record,
     error_status_for_exception,
     is_execution_stopped,
     new_request_id,
     public_error_body,
+    public_message_for_status,
 )
 
 # ---------------------------------------------------------------------------
@@ -478,3 +486,243 @@ class TestExpiredCapabilityClaim:
         ledger = CapabilityLedger.from_dict(self._audit_ledger_dict())
         dimension = ledger_to_trust_dimension(ledger, "audit.example/detector", "language_coverage")
         assert dimension.state != "supported"
+
+
+# ---------------------------------------------------------------------------
+# W1 follow-up mutation kills (audit-w1-worker-f)
+#
+# Each test kills the W1 new/changed-code mutants Worker E proved
+# killable (audit-w1-e-stop-draft.py / audit-w1-e-probe-results.json,
+# 148/148). Test IDs EP-01..EP-17 match the STOP draft.
+# ---------------------------------------------------------------------------
+
+
+class TestW1FollowUpMutationKills:
+    def test_remaining_seconds_values(self):
+        # EP-01: 26 mutants in remaining_seconds.
+        from unittest.mock import patch
+
+        p = ExecutionPolicy(deadline_seconds=60.0)
+        with patch("textforensics.execution_policy.time.monotonic", return_value=100.5):
+            assert p.remaining_seconds(100.0) == 59.5
+        assert ExecutionPolicy().remaining_seconds(100.0) is None
+        with patch("textforensics.execution_policy.time.monotonic", return_value=200.0):
+            assert ExecutionPolicy(deadline_seconds=10.0).remaining_seconds(100.0) == 0.0
+
+    def test_validate_boundaries(self):
+        # EP-02: 11 mutants in validate (deadline / byte-limit bounds).
+        ExecutionPolicy(max_input_bytes=1)  # smallest valid positive int
+        ExecutionPolicy(deadline_seconds=1)  # smallest valid positive deadline
+        ExecutionPolicy(deadline_seconds=0.5)
+        with pytest.raises(ValueError):
+            ExecutionPolicy(max_input_bytes=0)
+        with pytest.raises(ValueError):
+            ExecutionPolicy(max_input_bytes=0.0)
+        with pytest.raises(ValueError):
+            ExecutionPolicy(max_output_bytes=0)
+        with pytest.raises(ValueError):
+            ExecutionPolicy(deadline_seconds=0)
+        with pytest.raises(ValueError):
+            ExecutionPolicy(deadline_seconds=0.0)
+        with pytest.raises(ValueError):
+            ExecutionPolicy(deadline_seconds=-1)
+        with pytest.raises(ValueError):
+            ExecutionPolicy(deadline_seconds=True)
+
+    def test_check_execution_allowed_paths(self, tmp_path, monkeypatch):
+        # EP-03: 5 mutants in check_execution_allowed.
+        assert check_execution_allowed() is True  # clear: no stop, no token, valid policy
+        token = CancellationToken()
+        token.cancel()
+        assert check_execution_allowed(cancellation=token) is False
+        sentinel = tmp_path / "stop"
+        sentinel.write_text("stop\n", encoding="utf-8")
+        monkeypatch.setenv("TEXTFORENSICS_EMERGENCY_STOP", str(sentinel))
+        assert check_execution_allowed() is False
+
+    def test_error_status_remote_consent_is_422(self):
+        # EP-04: 2 mutants (RemoteConsent branch return 422).
+        assert error_status_for_exception(RemoteConsentError("no consent")) == 422
+        assert error_status_for_exception(ExecutionPolicyError("bad policy")) == 422
+
+    def test_public_error_contract_all_statuses(self):
+        # EP-05: 26 mutants (_ERROR_MESSAGES / _ERROR_CODES keys).
+        expected = {
+            400: ("Invalid request.", "invalid_request"),
+            401: ("Authentication required.", "unauthorized"),
+            403: ("Forbidden.", "forbidden"),
+            404: ("Not found.", "not_found"),
+            413: ("Invalid text input.", "invalid_text_input"),
+            422: ("Request validation failed.", "invalid_request"),
+            429: ("Too many requests.", "rate_limited"),
+            500: ("Internal error.", "internal_error"),
+            503: ("Emergency stop is active.", "emergency_stop_active"),
+        }
+        for status, (msg, code) in expected.items():
+            assert public_message_for_status(status) == msg
+            assert public_error_body(status, request_id="req-1")["error_code"] == code
+
+    def test_public_error_body_request_id_passthrough(self):
+        # EP-06: 1 mutant (request_id or new -> and).
+        body = public_error_body(500, request_id="req-1")
+        assert body["request_id"] == "req-1"
+        body2 = public_error_body(500)
+        assert body2["request_id"]  # fresh id when none given
+
+    def test_default_policy_construction(self):
+        # EP-07: 2 mutants (remote_consent / retain_raw_text defaults).
+        p = ExecutionPolicy()
+        assert p.remote_consent is False
+        assert p.retain_raw_text is False
+        assert p.remote_detector_ids == frozenset()
+        assert p.to_dict()["retain_raw_text"] is False
+
+    def test_from_dict_defaults(self):
+        # EP-08: 2 mutants (from_dict remote_consent / retain_raw_text defaults).
+        p = ExecutionPolicy.from_dict({})
+        assert p.remote_consent is False
+        assert p.retain_raw_text is False
+
+    def test_cancellation_token_not_compared_or_repr(self):
+        # EP-09: 2 mutants (cancellation compare=False / repr=False).
+        a = ExecutionPolicy(cancellation=CancellationToken())
+        b = ExecutionPolicy(cancellation=CancellationToken())
+        assert a == b  # cancellation is compare=False
+        assert "cancellation" not in repr(a)  # and repr=False
+
+    def test_policies_are_frozen_and_slotted(self):
+        # EP-10: 4 mutants (frozen / slots on both dataclasses).
+        p = ExecutionPolicy()
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            p.retain_raw_text = True
+        assert not hasattr(p, "__dict__")
+        acc = CompletenessAccounting(selected=1, attempted=1, succeeded=1, abstained=0, failed=0)
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            acc.selected = 2
+        assert not hasattr(acc, "__dict__")
+
+    def test_completeness_rejects_bad_counts(self):
+        # EP-11: 5 mutants in CompletenessAccounting.__post_init__.
+        with pytest.raises(ValueError):
+            CompletenessAccounting(selected=4, attempted=-1, succeeded=0, abstained=0, failed=0)
+        with pytest.raises(ValueError):
+            CompletenessAccounting(selected=-1, attempted=-1, succeeded=-1, abstained=0, failed=0)
+        with pytest.raises(ValueError):
+            CompletenessAccounting(selected=True, attempted=1, succeeded=1, abstained=0, failed=0)
+        with pytest.raises(ValueError):
+            CompletenessAccounting(selected=1.5, attempted=1, succeeded=1, abstained=0, failed=0)
+        with pytest.raises(ValueError):
+            CompletenessAccounting(selected=4, attempted=4, succeeded=2, abstained=0, failed=0)
+
+    def test_completeness_large_counts_use_value_equality(self):
+        # EP-12 (tier 2): 3 mutants (== vs `is` on large counts).
+        n = int("300")  # distinct int object, outside the small-int cache
+        m = 200 + 100  # a second distinct 300
+        acc = CompletenessAccounting(selected=n, attempted=m, succeeded=m, abstained=0, failed=0)
+        assert acc.is_complete is True
+        assert acc.support_eligible is True
+        acc2 = CompletenessAccounting(
+            selected=n, attempted=m, succeeded=int("299"), abstained=0, failed=1
+        )
+        assert acc2.support_eligible is False
+
+    def test_allows_detector_unknown_is_local(self):
+        # EP-13: 1 mutant (allows_detector execution == 'remote' -> >=).
+        p = ExecutionPolicy.default_local_only()
+        assert p.allows_detector("x/detector", "unknown") is True
+        assert p.allows_detector("x/detector", "local") is True
+        assert p.allows_detector("x/detector", "remote") is False
+
+    def test_request_id_header_passthrough(self):
+        # EP-14: 2 mutants in _request_id_for.
+        pytest.importorskip("fastapi")
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from textforensics.execution_policy import register_redacting_handlers
+
+        app = FastAPI()
+
+        @app.get("/boom")
+        def boom():
+            raise RuntimeError("x")
+
+        register_redacting_handlers(app)
+        client = TestClient(app, raise_server_exceptions=False)
+        r = client.get("/boom", headers={"x-request-id": "req-abc"})
+        assert r.headers["x-request-id"] == "req-abc"
+        r2 = client.get("/boom")
+        assert r2.headers["x-request-id"]  # fresh id when no header
+
+    def test_validation_handler_keeps_loc_and_type(self):
+        # EP-15: 2 mutants in _validation_handler ('loc' / 'type' checks).
+        # Uses the module-level _TextInModel: this file uses
+        # ``from __future__ import annotations``, so a method-local model
+        # annotation would degrade to an unresolvable string (see the
+        # _TextInModel docstring above).
+        pytest.importorskip("fastapi")
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from textforensics.execution_policy import register_redacting_handlers
+
+        app = FastAPI()
+
+        @app.post("/echo")
+        def echo(req: _TextInModel):  # noqa: ARG001 - route under test
+            return {"ok": True}
+
+        register_redacting_handlers(app)
+        client = TestClient(app, raise_server_exceptions=False)
+        r = client.post("/echo", json={"text": ["x"]})
+        assert r.status_code == 422
+        detail = r.json()["detail"]
+        assert detail and all("loc" in e and "msg" in e and "type" in e for e in detail)
+
+    def test_validation_handler_skips_non_dict_errors(self):
+        # EP-16 (tier 2): 1 mutant (continue -> break on non-dict error).
+        # Defensive branch — pydantic never yields a non-dict error, so
+        # the test drives the handler directly with a fake exception.
+        # The handler reads request.headers, so the request is a stub.
+        pytest.importorskip("fastapi")
+        from types import SimpleNamespace
+
+        from fastapi.exceptions import RequestValidationError as _VE
+
+        from textforensics.execution_policy import register_redacting_handlers
+
+        class _FakeExc(Exception):
+            def errors(self):
+                return [
+                    {"loc": ("text",), "msg": "first", "type": "string_type"},
+                    "junk",
+                    {"loc": ("text",), "msg": "third", "type": "string_type"},
+                ]
+
+        seen = {}
+
+        class _App:
+            def add_exception_handler(self, exc, handler):
+                seen[exc] = handler
+
+        register_redacting_handlers(_App())
+        resp = asyncio.run(seen[_VE](SimpleNamespace(headers={}), _FakeExc()))
+        detail = resp.body and json.loads(resp.body)["detail"]
+        assert [e["msg"] for e in detail] == ["first", "third"]
+
+    def test_error_status_without_fastapi(self):
+        # EP-17 (tier 2): 1 mutant (except ImportError -> CosmicRayTestingException).
+        # Core-only install: fastapi absent, so error_status_for_exception
+        # must still map by type. The probe blocks fastapi via the
+        # sys.modules None sentinel; the same mechanism is used here.
+        saved = {}
+        for _mod in ("fastapi", "fastapi.exceptions", "fastapi.testclient"):
+            if _mod in sys.modules:
+                saved[_mod] = sys.modules.pop(_mod)
+        sys.modules["fastapi"] = None
+        try:
+            assert error_status_for_exception(ValueError("bad type")) == 422
+            assert error_status_for_exception(RuntimeError("boom")) == 500
+        finally:
+            sys.modules.pop("fastapi", None)
+            sys.modules.update(saved)

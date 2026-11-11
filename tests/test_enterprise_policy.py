@@ -8,6 +8,7 @@ import json
 import os
 import sys
 from dataclasses import FrozenInstanceError
+from datetime import date
 
 import pytest
 from cryptography.fernet import Fernet
@@ -27,6 +28,8 @@ from textforensics.policy import (
     PolicyRevisionFloor,
     PolicyState,
     PolicyStateCorruptError,
+    _parse_valid_until,
+    claim_is_expired,
     compute_policy_digest,
     create_calibration_policy,
     create_minimum_viable_policy,
@@ -2363,3 +2366,47 @@ class TestPolicyMutationKills298:
         result = engine.evaluate("analysis")
         assert result["status"] == "ok"
         assert result["disabled"] == []
+
+
+# ---------------------------------------------------------------------------
+# W1 follow-up mutation kills (audit-w1-worker-f)
+#
+# Each test kills the W1 new/changed-code mutants Worker E proved
+# killable (audit-w1-e-stop-draft.py / audit-w1-e-probe-results.json,
+# 148/148). Test IDs PO-01..PO-02 match the STOP draft.
+# ---------------------------------------------------------------------------
+
+
+class TestW1FollowUpMutationKills:
+    def test_parse_valid_until_rejects_bad_values(self):
+        # PO-01: 3 mutants in _parse_valid_until.
+        assert _parse_valid_until(None) is None
+        assert _parse_valid_until("") is None
+        assert _parse_valid_until("   ") is None
+        assert _parse_valid_until("not-a-date") is None
+        assert _parse_valid_until(123) is None
+        assert _parse_valid_until("2030-06-15") == date(2030, 6, 15)
+        # The datetime leg: date.fromisoformat fails, datetime succeeds.
+        assert _parse_valid_until("2030-06-15T10:30:00") == date(2030, 6, 15)
+
+    def test_claim_expiry_boundaries(self):
+        # PO-02: 2 mutants in claim_is_expired.
+        no_expiry = CapabilityClaim(detector_id="d", capability="c", tier=EvidenceTier.READABLE)
+        assert claim_is_expired(no_expiry) is False
+        bad = CapabilityClaim(
+            detector_id="d",
+            capability="c",
+            tier=EvidenceTier.READABLE,
+            valid_until="not-a-date",
+        )
+        assert claim_is_expired(bad) is True  # unparseable -> expired (fail closed)
+        boundary = CapabilityClaim(
+            detector_id="d",
+            capability="c",
+            tier=EvidenceTier.READABLE,
+            valid_until="2030-06-15",
+        )
+        assert claim_is_expired(boundary, today=date(2030, 6, 15)) is False
+        # last valid day, inclusive
+        assert claim_is_expired(boundary, today=date(2030, 6, 16)) is True
+        assert claim_is_expired(boundary, today=date(2030, 6, 14)) is False

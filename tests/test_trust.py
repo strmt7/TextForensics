@@ -30,6 +30,8 @@ from textforensics.trust import (
     _aggregate_evidence_dimension,
     _coverage_counts,
     _overall_state,
+    _parse_row_completeness,
+    _stability_dimension,
     assess_trust_map,
     build_trust_map,
     trust_map_from_capability_ledger,
@@ -875,6 +877,222 @@ class TrustMutationKillTests(unittest.TestCase):
         self.assertIsNotNone(dim)
         self.assertEqual(dim.state, "supported")
         self.assertEqual(tm.overall, "strong")
+
+
+# ---------------------------------------------------------------------------
+# W1 follow-up mutation kills (audit-w1-worker-f)
+#
+# Each test kills the W1 new/changed-code mutants Worker E proved
+# killable (audit-w1-e-stop-draft.py / audit-w1-e-probe-results.json,
+# 148/148). Test IDs TR-01..TR-07, TR-02b, TR-04b match the STOP draft;
+# TR-04 was withdrawn by Worker E (no kill — only the exception
+# message distinguishes the mutant; that is TR-04b).
+# ---------------------------------------------------------------------------
+
+
+class TrustW1FollowUpMutationKillTests(unittest.TestCase):
+    def test_stability_excluded_rows_visible(self):
+        # TR-01: 7 mutants in _stability_dimension (excluded counters).
+        rows = [
+            {
+                "detector_id": "d1",
+                "verdict_stability": 1.0,
+                "completeness": {
+                    "selected": 4,
+                    "attempted": 2,
+                    "succeeded": 2,
+                    "abstained": 0,
+                    "failed": 0,
+                },
+            },  # incomplete
+            {"detector_id": "d2", "verdict_stability": "high"},  # non-numeric
+            {
+                "detector_id": "d3",
+                "verdict_stability": 1.0,
+                "native_score_range": 0.1,
+            },  # usable, legacy
+        ]
+        dim = _stability_dimension(rows, max_native_drift=None)
+        self.assertEqual(dim.observed["incomplete_probe_sets_excluded"], 1)
+        self.assertIn("1 incomplete or failed probe set(s) were excluded", dim.limitations[-1])
+        self.assertEqual(dim.state, "supported")
+        # And with NO usable rows, the reason names the excluded count.
+        dim2 = _stability_dimension(rows[:2], max_native_drift=None)
+        self.assertEqual(dim2.state, "unknown")
+        self.assertIn("1 probe set(s) did not complete successfully", dim2.reason)
+        self.assertEqual(dim2.observed["incomplete_probe_sets_excluded"], 1)
+
+    def test_stability_continues_past_bad_rows(self):
+        # TR-02: 5 mutants in _stability_dimension (row-loop continue).
+        rows = [
+            {
+                "detector_id": "bad1",
+                "verdict_stability": 1.0,
+                "completeness": {
+                    "selected": 4,
+                    "attempted": 4,
+                    "succeeded": 3,
+                    "abstained": 0,
+                    "failed": 1,
+                },
+            },  # not eligible
+            {"detector_id": "bad2", "verdict_stability": "high"},  # non-numeric
+            {
+                "detector_id": "bad3",
+                "completeness": {
+                    "selected": "x",
+                    "attempted": 1,
+                    "succeeded": 1,
+                    "abstained": 0,
+                    "failed": 0,
+                },
+            },  # unparseable
+            {
+                "detector_id": "good",
+                "verdict_stability": 1.0,
+                "native_score_range": 0.1,
+            },  # usable legacy row AFTER the bad rows
+        ]
+        dim = _stability_dimension(rows, max_native_drift=None)
+        self.assertEqual(dim.state, "supported")
+        self.assertEqual(dim.observed["incomplete_probe_sets_excluded"], 2)
+
+    def test_stability_skips_non_mapping_rows(self):
+        # TR-02b: 1 mutant (non-mapping-row continue -> break).
+        rows = [
+            "not-a-mapping",
+            {
+                "detector_id": "good",
+                "verdict_stability": 1.0,
+                "native_score_range": 0.1,
+            },
+        ]
+        dim = _stability_dimension(rows, max_native_drift=None)
+        self.assertEqual(dim.state, "supported")  # string skipped, good row usable
+        self.assertEqual(
+            dim.observed["detectors"][0],
+            {"detector_id": "good", "native_score_range": 0.1},
+        )
+
+    def test_stability_drift_loop_continues_past_unknown_range(self):
+        # TR-03: 1 mutant (drift-loop continue -> break).
+        rows = [
+            {"detector_id": "d1", "verdict_stability": 1.0},  # no range -> unknown
+            {
+                "detector_id": "d2",
+                "verdict_stability": 1.0,
+                "native_score_range": 0.9,
+            },  # over the bound
+        ]
+        dim = _stability_dimension(rows, max_native_drift=0.5)
+        self.assertEqual(dim.state, "partial")  # d2 exceeds the bound
+        self.assertEqual(len(dim.observed["detectors"]), 2)  # break mutant drops d2
+        self.assertEqual(
+            dim.observed["detectors"][1],
+            {"detector_id": "d2", "native_score_range": 0.9},
+        )
+
+    def test_parse_row_completeness_rejects_bad_counts(self):
+        # TR-04: kills NO mutant (Worker E, probe round 1) — the
+        # ReplaceOrWithAnd:2 mutant's guard never fires, but
+        # CompletenessAccounting.__post_init__ still raises ValueError
+        # for the same inputs, so the test passes either way. It is
+        # landed anyway as a behaviour pin for the rejection itself;
+        # the message distinguisher is TR-04b below.
+        with self.assertRaises(ValueError):
+            _parse_row_completeness(
+                {
+                    "completeness": {
+                        "selected": True,
+                        "attempted": 1,
+                        "succeeded": 1,
+                        "abstained": 0,
+                        "failed": 0,
+                    }
+                }
+            )
+        with self.assertRaises(ValueError):
+            _parse_row_completeness(
+                {
+                    "completeness": {
+                        "selected": 1.5,
+                        "attempted": 1,
+                        "succeeded": 1,
+                        "abstained": 0,
+                        "failed": 0,
+                    }
+                }
+            )
+        # No completeness record at all is None, not an error.
+        self.assertIsNone(_parse_row_completeness({"detector_id": "d"}))
+
+    def test_parse_row_completeness_rejection_message(self):
+        # TR-04b (tier 2): 1 mutant (bool or not-int -> and). The ONLY
+        # distinguisher is the exception message: the original raises
+        # 'robustness completeness selected must be an integer', while
+        # the mutant's guard never fires and CompletenessAccounting
+        # raises 'selected must be a non-negative integer.'
+        with self.assertRaisesRegex(
+            ValueError, "robustness completeness selected must be an integer"
+        ):
+            _parse_row_completeness(
+                {
+                    "completeness": {
+                        "selected": True,
+                        "attempted": 1,
+                        "succeeded": 1,
+                        "abstained": 0,
+                        "failed": 0,
+                    }
+                }
+            )
+        with self.assertRaisesRegex(
+            ValueError, "robustness completeness selected must be an integer"
+        ):
+            _parse_row_completeness(
+                {
+                    "completeness": {
+                        "selected": 1.5,
+                        "attempted": 1,
+                        "succeeded": 1,
+                        "abstained": 0,
+                        "failed": 0,
+                    }
+                }
+            )
+
+    def test_stability_rejects_bad_verdict_values(self):
+        # TR-05: 1 mutant (bool or not-(int,float) -> and).
+        dim = _stability_dimension(
+            [{"detector_id": "d", "verdict_stability": "high"}],
+            max_native_drift=None,
+        )
+        self.assertEqual(dim.state, "unknown")  # str verdict skipped, no usable rows
+        dim2 = _stability_dimension(
+            [{"detector_id": "d", "verdict_stability": True}],
+            max_native_drift=None,
+        )
+        self.assertEqual(dim2.state, "unknown")  # bool verdict skipped too
+
+    def test_stability_drift_boundary_is_exclusive(self):
+        # TR-06: 1 mutant (value > max -> >=).
+        rows = [{"detector_id": "d", "verdict_stability": 1.0, "native_score_range": 0.5}]
+        dim = _stability_dimension(rows, max_native_drift=0.5)
+        self.assertEqual(dim.state, "supported")  # drift at the bound is within it
+        rows2 = [
+            {
+                "detector_id": "d",
+                "verdict_stability": 1.0,
+                "native_score_range": 0.500001,
+            }
+        ]
+        self.assertEqual(_stability_dimension(rows2, max_native_drift=0.5).state, "partial")
+
+    def test_stability_floor_above_one_is_supported(self):
+        # TR-07 (tier 2): 1 mutant (verdict_floor >= 1.0 -> == 1.0).
+        rows = [{"detector_id": "d", "verdict_stability": 1.5, "native_score_range": 0.1}]
+        dim = _stability_dimension(rows, max_native_drift=None)
+        self.assertEqual(dim.state, "supported")  # floor 1.5 >= 1.0
 
 
 if __name__ == "__main__":

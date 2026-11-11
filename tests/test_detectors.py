@@ -15,6 +15,7 @@ from textforensics.detectors import (
     PluginHealth,
     _entry_points,
     detector_determinism,
+    detector_execution,
     discover_detector_registry,
     discover_detectors,
     execute_detector,
@@ -24,6 +25,7 @@ from textforensics.detectors import (
     run_all_detectors,
     validate_prediction,
 )
+from textforensics.execution_policy import ExecutionPolicy
 from textforensics.report import build_forensic_bundle
 
 
@@ -59,6 +61,27 @@ class FakeDetector:
         return prediction(
             detector_id=self.detector_id,
             family=self.detector_family,
+        )
+
+
+class FakeRemoteDetector:
+    # execution='remote' (via the `remote` marker), no consent by default.
+    detector_id = "audit.example/remote-a"
+    detector_version = "1"
+    detector_family = "remote"
+    remote = True
+
+    def detect(self, text):
+        return DetectorPrediction(
+            schema="textforensics.detector-result/v1",
+            detector_id=self.detector_id,
+            detector_version=self.detector_version,
+            detector_family=self.detector_family,
+            execution="remote",
+            score=0.5,
+            score_semantics="test",
+            verdict="ai_like",
+            threshold=0.5,
         )
 
 
@@ -1520,3 +1543,79 @@ class DetectorsMutationKillTests(unittest.TestCase):
         failed = [row for row in rows if row.get("failed") is True]
         self.assertEqual(len(failed), 1)
         self.assertEqual(failed[0]["detector_id"], "fake/failing")
+
+
+# ---------------------------------------------------------------------------
+# W1 follow-up mutation kills (audit-w1-worker-f)
+#
+# Each test kills the W1 new/changed-code mutants Worker E proved
+# killable (audit-w1-e-stop-draft.py / audit-w1-e-probe-results.json,
+# 148/148). Test IDs DE-01..DE-03, DE-05, DE-06 match the STOP draft;
+# DE-04 was withdrawn by Worker E as domain-equivalent (no test).
+# ---------------------------------------------------------------------------
+
+
+class DetectorsW1FollowUpMutationKillTests(unittest.TestCase):
+    def test_remote_not_consented_failure_runtime_ms_measured(self):
+        # DE-01: 15 mutants in _remote_not_consented_failure.
+        # Mirrors test_execute_failure_runtime_ms_measured (mocked
+        # perf_counter, exact 20123.457).
+        remote = FakeRemoteDetector()  # execution='remote', no consent
+        with patch(
+            "textforensics.detectors.time.perf_counter",
+            side_effect=[10.0, 30.1234567],
+        ):
+            _, failure = execute_detector(remote, "some text")
+        self.assertIsNotNone(failure)
+        self.assertEqual(failure.error_type, "RemoteNotConsented")
+        self.assertEqual(failure.runtime_ms, 20123.457)
+
+    def test_detector_execution_remote_attribute(self):
+        # DE-02: 5 mutants in detector_execution (remote attribute).
+        self.assertEqual(detector_execution(SimpleNamespace(remote=True)), "remote")
+        self.assertEqual(detector_execution(SimpleNamespace(remote=False)), "local")
+        self.assertEqual(detector_execution(SimpleNamespace()), "unknown")
+        self.assertEqual(detector_execution(SimpleNamespace(execution="remote")), "remote")
+        self.assertEqual(detector_execution(SimpleNamespace(execution="local")), "local")
+
+    def test_detector_execution_remote_must_be_bool(self):
+        # DE-03 (tier 2): 2 mutants — `remote` must be a bool, not merely
+        # == True / == False (a non-bool can arrive via getattr).
+        self.assertEqual(detector_execution(SimpleNamespace(remote=1)), "unknown")
+        self.assertEqual(detector_execution(SimpleNamespace(remote=0)), "unknown")
+
+    def test_execute_detector_input_limit_boundaries(self):
+        # DE-05: 3 mutants in execute_detector (len > max_input_bytes).
+        policy = ExecutionPolicy(max_input_bytes=5)
+        with self.assertRaises(ValueError):
+            execute_detector(FakeDetector(), "123456", policy=policy)  # 6 bytes > 5
+        result, _ = execute_detector(FakeDetector(), "12345", policy=policy)
+        # exactly 5: allowed
+        self.assertIsNotNone(result)
+
+    def test_run_all_detectors_honours_given_policy(self):
+        # DE-06: 1 mutant (policy or default -> and in run_all_detectors).
+        # The canonical registry does not contain the consented remote
+        # detector, so the registry is patched in (as Worker E's probe
+        # did); the mutant substitutes the default local-only policy
+        # and refuses it.
+        policy = ExecutionPolicy.with_remote_consent(["audit.example/remote-a"])
+        registry = DetectorRegistry(
+            detectors={
+                "audit.example/remote-a": FakeRemoteDetector(),
+                "textforensics/builtin-heuristic": FakeDetector(),
+            }
+        )
+        with patch(
+            "textforensics.detectors.discover_detector_registry",
+            return_value=registry,
+        ):
+            rows = run_all_detectors("some text", policy=policy)
+        # The consented remote detector runs (a prediction row); it is
+        # not refused.
+        self.assertTrue(
+            any(
+                r.get("detector_id") == "audit.example/remote-a" and "error_type" not in r
+                for r in rows
+            )
+        )

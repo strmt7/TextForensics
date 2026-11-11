@@ -13,6 +13,7 @@ from textforensics.casefile import (
     CASE_SCHEMA_V4,
     CUSTODY_GENESIS_PREV_HASH,
     TRUST_SCHEMA,
+    TRUST_SCHEMA_V3,
     _calibration_ids,
     _checklist_consistency,
     _checklist_item,
@@ -3861,6 +3862,45 @@ class CasefileMutationKillTests(unittest.TestCase):
         )
         self.assertEqual(errors, [])
         self.assertEqual(checks["trust_map"]["status"], "rederived")
+
+
+# ---------------------------------------------------------------------------
+# W1 follow-up mutation kills (audit-w1-worker-f)
+#
+# Each test kills the W1 new/changed-code mutants Worker E proved
+# killable (audit-w1-e-stop-draft.py / audit-w1-e-probe-results.json,
+# 148/148). Test IDs CF-01..CF-02 match the STOP draft.
+# ---------------------------------------------------------------------------
+
+
+class CasefileW1FollowUpMutationKillTests(unittest.TestCase):
+    def test_verify_case_file_non_mapping_payload_is_invalid(self):
+        # CF-01: 1 mutant (non-mapping payload 'valid': False -> True).
+        result = verify_case_file(["not", "a", "mapping"])
+        self.assertIs(result["valid"], False)
+        self.assertEqual(result["errors"], ["case_must_be_a_mapping"])
+        self.assertIsNone(result["schema"])
+
+    def test_replay_trust_map_detectors_section_shape(self):
+        # CF-02: 2 mutants (detectors_section is not None -> not).
+        # Absent 'detectors' keeps its prior meaning: no robustness
+        # evidence, no mismatch.
+        without_detectors = {
+            "input_conditions": {},
+            "trust_map": {"schema": TRUST_SCHEMA_V3},
+            "robustness": {},  # present, no 'detectors' key
+        }
+        errors, _, _ = _replay_trust_map(without_detectors, None)
+        self.assertNotIn("trust_map_state_mismatch", errors)
+        # A non-list 'detectors' section is a mismatch.
+        detectors_as_dict = {
+            "input_conditions": {},
+            "trust_map": {"schema": TRUST_SCHEMA_V3},
+            "robustness": {"detectors": {"d1": {"verdict_stability": 1.0}}},
+        }
+        errors2, _, checks2 = _replay_trust_map(detectors_as_dict, None)
+        self.assertIn("trust_map_state_mismatch", errors2)
+        self.assertEqual(checks2["trust_map"]["reason"], "robustness_detectors_not_a_list")
 
 
 if __name__ == "__main__":
