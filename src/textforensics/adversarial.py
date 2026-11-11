@@ -15,12 +15,17 @@ This module provides:
 Design principles:
 - **Local-first**: No network calls, all analysis runs locally
 - **Detector-agnostic**: Works with any detector output
-- **Evidence-based**: Produces audit-trail ready evidence with confidence intervals
+- **Evidence-based**: Produces audit-trail ready evidence with observed
+  pattern counts and severities
 - **Extensible**: Plugin architecture for new humanization pattern detectors
+
+This module reports observed pattern counts and severities only. It
+emits no calibrated confidence and no authorship probability: no
+versioned held-out calibration artifact exists for this heuristic
+assessment, so the report's overall confidence is always ``None``.
 
 The module follows AGENTS.md principles:
 - Preserves abstention for unsupported inputs
-- Provides calibrated confidence, not pseudo-probabilities
 - Documents limitations explicitly
 - Raw text excluded from portable outputs by default
 """
@@ -59,7 +64,9 @@ class AdversarialFinding:
             recompute the hash to identify the span.
         evidence: Quantitative evidence (e.g., score, p-value, count).
         severity: Finding severity.
-        confidence: Confidence in this finding (0-1).
+        confidence: Uncalibrated heuristic weight for this finding
+            (0-1), derived from the pattern's match count/weight. It is
+            NOT an empirically calibrated probability.
         location: Character span (start, end) in original text.
         description: Human-readable description.
     """
@@ -86,16 +93,38 @@ class AdversarialFinding:
 
 @dataclass
 class HumanizationReport:
-    """Complete adversarial humanization analysis report."""
+    """Complete adversarial humanization analysis report.
+
+    ``overall_risk`` is ``"unknown"`` whenever the input is below the
+    support floor, in an unsupported language, or pattern coverage was
+    incomplete: a risk level is only asserted from a fully supported
+    run. ``confidence`` is always ``None`` -- no empirically calibrated
+    confidence exists for this heuristic assessment (see the module
+    docstring). A clean result (``overall_risk == "none"``) means no
+    patterns were observed under the stated coverage, not a
+    probability 1 of absence.
+    """
 
     text_sha256: str
     text_length: int
     detector_outputs: dict[str, Any]  # Optional: detector predictions
     findings: list[AdversarialFinding] = field(default_factory=list)
-    overall_risk: str = "none"  # "none", "low", "medium", "high", "critical"
-    confidence: float = 0.0  # Overall confidence in assessment
+    # "none", "low", "medium", "high", "critical", "unknown". The
+    # fail-closed default is "unknown": a report only claims a risk
+    # level when analyze() asserts it from a supported run.
+    overall_risk: str = "unknown"
+    # Overall confidence in the assessment: always None (uncalibrated).
+    confidence: float | None = None
     patterns_checked: int = 0
     patterns_triggered: int = 0
+    # Names of pattern detectors that raised instead of returning
+    # findings. A failed pattern is coverage loss, never evidence of
+    # absence.
+    patterns_failed: list[str] = field(default_factory=list)
+    # "sufficient" or "insufficient" (below the word floor, unsupported
+    # language, or incomplete pattern coverage). The fail-closed
+    # default is "insufficient".
+    support_status: str = "insufficient"
     limitations: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
     report_id: str = ""
@@ -111,6 +140,8 @@ class HumanizationReport:
             "confidence": self.confidence,
             "patterns_checked": self.patterns_checked,
             "patterns_triggered": self.patterns_triggered,
+            "patterns_failed": list(self.patterns_failed),
+            "support_status": self.support_status,
             "limitations": list(self.limitations),
             "metadata": self.metadata,
             "report_id": self.report_id,
@@ -128,6 +159,8 @@ class HumanizationReport:
             "by_severity": dict(severity_counts),
             "patterns_checked": self.patterns_checked,
             "patterns_triggered": self.patterns_triggered,
+            "patterns_failed": list(self.patterns_failed),
+            "support_status": self.support_status,
         }
 
 
@@ -239,6 +272,40 @@ def _perplexity_proxy(text: str, window: int = 100) -> list[float]:
         surprise = 1.0 - (max(freq.values()) / window)
         scores.append(surprise)
     return scores
+
+
+# Minimum words for an overall risk assessment (IF-12). Below this
+# floor the report lists observed patterns but asserts no overall
+# risk: a single word (or a couple of words) cannot support any
+# authorship-related conclusion, confident or otherwise.
+MIN_WORDS_FOR_ASSESSMENT = 10
+
+_LATIN_RE = re.compile(r"[A-Za-z]")
+
+# Language codes accepted as the supported (English) language.
+_SUPPORTED_LANGUAGE_CODES = {"en", "eng", "english"}
+
+
+def _language_support(text: str, language: str | None) -> tuple[bool, str | None]:
+    """Check whether the text is in this detector's supported language.
+
+    The patterns are English-specific. A caller-declared non-English
+    language abstains; without a declaration, text with no
+    Latin-script letters at all is treated as unsupported (there are
+    no English words for the patterns to match). Returns
+    ``(supported, reason)`` with ``reason`` set only when unsupported.
+    """
+    if language is not None and language.strip().lower() not in _SUPPORTED_LANGUAGE_CODES:
+        return False, (
+            f"Unsupported language: declared language {language!r} is not English; "
+            "patterns are English-specific."
+        )
+    if not _LATIN_RE.search(text):
+        return False, (
+            "Unsupported language: no Latin-script text detected; "
+            "patterns are English-specific."
+        )
+    return True, None
 
 
 # ============================================================
@@ -599,16 +666,33 @@ class HumanizationPatternLibrary:
         return sorted(self._patterns.keys())
 
     def run_all(self, text: str) -> list[AdversarialFinding]:
-        """Run all registered pattern detectors on text."""
+        """Run all registered pattern detectors on text.
+
+        A pattern that raises contributes zero findings here; use
+        :meth:`run_all_with_coverage` to learn which patterns failed
+        instead of silently treating the failure as "no finding".
+        """
+        findings, _failed = self.run_all_with_coverage(text)
+        return findings
+
+    def run_all_with_coverage(
+        self, text: str
+    ) -> tuple[list[AdversarialFinding], list[str]]:
+        """Run all registered pattern detectors on text.
+
+        Returns ``(findings, failed_names)``: the names of pattern
+        detectors that raised instead of returning findings. A failed
+        pattern is coverage loss, never evidence of absence.
+        """
         all_findings = []
-        for _name, detector_fn in self._patterns.items():
+        failed: list[str] = []
+        for name, detector_fn in self._patterns.items():
             try:
                 findings = detector_fn(text)
                 all_findings.extend(findings)
             except Exception:
-                # Don't let one bad pattern crash the whole scan
-                pass
-        return all_findings
+                failed.append(name)
+        return all_findings, failed
 
 
 # ============================================================
@@ -642,6 +726,7 @@ class AdversarialDetector:
         *,
         detector_outputs: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
+        language: str | None = None,
     ) -> HumanizationReport:
         """Analyze text for adversarial humanization artifacts.
 
@@ -649,20 +734,55 @@ class AdversarialDetector:
             text: Text to analyze.
             detector_outputs: Optional detector predictions for context.
             metadata: Additional metadata for the report.
+            language: Optional caller-declared language code (e.g.
+                ``"en"``). A declared non-English language abstains;
+                without a declaration, text with no Latin-script
+                letters is treated as unsupported.
 
         Returns:
             HumanizationReport with findings and risk assessment.
+            The overall risk is ``"unknown"`` with ``confidence None``
+            whenever the input is below the support floor, in an
+            unsupported language, or pattern coverage was incomplete.
+            Observed findings and pattern counts are still reported:
+            they are observations, not a calibrated confidence.
         """
         if not text or not text.strip():
             return HumanizationReport(
                 text_sha256=_sha256(""),
                 text_length=0,
                 detector_outputs=detector_outputs or {},
-                limitations=["Empty input text"],
+                overall_risk="unknown",
+                confidence=None,
+                support_status="insufficient",
+                limitations=[
+                    "Empty input text",
+                    "Insufficient support: empty input -- no risk assessment.",
+                ],
             )
 
-        # Run all pattern detectors
-        all_findings = self.pattern_library.run_all(text)
+        word_count = len(_word_tokenize(text))
+        language_ok, language_reason = _language_support(text, language)
+
+        support_reasons: list[str] = []
+        if word_count < MIN_WORDS_FOR_ASSESSMENT:
+            support_reasons.append(
+                f"Insufficient support: {word_count} words (minimum "
+                f"{MIN_WORDS_FOR_ASSESSMENT}) -- no overall risk is asserted; "
+                "observed patterns are listed without an overall risk."
+            )
+        if not language_ok and language_reason is not None:
+            support_reasons.append(language_reason)
+
+        # Run all pattern detectors, tracking failures explicitly.
+        all_findings, failed_patterns = self.pattern_library.run_all_with_coverage(text)
+        if failed_patterns:
+            support_reasons.append(
+                "Incomplete pattern coverage: "
+                f"{len(failed_patterns)} pattern(s) failed and were excluded "
+                f"from the assessment: {', '.join(sorted(failed_patterns))}. "
+                "A failed pattern is not evidence of absence."
+            )
 
         # Filter out duplicate findings (same pattern_id)
         unique_findings = []
@@ -676,6 +796,26 @@ class AdversarialDetector:
         # Assess overall risk from the de-duplicated findings.
         overall_risk, confidence = self._assess_risk(unique_findings)
 
+        # Support gating: any coverage gap fails the assessment closed
+        # to "unknown" -- the observed findings stay visible, but no
+        # overall risk is asserted from an unsupported/partial run.
+        support_status = "sufficient" if not support_reasons else "insufficient"
+        if support_status == "insufficient":
+            overall_risk, confidence = "unknown", None
+
+        limitations = [
+            "Pattern-based detection cannot prove humanization; only indicates artifacts.",
+            "False positives possible on naturally informal or non-native writing.",
+            "Patterns may not generalize to unseen humanization tools.",
+            "Short texts (< 100 words) have reduced detection reliability.",
+        ]
+        limitations.extend(support_reasons)
+        if support_status == "sufficient" and not unique_findings:
+            limitations.append(
+                "No observed patterns under the stated pattern coverage; "
+                "this is not a probability of absence."
+            )
+
         report = HumanizationReport(
             text_sha256=_sha256(text),
             text_length=len(text),
@@ -685,12 +825,9 @@ class AdversarialDetector:
             confidence=confidence,
             patterns_checked=len(self.pattern_library._patterns),
             patterns_triggered=len(set(f.pattern_id for f in unique_findings)),
-            limitations=[
-                "Pattern-based detection cannot prove humanization; only indicates artifacts.",
-                "False positives possible on naturally informal or non-native writing.",
-                "Patterns may not generalize to unseen humanization tools.",
-                "Short texts (< 100 words) have reduced detection reliability.",
-            ],
+            patterns_failed=sorted(failed_patterns),
+            support_status=support_status,
+            limitations=limitations,
             metadata=metadata or {},
             report_id=_sha256(str(uuid.uuid4()))[:16],
             created_at=_now_iso(),
@@ -700,10 +837,19 @@ class AdversarialDetector:
     def _assess_risk(
         self,
         findings: list[AdversarialFinding],
-    ) -> tuple[str, float]:
-        """Assess overall risk from findings."""
+    ) -> tuple[str, float | None]:
+        """Assess overall risk from observed findings.
+
+        The risk level is a heuristic summary of observed pattern
+        counts and severities, NOT an empirically calibrated
+        probability: the returned confidence is always ``None``
+        because no versioned held-out calibration artifact exists
+        for this assessment. A clean result (no findings) means no
+        patterns were observed under the stated coverage, not a
+        probability 1 of absence.
+        """
         if not findings:
-            return "none", 1.0
+            return "none", None
 
         severity_weights = {"critical": 2.0, "high": 1.5, "medium": 0.8, "low": 0.5}
         total_weight = sum(severity_weights.get(f.severity, 0) * f.confidence for f in findings)
@@ -712,15 +858,15 @@ class AdversarialDetector:
         risk_score = total_weight / max_possible if max_possible > 0 else 0.0
 
         if risk_score >= 0.65:
-            return "critical", 0.9
+            return "critical", None
         elif risk_score >= 0.45:
-            return "high", 0.8
+            return "high", None
         elif risk_score >= 0.25:
-            return "medium", 0.7
+            return "medium", None
         elif risk_score >= 0.15:
-            return "low", 0.6
+            return "low", None
         else:
-            return "low", 0.5
+            return "low", None
 
 
 def detect_humanization(
@@ -729,6 +875,7 @@ def detect_humanization(
     detector_outputs: dict[str, Any] | None = None,
     custom_patterns: dict[str, Callable[[str], list[AdversarialFinding]]] | None = None,
     metadata: dict[str, Any] | None = None,
+    language: str | None = None,
 ) -> HumanizationReport:
     """Convenience function for one-shot humanization detection.
 
@@ -737,13 +884,16 @@ def detect_humanization(
         detector_outputs: Optional detector predictions for context.
         custom_patterns: Additional pattern detectors to register.
         metadata: Additional metadata for the report.
+        language: Optional caller-declared language code; a declared
+            non-English language abstains (see
+            :meth:`AdversarialDetector.analyze`).
 
     Returns:
         HumanizationReport with findings and risk assessment.
     """
     library = HumanizationPatternLibrary(custom_patterns=custom_patterns)
     detector = AdversarialDetector(pattern_library=library)
-    return detector.analyze(text, detector_outputs=detector_outputs, metadata=metadata)
+    return detector.analyze(text, detector_outputs=detector_outputs, metadata=metadata, language=language)
 
 
 # ============================================================

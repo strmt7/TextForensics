@@ -182,10 +182,15 @@ class TestHumanizationPatternLibrary:
 class TestAdversarialDetector:
     def test_clean_text_no_findings(self):
         detector = AdversarialDetector()
-        text = "This is a clean, well-written sentence with no artifacts."
+        text = (
+            "This is a clean, well-written passage with no artifacts at all, "
+            "composed in plain ordinary English prose for review."
+        )
         report = detector.analyze(text)
         assert report.overall_risk == "none"
-        assert report.confidence == 1.0
+        # No observed patterns under stated coverage -- not a
+        # probability 1 of absence, so no calibrated confidence.
+        assert report.confidence is None
         assert len(report.findings) == 0
 
     def test_text_with_multiple_artifacts(self):
@@ -198,7 +203,9 @@ class TestAdversarialDetector:
     def test_empty_text_returns_empty_report(self):
         detector = AdversarialDetector()
         report = detector.analyze("")
-        assert report.overall_risk == "none"
+        # Empty input cannot support any risk assessment (IF-12).
+        assert report.overall_risk == "unknown"
+        assert report.confidence is None
         assert report.text_length == 0
 
     def test_report_includes_limitations(self):
@@ -266,9 +273,13 @@ class TestAdversarialFinding:
 class TestAdversarialDetectorRiskAssessment:
     def test_no_findings_none_risk(self):
         detector = AdversarialDetector()
-        report = detector.analyze("Clean text.")
+        report = detector.analyze(
+            "Clean text with several ordinary words and no artifacts at all here."
+        )
         assert report.overall_risk == "none"
-        assert report.confidence == 1.0
+        # No observed patterns under stated coverage -- not a
+        # probability 1 of absence, so no calibrated confidence.
+        assert report.confidence is None
 
     def test_critical_risk_for_severe_findings(self):
         detector = AdversarialDetector()
@@ -285,7 +296,9 @@ class TestAdversarialDetectorRiskAssessment:
         )  # Amplify
         report = detector.analyze(text)
         assert report.overall_risk in {"high", "critical"}
-        assert report.confidence > 0.5
+        # Risk comes from observed pattern counts/severities; no
+        # calibrated confidence exists for this heuristic (IF-12).
+        assert report.confidence is None
 
 
 class TestAnalyzeDeduplicatesFindings:
@@ -331,7 +344,9 @@ class TestAnalyzeDeduplicatesFindings:
             return original_assess_risk(findings)
 
         detector._assess_risk = spy  # type: ignore[method-assign]
-        report = detector.analyze("Some text for analysis here.")
+        report = detector.analyze(
+            "Some text for analysis here with several additional ordinary words included."
+        )
         assert seen["findings"] == [duplicate]
         # The reported risk/confidence are the ones computed from the
         # de-duplicated list.

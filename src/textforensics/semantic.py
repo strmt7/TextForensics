@@ -11,6 +11,13 @@ content. AI-generated text often exhibits unnatural semantic patterns:
 
 This module provides statistical and embedding-based analysis of semantic
 consistency to detect AI-generated text.
+
+Finding-level ``confidence`` values in this module are uncalibrated
+heuristic weights, not empirically calibrated probabilities. The
+report itself carries no calibrated confidence: ``confidence`` is
+always ``None``, and the overall consistency score is ``None``
+(undefined) whenever fewer than three segments are available, because
+a consistency aggregate over one or two segments has no meaning.
 """
 
 from __future__ import annotations
@@ -59,7 +66,8 @@ class ConsistencyFinding:
     description: str
     evidence: float  # Quantitative evidence (0-1 scale)
     severity: str  # "critical", "high", "medium", "low"
-    confidence: float  # 0-1
+    confidence: float  # Uncalibrated heuristic weight (0-1), NOT an
+    # empirically calibrated probability.
     segment_indices: tuple[int, int]  # Segment range affected
     details: dict[str, Any] = field(default_factory=dict)
 
@@ -78,16 +86,41 @@ class ConsistencyFinding:
 
 @dataclass
 class SemanticConsistencyReport:
-    """Complete semantic consistency analysis report."""
+    """Complete semantic consistency analysis report.
+
+    ``risk_level`` is ``"unknown"`` whenever the input is below the
+    support floor (fewer than three segments), in an unsupported
+    language, or a consistency check failed: a risk level is only
+    asserted from a fully supported run. ``overall_consistency_score``
+    is ``None`` (undefined) below three segments, and ``confidence``
+    is always ``None`` -- no empirically calibrated confidence exists
+    for this heuristic aggregate. A clean result (``risk_level ==
+    "none"``) means no consistency anomalies were observed under the
+    stated checks, not a probability 1 of absence.
+    """
 
     text_sha256: str
     text_length: int
     n_segments: int
     findings: list[dict[str, Any]] = field(default_factory=list)
-    overall_consistency_score: float = 0.0  # 0 = human-like variation, 1 = AI-like consistency
-    risk_level: str = "none"  # "none", "low", "medium", "high", "critical"
-    confidence: float = 0.0
+    # 0 = human-like variation, 1 = AI-like consistency; None when
+    # undefined (fewer than three segments).
+    overall_consistency_score: float | None = None
+    # "none", "low", "medium", "high", "critical", "unknown". The
+    # fail-closed default is "unknown": a report only claims a risk
+    # level when analyze() asserts it from a supported run.
+    risk_level: str = "unknown"
+    # Overall confidence: always None (uncalibrated).
+    confidence: float | None = None
     segments_analyzed: int = 0
+    # Names of consistency checks that raised instead of returning
+    # findings. A failed check is coverage loss, never evidence of
+    # absence.
+    checks_failed: list[str] = field(default_factory=list)
+    # "sufficient" or "insufficient" (too few segments, unsupported
+    # language, or incomplete check coverage). The fail-closed default
+    # is "insufficient".
+    support_status: str = "insufficient"
     limitations: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
     report_id: str = ""
@@ -103,6 +136,8 @@ class SemanticConsistencyReport:
             "risk_level": self.risk_level,
             "confidence": self.confidence,
             "segments_analyzed": self.segments_analyzed,
+            "checks_failed": list(self.checks_failed),
+            "support_status": self.support_status,
             "limitations": list(self.limitations),
             "metadata": self.metadata,
             "report_id": self.report_id,
@@ -116,6 +151,8 @@ class SemanticConsistencyReport:
             "consistency_score": self.overall_consistency_score,
             "confidence": self.confidence,
             "total_findings": len(self.findings),
+            "checks_failed": list(self.checks_failed),
+            "support_status": self.support_status,
         }
 
 
@@ -428,6 +465,38 @@ def _detect_repetitive_structures(segments: list[SemanticSegment]) -> list[dict]
 # Main Checker Class
 # ============================================================
 
+# Minimum segments for a consistency assessment (IF-12). Every
+# consistency detector below requires at least three segments, and a
+# consistency aggregate over one or two segments has no meaning, so
+# fewer segments abstain with an undefined (None) score.
+MIN_SEGMENTS_FOR_ASSESSMENT = 3
+
+_LATIN_RE = re.compile(r"[A-Za-z]")
+
+# Language codes accepted as the supported (English) language.
+_SUPPORTED_LANGUAGE_CODES = {"en", "eng", "english"}
+
+
+def _language_support(text: str, language: str | None) -> tuple[bool, str | None]:
+    """Check whether the text is in this checker's supported language.
+
+    The checks are English-specific. A caller-declared non-English
+    language abstains; without a declaration, text with no
+    Latin-script letters at all is treated as unsupported. Returns
+    ``(supported, reason)`` with ``reason`` set only when unsupported.
+    """
+    if language is not None and language.strip().lower() not in _SUPPORTED_LANGUAGE_CODES:
+        return False, (
+            f"Unsupported language: declared language {language!r} is not English; "
+            "checks are English-specific."
+        )
+    if not _LATIN_RE.search(text):
+        return False, (
+            "Unsupported language: no Latin-script text detected; "
+            "checks are English-specific."
+        )
+    return True, None
+
 
 class SemanticConsistencyChecker:
     """Analyzes semantic consistency to detect AI-generated text."""
@@ -436,19 +505,39 @@ class SemanticConsistencyChecker:
         self.segment_word_target = segment_word_target
 
     def analyze(
-        self, text: str, *, metadata: dict[str, Any] | None = None
+        self, text: str, *, metadata: dict[str, Any] | None = None, language: str | None = None
     ) -> SemanticConsistencyReport:
-        """Analyze text for semantic consistency anomalies."""
+        """Analyze text for semantic consistency anomalies.
+
+        Args:
+            text: Text to analyze.
+            metadata: Additional metadata for the report.
+            language: Optional caller-declared language code (e.g.
+                ``"en"``). A declared non-English language abstains;
+                without a declaration, text with no Latin-script
+                letters is treated as unsupported.
+
+        The risk level is ``"unknown"`` with a ``None`` consistency
+        score and ``None`` confidence whenever the input has fewer
+        than three segments, is in an unsupported language, or a
+        consistency check failed. Observed findings stay visible;
+        they are observations, not a calibrated confidence.
+        """
         if not text or not text.strip():
             return SemanticConsistencyReport(
                 text_sha256=_sha256(""),
                 text_length=0,
                 n_segments=0,
-                limitations=["Empty input text"],
+                risk_level="unknown",
+                confidence=None,
+                support_status="insufficient",
+                limitations=[
+                    "Empty input text",
+                    "Insufficient support: empty input -- no consistency assessment.",
+                ],
             )
 
-        _sha256(text)
-        len(text)
+        language_ok, language_reason = _language_support(text, language)
 
         # Split into segments
         raw_segments = _split_into_segments(text, self.segment_word_target)
@@ -469,17 +558,65 @@ class SemanticConsistencyChecker:
             )
             segments.append(seg)
 
-        # Run all detectors
-        all_findings = []
-        all_findings.extend(_detect_excessive_coherence(segments))
-        all_findings.extend(_detect_structural_rigidity(segments))
-        all_findings.extend(_detect_semantic_overcoherence(segments))
-        all_findings.extend(_detect_lack_of_digression(segments))
-        all_findings.extend(_detect_repetitive_structures(segments))
+        support_reasons: list[str] = []
+        if len(segments) < MIN_SEGMENTS_FOR_ASSESSMENT:
+            support_reasons.append(
+                f"Insufficient support: {len(segments)} segment(s) (minimum "
+                f"{MIN_SEGMENTS_FOR_ASSESSMENT}) -- consistency aggregates are "
+                "undefined and no risk level is asserted."
+            )
+        if not language_ok and language_reason is not None:
+            support_reasons.append(language_reason)
 
-        # Compute overall consistency score (0 = human-like, 1 = AI-like)
+        # Run all detectors, tracking failures explicitly instead of
+        # silently treating a raised check as "no finding".
+        checks: list[tuple[str, Any]] = [
+            ("excessive_coherence", _detect_excessive_coherence),
+            ("structural_rigidity", _detect_structural_rigidity),
+            ("semantic_overcoherence", _detect_semantic_overcoherence),
+            ("lack_of_digression", _detect_lack_of_digression),
+            ("repetitive_structures", _detect_repetitive_structures),
+        ]
+        all_findings: list[dict] = []
+        checks_failed: list[str] = []
+        for check_name, check_fn in checks:
+            try:
+                all_findings.extend(check_fn(segments))
+            except Exception:
+                checks_failed.append(check_name)
+        if checks_failed:
+            support_reasons.append(
+                "Incomplete check coverage: "
+                f"{len(checks_failed)} check(s) failed and were excluded "
+                f"from the assessment: {', '.join(sorted(checks_failed))}. "
+                "A failed check is not evidence of absence."
+            )
+
+        # Compute overall consistency score (0 = human-like, 1 = AI-like).
+        # Undefined (None) below the segment floor.
         consistency_score = self._compute_consistency_score(segments)
         risk_level, confidence = self._assess_risk(all_findings)
+
+        # Support gating: any coverage gap fails the assessment closed
+        # to "unknown" -- the observed findings stay visible, but no
+        # risk level or score is asserted from an unsupported/partial run.
+        support_status = "sufficient" if not support_reasons else "insufficient"
+        if support_status == "insufficient":
+            risk_level, confidence = "unknown", None
+            consistency_score = None
+
+        limitations = [
+            "Semantic consistency is a heuristic, not proof of AI authorship.",
+            "Highly edited human text may appear consistent.",
+            "Technical/formal writing naturally has higher consistency.",
+            "Short texts (< 3 segments) have reduced reliability.",
+        ]
+        limitations.extend(support_reasons)
+        if support_status == "sufficient" and not all_findings:
+            limitations.append(
+                f"No consistency anomalies observed across {len(segments)} segments "
+                "under the stated checks; this is not a probability of absence."
+            )
 
         report = SemanticConsistencyReport(
             text_sha256=_sha256(text),
@@ -490,12 +627,9 @@ class SemanticConsistencyChecker:
             risk_level=risk_level,
             confidence=confidence,
             segments_analyzed=len(segments),
-            limitations=[
-                "Semantic consistency is a heuristic, not proof of AI authorship.",
-                "Highly edited human text may appear consistent.",
-                "Technical/formal writing naturally has higher consistency.",
-                "Short texts (< 3 segments) have reduced reliability.",
-            ],
+            checks_failed=sorted(checks_failed),
+            support_status=support_status,
+            limitations=limitations,
             metadata={"segment_word_target": 100},
             report_id=_sha256(str(uuid.uuid4()))[:16],
             created_at=_now_iso(),
@@ -503,10 +637,16 @@ class SemanticConsistencyChecker:
 
         return report
 
-    def _compute_consistency_score(self, segments: list[SemanticSegment]) -> float:
-        """Compute overall consistency score (0 = human-like, 1 = AI-like)."""
-        if len(segments) < 3:
-            return 0.0
+    def _compute_consistency_score(self, segments: list[SemanticSegment]) -> float | None:
+        """Compute overall consistency score (0 = human-like, 1 = AI-like).
+
+        Returns ``None`` (undefined) when fewer than three segments
+        are available: a consistency aggregate over one or two
+        segments has no meaning, and 0.0 must not be read as
+        human-like.
+        """
+        if len(segments) < MIN_SEGMENTS_FOR_ASSESSMENT:
+            return None
 
         scores = []
 
@@ -545,10 +685,19 @@ class SemanticConsistencyChecker:
     def _assess_risk(
         self,
         findings: list[dict],
-    ) -> tuple[str, float]:
-        """Assess overall risk from findings."""
+    ) -> tuple[str, float | None]:
+        """Assess overall risk from observed findings.
+
+        The risk level is a heuristic summary of observed finding
+        counts and severities, NOT an empirically calibrated
+        probability: the returned confidence is always ``None``
+        because no versioned held-out calibration artifact exists
+        for this assessment. A clean result (no findings) means no
+        anomalies were observed under the stated checks, not a
+        probability 1 of absence.
+        """
         if not findings:
-            return "none", 1.0
+            return "none", None
 
         total_weight = sum(
             {"critical": 1.5, "high": 1.0, "medium": 0.6, "low": 0.3}.get(
@@ -562,15 +711,15 @@ class SemanticConsistencyChecker:
         risk_score = total_weight / max_possible if max_possible > 0 else 0.0
 
         if risk_score >= 0.7:
-            return "critical", 0.9
+            return "critical", None
         elif risk_score >= 0.5:
-            return "high", 0.8
+            return "high", None
         elif risk_score >= 0.3:
-            return "medium", 0.7
+            return "medium", None
         elif risk_score >= 0.15:
-            return "low", 0.6
+            return "low", None
         else:
-            return "low", 0.5
+            return "low", None
 
 
 def _sha256(text: str) -> str:
@@ -586,10 +735,20 @@ def analyze_semantic_consistency(
     *,
     segment_word_target: int = 100,
     metadata: dict[str, Any] | None = None,
+    language: str | None = None,
 ) -> SemanticConsistencyReport:
-    """Convenience function for one-shot semantic consistency analysis."""
+    """Convenience function for one-shot semantic consistency analysis.
+
+    Args:
+        text: Text to analyze.
+        segment_word_target: Target words per segment.
+        metadata: Additional metadata for the report.
+        language: Optional caller-declared language code; a declared
+            non-English language abstains (see
+            :meth:`SemanticConsistencyChecker.analyze`).
+    """
     checker = SemanticConsistencyChecker(segment_word_target=segment_word_target)
-    return checker.analyze(text, metadata=metadata)
+    return checker.analyze(text, metadata=metadata, language=language)
 
 
 def _sha256(text: str) -> str:

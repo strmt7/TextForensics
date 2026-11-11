@@ -251,6 +251,32 @@ function handleCompleteAnalysis(data, elapsedMs) {
     elements.resultsPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// Canonical ensemble probability (IF-04). The server bundle exposes
+// `consensus.calibrated_ai_probability` together with
+// `consensus.ensemble_calibration_id`; a top-level AI-authorship
+// probability is shown ONLY when both are present and the value is a
+// finite number in [0, 1]. Anything else is unavailable -- never a
+// verdict-derived 85/15/50 substitute, and never a read of the
+// legacy uncalibrated field name (no such field exists in the
+// canonical bundle). A missing calibrated probability stays
+// missing/abstained in every surface below.
+function calibratedEnsembleProbability(consensus) {
+    if (!consensus) return null;
+    const value = consensus.calibrated_ai_probability;
+    const calibrationId = consensus.ensemble_calibration_id;
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) return null;
+    if (typeof calibrationId !== 'string' || calibrationId.length === 0) return null;
+    return { value, calibrationId };
+}
+
+// Exact calibrated value plus its calibration identity, or null when
+// no calibrated ensemble probability is available.
+function formatCalibratedProbability(consensus) {
+    const calibrated = calibratedEnsembleProbability(consensus);
+    if (!calibrated) return null;
+    return `${(calibrated.value * 100).toFixed(1)}% (calibration: ${calibrated.calibrationId})`;
+}
+
 // Update top metrics
 function updateMetrics(data, elapsedMs) {
     const consensus = data.consensus;
@@ -260,8 +286,9 @@ function updateMetrics(data, elapsedMs) {
     elements.consensusVerdict.textContent = formatVerdict(consensus.verdict);
     elements.consensusVerdict.className = `metric-value verdict-${consensus.verdict}`;
 
-    if (consensus.ai_probability !== null && consensus.ai_probability !== undefined) {
-        elements.consensusConfidence.textContent = `AI Probability: ${(consensus.ai_probability * 100).toFixed(1)}%`;
+    const calibrated = formatCalibratedProbability(consensus);
+    if (calibrated !== null) {
+        elements.consensusConfidence.textContent = `AI Probability: ${calibrated}`;
     } else {
         elements.consensusConfidence.textContent = `Families agreeing: ${consensus.independent_families || 0}`;
     }
@@ -309,17 +336,12 @@ function formatTrustState(state) {
 function renderGaugeChart(data) {
     const ctx = elements.gaugeChart.getContext('2d');
 
-    // Determine AI probability
-    let aiProb = 0;
-    if (data.consensus.ai_probability !== null && data.consensus.ai_probability !== undefined) {
-        aiProb = data.consensus.ai_probability * 100;
-    } else if (data.consensus.verdict === 'ai_like') {
-        aiProb = 85;
-    } else if (data.consensus.verdict === 'human_like') {
-        aiProb = 15;
-    } else {
-        aiProb = 50;
-    }
+    // Determine AI probability: only the canonical calibrated
+    // ensemble probability counts (IF-04). Without it there is no
+    // numerical authorship probability to draw -- no 85/15/50
+    // verdict substitute.
+    const calibrated = calibratedEnsembleProbability(data.consensus);
+    const aiProb = calibrated !== null ? calibrated.value * 100 : null;
 
     // Destroy existing chart
     if (state.charts.gauge) {
@@ -330,9 +352,9 @@ function renderGaugeChart(data) {
         type: 'doughnut',
         data: {
             datasets: [{
-                data: [aiProb, 100 - aiProb],
+                data: aiProb !== null ? [aiProb, 100 - aiProb] : [0, 100],
                 backgroundColor: [
-                    getGaugeColor(aiProb),
+                    aiProb !== null ? getGaugeColor(aiProb) : 'rgba(255,255,255,0.05)',
                     'rgba(255,255,255,0.05)'
                 ],
                 borderWidth: 0,
@@ -365,11 +387,14 @@ function renderGaugeChart(data) {
         ctx.textBaseline = 'middle';
         ctx.font = 'bold 36px system-ui';
         ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#f4f7fa';
-        ctx.fillText(`${aiProb.toFixed(0)}%`, centerX, centerY);
+        ctx.fillText(aiProb !== null ? `${aiProb.toFixed(1)}%` : 'N/A', centerX, centerY);
 
         ctx.font = '12px system-ui';
         ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#9aa4af';
-        ctx.fillText('AI Probability', centerX, centerY + 30);
+        ctx.fillText(
+            aiProb !== null ? `AI Probability (calibration: ${calibrated.calibrationId})` : 'AI Probability: not calibrated',
+            centerX, centerY + 30
+        );
         ctx.restore();
     };
 
@@ -386,11 +411,15 @@ function getGaugeColor(prob) {
 function renderDetectorChart(consensus) {
     const ctx = elements.detectorChart.getContext('2d');
 
-    // Prepare data from family votes
+    // Prepare data from family votes. A missing family calibration
+    // is N/A (a gap in the chart), not a 50% substitute (IF-04).
     const families = consensus.family_votes || [];
     const labels = families.map(f => f.detector_family.replace(/-/g, ' '));
-    const scores = families.map(f => f.calibrated_ai_probability !== null ? f.calibrated_ai_probability * 100 : 50);
-    const colors = scores.map(s => getGaugeColor(s));
+    const scores = families.map(f => {
+        const value = f.calibrated_ai_probability;
+        return (typeof value === 'number' && Number.isFinite(value)) ? value * 100 : null;
+    });
+    const colors = scores.map(s => s === null ? 'rgba(255,255,255,0.15)' : getGaugeColor(s));
 
     if (state.charts.detector) {
         state.charts.detector.destroy();
@@ -401,7 +430,7 @@ function renderDetectorChart(consensus) {
         data: {
             labels,
             datasets: [{
-                label: 'AI Probability %',
+                label: 'Calibrated AI probability % (uncalibrated: N/A)',
                 data: scores,
                 backgroundColor: colors,
                 borderRadius: 6,
@@ -416,7 +445,7 @@ function renderDetectorChart(consensus) {
                 legend: { display: false },
                 tooltip: {
                     callbacks: {
-                        label: (ctx) => `${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%`
+                        label: (ctx) => ctx.raw === null || ctx.raw === undefined ? 'Not calibrated' : `${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%`
                     }
                 }
             },
@@ -458,10 +487,12 @@ function renderDetectorList(results) {
             displayScore = `${(calibrated * 100).toFixed(1)}%`;
             scorePercent = calibrated * 100;
         } else if (score !== null && score !== undefined) {
-            // Normalize score for display (assuming 0-1 range)
-            const normalized = Math.max(0, Math.min(1, score));
-            displayScore = `${(normalized * 100).toFixed(1)}%`;
-            scorePercent = normalized * 100;
+            // Native instrument score: show the raw value with native
+            // semantics only, never as a probability percentage, and
+            // draw no probability-like bar for it (IF-04).
+            const raw = Number(score);
+            displayScore = Number.isFinite(raw) ? `native ${raw.toFixed(3)}` : '—';
+            scorePercent = 0;
         }
 
         return `
@@ -533,7 +564,7 @@ function renderVerdictDisplay(data) {
             </div>
             <div class="verdict-row">
                 <span class="verdict-key">AI Probability</span>
-                <span class="verdict-value">${consensus.ai_probability !== null ? (consensus.ai_probability * 100).toFixed(1) + '%' : 'Not calibrated'}</span>
+                <span class="verdict-value">${formatCalibratedProbability(consensus) ?? 'Not calibrated'}</span>
             </div>
         </div>
         <div class="verdict-card">
@@ -606,13 +637,18 @@ function renderRawData(data) {
 
 // History
 function addToHistory(data) {
+    // Store only the canonical calibrated ensemble probability (with
+    // its calibration identity); an uncalibrated bundle stores null
+    // and renders no percentage (IF-04).
+    const calibrated = calibratedEnsembleProbability(data.consensus);
     const historyItem = {
         id: Date.now(),
         timestamp: new Date().toISOString(),
         text: elements.textInput.value.trim(),
         preview: elements.textInput.value.trim().substring(0, 100) + (elements.textInput.value.length > 100 ? '…' : ''),
         verdict: data.consensus.verdict,
-        aiProbability: data.consensus.ai_probability,
+        aiProbability: calibrated !== null ? calibrated.value : null,
+        calibrationId: calibrated !== null ? calibrated.calibrationId : null,
         wordCount: data.input.word_count,
         data: data
     };
@@ -647,7 +683,7 @@ function renderHistory() {
             <div class="history-verdict">
                 <span class="verdict-badge ${verdictClass(item.verdict)}">${escapeHtml(formatVerdict(item.verdict))}</span>
                 ${item.aiProbability !== null && item.aiProbability !== undefined ?
-                    `<span style="font-size: 12px; color: var(--muted);">${(item.aiProbability * 100).toFixed(0)}%</span>` : ''}
+                    `<span style="font-size: 12px; color: var(--muted);">${(item.aiProbability * 100).toFixed(1)}% (calibration: ${escapeHtml(item.calibrationId || 'unknown')})</span>` : ''}
             </div>
         </div>
     `).join('');
@@ -828,13 +864,13 @@ function renderCompareView() {
 
     elements.compareASummary.innerHTML = `
         <div class="compare-metric"><strong>Verdict:</strong> ${verdictLabels[consensusA.verdict] || consensusA.verdict}</div>
-        <div class="compare-metric"><strong>AI Probability:</strong> ${consensusA.ai_probability !== null ? (consensusA.ai_probability * 100).toFixed(1) + '%' : 'Not calibrated'}</div>
+        <div class="compare-metric"><strong>AI Probability:</strong> ${formatCalibratedProbability(consensusA) ?? 'Not calibrated'}</div>
         <div class="compare-metric"><strong>Families:</strong> ${consensusA.independent_families || 0}</div>
     `;
 
     elements.compareBSummary.innerHTML = `
         <div class="compare-metric"><strong>Verdict:</strong> ${verdictLabels[consensusB.verdict] || consensusB.verdict}</div>
-        <div class="compare-metric"><strong>AI Probability:</strong> ${consensusB.ai_probability !== null ? (consensusB.ai_probability * 100).toFixed(1) + '%' : 'Not calibrated'}</div>
+        <div class="compare-metric"><strong>AI Probability:</strong> ${formatCalibratedProbability(consensusB) ?? 'Not calibrated'}</div>
         <div class="compare-metric"><strong>Families:</strong> ${consensusB.independent_families || 0}</div>
     `;
 
@@ -853,8 +889,10 @@ function renderCompareDetectors() {
     elements.compareDetectors.innerHTML = allIds.map(id => {
         const a = mapA.get(id);
         const b = mapB.get(id);
-        const scoreA = a?.calibrated_ai_probability ?? a?.score ?? null;
-        const scoreB = b?.calibrated_ai_probability ?? b?.score ?? null;
+        // Calibrated probabilities only: a native score must never be
+        // rendered as a probability percentage or a pp difference (IF-04).
+        const scoreA = a?.calibrated_ai_probability ?? null;
+        const scoreB = b?.calibrated_ai_probability ?? null;
         let diff = null;
         if (scoreA !== null && scoreB !== null) {
             diff = ((scoreB - scoreA) * 100).toFixed(1);
@@ -969,8 +1007,8 @@ function renderServerHistory() {
             </div>
             <div class="history-verdict">
                 <span class="verdict-badge ${verdictClass(item.verdict)}">${escapeHtml(formatVerdict(item.verdict))}</span>
-                ${item.ai_probability !== null ?
-                    `<span style="font-size: 12px; color: var(--muted);">${(item.ai_probability * 100).toFixed(0)}%</span>` : ''}
+                ${item.calibrated_ai_probability !== null && item.calibrated_ai_probability !== undefined ?
+                    `<span style="font-size: 12px; color: var(--muted);">${(item.calibrated_ai_probability * 100).toFixed(1)}%</span>` : ''}
             </div>
         </div>
     `).join('');

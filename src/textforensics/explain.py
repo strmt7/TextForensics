@@ -39,6 +39,8 @@ from dataclasses import dataclass, field
 from datetime import UTC
 from typing import Any
 
+from .execution_policy import CompletenessAccounting
+
 __all__ = [
     "SegmentAttribution",
     "ExplanationReport",
@@ -110,7 +112,17 @@ class SegmentAttribution:
 
 @dataclass
 class ExplanationReport:
-    """Full counterfactual explanation report for a detector verdict."""
+    """Full counterfactual explanation report for a detector verdict.
+
+    ``n_scored`` counts only perturbations that returned a valid
+    score (``completeness.succeeded``). Attempted, abstained and
+    failed perturbations are tracked separately in ``completeness``
+    (W1's shared :class:`CompletenessAccounting` from
+    ``execution_policy`` -- never re-derived here) and in
+    ``unscored_segments``, which records the reason for every
+    unscored segment. An unscored segment is unknown, not zero
+    contribution.
+    """
 
     detector_id: str
     detector_version: str
@@ -125,6 +137,8 @@ class ExplanationReport:
     limitations: list[str] = field(default_factory=list)
     explanation_id: str = ""
     created_at: str = ""
+    completeness: CompletenessAccounting | None = None
+    unscored_segments: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self, *, include_raw_text: bool = False) -> dict[str, Any]:
         """Serialize the report.
@@ -134,6 +148,10 @@ class ExplanationReport:
         ``raw_text_included: false``.  Pass ``include_raw_text=True``
         only for an explicit opt-in; the metadata then records
         ``raw_text_included: true``.
+
+        ``n_scored`` is the count of successfully scored perturbations
+        only; ``n_attempted`` / ``n_abstained`` / ``n_failed`` and the
+        ``completeness`` split carry the full attempt accounting.
         """
         return {
             "detector_id": self.detector_id,
@@ -143,6 +161,12 @@ class ExplanationReport:
             "verdict": self.verdict,
             "n_segments": self.n_segments,
             "n_scored": self.n_scored,
+            "n_attempted": self.completeness.attempted if self.completeness else 0,
+            "n_abstained": self.completeness.abstained if self.completeness else 0,
+            "n_failed": self.completeness.failed if self.completeness else 0,
+            "completeness": self.completeness.to_dict() if self.completeness else None,
+            "explanation_coverage": _coverage_label(self.completeness),
+            "unscored_segments": [dict(u) for u in self.unscored_segments],
             "segment_attribution": [
                 s.to_dict(include_raw_text=include_raw_text) for s in self.segment_attribution
             ],
@@ -172,6 +196,10 @@ class ExplanationReport:
             "verdict": self.verdict,
             "n_segments": self.n_segments,
             "n_scored": self.n_scored,
+            "n_attempted": self.completeness.attempted if self.completeness else 0,
+            "n_abstained": self.completeness.abstained if self.completeness else 0,
+            "n_failed": self.completeness.failed if self.completeness else 0,
+            "explanation_coverage": _coverage_label(self.completeness),
             "top_ai_driving_count": len(self.top_ai_driving),
             "top_human_driving_count": len(self.top_human_driving),
             "most_ai_driving_segment": (
@@ -192,6 +220,20 @@ class ExplanationReport:
             ),
             "raw_text_included": bool(include_raw_text),
         }
+
+
+def _coverage_label(completeness: CompletenessAccounting | None) -> str:
+    """Coverage label for an explanation: "complete", "partial" or "absent".
+
+    "complete" iff every selected perturbation scored; "absent" iff
+    none scored (including when no perturbation was selected);
+    "partial" otherwise.
+    """
+    if completeness is None or completeness.succeeded == 0:
+        return "absent"
+    if completeness.succeeded == completeness.selected:
+        return "complete"
+    return "partial"
 
 
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
@@ -283,6 +325,16 @@ class CounterfactualExplainer:
         For each sentence segment, the segment is removed and the remaining
         text is re-scored. The score delta attributes responsibility.
 
+        Attempted, scored, abstained and failed perturbations are
+        tracked separately in ``report.completeness`` (W1's shared
+        ``CompletenessAccounting``); ``report.n_scored`` counts only
+        perturbations that returned a valid score. A perturbation
+        whose score function raises is recorded as failed (with the
+        exception class, never the message, so no input text can leak
+        through it) and the remaining segments are still explained.
+        The ``progress`` totals count attempts, not successes, and
+        must not be serialized as a completed attribution count.
+
         Args:
             text: Text to explain.
             progress: Optional callback(completed, total) for progress reporting.
@@ -297,21 +349,54 @@ class CounterfactualExplainer:
         original_score = self.score_fn(text)
 
         attributions: list[SegmentAttribution] = []
-        n_scored = 0
+        unscored: list[dict[str, Any]] = []
+        # One perturbation is selected per segment when removal is
+        # meaningful (at least two segments). The counters below
+        # partition the attempts; only `succeeded` becomes n_scored.
+        selected = len(segments) if len(segments) > 1 else 0
+        attempted = 0
+        succeeded = 0
+        abstained = 0
+        failed = 0
 
         if original_score is not None and len(segments) > 1:
-            n_scored = len(segments)
             for idx, segment in enumerate(segments):
                 # Remove this segment
                 remaining = [s for i, s in enumerate(segments) if i != idx]
                 perturbed_text = " ".join(remaining)
-                perturbed_score = self.score_fn(perturbed_text)
-
-                if perturbed_score is None:
-                    # Detector abstained on the perturbed text; skip
-                    progress(idx + 1, n_scored)
+                attempted += 1
+                try:
+                    perturbed_score = self.score_fn(perturbed_text)
+                except Exception as exc:  # noqa: BLE001 - recorded, not swallowed
+                    failed += 1
+                    unscored.append(
+                        {
+                            "segment_index": idx,
+                            "outcome": "failed",
+                            "reason": (
+                                "score function raised "
+                                f"{type(exc).__name__} on the perturbed text"
+                            ),
+                        }
+                    )
+                    progress(idx + 1, selected)
                     continue
 
+                if perturbed_score is None:
+                    # Detector abstained on the perturbed text; the
+                    # segment stays unknown, not zero contribution.
+                    abstained += 1
+                    unscored.append(
+                        {
+                            "segment_index": idx,
+                            "outcome": "abstained",
+                            "reason": "detector abstained on the perturbed text (score None)",
+                        }
+                    )
+                    progress(idx + 1, selected)
+                    continue
+
+                succeeded += 1
                 delta = perturbed_score - original_score
                 if delta < 0:
                     direction = "pushes_ai"
@@ -332,7 +417,39 @@ class CounterfactualExplainer:
                         direction=direction,
                     )
                 )
-                progress(idx + 1, n_scored)
+                progress(idx + 1, selected)
+
+        completeness = CompletenessAccounting(
+            selected=selected,
+            attempted=attempted,
+            succeeded=succeeded,
+            abstained=abstained,
+            failed=failed,
+        )
+
+        limitations = list(EXPLANATION_LIMITATIONS)
+        if original_score is None:
+            limitations.append(
+                "Detector abstained on the full text; no counterfactual "
+                "explanation is available."
+            )
+        elif len(segments) <= 1:
+            limitations.append(
+                "Only one segment: counterfactual removal requires at least "
+                "two segments, so no perturbation was attempted."
+            )
+        elif succeeded == 0:
+            limitations.append(
+                f"No segment attributions: all {selected} perturbations were "
+                f"unscored ({abstained} abstained, {failed} failed); absence "
+                "of attribution is unknown, not zero contribution."
+            )
+        elif abstained or failed:
+            limitations.append(
+                f"Explanation coverage partial: {succeeded} of {selected} "
+                f"perturbations scored ({abstained} abstained, {failed} "
+                "failed); unscored segments are unknown, not zero contribution."
+            )
 
         # Rank by |delta| descending, split by direction
         ranked = sorted(attributions, key=lambda a: a.abs_delta, reverse=True)
@@ -346,11 +463,13 @@ class CounterfactualExplainer:
             original_score=original_score,
             verdict="",  # Filled by caller if known
             n_segments=len(segments),
-            n_scored=n_scored,
+            n_scored=succeeded,
             segment_attribution=attributions,
             top_ai_driving=top_ai,
             top_human_driving=top_human,
-            limitations=list(EXPLANATION_LIMITATIONS),
+            limitations=limitations,
+            completeness=completeness,
+            unscored_segments=unscored,
         )
         report.explanation_id = _explanation_id(report)
         report.created_at = _now_iso()
@@ -463,9 +582,20 @@ def _attribution_from_dict(data: Mapping[str, Any]) -> SegmentAttribution:
 
 
 def load_explanation_report(path: str) -> ExplanationReport:
-    """Load an explanation report from a JSON file."""
+    """Load an explanation report from a JSON file.
+
+    Files written before the IF-19 completeness split carry no
+    ``completeness`` / ``unscored_segments`` keys; they load with
+    ``completeness=None`` and the stored ``n_scored`` untouched.
+    """
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
+    completeness_data = data.get("completeness")
+    completeness = (
+        CompletenessAccounting.from_dict(completeness_data)
+        if isinstance(completeness_data, dict)
+        else None
+    )
     return ExplanationReport(
         detector_id=data["detector_id"],
         detector_version=data["detector_version"],
@@ -482,4 +612,8 @@ def load_explanation_report(path: str) -> ExplanationReport:
         limitations=list(data.get("limitations", [])),
         explanation_id=data.get("explanation_id", ""),
         created_at=data.get("created_at", ""),
+        completeness=completeness,
+        unscored_segments=[
+            dict(u) for u in data.get("unscored_segments", []) if isinstance(u, dict)
+        ],
     )

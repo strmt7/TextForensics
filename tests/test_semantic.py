@@ -292,20 +292,41 @@ class TestFullChecker:
         assert report.n_segments >= 2
 
     def test_consistency_score_range(self):
-        checker = SemanticConsistencyChecker()
-        # Very repetitive text should have high consistency score
-        text = "The same sentence repeated. " * 10
+        checker = SemanticConsistencyChecker(segment_word_target=20)
+        # Very repetitive text should have high consistency score.
+        # At least three segments are required for a defined score
+        # (IF-12); a single segment scores None, not 0.0.
+        text = "The same sentence repeated. " * 30
         report = checker.analyze(text)
+        assert report.n_segments >= 3
+        assert report.overall_consistency_score is not None
         # Highly repetitive should score high (AI-like)
         assert report.overall_consistency_score >= 0.0
+        assert report.overall_consistency_score <= 1.0
+        single = SemanticConsistencyChecker().analyze("The same sentence repeated. " * 10)
+        assert single.overall_consistency_score is None
 
     def test_risk_levels(self):
         checker = SemanticConsistencyChecker()
-        # Clean text should be low risk
+        # A single-segment input is below the support floor (IF-12).
         report = checker.analyze(
             "This is a normal piece of text with natural variation in sentence structure and vocabulary."
         )
-        assert report.risk_level in {"none", "low", "medium", "high", "critical"}
+        assert report.risk_level == "unknown"
+        assert report.overall_consistency_score is None
+        # A supported multi-segment input gets a real risk level.
+        supported = SemanticConsistencyChecker(segment_word_target=20).analyze(
+            "The committee reviewed the annual report in detail and asked several "
+            "questions about the budget. Members discussed the timeline at length, "
+            "while the chair noted that the proposal required further discussion. "
+            "Outside, rain fell steadily on the empty square as a bus passed slowly. "
+            "The treasurer presented a revised forecast with lower revenue and "
+            "higher costs for the coming year, which surprised several members. "
+            "After a short break, the group returned to consider amendments one by one."
+        )
+        assert supported.n_segments >= 3
+        assert supported.risk_level in {"none", "low", "medium", "high", "critical"}
+        assert supported.confidence is None
 
 
 class TestConvenienceFunction:
