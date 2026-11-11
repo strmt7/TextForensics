@@ -410,6 +410,65 @@ def _tier_metrics(*, psi=None, n_paired=60):
     }
 
 
+def _et_metrics(*, psi=None, n_paired=60, slice_n="default", drift_allowed=True,
+                shift=None, flips="default", calibration=None, human_fpr=None,
+                is_human=True, overall="default", drop_overall=False):
+    """Flexible metrics dict for evaluate_tiers strengthening.
+
+    ``shift``/``flips``/``calibration``/``human_fpr``/``overall`` accept a
+    dict to use verbatim, None for the JSON null, or "default" for the
+    base _tier_metrics value. ``flips="absent"`` drops the key entirely.
+    """
+    m = _tier_metrics(psi=psi, n_paired=n_paired)
+    sl = m["slices"]["human-native"]
+    if slice_n != "default":
+        sl["n"] = slice_n
+    sl["drift_signal_allowed"] = drift_allowed
+    sl["is_human_slice"] = is_human
+    if shift == "absent":
+        sl.pop("score_shift", None)
+    elif shift is not None:
+        sl["score_shift"] = shift
+    if flips == "absent":
+        sl.pop("flips", None)
+    elif flips is not None and flips != "default":
+        sl["flips"] = flips
+    elif flips is None:
+        sl["flips"] = None
+    if calibration is not None:
+        sl["calibration"] = calibration
+    if human_fpr is not None:
+        sl["human_fpr"] = human_fpr
+    if drop_overall:
+        m.pop("overall", None)
+    elif overall == "absent":
+        m.pop("overall", None)
+    elif overall is not None and overall != "default":
+        m["overall"] = overall
+    elif overall is None:
+        m["overall"] = None
+    return m
+
+
+def _et_flips(*, n=60, flips=0, rate=0.0, ci=(0.01, 0.5), human_to_ai=0,
+              ai_to_human=0, n_human_paired="default", human_to_ai_human="default",
+              drop=()):
+    d = {"n": n, "flips": flips, "flip_rate": rate,
+         "flip_rate_ci": [ci[0], ci[1]], "human_to_ai": human_to_ai,
+         "ai_to_human": ai_to_human, "to_abstain": 0, "from_abstain": 0}
+    if n_human_paired != "default":
+        d["n_human_paired"] = n_human_paired
+    else:
+        d["n_human_paired"] = n
+    if human_to_ai_human != "default":
+        d["human_to_ai_human"] = human_to_ai_human
+    else:
+        d["human_to_ai_human"] = 0
+    for k in drop:
+        d.pop(k, None)
+    return d
+
+
 def probe_pr_evaluate_tiers():
     from textforensics.probe_runs import evaluate_tiers, RULE_DRIFT_STATISTIC
     rows = []
@@ -422,6 +481,145 @@ def probe_pr_evaluate_tiers():
     rows.append((("floor",),
                  outcome(evaluate_tiers, metrics=_tier_metrics(psi=0.5, n_paired=49),
                          detector_version="0.1.0", previous_breaches=[])))
+    # --- drift / floor shapes -------------------------------------------
+    extra = [
+        ("drift-allowed-false", dict(psi=0.5, drift_allowed=False), {}),
+        ("shift-absent", dict(psi=0.5, shift="absent"), {}),
+        ("shift-npaired-none-n60", dict(psi=0.5, shift={}, slice_n=60), {}),
+        ("shift-npaired-none-n49", dict(psi=0.5, shift={}, slice_n=49), {}),
+        ("shift-npaired-none-n-none", dict(psi=0.5, shift={}, slice_n=None), {}),
+        ("npaired-50", dict(psi=0.5, n_paired=50), {}),
+        ("ks-breach", dict(psi=None, shift={"ks_statistic": 0.11, "psi": None,
+             "ks_pvalue_holm_adjusted": 0.04, "ks_pvalue": 0.01, "n_paired": 60}), {}),
+        ("ks-stat-below", dict(psi=None, shift={"ks_statistic": 0.09, "psi": None,
+             "ks_pvalue_holm_adjusted": 0.04, "ks_pvalue": 0.01, "n_paired": 60}), {}),
+        ("ks-p-above", dict(psi=None, shift={"ks_statistic": 0.11, "psi": None,
+             "ks_pvalue_holm_adjusted": 0.05, "ks_pvalue": 0.01, "n_paired": 60}), {}),
+        ("ks-p-none", dict(psi=None, shift={"ks_statistic": 0.11, "psi": None,
+             "ks_pvalue_holm_adjusted": None, "ks_pvalue": 0.01, "n_paired": 60}), {}),
+        ("psi-exact-0.2", dict(psi=0.2), {}),
+        ("no-overall-key", dict(psi=0.5, drop_overall=True), {}),
+        # --- flip tier-1 (human->AI) --------------------------------------
+        ("t1-rate-0.06", dict(flips=_et_flips(n=60, flips=3, rate=0.06,
+             human_to_ai=3, n_human_paired=50, human_to_ai_human=3)), {}),
+        ("t1-rate-0.05", dict(flips=_et_flips(n=60, flips=3, rate=0.06,
+             human_to_ai=3, n_human_paired=60, human_to_ai_human=3)), {}),
+        ("t1-rate-0.04", dict(flips=_et_flips(n=60, flips=2, rate=0.06,
+             human_to_ai=2, n_human_paired=50, human_to_ai_human=2)), {}),
+        ("t1-n49", dict(flips=_et_flips(n=60, flips=10, rate=0.20,
+             human_to_ai=10, n_human_paired=49, human_to_ai_human=10)), {}),
+        ("t1-n0", dict(flips=_et_flips(n=0, flips=0, rate=0.0,
+             human_to_ai=0, n_human_paired=0, human_to_ai_human=0)), {}),
+        ("t1-legacy-0.10", dict(flips=_et_flips(n=60, flips=6, rate=0.10,
+             human_to_ai=6, drop=("n_human_paired", "human_to_ai_human"))), {}),
+        ("t1-legacy-0.05", dict(flips=_et_flips(n=60, flips=3, rate=0.05,
+             human_to_ai=3, drop=("n_human_paired", "human_to_ai_human"))), {}),
+        ("t1-legacy-0.0", dict(flips=_et_flips(n=60, flips=0, rate=0.0,
+             human_to_ai=0, drop=("n_human_paired", "human_to_ai_human"))), {}),
+        ("t1-one-key-nhp", dict(flips=_et_flips(n=60, flips=3, rate=0.06,
+             human_to_ai=3, n_human_paired=50, drop=("human_to_ai_human",))), {}),
+        ("t1-one-key-htah", dict(flips=_et_flips(n=60, flips=3, rate=0.06,
+             human_to_ai=3, human_to_ai_human=3, drop=("n_human_paired",))), {}),
+        ("t1-flips-none", dict(flips=None), {}),
+        ("t1-flips-absent", dict(flips="absent"), {}),
+        ("t1-flips-n-none", dict(flips=_et_flips(n=None, flips=0, rate=0.0)), {}),
+        ("t1-nhp-none", dict(flips=_et_flips(n=60, flips=0, rate=0.0,
+             n_human_paired=None, human_to_ai_human=None)), {}),
+        ("t1-htah-none", dict(flips=_et_flips(n=60, flips=0, rate=0.0,
+             n_human_paired=60, human_to_ai_human=None)), {}),
+        ("t1-human-to-ai-none", dict(flips=_et_flips(n=60, flips=0, rate=0.0,
+             human_to_ai=None, drop=("n_human_paired", "human_to_ai_human"))), {}),
+        ("t1-nonhuman-slice", dict(is_human=False, flips=_et_flips(
+             n=60, flips=12, rate=0.20, human_to_ai=12,
+             n_human_paired=50, human_to_ai_human=12)), {}),
+        # --- flip tier-2 ---------------------------------------------------
+        ("t2-rate-0.02-ci0.01", dict(flips=_et_flips(n=60, flips=2, rate=0.02)), {}),
+        ("t2-rate-0.01", dict(flips=_et_flips(n=60, flips=1, rate=0.01)), {}),
+        ("t2-rate-0.02-ci0", dict(flips=_et_flips(n=60, flips=2, rate=0.02,
+             ci=(0.0, 0.5))), {}),
+        ("t2-rate-0.02-n49", dict(flips=_et_flips(n=49, flips=2, rate=0.02)), {}),
+        ("t2-rate-0.02-n50", dict(flips=_et_flips(n=50, flips=2, rate=0.02)), {}),
+        ("t2-rate-none", dict(flips=_et_flips(n=60, flips=0, rate=None)), {}),
+        # --- overall flips -------------------------------------------------
+        ("overall-t2", dict(overall={"flips": {"flip_rate": 0.02,
+             "flip_rate_ci": [0.01, 0.5], "flips": 2, "n": 60}}), {}),
+        ("overall-rate-0.01", dict(overall={"flips": {"flip_rate": 0.01,
+             "flip_rate_ci": [0.01, 0.5], "flips": 1, "n": 60}}), {}),
+        ("overall-ci0", dict(overall={"flips": {"flip_rate": 0.02,
+             "flip_rate_ci": [0.0, 0.5], "flips": 2, "n": 60}}), {}),
+        ("overall-n49", dict(overall={"flips": {"flip_rate": 0.02,
+             "flip_rate_ci": [0.01, 0.5], "flips": 2, "n": 49}}), {}),
+        ("overall-rate-none", dict(overall={"flips": {"flip_rate": None,
+             "flip_rate_ci": [0.01, 0.5], "flips": 0, "n": 60}}), {}),
+        ("overall-n-none", dict(overall={"flips": {"flip_rate": 0.02,
+             "flip_rate_ci": [0.01, 0.5], "flips": 2, "n": None}}), {}),
+        ("overall-absent", dict(overall="absent"), {}),
+        # --- ECE ------------------------------------------------------------
+        ("ece-up-0.06", dict(calibration={"ece": 0.10, "baseline_ece": 0.04,
+             "n_calibrated_paired": 60}), {}),
+        ("ece-up-0.05", dict(calibration={"ece": 0.10, "baseline_ece": 0.05,
+             "n_calibrated_paired": 60}), {}),
+        ("ece-up-0.04", dict(calibration={"ece": 0.09, "baseline_ece": 0.05,
+             "n_calibrated_paired": 60}), {}),
+        ("ece-n49", dict(calibration={"ece": 0.10, "baseline_ece": 0.04,
+             "n_calibrated_paired": 49}), {}),
+        ("ece-n-none", dict(calibration={"ece": 0.10, "baseline_ece": 0.04,
+             "n_calibrated_paired": None}), {}),
+        ("ece-none", dict(calibration={"ece": None, "baseline_ece": 0.04,
+             "n_calibrated_paired": 60}), {}),
+        ("ece-base-none", dict(calibration={"ece": 0.10, "baseline_ece": None,
+             "n_calibrated_paired": 60}), {}),
+        ("ece-down", dict(calibration={"ece": 0.02, "baseline_ece": 0.10,
+             "n_calibrated_paired": 60}), {}),
+        # --- FPR cap ---------------------------------------------------------
+        ("fpr-cap-breach", dict(human_fpr={"fpr_claim_allowed": True, "fpr": 0.06,
+             "fpr_ci": [0.06, 0.10], "n_human": 120, "false_positives": 7}), {}),
+        ("fpr-cap-exact", dict(human_fpr={"fpr_claim_allowed": True, "fpr": 0.05,
+             "fpr_ci": [0.05, 0.10], "n_human": 120, "false_positives": 6}), {}),
+        ("fpr-cap-below", dict(human_fpr={"fpr_claim_allowed": True, "fpr": 0.04,
+             "fpr_ci": [0.04, 0.10], "n_human": 120, "false_positives": 5}), {}),
+        ("fpr-not-allowed", dict(human_fpr={"fpr_claim_allowed": False, "fpr": 0.06,
+             "fpr_ci": [0.06, 0.10], "n_human": 120, "false_positives": 7}), {}),
+        # --- version change ---------------------------------------------------
+        ("ver-10d", dict(), dict(previous_detector_version="0.0.9",
+             previous_run_at="2026-11-01T00:00:00", run_at="2026-11-11T00:00:00")),
+        ("ver-7d", dict(), dict(previous_detector_version="0.0.9",
+             previous_run_at="2026-11-04T00:00:00", run_at="2026-11-11T00:00:00")),
+        ("ver-6d", dict(), dict(previous_detector_version="0.0.9",
+             previous_run_at="2026-11-05T00:00:00", run_at="2026-11-11T00:00:00")),
+        ("ver-no-run-at", dict(), dict(previous_detector_version="0.0.9",
+             previous_run_at=None, run_at="2026-11-11T00:00:00")),
+        ("ver-same", dict(), dict(previous_detector_version="0.1.0",
+             previous_run_at="2026-11-01T00:00:00", run_at="2026-11-11T00:00:00")),
+        ("ver-prev-none", dict(), dict(previous_detector_version=None,
+             previous_run_at="2026-11-01T00:00:00", run_at="2026-11-11T00:00:00")),
+        # --- provider diff ------------------------------------------------------
+        ("prov-diff-10d", dict(), dict(previous_provider_metadata={"a": 1},
+             provider_metadata={"a": 2}, previous_run_at="2026-11-01T00:00:00",
+             run_at="2026-11-11T00:00:00")),
+        ("prov-diff-7d", dict(), dict(previous_provider_metadata={"a": 1},
+             provider_metadata={"a": 2}, previous_run_at="2026-11-04T00:00:00",
+             run_at="2026-11-11T00:00:00")),
+        ("prov-diff-key", dict(), dict(previous_provider_metadata={"a": 1},
+             provider_metadata={"a": 1, "b": 2}, previous_run_at="2026-11-01T00:00:00",
+             run_at="2026-11-11T00:00:00")),
+        ("prov-nodiff", dict(), dict(previous_provider_metadata={"a": 1},
+             provider_metadata={"a": 1}, previous_run_at="2026-11-01T00:00:00",
+             run_at="2026-11-11T00:00:00")),
+        ("prov-prev-none", dict(), dict(previous_provider_metadata=None,
+             provider_metadata={"a": 1}, previous_run_at="2026-11-01T00:00:00",
+             run_at="2026-11-11T00:00:00")),
+        ("prov-meta-none", dict(), dict(previous_provider_metadata={"a": 1},
+             provider_metadata=None, previous_run_at="2026-11-01T00:00:00",
+             run_at="2026-11-11T00:00:00")),
+        ("prov-no-run-at", dict(), dict(previous_provider_metadata={"a": 1},
+             provider_metadata={"a": 2}, previous_run_at=None,
+             run_at="2026-11-11T00:00:00")),
+    ]
+    for key, mk, ck in extra:
+        rows.append(((key,),
+                     outcome(evaluate_tiers, metrics=_et_metrics(**mk),
+                             detector_version="0.1.0", previous_breaches=[], **ck)))
     return rows
 
 
@@ -1141,6 +1339,50 @@ def _pr_slice_inputs(n=10, flipped=0, direction="higher_means_ai", prev_verdicts
     return [r["sample_id"] for r in curr], current, baseline, labels
 
 
+def _pr_slice_inputs2(*, n_human=10, n_ai=0, n_none=0, flipped=0,
+                       direction="higher_means_ai", prev_verdicts=None,
+                       current_verdicts=None, cal=None, cal_id=None,
+                       baseline_cal=None, baseline_cal_id=None, scores=None,
+                       baseline_scores=None):
+    """Slice inputs with mixed labels / verdicts / calibrated probs.
+
+    ``cal``/``cal_id`` apply to current records (scalar or per-item list);
+    ``baseline_cal``/``baseline_cal_id`` likewise for baseline records.
+    ``scores``/``baseline_scores`` are per-item score lists (None = no score).
+    """
+    import sys
+    import test_w2_worker_d as D
+    total = n_human + n_ai + n_none
+    item_ids, current, baseline, labels = [], {}, {}, {}
+    for i in range(total):
+        item_id = f"h-{i:03d}"
+        label = 0 if i < n_human else (1 if i < n_human + n_ai else None)
+        is_flipped = i < flipped
+        prev_verdict = (prev_verdicts or {}).get(item_id, "human_like")
+        curr_verdict = (current_verdicts or {}).get(
+            item_id, "ai_like" if is_flipped else "human_like")
+        score = 0.9 if is_flipped else 0.3
+        if scores is not None:
+            score = scores[i]
+        bscore = 0.3
+        if baseline_scores is not None:
+            bscore = baseline_scores[i]
+        c = cal[i] if isinstance(cal, list) else cal
+        cid = cal_id[i] if isinstance(cal_id, list) else cal_id
+        bc = baseline_cal[i] if isinstance(baseline_cal, list) else baseline_cal
+        bcid = (baseline_cal_id[i] if isinstance(baseline_cal_id, list)
+                else baseline_cal_id)
+        prev = D._rec(item_id, score=bscore, verdict=prev_verdict,
+                      cal=bc, cal_id=bcid, direction=direction)
+        curr = D._rec(item_id, score=score, verdict=curr_verdict,
+                      cal=c, cal_id=cid, direction=direction)
+        item_ids.append(item_id)
+        current[item_id] = curr
+        baseline[item_id] = prev
+        labels[item_id] = label
+    return item_ids, current, baseline, labels
+
+
 def probe_pr_slice_metrics():
     from datetime import datetime, UTC
     import textforensics.probe_metrics as primitives
@@ -1173,16 +1415,123 @@ def probe_pr_slice_metrics():
                       is_attacked_slice=False, human_scores_all=human_scores,
                       human_labels_all=human_labels,
                       calibration_created_at=None, now=now, score_direction=direction)
-        if out[0] == "ok":
-            import ast as _ast
-            m = _ast.literal_eval(out[1])
-            rows.append((key,
-                         {k: m[k] for k in ("n", "verdict_counts", "fpr", "tpr", "ece",
-                                            "flips")
-                          if k in m}))
-        else:
-            rows.append((key, out))
+        rows.append((key, _sm_row(out)))
+    # --- mixed labels / verdicts / calibration / boundaries ----------------
+    variants = [
+        # (key, builder-kwargs, call-kwargs)
+        ("ai-mixed", dict(n_human=6, n_ai=4, flipped=2), {}),
+        ("ai-only", dict(n_human=0, n_ai=10, flipped=0), {}),
+        ("none-labels", dict(n_human=5, n_ai=3, n_none=2, flipped=1), {}),
+        ("n1-human", dict(n_human=1, n_ai=0, flipped=0), {}),
+        ("n50", dict(n_human=50, n_ai=0, flipped=5), {}),
+        ("n51", dict(n_human=51, n_ai=0, flipped=5), {}),
+        ("n100-human", dict(n_human=100, n_ai=0, flipped=5), {}),
+        ("n99-human", dict(n_human=99, n_ai=0, flipped=5), {}),
+        ("n101-human", dict(n_human=101, n_ai=0, flipped=5), {}),
+        ("n300-cal-all", dict(n_human=300, n_ai=0, flipped=3, cal=0.3,
+                              baseline_cal=0.3), {}),
+        ("cal-partial", dict(n_human=10, n_ai=0, flipped=2,
+                             cal=[0.3] * 5 + [None] * 5,
+                             baseline_cal=[0.3] * 5 + [None] * 5), {}),
+        ("cal-all", dict(n_human=10, n_ai=0, flipped=2, cal=0.3,
+                         baseline_cal=0.3), {}),
+        ("cal-baseline-only", dict(n_human=10, n_ai=0, flipped=2,
+                                   baseline_cal=0.3), {}),
+        ("cal-current-only", dict(n_human=10, n_ai=0, flipped=2, cal=0.3), {}),
+        ("cal-ids-same", dict(n_human=10, n_ai=0, flipped=2, cal=0.3,
+                              cal_id="cal-1", baseline_cal=0.3,
+                              baseline_cal_id="cal-1"), {}),
+        ("cal-ids-diff", dict(n_human=10, n_ai=0, flipped=2, cal=0.3,
+                              cal_id="cal-2", baseline_cal=0.3,
+                              baseline_cal_id="cal-1"), {}),
+        ("cal-ids-baseline-only", dict(n_human=10, n_ai=0, flipped=2,
+                                       baseline_cal_id="cal-1"), {}),
+        ("cal-ids-current-only", dict(n_human=10, n_ai=0, flipped=2,
+                                      cal_id="cal-1"), {}),
+        ("cal-ages", dict(n_human=10, n_ai=0, flipped=2, cal=0.3,
+                          cal_id=["cal-1", "cal-2"] * 5,
+                          baseline_cal=0.3, baseline_cal_id="cal-1"),
+         dict(calibration_created_at={"cal-1": "2026-11-01T00:00:00",
+                                      "cal-2": "2026-11-10T00:00:00"})),
+        ("cal-ages-unknown-id", dict(n_human=10, n_ai=0, flipped=2, cal=0.3,
+                                     cal_id="cal-9", baseline_cal=0.3),
+         dict(calibration_created_at={"cal-1": "2026-11-01T00:00:00"})),
+        ("cal-ages-none-id", dict(n_human=10, n_ai=0, flipped=2, cal=0.3,
+                                  baseline_cal=0.3),
+         dict(calibration_created_at={"cal-1": "2026-11-01T00:00:00"})),
+        ("abstain-current", dict(n_human=10, n_ai=0, flipped=2,
+                                 current_verdicts={"h-002": "abstain",
+                                                   "h-003": "abstain"}), {}),
+        ("abstain-all-current", dict(n_human=10, n_ai=0, flipped=0,
+                                     current_verdicts={f"h-{i:03d}": "abstain"
+                                                       for i in range(10)}), {}),
+        ("no-score-current", dict(n_human=10, n_ai=0, flipped=2,
+                                  scores=[None] * 10), {}),
+        ("some-no-score", dict(n_human=10, n_ai=0, flipped=2,
+                               scores=[0.3] * 5 + [None] * 5), {}),
+        ("no-baseline", dict(n_human=10, n_ai=0, flipped=2),
+         dict(no_baseline=True)),
+        ("no-previous", dict(n_human=10, n_ai=0, flipped=2),
+         dict(no_previous=True)),
+        ("nonhuman-slice", dict(n_human=0, n_ai=10, flipped=0),
+         dict(is_human_slice=False)),
+        ("attacked", dict(n_human=0, n_ai=10, flipped=0),
+         dict(is_attacked_slice=True, human_scores_all=[0.3] * 10,
+              human_labels_all=[0] * 10)),
+        ("attacked-lower", dict(n_human=0, n_ai=10, flipped=0),
+         dict(is_attacked_slice=True, human_scores_all=[0.3] * 10,
+              human_labels_all=[0] * 10, score_direction="lower_means_ai")),
+        ("attacked-unknown-dir", dict(n_human=0, n_ai=10, flipped=0),
+         dict(is_attacked_slice=True, human_scores_all=[0.3] * 10,
+              human_labels_all=[0] * 10, score_direction="unknown")),
+        ("attacked-na-dir", dict(n_human=0, n_ai=10, flipped=0),
+         dict(is_attacked_slice=True, human_scores_all=[0.3] * 10,
+              human_labels_all=[0] * 10, score_direction="not_applicable")),
+        ("attacked-no-human-ref", dict(n_human=0, n_ai=10, flipped=0),
+         dict(is_attacked_slice=True, human_scores_all=[],
+              human_labels_all=[])),
+        ("attacked-no-machine", dict(n_human=10, n_ai=0, flipped=0),
+         dict(is_attacked_slice=True, human_scores_all=[0.3] * 10,
+              human_labels_all=[0] * 10)),
+        ("attacked-machine-no-score", dict(n_human=0, n_ai=10, flipped=0,
+                                           scores=[None] * 10),
+         dict(is_attacked_slice=True, human_scores_all=[0.3] * 10,
+              human_labels_all=[0] * 10)),
+        ("attacked-mixed-scores", dict(n_human=0, n_ai=10, flipped=0,
+                                       scores=[0.9, 0.8, 0.7, 0.6, 0.5,
+                                               0.4, 0.3, 0.2, 0.1, 0.05]),
+         dict(is_attacked_slice=True,
+              human_scores_all=[0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4,
+                                0.45, 0.5],
+              human_labels_all=[0] * 10)),
+    ]
+    for key, bkw, ckw in variants:
+        item_ids, current, baseline, labels = _pr_slice_inputs2(**bkw)
+        n = len(item_ids)
+        human_scores = [0.3] * n
+        human_labels = [0] * n
+        kw = dict(item_ids=item_ids, current=current,
+                  baseline=None if ckw.get("no_baseline") else baseline,
+                  previous=None if ckw.get("no_previous") else baseline,
+                  labels=labels, primitives=primitives,
+                  is_human_slice=ckw.get("is_human_slice", True),
+                  is_attacked_slice=ckw.get("is_attacked_slice", False),
+                  human_scores_all=ckw.get("human_scores_all", human_scores),
+                  human_labels_all=ckw.get("human_labels_all", human_labels),
+                  calibration_created_at=ckw.get("calibration_created_at"),
+                  now=now,
+                  score_direction=ckw.get("score_direction", "higher_means_ai"))
+        out = outcome(_slice_metrics, **kw)
+        rows.append(((key,), _sm_row(out)))
     return rows
+
+
+def _sm_row(out):
+    """Record the FULL _slice_metrics result (was: only n + flips)."""
+    if out[0] != "ok":
+        return out
+    import ast as _ast
+    return ("ok", _ast.literal_eval(out[1]))
 
 
 def probe_pr_compute_run_metrics():
