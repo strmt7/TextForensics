@@ -28,13 +28,19 @@ Design principles:
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from .probe_metrics import (
+    reject_nonfinite_value,
+    require_finite_number,
+    strict_json_dumps,
+    strict_json_loads,
+)
 
 if TYPE_CHECKING:
     from textforensics.benchmark import BenchmarkRunner
@@ -256,7 +262,10 @@ def _mc_number(payload: Mapping[str, Any], field: str, where: str) -> float:
     value = _mc_required(payload, field, where)
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{where} field {field!r} must be a number")
-    return float(value)
+    try:
+        return require_finite_number(value, f"{where} field {field!r}")
+    except ValueError as exc:
+        raise ValueError(str(exc)) from exc
 
 
 def _mc_opt_number(payload: Mapping[str, Any], field: str, where: str) -> float | None:
@@ -265,13 +274,35 @@ def _mc_opt_number(payload: Mapping[str, Any], field: str, where: str) -> float 
     value = payload[field]
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{where} field {field!r} must be a number or null")
-    return float(value)
+    try:
+        return require_finite_number(value, f"{where} field {field!r}")
+    except ValueError as exc:
+        raise ValueError(str(exc)) from exc
 
 
-def _mc_int(payload: Mapping[str, Any], field: str, where: str) -> int:
+def _mc_opt_bounded_number(
+    payload: Mapping[str, Any],
+    field: str,
+    where: str,
+    *,
+    minimum: float,
+    maximum: float,
+) -> float | None:
+    """Optional number constrained to [``minimum``, ``maximum``] (S22)."""
+    value = _mc_opt_number(payload, field, where)
+    if value is not None and not minimum <= value <= maximum:
+        raise ValueError(f"{where} field {field!r} must be in [{minimum}, {maximum}], got {value}")
+    return value
+
+
+def _mc_int(
+    payload: Mapping[str, Any], field: str, where: str, *, minimum: int | None = None
+) -> int:
     value = _mc_required(payload, field, where)
     if isinstance(value, bool) or not isinstance(value, int):
         raise ValueError(f"{where} field {field!r} must be an integer")
+    if minimum is not None and value < minimum:
+        raise ValueError(f"{where} field {field!r} must be >= {minimum}, got {value}")
     return value
 
 
@@ -380,7 +411,14 @@ def _metric_from_dict(data: Any) -> PerformanceMetric:
             or any(isinstance(v, bool) or not isinstance(v, (int, float)) for v in raw_ci)
         ):
             raise ValueError("metric field 'confidence_interval' must be a two-number sequence")
-        confidence_interval = (float(raw_ci[0]), float(raw_ci[1]))
+        # S22: endpoints must be finite and ordered (lo <= hi).
+        lo = require_finite_number(raw_ci[0], "metric field 'confidence_interval[0]'")
+        hi = require_finite_number(raw_ci[1], "metric field 'confidence_interval[1]'")
+        if lo > hi:
+            raise ValueError(
+                f"metric field 'confidence_interval' must be ordered (lo <= hi), got ({lo}, {hi})"
+            )
+        confidence_interval = (lo, hi)
     metadata: dict[str, Any] = {}
     if payload.get("metadata") is not None:
         metadata = dict(_mc_mapping(payload["metadata"], "metadata", where))
@@ -424,11 +462,24 @@ def _evaluation_dataset_from_dict(data: Any) -> EvaluationDataset:
             or not isinstance(value, (int, float))
         ):
             raise ValueError("evaluation_data field 'split_ratios' must map strings to numbers")
-        split_ratios[key] = float(value)
+        ratio = require_finite_number(value, "evaluation_data field 'split_ratios' value")
+        if not 0.0 <= ratio <= 1.0:
+            raise ValueError(
+                "evaluation_data field 'split_ratios' values must be in [0, 1], "
+                f"got {ratio} for {key!r}"
+            )
+        split_ratios[key] = ratio
+    # S22: split ratios are parts of one whole; an inconsistent set
+    # (e.g. 0.8/0.1) is rejected rather than silently recorded.
+    if not split_ratios or abs(sum(split_ratios.values()) - 1.0) > 1e-6:
+        raise ValueError(
+            "evaluation_data field 'split_ratios' must sum to 1.0, "
+            f"got {sum(split_ratios.values())}"
+        )
     return EvaluationDataset(
         name=_mc_str(payload, "name", where),
         version=_mc_str(payload, "version", where),
-        size=_mc_int(payload, "size", where),
+        size=_mc_int(payload, "size", where, minimum=0),
         languages=_mc_str_list(payload, "languages", where),
         domains=_mc_str_list(payload, "domains", where),
         split_ratios=split_ratios,
@@ -459,7 +510,7 @@ def _training_data_from_dict(data: Any) -> TrainingData:
         raise ValueError("training_data field 'datasets' must be a list")
     return TrainingData(
         datasets=[_evaluation_dataset_from_dict(item) for item in raw_datasets],
-        total_size=_mc_int(payload, "total_size", where),
+        total_size=_mc_int(payload, "total_size", where, minimum=0),
         preprocessing_pipeline=_mc_str_list(payload, "preprocessing_pipeline", where),
         augmentation_techniques=_mc_str_list(
             payload, "augmentation_techniques", where, required=False
@@ -496,6 +547,11 @@ def _quantitative_analysis_from_dict(data: Any) -> QuantitativeAnalysis:
                 raise ValueError(
                     "quantitative_analysis field 'confusion_matrix' must map strings to integers"
                 )
+            if value < 0:
+                raise ValueError(
+                    "quantitative_analysis field 'confusion_matrix' counts must be "
+                    f"non-negative, got {value} for {key!r}"
+                )
             confusion_matrix[key] = value
     subgroup_analysis: dict[str, list[PerformanceMetric]] = {}
     if payload.get("subgroup_analysis") is not None:
@@ -512,9 +568,11 @@ def _quantitative_analysis_from_dict(data: Any) -> QuantitativeAnalysis:
     return QuantitativeAnalysis(
         metrics=[_metric_from_dict(item) for item in raw_metrics],
         confusion_matrix=confusion_matrix,
-        roc_auc=_mc_opt_number(payload, "roc_auc", where),
-        pr_auc=_mc_opt_number(payload, "pr_auc", where),
-        calibration_error=_mc_opt_number(payload, "calibration_error", where),
+        roc_auc=_mc_opt_bounded_number(payload, "roc_auc", where, minimum=0.0, maximum=1.0),
+        pr_auc=_mc_opt_bounded_number(payload, "pr_auc", where, minimum=0.0, maximum=1.0),
+        calibration_error=_mc_opt_bounded_number(
+            payload, "calibration_error", where, minimum=0.0, maximum=1.0
+        ),
         subgroup_analysis=subgroup_analysis,
         error_analysis=error_analysis,
     )
@@ -597,8 +655,13 @@ class ModelCard:
         }
 
     def to_json(self, indent: int = 2) -> str:
-        """Export as JSON string."""
-        return json.dumps(self.to_dict(), indent=indent, ensure_ascii=False)
+        """Export as JSON string.
+
+        Strict serialisation (S22): a nonfinite float raises
+        ``ValueError`` instead of emitting a literal ``NaN`` /
+        ``Infinity`` token that no strict JSON parser accepts.
+        """
+        return strict_json_dumps(self.to_dict(), indent=indent, ensure_ascii=False)
 
     def to_markdown(self) -> str:
         """Export as Markdown for documentation."""
@@ -631,13 +694,18 @@ class ModelCard:
             )
 
         if self.quantitative_analysis:
+            # S22: None means "not measured" (N/A); 0.0 is a measured
+            # value and must display as 0.0, never as N/A.
+            def _display(value: float | None) -> str:
+                return "N/A" if value is None else str(value)
+
             lines.extend(
                 [
                     "",
                     "## Quantitative Analysis",
-                    f"- ROC AUC: {self.quantitative_analysis.roc_auc or 'N/A'}",
-                    f"- PR AUC: {self.quantitative_analysis.pr_auc or 'N/A'}",
-                    f"- Calibration Error: {self.quantitative_analysis.calibration_error or 'N/A'}",
+                    f"- ROC AUC: {_display(self.quantitative_analysis.roc_auc)}",
+                    f"- PR AUC: {_display(self.quantitative_analysis.pr_auc)}",
+                    f"- Calibration Error: {_display(self.quantitative_analysis.calibration_error)}",
                 ]
             )
 
@@ -688,10 +756,17 @@ class ModelCard:
         ValueError
             If ``data`` is not a mapping, if a required field is
             missing, if a field has the wrong type, if an unknown field
-            is present, or if ``schema_version`` is not ``"1.0.0"``.
+            is present, if ``schema_version`` is not ``"1.0.0"``, or if
+            any numeric value anywhere in the document (including
+            free-form ``metadata`` / ``additional_information`` /
+            ``error_analysis`` sections) is nonfinite (S22).
         """
         if not isinstance(data, Mapping):
             raise ValueError("model card must be a mapping")
+        # S22: reject nonfinite numerics anywhere in the document
+        # before field-by-field parsing, so a NaN nested in an
+        # otherwise-valid free-form section cannot slip through.
+        reject_nonfinite_value(data, "model card")
         _mc_no_unknown(
             data,
             {
@@ -782,8 +857,10 @@ class ModelCard:
         except OSError as exc:
             raise ValueError(f"cannot read model card {path}: {exc}") from exc
         try:
-            data = json.loads(text)
-        except json.JSONDecodeError as exc:
+            # S22: strict parsing — literal NaN/Infinity tokens and
+            # overflowing floats (1e999) are rejected, not decoded.
+            data = strict_json_loads(text)
+        except ValueError as exc:
             raise ValueError(f"invalid JSON in model card {path}: {exc}") from exc
         return cls.from_dict(data)
 

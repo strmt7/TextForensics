@@ -13,13 +13,13 @@ Features:
 
 from __future__ import annotations
 
-import json
 import warnings
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 from typing import Any
 
+from .probe_metrics import reject_nonfinite_value, strict_json_dumps, strict_json_loads
 from .schema import validate
 
 __all__ = [
@@ -140,6 +140,15 @@ class ResultCodec:
         if validate is None:
             validate = self.config.validate_on_encode
 
+        # S22: nonfinite numerics are rejected at the transport
+        # boundary, before schema validation and before serialisation
+        # — a NaN is never valid JSON content, whatever the schema
+        # says about the surrounding object.
+        try:
+            reject_nonfinite_value(data, "result")
+        except ValueError as exc:
+            raise CodecError(f"Non-finite numeric value: {exc}") from exc
+
         # Add schema version if not present (before validation)
         if "schema" not in data and schema_name in _SCHEMA_VERSIONS:
             data = dict(data)
@@ -150,16 +159,18 @@ class ResultCodec:
             if errors:
                 raise CodecError(f"Validation failed: {'; '.join(errors)}")
 
-        if self.config.canonical_json:
-            return json.dumps(
-                data,
-                ensure_ascii=False,
-                sort_keys=True,
-                separators=(",", ":"),
-                allow_nan=False,
-            ).encode("utf-8")
-        else:
-            return json.dumps(data, ensure_ascii=False, allow_nan=False).encode("utf-8")
+        try:
+            if self.config.canonical_json:
+                return strict_json_dumps(
+                    data,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            else:
+                return strict_json_dumps(data, ensure_ascii=False).encode("utf-8")
+        except ValueError as exc:
+            raise CodecError(f"Non-finite numeric value: {exc}") from exc
 
     def decode(
         self,
@@ -188,12 +199,22 @@ class ResultCodec:
             data = data.decode("utf-8")
 
         try:
-            result = json.loads(data)
-        except json.JSONDecodeError as exc:
+            # S22: strict parsing — literal NaN/Infinity tokens and
+            # overflowing floats (1e999) are rejected here, before any
+            # schema validation. This rejection is transport-level: it
+            # applies even when validate=False, because a nonfinite
+            # token is never valid JSON.
+            result = strict_json_loads(data)
+        except ValueError as exc:
             raise CodecError(f"Invalid JSON: {exc}") from exc
 
         if not isinstance(result, dict):
             raise CodecError("Decoded JSON must be an object")
+
+        try:
+            reject_nonfinite_value(result, "result")
+        except ValueError as exc:
+            raise CodecError(f"Non-finite numeric value: {exc}") from exc
 
         # Extract and check schema version
         found_version = _extract_schema_version(result)
@@ -221,6 +242,10 @@ class ResultCodec:
 
     def _validate(self, data: dict[str, Any], schema_name: str) -> list[str]:
         """Validate data against schema."""
+        try:
+            reject_nonfinite_value(data, "result")
+        except ValueError as exc:
+            return [f"Non-finite numeric value: {exc}"]
         try:
             return validate(data, schema_name)
         except ValueError as exc:

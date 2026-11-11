@@ -49,6 +49,7 @@ from .execution_policy import (
     ExecutionPolicy,
     assert_execution_allowed,
 )
+from .probe_metrics import normalize_score_direction
 
 __all__ = [
     # Longitudinal drift observatory (from drift.py)
@@ -118,6 +119,26 @@ def _require_nonempty_string(value: Any, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field_name} must be a non-empty string.")
     return value
+
+
+def _validate_score_range(value: Any) -> list[float] | None:
+    """Validate a declared native score range (S09 shared contract).
+
+    ``None`` means the native range is unbounded (or undeclared) and
+    is valid. Otherwise the range must be exactly two finite numbers
+    with ``lo < hi``. Raises ``ValueError`` naming ``score_range``.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, (list, tuple)) or len(value) != 2:
+        raise ValueError("score_range must be a two-element sequence or null.")
+    lo = _coerce_float(value[0], "score_range[0]")
+    hi = _coerce_float(value[1], "score_range[1]")
+    if lo is None or hi is None:  # pragma: no cover - _coerce_float never returns None here
+        raise ValueError("score_range endpoints must be numbers.")
+    if not lo < hi:
+        raise ValueError(f"score_range minimum {lo} must be below maximum {hi}.")
+    return [lo, hi]
 
 
 def _coerce_float(
@@ -828,6 +849,27 @@ class DriftObservatory:
         score_semantics = data.get("score_semantics") or "unspecified"
         _require_nonempty_string(score_semantics, "score_semantics")
 
+        # S09: preserve the shared score-direction contract in the
+        # snapshot. A missing declaration stays "unknown" (never
+        # guessed from prose); an invalid value is rejected. The
+        # native range is preserved alongside it (None = unbounded),
+        # and a score outside its own declared range is contradictory
+        # evidence and is rejected.
+        try:
+            direction = normalize_score_direction(data.get("native_score_direction"))
+        except ValueError as exc:
+            raise ValueError(f"Sample {sample_id}: {exc}") from exc
+        score_range = _validate_score_range(data.get("score_range"))
+        if (
+            score is not None
+            and score_range is not None
+            and not (score_range[0] <= score <= score_range[1])
+        ):
+            raise ValueError(
+                f"Sample {sample_id}: score {score} is outside its declared "
+                f"score_range {score_range}."
+            )
+
         return {
             "sample_id": sample_id,
             "text_sha256": str(text_sha),
@@ -838,6 +880,8 @@ class DriftObservatory:
             "observed_at": data.get("observed_at") or _now_iso(),
             "score": score,
             "score_semantics": score_semantics,
+            "native_score_direction": direction,
+            "score_range": score_range,
             "verdict": verdict,
             "threshold": threshold,
             "calibrated_ai_probability": calibrated,
@@ -891,6 +935,13 @@ class DriftObservatory:
             "observed_at": _now_iso(),
             "score": prediction.score,
             "score_semantics": prediction.score_semantics,
+            # S09: the prediction's declared direction and native range
+            # are stored verbatim; a missing declaration stays
+            # "unknown" (see normalize_score_direction).
+            "native_score_direction": normalize_score_direction(prediction.native_score_direction),
+            "score_range": (
+                list(prediction.score_range) if prediction.score_range is not None else None
+            ),
             "verdict": prediction.verdict,
             "threshold": prediction.threshold,
             "calibrated_ai_probability": prediction.calibrated_ai_probability,
@@ -1132,6 +1183,17 @@ class DriftObservatory:
             raise ValueError("Drift snapshot records must be a list.")
         if not isinstance(snapshot.get("failures", []), list):
             raise ValueError("Drift snapshot failures must be a list.")
+        # S09: a stored direction/range that contradicts the shared
+        # contract is rejected on read, so an imported snapshot cannot
+        # silently reintroduce an orientation the writer never
+        # declared. (Full per-record import validation is S05/W4.)
+        for record in snapshot.get("records", []):
+            if not isinstance(record, Mapping):
+                raise ValueError("Drift snapshot records must be objects.")
+            if "native_score_direction" in record:
+                normalize_score_direction(record.get("native_score_direction"))
+            if "score_range" in record:
+                _validate_score_range(record.get("score_range"))
 
     def compare_snapshots(
         self, baseline: Mapping[str, Any], current: Mapping[str, Any]

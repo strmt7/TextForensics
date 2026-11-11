@@ -47,8 +47,22 @@ Iron rules (research §7.5/§7.6, enforced in code, never merely in docs):
   rate above 5%, a conformal coverage shortfall above 10pp, or a
   detector/provider version change with no probe run within 7 days.
 * Never claim drift from one sample or one run. Slices below n=50
-  carry no drift signal; human-FPR claims need n>=100 per slice;
-  a single run never demotes.
+  carry no drift signal; human-FPR claims need n>=100 per slice.
+  The sample floor applies to the ACTUAL comparison denominator
+  (audit W2/S07): paired n for flips and score shift, matched
+  calibrated n for calibration drift, human-labelled paired n for
+  the human->AI flip rate — never total current records. A
+  below-floor comparison is recorded in the metrics, never escalated.
+* A single run never demotes on a drift statistic. It CAN demote on
+  a measured performance breach at its declared floor — this is the
+  deliberate first-run policy, reconciled explicitly (audit W2/S07)
+  against the old blanket "single run never demotes" wording, which
+  the FPR-cap and flip rules always contradicted: (a) the absolute
+  human-slice FPR rule demotes on the first run when n_human >= 100
+  and the Wilson CI lower bound is above the cap; (b) the
+  human->AI flip rule demotes on the first run when the paired
+  human-labelled n >= 50 and the human->AI flip rate is above 5%.
+  No other single-run demotion exists.
 * An alert may demote a Trust Map tier and require human review, but
   must never silently change a verdict on a user's text. Demotion
   marks U1 registry records ``stale`` (via ``limits.demoted_by``);
@@ -89,6 +103,11 @@ from pathlib import Path
 from typing import Any
 
 from .datasets import default_cache_dir
+from .probe_metrics import (
+    normalize_score_direction,
+    oriented_scores,
+    require_finite_number,
+)
 from .validation import (
     MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT,
     ValidationRecord,
@@ -172,7 +191,8 @@ RUN_SCOPES = ("full", "monthly-attacked", "monthly-current-generator", "event-dr
 RUN_LIMITATIONS = [
     "Probe-run metrics describe detector behaviour on the frozen probe corpus; they do not prove authorship for real-world documents.",
     "A drift statistic alone never demotes a detector; demotion requires a measured performance breach on the probe corpus.",
-    "A single run never demotes; Tier 2 requires a breach on 2 consecutive runs.",
+    "A single run never demotes on a drift statistic (Tier 3 only; Tier 2 on 2 consecutive runs). A single run CAN demote on a measured performance breach at its declared floor: the absolute human-slice FPR rule (n_human >= 100, Wilson CI lower bound above the cap) or the human->AI flip rule (paired human-labelled n >= 50, flip rate above 5%). No other single-run demotion exists.",
+    "Sample floors apply to the actual comparison denominator (paired n for flips and score shift, matched calibrated n for calibration drift, human-labelled paired n for the human->AI flip rate), never to total current records. Below-floor comparisons are recorded, never escalated as adequately sampled drift.",
     "An alert never silently changes a verdict on a user's text; demotion marks U1 registry records stale and the operator withholds binary verdicts on affected slices until a full re-run passes.",
     "Conformal coverage is unavailable: no conformal machinery exists in the repo (U5 is deferred to v1.1). Coverage-dependent tier rules are inactive.",
     "MMD is unavailable in v1.0 (needs ~500+ samples per set; per-slice n=50 is far below that). Tier 3 fires on PSI/KS.",
@@ -344,7 +364,11 @@ def _records_from_series(series: Mapping[str, Mapping[str, Any]]) -> list[dict[s
     The metrics only ever read ``score``, ``verdict``,
     ``calibrated_ai_probability`` and ``calibration_id`` from baseline /
     previous records, so the series (numbers + IDs, never raw text) is
-    sufficient for KS/PSI/flip/calibration comparisons.
+    sufficient for KS/PSI/flip/calibration comparisons. The series
+    also carries the shared score-direction contract (S09):
+    ``native_score_direction`` and ``score_range`` round-trip here so
+    a stored run orients its ROC exactly like the live run did.
+    Legacy series without a direction rebuild as ``"unknown"``.
     """
     records: list[dict[str, Any]] = []
     for item_id in sorted(series):
@@ -356,6 +380,10 @@ def _records_from_series(series: Mapping[str, Mapping[str, Any]]) -> list[dict[s
                 "verdict": entry.get("verdict"),
                 "calibrated_ai_probability": entry.get("calibrated_ai_probability"),
                 "calibration_id": entry.get("calibration_id"),
+                "native_score_direction": normalize_score_direction(
+                    entry.get("native_score_direction")
+                ),
+                "score_range": entry.get("score_range"),
             }
         )
     return records
@@ -376,6 +404,10 @@ def _series_from_records(records: Sequence[Mapping[str, Any]]) -> dict[str, dict
             "verdict": _verdict(record),
             "calibrated_ai_probability": _calibrated_probability(record),
             "calibration_id": record.get("calibration_id"),
+            "native_score_direction": normalize_score_direction(
+                record.get("native_score_direction")
+            ),
+            "score_range": record.get("score_range"),
         }
     return series
 
@@ -386,7 +418,10 @@ def _score(record: Mapping[str, Any]) -> float | None:
         return None
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ProbeRunError(f"snapshot record score must be a number, got {value!r}.")
-    return float(value)
+    try:
+        return require_finite_number(value, "snapshot record score")
+    except ValueError as exc:
+        raise ProbeRunError(str(exc)) from exc
 
 
 def _calibrated_probability(record: Mapping[str, Any]) -> float | None:
@@ -452,6 +487,7 @@ def _slice_metrics(
     human_labels_all: list[int],
     calibration_created_at: Mapping[str, str] | None,
     now: datetime,
+    score_direction: str = "unknown",
 ) -> dict[str, Any]:
     """The §7.6 metrics for one slice (or the overall population)."""
     present = [item for item in item_ids if item in current]
@@ -474,6 +510,7 @@ def _slice_metrics(
         "ks_pvalue": None,
         "ks_pvalue_holm_adjusted": None,
         "psi": None,
+        "n_paired": None,
         "status": "unavailable",
         "reason": "no baseline run to compare against",
     }
@@ -481,6 +518,10 @@ def _slice_metrics(
         baseline_scores = [
             s for item in present if item in baseline and (s := _score(baseline[item])) is not None
         ]
+        # The comparison denominator is the matched (paired) score
+        # count — items present in both runs with a score — not the
+        # total current n (S07). The tier engine gates on it.
+        score_shift["n_paired"] = len(baseline_scores)
         if scores and baseline_scores:
             ks = primitives.ks_statistic(baseline_scores, scores)
             ks_p = primitives.ks_pvalue(ks, len(baseline_scores), len(scores))
@@ -499,6 +540,7 @@ def _slice_metrics(
                 "ks_pvalue": _round(ks_p),
                 "ks_pvalue_holm_adjusted": None,  # Filled in by the caller (family = slices).
                 "psi": _round(psi_value),
+                "n_paired": len(baseline_scores),
                 "status": status,
                 "reason": reason,
             }
@@ -516,6 +558,21 @@ def _slice_metrics(
                 curr_verdicts.append(_verdict(current[item]))
         if prev_verdicts:
             summary = primitives.flip_summary(prev_verdicts, curr_verdicts)
+            # S07: the Tier-1 human->AI rate is a rate over HUMAN-labelled
+            # paired items only. A verdict flip on an AI-labelled (or
+            # mixed-origin) item is not a human false-positive event,
+            # and the denominator is the paired human count, never the
+            # total current n or the all-labels paired n.
+            n_human_paired = 0
+            human_to_ai_human = 0
+            for item in present:
+                if item in previous and labels[item] == 0:
+                    n_human_paired += 1
+                    if (
+                        _verdict(previous[item]) == "human_like"
+                        and _verdict(current[item]) == "ai_like"
+                    ):
+                        human_to_ai_human += 1
             flips = {
                 "n": summary["n"],
                 "flips": summary["flips"],
@@ -528,15 +585,41 @@ def _slice_metrics(
                 "ai_to_human": summary["ai_to_human"],
                 "to_abstain": summary["to_abstain"],
                 "from_abstain": summary["from_abstain"],
+                "n_human_paired": n_human_paired,
+                "human_to_ai_human": human_to_ai_human,
             }
 
     # Metric 3: calibration drift — ECE + Brier where calibrated
     # probabilities are emitted; conformal coverage is unavailable
     # (no conformal machinery exists in the repo; U5 is v1.1).
     probs = [_calibrated_probability(current[item]) for item in labelled]
+    current_prob_by_item = {item: _calibrated_probability(current[item]) for item in labelled}
+    n_calibrated_current = sum(1 for p in probs if p is not None)
+    # S21: the baseline comparison uses an explicitly matched item set
+    # — labelled items present in BOTH runs with a calibrated
+    # probability in each. A partial baseline used to raise KeyError
+    # here (direct ``baseline[item]`` indexing); the aggregate is now
+    # computed only over the matched set when it covers every
+    # labelled item, and withheld with disclosed counts otherwise.
+    # Surviving inputs are never silently averaged as the slice ECE.
+    matched_items: list[str] = []
+    n_calibrated_baseline = 0
+    if baseline is not None:
+        for item in labelled:
+            if item in baseline:
+                baseline_prob = _calibrated_probability(baseline[item])
+                if baseline_prob is not None:
+                    n_calibrated_baseline += 1
+                    if current_prob_by_item[item] is not None:
+                        matched_items.append(item)
     calibration: dict[str, Any] = {
         "ece": None,
         "brier": None,
+        "baseline_ece": None,
+        "baseline_ece_reason": None,
+        "n_calibrated_current": n_calibrated_current,
+        "n_calibrated_paired": len(matched_items),
+        "n_calibrated_baseline": n_calibrated_baseline,
         "conformal_coverage": None,
         "conformal_status": "unavailable",
         "conformal_reason": (
@@ -550,12 +633,24 @@ def _slice_metrics(
         calibration["ece"] = _round(primitives.ece([float(p) for p in probs], item_labels))
         calibration["brier"] = _round(primitives.brier([float(p) for p in probs], item_labels))
         # Baseline ECE for the Tier-2 calibration-drift rule (ECE increase
-        # > 0.05): same items, baseline run's calibrated probabilities.
+        # > 0.05): the matched set only, and only when it covers every
+        # labelled item. A partial match withholds the aggregate.
         if baseline is not None:
-            baseline_probs = [_calibrated_probability(baseline[item]) for item in labelled]
-            if baseline_probs and all(p is not None for p in baseline_probs):
+            if matched_items and len(matched_items) == len(labelled):
+                matched_labels = [int(labels[item]) for item in matched_items]
+                matched_baseline_probs = [
+                    float(_calibrated_probability(baseline[item]))  # type: ignore[arg-type]
+                    for item in matched_items
+                ]
                 calibration["baseline_ece"] = _round(
-                    primitives.ece([float(p) for p in baseline_probs], item_labels)
+                    primitives.ece(matched_baseline_probs, matched_labels)
+                )
+            else:
+                calibration["baseline_ece_reason"] = (
+                    f"baseline_ece unavailable: only {len(matched_items)} of "
+                    f"{len(labelled)} labelled items have a matched baseline "
+                    "calibrated probability; the aggregate is withheld, not "
+                    "averaged over the surviving inputs."
                 )
     elif probs and any(p is not None for p in probs):
         calibration["conformal_reason"] = (
@@ -617,6 +712,14 @@ def _slice_metrics(
     # the human slices' scores (the detector's human population). The
     # operating point is threshold-free (empirical ROC); the result is a
     # measurement, not a fitted threshold.
+    #
+    # S09: the ROC is oriented through the shared score-direction
+    # contract. The primitive is direction-agnostic (higher tail), so
+    # the combined native scores are oriented first
+    # (``oriented_scores``: negation for lower-means-AI, affine
+    # equivalent) and the returned threshold is mapped back to native
+    # score units. For unknown / not-applicable direction the metric
+    # is unavailable — never computed under a guessed orientation.
     attacked_tpr: dict[str, Any] | None = None
     if is_attacked_slice:
         machine_scores = [
@@ -624,16 +727,35 @@ def _slice_metrics(
             for item, y in zip(labelled, item_labels, strict=True)
             if y == 1 and (s := _score(current[item])) is not None
         ]
-        if machine_scores and human_scores_all:
+        if score_direction in ("unknown", "not_applicable"):
+            attacked_tpr = {
+                "tpr_at_1pct_fpr": None,
+                "achieved_fpr": None,
+                "threshold": None,
+                "n_machine": len(machine_scores),
+                "n_human_reference": len(human_scores_all),
+                "score_direction": score_direction,
+                "reason": (
+                    "score direction is "
+                    f"{score_direction!r}; TPR at a target FPR is unavailable "
+                    "without a known score direction."
+                ),
+            }
+        elif machine_scores and human_scores_all:
             combined_scores = human_scores_all + machine_scores
             combined_labels = human_labels_all + [1] * len(machine_scores)
-            result = primitives.tpr_at_fpr(combined_scores, combined_labels, target_fpr=0.01)
+            oriented = oriented_scores(combined_scores, direction=score_direction)
+            result = primitives.tpr_at_fpr(oriented, combined_labels, target_fpr=0.01)
+            native_threshold = (
+                -result["threshold"] if score_direction == "lower_means_ai" else result["threshold"]
+            )
             attacked_tpr = {
                 "tpr_at_1pct_fpr": _round(result["tpr"]),
                 "achieved_fpr": _round(result["achieved_fpr"]),
-                "threshold": _round(result["threshold"]),
+                "threshold": _round(native_threshold),
                 "n_machine": len(machine_scores),
                 "n_human_reference": len(human_scores_all),
+                "score_direction": score_direction,
             }
         else:
             attacked_tpr = {
@@ -642,6 +764,7 @@ def _slice_metrics(
                 "threshold": None,
                 "n_machine": len(machine_scores),
                 "n_human_reference": len(human_scores_all),
+                "score_direction": score_direction,
                 "reason": "no human reference scores or no machine scores in slice",
             }
 
@@ -703,6 +826,21 @@ def compute_run_metrics(
     baseline = _records_by_item(baseline_records) if baseline_records is not None else None
     previous = _records_by_item(previous_records) if previous_records is not None else None
 
+    # S09: one score direction per run, from the shared contract.
+    # Records that never declared one are "unknown" (never guessed);
+    # two different known directions in one run cannot be aggregated
+    # — their scores are not comparable — and fail closed.
+    directions = {
+        normalize_score_direction(record.get("native_score_direction"))
+        for record in current.values()
+    }
+    known_directions = directions - {"unknown"}
+    if len(known_directions) > 1:
+        raise ProbeRunError(
+            f"mixed native_score_direction values in one run: {sorted(known_directions)}."
+        )
+    score_direction = known_directions.pop() if known_directions else "unknown"
+
     for item_id, label in labels.items():
         if label is not None and label not in (0, 1):
             raise ProbeRunError(f"label for {item_id!r} must be 0, 1, or None, got {label!r}.")
@@ -742,6 +880,7 @@ def compute_run_metrics(
             human_labels_all=human_labels_all,
             calibration_created_at=calibration_created_at,
             now=now,
+            score_direction=score_direction,
         )
         slice_metrics[slice_name] = result
         ks_p = result["score_shift"].get("ks_pvalue")
@@ -780,6 +919,7 @@ def compute_run_metrics(
         human_labels_all=human_labels_all,
         calibration_created_at=calibration_created_at,
         now=now,
+        score_direction=score_direction,
     )
 
     # Worst human-slice FPR (never the mean) across claimable human slices.
@@ -800,6 +940,7 @@ def compute_run_metrics(
 
     return {
         "detector_id": detector_id,
+        "score_direction": score_direction,
         "slices": slice_metrics,
         "overall": overall,
         "worst_slice_fpr": worst_fpr,
@@ -947,6 +1088,18 @@ def evaluate_tiers(
         slice_metrics = slices[slice_name]
         if not slice_metrics.get("drift_signal_allowed"):
             continue
+        # S07: the drift floor applies to the ACTUAL comparison
+        # denominator — the paired score count — not total current
+        # records. A below-floor comparison is recorded in the
+        # metrics, never escalated (no alert, no breach for the next
+        # run's persistence). Legacy metrics dicts predate the paired
+        # count and fall back to the slice n.
+        shift = slice_metrics.get("score_shift") or {}
+        n_paired = shift.get("n_paired")
+        if n_paired is None:
+            n_paired = slice_metrics.get("n")
+        if n_paired is None or n_paired < MIN_SLICE_N:
+            continue
         slice_breaches = _drift_breaches_for_slice(slice_metrics)
         if not slice_breaches:
             continue
@@ -1016,9 +1169,19 @@ def evaluate_tiers(
         rate = flips["flip_rate"]
         ci_lo, ci_hi = flips["flip_rate_ci"]
         n_flips = flips["n"] or 0
-        human_to_ai_rate = (flips["human_to_ai"] or 0) / n_flips if n_flips else 0.0
+        # S07: the Tier-1 rate is over HUMAN-labelled paired items
+        # only, at a paired human floor of MIN_SLICE_N. Legacy metrics
+        # dicts predate the split fields and fall back to the
+        # verdict-based count over all paired items (still floored).
+        if "n_human_paired" in flips and "human_to_ai_human" in flips:
+            n_human_paired = flips["n_human_paired"] or 0
+            human_to_ai_human = flips["human_to_ai_human"] or 0
+        else:
+            n_human_paired = n_flips
+            human_to_ai_human = flips["human_to_ai"] or 0
+        human_to_ai_rate = human_to_ai_human / n_human_paired if n_human_paired else 0.0
         is_human = slice_metrics.get("is_human_slice", slice_name in HUMAN_SLICES)
-        if is_human and human_to_ai_rate > FLIP_RATE_TIER1:
+        if is_human and n_human_paired >= MIN_SLICE_N and human_to_ai_rate > FLIP_RATE_TIER1:
             demote = True
             _alert(
                 tier=1,
@@ -1030,7 +1193,9 @@ def evaluate_tiers(
                     "flip_rate_ci": [ci_lo, ci_hi],
                     "flips": flips["flips"],
                     "n": flips["n"],
+                    "n_human_paired": n_human_paired,
                     "human_to_ai": flips["human_to_ai"],
+                    "human_to_ai_human": human_to_ai_human,
                     "ai_to_human": flips["ai_to_human"],
                 },
                 threshold=FLIP_RATE_TIER1,
@@ -1038,11 +1203,12 @@ def evaluate_tiers(
                 action="demote",
                 detail=(
                     f"Human->AI flip rate {human_to_ai_rate} > {FLIP_RATE_TIER1} on human slice {slice_name!r} "
-                    f"({flips['human_to_ai']} human->AI, {flips['ai_to_human']} AI->human). "
+                    f"({human_to_ai_human} human->AI flips over {n_human_paired} paired human-labelled items; "
+                    f"{flips['ai_to_human']} AI->human). "
                     "Demote the detector's U1 records to stale; withhold binary verdicts until a full re-run passes."
                 ),
             )
-        elif rate is not None and rate > FLIP_RATE_TIER2 and ci_lo > 0:
+        elif rate is not None and n_flips >= MIN_SLICE_N and rate > FLIP_RATE_TIER2 and ci_lo > 0:
             watch = True
             _alert(
                 tier=2,
@@ -1071,7 +1237,12 @@ def evaluate_tiers(
     if overall_flips:
         rate = overall_flips["flip_rate"]
         ci_lo, _ = overall_flips["flip_rate_ci"]
-        if rate is not None and rate > FLIP_RATE_TIER2 and ci_lo > 0:
+        if (
+            rate is not None
+            and (overall_flips["n"] or 0) >= MIN_SLICE_N
+            and rate > FLIP_RATE_TIER2
+            and ci_lo > 0
+        ):
             watch = True
             _alert(
                 tier=2,
@@ -1093,13 +1264,19 @@ def evaluate_tiers(
 
     # --- Calibration drift (Tier 2: ECE increase > 0.05). Conformal
     # coverage is unavailable in v1.0, so its sub-rules are inactive.
+    # S07: the ECE comparison needs an adequately sampled MATCHED
+    # calibrated set (n_calibrated_paired >= MIN_SLICE_N). A metrics
+    # dict without the matched count (legacy) never escalates.
     for slice_name in sorted(slices):
         calibration = (slices[slice_name] or {}).get("calibration") or {}
         ece = calibration.get("ece")
         baseline_ece = calibration.get("baseline_ece")
+        n_calibrated_paired = calibration.get("n_calibrated_paired")
         if (
             ece is not None
             and baseline_ece is not None
+            and n_calibrated_paired is not None
+            and n_calibrated_paired >= MIN_SLICE_N
             and (ece - baseline_ece) > ECE_INCREASE_TIER2
         ):
             watch = True
@@ -1111,12 +1288,14 @@ def evaluate_tiers(
                     "ece": ece,
                     "baseline_ece": baseline_ece,
                     "increase": ece - baseline_ece,
+                    "n_calibrated_paired": n_calibrated_paired,
                 },
                 threshold=ECE_INCREASE_TIER2,
                 consecutive_runs=1,
                 action="investigate",
                 detail=(
-                    f"ECE increased by {ece - baseline_ece} (>{ECE_INCREASE_TIER2}) on slice {slice_name!r}. Trust Map watch; human review required."
+                    f"ECE increased by {ece - baseline_ece} (>{ECE_INCREASE_TIER2}) on slice {slice_name!r} "
+                    f"over {n_calibrated_paired} matched calibrated items. Trust Map watch; human review required."
                 ),
             )
 
@@ -1518,6 +1697,9 @@ def build_run_manifest(
             "min_clean_full_runs_for_temporal_support": MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT,
             "min_slice_n": MIN_SLICE_N,
             "min_slice_n_for_fpr_claim": MIN_SLICE_N_FOR_FPR_CLAIM,
+            "min_paired_n_for_drift_signal": MIN_SLICE_N,
+            "min_paired_human_n_for_flip_tier1": MIN_SLICE_N,
+            "min_matched_calibrated_n_for_calibration_drift": MIN_SLICE_N,
             "fpr_cap": FPR_CAP_DEFAULT,
         },
         "metrics": dict(metrics),

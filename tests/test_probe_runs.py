@@ -277,6 +277,7 @@ def _make_records(
                 "execution": "local",
                 "score": round(score, 6),
                 "score_semantics": "native heuristic score; not a probability",
+                "native_score_direction": "higher_means_ai",
                 "verdict": verdict,
                 "threshold": 0.68,
                 "calibrated_ai_probability": round(score, 6) if calibrated else None,
@@ -417,6 +418,7 @@ def test_compute_run_metrics_mixed_origin_label_none(stub_primitives):
                 "execution": "local",
                 "score": 0.55,
                 "score_semantics": "native heuristic score; not a probability",
+                "native_score_direction": "higher_means_ai",
                 "verdict": "human_like",
                 "threshold": 0.68,
                 "calibrated_ai_probability": None,
@@ -494,6 +496,7 @@ def test_compute_run_metrics_ks_only_breach_shows_breach_status(stub_primitives)
                     "execution": "local",
                     "score": score,
                     "score_semantics": "native heuristic score; not a probability",
+                    "native_score_direction": "higher_means_ai",
                     "verdict": "human_like",
                     "threshold": 0.68,
                     "calibrated_ai_probability": None,
@@ -622,6 +625,7 @@ def _tier_metrics(*, flip_rate=None, fpr=None, psi_breach=False, ece_increase=No
                 "ks_pvalue": 0.001 if psi_breach else 0.6,
                 "ks_pvalue_holm_adjusted": 0.004 if psi_breach else 0.6,
                 "psi": 0.45 if psi_breach else 0.02,
+                "n_paired": 120,
                 "status": "breach" if psi_breach else "stable",
             },
             "flips": (
@@ -634,6 +638,8 @@ def _tier_metrics(*, flip_rate=None, fpr=None, psi_breach=False, ece_increase=No
                     "ai_to_human": 0,
                     "to_abstain": 0,
                     "from_abstain": 0,
+                    "n_human_paired": 120,
+                    "human_to_ai_human": int(flip_rate * 120),
                 }
                 if flip_rate is not None
                 else None
@@ -641,6 +647,7 @@ def _tier_metrics(*, flip_rate=None, fpr=None, psi_breach=False, ece_increase=No
             "calibration": {
                 "ece": 0.10 if ece_increase is not None else 0.05,
                 "baseline_ece": 0.05 if ece_increase is not None else 0.05,
+                "n_calibrated_paired": 120,
             },
             "human_fpr": (
                 {
@@ -663,10 +670,11 @@ def _tier_metrics(*, flip_rate=None, fpr=None, psi_breach=False, ece_increase=No
                 "ks_pvalue": 0.6,
                 "ks_pvalue_holm_adjusted": 0.6,
                 "psi": 0.02,
+                "n_paired": 60,
                 "status": "stable",
             },
             "flips": None,
-            "calibration": {"ece": None, "baseline_ece": None},
+            "calibration": {"ece": None, "baseline_ece": None, "n_calibrated_paired": None},
             "human_fpr": None,
         },
     }
@@ -750,6 +758,7 @@ def test_tier1_flip_rate_requires_human_to_ai_direction():
     metrics = _tier_metrics(flip_rate=0.06)
     flips = metrics["slices"]["human-native"]["flips"]
     flips["human_to_ai"] = 0
+    flips["human_to_ai_human"] = 0
     flips["ai_to_human"] = flips["flips"]
     result = evaluate_tiers(metrics=metrics, detector_version="0.1.0")
     assert result["demote"] is False
@@ -771,6 +780,7 @@ def test_tier1_flip_rate_ignores_machine_slice_flips():
             "ks_pvalue": 0.6,
             "ks_pvalue_holm_adjusted": 0.6,
             "psi": 0.02,
+            "n_paired": 50,
             "status": "stable",
         },
         "flips": {
@@ -782,8 +792,10 @@ def test_tier1_flip_rate_ignores_machine_slice_flips():
             "ai_to_human": 40,
             "to_abstain": 0,
             "from_abstain": 0,
+            "n_human_paired": 0,
+            "human_to_ai_human": 0,
         },
-        "calibration": {"ece": None, "baseline_ece": None},
+        "calibration": {"ece": None, "baseline_ece": None, "n_calibrated_paired": None},
         "human_fpr": None,
     }
     result = evaluate_tiers(metrics=metrics, detector_version="0.1.0")
