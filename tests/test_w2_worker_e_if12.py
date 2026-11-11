@@ -212,7 +212,9 @@ class TestIF12SemanticUnsupported:
         assert report.confidence is None
         if not report.findings:
             assert report.risk_level == "none"
-            assert any("no " in lim.lower() and "observed" in lim.lower() for lim in report.limitations)
+            assert any(
+                "no " in lim.lower() and "observed" in lim.lower() for lim in report.limitations
+            )
 
     def test_declared_unsupported_language_abstains(self):
         report = analyze_semantic_consistency(LONG_VARIED, segment_word_target=20, language="fr")

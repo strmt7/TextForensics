@@ -302,8 +302,7 @@ def _language_support(text: str, language: str | None) -> tuple[bool, str | None
         )
     if not _LATIN_RE.search(text):
         return False, (
-            "Unsupported language: no Latin-script text detected; "
-            "patterns are English-specific."
+            "Unsupported language: no Latin-script text detected; patterns are English-specific."
         )
     return True, None
 
@@ -675,9 +674,7 @@ class HumanizationPatternLibrary:
         findings, _failed = self.run_all_with_coverage(text)
         return findings
 
-    def run_all_with_coverage(
-        self, text: str
-    ) -> tuple[list[AdversarialFinding], list[str]]:
+    def run_all_with_coverage(self, text: str) -> tuple[list[AdversarialFinding], list[str]]:
         """Run all registered pattern detectors on text.
 
         Returns ``(findings, failed_names)``: the names of pattern
@@ -893,7 +890,9 @@ def detect_humanization(
     """
     library = HumanizationPatternLibrary(custom_patterns=custom_patterns)
     detector = AdversarialDetector(pattern_library=library)
-    return detector.analyze(text, detector_outputs=detector_outputs, metadata=metadata, language=language)
+    return detector.analyze(
+        text, detector_outputs=detector_outputs, metadata=metadata, language=language
+    )
 
 
 # ============================================================

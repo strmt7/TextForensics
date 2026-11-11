@@ -492,8 +492,7 @@ def _language_support(text: str, language: str | None) -> tuple[bool, str | None
         )
     if not _LATIN_RE.search(text):
         return False, (
-            "Unsupported language: no Latin-script text detected; "
-            "checks are English-specific."
+            "Unsupported language: no Latin-script text detected; checks are English-specific."
         )
     return True, None
 

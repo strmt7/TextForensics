@@ -374,8 +374,7 @@ class CounterfactualExplainer:
                             "segment_index": idx,
                             "outcome": "failed",
                             "reason": (
-                                "score function raised "
-                                f"{type(exc).__name__} on the perturbed text"
+                                f"score function raised {type(exc).__name__} on the perturbed text"
                             ),
                         }
                     )
@@ -430,8 +429,7 @@ class CounterfactualExplainer:
         limitations = list(EXPLANATION_LIMITATIONS)
         if original_score is None:
             limitations.append(
-                "Detector abstained on the full text; no counterfactual "
-                "explanation is available."
+                "Detector abstained on the full text; no counterfactual explanation is available."
             )
         elif len(segments) <= 1:
             limitations.append(

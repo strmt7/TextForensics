@@ -126,9 +126,7 @@ class TestIF04GaugeNoFabrication:
         _assert_no_numerical_probability(out)
 
     def test_valid_canonical_calibrated_field_displays_exact_value_and_identity(self):
-        out = _run(
-            {"fn": "gauge", "bundle": _bundle("ai_like", prob=0.734, cal_id=CALIBRATION_ID)}
-        )
+        out = _run({"fn": "gauge", "bundle": _bundle("ai_like", prob=0.734, cal_id=CALIBRATION_ID)})
         # The complement is a float subtraction; compare approximately.
         assert out["charts"][0]["datasets"][0][0] == pytest.approx(73.4)
         assert out["charts"][0]["datasets"][0][1] == pytest.approx(26.6)
@@ -162,7 +160,11 @@ class TestIF04FamilyChart:
                 "verdict": "ai_like",
                 "calibrated_ai_probability": 0.62,
             },
-            {"detector_family": "perplexity", "verdict": "abstain", "calibrated_ai_probability": None},
+            {
+                "detector_family": "perplexity",
+                "verdict": "abstain",
+                "calibrated_ai_probability": None,
+            },
         ]
         out = _run({"fn": "detector_chart", "bundle": _bundle("ai_like", votes=votes)})
         assert out["charts"][0]["datasets"] == [[62.0, None]]

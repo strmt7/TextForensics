@@ -50,7 +50,9 @@ def _audit_score_fn(text: str):
 
 class TestIF19AuditCase:
     def test_all_abstention_reports_zero_scored(self):
-        explainer = CounterfactualExplainer(_audit_score_fn, detector_id="d", detector_version="1.0")
+        explainer = CounterfactualExplainer(
+            _audit_score_fn, detector_id="d", detector_version="1.0"
+        )
         report = explainer.explain(TEXT_TWO)
         assert report.n_segments == 2
         assert report.n_scored == 0
@@ -60,7 +62,9 @@ class TestIF19AuditCase:
         assert report.n_scored == len(report.segment_attribution)
 
     def test_all_abstention_completeness_split(self):
-        explainer = CounterfactualExplainer(_audit_score_fn, detector_id="d", detector_version="1.0")
+        explainer = CounterfactualExplainer(
+            _audit_score_fn, detector_id="d", detector_version="1.0"
+        )
         report = explainer.explain(TEXT_TWO)
         completeness = report.completeness
         assert completeness is not None
@@ -81,13 +85,18 @@ class TestIF19AuditCase:
         assert data["completeness"]["abstained"] == 2
 
     def test_all_abstention_states_absent_coverage_with_reasons(self):
-        explainer = CounterfactualExplainer(_audit_score_fn, detector_id="d", detector_version="1.0")
+        explainer = CounterfactualExplainer(
+            _audit_score_fn, detector_id="d", detector_version="1.0"
+        )
         report = explainer.explain(TEXT_TWO)
         assert len(report.unscored_segments) == 2
         assert {u["segment_index"] for u in report.unscored_segments} == {0, 1}
         assert all(u["outcome"] == "abstained" for u in report.unscored_segments)
         assert all(u["reason"] for u in report.unscored_segments)
-        assert any("absent" in lim.lower() or "no segment attribution" in lim.lower() for lim in report.limitations)
+        assert any(
+            "absent" in lim.lower() or "no segment attribution" in lim.lower()
+            for lim in report.limitations
+        )
         summary = report.summary()
         assert summary["explanation_coverage"] == "absent"
         assert summary["n_scored"] == 0
@@ -179,7 +188,9 @@ class TestIF19Exception:
 
 class TestIF19SingletonAndOriginalAbstain:
     def test_singleton_reports_zero_selected(self):
-        explainer = CounterfactualExplainer(lambda text: 0.5, detector_id="d", detector_version="1.0")
+        explainer = CounterfactualExplainer(
+            lambda text: 0.5, detector_id="d", detector_version="1.0"
+        )
         report = explainer.explain("Only one sentence.")
         assert report.n_segments == 1
         assert report.n_scored == 0
@@ -191,7 +202,9 @@ class TestIF19SingletonAndOriginalAbstain:
         assert report.summary()["explanation_coverage"] == "absent"
 
     def test_original_abstain_attempts_nothing(self):
-        explainer = CounterfactualExplainer(lambda text: None, detector_id="d", detector_version="1.0")
+        explainer = CounterfactualExplainer(
+            lambda text: None, detector_id="d", detector_version="1.0"
+        )
         report = explainer.explain(TEXT_TWO)
         assert report.original_score is None
         assert report.n_scored == 0
@@ -206,7 +219,9 @@ class TestIF19SingletonAndOriginalAbstain:
 class TestIF19ProgressAndSerialization:
     def test_progress_totals_count_attempts_not_successes(self):
         seen: list[tuple[int, int]] = []
-        explainer = CounterfactualExplainer(_audit_score_fn, detector_id="d", detector_version="1.0")
+        explainer = CounterfactualExplainer(
+            _audit_score_fn, detector_id="d", detector_version="1.0"
+        )
         explainer.explain(TEXT_TWO, progress=lambda done, total: seen.append((done, total)))
         # Both perturbations were attempted (total 2) even though none
         # scored; the total is attempts, never a success count.
@@ -239,7 +254,9 @@ class TestIF19ProgressAndSerialization:
         assert [u["segment_index"] for u in loaded.unscored_segments] == [0, 1]
 
     def test_legacy_file_without_completeness_loads(self):
-        report = explain_verdict(TEXT_THREE, lambda text: 0.5, detector_id="d", detector_version="1.0")
+        report = explain_verdict(
+            TEXT_THREE, lambda text: 0.5, detector_id="d", detector_version="1.0"
+        )
         data = report.to_dict()
         del data["completeness"]
         del data["n_attempted"]
