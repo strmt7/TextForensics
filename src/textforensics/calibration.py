@@ -10,6 +10,33 @@ calibration contract defined in ``docs/REVAMP_SPEC.md``:
   artifact that records a held-out, disjoint evaluation with metrics;
 * deterministic serialization and content hashing.
 
+Temperature scaling (Guo et al., 2017) is defined on the logit domain.
+A ``temperature`` curve therefore declares its input semantics
+explicitly (curve contract v3, ``textforensics.calibration-curve/v3``):
+
+* ``"probability"`` — the input is P(AI) in [0, 1] and the map is
+  ``sigmoid(logit(p) / T)``, with the documented endpoints ``p = 0 -> 0``
+  and ``p = 1 -> 1``;
+* ``"logit"`` — the input is an unbounded logit ``z`` and the map is
+  ``sigmoid(z / T)``.
+
+The v2 curve contract applied ``sigmoid(x / T)`` directly to a [0, 1]
+score.  That map is preserved only as a legacy verification behaviour
+(``input_semantics="legacy_raw_score"``, schema v2): legacy temperature
+curves load and compute exactly as before, but are never
+probability-eligible.  Migrating a legacy curve creates a new v3 curve
+with the same ``T`` and drops all fit/evaluation metrics — the migrated
+curve must be refit and re-evaluated before it can support a
+probability; old metrics are never presented as proof of the new map.
+
+Calibration artifacts are deeply immutable after construction, and a
+probability may only be emitted for an exact
+:class:`InferenceIdentity` (detector, version, provider, model,
+configuration hash, native-score semantics, calibration id, regime).
+Held-out evaluation requires a :class:`DisjointnessProof` (see
+``benchmark.prove_disjointness``) — without a verified proof an
+evaluation is diagnostic, never held out.
+
 This module never produces an ensemble probability.  Detector-local
 calibration is not ensemble calibration (AGENTS.md, hard rule 3).
 """
@@ -27,18 +54,22 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 from .benchmark import (
+    DisjointnessProof,
     _compute_sample_hashes,
     _load_scores,
     _metrics,
     dataset_sha256,
+    prove_disjointness,
 )
 
 __all__ = [
     "CALIBRATION_SCHEMA",
     "CURVE_SCHEMA",
+    "LEGACY_CURVE_SCHEMA",
     "SUPPORTED_METHODS",
     "DIAGNOSTIC_METHODS",
     "MIN_CALIBRATION_SAMPLES",
@@ -51,6 +82,8 @@ __all__ = [
     "CalibrationManager",
     "CalibrationError",
     "DatasetReference",
+    "DisjointnessProof",
+    "InferenceIdentity",
     "ThresholdSelectionResult",
     "EvaluationResult",
     "validate_calibration_artifact",
@@ -63,6 +96,8 @@ __all__ = [
     "load_threshold_artifact",
     "create_threshold_selection_artifact",
     "run_calibration_evaluation",
+    "prove_disjointness",
+    "migrate_legacy_temperature_curve",
 ]
 
 CALIBRATION_SCHEMA = "textforensics.calibration-artifact/v2"
@@ -77,7 +112,27 @@ THRESHOLD_SELECTION_SCHEMA = "textforensics.threshold-selection/v1"
 THRESHOLD_CALIBRATION_SCHEMA = "textforensics.calibration/v1"
 #: Schema of the evaluation results produced by ``evaluate_threshold``.
 EVALUATION_RESULT_SCHEMA = "textforensics.evaluation-result/v1"
-CURVE_SCHEMA = "textforensics.calibration-curve/v2"
+#: Current calibration-curve contract (v3): temperature input semantics
+#: are explicit (``"probability"`` or ``"logit"``).  See module docstring.
+CURVE_SCHEMA = "textforensics.calibration-curve/v3"
+#: Superseded curve contract (v2): temperature was ``sigmoid(x / T)``
+#: applied directly to a [0, 1] score.  V2 temperature curves load for
+#: verification of old artifacts only; they are never
+#: probability-eligible and must be migrated (same ``T``, metrics
+#: dropped) and re-evaluated.  V2 curves of other methods have
+#: identical mathematics under v3 and are unaffected.
+LEGACY_CURVE_SCHEMA = "textforensics.calibration-curve/v2"
+#: Fields that make up an artifact's exact inference identity.  They
+#: are part of the content hash only when at least one is set, so
+#: pre-identity artifacts keep their original hash (and are
+#: ineligible, because the identity is incomplete).
+_IDENTITY_FIELDS = (
+    "provider",
+    "model",
+    "config_hash",
+    "native_score_semantics",
+    "regime",
+)
 SUPPORTED_METHODS = frozenset({"platt", "temperature", "isotonic", "beta", "identity"})
 DIAGNOSTIC_METHODS = frozenset({"identity"})
 #: Minimum held-out evaluation size for probability eligibility.  This is a
@@ -169,6 +224,109 @@ def _parse_iso8601(value: Any, field_name: str) -> datetime:
     return parsed
 
 
+def _logit(probability: float) -> float:
+    """log(p / (1 - p)), computed stably for p in (0, 1)."""
+    return math.log(probability) - math.log1p(-probability)
+
+
+def _deep_freeze(value: Any) -> Any:
+    """Recursively copy a JSON-like value into immutable containers.
+
+    Mappings become :class:`~types.MappingProxyType`, sequences become
+    tuples.  The result shares no mutable structure with its input, so
+    mutating a constructor argument after construction cannot change a
+    frozen artifact, and mutating a returned mapping raises
+    :class:`TypeError` instead of silently corrupting hashed content.
+    """
+    if isinstance(value, Mapping):
+        return MappingProxyType({key: _deep_freeze(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(_deep_freeze(item) for item in value)
+    if isinstance(value, (set, frozenset)):
+        return frozenset(_deep_freeze(item) for item in value)
+    return value
+
+
+def _deep_thaw(value: Any) -> Any:
+    """Recursively convert frozen containers back to plain JSON values."""
+    if isinstance(value, Mapping):
+        return {key: _deep_thaw(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_deep_thaw(item) for item in value]
+    if isinstance(value, frozenset):
+        return [_deep_thaw(item) for item in sorted(value, key=repr)]
+    return value
+
+
+# ---------------------------------------------------------------------------
+# Inference identity
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class InferenceIdentity:
+    """The exact identity a calibration artifact must match to be applied.
+
+    All eight fields are required and compared exactly.  An artifact
+    whose recorded identity differs in any field — detector version,
+    provider, model, configuration hash, native-score semantics,
+    calibration id or regime — must not emit a validated probability
+    for this identity, and latest-by-time selection never crosses
+    identity epochs.  ``config_hash`` is the SHA-256 of the canonical
+    detector configuration; ``native_score_semantics`` names the input
+    domain and direction the curve was fitted for, e.g.
+    ``"probability_higher_means_ai"`` or ``"logit_lower_means_ai"``.
+    """
+
+    detector_id: str
+    detector_version: str
+    provider: str
+    model: str
+    config_hash: str
+    native_score_semantics: str
+    calibration_id: str
+    regime: str
+
+    def __post_init__(self) -> None:
+        _nonempty_string(self.detector_id, "detector_id")
+        _nonempty_string(self.detector_version, "detector_version")
+        _nonempty_string(self.provider, "provider")
+        _nonempty_string(self.model, "model")
+        _sha256_hex(self.config_hash, "config_hash")
+        _nonempty_string(self.native_score_semantics, "native_score_semantics")
+        _nonempty_string(self.calibration_id, "calibration_id")
+        _nonempty_string(self.regime, "regime")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "detector_id": self.detector_id,
+            "detector_version": self.detector_version,
+            "provider": self.provider,
+            "model": self.model,
+            "config_hash": self.config_hash,
+            "native_score_semantics": self.native_score_semantics,
+            "calibration_id": self.calibration_id,
+            "regime": self.regime,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> InferenceIdentity:
+        if not isinstance(data, Mapping):
+            raise CalibrationError("Inference identity must be a mapping.")
+        return cls(
+            detector_id=_nonempty_string(data.get("detector_id"), "detector_id"),
+            detector_version=_nonempty_string(data.get("detector_version"), "detector_version"),
+            provider=_nonempty_string(data.get("provider"), "provider"),
+            model=_nonempty_string(data.get("model"), "model"),
+            config_hash=_sha256_hex(data.get("config_hash"), "config_hash"),
+            native_score_semantics=_nonempty_string(
+                data.get("native_score_semantics"), "native_score_semantics"
+            ),
+            calibration_id=_nonempty_string(data.get("calibration_id"), "calibration_id"),
+            regime=_nonempty_string(data.get("regime"), "regime"),
+        )
+
+
 # ---------------------------------------------------------------------------
 # Curves
 # ---------------------------------------------------------------------------
@@ -181,15 +339,33 @@ class CalibrationCurve:
     ``parameters`` are method-specific:
 
     * ``platt``: ``{"A": float, "B": float}`` → ``sigmoid(A*x + B)``
-    * ``temperature``: ``{"T": float > 0}`` → ``sigmoid(x / T)``
+    * ``temperature``: ``{"T": float > 0}`` → ``sigmoid(logit(p) / T)``
+      when ``input_semantics="probability"`` (``p`` in [0, 1], the
+      probability of AI authorship; endpoints ``0 -> 0`` and ``1 -> 1``),
+      or ``sigmoid(z / T)`` when ``input_semantics="logit"`` (``z`` any
+      finite logit).  The v2 legacy form ``sigmoid(x / T)`` on a raw
+      [0, 1] score is preserved only for verification of old artifacts
+      (``input_semantics="legacy_raw_score"``, schema v2) and is never
+      probability-eligible.
     * ``isotonic``: ``{"x": [...], "y": [...]}`` → piecewise-linear monotone map
     * ``beta``: ``{"a": float >= 0, "b": float >= 0, "c": float}`` →
       ``sigmoid(a*ln(x) - b*ln(1-x) + c)`` (Kull et al., 2017)
     * ``identity``: no parameters; diagnostic only, never probability-eligible
 
-    ``x`` is a native detector score on the documented ``[0, 1]`` scale.
-    Out-of-range scores raise :class:`CalibrationError`; they are never
-    silently clipped or passed through.
+    For ``temperature`` with ``input_semantics="probability"`` the input
+    is the AI-direction probability: when
+    ``native_score_direction="lower_means_ai"`` the raw score is
+    inverted (``1 - p``) before the logit transform, because a lower
+    native score means more AI-like.  Other methods are defined in the
+    detector's native-score space as recorded; their direction is
+    descriptive metadata, not an input transform.
+
+    ``x`` is a native detector score on the documented ``[0, 1]`` scale
+    for probability semantics.  Out-of-range or nonfinite scores raise
+    :class:`CalibrationError`; they are never silently clipped or
+    passed through.  Constructor inputs are deep-copied and frozen:
+    mutating the original ``parameters`` mapping (or a returned one)
+    after construction cannot change the applied map.
     """
 
     method: str
@@ -202,6 +378,7 @@ class CalibrationCurve:
     schema: str = CURVE_SCHEMA
     native_score_direction: str = "higher_means_ai"
     score_range: tuple[float, float] = (0.0, 1.0)
+    input_semantics: str = "probability"
 
     def __post_init__(self) -> None:
         if self.method not in SUPPORTED_METHODS:
@@ -209,10 +386,31 @@ class CalibrationCurve:
                 f"Unsupported calibration method {self.method!r}; "
                 f"expected one of {', '.join(sorted(SUPPORTED_METHODS))}."
             )
-        if self.schema != CURVE_SCHEMA:
+        if self.schema not in {CURVE_SCHEMA, LEGACY_CURVE_SCHEMA}:
             raise CalibrationError("Unsupported calibration-curve schema.")
         if not isinstance(self.parameters, Mapping):
             raise CalibrationError("parameters must be a mapping.")
+        if self.input_semantics not in {"probability", "logit", "legacy_raw_score"}:
+            raise CalibrationError(
+                "input_semantics must be 'probability', 'logit' or 'legacy_raw_score'."
+            )
+        if self.input_semantics == "legacy_raw_score" and (
+            self.schema != LEGACY_CURVE_SCHEMA or self.method != "temperature"
+        ):
+            raise CalibrationError(
+                "The legacy_raw_score input semantics are only available "
+                "for v2 temperature curves loaded from stored artifacts."
+            )
+        if self.schema == CURVE_SCHEMA and self.input_semantics == "legacy_raw_score":
+            raise CalibrationError(
+                "The legacy_raw_score input semantics are not available "
+                "under the v3 curve contract."
+            )
+        if self.input_semantics == "logit" and self.method != "temperature":
+            raise CalibrationError(
+                "Logit input semantics are only defined for temperature "
+                "calibration; other methods take probability-domain inputs."
+            )
         if self.native_score_direction not in {
             "higher_means_ai",
             "lower_means_ai",
@@ -228,6 +426,14 @@ class CalibrationCurve:
             _unit_interval(self.calibration_error, "calibration_error")
         self._validate_score_range()
         self._validate_parameters()
+        # Deep-freeze a copy: the caller's mapping (and any nested
+        # lists) can no longer affect this curve.
+        object.__setattr__(self, "parameters", _deep_freeze(dict(self.parameters)))
+
+    @property
+    def is_legacy(self) -> bool:
+        """True for v2 temperature curves using the superseded map."""
+        return self.schema == LEGACY_CURVE_SCHEMA
 
     def _validate_score_range(self) -> None:
         if not isinstance(self.score_range, (tuple, list)) or len(self.score_range) != 2:
@@ -287,12 +493,33 @@ class CalibrationCurve:
         return self.method in DIAGNOSTIC_METHODS
 
     def calibrate(self, score: float) -> float:
-        """Apply the map to a native score in ``[0, 1]``."""
+        """Apply the map.
+
+        For ``temperature`` with ``input_semantics="probability"`` the
+        input is P(AI) in [0, 1] and the map is ``sigmoid(logit(p)/T)``
+        (endpoints 0 -> 0, 1 -> 1); with ``input_semantics="logit"``
+        the input is any finite logit ``z`` and the map is
+        ``sigmoid(z/T)``.  A legacy v2 temperature curve applies the
+        superseded ``sigmoid(x/T)`` to a [0, 1] score.  All other
+        methods take a [0, 1] native score.  Nonfinite inputs raise.
+        """
+        if self.method == "temperature" and self.input_semantics == "logit":
+            value = _finite_number(score, "score")
+            if self.native_score_direction == "lower_means_ai":
+                value = -value
+            return _sigmoid(value / float(self.parameters["T"]))
         value = _unit_interval(score, "score")
         if self.method == "platt":
             return _sigmoid(float(self.parameters["A"]) * value + float(self.parameters["B"]))
         if self.method == "temperature":
-            return _sigmoid(value / float(self.parameters["T"]))
+            if self.input_semantics == "legacy_raw_score":
+                return _sigmoid(value / float(self.parameters["T"]))
+            probability = 1.0 - value if self.native_score_direction == "lower_means_ai" else value
+            if probability == 0.0:
+                return 0.0
+            if probability == 1.0:
+                return 1.0
+            return _sigmoid(_logit(probability) / float(self.parameters["T"]))
         if self.method == "isotonic":
             return self._calibrate_isotonic(value)
         if self.method == "beta":
@@ -329,7 +556,7 @@ class CalibrationCurve:
         return {
             "schema": self.schema,
             "method": self.method,
-            "parameters": dict(self.parameters),
+            "parameters": _deep_thaw(self.parameters),
             "reference_dataset_hash": self.reference_dataset_hash,
             "reference_dataset_name": self.reference_dataset_name,
             "calibrated_at": self.calibrated_at,
@@ -337,6 +564,7 @@ class CalibrationCurve:
             "calibration_error": self.calibration_error,
             "native_score_direction": self.native_score_direction,
             "score_range": list(self.score_range),
+            "input_semantics": self.input_semantics,
         }
 
     @classmethod
@@ -347,6 +575,16 @@ class CalibrationCurve:
         score_range = data.get("score_range", [0.0, 1.0])
         if not isinstance(score_range, (list, tuple)) or len(score_range) != 2:
             raise CalibrationError("score_range must be a two-element sequence.")
+        schema = str(data.get("schema", CURVE_SCHEMA))
+        raw_semantics = data.get("input_semantics")
+        if schema == LEGACY_CURVE_SCHEMA and method == "temperature":
+            # A stored v2 temperature curve keeps its original map and
+            # meaning; it is loaded as legacy, never reinterpreted.
+            input_semantics = "legacy_raw_score"
+        elif raw_semantics is None:
+            input_semantics = "probability"
+        else:
+            input_semantics = str(raw_semantics)
         return cls(
             method=method,
             parameters=dict(data.get("parameters", {})),
@@ -355,10 +593,37 @@ class CalibrationCurve:
             calibrated_at=str(data.get("calibrated_at", "")),
             sample_count=int(data.get("sample_count", 0)),
             calibration_error=data.get("calibration_error"),
-            schema=str(data.get("schema", CURVE_SCHEMA)),
+            schema=schema,
             native_score_direction=str(data.get("native_score_direction", "higher_means_ai")),
             score_range=(float(score_range[0]), float(score_range[1])),
+            input_semantics=input_semantics,
         )
+
+
+def migrate_legacy_temperature_curve(curve: CalibrationCurve) -> CalibrationCurve:
+    """Migrate a legacy v2 temperature curve to the v3 contract.
+
+    Returns a new ``"probability"`` curve with the same ``T`` and no
+    fit/evaluation provenance: ``sample_count`` 0, no calibration
+    error, no reference dataset.  The migrated curve must be refit and
+    re-evaluated before it can support a probability — metrics recorded
+    under the superseded ``sigmoid(x/T)`` map are not carried over and
+    must not be presented as evidence for the new map.
+    """
+    if not isinstance(curve, CalibrationCurve):
+        raise CalibrationError("curve must be a CalibrationCurve.")
+    if curve.method != "temperature" or not curve.is_legacy:
+        raise CalibrationError(
+            "Only legacy v2 temperature curves can be migrated; "
+            f"got method={curve.method!r} schema={curve.schema!r}."
+        )
+    return CalibrationCurve(
+        method="temperature",
+        parameters={"T": float(curve.parameters["T"])},
+        input_semantics="probability",
+        native_score_direction=curve.native_score_direction,
+        score_range=curve.score_range,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -458,6 +723,15 @@ class CalibrationArtifact:
     metrics: Mapping[str, Any] = field(default_factory=dict)
     code_version: str | None = None
     run_artifact_sha256: str | None = None
+    # Exact inference identity (CORE-05).  All five must be present for
+    # probability eligibility; artifacts recorded before the identity
+    # contract keep ``None`` here, retain their original content hash
+    # (see ``_content_payload``), and are ineligible.
+    provider: str | None = None
+    model: str | None = None
+    config_hash: str | None = None
+    native_score_semantics: str | None = None
+    regime: str | None = None
     content_hash: str = ""
 
     def __post_init__(self) -> None:
@@ -480,6 +754,23 @@ class CalibrationArtifact:
             raise CalibrationError("disjointness must be a mapping.")
         if not isinstance(self.metrics, Mapping):
             raise CalibrationError("metrics must be a mapping.")
+        if self.provider is not None:
+            _nonempty_string(self.provider, "provider")
+        if self.model is not None:
+            _nonempty_string(self.model, "model")
+        if self.config_hash is not None:
+            _sha256_hex(self.config_hash, "config_hash")
+        if self.native_score_semantics is not None:
+            _nonempty_string(self.native_score_semantics, "native_score_semantics")
+        if self.regime is not None:
+            _nonempty_string(self.regime, "regime")
+        # Deep-freeze copies of every nested mapping: mutating a
+        # constructor argument or a returned mapping after construction
+        # cannot change the applied probability or the hashed content.
+        object.__setattr__(self, "validation_results", _deep_freeze(dict(self.validation_results)))
+        object.__setattr__(self, "metadata", _deep_freeze(dict(self.metadata)))
+        object.__setattr__(self, "disjointness", _deep_freeze(dict(self.disjointness)))
+        object.__setattr__(self, "metrics", _deep_freeze(dict(self.metrics)))
         if not self.content_hash:
             object.__setattr__(self, "content_hash", self.compute_content_hash())
         elif not isinstance(self.content_hash, str) or len(self.content_hash) != 64:
@@ -500,17 +791,22 @@ class CalibrationArtifact:
             "curve": self.curve.to_dict(),
             "calibration_id": self.calibration_id,
             "parent_calibration_id": self.parent_calibration_id,
-            "validation_results": dict(self.validation_results),
-            "metadata": dict(self.metadata),
+            "validation_results": _deep_thaw(self.validation_results),
+            "metadata": _deep_thaw(self.metadata),
             "created_at": self.created_at,
             "fit_dataset": self.fit_dataset.to_dict() if self.fit_dataset else None,
             "evaluation_dataset": (
                 self.evaluation_dataset.to_dict() if self.evaluation_dataset else None
             ),
-            "disjointness": dict(self.disjointness),
-            "metrics": dict(self.metrics),
+            "disjointness": _deep_thaw(self.disjointness),
+            "metrics": _deep_thaw(self.metrics),
             "code_version": self.code_version,
             "run_artifact_sha256": self.run_artifact_sha256,
+            "provider": self.provider,
+            "model": self.model,
+            "config_hash": self.config_hash,
+            "native_score_semantics": self.native_score_semantics,
+            "regime": self.regime,
             "content_hash": self.content_hash,
         }
 
@@ -543,6 +839,11 @@ class CalibrationArtifact:
             metrics=dict(data.get("metrics", {})),
             code_version=data.get("code_version"),
             run_artifact_sha256=data.get("run_artifact_sha256"),
+            provider=data.get("provider"),
+            model=data.get("model"),
+            config_hash=data.get("config_hash"),
+            native_score_semantics=data.get("native_score_semantics"),
+            regime=data.get("regime"),
             content_hash=str(data.get("content_hash", "")),
         )
 
@@ -551,16 +852,62 @@ class CalibrationArtifact:
 
         Excludes ``artifact_id`` (the storage key) and ``content_hash`` itself
         so the hash is self-referential only through the payload, not through
-        the stored digest.
+        the stored digest.  The inference-identity fields are excluded
+        while all five are unset, so artifacts recorded before the
+        identity contract keep their original hash; once any identity
+        field is set, all five are hashed.  An artifact's hash is never
+        refreshed silently: adding identity to an old artifact creates
+        a new artifact with a new hash.
         """
         payload = self.to_dict()
         payload.pop("artifact_id", None)
         payload.pop("content_hash", None)
+        if all(payload.get(field) is None for field in _IDENTITY_FIELDS):
+            for field in _IDENTITY_FIELDS:
+                payload.pop(field, None)
         return payload
 
     def compute_content_hash(self) -> str:
         """SHA-256 over the artifact content, excluding ``artifact_id``."""
         return _compute_content_hash(self._content_payload())
+
+    def check_content_hash(self) -> bool:
+        """True when the stored hash still matches the frozen content."""
+        return self.compute_content_hash() == self.content_hash
+
+    def _check_integrity(self) -> None:
+        if not self.check_content_hash():
+            raise CalibrationError(
+                "Calibration artifact content_hash does not match its content; "
+                "the artifact is tampered or corrupt and cannot be applied."
+            )
+
+    def inference_identity(self) -> InferenceIdentity | None:
+        """The exact inference identity, or ``None`` when incomplete."""
+        if (
+            self.provider is None
+            or self.model is None
+            or self.config_hash is None
+            or self.native_score_semantics is None
+            or self.regime is None
+        ):
+            return None
+        return InferenceIdentity(
+            detector_id=self.detector_id,
+            detector_version=self.detector_version,
+            provider=self.provider,
+            model=self.model,
+            config_hash=self.config_hash,
+            native_score_semantics=self.native_score_semantics,
+            calibration_id=self.calibration_id,
+            regime=self.regime,
+        )
+
+    def matches_identity(self, identity: InferenceIdentity) -> bool:
+        """True only when the artifact matches the identity exactly."""
+        if not isinstance(identity, InferenceIdentity):
+            raise CalibrationError("identity must be an InferenceIdentity.")
+        return self.inference_identity() == identity
 
     # -- eligibility -----------------------------------------------------
 
@@ -575,6 +922,12 @@ class CalibrationArtifact:
             issues.append("calibration_id is required")
         if self.curve.is_diagnostic_only:
             issues.append("identity calibration is diagnostic only and never probability-eligible")
+        if self.curve.is_legacy:
+            issues.append(
+                "legacy temperature curve (calibration-curve/v2) uses the superseded "
+                "sigmoid(x/T) map; migrate to the v3 contract and re-evaluate — "
+                "it is never probability-eligible"
+            )
         if self.fit_dataset is None:
             issues.append("fit_dataset is required for probability eligibility")
         if self.evaluation_dataset is None:
@@ -587,6 +940,7 @@ class CalibrationArtifact:
         else:
             issues.extend(self._disjointness_declaration_issues())
         issues.extend(self._metric_issues())
+        issues.extend(self._identity_issues())
         if not self.code_version:
             issues.append("code_version is required for probability eligibility")
         if not self.run_artifact_sha256:
@@ -595,6 +949,29 @@ class CalibrationArtifact:
             _parse_iso8601(self.created_at, "created_at")
         except CalibrationError as exc:
             issues.append(str(exc))
+        return issues
+
+    def _identity_issues(self) -> list[str]:
+        """Every inference-identity field must be present and coherent."""
+        issues: list[str] = []
+        missing = [field for field in _IDENTITY_FIELDS if getattr(self, field) is None]
+        if missing:
+            issues.append(
+                "inference identity is incomplete: missing "
+                + ", ".join(missing)
+                + "; an artifact without an exact inference identity "
+                "cannot support a probability"
+            )
+            return issues
+        direction = self.curve.native_score_direction
+        if direction in {"higher_means_ai", "lower_means_ai"}:
+            expected = f"{self.curve.input_semantics}_{direction}"
+            if self.native_score_semantics != expected:
+                issues.append(
+                    "native_score_semantics "
+                    f"{self.native_score_semantics!r} does not match the curve's "
+                    f"input semantics and direction ({expected!r})"
+                )
         return issues
 
     def _disjointness_issues(self) -> list[str]:
@@ -673,8 +1050,26 @@ class CalibrationArtifact:
             return "fit_only"
         return "incomplete"
 
-    def calibrate(self, score: float, *, allow_unvalidated: bool = False) -> float:
-        """Apply the map, refusing ineligible artifacts by default."""
+    def calibrate(
+        self,
+        score: float,
+        *,
+        allow_unvalidated: bool = False,
+        identity: InferenceIdentity | None = None,
+    ) -> float:
+        """Apply the map, refusing ineligible artifacts by default.
+
+        When ``identity`` is given, the artifact must match it exactly;
+        a mismatched identity raises instead of emitting a probability
+        for the wrong detector version, provider, model, configuration
+        or regime.  The stored content hash is verified before use.
+        """
+        self._check_integrity()
+        if identity is not None and not self.matches_identity(identity):
+            raise CalibrationError(
+                "Calibration artifact does not match the required "
+                "InferenceIdentity; refusing to apply it."
+            )
         if not self.eligible_for_probability and not allow_unvalidated:
             issues = "; ".join(self.validation_issues())
             raise CalibrationError(
@@ -683,9 +1078,21 @@ class CalibrationArtifact:
             )
         return self.curve.calibrate(score)
 
-    def apply(self, score: float, *, allow_unvalidated: bool = False) -> CalibrationResult:
+    def apply(
+        self,
+        score: float,
+        *,
+        allow_unvalidated: bool = False,
+        identity: InferenceIdentity | None = None,
+    ) -> CalibrationResult:
         """Apply the map and return a status-bearing result."""
+        self._check_integrity()
         eligible = self.eligible_for_probability
+        if identity is not None and not self.matches_identity(identity):
+            raise CalibrationError(
+                "Calibration artifact does not match the required "
+                "InferenceIdentity; refusing to apply it."
+            )
         if not eligible and not allow_unvalidated:
             issues = "; ".join(self.validation_issues())
             raise CalibrationError(
@@ -799,13 +1206,46 @@ class CalibrationManager:
         code_version: str | None = None,
         run_artifact_sha256: str | None = None,
         created_at: str | None = None,
+        identity: InferenceIdentity | None = None,
+        provider: str | None = None,
+        model: str | None = None,
+        config_hash: str | None = None,
+        native_score_semantics: str | None = None,
+        regime: str | None = None,
     ) -> CalibrationArtifact:
         """Store a calibration artifact and return it.
 
         The artifact may be fit-only or probability-eligible; eligibility is
         derived from the recorded provenance and is never asserted by the
-        caller.
+        caller.  The artifact is published to the in-memory map only
+        after durable storage succeeds: a failed write leaves memory
+        and disk consistent (no in-memory artifact without a file).
+        The exact inference identity may be given as ``identity`` or
+        as the individual ``provider``/``model``/``config_hash``/
+        ``native_score_semantics``/``regime`` fields; when both are
+        given they must agree.
         """
+        if identity is not None:
+            if identity.detector_id != detector_id:
+                raise CalibrationError("identity.detector_id does not match detector_id.")
+            if identity.detector_version != detector_version:
+                raise CalibrationError("identity.detector_version does not match detector_version.")
+            if calibration_id is not None and identity.calibration_id != calibration_id:
+                raise CalibrationError("identity.calibration_id does not match calibration_id.")
+            if calibration_id is None:
+                calibration_id = identity.calibration_id
+            for field_name in _IDENTITY_FIELDS:
+                explicit = locals()[field_name]
+                identity_value = getattr(identity, field_name)
+                if explicit is not None and explicit != identity_value:
+                    raise CalibrationError(
+                        f"identity.{field_name} does not match the explicit {field_name}."
+                    )
+            provider = identity.provider
+            model = identity.model
+            config_hash = identity.config_hash
+            native_score_semantics = identity.native_score_semantics
+            regime = identity.regime
         if calibration_id is None:
             calibration_id = _compute_content_hash(
                 {
@@ -831,6 +1271,11 @@ class CalibrationManager:
             metrics=dict(metrics or {}),
             code_version=code_version,
             run_artifact_sha256=run_artifact_sha256,
+            provider=provider,
+            model=model,
+            config_hash=config_hash,
+            native_score_semantics=native_score_semantics,
+            regime=regime,
         )
         existing = self._artifacts.get(artifact.artifact_id)
         if existing is not None and existing.content_hash != artifact.content_hash:
@@ -838,18 +1283,43 @@ class CalibrationManager:
                 f"Artifact id {artifact.artifact_id} is already stored with "
                 "different content; choose a new calibration_id."
             )
-        self._artifacts[artifact.artifact_id] = artifact
+        # Publish to durable storage FIRST; only then to memory, so a
+        # failed write cannot leave a phantom in-memory artifact.
         self._save_artifact(artifact)
+        self._artifacts[artifact.artifact_id] = artifact
         return artifact
 
     def get(self, artifact_id: str) -> CalibrationArtifact | None:
         return self._artifacts.get(artifact_id)
 
     def get_latest_for_detector(self, detector_id: str) -> CalibrationArtifact | None:
+        """Newest artifact for a detector, for lineage/diagnostics only.
+
+        This is NOT an application path: it cannot bind an inference
+        identity, so it must never be used to select an artifact for
+        emitting a probability.  Use :meth:`get_for_identity`.
+        """
         artifacts = [item for item in self._artifacts.values() if item.detector_id == detector_id]
         if not artifacts:
             return None
         return max(artifacts, key=lambda item: _parse_iso8601(item.created_at, "created_at"))
+
+    def get_for_identity(self, identity: InferenceIdentity) -> CalibrationArtifact | None:
+        """Newest artifact matching an exact inference identity.
+
+        Only artifacts whose recorded identity equals ``identity`` in
+        every field are candidates, so latest-by-time never crosses
+        identity epochs.  Returns ``None`` when no artifact matches.
+        """
+        if not isinstance(identity, InferenceIdentity):
+            raise CalibrationError("identity must be an InferenceIdentity.")
+        artifacts = [item for item in self._artifacts.values() if item.matches_identity(identity)]
+        if not artifacts:
+            return None
+        return max(artifacts, key=lambda item: _parse_iso8601(item.created_at, "created_at"))
+
+    def _verify_artifact_integrity(self, artifact: CalibrationArtifact) -> None:
+        artifact._check_integrity()
 
     def get_lineage(self, detector_id: str) -> list[CalibrationArtifact]:
         artifacts = [item for item in self._artifacts.values() if item.detector_id == detector_id]
@@ -906,34 +1376,101 @@ class CalibrationManager:
             raise CalibrationError("No valid samples in validation dataset.")
         return _probability_metrics(calibrated, labels)
 
+    def get_calibrated_score_for_identity(
+        self,
+        identity: InferenceIdentity,
+        raw_score: float,
+        *,
+        allow_unvalidated: bool = False,
+    ) -> float | None:
+        """Return a calibrated probability for an exact inference identity.
+
+        Returns ``None`` when no artifact matches the identity exactly;
+        a matching but ineligible artifact raises
+        :class:`CalibrationError` unless the caller explicitly opts
+        into diagnostics with ``allow_unvalidated=True``.  A mismatched
+        identity never yields a validated probability.
+        """
+        artifact = self.get_for_identity(identity)
+        if artifact is None:
+            return None
+        self._verify_artifact_integrity(artifact)
+        return artifact.calibrate(raw_score, allow_unvalidated=allow_unvalidated, identity=identity)
+
+    def get_calibrated_result_for_identity(
+        self,
+        identity: InferenceIdentity,
+        raw_score: float,
+        *,
+        allow_unvalidated: bool = False,
+    ) -> CalibrationResult | None:
+        """Return a status-bearing calibrated result for an exact identity.
+
+        Returns ``None`` when no artifact matches the identity exactly.
+        Explicit diagnostic use (``allow_unvalidated=True``) returns a
+        result with status ``"unvalidated"``, never ``"validated"``.
+        """
+        artifact = self.get_for_identity(identity)
+        if artifact is None:
+            return None
+        self._verify_artifact_integrity(artifact)
+        return artifact.apply(raw_score, allow_unvalidated=allow_unvalidated, identity=identity)
+
     def get_calibrated_score(
         self,
         detector_id: str,
         raw_score: float,
         *,
+        identity: InferenceIdentity | None = None,
         allow_unvalidated: bool = False,
     ) -> float | None:
         """Return a calibrated probability, or ``None`` when no artifact exists.
 
-        A fit-only artifact raises :class:`CalibrationError` unless the caller
-        explicitly opts into diagnostics.
+        An exact :class:`InferenceIdentity` is required: selecting by
+        detector id alone cannot bind the current detector version,
+        provider, model, configuration or regime, so it raises
+        :class:`CalibrationError`.  Use
+        :meth:`get_calibrated_score_for_identity`.
         """
-        artifact = self.get_latest_for_detector(detector_id)
-        if artifact is None:
-            return None
-        return artifact.calibrate(raw_score, allow_unvalidated=allow_unvalidated)
+        if identity is None:
+            raise CalibrationError(
+                "An exact InferenceIdentity is required to apply calibration; "
+                "selecting by detector id alone cannot bind the current "
+                "detector version, provider, model, configuration or regime. "
+                "Use get_calibrated_score_for_identity()."
+            )
+        if identity.detector_id != detector_id:
+            raise CalibrationError("identity.detector_id does not match detector_id.")
+        return self.get_calibrated_score_for_identity(
+            identity, raw_score, allow_unvalidated=allow_unvalidated
+        )
 
     def get_calibrated_result(
         self,
         detector_id: str,
         raw_score: float,
         *,
+        identity: InferenceIdentity | None = None,
         allow_unvalidated: bool = False,
     ) -> CalibrationResult | None:
-        artifact = self.get_latest_for_detector(detector_id)
-        if artifact is None:
-            return None
-        return artifact.apply(raw_score, allow_unvalidated=allow_unvalidated)
+        """Return a calibrated result for an exact inference identity.
+
+        An exact :class:`InferenceIdentity` is required; see
+        :meth:`get_calibrated_score`.  Use
+        :meth:`get_calibrated_result_for_identity`.
+        """
+        if identity is None:
+            raise CalibrationError(
+                "An exact InferenceIdentity is required to apply calibration; "
+                "selecting by detector id alone cannot bind the current "
+                "detector version, provider, model, configuration or regime. "
+                "Use get_calibrated_result_for_identity()."
+            )
+        if identity.detector_id != detector_id:
+            raise CalibrationError("identity.detector_id does not match detector_id.")
+        return self.get_calibrated_result_for_identity(
+            identity, raw_score, allow_unvalidated=allow_unvalidated
+        )
 
 
 def _coerce_label(value: Any) -> int | None:
@@ -1157,6 +1694,13 @@ class EvaluationResult:
     calibration_dataset_hash: str
     evaluation_mode: str = "held_out"
     contamination_detected: bool = False
+    # Disjointness proof state (CORE-06).  ``evaluation_mode`` is
+    # ``"held_out"`` only when ``disjointness_status`` is ``"verified"``.
+    # ``overlap_count`` is -1 when the overlap is unknown.
+    disjointness_status: str = "unknown"
+    overlap_count: int = -1
+    training_hash: str = ""
+    evaluation_hash: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
@@ -1179,6 +1723,10 @@ class EvaluationResult:
             "calibration_dataset_hash": self.calibration_dataset_hash,
             "evaluation_mode": self.evaluation_mode,
             "contamination_detected": self.contamination_detected,
+            "disjointness_status": self.disjointness_status,
+            "overlap_count": self.overlap_count,
+            "training_hash": self.training_hash,
+            "evaluation_hash": self.evaluation_hash,
         }
 
 
@@ -1282,10 +1830,21 @@ def evaluate_threshold(
     calibration_dataset_hash: str | None = None,
     strict: bool = True,
     allow_same_dataset: bool = False,
+    disjointness_proof: DisjointnessProof | None = None,
+    diagnostic: bool = False,
 ) -> EvaluationResult:
     """Evaluate a threshold on held-out test data.
 
     This is the EVALUATION step that must use data separate from calibration.
+
+    The result is labelled ``held_out`` only when the caller supplies a
+    :class:`DisjointnessProof` with status ``"verified"`` for exactly
+    this evaluation file.  Without a proof the result is ``diagnostic``
+    with ``disjointness_status`` ``"unknown"``.  A contaminated or
+    unknown proof raises :class:`ValueError` unless ``diagnostic=True``,
+    in which case the result is diagnostic and records the actual
+    overlap (or ``"unknown"`` status).  ``allow_same_dataset=True`` is
+    likewise a diagnostic override and never yields a held-out label.
 
     Args:
         test_path: Path to test/evaluation JSONL dataset
@@ -1293,6 +1852,10 @@ def evaluate_threshold(
         calibration_dataset_hash: Hash of calibration dataset (for verification)
         strict: Whether to fail on invalid JSON lines
         allow_same_dataset: Allow evaluation on same dataset as calibration (diagnostic only)
+        disjointness_proof: Sample/group-level proof linking the
+            calibration (training/selection/fit) data to this evaluation
+        diagnostic: Allow a contaminated/unknown proof to produce a
+            diagnostic result instead of raising
 
     Returns:
         EvaluationResult with metrics
@@ -1319,6 +1882,61 @@ def evaluate_threshold(
     # to 4 decimals by _metrics, matching what to_dict() emits.
     metrics = _metrics(rows, threshold)
 
+    if disjointness_proof is not None:
+        if disjointness_proof.evaluation_hash and disjointness_proof.evaluation_hash != test_hash:
+            raise ValueError("Disjointness proof does not match the evaluation dataset.")
+        if (
+            calibration_dataset_hash
+            and disjointness_proof.training_hash
+            and disjointness_proof.training_hash != calibration_dataset_hash
+        ):
+            raise ValueError("Disjointness proof does not match the calibration dataset.")
+    if allow_same_dataset:
+        evaluation_mode = "diagnostic"
+        if disjointness_proof is not None:
+            disjointness_status = disjointness_proof.status
+            overlap_count = disjointness_proof.overlap_count
+        elif calibration_dataset_hash and test_hash == calibration_dataset_hash:
+            disjointness_status = "contaminated"
+            overlap_count = len(rows)
+        else:
+            disjointness_status = "unknown"
+            overlap_count = -1
+        contamination_detected = disjointness_status == "contaminated"
+    elif disjointness_proof is None:
+        evaluation_mode = "diagnostic"
+        disjointness_status = "unknown"
+        overlap_count = -1
+        contamination_detected = False
+    elif disjointness_proof.status == "verified":
+        evaluation_mode = "held_out"
+        disjointness_status = "verified"
+        overlap_count = 0
+        contamination_detected = False
+    elif disjointness_proof.status == "contaminated":
+        if not diagnostic:
+            raise ValueError(
+                "Contamination detected: "
+                f"{disjointness_proof.overlap_count} overlapping samples "
+                "between calibration and evaluation datasets. "
+                "Use disjoint datasets to prevent data leakage."
+            )
+        evaluation_mode = "diagnostic"
+        disjointness_status = "contaminated"
+        overlap_count = disjointness_proof.overlap_count
+        contamination_detected = True
+    else:  # unknown proof
+        if not diagnostic:
+            raise ValueError(
+                "Disjointness could not be verified for the evaluation dataset: "
+                + "; ".join(disjointness_proof.errors or ("unknown reason",))
+                + ". Refusing to treat unverifiable datasets as held out."
+            )
+        evaluation_mode = "diagnostic"
+        disjointness_status = "unknown"
+        overlap_count = disjointness_proof.overlap_count
+        contamination_detected = False
+
     return EvaluationResult(
         threshold=threshold,
         tp=metrics["tp"],
@@ -1334,6 +1952,14 @@ def evaluate_threshold(
         evaluated=metrics["evaluated"],
         test_dataset_hash=test_hash,
         calibration_dataset_hash=calibration_dataset_hash or "",
+        evaluation_mode=evaluation_mode,
+        contamination_detected=contamination_detected,
+        disjointness_status=disjointness_status,
+        overlap_count=overlap_count,
+        training_hash=(disjointness_proof.training_hash if disjointness_proof is not None else ""),
+        evaluation_hash=(
+            disjointness_proof.evaluation_hash if disjointness_proof is not None else test_hash
+        ),
     )
 
 
@@ -1344,11 +1970,16 @@ def validate_no_contamination(
     """Assert that calibration and test sets are disjoint.
 
     This is a critical validation step before any evaluation.
-    It checks for sample overlap to detect contamination.
+    It checks for sample overlap to detect contamination, at both
+    sample level (reordered/relabeled rows) and source-document group
+    level (repeated ids with changed text, whitespace variants).
 
     Returns:
         Dict with 'contamination_detected' bool, 'shared_samples' count,
-        and 'shared_hashes' list if overlap found.
+        'shared_hashes' list if overlap found, and 'proof' — the
+        :class:`DisjointnessProof` (as a dict) this check is based on.
+        A file that cannot be read yields ``valid=False`` with status
+        ``"unknown"``, never a clean verdict.
     """
     calibration_path = Path(calibration_path)
     test_path = Path(test_path)
@@ -1367,43 +1998,48 @@ def validate_no_contamination(
     }
 
     if cal_hash == test_hash:
+        try:
+            _, count = _compute_sample_hashes(calibration_path, strict=False)
+        except Exception:
+            count = 0
+        proof = DisjointnessProof(
+            status="contaminated",
+            overlap_count=count,
+            training_count=count,
+            evaluation_count=count,
+            training_hash=cal_hash,
+            evaluation_hash=test_hash,
+            group_overlap_count=count,
+        )
         result["contamination_detected"] = True
         result["shared_samples"] = -1  # Identical files
         result["warning"] = "Files are identical; all samples overlap"
         result["valid"] = False
+        result["proof"] = proof.to_dict()
+        result["disjointness_status"] = "contaminated"
+        result["group_overlap_count"] = count
         return result
 
-    # Compute sample-level overlap from the raw texts on BOTH sides.
-    # NOTE (Phase 2 wave e): the previous implementation hashed
-    # ``_load_scores`` rows here, but that loader returns
-    # ``(label, score)`` pairs, so the calibration side hashed float
-    # scores while the test side hashed raw text — partial overlap was
-    # never detected (only the whole-file check above worked). Both
-    # sides now use the canonical per-sample hashing from
-    # ``benchmark._compute_sample_hashes``.
-    try:
-        cal_hashes, _ = _compute_sample_hashes(calibration_path, strict=False)
-        cal_samples = set(cal_hashes)
-    except Exception as e:
-        result["warning"] = f"Could not read calibration samples: {e}"
+    proof = prove_disjointness(calibration_path, test_path, strict=False)
+    result["proof"] = proof.to_dict()
+    result["disjointness_status"] = proof.status
+    result["group_overlap_count"] = proof.group_overlap_count
+    if proof.status == "unknown":
+        result["warning"] = "; ".join(proof.errors) or "Disjointness could not be verified."
         result["valid"] = False
         return result
-
-    try:
-        test_hashes, _ = _compute_sample_hashes(test_path, strict=False)
-        test_samples = set(test_hashes)
-    except Exception as e:
-        result["warning"] = f"Could not read test samples: {e}"
-        result["valid"] = False
-        return result
-
-    shared = cal_samples & test_samples
-    if shared:
+    if proof.status == "contaminated":
+        try:
+            cal_hashes, _ = _compute_sample_hashes(calibration_path, strict=False)
+            test_hashes, _ = _compute_sample_hashes(test_path, strict=False)
+            shared = sorted(set(cal_hashes) & set(test_hashes))
+        except Exception:
+            shared = []
         result["contamination_detected"] = True
-        result["shared_samples"] = len(shared)
-        result["shared_hashes"] = sorted(shared)
+        result["shared_samples"] = proof.overlap_count
+        result["shared_hashes"] = shared
         result["valid"] = False
-
+        return result
     return result
 
 
@@ -1463,30 +2099,48 @@ def run_calibration_evaluation(
     *,
     target_fpr: float = 0.01,
     strict: bool = True,
+    diagnostic: bool = False,
 ) -> dict[str, Any]:
     """Run the full calibration + evaluation pipeline.
 
     This is a convenience function that:
     1. Selects threshold on calibration data
-    2. Validates disjointness
+    2. Validates disjointness (sample + source-document group level)
     3. Evaluates on held-out test data
     4. Returns combined results
+
+    The evaluation is labelled ``held_out`` only when the
+    disjointness proof is ``"verified"``.  A contaminated or unknown
+    proof raises :class:`ValueError` unless ``diagnostic=True``, in
+    which case the returned evaluation is labelled ``diagnostic`` and
+    records the actual overlap / unknown status.
 
     Args:
         calibration_path: Path to calibration JSONL
         evaluation_path: Path to evaluation JSONL
         target_fpr: Target false positive rate
         strict: Whether to fail on invalid JSON
+        diagnostic: Allow a contaminated/unknown proof to produce a
+            diagnostic result instead of raising
 
     Returns:
         Dict with calibration_result, evaluation_result, and validation
     """
-    # Validate disjointness first
+    # Validate disjointness first (sample + group level).
     validation = validate_no_contamination(calibration_path, evaluation_path)
+    proof = DisjointnessProof.from_dict(validation["proof"])
     if validation["contamination_detected"]:
+        if not diagnostic:
+            raise ValueError(
+                f"Contamination detected: {validation['shared_samples']} overlapping "
+                f"samples. Calibration and evaluation datasets must be disjoint."
+            )
+    elif not validation["valid"] and not diagnostic:
         raise ValueError(
-            f"Contamination detected: {validation['shared_samples']} overlapping "
-            f"samples. Calibration and evaluation datasets must be disjoint."
+            "Disjointness could not be verified for calibration and "
+            "evaluation datasets: "
+            + "; ".join(proof.errors or ("unknown reason",))
+            + ". Refusing to treat unverifiable datasets as held out."
         )
 
     # Select threshold on calibration data
@@ -1503,6 +2157,8 @@ def run_calibration_evaluation(
         calibration_dataset_hash=validation["calibration_hash"],
         strict=strict,
         allow_same_dataset=False,
+        disjointness_proof=proof,
+        diagnostic=diagnostic,
     )
     evaluation_result.contamination_detected = validation["contamination_detected"]
 

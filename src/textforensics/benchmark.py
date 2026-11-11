@@ -244,7 +244,20 @@ def benchmark_with_calibration_jsonl(
     *,
     strict: bool = True,
     allow_same_dataset: bool = False,
+    disjointness_proof: DisjointnessProof | None = None,
+    diagnostic: bool = False,
 ) -> dict[str, Any]:
+    """Evaluate a fitted threshold on evaluation data.
+
+    The run is labelled ``held_out_evaluation`` only when the caller
+    supplies a :class:`DisjointnessProof` with status ``"verified"``
+    for exactly this evaluation file (and for the calibration file's
+    hash).  Without a proof the result is ``diagnostic`` with
+    ``disjointness_status`` ``"unknown"``; a contaminated or unknown
+    proof raises unless ``diagnostic=True``, in which case the result
+    is diagnostic and records the actual overlap.  ``allow_same_dataset``
+    is a diagnostic override and likewise never yields a held-out label.
+    """
     validate_calibration_artifact(calibration)
     evaluation_sha = dataset_sha256(path)
     if not allow_same_dataset and evaluation_sha == calibration["calibration_dataset_sha256"]:
@@ -255,6 +268,57 @@ def benchmark_with_calibration_jsonl(
 
     rows, skipped = _load_scores(path, strict=strict)
     result = _metrics(rows, float(calibration["recommended_threshold"]))
+    if disjointness_proof is not None:
+        if (
+            disjointness_proof.evaluation_hash
+            and disjointness_proof.evaluation_hash != evaluation_sha
+        ):
+            raise ValueError("Disjointness proof does not match the evaluation dataset.")
+        if (
+            disjointness_proof.training_hash
+            and disjointness_proof.training_hash != calibration["calibration_dataset_sha256"]
+        ):
+            raise ValueError("Disjointness proof does not match the calibration dataset.")
+    if allow_same_dataset:
+        if disjointness_proof is not None:
+            status = disjointness_proof.status
+            overlap = disjointness_proof.overlap_count
+        elif evaluation_sha == calibration["calibration_dataset_sha256"]:
+            status = "contaminated"
+            overlap = len(rows)
+        else:
+            status = "unknown"
+            overlap = -1
+        mode = "diagnostic"
+    elif disjointness_proof is None:
+        mode = "diagnostic"
+        status = "unknown"
+        overlap = -1
+    elif disjointness_proof.status == "verified":
+        mode = "held_out_evaluation"
+        status = "verified"
+        overlap = 0
+    elif disjointness_proof.status == "contaminated":
+        if not diagnostic:
+            raise ValueError(
+                "Contamination detected: "
+                f"{disjointness_proof.overlap_count} overlapping samples "
+                "between calibration and evaluation datasets. "
+                "Use disjoint datasets to prevent data leakage."
+            )
+        mode = "diagnostic"
+        status = "contaminated"
+        overlap = disjointness_proof.overlap_count
+    else:  # unknown proof
+        if not diagnostic:
+            raise ValueError(
+                "Disjointness could not be verified for the evaluation dataset: "
+                + "; ".join(disjointness_proof.errors or ("unknown reason",))
+                + ". Refusing to treat unverifiable datasets as held out."
+            )
+        mode = "diagnostic"
+        status = "unknown"
+        overlap = disjointness_proof.overlap_count
     result.update(
         {
             "schema": "textforensics.benchmark-result/v1",
@@ -263,7 +327,9 @@ def benchmark_with_calibration_jsonl(
             "detector_id": calibration["detector_id"],
             "detector_version": calibration["detector_version"],
             "skipped": skipped,
-            "mode": "held_out_evaluation",
+            "mode": mode,
+            "disjointness_status": status,
+            "overlap_count": overlap,
         }
     )
     return result
@@ -285,6 +351,278 @@ def load_calibration_artifact(path: str | Path) -> dict[str, Any]:
 # selection, calibration, and final evaluation stay disjoint (AGENTS.md
 # rule 12). The per-sample hashes here are the canonical implementation
 # used by the contamination gates.
+
+
+@dataclass(frozen=True, slots=True)
+class DisjointnessProof:
+    """Sample/group-level proof that two datasets are disjoint.
+
+    Produced by :func:`prove_disjointness` and consumed by the
+    evaluation entry points in ``calibration.py`` (and by the CORE-01
+    eligibility predicate in ``evidence.py`` as its contamination
+    state).  ``status`` is the only field that may authorize a
+    ``held_out`` label:
+
+    * ``"verified"`` — both files were read completely and share no
+      sample hash and no source-document group hash (``group_overlap_count``
+      is ``-1`` only for sample-only proofs, e.g. the proof attached by
+      ``check_disjointness``, which never evaluated groups).
+    * ``"contaminated"`` — at least one sample or group overlaps.
+    * ``"unknown"`` — disjointness could not be established (a file
+      could not be read/parsed, or a side is empty).  Unknown is never
+      held out and fails release-quality evaluation.
+
+    ``overlap_count`` / ``group_overlap_count`` are ``-1`` when the
+    corresponding overlap is unknown.  ``training_hash`` /
+    ``evaluation_hash`` are the SHA-256 digests of the exact files the
+    proof was computed over, so a proof cannot be silently reused for
+    different files.
+    """
+
+    status: str
+    overlap_count: int
+    training_count: int
+    evaluation_count: int
+    training_hash: str
+    evaluation_hash: str
+    group_overlap_count: int = 0
+    errors: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.status not in {"verified", "unknown", "contaminated"}:
+            raise ValueError(
+                "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'."
+            )
+        for field_name in ("overlap_count", "group_overlap_count"):
+            value = getattr(self, field_name)
+            if isinstance(value, bool) or not isinstance(value, int) or value < -1:
+                raise ValueError(f"DisjointnessProof {field_name} must be an integer >= -1.")
+        for field_name in ("training_count", "evaluation_count"):
+            value = getattr(self, field_name)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError(f"DisjointnessProof {field_name} must be a non-negative integer.")
+        if self.status == "verified" and self.overlap_count != 0:
+            raise ValueError("A verified DisjointnessProof must have zero sample overlap.")
+        if self.status == "verified" and self.group_overlap_count not in (0, -1):
+            raise ValueError(
+                "A verified DisjointnessProof must have zero group overlap "
+                "or unevaluated group overlap (-1, sample-only proof)."
+            )
+        if (
+            self.status == "contaminated"
+            and self.overlap_count == 0
+            and self.group_overlap_count == 0
+        ):
+            raise ValueError("A contaminated DisjointnessProof must record overlap.")
+        object.__setattr__(self, "errors", tuple(str(item) for item in self.errors))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema": "textforensics.disjointness-proof/v1",
+            "status": self.status,
+            "overlap_count": self.overlap_count,
+            "group_overlap_count": self.group_overlap_count,
+            "training_count": self.training_count,
+            "evaluation_count": self.evaluation_count,
+            "training_hash": self.training_hash,
+            "evaluation_hash": self.evaluation_hash,
+            "errors": list(self.errors),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> DisjointnessProof:
+        if not isinstance(data, dict):
+            raise ValueError("Disjointness proof must be a JSON object.")
+        return cls(
+            status=str(data["status"]),
+            overlap_count=int(data["overlap_count"]),
+            training_count=int(data["training_count"]),
+            evaluation_count=int(data["evaluation_count"]),
+            training_hash=str(data["training_hash"]),
+            evaluation_hash=str(data["evaluation_hash"]),
+            group_overlap_count=int(data.get("group_overlap_count", 0)),
+            errors=tuple(data.get("errors", [])),
+        )
+
+
+_GROUP_ID_FIELDS = ("source_document_id", "document_id", "source_id", "group_id")
+
+
+def _normalize_text_for_group(text: str) -> str:
+    """Canonical text form for near-duplicate grouping.
+
+    Case and whitespace differences do not make two rows different
+    source material: ``"Alpha  plain"`` and ``"  alpha plain "`` share
+    a group.  This is exact matching on normalized text, not fuzzy
+    similarity — genuinely reworded text is a different group.
+    """
+    return " ".join(str(text).lower().split())
+
+
+def _sample_and_group_hashes(
+    path: Path,
+    *,
+    strict: bool = True,
+) -> tuple[list[str], list[str], int, list[str]]:
+    """Hash every row of a JSONL file at sample and group level.
+
+    Returns ``(sample_hashes, group_hashes, valid_row_count, errors)``.
+    A sample hash covers the raw ``text`` only, so relabelling a row
+    does not hide it.  A group hash covers either an explicit source
+    identifier (``source_document_id`` / ``document_id`` /
+    ``source_id`` / ``group_id``) or the whitespace/case-normalized
+    text, so sentence/edited variants of one source document cannot
+    cross splits undetected.  In strict mode an unparseable line
+    raises; otherwise it is skipped and recorded in ``errors``.
+    """
+    sample_hashes: list[str] = []
+    group_hashes: list[str] = []
+    errors: list[str] = []
+    count = 0
+    with path.open("r", encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, start=1):
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError as exc:
+                if strict:
+                    raise ValueError(f"Line {line_number} is not valid JSON") from exc
+                errors.append(f"Line {line_number} is not valid JSON; skipped")
+                continue
+            if not isinstance(row, dict):
+                if strict:
+                    raise ValueError(f"Line {line_number} must be a JSON object")
+                errors.append(f"Line {line_number} must be a JSON object; skipped")
+                continue
+            text = row.get("text", "")
+            if not isinstance(text, str):
+                text = json.dumps(text, sort_keys=True, ensure_ascii=False)
+            sample_hashes.append(_compute_content_hash(text))
+            group_key: str | None = None
+            for field_name in _GROUP_ID_FIELDS:
+                value = row.get(field_name)
+                if isinstance(value, str) and value.strip():
+                    group_key = f"id:{field_name}:{value.strip()}"
+                    break
+            if group_key is None:
+                group_key = f"text:{_normalize_text_for_group(text)}"
+            group_hashes.append(
+                hashlib.sha256(
+                    json.dumps(
+                        {"group": group_key},
+                        sort_keys=True,
+                        separators=(",", ":"),
+                        ensure_ascii=False,
+                    ).encode("utf-8")
+                ).hexdigest()
+            )
+            count += 1
+    return sample_hashes, group_hashes, count, errors
+
+
+def prove_disjointness(
+    training_path: str | Path,
+    evaluation_path: str | Path,
+    *,
+    strict: bool = True,
+) -> DisjointnessProof:
+    """Prove (or fail to prove) that two JSONL datasets are disjoint.
+
+    Sample-level overlap catches reordered, relabelled and duplicated
+    rows; group-level overlap catches repeated source-document ids
+    with changed text and whitespace/case variants of the same text.
+    Any read/parse failure, or an empty side, yields status
+    ``"unknown"`` — never ``"verified"``.  With ``strict=False``
+    unparseable lines are skipped and recorded in ``errors``; the
+    proof then covers only the readable rows, which callers must weigh
+    (release-quality entry points use the strict default).
+    """
+    training_path = Path(training_path)
+    evaluation_path = Path(evaluation_path)
+    training_hash = ""
+    evaluation_hash = ""
+    try:
+        training_hash = dataset_sha256(training_path)
+    except OSError as exc:
+        return DisjointnessProof(
+            status="unknown",
+            overlap_count=-1,
+            training_count=0,
+            evaluation_count=0,
+            training_hash="",
+            evaluation_hash="",
+            group_overlap_count=-1,
+            errors=(f"Could not hash training file: {exc}",),
+        )
+    try:
+        evaluation_hash = dataset_sha256(evaluation_path)
+    except OSError as exc:
+        return DisjointnessProof(
+            status="unknown",
+            overlap_count=-1,
+            training_count=0,
+            evaluation_count=0,
+            training_hash=training_hash,
+            evaluation_hash="",
+            group_overlap_count=-1,
+            errors=(f"Could not hash evaluation file: {exc}",),
+        )
+    try:
+        train_samples, train_groups, train_count, train_errors = _sample_and_group_hashes(
+            training_path, strict=strict
+        )
+    except Exception as exc:
+        return DisjointnessProof(
+            status="unknown",
+            overlap_count=-1,
+            training_count=0,
+            evaluation_count=0,
+            training_hash=training_hash,
+            evaluation_hash=evaluation_hash,
+            group_overlap_count=-1,
+            errors=(f"Could not read training samples: {exc}",),
+        )
+    try:
+        eval_samples, eval_groups, eval_count, eval_errors = _sample_and_group_hashes(
+            evaluation_path, strict=strict
+        )
+    except Exception as exc:
+        return DisjointnessProof(
+            status="unknown",
+            overlap_count=-1,
+            training_count=train_count,
+            evaluation_count=0,
+            training_hash=training_hash,
+            evaluation_hash=evaluation_hash,
+            group_overlap_count=-1,
+            errors=(f"Could not read evaluation samples: {exc}",),
+        )
+    errors = tuple(train_errors + eval_errors)
+    if train_count == 0 or eval_count == 0:
+        return DisjointnessProof(
+            status="unknown",
+            overlap_count=-1,
+            training_count=train_count,
+            evaluation_count=eval_count,
+            training_hash=training_hash,
+            evaluation_hash=evaluation_hash,
+            group_overlap_count=-1,
+            errors=errors + ("An empty dataset cannot prove disjointness.",),
+        )
+    overlap = len(set(train_samples) & set(eval_samples))
+    group_overlap = len(set(train_groups) & set(eval_groups))
+    status = "contaminated" if (overlap or group_overlap) else "verified"
+    return DisjointnessProof(
+        status=status,
+        overlap_count=overlap,
+        training_count=train_count,
+        evaluation_count=eval_count,
+        training_hash=training_hash,
+        evaluation_hash=evaluation_hash,
+        group_overlap_count=group_overlap,
+        errors=errors,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -590,6 +928,16 @@ def check_disjointness(
         result["errors"].append(message)
         result["disjoint"] = False
         result["verified"] = False
+        result["proof"] = DisjointnessProof(
+            status="unknown",
+            overlap_count=-1,
+            training_count=0,
+            evaluation_count=0,
+            training_hash="",
+            evaluation_hash="",
+            group_overlap_count=-1,
+            errors=(message,),
+        ).to_dict()
         return result
 
     try:
@@ -600,6 +948,16 @@ def check_disjointness(
         result["errors"].append(message)
         result["disjoint"] = False
         result["verified"] = False
+        result["proof"] = DisjointnessProof(
+            status="unknown",
+            overlap_count=-1,
+            training_count=0,
+            evaluation_count=0,
+            training_hash="",
+            evaluation_hash="",
+            group_overlap_count=-1,
+            errors=(message,),
+        ).to_dict()
         return result
 
     hashes1 = set(hashes1_raw)
@@ -612,6 +970,28 @@ def check_disjointness(
         result["disjoint"] = False
         result["shared_samples"] = len(shared)
         result["shared_hashes"] = sorted(shared)
+
+    try:
+        training_hash = dataset_sha256(path1)
+    except OSError:
+        training_hash = ""
+    try:
+        evaluation_hash = dataset_sha256(path2)
+    except OSError:
+        evaluation_hash = ""
+    result["proof"] = DisjointnessProof(
+        status=("contaminated" if shared else ("verified" if result["verified"] else "unknown")),
+        overlap_count=len(shared),
+        training_count=len(hashes1_raw),
+        evaluation_count=len(hashes2_raw),
+        training_hash=training_hash,
+        evaluation_hash=evaluation_hash,
+        # This helper checks sample hashes only; group-level overlap was
+        # not evaluated here, so it stays unknown (-1). Use
+        # prove_disjointness for a full sample+group proof.
+        group_overlap_count=-1,
+        errors=tuple(result["errors"]),
+    ).to_dict()
 
     return result
 

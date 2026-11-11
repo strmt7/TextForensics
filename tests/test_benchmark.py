@@ -100,9 +100,13 @@ class BenchmarkTests(unittest.TestCase):
                 ai_suffix=" This is a separate evaluation sample.",
             )
             artifact = calibrate_threshold_jsonl(calibration, target_fpr=0.0)
+            from textforensics.benchmark import prove_disjointness
+
+            proof = prove_disjointness(calibration, evaluation)
             result = benchmark_with_calibration_jsonl(
                 evaluation,
                 artifact,
+                disjointness_proof=proof,
             )
             self.assertEqual(result["mode"], "held_out_evaluation")
             self.assertNotEqual(
@@ -642,7 +646,12 @@ class BenchmarkMutationKillTests(unittest.TestCase):
             )
             self.assertGreater(dataset_sha256(evaluation), dataset_sha256(calibration))
             artifact = calibrate_threshold_jsonl(calibration, target_fpr=0.0)
-            result = benchmark_with_calibration_jsonl(evaluation, artifact)
+            from textforensics.benchmark import prove_disjointness
+
+            proof = prove_disjointness(calibration, evaluation)
+            result = benchmark_with_calibration_jsonl(
+                evaluation, artifact, disjointness_proof=proof
+            )
             self.assertEqual(result["mode"], "held_out_evaluation")
 
     def test_held_out_evaluation_allows_same_dataset_explicitly(self):
@@ -651,7 +660,9 @@ class BenchmarkMutationKillTests(unittest.TestCase):
             write_dataset(path)
             artifact = calibrate_threshold_jsonl(path, target_fpr=0.0)
             result = benchmark_with_calibration_jsonl(path, artifact, allow_same_dataset=True)
-            self.assertEqual(result["mode"], "held_out_evaluation")
+            # An explicit same-dataset override is diagnostic, never held out.
+            self.assertEqual(result["mode"], "diagnostic")
+            self.assertEqual(result["disjointness_status"], "contaminated")
 
     def test_benchmark_with_calibration_strict_is_keyword_only(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1460,3 +1471,194 @@ class BenchmarkMutationKillTests(unittest.TestCase):
         # tpr guard (tp=1, fn=0): 1.0.
         result = _metrics([("ai", 0.9)], 0.5)
         self.assertEqual(result["true_positive_rate"], 1.0)
+
+
+# ---------------------------------------------------------------------------
+# Audit W2 — Worker B regression tests (CORE-06, benchmark side)
+# Added RED first, from the audit's stated expected results.
+# ---------------------------------------------------------------------------
+
+
+def _write_proof_rows(path: Path, rows) -> None:
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+
+
+class DisjointnessProofAuditW2Tests(unittest.TestCase):
+    """CORE-06: held-out labels require a sample/group-level
+    disjointness proof; reordering, relabelling and near-duplicate
+    groups must be caught."""
+
+    def test_verified_control_is_verified(self):
+        from textforensics.benchmark import prove_disjointness
+
+        with tempfile.TemporaryDirectory() as tmp:
+            train = Path(tmp) / "train.jsonl"
+            evaluation = Path(tmp) / "eval.jsonl"
+            _write_proof_rows(
+                train,
+                [
+                    {"label": "human", "text": "First training human sentence."},
+                    {"label": "ai", "text": "First training machine sentence."},
+                ],
+            )
+            _write_proof_rows(
+                evaluation,
+                [
+                    {"label": "human", "text": "First evaluation human sentence."},
+                    {"label": "ai", "text": "First evaluation machine sentence."},
+                ],
+            )
+            proof = prove_disjointness(train, evaluation)
+            self.assertEqual(proof.status, "verified")
+            self.assertEqual(proof.overlap_count, 0)
+            self.assertEqual(proof.group_overlap_count, 0)
+            self.assertEqual(proof.training_count, 2)
+            self.assertEqual(proof.evaluation_count, 2)
+            self.assertEqual(proof.training_hash, dataset_sha256(train))
+            self.assertEqual(proof.evaluation_hash, dataset_sha256(evaluation))
+
+    def test_reordered_rows_are_contaminated(self):
+        from textforensics.benchmark import prove_disjointness
+
+        with tempfile.TemporaryDirectory() as tmp:
+            train = Path(tmp) / "train.jsonl"
+            evaluation = Path(tmp) / "eval.jsonl"
+            rows = [
+                {"label": "human", "text": "Alpha plain sentence one."},
+                {"label": "ai", "text": "Beta machine sentence two."},
+            ]
+            _write_proof_rows(train, rows)
+            _write_proof_rows(evaluation, list(reversed(rows)))
+            proof = prove_disjointness(train, evaluation)
+            self.assertEqual(proof.status, "contaminated")
+            self.assertEqual(proof.overlap_count, 2)
+            # File hashes differ (reordered bytes) yet overlap is complete.
+            self.assertNotEqual(proof.training_hash, proof.evaluation_hash)
+
+    def test_relabeled_rows_are_contaminated(self):
+        from textforensics.benchmark import prove_disjointness
+
+        with tempfile.TemporaryDirectory() as tmp:
+            train = Path(tmp) / "train.jsonl"
+            evaluation = Path(tmp) / "eval.jsonl"
+            _write_proof_rows(train, [{"label": "human", "text": "Same text, first label."}])
+            _write_proof_rows(evaluation, [{"label": "ai", "text": "Same text, first label."}])
+            proof = prove_disjointness(train, evaluation)
+            self.assertEqual(proof.status, "contaminated")
+            self.assertEqual(proof.overlap_count, 1)
+
+    def test_repeated_id_with_changed_text_is_contaminated_via_group(self):
+        from textforensics.benchmark import prove_disjointness
+
+        with tempfile.TemporaryDirectory() as tmp:
+            train = Path(tmp) / "train.jsonl"
+            evaluation = Path(tmp) / "eval.jsonl"
+            _write_proof_rows(
+                train,
+                [
+                    {
+                        "label": "human",
+                        "text": "Original document sentence.",
+                        "source_document_id": "doc-1",
+                    }
+                ],
+            )
+            _write_proof_rows(
+                evaluation,
+                [
+                    {
+                        "label": "human",
+                        "text": "Edited variant of the document sentence.",
+                        "source_document_id": "doc-1",
+                    }
+                ],
+            )
+            proof = prove_disjointness(train, evaluation)
+            self.assertEqual(proof.status, "contaminated")
+            self.assertEqual(proof.group_overlap_count, 1)
+
+    def test_whitespace_variant_group_is_contaminated(self):
+        from textforensics.benchmark import prove_disjointness
+
+        with tempfile.TemporaryDirectory() as tmp:
+            train = Path(tmp) / "train.jsonl"
+            evaluation = Path(tmp) / "eval.jsonl"
+            _write_proof_rows(train, [{"label": "human", "text": "Alpha  plain   sentence one."}])
+            _write_proof_rows(
+                evaluation,
+                [{"label": "human", "text": "  alpha plain sentence ONE. "}],
+            )
+            proof = prove_disjointness(train, evaluation)
+            self.assertEqual(proof.status, "contaminated")
+            self.assertGreaterEqual(proof.group_overlap_count, 1)
+
+    def test_missing_file_is_unknown_not_verified(self):
+        from textforensics.benchmark import prove_disjointness
+
+        with tempfile.TemporaryDirectory() as tmp:
+            train = Path(tmp) / "train.jsonl"
+            _write_proof_rows(train, [{"label": "human", "text": "A training sentence."}])
+            proof = prove_disjointness(train, Path(tmp) / "missing.jsonl")
+            self.assertEqual(proof.status, "unknown")
+            self.assertTrue(proof.errors)
+
+    def test_proof_round_trips_through_dict(self):
+        from textforensics.benchmark import DisjointnessProof, prove_disjointness
+
+        with tempfile.TemporaryDirectory() as tmp:
+            train = Path(tmp) / "train.jsonl"
+            evaluation = Path(tmp) / "eval.jsonl"
+            _write_proof_rows(train, [{"label": "human", "text": "Training sentence."}])
+            _write_proof_rows(evaluation, [{"label": "human", "text": "Evaluation sentence."}])
+            proof = prove_disjointness(train, evaluation)
+            restored = DisjointnessProof.from_dict(proof.to_dict())
+            self.assertEqual(restored, proof)
+            self.assertEqual(restored.status, "verified")
+
+    def test_benchmark_with_calibration_needs_verified_proof_for_held_out(self):
+        from textforensics.benchmark import prove_disjointness
+
+        with tempfile.TemporaryDirectory() as tmp:
+            calibration = Path(tmp) / "calibration.jsonl"
+            evaluation = Path(tmp) / "evaluation.jsonl"
+            write_dataset(calibration)
+            write_dataset(
+                evaluation,
+                human_suffix=" This is the evaluation split.",
+                ai_suffix=" This is a separate evaluation sample.",
+            )
+            artifact = calibrate_threshold_jsonl(calibration, target_fpr=0.0)
+            # No proof: honestly labelled diagnostic, never held out.
+            result = benchmark_with_calibration_jsonl(evaluation, artifact)
+            self.assertEqual(result["mode"], "diagnostic")
+            self.assertEqual(result["disjointness_status"], "unknown")
+            # Verified proof: held out.
+            proof = prove_disjointness(calibration, evaluation)
+            self.assertEqual(proof.status, "verified")
+            held_out = benchmark_with_calibration_jsonl(
+                evaluation, artifact, disjointness_proof=proof
+            )
+            self.assertEqual(held_out["mode"], "held_out_evaluation")
+            self.assertEqual(held_out["disjointness_status"], "verified")
+
+    def test_benchmark_with_calibration_contaminated_proof_raises(self):
+        from textforensics.benchmark import prove_disjointness
+
+        with tempfile.TemporaryDirectory() as tmp:
+            calibration = Path(tmp) / "calibration.jsonl"
+            evaluation = Path(tmp) / "evaluation.jsonl"
+            write_dataset(calibration)
+            # Same rows in a different order: different file hash, but
+            # complete sample overlap.
+            lines = calibration.read_text(encoding="utf-8").splitlines()
+            evaluation.write_text("\n".join(reversed(lines)) + "\n", encoding="utf-8")
+            artifact = calibrate_threshold_jsonl(calibration, target_fpr=0.0)
+            proof = prove_disjointness(calibration, evaluation)
+            self.assertEqual(proof.status, "contaminated")
+            with self.assertRaises(ValueError):
+                benchmark_with_calibration_jsonl(evaluation, artifact, disjointness_proof=proof)
+            diagnostic = benchmark_with_calibration_jsonl(
+                evaluation, artifact, disjointness_proof=proof, diagnostic=True
+            )
+            self.assertEqual(diagnostic["mode"], "diagnostic")
+            self.assertEqual(diagnostic["disjointness_status"], "contaminated")

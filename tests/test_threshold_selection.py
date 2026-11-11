@@ -170,12 +170,21 @@ class EvaluateThresholdTests(unittest.TestCase):
             # First select threshold
             cal_result = select_threshold(cal_path, target_fpr=0.05)
 
+            # Then evaluate with a verified disjointness proof: only a
+            # verified proof may label the run held out (CORE-06).
+            from textforensics.benchmark import dataset_sha256, prove_disjointness
+
+            proof = prove_disjointness(cal_path, eval_path)
+            self.assertEqual(proof.status, "verified")
+
             # Then evaluate
             eval_result = evaluate_threshold(
                 eval_path,
                 cal_result.threshold,
-                calibration_dataset_hash="dummy_for_testing",
+                calibration_dataset_hash=dataset_sha256(cal_path),
+                disjointness_proof=proof,
             )
+            self.assertEqual(eval_result.evaluation_mode, "held_out")
 
             self.assertEqual(
                 eval_result.tp + eval_result.fp + eval_result.tn + eval_result.fn,

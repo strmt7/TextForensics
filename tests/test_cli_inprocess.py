@@ -173,7 +173,15 @@ class CliInProcessTests(unittest.TestCase):
                 ["benchmark", str(evalf), "--calibration", str(cal_out)]
             )
             self.assertEqual(code, EXIT_OK, err)
-            self.assertEqual(json.loads(out)["mode"], "held_out_evaluation")
+            # W2 (CORE-06): the CLI only has the calibration artifact's
+            # file hash, not the calibration dataset itself, so it
+            # cannot supply a disjointness proof; the run is honestly
+            # labelled diagnostic, never held out.  Wiring a
+            # --calibration-dataset option so the CLI can prove
+            # disjointness is follow-up for the coordinator (W5).
+            result = json.loads(out)
+            self.assertEqual(result["mode"], "diagnostic")
+            self.assertEqual(result["disjointness_status"], "unknown")
 
     def test_benchmark_same_dataset_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:

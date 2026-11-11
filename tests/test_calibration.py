@@ -80,6 +80,13 @@ def eligible_artifact_kwargs() -> dict:
         "metrics": {"brier": 0.10, "ece": 0.05, "log_loss": 0.30},
         "code_version": "abc123",
         "run_artifact_sha256": hex64(4),
+        # Exact inference identity (CORE-05): an eligible artifact must
+        # record provider/model/config/native semantics/regime.
+        "provider": "local",
+        "model": "builtin-heuristic-0.1.0",
+        "config_hash": hex64(5),
+        "native_score_semantics": "probability_higher_means_ai",
+        "regime": "unedited",
     }
 
 
@@ -199,10 +206,15 @@ class TestCalibrationCurvePlatt:
 
 class TestCalibrationCurveTemperature:
     def test_softens_scores(self):
+        # Temperature on probability inputs: sigmoid(logit(p)/T).
+        # Independent oracle values (Guo et al.): at T=2, p=0 -> 0,
+        # p=0.5 -> 0.5, p=1 -> 1.
         curve = CalibrationCurve(method="temperature", parameters={"T": 2.0})
-        assert curve.calibrate(0.0) == pytest.approx(0.5)
-        assert curve.calibrate(1.0) == pytest.approx(1.0 / (1.0 + math.exp(-0.5)))
-        assert curve.calibrate(0.5) == pytest.approx(1.0 / (1.0 + math.exp(-0.25)))
+        assert curve.calibrate(0.0) == pytest.approx(0.0)
+        assert curve.calibrate(1.0) == pytest.approx(1.0)
+        assert curve.calibrate(0.5) == pytest.approx(0.5)
+        assert curve.calibrate(0.2) == pytest.approx(1.0 / 3.0)
+        assert curve.calibrate(0.8) == pytest.approx(2.0 / 3.0)
 
     def test_missing_T_raises(self):
         with pytest.raises(CalibrationError, match="parameters.T"):
@@ -1136,7 +1148,7 @@ class TestCalibrationManagerScores:
     def test_get_calibrated_score_on_eligible(self, storage):
         mgr = CalibrationManager(storage)
         store_eligible(mgr, "det1", "cal1")
-        value = mgr.get_calibrated_score("det1", 0.5)
+        value = mgr.get_calibrated_score("det1", 0.5, identity=_audit_identity())
         assert value is not None
         assert 0.0 <= value <= 1.0
 
@@ -1148,9 +1160,10 @@ class TestCalibrationManagerScores:
             platt_curve(),
             calibration_id="cal1",
             created_at="2024-01-01T00:00:00+00:00",
+            identity=_audit_identity(),
         )
         with pytest.raises(CalibrationError, match="not eligible"):
-            mgr.get_calibrated_score("det1", 0.5)
+            mgr.get_calibrated_score("det1", 0.5, identity=_audit_identity())
 
     def test_get_calibrated_score_allow_unvalidated(self, storage):
         mgr = CalibrationManager(storage)
@@ -1160,17 +1173,25 @@ class TestCalibrationManagerScores:
             platt_curve(),
             calibration_id="cal1",
             created_at="2024-01-01T00:00:00+00:00",
+            identity=_audit_identity(),
         )
-        value = mgr.get_calibrated_score("det1", 0.5, allow_unvalidated=True)
+        value = mgr.get_calibrated_score(
+            "det1", 0.5, identity=_audit_identity(), allow_unvalidated=True
+        )
         assert value == pytest.approx(0.6224593312018546)
 
     def test_get_calibrated_score_unknown_detector_returns_none(self, storage):
-        assert CalibrationManager(storage).get_calibrated_score("ghost", 0.5) is None
+        assert (
+            CalibrationManager(storage).get_calibrated_score(
+                "ghost", 0.5, identity=_audit_identity(detector_id="ghost")
+            )
+            is None
+        )
 
     def test_get_calibrated_result_on_eligible(self, storage):
         mgr = CalibrationManager(storage)
         store_eligible(mgr, "det1", "cal1")
-        result = mgr.get_calibrated_result("det1", 0.5)
+        result = mgr.get_calibrated_result("det1", 0.5, identity=_audit_identity())
         assert result is not None
         assert result.status == "validated"
         assert result.probability_eligible is True
@@ -1183,12 +1204,18 @@ class TestCalibrationManagerScores:
             platt_curve(),
             calibration_id="cal1",
             created_at="2024-01-01T00:00:00+00:00",
+            identity=_audit_identity(),
         )
         with pytest.raises(CalibrationError):
-            mgr.get_calibrated_result("det1", 0.5)
+            mgr.get_calibrated_result("det1", 0.5, identity=_audit_identity())
 
     def test_get_calibrated_result_unknown_detector_returns_none(self, storage):
-        assert CalibrationManager(storage).get_calibrated_result("ghost", 0.5) is None
+        assert (
+            CalibrationManager(storage).get_calibrated_result(
+                "ghost", 0.5, identity=_audit_identity(detector_id="ghost")
+            )
+            is None
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1387,8 +1414,8 @@ class TestCalibrationMutationKillTests:
         # Mutant [179] (0.0 -> 1.0) in `temperature <= 0.0`: T=0.5
         # would be rejected as non-positive.
         curve = CalibrationCurve(method="temperature", parameters={"T": 0.5})
-        # calibrate(0.5) = sigmoid(0.5 / 0.5) = sigmoid(1.0).
-        assert curve.calibrate(0.5) == pytest.approx(0.7310585786300049)
+        # calibrate(0.5) = sigmoid(logit(0.5) / 0.5) = sigmoid(0) = 0.5.
+        assert curve.calibrate(0.5) == pytest.approx(0.5)
 
     def test_temperature_zero_rejected(self):
         with pytest.raises(CalibrationError, match="positive"):
@@ -2356,12 +2383,26 @@ class TestCalibrationMutationKillTestsRemainder:
         # NaN smuggled into metadata after construction (so it never
         # passes through _canonical_json) must still be rejected at
         # the file write; the mutant writes it as NaN.
+        # W2 (CORE-04): metadata is deeply frozen, so the smuggle
+        # itself now fails with TypeError, and NaN metadata cannot
+        # even be constructed (the content hash rejects non-finite
+        # JSON). Both are fail-closed; neither writes NaN to disk.
         with tempfile.TemporaryDirectory() as tmp:
             mgr = CalibrationManager(Path(tmp))
             artifact = eligible_artifact()
-            artifact.metadata["nan_value"] = float("nan")
+            with pytest.raises(TypeError):
+                artifact.metadata["nan_value"] = float("nan")  # type: ignore[index]
             with pytest.raises(ValueError):
-                mgr._save_artifact(artifact)
+                CalibrationArtifact(
+                    artifact_id="d:c",
+                    detector_id="d",
+                    detector_version="1",
+                    curve=platt_curve(),
+                    calibration_id="c",
+                    metadata={"nan_value": float("nan")},
+                )
+            mgr._save_artifact(artifact)
+            assert (Path(tmp) / f"{artifact.content_hash}.json").exists()
 
     def test_save_calibration_artifact_non_ascii_detector(self):
         # Mutant [1575] (ensure_ascii=False -> True) in
@@ -2375,12 +2416,17 @@ class TestCalibrationMutationKillTestsRemainder:
     def test_save_calibration_artifact_nan_metadata_rejected(self):
         # Mutant [1576] (allow_nan=False -> True) in
         # save_calibration_artifact: same NaN-via-metadata case.
+        # W2 (CORE-04): metadata is deeply frozen, so the post-
+        # construction smuggle fails with TypeError and NaN metadata
+        # cannot be constructed at all (see the _save_artifact test
+        # above). Neither path writes NaN to disk.
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp) / "artifact.json"
             artifact = eligible_artifact()
-            artifact.metadata["nan_value"] = float("nan")
-            with pytest.raises(ValueError):
-                save_calibration_artifact(artifact, target)
+            with pytest.raises(TypeError):
+                artifact.metadata["nan_value"] = float("nan")  # type: ignore[index]
+            save_calibration_artifact(artifact, target)
+            assert target.exists()
 
     def test_threshold_artifact_non_ascii_detector(self):
         # Mutant [1588] (ensure_ascii=False -> True) in
@@ -2997,3 +3043,592 @@ class TestCalibrationMutationKillTestsRemainder:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+# ---------------------------------------------------------------------------
+# Audit W2 — Worker B regression tests (CORE-03/04/05/06)
+# Added RED first, from the audit's stated expected results and independent
+# oracles (never from current product output).
+# ---------------------------------------------------------------------------
+
+
+def _oracle_temperature_probability(p: float, temperature: float) -> float:
+    """Independent oracle: sigmoid(logit(p) / T), Guo et al. temperature scaling.
+
+    Computed here with plain math only — never by calling the product.
+    Endpoints are the documented limits sigmoid(+/-inf) = 1/0.
+    """
+    if p == 0.0:
+        return 0.0
+    if p == 1.0:
+        return 1.0
+    logit = math.log(p) - math.log1p(-p)
+    return 1.0 / (1.0 + math.exp(-logit / temperature))
+
+
+def _oracle_sigmoid(value: float) -> float:
+    return 1.0 / (1.0 + math.exp(-value))
+
+
+class TestTemperatureProbabilityDomainAuditW2:
+    """CORE-03: temperature scaling must use sigmoid(logit(p)/T) for
+    probability inputs, or sigmoid(z/T) for explicit logit inputs."""
+
+    def test_probability_identity_at_T1(self):
+        curve = CalibrationCurve(method="temperature", parameters={"T": 1.0})
+        for p in (0.2, 0.5, 0.8):
+            assert curve.calibrate(p) == pytest.approx(_oracle_temperature_probability(p, 1.0))
+            assert curve.calibrate(p) == pytest.approx(p)
+
+    def test_probability_at_other_temperatures(self):
+        for temperature in (0.5, 2.0, 3.0):
+            curve = CalibrationCurve(method="temperature", parameters={"T": temperature})
+            for p in (0.2, 0.5, 0.8):
+                assert curve.calibrate(p) == pytest.approx(
+                    _oracle_temperature_probability(p, temperature)
+                )
+
+    def test_probability_endpoints(self):
+        curve = CalibrationCurve(method="temperature", parameters={"T": 2.0})
+        assert curve.calibrate(0.0) == 0.0
+        assert curve.calibrate(1.0) == 1.0
+
+    def test_nonfinite_probability_rejected(self):
+        curve = CalibrationCurve(method="temperature", parameters={"T": 1.0})
+        for bad in (float("nan"), float("inf"), float("-inf")):
+            with pytest.raises(CalibrationError):
+                curve.calibrate(bad)
+
+    def test_logit_curve_matches_sigmoid_over_T(self):
+        from textforensics.calibration import CalibrationCurve as _Curve
+
+        curve = _Curve(method="temperature", parameters={"T": 2.0}, input_semantics="logit")
+        for z in (-2.0, -0.5, 0.0, 0.5, 2.0, 5.0):
+            assert curve.calibrate(z) == pytest.approx(_oracle_sigmoid(z / 2.0))
+
+    def test_logit_probability_equivalence(self):
+        prob = CalibrationCurve(
+            method="temperature", parameters={"T": 2.0}, input_semantics="probability"
+        )
+        logit_curve = CalibrationCurve(
+            method="temperature", parameters={"T": 2.0}, input_semantics="logit"
+        )
+        for p in (0.2, 0.5, 0.8):
+            z = math.log(p) - math.log1p(-p)
+            assert prob.calibrate(p) == pytest.approx(logit_curve.calibrate(z))
+
+    def test_logit_nonfinite_rejected(self):
+        curve = CalibrationCurve(
+            method="temperature", parameters={"T": 1.0}, input_semantics="logit"
+        )
+        for bad in (float("nan"), float("inf"), float("-inf")):
+            with pytest.raises(CalibrationError):
+                curve.calibrate(bad)
+
+    def test_unsupported_semantics_rejected(self):
+        with pytest.raises(CalibrationError):
+            CalibrationCurve(
+                method="temperature", parameters={"T": 1.0}, input_semantics="raw_score"
+            )
+        with pytest.raises(CalibrationError):
+            CalibrationCurve(
+                method="platt",
+                parameters={"A": 1.0, "B": 0.0},
+                input_semantics="logit",
+            )
+
+    def test_lower_means_ai_temperature_inverts_probability(self):
+        curve = CalibrationCurve(
+            method="temperature",
+            parameters={"T": 1.0},
+            native_score_direction="lower_means_ai",
+        )
+        # A raw probability 0.2 under lower_means_ai is P(AI) = 0.8.
+        assert curve.calibrate(0.2) == pytest.approx(_oracle_temperature_probability(0.8, 1.0))
+
+    def test_legacy_v2_temperature_preserves_old_math_but_is_not_eligible(self):
+        from textforensics.calibration import CalibrationCurve as _Curve
+
+        legacy = _Curve.from_dict(
+            {
+                "schema": "textforensics.calibration-curve/v2",
+                "method": "temperature",
+                "parameters": {"T": 1.0},
+            }
+        )
+        assert legacy.schema == "textforensics.calibration-curve/v2"
+        assert legacy.is_legacy is True
+        # Old math preserved for verification of old artifacts only:
+        assert legacy.calibrate(0.2) == pytest.approx(0.549833997312478)
+        kwargs = eligible_artifact_kwargs()
+        artifact = CalibrationArtifact(
+            artifact_id="d:c",
+            detector_id="d",
+            detector_version="1",
+            curve=legacy,
+            calibration_id="c",
+            **kwargs,
+        )
+        assert artifact.eligible_for_probability is False
+        assert any("legacy" in issue.lower() for issue in artifact.validation_issues())
+
+    def test_migrated_legacy_curve_drops_old_metrics(self):
+        from textforensics.calibration import (
+            CalibrationCurve as _Curve,
+        )
+        from textforensics.calibration import (
+            migrate_legacy_temperature_curve,
+        )
+
+        legacy = _Curve.from_dict(
+            {
+                "schema": "textforensics.calibration-curve/v2",
+                "method": "temperature",
+                "parameters": {"T": 2.0},
+                "sample_count": 200,
+                "calibration_error": 0.05,
+                "reference_dataset_hash": hex64(7),
+            }
+        )
+        migrated = migrate_legacy_temperature_curve(legacy)
+        assert migrated.schema == "textforensics.calibration-curve/v3"
+        assert migrated.input_semantics == "probability"
+        assert migrated.parameters["T"] == 2.0
+        # Old metrics must NOT be carried over: the migrated curve needs
+        # a refit/re-evaluation before it can support a probability.
+        assert migrated.sample_count == 0
+        assert migrated.calibration_error is None
+        assert migrated.reference_dataset_hash == ""
+        assert migrated.calibrate(0.2) == pytest.approx(_oracle_temperature_probability(0.2, 2.0))
+
+
+class TestCalibrationImmutabilityAuditW2:
+    """CORE-04: frozen artifacts must be deeply immutable; the manager
+    must publish memory only after durable storage succeeds."""
+
+    def test_mutating_original_parameters_cannot_change_output(self):
+        params = {"T": 1.0}
+        curve = CalibrationCurve(method="temperature", parameters=params)
+        before = curve.calibrate(0.2)
+        params["T"] = 0.001
+        assert curve.calibrate(0.2) == pytest.approx(before)
+        assert curve.calibrate(0.2) == pytest.approx(0.2)
+
+        platt_params = {"A": 1.0, "B": 0.0}
+        platt = CalibrationCurve(method="platt", parameters=platt_params)
+        platt_params["A"] = 99.0
+        assert platt.calibrate(0.5) == pytest.approx(0.6224593312018546)
+
+    def test_mutating_returned_parameters_cannot_change_output(self):
+        curve = CalibrationCurve(method="temperature", parameters={"T": 1.0})
+        payload = curve.to_dict()
+        payload["parameters"]["T"] = 0.001
+        assert curve.calibrate(0.2) == pytest.approx(0.2)
+        with pytest.raises(TypeError):
+            curve.parameters["T"] = 0.001  # type: ignore[index]
+
+    def test_isotonic_nested_lists_are_frozen(self):
+        curve = CalibrationCurve(
+            method="isotonic",
+            parameters={"x": [0.0, 0.5, 1.0], "y": [0.0, 0.5, 1.0]},
+        )
+        with pytest.raises(TypeError):
+            curve.parameters["x"][0] = 0.9  # type: ignore[index]
+
+    def test_artifact_nested_mappings_are_frozen(self):
+        artifact = eligible_artifact()
+        with pytest.raises(TypeError):
+            artifact.metrics["brier"] = 0.99  # type: ignore[index]
+        with pytest.raises(TypeError):
+            artifact.disjointness["strategy"] = "tampered"  # type: ignore[index]
+        with pytest.raises(TypeError):
+            artifact.metadata["note"] = "tampered"  # type: ignore[index]
+        assert artifact.eligible_for_probability is True
+        assert artifact.content_hash == artifact.compute_content_hash()
+
+    def test_mutating_serialized_artifact_cannot_change_it(self):
+        artifact = eligible_artifact()
+        payload = artifact.to_dict()
+        payload["metrics"]["brier"] = 0.99
+        payload["curve"]["parameters"]["A"] = 99.0
+        assert artifact.metrics["brier"] == pytest.approx(0.10)
+        assert artifact.calibrate(0.5) == pytest.approx(0.6224593312018546)
+        assert artifact.content_hash == artifact.compute_content_hash()
+
+    def test_tampered_content_hash_rejected_at_load(self):
+        artifact = eligible_artifact()
+        payload = artifact.to_dict()
+        payload["metrics"]["brier"] = 0.99  # hash no longer matches content
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "artifact.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            with pytest.raises(CalibrationError, match="content_hash"):
+                load_calibration_artifact(path)
+
+    def test_store_publishes_only_after_persist(self, tmp_path):
+        mgr = CalibrationManager(tmp_path)
+        original_save = CalibrationManager._save_artifact
+
+        def _failing_save(self, artifact):  # noqa: ANN001, ANN202
+            raise OSError("simulated disk failure")
+
+        CalibrationManager._save_artifact = _failing_save  # type: ignore[method-assign]
+        try:
+            with pytest.raises(OSError, match="simulated disk failure"):
+                store_eligible(mgr, "det1", "cal1")
+        finally:
+            CalibrationManager._save_artifact = original_save  # type: ignore[method-assign]
+        assert mgr.get("det1:cal1") is None
+        assert list(tmp_path.glob("*.json")) == []
+        # A later successful store works and is visible.
+        stored = store_eligible(mgr, "det1", "cal1")
+        assert mgr.get("det1:cal1") == stored
+        assert list(tmp_path.glob("*.json")) == [tmp_path / f"{stored.content_hash}.json"]
+
+    def test_failed_store_leaves_prior_artifact_intact(self, tmp_path):
+        mgr = CalibrationManager(tmp_path)
+        original = store_eligible(mgr, "det1", "cal1")
+        original_save = CalibrationManager._save_artifact
+
+        def _failing_save(self, artifact):  # noqa: ANN001, ANN202
+            raise OSError("simulated disk failure")
+
+        CalibrationManager._save_artifact = _failing_save  # type: ignore[method-assign]
+        try:
+            # A new artifact id (so no content-conflict check fires):
+            # the disk failure must leave the prior artifact intact.
+            with pytest.raises(OSError, match="simulated disk failure"):
+                mgr.store(
+                    "det1",
+                    "1.0",
+                    CalibrationCurve(method="platt", parameters={"A": 2.0, "B": 0.0}),
+                    calibration_id="cal2",
+                    created_at="2024-01-01T00:00:00+00:00",
+                    **eligible_artifact_kwargs(),
+                )
+        finally:
+            CalibrationManager._save_artifact = original_save  # type: ignore[method-assign]
+        assert mgr.get("det1:cal1") == original
+        assert mgr.get("det1:cal2") is None
+        assert (tmp_path / f"{original.content_hash}.json").exists()
+        assert len(list(tmp_path.glob("*.json"))) == 1
+
+
+def _audit_identity(**overrides):
+    from textforensics.calibration import InferenceIdentity
+
+    fields = {
+        "detector_id": "det1",
+        "detector_version": "1.0",
+        "provider": "local",
+        "model": "builtin-heuristic-0.1.0",
+        "config_hash": hex64(5),
+        "native_score_semantics": "probability_higher_means_ai",
+        "calibration_id": "cal1",
+        "regime": "unedited",
+    }
+    fields.update(overrides)
+    return InferenceIdentity(**fields)
+
+
+def _store_with_identity(
+    mgr,
+    *,
+    detector_version="1.0",
+    calibration_id="cal1",
+    created_at="2024-01-01T00:00:00+00:00",
+    **overrides,
+):
+    identity = _audit_identity(
+        detector_version=detector_version, calibration_id=calibration_id, **overrides
+    )
+    # Pass the identity as one object; the individual identity fields
+    # are not also passed as explicit kwargs.
+    kwargs = eligible_artifact_kwargs()
+    for field in ("provider", "model", "config_hash", "native_score_semantics", "regime"):
+        kwargs.pop(field, None)
+    return mgr.store(
+        detector_id="det1",
+        detector_version=detector_version,
+        curve=platt_curve(),
+        calibration_id=calibration_id,
+        created_at=created_at,
+        identity=identity,
+        **kwargs,
+    )
+
+
+class TestInferenceIdentityAuditW2:
+    """CORE-05: only an artifact matching the exact current inference
+    identity may emit a validated probability."""
+
+    def test_exact_identity_emits_validated_probability(self, tmp_path):
+        mgr = CalibrationManager(tmp_path)
+        _store_with_identity(mgr)
+        result = mgr.get_calibrated_result_for_identity(_audit_identity(), 0.5)
+        assert result is not None
+        assert result.status == "validated"
+        assert result.probability_eligible is True
+        assert result.value == pytest.approx(0.6224593312018546)
+
+    def test_old_version_cannot_emit_validated_probability(self, tmp_path):
+        mgr = CalibrationManager(tmp_path)
+        mgr.store(
+            detector_id="det1",
+            detector_version="old-version",
+            curve=platt_curve(),
+            calibration_id="cal1",
+            created_at="2024-01-01T00:00:00+00:00",
+            identity=_audit_identity(detector_version="old-version"),
+            **eligible_artifact_kwargs(),
+        )
+        # Queried with the CURRENT version's identity: no exact match.
+        assert mgr.get_for_identity(_audit_identity()) is None
+        assert mgr.get_calibrated_result_for_identity(_audit_identity(), 0.5) is None
+        assert mgr.get_calibrated_score_for_identity(_audit_identity(), 0.5) is None
+
+    def test_changed_provider_model_config_regime_refused(self, tmp_path):
+        mgr = CalibrationManager(tmp_path)
+        _store_with_identity(mgr)
+        for overrides in (
+            {"provider": "other-provider"},
+            {"model": "other-model-9.9"},
+            {"config_hash": hex64(6)},
+            {"regime": "paraphrased"},
+            {"calibration_id": "cal2"},
+            {"detector_version": "2.0"},
+            {"native_score_semantics": "logit_higher_means_ai"},
+        ):
+            assert mgr.get_for_identity(_audit_identity(**overrides)) is None
+            assert mgr.get_calibrated_result_for_identity(_audit_identity(**overrides), 0.5) is None
+
+    def test_latest_by_time_does_not_cross_identity_epochs(self, tmp_path):
+        mgr = CalibrationManager(tmp_path)
+        _store_with_identity(
+            mgr,
+            detector_version="1.0",
+            calibration_id="cal1",
+            created_at="2024-01-01T00:00:00+00:00",
+        )
+        # A later artifact for an OLD version must not be selected for
+        # the current version's identity.
+        _store_with_identity(
+            mgr,
+            detector_version="old-version",
+            calibration_id="cal-old",
+            created_at="2025-06-01T00:00:00+00:00",
+        )
+        found = mgr.get_for_identity(_audit_identity())
+        assert found is not None
+        assert found.detector_version == "1.0"
+        assert found.calibration_id == "cal1"
+
+    def test_competing_artifacts_each_selected_by_own_identity(self, tmp_path):
+        mgr = CalibrationManager(tmp_path)
+        _store_with_identity(mgr, calibration_id="cal1", config_hash=hex64(5))
+        _store_with_identity(mgr, calibration_id="cal2", config_hash=hex64(6))
+        first = mgr.get_for_identity(_audit_identity(calibration_id="cal1"))
+        second = mgr.get_for_identity(_audit_identity(calibration_id="cal2", config_hash=hex64(6)))
+        assert first is not None and first.calibration_id == "cal1"
+        assert second is not None and second.calibration_id == "cal2"
+        assert first.content_hash != second.content_hash
+
+    def test_missing_identity_fields_make_artifact_ineligible(self):
+        kwargs = eligible_artifact_kwargs()
+        for field in (
+            "provider",
+            "model",
+            "config_hash",
+            "native_score_semantics",
+            "regime",
+        ):
+            kwargs.pop(field, None)
+        artifact = CalibrationArtifact(
+            artifact_id="d:c",
+            detector_id="d",
+            detector_version="1",
+            curve=platt_curve(),
+            calibration_id="c",
+            **kwargs,
+        )
+        assert artifact.eligible_for_probability is False
+        assert any("identity" in issue.lower() for issue in artifact.validation_issues())
+
+    def test_artifact_with_complete_identity_is_eligible(self):
+        artifact = CalibrationArtifact(
+            artifact_id="det1:cal1",
+            detector_id="det1",
+            detector_version="1.0",
+            curve=platt_curve(),
+            calibration_id="cal1",
+            created_at="2024-01-01T00:00:00+00:00",
+            **eligible_artifact_kwargs(),
+        )
+        assert artifact.validation_issues() == []
+        assert artifact.eligible_for_probability is True
+        assert artifact.inference_identity() == _audit_identity()
+
+    def test_legacy_id_only_methods_require_identity(self, tmp_path):
+        mgr = CalibrationManager(tmp_path)
+        _store_with_identity(mgr)
+        with pytest.raises(CalibrationError, match="InferenceIdentity"):
+            mgr.get_calibrated_score("det1", 0.5)
+        with pytest.raises(CalibrationError, match="InferenceIdentity"):
+            mgr.get_calibrated_result("det1", 0.5)
+
+    def test_diagnostic_use_never_emits_validated_probability(self, tmp_path):
+        mgr = CalibrationManager(tmp_path)
+        # Ineligible artifact (no fit/evaluation provenance) stored under
+        # a matching identity: explicit diagnostic use stays unvalidated.
+        identity = _audit_identity()
+        mgr.store(
+            "det1",
+            "1.0",
+            platt_curve(),
+            calibration_id="cal1",
+            created_at="2024-01-01T00:00:00+00:00",
+            identity=identity,
+        )
+        result = mgr.get_calibrated_result_for_identity(identity, 0.5, allow_unvalidated=True)
+        assert result is not None
+        assert result.status == "unvalidated"
+        assert result.probability_eligible is False
+        with pytest.raises(CalibrationError, match="not eligible"):
+            mgr.get_calibrated_result_for_identity(identity, 0.5)
+
+    def test_artifact_apply_rejects_mismatched_identity(self):
+        artifact = CalibrationArtifact(
+            artifact_id="det1:cal1",
+            detector_id="det1",
+            detector_version="1.0",
+            curve=platt_curve(),
+            calibration_id="cal1",
+            created_at="2024-01-01T00:00:00+00:00",
+            **eligible_artifact_kwargs(),
+        )
+        with pytest.raises(CalibrationError, match="InferenceIdentity"):
+            artifact.apply(0.5, identity=_audit_identity(detector_version="2.0"))
+        assert artifact.apply(0.5, identity=_audit_identity()).status == "validated"
+
+
+def _write_jsonl_rows(path: Path, rows) -> None:
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+
+
+_AUDIT_HUMAN = {
+    "label": "human",
+    "text": "I ran this test yesterday and wrote the numbers in my notebook.",
+}
+_AUDIT_AI = {
+    "label": "ai",
+    "text": "Furthermore, it is important to note that this robust solution seamlessly unlocks potential.",
+}
+
+
+class TestHeldOutDisjointnessAuditW2:
+    """CORE-06: a held-out label requires a verified sample/group-level
+    disjointness proof; unknown or contaminated cases are rejected or
+    honestly labelled diagnostic."""
+
+    def test_no_provenance_is_never_held_out(self, tmp_path):
+        eval_path = tmp_path / "eval.jsonl"
+        _write_jsonl_rows(eval_path, [_AUDIT_HUMAN, _AUDIT_AI])
+        result = evaluate_threshold(eval_path, 0.5)
+        assert result.evaluation_mode == "diagnostic"
+        assert result.disjointness_status == "unknown"
+
+    def test_allow_same_dataset_is_diagnostic_not_held_out(self, tmp_path):
+        path = tmp_path / "data.jsonl"
+        _write_jsonl_rows(path, [_AUDIT_HUMAN, _AUDIT_AI])
+        result = evaluate_threshold(
+            path, 0.5, calibration_dataset_hash="dummy", allow_same_dataset=True
+        )
+        assert result.evaluation_mode == "diagnostic"
+        assert result.disjointness_status == "unknown"
+
+    def test_verified_proof_stays_held_out(self, tmp_path):
+        from textforensics.benchmark import prove_disjointness
+
+        cal_path = tmp_path / "cal.jsonl"
+        eval_path = tmp_path / "eval.jsonl"
+        _write_jsonl_rows(cal_path, [_AUDIT_HUMAN, _AUDIT_AI])
+        _write_jsonl_rows(
+            eval_path,
+            [
+                {"label": "human", "text": "A completely different human sentence here."},
+                {"label": "ai", "text": "A completely different machine sentence here."},
+            ],
+        )
+        proof = prove_disjointness(cal_path, eval_path)
+        assert proof.status == "verified"
+        result = evaluate_threshold(eval_path, 0.5, disjointness_proof=proof)
+        assert result.evaluation_mode == "held_out"
+        assert result.disjointness_status == "verified"
+        assert result.overlap_count == 0
+
+    def test_contaminated_proof_raises_and_diagnostic_reports_overlap(self, tmp_path):
+        from textforensics.benchmark import prove_disjointness
+
+        cal_path = tmp_path / "cal.jsonl"
+        eval_path = tmp_path / "eval.jsonl"
+        _write_jsonl_rows(cal_path, [_AUDIT_HUMAN, _AUDIT_AI])
+        # Reordered rows: file hash changes, sample overlap is complete.
+        _write_jsonl_rows(eval_path, [_AUDIT_AI, _AUDIT_HUMAN])
+        proof = prove_disjointness(cal_path, eval_path)
+        assert proof.status == "contaminated"
+        assert proof.overlap_count == 2
+        with pytest.raises(ValueError, match="Contamination"):
+            evaluate_threshold(eval_path, 0.5, disjointness_proof=proof)
+        diagnostic = evaluate_threshold(eval_path, 0.5, disjointness_proof=proof, diagnostic=True)
+        assert diagnostic.evaluation_mode == "diagnostic"
+        assert diagnostic.disjointness_status == "contaminated"
+        assert diagnostic.overlap_count == 2
+
+    def test_unknown_proof_raises_and_diagnostic_reports_unknown(self, tmp_path):
+        from textforensics.benchmark import DisjointnessProof
+
+        eval_path = tmp_path / "eval.jsonl"
+        _write_jsonl_rows(eval_path, [_AUDIT_HUMAN, _AUDIT_AI])
+        proof = DisjointnessProof(
+            status="unknown",
+            overlap_count=-1,
+            training_count=0,
+            evaluation_count=2,
+            training_hash="",
+            evaluation_hash="",
+            errors=("training file could not be read",),
+        )
+        with pytest.raises(ValueError, match="could not be verified"):
+            evaluate_threshold(eval_path, 0.5, disjointness_proof=proof)
+        diagnostic = evaluate_threshold(eval_path, 0.5, disjointness_proof=proof, diagnostic=True)
+        assert diagnostic.evaluation_mode == "diagnostic"
+        assert diagnostic.disjointness_status == "unknown"
+
+    def test_run_calibration_evaluation_rejects_reordered_rows(self, tmp_path):
+        cal_path = tmp_path / "cal.jsonl"
+        eval_path = tmp_path / "eval.jsonl"
+        _write_jsonl_rows(cal_path, [_AUDIT_HUMAN, _AUDIT_AI])
+        _write_jsonl_rows(eval_path, [_AUDIT_AI, _AUDIT_HUMAN])
+        with pytest.raises(ValueError, match="Contamination"):
+            run_calibration_evaluation(cal_path, eval_path, target_fpr=0.5)
+
+    def test_run_calibration_evaluation_diagnostic_override_is_diagnostic(self, tmp_path):
+        cal_path = tmp_path / "cal.jsonl"
+        eval_path = tmp_path / "eval.jsonl"
+        _write_jsonl_rows(cal_path, [_AUDIT_HUMAN, _AUDIT_AI])
+        _write_jsonl_rows(eval_path, [_AUDIT_AI, _AUDIT_HUMAN])
+        result = run_calibration_evaluation(cal_path, eval_path, target_fpr=0.5, diagnostic=True)
+        assert result["evaluation_result"]["evaluation_mode"] == "diagnostic"
+        assert result["evaluation_result"]["disjointness_status"] == "contaminated"
+        assert result["evaluation_result"]["overlap_count"] == 2
+
+    def test_validate_no_contamination_carries_proof(self, tmp_path):
+        cal_path = tmp_path / "cal.jsonl"
+        eval_path = tmp_path / "eval.jsonl"
+        _write_jsonl_rows(cal_path, [_AUDIT_HUMAN, _AUDIT_AI])
+        _write_jsonl_rows(eval_path, [_AUDIT_AI, _AUDIT_HUMAN])
+        result = validate_no_contamination(cal_path, eval_path)
+        assert result["valid"] is False
+        assert result["contamination_detected"] is True
+        assert result["proof"]["status"] == "contaminated"
+        assert result["proof"]["overlap_count"] == 2
