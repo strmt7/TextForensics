@@ -2124,3 +2124,169 @@ def probe_cal_identity():
     rows.append(("issues-semantics-after", outcome(_with_semantics, "zzz")))
     rows.append(("issues-semantics-equal", outcome(_with_semantics, "probability_higher_means_ai")))
     return rows
+
+
+# ---------------------------------------------------------------------------
+# explain.summary / to_dict (new probe, W2-F kill tests)
+# ---------------------------------------------------------------------------
+def _explain_report():
+    from textforensics.explain import CounterfactualExplainer
+    # additive score_fn: pushes_ai / pushes_human / neutral segments
+    def score_fn(text):
+        total = 0.0
+        for word in text.split():
+            if word in ("ai", "machine", "robot"):
+                total += 0.5
+            elif word in ("human", "person", "hand"):
+                total -= 0.5
+        return total
+    expl = CounterfactualExplainer(score_fn, detector_id="d", detector_version="1")
+    long_ai = ("ai machine robot " * 12).strip()
+    long_human = ("human person hand " * 12).strip()
+    neutral = ("the quick brown fox jumps over the lazy dog " * 3).strip()
+    text = long_ai + ". " + long_human + ". " + neutral + "."
+    return expl.explain(text)
+
+
+def _scrub_report(d):
+    import copy
+    d = copy.deepcopy(d)
+    d.pop("created_at", None)
+    return d
+
+
+def probe_explain_summary():
+    import dataclasses
+    rows = []
+    rep = _explain_report()
+    for name, fn in [
+        ("summary-default", lambda: rep.summary()),
+        ("summary-raw", lambda: rep.summary(include_raw_text=True)),
+        ("dict-default", lambda: rep.to_dict()),
+        ("dict-raw", lambda: rep.to_dict(include_raw_text=True)),
+    ]:
+        rows.append((name, outcome(lambda fn=fn: _scrub_report(fn()))))
+    # completeness=None report (direct dataclass construction)
+    rep2 = dataclasses.replace(rep, completeness=None)
+    for name, fn in [
+        ("summary-nocomp", lambda: rep2.summary()),
+        ("summary-nocomp-raw", lambda: rep2.summary(include_raw_text=True)),
+        ("dict-nocomp", lambda: rep2.to_dict()),
+        ("dict-nocomp-raw", lambda: rep2.to_dict(include_raw_text=True)),
+    ]:
+        rows.append((name, outcome(lambda fn=fn: _scrub_report(fn()))))
+    # 4-segment report: 2 ai-driving + 1 human-driving + 1 neutral
+    from textforensics.explain import CounterfactualExplainer as _CE
+    expl4 = _CE(lambda t: sum(0.5 if w in ("ai", "machine", "robot") else -0.5 if w in ("human", "person", "hand") else 0.0 for w in t.split()), detector_id="d", detector_version="1")
+    text4 = ("ai machine robot " * 12).strip() + ". " + ("ai robot machine " * 12).strip() + ". " + ("human person hand " * 12).strip() + ". " + ("the quick brown fox jumps over the lazy dog " * 3).strip() + "."
+    rep4 = expl4.explain(text4)
+    for name, fn in [
+        ("summary-4seg", lambda: rep4.summary()),
+        ("summary-4seg-raw", lambda: rep4.summary(include_raw_text=True)),
+        ("dict-4seg", lambda: rep4.to_dict()),
+        ("dict-4seg-raw", lambda: rep4.to_dict(include_raw_text=True)),
+    ]:
+        rows.append((name, outcome(lambda fn=fn: _scrub_report(fn()))))
+    # empty-attribution report (all-neutral text -> no top entries)
+    from textforensics.explain import CounterfactualExplainer
+    expl = CounterfactualExplainer(lambda t: 0.0, detector_id="d", detector_version="1")
+    rep3 = expl.explain("the quick brown fox jumps over the lazy dog. " * 3)
+    for name, fn in [
+        ("summary-neutral", lambda: rep3.summary()),
+        ("summary-neutral-raw", lambda: rep3.summary(include_raw_text=True)),
+        ("dict-neutral", lambda: rep3.to_dict()),
+    ]:
+        rows.append((name, outcome(lambda fn=fn: _scrub_report(fn()))))
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# benchmark._sample_and_group_hashes / check_disjointness (new probes)
+# ---------------------------------------------------------------------------
+def probe_bm_sample_hashes():
+    import tempfile, json
+    from pathlib import Path
+    from textforensics.benchmark import _sample_and_group_hashes
+    rows = []
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        files = {
+            "valid": [{"label": "human", "text": "Alpha sentence."},
+                      {"label": "ai", "text": "Beta sentence."},
+                      {"label": "human", "text": "Gamma sentence.", "source_document_id": "doc1"},
+                      {"label": "ai", "text": "Delta sentence.", "document_id": "doc1"},
+                      {"label": "human", "text": "Epsilon sentence.", "group_id": "g7"},
+                      {"label": "ai", "text": "Zeta sentence.", "source_id": "s9"}],
+            "nonascii": [{"label": "human", "text": "Café naïve façade."},
+                         {"label": "ai", "text": "Über résumé."}],
+            "nontext": [{"label": "human", "text": 123},
+                        {"label": "ai", "text": ["a", "b"]}],
+            "empty": [],
+        }
+        for name, data in files.items():
+            p = tmp / f"{name}.jsonl"
+            p.write_text("".join(json.dumps(r) + "\n" for r in data), encoding="utf-8")
+            rows.append((name, outcome(_sample_and_group_hashes, p)))
+        # malformed lines (strict True/False), non-dict rows, blank lines
+        bad = tmp / "bad.jsonl"
+        bad.write_text('{"label": "human", "text": "Good one."}\nNOT JSON\n[1, 2]\n{"label": "ai", "text": "After bad."}\n\n', encoding="utf-8")
+        rows.append(("bad-strict", outcome(_sample_and_group_hashes, bad, strict=True)))
+        rows.append(("bad-lenient", outcome(_sample_and_group_hashes, bad, strict=False)))
+        missing = tmp / "nope.jsonl"
+        try:
+            _sample_and_group_hashes(missing)
+            rows.append(("missing", ("ok", "no-raise")))
+        except Exception as exc:  # noqa: BLE001
+            rows.append(("missing", ("raise", type(exc).__name__,
+                                     str(exc).replace(str(tmp), "TMP"))))
+        # group-id precedence: first non-empty group field wins
+        prec = tmp / "prec.jsonl"
+        prec.write_text(json.dumps({"label": "human", "text": "T.", "source_document_id": " ", "document_id": "d2"}) + "\n", encoding="utf-8")
+        rows.append(("group-precedence", outcome(_sample_and_group_hashes, prec)))
+        # same text, different case/whitespace -> same group hash
+        norm = tmp / "norm.jsonl"
+        norm.write_text(json.dumps({"label": "human", "text": "  Hello   WORLD. "}) + "\n" + json.dumps({"label": "ai", "text": "hello world."}) + "\n", encoding="utf-8")
+        rows.append(("group-normalized", outcome(_sample_and_group_hashes, norm)))
+    return rows
+
+
+def probe_bm_check_disjointness():
+    import tempfile
+    from pathlib import Path
+    from textforensics.benchmark import check_disjointness, fingerprint_dataset
+    import test_benchmark as TB
+    rows = []
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        a = tmp / "a.jsonl"
+        b = tmp / "b.jsonl"
+        empty = tmp / "empty.jsonl"
+        TB.write_dataset(a)
+        TB.write_dataset(b, human_suffix=" eval", ai_suffix=" eval")
+        empty.write_text("", encoding="utf-8")
+        fp_a = fingerprint_dataset(a, "A")
+        fp_b = fingerprint_dataset(b, "B")
+        fp_e = fingerprint_dataset(empty, "E")
+        for name, p1, f1, p2, f2, kwargs in [
+            ("disjoint", a, fp_a, b, fp_b, {}),
+            ("self", a, fp_a, a, fp_a, {}),
+            ("empty-vs-a", empty, fp_e, a, fp_a, {}),
+            ("a-vs-empty", a, fp_a, empty, fp_e, {}),
+            ("empty-vs-empty", empty, fp_e, empty, fp_e, {}),
+            ("missing", tmp / "nope.jsonl", fp_a, b, fp_b, {}),
+            ("missing2", a, fp_a, tmp / "nope.jsonl", fp_b, {}),
+        ]:
+            try:
+                out = check_disjointness(p1, f1, p2, f2, **kwargs)
+                rows.append((name, ("ok", out["disjoint"], out["shared_samples"],
+                                    sorted(out["shared_hashes"]), out["verified"],
+                                    sorted(e.replace(str(tmp), "TMP") for e in out["errors"]),
+                                    sorted(w.replace(str(tmp), "TMP") for w in out["warnings"]),
+                                    out["proof"]["status"], out["proof"]["overlap_count"],
+                                    out["proof"]["training_count"],
+                                    out["proof"]["evaluation_count"],
+                                    out["proof"]["group_overlap_count"])))
+            except Exception as exc:  # noqa: BLE001
+                rows.append((name, ("raise", type(exc).__name__,
+                                    str(exc).replace(str(tmp), "TMP"))))
+    return rows
