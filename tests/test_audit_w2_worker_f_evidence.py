@@ -27,7 +27,6 @@ from w2_f_kill_helpers import (
     probe_ev_worst_fpr,
 )
 
-
 EXPECTED_PROBE_EV_ASSESS_COVERAGE = [
     (
         ("active", "base"),

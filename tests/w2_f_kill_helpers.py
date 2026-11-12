@@ -2980,7 +2980,9 @@ def probe_ev_check_eligibility():
     # status, so the proof is built directly (W2 defect fix: the
     # pre-fix evidence constructor forbade it via _require_int minimum
     # 0, which is why the probe used the __setattr__ trick).
-    _check(("overlap-neg1-unknown",), base_record, _ident(), _dj(status="unknown", overlap_count=-1))
+    _check(
+        ("overlap-neg1-unknown",), base_record, _ident(), _dj(status="unknown", overlap_count=-1)
+    )
     _check(("train-1",), base_record, _ident(), _dj(training_count=1))
     _check(("eval-1",), base_record, _ident(), _dj(evaluation_count=1))
     _check(("train-1-eval-1",), base_record, _ident(), _dj(training_count=1, evaluation_count=1))

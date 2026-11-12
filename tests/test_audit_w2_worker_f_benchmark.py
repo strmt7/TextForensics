@@ -24,7 +24,6 @@ from w2_f_kill_helpers import (
     probe_bm_sample_hashes,
 )
 
-
 EXPECTED_PROBE_BM_CHECK_DISJOINTNESS = [
     ("disjoint", ("ok", True, 0, [], True, [], [], "verified", 0, 4, 4, -1)),
     (

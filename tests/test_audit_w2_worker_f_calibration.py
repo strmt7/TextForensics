@@ -28,7 +28,6 @@ from w2_f_kill_helpers import (
     probe_cal_validate_no_contamination,
 )
 
-
 EXPECTED_PROBE_CAL_CALIBRATE = [
     (("platt", "probability", "higher_means_ai", 0.0), ("ok", "0.5")),
     (("platt", "probability", "higher_means_ai", 0.25), ("ok", "0.5621765008857981")),

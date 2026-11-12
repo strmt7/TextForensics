@@ -1021,9 +1021,7 @@ class DisjointnessProof:
         for field_name in ("overlap_count", "group_overlap_count"):
             value = getattr(self, field_name)
             if isinstance(value, bool) or not isinstance(value, int) or value < -1:
-                raise EvidenceError(
-                    f"DisjointnessProof {field_name} must be an integer >= -1."
-                )
+                raise EvidenceError(f"DisjointnessProof {field_name} must be an integer >= -1.")
         for field_name in ("training_count", "evaluation_count"):
             value = getattr(self, field_name)
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
@@ -1205,9 +1203,7 @@ def check_record_eligibility(
             # Sample-only proof: group-level disjointness was never
             # evaluated, so "verified" covers samples only and cannot
             # authorise held-out support (W2 defect fix, 2026-11-12).
-            reasons.append(
-                "disjointness group overlap was not evaluated (sample-only proof)"
-            )
+            reasons.append("disjointness group overlap was not evaluated (sample-only proof)")
         if disjointness.training_count <= 0 or disjointness.evaluation_count <= 0:
             reasons.append("disjointness proof has an empty training or evaluation set")
         if (

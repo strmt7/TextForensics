@@ -1713,7 +1713,9 @@ class DefectFixTypesTests(unittest.TestCase):
                 errors=(),
             )
             with self.assertRaises(ValueError, msg="sample-only proof must not be held out"):
-                benchmark_with_calibration_jsonl(eval_path, artifact, disjointness_proof=sample_only)
+                benchmark_with_calibration_jsonl(
+                    eval_path, artifact, disjointness_proof=sample_only
+                )
             diagnostic = benchmark_with_calibration_jsonl(
                 eval_path, artifact, disjointness_proof=sample_only, diagnostic=True
             )
