@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import copy
 import hashlib
-import importlib.util
 import io
 import json
 import math
@@ -34,7 +33,6 @@ from textforensics.sealed_bundle import (
     verify_sealed_bundle,
 )
 from textforensics.sealing import public_key_from_seed
-from textforensics.trust import TRUST_DIMENSIONS
 from textforensics.verify import verify_case_file_combined
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -69,7 +67,10 @@ def reseal(case, *, allow_nan=False):
     stripped.pop("case_sha256", None)
     stripped.pop("created_at_utc", None)
     canonical = json.dumps(
-        stripped, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+        stripped,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
         allow_nan=allow_nan,
     )
     out["case_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
@@ -103,8 +104,11 @@ def _coverage(dimensions, *, stale_key=False):
 
 def _mut_raw_text(case):
     case["process"]["reviewer"] = {
-        "identity": "x", "role": "y", "reasoning": "z",
-        "agreed_with_tool": True, "raw_text": "CANARY raw source text",
+        "identity": "x",
+        "role": "y",
+        "reasoning": "z",
+        "agreed_with_tool": True,
+        "raw_text": "CANARY raw source text",
     }
     return case
 
@@ -198,7 +202,9 @@ MUTANTS = [
 def _mutated(name):
     for label, fn, _ in MUTANTS:
         if label == name:
-            return reseal(fn(copy.deepcopy(sealed_case())), allow_nan=(name == "nan_detector_score"))
+            return reseal(
+                fn(copy.deepcopy(sealed_case())), allow_nan=(name == "nan_detector_score")
+            )
     raise KeyError(name)
 
 
@@ -248,7 +254,9 @@ class TestSharedAcceptanceCorpus:
     @pytest.mark.parametrize("name,fn,_", MUTANTS, ids=[m[0] for m in MUTANTS])
     def test_mutant_rejected_standalone(self, name, fn, _):
         case = _mutated(name)
-        case_bytes = _nan_case_bytes(case) if name == "nan_detector_score" else canonical_json_bytes(case)
+        case_bytes = (
+            _nan_case_bytes(case) if name == "nan_detector_score" else canonical_json_bytes(case)
+        )
         sa_archive, _, _ = sa_build_bundle(case_bytes=case_bytes, case=case)
         report = STANDALONE.verify_bundle_bytes(sa_archive, public_key=PUBLIC_KEY)
         assert report["exit_code"] == 1, (name, json.dumps(report, indent=2))
@@ -260,11 +268,16 @@ class TestSharedAcceptanceCorpus:
         sa_archive, _, _ = sa_build_bundle(case_bytes=canonical_json_bytes(case), case=case)
         bundle_path = tmp_path / "mutant.zip"
         bundle_path.write_bytes(sa_archive)
-        verify_src = Path(__file__).parent.parent / "src" / "textforensics" / "_standalone_verify.py"
+        verify_src = (
+            Path(__file__).parent.parent / "src" / "textforensics" / "_standalone_verify.py"
+        )
         env = {"PATH": "/usr/bin:/bin", "PYTHONPATH": "", "SYSTEMROOT": "/nonexistent"}
         proc = subprocess.run(
             [sys.executable, str(verify_src), str(bundle_path)],
-            capture_output=True, text=True, env=env, timeout=120,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=120,
         )
         assert proc.returncode == 1, proc.stdout + proc.stderr
 
@@ -273,11 +286,16 @@ class TestSharedAcceptanceCorpus:
         sa_archive, _, _ = sa_build_bundle(case_bytes=canonical_json_bytes(case), case=case)
         bundle_path = tmp_path / "clean.zip"
         bundle_path.write_bytes(sa_archive)
-        verify_src = Path(__file__).parent.parent / "src" / "textforensics" / "_standalone_verify.py"
+        verify_src = (
+            Path(__file__).parent.parent / "src" / "textforensics" / "_standalone_verify.py"
+        )
         env = {"PATH": "/usr/bin:/bin", "PYTHONPATH": "", "SYSTEMROOT": "/nonexistent"}
         proc = subprocess.run(
             [sys.executable, str(verify_src), str(bundle_path)],
-            capture_output=True, text=True, env=env, timeout=120,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=120,
         )
         assert proc.returncode == 0, proc.stdout + proc.stderr
 
@@ -312,19 +330,23 @@ def _dup_archive(*, wrong_name, first=True):
     elif wrong_name == "manifest.json":
         manifest = json.loads(dict(entries)["manifest.json"].decode("utf-8"))
         manifest["context"]["case_id"] = "0" * 64
-        wrong = json.dumps(manifest, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        wrong = json.dumps(
+            manifest, ensure_ascii=True, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
     buf = io.BytesIO()
     import warnings
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)  # deliberate duplicates
         with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_STORED) as zf:
+
             def _w(name, data):
                 info = zipfile.ZipInfo(filename=name, date_time=(1980, 1, 1, 0, 0, 0))
                 info.compress_type = zipfile.ZIP_STORED
                 info.create_system = 0
                 info.external_attr = 0o644 << 16
                 zf.writestr(info, data)
+
             if first:
                 _w(wrong_name, wrong)
             for name, data in sorted(entries):
@@ -346,9 +368,9 @@ class TestDuplicateMembers:
         assert report["signature"] != "verified" or any(
             c["id"] == "container_duplicate_entries" for c in report["checks"]
         )
-        assert any(
-            c["id"] == "container_duplicate_entries" for c in report["checks"]
-        ), json.dumps(report["checks"], indent=2)
+        assert any(c["id"] == "container_duplicate_entries" for c in report["checks"]), json.dumps(
+            report["checks"], indent=2
+        )
 
     def test_duplicate_member_rejected_by_wrapper(self):
         dup, _ = _dup_archive(wrong_name="case.json", first=True)
@@ -366,12 +388,14 @@ class TestDuplicateMembers:
             comment = zf.comment
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_STORED) as zf:
+
             def _w(name, data):
                 info = zipfile.ZipInfo(filename=name, date_time=(1980, 1, 1, 0, 0, 0))
                 info.compress_type = zipfile.ZIP_STORED
                 info.create_system = 0
                 info.external_attr = 0o644 << 16
                 zf.writestr(info, data)
+
             for name, data in sorted(entries):
                 _w(name, data)
             _w("Case.json", b"collision")
@@ -386,11 +410,17 @@ class TestDuplicateMembers:
         exist: the pinned digest of the original does not match."""
         dup, original = _dup_archive(wrong_name="case.json", first=True)
         original_digest = hashlib.sha256(original).hexdigest()
-        report = STANDALONE.verify_bundle_bytes(dup, expected_digest=original_digest, public_key=PUBLIC_KEY)
+        report = STANDALONE.verify_bundle_bytes(
+            dup, expected_digest=original_digest, public_key=PUBLIC_KEY
+        )
         assert report["exit_code"] == 1
-        assert any(c["id"] == "seal_expected_digest" and c["status"] == "fail" for c in report["checks"])
+        assert any(
+            c["id"] == "seal_expected_digest" and c["status"] == "fail" for c in report["checks"]
+        )
         # And the unmodified archive matches its own pinned digest.
-        clean = STANDALONE.verify_bundle_bytes(original, expected_digest=original_digest, public_key=PUBLIC_KEY)
+        clean = STANDALONE.verify_bundle_bytes(
+            original, expected_digest=original_digest, public_key=PUBLIC_KEY
+        )
         assert clean["exit_code"] == 0
 
 
@@ -409,7 +439,11 @@ class TestPreviousSignaturesMirror:
             "algorithm": "ed25519",
             "key_fingerprint": "ab" * 32,
             "signer": {"identity": "strmt7", "role": "sealer"},
-            "dsse": {"payloadType": "textforensics.case-signing/v2", "payload": "eA", "signatures": []},
+            "dsse": {
+                "payloadType": "textforensics.case-signing/v2",
+                "payload": "eA",
+                "signatures": [],
+            },
             "superseded_reason": "re-signed-after-custody-append",
             "superseded_at_utc": "2026-11-12T00:00:00Z",
         }
@@ -445,22 +479,46 @@ class TestPreviousSignaturesMirror:
             "not-a-list",
             [{"algorithm": "ed25519"}],  # missing five fields
             [{}],
-            [{"algorithm": "rsa", "key_fingerprint": "ab" * 32,
-              "signer": {"identity": "x", "role": "y"}, "dsse": {},
-              "superseded_reason": "re-signed-after-custody-append",
-              "superseded_at_utc": "2026-11-12T00:00:00Z"}],
-            [{"algorithm": "ed25519", "key_fingerprint": "zz" * 32,
-              "signer": {"identity": "x", "role": "y"}, "dsse": {},
-              "superseded_reason": "re-signed-after-custody-append",
-              "superseded_at_utc": "2026-11-12T00:00:00Z"}],
-            [{"algorithm": "ed25519", "key_fingerprint": "ab" * 32,
-              "signer": {"identity": "", "role": "y"}, "dsse": {},
-              "superseded_reason": "re-signed-after-custody-append",
-              "superseded_at_utc": "2026-11-12T00:00:00Z"}],
-            [{"algorithm": "ed25519", "key_fingerprint": "ab" * 32,
-              "signer": {"identity": "x", "role": "y"}, "dsse": {},
-              "superseded_reason": "made-up-reason",
-              "superseded_at_utc": "2026-11-12T00:00:00Z"}],
+            [
+                {
+                    "algorithm": "rsa",
+                    "key_fingerprint": "ab" * 32,
+                    "signer": {"identity": "x", "role": "y"},
+                    "dsse": {},
+                    "superseded_reason": "re-signed-after-custody-append",
+                    "superseded_at_utc": "2026-11-12T00:00:00Z",
+                }
+            ],
+            [
+                {
+                    "algorithm": "ed25519",
+                    "key_fingerprint": "zz" * 32,
+                    "signer": {"identity": "x", "role": "y"},
+                    "dsse": {},
+                    "superseded_reason": "re-signed-after-custody-append",
+                    "superseded_at_utc": "2026-11-12T00:00:00Z",
+                }
+            ],
+            [
+                {
+                    "algorithm": "ed25519",
+                    "key_fingerprint": "ab" * 32,
+                    "signer": {"identity": "", "role": "y"},
+                    "dsse": {},
+                    "superseded_reason": "re-signed-after-custody-append",
+                    "superseded_at_utc": "2026-11-12T00:00:00Z",
+                }
+            ],
+            [
+                {
+                    "algorithm": "ed25519",
+                    "key_fingerprint": "ab" * 32,
+                    "signer": {"identity": "x", "role": "y"},
+                    "dsse": {},
+                    "superseded_reason": "made-up-reason",
+                    "superseded_at_utc": "2026-11-12T00:00:00Z",
+                }
+            ],
         ],
     )
     def test_malformed_history_fails(self, previous):

@@ -539,9 +539,7 @@ def _load_case_file_payload(path: str | Path) -> tuple[Any | None, str | None]:
     target = Path(path)
     try:
         if target.stat().st_size > MAX_CASE_FILE_BYTES:
-            return None, (
-                f"case file exceeds the {MAX_CASE_FILE_BYTES}-byte cap: {target}"
-            )
+            return None, (f"case file exceeds the {MAX_CASE_FILE_BYTES}-byte cap: {target}")
         raw = target.read_bytes()
     except OSError as exc:
         return None, f"cannot read case file: {exc}"

@@ -158,7 +158,6 @@ def verify_token_with_cryptography(token_der: bytes, cert_der: bytes) -> bool:
     from cryptography.hazmat.primitives.asymmetric import ec
     from cryptography.hazmat.primitives.asymmetric.utils import (
         Prehashed,
-        decode_dss_signature,
         encode_dss_signature,
     )
 
@@ -218,9 +217,11 @@ def verify_token_with_cryptography(token_der: bytes, cert_der: bytes) -> bool:
             parts.append(value)
             value = 0
     digest_oid = ".".join(str(p) for p in parts)
-    hash_cls = {"2.16.840.1.101.3.4.2.1": hashes.SHA256,
-                "2.16.840.1.101.3.4.2.2": hashes.SHA384,
-                "2.16.840.1.101.3.4.2.3": hashes.SHA512}[digest_oid]
+    hash_cls = {
+        "2.16.840.1.101.3.4.2.1": hashes.SHA256,
+        "2.16.840.1.101.3.4.2.2": hashes.SHA384,
+        "2.16.840.1.101.3.4.2.3": hashes.SHA512,
+    }[digest_oid]
     signed_attrs_field = si_fields[3]
     _, attrs_content, _, _ = parse(signed_attrs_field)
     signed_attrs_set_der = b"\x31" + _der_len(len(attrs_content)) + attrs_content

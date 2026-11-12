@@ -311,9 +311,7 @@ def _parse_generalized_time(node: _DerNode) -> str:
 # DER GeneralizedTime grammar for RFC 3161 genTime (C13; see
 # _generalized_time_to_datetime): exactly YYYYMMDDHHMMSS, an optional
 # fraction of one or more digits, and exactly one trailing Z.
-_GENERALIZED_TIME_RE = re.compile(
-    r"^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\.\d+)?Z$"
-)
+_GENERALIZED_TIME_RE = re.compile(r"^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\.\d+)?Z$")
 
 
 def _generalized_time_to_datetime(text: str) -> datetime:
@@ -335,10 +333,7 @@ def _generalized_time_to_datetime(text: str) -> datetime:
     """
     match = _GENERALIZED_TIME_RE.match(text)
     if match is None:
-        raise TimestampError(
-            "GeneralizedTime must be YYYYMMDDHHMMSS[.fraction]Z: "
-            f"{text!r}."
-        )
+        raise TimestampError(f"GeneralizedTime must be YYYYMMDDHHMMSS[.fraction]Z: {text!r}.")
     year, month, day, hour, minute, second = (int(part) for part in match.groups()[:6])
     fraction = match.group(7)
     microsecond = int((fraction[1:] + "000000")[:6]) if fraction else 0

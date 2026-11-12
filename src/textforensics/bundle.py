@@ -278,9 +278,7 @@ def pack_bundle(case_file_path: str | Path, output_path: str | Path) -> BundleMa
 
 def _is_hex_digest(value: Any) -> bool:
     return (
-        isinstance(value, str)
-        and len(value) == 64
-        and all(c in "0123456789abcdef" for c in value)
+        isinstance(value, str) and len(value) == 64 and all(c in "0123456789abcdef" for c in value)
     )
 
 
@@ -331,7 +329,9 @@ def _validate_manifest_contract(manifest_data: Any) -> tuple[BundleManifest | No
         return None, [f"Failed to parse manifest: {exc}"]
 
 
-def _list_archive_members(bundle_file: Path, fmt: str) -> tuple[list[tuple[str, int]] | None, str | None]:
+def _list_archive_members(
+    bundle_file: Path, fmt: str
+) -> tuple[list[tuple[str, int]] | None, str | None]:
     """List ``(name, size)`` members of a bundle archive (C18).
 
     The container is opened and validated regardless of file-map

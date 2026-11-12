@@ -57,11 +57,11 @@ from .casefile import (
     CASE_SCHEMA_V4,
     replay_case_file,
 )
-from .verify import verify_case_file_combined
 from .dsse import sign_envelope
 from .sealing import fingerprint as _key_fingerprint
 from .sealing import public_key_from_seed
 from .timestamp import verify_timestamp_token
+from .verify import verify_case_file_combined
 
 MANIFEST_SCHEMA = "textforensics.sealed-bundle-manifest/v1"
 SEAL_RECORD_SCHEMA = "textforensics.sealed-bundle-seal-record/v1"

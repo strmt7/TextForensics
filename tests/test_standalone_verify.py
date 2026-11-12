@@ -727,9 +727,7 @@ class StandaloneW3CTimestampTests(unittest.TestCase):
             for sig_hash in ("sha256", "sha384", "sha512"):
                 with self.subTest(curve=curve, sig_hash=sig_hash):
                     case_bytes, _ = build_case_bytes()
-                    token = self._token_for_case_bytes(
-                        case_bytes, curve=curve, sig_hash=sig_hash
-                    )
+                    token = self._token_for_case_bytes(case_bytes, curve=curve, sig_hash=sig_hash)
                     bundle, _ = self._bundle_with_token(token)
                     report = self.mod.verify_bundle_bytes(bundle)
                     self.assertEqual(report["exit_code"], 0, json.dumps(report, indent=2))
@@ -900,9 +898,9 @@ class StandaloneMalformedShapeTests(unittest.TestCase):
             nested = [nested]
         mutated = copy.deepcopy(case)
         mutated["forensic_bundle"]["detector_results"] = nested
-        raw = json.dumps(
-            mutated, ensure_ascii=True, sort_keys=True, separators=(",", ":")
-        ).encode("utf-8")
+        raw = json.dumps(mutated, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode(
+            "utf-8"
+        )
         bundle, _, _ = build_bundle(case_bytes=raw, case=mutated)
         report = self.mod.verify_bundle_bytes(bundle)
         self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
@@ -979,9 +977,7 @@ class StandaloneChecklistStructureTests(unittest.TestCase):
     def test_checklist_template_notice_matches_package(self):
         from textforensics.casefile import CHECKLIST_TEMPLATE_NOTICE
 
-        self.assertEqual(
-            self.mod._CHECKLIST_TEMPLATE_NOTICE, CHECKLIST_TEMPLATE_NOTICE
-        )
+        self.assertEqual(self.mod._CHECKLIST_TEMPLATE_NOTICE, CHECKLIST_TEMPLATE_NOTICE)
 
 
 if __name__ == "__main__":

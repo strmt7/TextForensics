@@ -44,7 +44,7 @@ import re
 import struct
 import sys
 import zipfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 TOOL = "textforensics-standalone-verify"
 REPORT_SCHEMA = "textforensics.verification-report/v1"
@@ -284,7 +284,16 @@ FORBIDDEN_RAW_TEXT_KEYS = frozenset(
 # test below it).  Change the values in casefile.py first, then mirror
 # them here and re-run those tests.
 _CHECKLIST_ITEMS = (
-    "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10",
+    "D1",
+    "D2",
+    "D3",
+    "D4",
+    "D5",
+    "D6",
+    "D7",
+    "D8",
+    "D9",
+    "D10",
 )
 _CHECKLIST_STATUSES = ("satisfied", "not_satisfied", "not_applicable", "unknown")
 _CHECKLIST_DISPOSITIONS = ("relied_on", "considered", "discounted")
@@ -752,9 +761,7 @@ def _der_generalized_time(node):
 # timezone-free value is NEVER silently read as UTC), seconds
 # mandatory, a fraction (if present) of one or more decimal digits,
 # and calendar-valid fields.  A leap second (60) is rejected.
-_GENERALIZED_TIME_RE = re.compile(
-    r"^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\.\d+)?Z$"
-)
+_GENERALIZED_TIME_RE = re.compile(r"^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\.\d+)?Z$")
 
 
 def _validate_generalized_time(text):
@@ -767,14 +774,14 @@ def _validate_generalized_time(text):
     """
     match = _GENERALIZED_TIME_RE.match(text)
     if match is None:
-        return None, "GeneralizedTime must be YYYYMMDDHHMMSS[.fraction]Z: {!r}.".format(text)
+        return None, f"GeneralizedTime must be YYYYMMDDHHMMSS[.fraction]Z: {text!r}."
     year, month, day, hour, minute, second = (int(part) for part in match.groups()[:6])
     fraction = match.group(7)
     microsecond = int((fraction[1:] + "000000")[:6]) if fraction else 0
     try:
-        parsed = datetime(year, month, day, hour, minute, second, microsecond, tzinfo=timezone.utc)
+        parsed = datetime(year, month, day, hour, minute, second, microsecond, tzinfo=UTC)
     except ValueError:
-        return None, "GeneralizedTime is not a valid calendar value: {!r}.".format(text)
+        return None, f"GeneralizedTime is not a valid calendar value: {text!r}."
     return parsed.isoformat(), None
 
 
@@ -946,7 +953,7 @@ def _verify_timestamp_token(token_der, expected_digest):
         # time is a structured token error, never a silent pass.
         _gen_time_utc, gen_time_error = _validate_generalized_time(info["gen_time"])
         if gen_time_error is not None:
-            errors.append("gen_time_invalid:{}".format(gen_time_error))
+            errors.append(f"gen_time_invalid:{gen_time_error}")
             return info, errors
         index = 5
         while index < len(tst):
@@ -1066,9 +1073,7 @@ def _verify_timestamp_token(token_der, expected_digest):
             return info, errors
         curve_name = _EC_CURVE_OIDS.get(signer_cert["key_params_oid"])
         if curve_name is None:
-            errors.append(
-                "ec_curve_unsupported:{}".format(signer_cert["key_params_oid"])
-            )
+            errors.append("ec_curve_unsupported:{}".format(signer_cert["key_params_oid"]))
             return info, errors
         point_der = signer_cert["key_der"]
         if not point_der or point_der[0] != 0x04:
@@ -1274,8 +1279,7 @@ def _previous_signatures_errors(seal):
         if entry.get("superseded_reason") not in (None, *_PREVIOUS_SIGNATURE_REASONS):
             errors.append(f"previous_signatures[{index}] superseded_reason is unknown")
         if entry.get("superseded_at_utc") is not None and (
-            not isinstance(entry.get("superseded_at_utc"), str)
-            or not entry["superseded_at_utc"]
+            not isinstance(entry.get("superseded_at_utc"), str) or not entry["superseded_at_utc"]
         ):
             errors.append(f"previous_signatures[{index}] superseded_at_utc is malformed")
     return errors
@@ -1570,16 +1574,15 @@ def _checklist_structure_errors(case):
     for item_id in _CHECKLIST_ITEMS:
         record = items.get(item_id)
         if not isinstance(record, dict):
-            errors.append("checklist_{}_missing".format(item_id.lower()))
+            errors.append(f"checklist_{item_id.lower()}_missing")
             continue
         if record.get("status") not in _CHECKLIST_STATUSES:
-            errors.append("checklist_{}_invalid_status".format(item_id.lower()))
+            errors.append(f"checklist_{item_id.lower()}_invalid_status")
         evidence = record.get("evidence")
         if evidence is not None and (
-            not isinstance(evidence, list)
-            or any(not isinstance(entry, str) for entry in evidence)
+            not isinstance(evidence, list) or any(not isinstance(entry, str) for entry in evidence)
         ):
-            errors.append("checklist_{}_invalid_evidence".format(item_id.lower()))
+            errors.append(f"checklist_{item_id.lower()}_invalid_evidence")
     dispositions = process.get("evidence_dispositions") or {}
     if isinstance(dispositions, dict):
         for detector_id, disposition in dispositions.items():
@@ -1587,18 +1590,18 @@ def _checklist_structure_errors(case):
                 not isinstance(disposition, dict)
                 or disposition.get("disposition") not in _CHECKLIST_DISPOSITIONS
             ):
-                errors.append("checklist_disposition_invalid:{}".format(detector_id))
+                errors.append(f"checklist_disposition_invalid:{detector_id}")
     explanations = process.get("alternative_explanations") or {}
     if isinstance(explanations, dict):
         for name, entry in explanations.items():
             if name not in _CHECKLIST_ALTERNATIVE_EXPLANATIONS:
-                errors.append("checklist_alternative_explanation_unknown:{}".format(name))
+                errors.append(f"checklist_alternative_explanation_unknown:{name}")
             elif not isinstance(entry, dict) or entry.get("tested") not in {
                 "tested",
                 "not_tested",
                 "not_applicable",
             }:
-                errors.append("checklist_alternative_explanation_invalid:{}".format(name))
+                errors.append(f"checklist_alternative_explanation_invalid:{name}")
     return errors
 
 
@@ -1667,26 +1670,18 @@ def _detector_sanity_errors(bundle):
         return ["detector_results is not a list"]
     for index, result in enumerate(results):
         if not isinstance(result, dict):
-            errors.append("detector result {} is not an object".format(index))
+            errors.append(f"detector result {index} is not an object")
             continue
         if result.get("schema") not in _DETECTOR_RESULT_SCHEMAS:
-            errors.append(
-                "detector {} has wrong schema".format(result.get("detector_id"))
-            )
+            errors.append("detector {} has wrong schema".format(result.get("detector_id")))
         score = result.get("score")
         if score is not None:
             if isinstance(score, bool) or not isinstance(score, (int, float)):
-                errors.append(
-                    "detector {} score is not numeric".format(result.get("detector_id"))
-                )
+                errors.append("detector {} score is not numeric".format(result.get("detector_id")))
             elif not math.isfinite(float(score)):
-                errors.append(
-                    "detector {} score is not finite".format(result.get("detector_id"))
-                )
+                errors.append("detector {} score is not finite".format(result.get("detector_id")))
         if result.get("verdict") not in _DETECTOR_VERDICTS:
-            errors.append(
-                "detector {} has invalid verdict".format(result.get("detector_id"))
-            )
+            errors.append("detector {} has invalid verdict".format(result.get("detector_id")))
     return errors
 
 
@@ -2229,7 +2224,7 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
                         "git_sha",
                     ):
                         if recorded_manifest.get(key) != expected_manifest.get(key):
-                            manifest_errors.append("manifest_mismatch:{}".format(key))
+                            manifest_errors.append(f"manifest_mismatch:{key}")
             if manifest_errors:
                 fail("seal_case_manifest", "; ".join(manifest_errors))
             else:
@@ -2279,9 +2274,7 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
             "textforensics.trust-map/v2",
             "textforensics.trust-map/v3",
         ):
-            legacy_tm_errors = _trust_map_check_errors(
-                legacy_trust_map, bundle.get("schema")
-            )
+            legacy_tm_errors = _trust_map_check_errors(legacy_trust_map, bundle.get("schema"))
             if legacy_tm_errors:
                 fail("seal_trust_map", "; ".join(legacy_tm_errors))
             else:
