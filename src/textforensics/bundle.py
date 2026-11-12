@@ -276,6 +276,103 @@ def pack_bundle(case_file_path: str | Path, output_path: str | Path) -> BundleMa
     return manifest
 
 
+def _is_hex_digest(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(c in "0123456789abcdef" for c in value)
+    )
+
+
+def _validate_manifest_contract(manifest_data: Any) -> tuple[BundleManifest | None, list[str]]:
+    """Validate the legacy bundle manifest contract (C18).
+
+    Returns ``(manifest, errors)``.  The contract is checked FIRST,
+    before the archive is opened: the schema must be the legacy
+    bundle-manifest schema, the format one of the two supported
+    values, the per-file map a non-empty dict of non-empty names to
+    64-hex digests, and the bundle digest a 64-hex digest.  A
+    legitimately empty bundle is NOT a supported artifact (the
+    packer refuses to create one — ``pack_bundle`` raises on no
+    files), so an empty per-file map is malformed, not a valid
+    empty bundle.
+    """
+    errors: list[str] = []
+    if not isinstance(manifest_data, dict):
+        return None, ["Manifest is not a JSON object"]
+    if manifest_data.get("schema") != BUNDLE_SCHEMA:
+        errors.append(f"Manifest schema is not {BUNDLE_SCHEMA}: {manifest_data.get('schema')!r}")
+    if manifest_data.get("format") not in ("tar.gz", "zip"):
+        errors.append(f"Unsupported bundle format: {manifest_data.get('format')!r}")
+    if not isinstance(manifest_data.get("bundle_filename"), str) or not manifest_data.get(
+        "bundle_filename"
+    ):
+        errors.append("Manifest bundle_filename is missing or not a string")
+    if not isinstance(manifest_data.get("created_at"), str) or not manifest_data.get("created_at"):
+        errors.append("Manifest created_at is missing or not a string")
+    per_file = manifest_data.get("per_file_digests")
+    if not isinstance(per_file, dict):
+        errors.append("Manifest per_file_digests is not an object")
+    elif not per_file:
+        errors.append("Manifest per_file_digests is empty: an empty bundle is not supported")
+    else:
+        for name, digest in per_file.items():
+            if not isinstance(name, str) or not name:
+                errors.append("Manifest per_file_digests has a non-string or empty file name")
+            if not _is_hex_digest(digest):
+                errors.append(f"Manifest digest for {name!r} is not a 64-character hex digest")
+    if not _is_hex_digest(manifest_data.get("bundle_digest")):
+        errors.append("Manifest bundle_digest is not a 64-character hex digest")
+    if errors:
+        return None, errors
+    try:
+        return BundleManifest.from_dict(manifest_data), []
+    except (TypeError, ValueError) as exc:
+        return None, [f"Failed to parse manifest: {exc}"]
+
+
+def _list_archive_members(bundle_file: Path, fmt: str) -> tuple[list[tuple[str, int]] | None, str | None]:
+    """List ``(name, size)`` members of a bundle archive (C18).
+
+    The container is opened and validated regardless of file-map
+    contents — an empty map must never skip this step.  Returns
+    ``(members, None)`` or ``(None, error)``.  Duplicate member
+    names (exact or case-insensitive collisions) are an error: a
+    duplicate would let one copy shadow another behind the manifest
+    (the C05 ambiguity, applied to the legacy format).
+    """
+    try:
+        if fmt == "tar.gz":
+            with tarfile.open(bundle_file, "r:gz") as tar:
+                members = [(m.name, m.size) for m in tar.getmembers() if m.isfile()]
+        elif fmt == "zip":
+            with zipfile.ZipFile(bundle_file, "r") as zf:
+                members = [(info.filename, info.file_size) for info in zf.infolist()]
+        else:  # pragma: no cover - format validated before this call
+            return None, f"Unsupported format: {fmt}"
+    except (tarfile.TarError, zipfile.BadZipFile, EOFError, OSError, ValueError) as exc:
+        return None, f"Bundle is not a readable {fmt} archive: {exc}"
+    names = [name for name, _ in members]
+    seen: dict[str, str] = {}
+    duplicates: list[str] = []
+    for name in names:
+        if name in seen and name not in duplicates:
+            duplicates.append(name)
+        seen[name] = name
+    if duplicates:
+        return None, "Duplicate member names in archive: " + ", ".join(sorted(duplicates))
+    folded_seen: dict[str, str] = {}
+    collisions: list[str] = []
+    for name in names:
+        folded = name.casefold()
+        if folded in folded_seen and name not in collisions:
+            collisions.append(name)
+        folded_seen[folded] = name
+    if collisions:
+        return None, "Member names collide case-insensitively: " + ", ".join(sorted(collisions))
+    return members, None
+
+
 def verify_bundle(
     bundle_path: str | Path,
     expected_digest: str | None = None,
@@ -284,9 +381,15 @@ def verify_bundle(
 
     Steps:
     1. Locate the ``.manifest.json`` next to the bundle.
-    2. Re-hash the archive bytes and compare with *bundle_digest*.
-    3. Extract and verify each file's per-file digest.
-    4. Optionally compare the archive digest with *expected_digest*.
+    2. Validate the manifest contract (schema, format, file map,
+       digests) — an empty file map is malformed, not a valid empty
+       bundle.
+    3. Re-hash the archive bytes and compare with *bundle_digest*.
+    4. Open and validate the container regardless of file-map
+       emptiness: the member set must match the manifest map exactly
+       (no extra, missing, or duplicate members).
+    5. Extract and verify each file's per-file digest.
+    6. Optionally compare the archive digest with *expected_digest*.
 
     Returns a :class:`BundleVerificationResult`.
     """
@@ -319,11 +422,18 @@ def verify_bundle(
 
     try:
         manifest_data = json.loads(candidate.read_text(encoding="utf-8"))
-        manifest = BundleManifest.from_dict(manifest_data)
-    except (json.JSONDecodeError, KeyError) as exc:
+    except (json.JSONDecodeError, UnicodeDecodeError, RecursionError) as exc:
         return BundleVerificationResult(
             valid=False,
             errors=[f"Failed to parse manifest: {exc}"],
+        )
+
+    # 0. Validate the manifest contract first (C18).
+    manifest, contract_errors = _validate_manifest_contract(manifest_data)
+    if manifest is None:
+        return BundleVerificationResult(
+            valid=False,
+            errors=contract_errors,
         )
 
     errors: list[str] = []
@@ -344,10 +454,41 @@ def verify_bundle(
             f"Digest does not match expected: expected {expected_digest}, got {actual_digest}"
         )
 
-    # 3. Verify per-file digests
+    # 3. Open and validate the container (C18): the member set must
+    # match the manifest map exactly, and every member must respect
+    # the per-file and total caps — before any member is read.
     fmt = manifest.format
+    members, member_error = _list_archive_members(bundle_file, fmt)
+    if member_error is not None:
+        errors.append(member_error)
+        return BundleVerificationResult(
+            valid=False,
+            per_file_status=per_file_status,
+            bundle_digest_match=bundle_match,
+            expected_digest=expected_digest or "",
+            actual_digest=actual_digest,
+            errors=errors,
+        )
+    assert members is not None
+    member_sizes = dict(members)
+    for name in sorted(set(member_sizes) - set(manifest.per_file_digests)):
+        per_file_status[name] = "extra"
+        errors.append(f"Archive contains {name}, which the manifest does not list")
+    for name in sorted(set(manifest.per_file_digests) - set(member_sizes)):
+        per_file_status[name] = "missing"
+        errors.append(f"File not found in archive: {name}")
+    for name, size in members:
+        if size > MAX_BUNDLE_FILE_BYTES:
+            per_file_status[name] = "error"
+            errors.append(f"{name} exceeds the {MAX_BUNDLE_FILE_BYTES}-byte per-file cap")
+    if sum(size for _, size in members) > MAX_BUNDLE_TOTAL_BYTES:
+        errors.append(f"Bundle exceeds the {MAX_BUNDLE_TOTAL_BYTES}-byte total cap")
+
+    # 4. Verify per-file digests
     total_decompressed = 0
     for rel, expected in sorted(manifest.per_file_digests.items()):
+        if rel in per_file_status:
+            continue
         try:
             if fmt == "tar.gz":
                 with tarfile.open(bundle_file, "r:gz") as tar:
@@ -373,7 +514,7 @@ def verify_bundle(
                             f"{rel} exceeds the {MAX_BUNDLE_FILE_BYTES}-byte per-file cap"
                         )
                         continue
-                    with zf.open(rel) as f:
+                    with zf.open(info) as f:
                         data = _read_capped(f, limit=MAX_BUNDLE_FILE_BYTES, what=rel)
             else:
                 per_file_status[rel] = "unsupported_format"

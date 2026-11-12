@@ -26,6 +26,7 @@ RFC 5911 (TSTInfo / id-ct-TSTInfo OID).
 from __future__ import annotations
 
 import hashlib
+import re
 import secrets
 import urllib.error
 import urllib.parse
@@ -68,6 +69,13 @@ _HASH_OIDS = {
 # use.  RSA PKCS#1 v1.5 and ECDSA over P-256/P-384 only; nothing else
 # is accepted, and an unknown algorithm is a verification error, not
 # a silent pass.
+#
+# C14: the ECDSA signature OID identifies the signature/hash only
+# (RFC 5758 §3.2).  It does NOT mandate a curve — the curve comes
+# from the certificate's EC parameters (``_EC_CURVE_OIDS``).  An
+# ECDSA-with-SHA384 signature over a P-256 key is a supported
+# combination, not a curve mismatch.  The supported matrix is
+# published in docs/TSA_INTEROP.md ("Supported signature algorithms").
 _RSA_SIGNATURE_OIDS = {
     OID_SHA1_WITH_RSA: "sha1",
     OID_SHA256_WITH_RSA: "sha256",
@@ -75,9 +83,17 @@ _RSA_SIGNATURE_OIDS = {
     OID_SHA512_WITH_RSA: "sha512",
 }
 _ECDSA_SIGNATURE_OIDS = {
-    OID_ECDSA_WITH_SHA256: ("sha256", "P-256"),
-    OID_ECDSA_WITH_SHA384: ("sha384", "P-384"),
-    OID_ECDSA_WITH_SHA512: ("sha512", "P-384"),
+    OID_ECDSA_WITH_SHA256: "sha256",
+    OID_ECDSA_WITH_SHA384: "sha384",
+    OID_ECDSA_WITH_SHA512: "sha512",
+}
+# EC parameter OIDs the verifier supports, mapped to the curve table.
+# Any other curve OID (including P-521, for which this module has no
+# domain parameters) is rejected as unsupported — never silently
+# reinterpreted as a supported curve.
+_EC_CURVE_OIDS = {
+    OID_PRIME256V1: "P-256",
+    OID_SECP384R1: "P-384",
 }
 
 # DigestInfo prefixes for RSA PKCS#1 v1.5 verification (RFC 8017 §9.2).
@@ -292,16 +308,44 @@ def _parse_generalized_time(node: _DerNode) -> str:
     return text
 
 
+# DER GeneralizedTime grammar for RFC 3161 genTime (C13; see
+# _generalized_time_to_datetime): exactly YYYYMMDDHHMMSS, an optional
+# fraction of one or more digits, and exactly one trailing Z.
+_GENERALIZED_TIME_RE = re.compile(
+    r"^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\.\d+)?Z$"
+)
+
+
 def _generalized_time_to_datetime(text: str) -> datetime:
-    cleaned = text.rstrip("Z")
-    if "." in cleaned:
-        whole, fraction = cleaned.split(".", 1)
-        fraction = (fraction + "000000")[:6]
-        cleaned = f"{whole}.{fraction}"
-        parsed = datetime.strptime(cleaned, "%Y%m%d%H%M%S.%f")
-    else:
-        parsed = datetime.strptime(cleaned, "%Y%m%d%H%M%S")
-    return parsed.replace(tzinfo=UTC)
+    """Validate a GeneralizedTime string (C13) and return its UTC datetime.
+
+    The grammar is the DER profile of RFC 3161 genTime (X.690 §11.7):
+    ``YYYYMMDDHHMMSS[.fraction]Z`` — ASCII only, exactly one trailing
+    ``Z`` (a timezone-free value is NEVER silently read as UTC),
+    seconds mandatory, a fraction (if present) of one or more decimal
+    digits, and calendar-valid fields (month 01–12, day valid for the
+    month including leap years, hour 00–23, minute/second 00–59).
+    A leap second (60) is rejected: ``datetime`` cannot represent it
+    and no TSA in evidence emits one; failing closed is the safe
+    choice.  Raises :class:`TimestampError` (never a bare
+    ``ValueError``) so callers can report it as a structured
+    verification failure.  The standalone verifier in
+    ``_standalone_verify.py`` implements this same grammar
+    independently; the two must agree on every input.
+    """
+    match = _GENERALIZED_TIME_RE.match(text)
+    if match is None:
+        raise TimestampError(
+            "GeneralizedTime must be YYYYMMDDHHMMSS[.fraction]Z: "
+            f"{text!r}."
+        )
+    year, month, day, hour, minute, second = (int(part) for part in match.groups()[:6])
+    fraction = match.group(7)
+    microsecond = int((fraction[1:] + "000000")[:6]) if fraction else 0
+    try:
+        return datetime(year, month, day, hour, minute, second, microsecond, tzinfo=UTC)
+    except ValueError as exc:
+        raise TimestampError(f"GeneralizedTime is not a valid calendar value: {text!r}.") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -970,14 +1014,15 @@ def verify_timestamp_token(
             errors.append(f"rsa_key_unparseable:{exc}")
             return info
     elif sig_oid in _ECDSA_SIGNATURE_OIDS and key_oid == OID_EC_PUBLIC_KEY:
-        hash_name_sig, curve_name = _ECDSA_SIGNATURE_OIDS[sig_oid]
+        # C14: the signature OID selects the hash; the curve comes
+        # from the certificate's EC parameters, not from the OID.
+        hash_name_sig = _ECDSA_SIGNATURE_OIDS[sig_oid]
         if hash_name_sig != hash_name:
             errors.append(f"signature_hash_mismatch:{hash_name_sig} != {hash_name}")
             return info
-        curve_oid = signer_cert["key_params_oid"]
-        expected_curve_oid = OID_PRIME256V1 if curve_name == "P-256" else OID_SECP384R1
-        if curve_oid != expected_curve_oid:
-            errors.append(f"ec_curve_mismatch:{curve_oid}")
+        curve_name = _EC_CURVE_OIDS.get(signer_cert["key_params_oid"])
+        if curve_name is None:
+            errors.append(f"ec_curve_unsupported:{signer_cert['key_params_oid']}")
             return info
         try:
             point = _parse_ec_public_key(signer_cert["key_der"])

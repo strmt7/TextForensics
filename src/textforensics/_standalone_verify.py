@@ -39,9 +39,12 @@ import argparse
 import hashlib
 import io
 import json
+import math
+import re
 import struct
 import sys
 import zipfile
+from datetime import datetime, timezone
 
 TOOL = "textforensics-standalone-verify"
 REPORT_SCHEMA = "textforensics.verification-report/v1"
@@ -272,6 +275,39 @@ FORBIDDEN_RAW_TEXT_KEYS = frozenset(
     }
 )
 
+# D1–D10 checklist structure (C04) — verbatim mirror of
+# ``textforensics.casefile``.  This file cannot import the package,
+# so the values are duplicated here by design and pinned equal by the
+# package test suite
+# (``tests/test_standalone_verify.py::StandaloneChecklistStructureTests::
+# test_checklist_template_notice_matches_package`` and the dimension
+# test below it).  Change the values in casefile.py first, then mirror
+# them here and re-run those tests.
+_CHECKLIST_ITEMS = (
+    "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10",
+)
+_CHECKLIST_STATUSES = ("satisfied", "not_satisfied", "not_applicable", "unknown")
+_CHECKLIST_DISPOSITIONS = ("relied_on", "considered", "discounted")
+_CHECKLIST_ALTERNATIVE_EXPLANATIONS = (
+    "tutoring_or_editing_assistance",
+    "non_native_or_esl_writing",
+    "disciplinary_conventions",
+    "short_text_limits",
+    "paraphrase_or_editing_regime",
+    "template_or_boilerplate_text",
+)
+_CHECKLIST_TEMPLATE_NOTICE = (
+    "Template, not legal advice. This checklist is an education-grounded "
+    "template for due-process review of an AI-text detection finding. It "
+    "is not a policy, not legal advice, and not a finding of admissibility "
+    "or compliance. Adapt it to the institution's own code with legal "
+    "review before consequential use."
+)
+_DETECTOR_RESULT_SCHEMAS = frozenset(
+    {"textforensics.detector-result/v2", "textforensics.detector-result/v1"}
+)
+_DETECTOR_VERDICTS = frozenset({"ai_like", "human_like", "abstain"})
+
 
 def _find_forbidden_raw_text_keys(value, path="$"):
     """Mirror of ``textforensics.sealing.find_forbidden_raw_text_keys``.
@@ -334,6 +370,30 @@ def _canonical_json_bytes(payload):
         separators=(",", ":"),
         allow_nan=False,
     ).encode("utf-8")
+
+
+MAX_JSON_DEPTH = 100
+
+
+def _json_depth_exceeded(value):
+    """Iterative nesting-depth check (C12).
+
+    Returns True when *value* nests deeper than MAX_JSON_DEPTH.
+    Explicit parser-depth limit for JSON entry points: a hostile
+    nesting depth is a structured failure, never a RecursionError
+    escaping the verifier.  Legitimate case files and manifests nest
+    an order of magnitude shallower than the cap.
+    """
+    stack = [(value, 1)]
+    while stack:
+        current, depth = stack.pop()
+        if depth > MAX_JSON_DEPTH:
+            return True
+        if isinstance(current, dict):
+            stack.extend((child, depth + 1) for child in current.values())
+        elif isinstance(current, list):
+            stack.extend((child, depth + 1) for child in current)
+    return False
 
 
 def _case_canonical_json_bytes(payload):
@@ -567,9 +627,17 @@ _RSA_SIG_OIDS = {
     _OID_SHA512_WITH_RSA: "sha512",
 }
 _ECDSA_SIG_OIDS = {
-    _OID_ECDSA_WITH_SHA256: ("sha256", "P-256"),
-    _OID_ECDSA_WITH_SHA384: ("sha384", "P-384"),
-    _OID_ECDSA_WITH_SHA512: ("sha512", "P-384"),
+    _OID_ECDSA_WITH_SHA256: "sha256",
+    _OID_ECDSA_WITH_SHA384: "sha384",
+    _OID_ECDSA_WITH_SHA512: "sha512",
+}
+# C14: the ECDSA signature OID selects the hash only (RFC 5758
+# §3.2); the curve comes from the certificate's EC parameters, never
+# from the OID.  Supported curves and the published matrix are the
+# same as in textforensics.timestamp (see docs/TSA_INTEROP.md).
+_EC_CURVE_OIDS = {
+    _OID_PRIME256V1: "P-256",
+    _OID_SECP384R1: "P-384",
 }
 _DIGEST_INFO_PREFIX = {
     "sha1": bytes.fromhex("3021300906052b0e03021a05000414"),
@@ -676,6 +744,38 @@ def _der_generalized_time(node):
     if node.tag != 0x18:
         raise _DerError("Expected GeneralizedTime.")
     return node.content.decode("ascii")
+
+
+# DER GeneralizedTime grammar for RFC 3161 genTime (C13) — the
+# independent stdlib mirror of textforensics.timestamp's validator:
+# YYYYMMDDHHMMSS[.fraction]Z, ASCII only, exactly one trailing Z (a
+# timezone-free value is NEVER silently read as UTC), seconds
+# mandatory, a fraction (if present) of one or more decimal digits,
+# and calendar-valid fields.  A leap second (60) is rejected.
+_GENERALIZED_TIME_RE = re.compile(
+    r"^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\.\d+)?Z$"
+)
+
+
+def _validate_generalized_time(text):
+    """Validate a GeneralizedTime string; return (iso_utc, error).
+
+    Exactly one of the two is not None.  ``iso_utc`` is the ISO 8601
+    UTC rendering; ``error`` is a human-readable reason.  The grammar
+    is identical to the package validator — both paths must agree on
+    every input.
+    """
+    match = _GENERALIZED_TIME_RE.match(text)
+    if match is None:
+        return None, "GeneralizedTime must be YYYYMMDDHHMMSS[.fraction]Z: {!r}.".format(text)
+    year, month, day, hour, minute, second = (int(part) for part in match.groups()[:6])
+    fraction = match.group(7)
+    microsecond = int((fraction[1:] + "000000")[:6]) if fraction else 0
+    try:
+        parsed = datetime(year, month, day, hour, minute, second, microsecond, tzinfo=timezone.utc)
+    except ValueError:
+        return None, "GeneralizedTime is not a valid calendar value: {!r}.".format(text)
+    return parsed.isoformat(), None
 
 
 def _rsa_verify(modulus, exponent, signature, digest, hash_name):
@@ -841,6 +941,13 @@ def _verify_timestamp_token(token_der, expected_digest):
         info["policy"] = _der_oid(tst[1].content)
         info["serial_number"] = _der_int(tst[3])
         info["gen_time"] = _der_generalized_time(tst[4])
+        # C13: the genTime grammar is validated here, in this path,
+        # with the same rules as the package validator — an invalid
+        # time is a structured token error, never a silent pass.
+        _gen_time_utc, gen_time_error = _validate_generalized_time(info["gen_time"])
+        if gen_time_error is not None:
+            errors.append("gen_time_invalid:{}".format(gen_time_error))
+            return info, errors
         index = 5
         while index < len(tst):
             if tst[index].tag == 0x02:
@@ -951,13 +1058,17 @@ def _verify_timestamp_token(token_der, expected_digest):
             errors.append(f"rsa_key_unparseable:{exc}")
             return info, errors
     elif sig_oid in _ECDSA_SIG_OIDS and key_oid == _OID_EC_PUBLIC_KEY:
-        hash_name_sig, curve_name = _ECDSA_SIG_OIDS[sig_oid]
+        # C14: the signature OID selects the hash; the curve comes
+        # from the certificate's EC parameters, not from the OID.
+        hash_name_sig = _ECDSA_SIG_OIDS[sig_oid]
         if hash_name_sig != hash_name:
             errors.append("signature_hash_mismatch")
             return info, errors
-        expected_curve_oid = _OID_PRIME256V1 if curve_name == "P-256" else _OID_SECP384R1
-        if signer_cert["key_params_oid"] != expected_curve_oid:
-            errors.append("ec_curve_mismatch")
+        curve_name = _EC_CURVE_OIDS.get(signer_cert["key_params_oid"])
+        if curve_name is None:
+            errors.append(
+                "ec_curve_unsupported:{}".format(signer_cert["key_params_oid"])
+            )
             return info, errors
         point_der = signer_cert["key_der"]
         if not point_der or point_der[0] != 0x04:
@@ -1100,6 +1211,74 @@ def _custody_entry_hash(actor, action, at_utc, note, prev_hash):
         "prev_hash": prev_hash,
     }
     return _sha256(_case_canonical_json_bytes(payload))
+
+
+_PREVIOUS_SIGNATURE_REASONS = frozenset(
+    {"re-signed-after-custody-append", "invalidated-no-signing-key"}
+)
+
+
+def _previous_signatures_errors(seal):
+    """Shape-check ``seal.previous_signatures`` (C02 contract §2.1).
+
+    Mirror of the installed verifier's ``v3_seal_previous_signatures_invalid``
+    check: when present the field must be a list whose every entry is a
+    mapping with all six required fields (``algorithm``,
+    ``key_fingerprint``, ``signer``, ``dsse``, ``superseded_reason``,
+    ``superseded_at_utc``).  An absent field is not an error — only a
+    present-but-malformed list fails.  Returns a list of error strings
+    (empty when the field is absent or well-formed).
+    """
+    if not isinstance(seal, dict):
+        return []
+    previous = seal.get("previous_signatures")
+    if previous is None:
+        return []
+    if not isinstance(previous, list):
+        return ["previous_signatures is not a list"]
+    errors = []
+    for index, entry in enumerate(previous):
+        if not isinstance(entry, dict):
+            errors.append(f"previous_signatures[{index}] is not an object")
+            continue
+        for field in (
+            "algorithm",
+            "key_fingerprint",
+            "signer",
+            "dsse",
+            "superseded_reason",
+            "superseded_at_utc",
+        ):
+            if field not in entry:
+                errors.append(f"previous_signatures[{index}] is missing {field}")
+        if entry.get("algorithm") not in (None, "ed25519"):
+            errors.append(f"previous_signatures[{index}] algorithm is not ed25519")
+        fingerprint = entry.get("key_fingerprint")
+        if fingerprint is not None and (
+            not isinstance(fingerprint, str)
+            or len(fingerprint) != 64
+            or any(c not in "0123456789abcdef" for c in fingerprint)
+        ):
+            errors.append(f"previous_signatures[{index}] key_fingerprint is not 64 hex")
+        signer = entry.get("signer")
+        if signer is not None and (
+            not isinstance(signer, dict)
+            or not isinstance(signer.get("identity"), str)
+            or not signer["identity"]
+            or not isinstance(signer.get("role"), str)
+            or not signer["role"]
+        ):
+            errors.append(f"previous_signatures[{index}] signer is malformed")
+        if entry.get("dsse") is not None and not isinstance(entry.get("dsse"), dict):
+            errors.append(f"previous_signatures[{index}] dsse is not an object")
+        if entry.get("superseded_reason") not in (None, *_PREVIOUS_SIGNATURE_REASONS):
+            errors.append(f"previous_signatures[{index}] superseded_reason is unknown")
+        if entry.get("superseded_at_utc") is not None and (
+            not isinstance(entry.get("superseded_at_utc"), str)
+            or not entry["superseded_at_utc"]
+        ):
+            errors.append(f"previous_signatures[{index}] superseded_at_utc is malformed")
+    return errors
 
 
 def _verify_custody(custody):
@@ -1364,6 +1543,153 @@ def _checklist_consistency(case, bundle):
     return errors
 
 
+def _checklist_structure_errors(case):
+    """Validate the D1–D10 checklist structure (C04).
+
+    Independent mirror of ``textforensics.casefile.validate_checklist``:
+    the exact template notice, every D1–D10 item present as a mapping
+    with a valid status and (when present) a list-of-strings evidence
+    field, valid evidence dispositions, and known alternative
+    explanations with a valid tested value.  The consistency check
+    above only constrains *satisfied* entries; without this, an empty
+    or altered checklist verifies because nothing in it is satisfied.
+    Returns a list of error strings (empty when the structure is
+    sound).  A non-dict process or non-dict items list is left to the
+    consistency check, which already reports it — this function never
+    double-reports those.
+    """
+    errors = []
+    process = case.get("process")
+    if not isinstance(process, dict):
+        return errors
+    if process.get("template_notice") != _CHECKLIST_TEMPLATE_NOTICE:
+        errors.append("checklist_template_notice_missing_or_altered")
+    items = process.get("items")
+    if not isinstance(items, dict):
+        return errors
+    for item_id in _CHECKLIST_ITEMS:
+        record = items.get(item_id)
+        if not isinstance(record, dict):
+            errors.append("checklist_{}_missing".format(item_id.lower()))
+            continue
+        if record.get("status") not in _CHECKLIST_STATUSES:
+            errors.append("checklist_{}_invalid_status".format(item_id.lower()))
+        evidence = record.get("evidence")
+        if evidence is not None and (
+            not isinstance(evidence, list)
+            or any(not isinstance(entry, str) for entry in evidence)
+        ):
+            errors.append("checklist_{}_invalid_evidence".format(item_id.lower()))
+    dispositions = process.get("evidence_dispositions") or {}
+    if isinstance(dispositions, dict):
+        for detector_id, disposition in dispositions.items():
+            if (
+                not isinstance(disposition, dict)
+                or disposition.get("disposition") not in _CHECKLIST_DISPOSITIONS
+            ):
+                errors.append("checklist_disposition_invalid:{}".format(detector_id))
+    explanations = process.get("alternative_explanations") or {}
+    if isinstance(explanations, dict):
+        for name, entry in explanations.items():
+            if name not in _CHECKLIST_ALTERNATIVE_EXPLANATIONS:
+                errors.append("checklist_alternative_explanation_unknown:{}".format(name))
+            elif not isinstance(entry, dict) or entry.get("tested") not in {
+                "tested",
+                "not_tested",
+                "not_applicable",
+            }:
+                errors.append("checklist_alternative_explanation_invalid:{}".format(name))
+    return errors
+
+
+def _manifest_for(bundle, tool):
+    """Re-derive the expected case manifest (C04).
+
+    Independent mirror of ``textforensics.casefile._manifest_for``:
+    content hash, registry id + registry digest (SHA-256 over the
+    canonical JSON of the evidence registry), sorted calibration ids
+    from the detector results (including nested calibration records),
+    schema versions, and the tool's git SHA.  The caller compares the
+    result field by field against the case's recorded manifest.
+    """
+    registry = bundle.get("evidence_registry")
+    registry_id = None
+    registry_sha256 = None
+    if isinstance(registry, dict):
+        value = registry.get("registry_id")
+        if isinstance(value, str):
+            registry_id = value
+        registry_sha256 = _sha256(_case_canonical_json_bytes(registry))
+    calibration_ids = set()
+    results = bundle.get("detector_results", [])
+    if isinstance(results, list):
+        for result in results:
+            if not isinstance(result, dict):
+                continue
+            calibration_id = result.get("calibration_id")
+            if isinstance(calibration_id, str) and calibration_id:
+                calibration_ids.add(calibration_id)
+            calibration = result.get("calibration")
+            if isinstance(calibration, dict):
+                nested = calibration.get("calibration_id")
+                if isinstance(nested, str) and nested:
+                    calibration_ids.add(nested)
+    trust_map = bundle.get("trust_map")
+    detector_schema = None
+    if isinstance(results, list) and results and isinstance(results[0], dict):
+        detector_schema = results[0].get("schema")
+    return {
+        "content_sha256": bundle.get("content_sha256"),
+        "registry_id": registry_id,
+        "registry_sha256": registry_sha256,
+        "calibration_ids": sorted(calibration_ids),
+        "schema_versions": {
+            "forensic_bundle": bundle.get("schema"),
+            "trust_map": trust_map.get("schema") if isinstance(trust_map, dict) else None,
+            "detector_result": detector_schema or "textforensics.detector-result/v2",
+        },
+        "git_sha": tool.get("git_sha") if isinstance(tool, dict) else None,
+    }
+
+
+def _detector_sanity_errors(bundle):
+    """Validate detector results (C04).
+
+    Independent mirror of the detector-result checks in
+    ``textforensics.verify.verify_case_file``: each result is a dict
+    with an accepted schema, a finite non-boolean numeric score (or
+    no score), and a verdict in the accepted vocabulary.  A
+    non-dict entry is an error, not a silent skip.
+    """
+    errors = []
+    results = bundle.get("detector_results", [])
+    if not isinstance(results, list):
+        return ["detector_results is not a list"]
+    for index, result in enumerate(results):
+        if not isinstance(result, dict):
+            errors.append("detector result {} is not an object".format(index))
+            continue
+        if result.get("schema") not in _DETECTOR_RESULT_SCHEMAS:
+            errors.append(
+                "detector {} has wrong schema".format(result.get("detector_id"))
+            )
+        score = result.get("score")
+        if score is not None:
+            if isinstance(score, bool) or not isinstance(score, (int, float)):
+                errors.append(
+                    "detector {} score is not numeric".format(result.get("detector_id"))
+                )
+            elif not math.isfinite(float(score)):
+                errors.append(
+                    "detector {} score is not finite".format(result.get("detector_id"))
+                )
+        if result.get("verdict") not in _DETECTOR_VERDICTS:
+            errors.append(
+                "detector {} has invalid verdict".format(result.get("detector_id"))
+            )
+    return errors
+
+
 def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
     """Verify sealed-bundle bytes. Returns the verification report dict."""
     checks = []
@@ -1409,6 +1735,29 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
         report["scope_statement"] = "seal: not verified (bundle exceeds size cap)"
         return report
     ok("container_outer_size", "bundle is within the 288 MiB outer cap")
+    # The expected-digest comparison runs BEFORE any early return
+    # (C05 control): a pinned digest must be compared even when the
+    # container is then rejected for duplicates, so the report always
+    # records whether the archive bytes match the pin.
+    if expected_digest is not None:
+        if expected_digest != report["bundle_sha256"]:
+            fail(
+                "seal_expected_digest",
+                "bundle digest does not match the expected digest",
+            )
+        else:
+            ok("seal_expected_digest", "bundle digest matches the expected digest")
+    else:
+        warnings.append(
+            "digest compared only to the value inside the bundle — origin not authenticated"
+        )
+        _check(
+            checks,
+            "seal_expected_digest",
+            "pass",
+            "no --expect-digest was given; the digest was compared only to "
+            "the value inside the bundle — origin not authenticated",
+        )
     try:
         _eocd_offset, entry_count, cd_size, cd_offset, comment = _find_eocd(data)
     except ValueError as exc:
@@ -1436,6 +1785,35 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
         fail("container_sorted_entries", "entries are not in sorted order")
     else:
         ok("container_sorted_entries", "entries are in sorted order")
+    # C05: duplicate member names are rejected BEFORE any content is
+    # read.  Entries are opened by name, so a duplicate would let the
+    # last copy shadow the first behind a valid manifest signature;
+    # the manifest checks below operate on a deduplicated mapping
+    # and could never see the hidden member.  Names must also be
+    # unique case-insensitively: a bundle carrying both case.json
+    # and Case.json would collide on extraction on a
+    # case-insensitive filesystem (normalisation policy: exact
+    # unique names, no case folding on read).
+    if len(set(names)) != len(names):
+        duplicates = sorted({name for name in names if names.count(name) > 1})
+        fail(
+            "container_duplicate_entries",
+            "duplicate member names: " + ", ".join(duplicates),
+        )
+        report["exit_code"] = 1
+        report["scope_statement"] = "seal: not verified (duplicate member names)"
+        return report
+    folded = [name.casefold() for name in names]
+    if len(set(folded)) != len(folded):
+        collisions = sorted({name for name in names if folded.count(name.casefold()) > 1})
+        fail(
+            "container_duplicate_entries",
+            "member names collide case-insensitively: " + ", ".join(collisions),
+        )
+        report["exit_code"] = 1
+        report["scope_statement"] = "seal: not verified (duplicate member names)"
+        return report
+    ok("container_duplicate_entries", "member names are unique")
     total_uncompressed = 0
     for entry in entries:
         if entry["compress_method"] != ZIP_STORED:
@@ -1481,13 +1859,28 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
     ok("container_required_entries", "manifest.json and case.json are present")
 
     # Read entries (single in-memory buffer, capped reads, no extraction).
+    # Entries are opened through their validated ZipInfo objects, never
+    # by ambiguous name lookup (C05): with duplicate names rejected
+    # above, the two agree — the object form keeps them agreeing even
+    # if a future change relaxes the rejection.
     contents = {}
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as zf:
+            infos_by_name = {}
+            for info in zf.infolist():
+                infos_by_name.setdefault(info.filename, info)
+            if set(infos_by_name) != set(names):
+                fail(
+                    "container_read",
+                    "zipfile member listing disagrees with the central directory",
+                )
+                report["exit_code"] = 1
+                report["scope_statement"] = "seal: not verified (bundle unreadable)"
+                return report
             for entry in entries:
                 if entry["uncompressed_size"] > MAX_ENTRY_BYTES:
                     continue
-                with zf.open(entry["name"]) as stream:
+                with zf.open(infos_by_name[entry["name"]]) as stream:
                     contents[entry["name"]] = stream.read(MAX_ENTRY_BYTES + 1)
                     if len(contents[entry["name"]]) > MAX_ENTRY_BYTES:
                         fail(
@@ -1536,29 +1929,15 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
         fail("seal_manifest_digest", "archive comment digest does not match manifest.json bytes")
     else:
         ok("seal_manifest_digest", "archive comment digest matches manifest.json")
-    if expected_digest is not None:
-        if expected_digest != report["bundle_sha256"]:
-            fail(
-                "seal_expected_digest",
-                "bundle digest does not match the expected digest",
-            )
-        else:
-            ok("seal_expected_digest", "bundle digest matches the expected digest")
-    else:
-        warnings.append(
-            "digest compared only to the value inside the bundle — origin not authenticated"
-        )
-        _check(
-            checks,
-            "seal_expected_digest",
-            "pass",
-            "no --expect-digest was given; the digest was compared only to "
-            "the value inside the bundle — origin not authenticated",
-        )
     try:
         manifest = json.loads(manifest_bytes.decode("utf-8"))
-    except (ValueError, UnicodeDecodeError) as exc:
+    except (ValueError, UnicodeDecodeError, RecursionError) as exc:
         fail("seal_manifest_parse", f"manifest.json does not parse: {exc}")
+        report["exit_code"] = 1
+        report["scope_statement"] = "seal: not verified (manifest unparseable)"
+        return report
+    if _json_depth_exceeded(manifest):
+        fail("seal_manifest_parse", "manifest.json exceeds the JSON depth limit")
         report["exit_code"] = 1
         report["scope_statement"] = "seal: not verified (manifest unparseable)"
         return report
@@ -1581,6 +1960,16 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
     # manifest, reported as a structured failure.
     if any(not isinstance(name, str) for name in manifest_names):
         fail("seal_manifest_files", "manifest file path is not a string")
+        report["exit_code"] = 1
+        report["scope_statement"] = "seal: not verified (manifest malformed)"
+        return report
+    # C05: manifest paths must be unique, and the manifest/member
+    # relationship must be one-to-one (the digest loop below already
+    # flags unlisted and missing members; uniqueness makes the
+    # mapping exact rather than deduplicated).
+    if len(set(manifest_names)) != len(manifest_names):
+        duplicates = sorted({name for name in manifest_names if manifest_names.count(name) > 1})
+        fail("seal_manifest_files", "manifest file paths are not unique: " + ", ".join(duplicates))
         report["exit_code"] = 1
         report["scope_statement"] = "seal: not verified (manifest malformed)"
         return report
@@ -1624,7 +2013,7 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
     # -- Case-file checks (hash, v3 sections, custody, checklist). --
     try:
         case = json.loads(case_bytes.decode("utf-8"))
-    except (ValueError, UnicodeDecodeError) as exc:
+    except (ValueError, UnicodeDecodeError, RecursionError) as exc:
         fail("seal_case_parse", f"case.json does not parse: {exc}")
         report["exit_code"] = 1
         report["scope_statement"] = "seal: not verified (case unparseable)"
@@ -1634,10 +2023,23 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
         report["exit_code"] = 1
         report["scope_statement"] = "seal: not verified (case unparseable)"
         return report
-    if case.get("case_sha256") != _case_hash(case):
-        fail("seal_case_hash", "case_sha256 does not match the recomputed case hash")
+    if _json_depth_exceeded(case):
+        fail("seal_case_parse", "case.json exceeds the JSON depth limit")
+        report["exit_code"] = 1
+        report["scope_statement"] = "seal: not verified (case unparseable)"
+        return report
+    try:
+        case_hash = _case_hash(case)
+    except (ValueError, RecursionError):
+        # C12: canonicalisation rejects non-finite floats
+        # (allow_nan=False) and hostile nesting; that is a structured
+        # seal failure, never an escaping exception.
+        fail("seal_case_hash", "case hash cannot be recomputed (non-finite or over-nested value)")
     else:
-        ok("seal_case_hash", "case_sha256 matches the recomputed case hash")
+        if case.get("case_sha256") != case_hash:
+            fail("seal_case_hash", "case_sha256 does not match the recomputed case hash")
+        else:
+            ok("seal_case_hash", "case_sha256 matches the recomputed case hash")
     # Whole-case portability (W1: C03): a portable case declares raw
     # text absent, so forbidden raw-text keys anywhere in the case —
     # not only in the forensic bundle — fail verification, and a
@@ -1772,6 +2174,22 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
                 fail("seal_case_seal", "v3 seal custody head does not match the chain")
             else:
                 ok("seal_case_seal", "v3 seal section is consistent")
+            # C02 (Worker B contract §2.1): superseded signatures are
+            # accepted only as a well-formed history list and never as
+            # the current seal.  A malformed list fails; a well-formed
+            # one yields the same warning the installed verifier
+            # surfaces.  The standalone never verifies a superseded
+            # envelope — the case bytes are authenticated through the
+            # manifest signature, and only the current seal is live.
+            prev_errors = _previous_signatures_errors(seal)
+            if prev_errors:
+                fail("seal_case_previous_signatures", "; ".join(prev_errors))
+            elif isinstance(seal, dict) and seal.get("previous_signatures"):
+                warnings.append("prior_signature_superseded")
+                ok(
+                    "seal_case_previous_signatures",
+                    "superseded signatures are a well-formed history list",
+                )
             gaps_in_case = case.get("gaps")
             if not isinstance(gaps_in_case, list):
                 fail("seal_case_gaps", "v3 gaps list is missing")
@@ -1780,11 +2198,52 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
                 for gap in gaps_in_case:
                     if isinstance(gap, dict):
                         gaps.append(gap)
-            checklist_errors = _checklist_consistency(case, bundle)
+            checklist_errors = _checklist_structure_errors(case) + _checklist_consistency(
+                case, bundle
+            )
             if checklist_errors:
                 fail("seal_checklist", "; ".join(checklist_errors))
             else:
-                ok("seal_checklist", "checklist statuses are consistent with the sealed evidence")
+                ok("seal_checklist", "checklist structure and statuses match the sealed evidence")
+            # C04: manifest/tool consistency and detector sanity —
+            # the installed combined verifier checks these through the
+            # primary manifest re-derivation and the N-version replay;
+            # the standalone verifier must check them too.
+            manifest_errors = []
+            recorded_manifest = case.get("manifest")
+            if not isinstance(recorded_manifest, dict):
+                manifest_errors.append("case manifest is missing or not an object")
+            else:
+                try:
+                    expected_manifest = _manifest_for(bundle, case.get("tool", {}))
+                except (ValueError, RecursionError):
+                    manifest_errors.append("case manifest cannot be re-derived")
+                    expected_manifest = None
+                if expected_manifest is not None:
+                    for key in (
+                        "content_sha256",
+                        "registry_id",
+                        "registry_sha256",
+                        "calibration_ids",
+                        "schema_versions",
+                        "git_sha",
+                    ):
+                        if recorded_manifest.get(key) != expected_manifest.get(key):
+                            manifest_errors.append("manifest_mismatch:{}".format(key))
+            if manifest_errors:
+                fail("seal_case_manifest", "; ".join(manifest_errors))
+            else:
+                ok("seal_case_manifest", "case manifest matches the re-derived manifest")
+            tool = case.get("tool")
+            if not isinstance(tool, dict) or tool.get("name") != "TextForensics":
+                fail("seal_case_tool", "case tool identity is not TextForensics")
+            else:
+                ok("seal_case_tool", "case tool identity is TextForensics")
+            detector_errors = _detector_sanity_errors(bundle)
+            if detector_errors:
+                fail("seal_case_detectors", "; ".join(detector_errors))
+            else:
+                ok("seal_case_detectors", "detector results are well-formed")
             # C10/C23: the embedded Trust Map must carry exactly the
             # declared dimension set with consistent metadata/coverage,
             # an overall matching the re-derived value, and a
@@ -1807,6 +2266,29 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
                 "reason": f"legacy case file {schema} carries no D1-D10 checklist",
             }
         )
+        bundle = case.get("forensic_bundle")
+        # C10 legacy-branch decision (W3 Worker C): the legacy branch
+        # stays hash-check-only for the sections a v1/v2 case
+        # genuinely lacks (checklist, determinism, v3 sections), but
+        # a v2/v3 Trust Map embedded in it must still carry exactly
+        # the declared dimension set with a re-derived overall — the
+        # same completeness the installed verifier requires of v2
+        # maps.  A v1 map stays exempt: no declared set exists in v1.
+        legacy_trust_map = bundle.get("trust_map") if isinstance(bundle, dict) else None
+        if isinstance(legacy_trust_map, dict) and legacy_trust_map.get("schema") in (
+            "textforensics.trust-map/v2",
+            "textforensics.trust-map/v3",
+        ):
+            legacy_tm_errors = _trust_map_check_errors(
+                legacy_trust_map, bundle.get("schema")
+            )
+            if legacy_tm_errors:
+                fail("seal_trust_map", "; ".join(legacy_tm_errors))
+            else:
+                ok(
+                    "seal_trust_map",
+                    "legacy trust map dimensions complete and bundle/map versions compatible",
+                )
     else:
         fail("seal_case_schema", f"case file schema is not recognised: {schema!r}")
 
@@ -1839,13 +2321,23 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
                 unsigned = dict(manifest)
                 unsigned["context"] = dict(context)
                 unsigned["context"]["signature"] = None
-                if payload != _canonical_json_bytes(unsigned):
+                try:
+                    unsigned_bytes = _canonical_json_bytes(unsigned)
+                except (ValueError, RecursionError):
+                    report["signature"] = "failed"
+                    fail(
+                        "seal_signature",
+                        "signature payload cannot be canonicalised "
+                        "(non-finite or over-nested value)",
+                    )
+                    unsigned_bytes = None
+                if unsigned_bytes is not None and payload != unsigned_bytes:
                     report["signature"] = "failed"
                     fail(
                         "seal_signature",
                         "signature payload does not match this manifest",
                     )
-                else:
+                elif unsigned_bytes is not None:
                     report["signature"] = "verified"
                     ok("seal_signature", f"DSSE signature verifies ({detail})")
 

@@ -314,20 +314,24 @@ def _dup_archive(*, wrong_name, first=True):
         manifest["context"]["case_id"] = "0" * 64
         wrong = json.dumps(manifest, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode("utf-8")
     buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_STORED) as zf:
-        def _w(name, data):
-            info = zipfile.ZipInfo(filename=name, date_time=(1980, 1, 1, 0, 0, 0))
-            info.compress_type = zipfile.ZIP_STORED
-            info.create_system = 0
-            info.external_attr = 0o644 << 16
-            zf.writestr(info, data)
-        if first:
-            _w(wrong_name, wrong)
-        for name, data in sorted(entries):
-            _w(name, data)
-        if not first:
-            _w(wrong_name, wrong)
-        zf.comment = comment
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)  # deliberate duplicates
+        with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_STORED) as zf:
+            def _w(name, data):
+                info = zipfile.ZipInfo(filename=name, date_time=(1980, 1, 1, 0, 0, 0))
+                info.compress_type = zipfile.ZIP_STORED
+                info.create_system = 0
+                info.external_attr = 0o644 << 16
+                zf.writestr(info, data)
+            if first:
+                _w(wrong_name, wrong)
+            for name, data in sorted(entries):
+                _w(name, data)
+            if not first:
+                _w(wrong_name, wrong)
+            zf.comment = comment
     return buf.getvalue(), archive
 
 
@@ -393,6 +397,76 @@ class TestDuplicateMembers:
 # ---------------------------------------------------------------------------
 # C06 — seal-record cross-check must not read after rejection
 # ---------------------------------------------------------------------------
+
+
+class TestPreviousSignaturesMirror:
+    """C02 contract §2.1 (Worker B): the standalone accepts a
+    well-formed superseded-signature history, warns, and never treats
+    a superseded signature as the current seal."""
+
+    def _entry(self, **overrides):
+        entry = {
+            "algorithm": "ed25519",
+            "key_fingerprint": "ab" * 32,
+            "signer": {"identity": "strmt7", "role": "sealer"},
+            "dsse": {"payloadType": "textforensics.case-signing/v2", "payload": "eA", "signatures": []},
+            "superseded_reason": "re-signed-after-custody-append",
+            "superseded_at_utc": "2026-11-12T00:00:00Z",
+        }
+        entry.update(overrides)
+        return entry
+
+    def _report(self, previous):
+        case = sealed_case()
+        if previous is not None:
+            case["seal"]["previous_signatures"] = previous
+        case = reseal(case)
+        archive, _, _ = sa_build_bundle(case=case, case_bytes=json.dumps(case).encode("utf-8"))
+        return STANDALONE.verify_bundle_bytes(archive)
+
+    def _check(self, report, check_id):
+        return next(c for c in report["checks"] if c["id"] == check_id)
+
+    def test_well_formed_history_warns_and_passes(self):
+        report = self._report([self._entry()])
+        assert report["exit_code"] == 0
+        assert self._check(report, "seal_case_previous_signatures")["status"] == "pass"
+        assert "prior_signature_superseded" in report["warnings"]
+
+    def test_absent_field_is_silent(self):
+        report = self._report(None)
+        assert report["exit_code"] == 0
+        assert not any(c["id"] == "seal_case_previous_signatures" for c in report["checks"])
+        assert "prior_signature_superseded" not in report["warnings"]
+
+    @pytest.mark.parametrize(
+        "previous",
+        [
+            "not-a-list",
+            [{"algorithm": "ed25519"}],  # missing five fields
+            [{}],
+            [{"algorithm": "rsa", "key_fingerprint": "ab" * 32,
+              "signer": {"identity": "x", "role": "y"}, "dsse": {},
+              "superseded_reason": "re-signed-after-custody-append",
+              "superseded_at_utc": "2026-11-12T00:00:00Z"}],
+            [{"algorithm": "ed25519", "key_fingerprint": "zz" * 32,
+              "signer": {"identity": "x", "role": "y"}, "dsse": {},
+              "superseded_reason": "re-signed-after-custody-append",
+              "superseded_at_utc": "2026-11-12T00:00:00Z"}],
+            [{"algorithm": "ed25519", "key_fingerprint": "ab" * 32,
+              "signer": {"identity": "", "role": "y"}, "dsse": {},
+              "superseded_reason": "re-signed-after-custody-append",
+              "superseded_at_utc": "2026-11-12T00:00:00Z"}],
+            [{"algorithm": "ed25519", "key_fingerprint": "ab" * 32,
+              "signer": {"identity": "x", "role": "y"}, "dsse": {},
+              "superseded_reason": "made-up-reason",
+              "superseded_at_utc": "2026-11-12T00:00:00Z"}],
+        ],
+    )
+    def test_malformed_history_fails(self, previous):
+        report = self._report(previous)
+        assert report["exit_code"] == 1
+        assert self._check(report, "seal_case_previous_signatures")["status"] == "fail"
 
 
 class TestSealRecordAfterRejection:

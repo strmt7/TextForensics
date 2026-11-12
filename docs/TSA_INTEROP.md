@@ -403,3 +403,78 @@ a separate step after the artifact exists: interop becomes
 "achieved against <endpoint> on <date>", with the endpoint, latency,
 genTime, policy, serial, and certificate fingerprint cited from the
 artifact. Until then, no live round-trip is claimed.
+
+## Verifier contract — supported algorithms and time grammar (W3, audit C13/C14)
+
+This section documents what the two token verifiers accept — the
+installed client (`src/textforensics/timestamp.py`) and the
+independent stdlib standalone copy
+(`src/textforensics/_standalone_verify.py`). Both enforce the SAME
+contract; the standalone copy is a separate implementation, and
+parity is proven by running the same tokens through both (see
+`tests/test_timestamp.py` and `tests/test_standalone_verify.py`,
+which share the test-only DER fixture
+`tests/_w3c_token_fixture.py` — an independent encoder that imports
+nothing from production parsing code).
+
+### Supported ECDSA algorithm matrix (C14)
+
+The signature OID selects the hash only (RFC 5758 §3.2); the curve
+comes from the certificate's EC parameters, never from the signature
+OID. A P-256 certificate with an ECDSA-with-SHA384 signature is a
+valid combination, not a mismatch — the earlier code mapped the
+ECDSA-with-SHA384 OID to both SHA-384 *and* P-384 and rejected it
+with `ec_curve_mismatch`.
+
+| Signature OID | Hash | Curve (from certificate) |
+|---|---|---|
+| ecdsa-with-SHA256 (1.2.840.10045.4.3.2) | SHA-256 | P-256 or P-384 |
+| ecdsa-with-SHA384 (1.2.840.10045.4.3.3) | SHA-384 | P-256 or P-384 |
+| ecdsa-with-SHA512 (1.2.840.10045.4.3.4) | SHA-512 | P-256 or P-384 |
+
+All six combinations verify in both paths (cross-checked against
+`cryptography` as an independent engine). ECDSA digests are
+truncated to the curve order size per FIPS 186-4. Any other curve
+OID — including P-521 (1.2.840.10045.3.1.5) — is rejected with
+`ec_curve_unsupported:<oid>`. The signature hash must still agree
+with the signer digest-algorithm hash
+(`imprint_hash_algorithm_mismatch` / hash-agreement check retained).
+RSA PKCS#1 v1.5 verification is unchanged.
+
+Open (flagged, not decided): the standalone verifier's imprint
+check accepts SHA-256 imprints only — a token whose message imprint
+is SHA-384/SHA-512 is rejected offline with
+`imprint_hash_algorithm_mismatch:<hash>` even when its signature
+verifies. The installed client accepts any imprint hash the caller
+expects. Deciding whether the standalone should follow is a
+human/policy decision, not part of the C14 grammar fix.
+
+Also still open from the 2026-11-10 live-TSA wave: the Sectigo
+bare-`rsaEncryption` rejection (see the addendum above). Neither
+open item is decided here.
+
+### genTime grammar (C13)
+
+`genTime` is DER GeneralizedTime and must match, in both paths:
+
+```
+YYYYMMDDHHMMSS[.fraction]Z
+```
+
+ASCII only; exactly one trailing `Z` (a timezone-free value is
+NEVER silently read as UTC); seconds mandatory; a fraction, if
+present, is a dot followed by one or more decimal digits;
+month/day/hour/minute/second must be calendar-valid. A leap second
+(60) is rejected — `datetime` cannot represent it and no TSA in
+evidence emits one. An invalid value is a structured verification
+failure (`token_unparseable` in the installed client,
+`gen_time_invalid:<detail>` in the standalone), never an escaping
+exception and never a silent pass. Fractional-second tokens verify
+in both paths.
+
+### Trust policy (human-only)
+
+Which TSAs and certificates are trusted, EKU requirements,
+validity/revocation checking, and qualified-status determinations
+are a human decision. Neither verifier decides them; both report
+what they verified and leave trust policy to the operator.

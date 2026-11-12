@@ -577,8 +577,12 @@ class LegacyEmptyManifestTests(unittest.TestCase):
             # A duplicate with IDENTICAL content: every per-file digest
             # still matches, so only duplicate-member rejection can
             # catch it.
-            with zipfile.ZipFile(output, "a") as zf:
-                zf.writestr("case.json", original)
+            import warnings
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)  # deliberate duplicate
+                with zipfile.ZipFile(output, "a") as zf:
+                    zf.writestr("case.json", original)
             manifest_path = tmp_path / "b.zip.manifest.json"
             data = json.loads(manifest_path.read_text(encoding="utf-8"))
             data["bundle_digest"] = _sha256(output.read_bytes())

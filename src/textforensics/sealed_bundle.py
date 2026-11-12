@@ -56,8 +56,8 @@ from .casefile import (
     CASE_SCHEMA_V3,
     CASE_SCHEMA_V4,
     replay_case_file,
-    verify_case_file,
 )
+from .verify import verify_case_file_combined
 from .dsse import sign_envelope
 from .sealing import fingerprint as _key_fingerprint
 from .sealing import public_key_from_seed
@@ -219,16 +219,19 @@ def pack_sealed_bundle(
     timestamp record.
 
     The case must verify before packing (fail closed); a timestamp
-    token must verify against the case bytes before packing.  Only
-    case-file/v3 and case-file/v4 cases can be packed: v1/v2 carry no
-    checklist or custody sections for the manifest context to
-    reference.
+    token must verify against the case bytes before packing.  The
+    gate is the COMBINED verifier (C04): the primary verifier alone
+    passes cases whose Trust Map overall or checklist the N-version
+    replay rejects, and packing those would sign a semantically
+    invalid case.  Only case-file/v3 and case-file/v4 cases can be
+    packed: v1/v2 carry no checklist or custody sections for the
+    manifest context to reference.
     """
     if not isinstance(case, dict):
         raise SealedBundleError("A case file must be a JSON object.")
     if case.get("schema") not in {CASE_SCHEMA_V3, CASE_SCHEMA_V4}:
         raise SealedBundleError("Only case-file/v3 and case-file/v4 cases can be packed.")
-    verification = verify_case_file(case)
+    verification = verify_case_file_combined(case)
     if not verification["valid"]:
         raise SealedBundleError(
             "Refusing to pack a case file that does not verify: "
@@ -334,19 +337,21 @@ def pack_sealed_bundle(
     return archive, seal_record
 
 
-def _read_capped(zf: zipfile.ZipFile, name: str) -> bytes:
+def _read_capped(zf: zipfile.ZipFile, info: zipfile.ZipInfo) -> bytes:
     """Read one member through a capped stream (W1: C06).
 
     Never ``ZipFile.read``: the stream read is bounded at
     ``MAX_ENTRY_BYTES + 1`` so a member whose declared size lied
     about its contents is rejected instead of decompressed without
-    bound.  Raises :class:`SealedBundleError` over the cap and lets
-    ``KeyError`` / ``BadZipFile`` propagate to the caller's handler.
+    bound.  The member is opened through its validated ``ZipInfo``
+    object, never by ambiguous name lookup (W3: C05).  Raises
+    :class:`SealedBundleError` over the cap and lets ``KeyError`` /
+    ``BadZipFile`` propagate to the caller's handler.
     """
-    with zf.open(name) as stream:
+    with zf.open(info) as stream:
         data = stream.read(MAX_ENTRY_BYTES + 1)
     if len(data) > MAX_ENTRY_BYTES:
-        raise SealedBundleError(f"Entry {name} exceeds the 64 MiB cap on read.")
+        raise SealedBundleError(f"Entry {info.filename} exceeds the 64 MiB cap on read.")
     return data
 
 
@@ -449,6 +454,8 @@ def verify_sealed_bundle(
                     infos = zf.infolist()
                     if len(infos) > MAX_ENTRIES:
                         raise SealedBundleError("Too many entries for a sealed bundle.")
+                    if len({info.filename for info in infos}) != len(infos):
+                        raise SealedBundleError("Duplicate member names in sealed bundle.")
                     total = 0
                     for info in infos:
                         if info.compress_type != zipfile.ZIP_STORED:
@@ -460,12 +467,13 @@ def verify_sealed_bundle(
                         total += info.file_size
                         if total > MAX_TOTAL_BYTES:
                             raise SealedBundleError("Sealed bundle exceeds the 256 MiB total cap.")
-                    manifest_bytes = _read_capped(zf, "manifest.json")
+                    by_name = {info.filename: info for info in infos}
+                    manifest_bytes = _read_capped(zf, by_name["manifest.json"])
                     for info in infos:
                         if info.filename != "manifest.json":
-                            files[info.filename] = _read_capped(zf, info.filename)
+                            files[info.filename] = _read_capped(zf, info)
                 manifest = json.loads(manifest_bytes.decode("utf-8"))
-            except (zipfile.BadZipFile, KeyError, OSError, ValueError) as exc:
+            except (zipfile.BadZipFile, KeyError, OSError, ValueError, RecursionError) as exc:
                 record_errors.append(f"bundle unreadable for seal-record check: {exc}")
             except SealedBundleError as exc:
                 record_errors.append(f"bundle exceeds seal-record check caps: {exc}")
@@ -530,8 +538,9 @@ def verify_sealed_bundle(
         else:
             try:
                 with zipfile.ZipFile(io.BytesIO(data)) as zf:
-                    case = json.loads(_read_capped(zf, "case.json").decode("utf-8"))
-            except (zipfile.BadZipFile, KeyError, OSError, ValueError) as exc:
+                    by_name = {info.filename: info for info in zf.infolist()}
+                    case = json.loads(_read_capped(zf, by_name["case.json"]).decode("utf-8"))
+            except (zipfile.BadZipFile, KeyError, OSError, ValueError, RecursionError) as exc:
                 report["replay"] = {"status": "unavailable", "reason": str(exc)}
                 report["exit_code"] = 1
                 return report
