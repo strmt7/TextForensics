@@ -525,14 +525,16 @@ def _load_case_file_payload(path: str | Path) -> tuple[Any | None, str | None]:
     any load failure: a missing/unreadable file, an over-size file
     (checked via ``stat`` before reading, so the read itself is
     bounded), malformed JSON, or a hostile nesting depth.  A
-    non-dict payload is NOT an error here — the callers report it —
-    except when the parser itself fails with ``RecursionError``
+    non-dict payload is NOT an error here — the callers report it
+    ("case file must be a JSON object", W1 negative control), so the
+    depth check applies only to dict payloads: the depth cap guards
+    recursive processing of case files, and a non-dict payload is
+    rejected by the callers without recursing into it.  The one
+    exception is when the parser itself fails with ``RecursionError``
     before the type is known: a top-level array is then reported as
     "case file must be a JSON object" (the py-JSON fix, Python 3.11,
     where the json C scanner shares the ~1000 Python recursion
-    limit).  The depth cap likewise applies only to dict payloads:
-    a non-dict payload is rejected by the callers before any
-    recursive work, so it needs no depth check.
+    limit).
     """
     target = Path(path)
     try:
