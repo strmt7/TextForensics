@@ -27,6 +27,12 @@
 # mutants go through the targeted re-proof of the changed functions.
 # The refresh map is /tmp/w2fix-gen/w2fix-match.json (worktree-local
 # scratch; the wave report records the counts).
+# W2 defect-fix targeted-proof entries (audit-w2-fix, 2026-11-12): 16 entries appended
+# after the targeted cosmic-ray proof over the 683 live mutants in the 9 changed
+# functions (535 killed by the owning F probes / DefectFixTypesTests / module test
+# classes, 11 killed by the DefectFixKillTests follow-ups, 121 survivors already
+# covered by existing annotation entries, 16 proven equivalent with recorded
+# closed-domain reasons below). Final proof: 683 accounted for, 0 unexplained.
 # Repair (same branch, after the pre-commit formatting commit):
 # refresh #1's source-order zip mispaired runtime entries in
 # unchanged functions (false-OK entries and killed sites shift
@@ -53962,3 +53968,215 @@ kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "62f0f70979a4817359672fd8803a3669c49562ee72d8ac50b4d87b3800677bcc"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "_verify_trust_dimension returns only ok or strings starting with error: (verified), and error:... < ok, so != == < over the reachable vocabulary. Re-proof survivor (audit-w2-f2-reprove.py, 2026-11-11); probe probe_verify_case_file."
+
+# --- W2 defect-fix targeted-proof entries (audit-w2-fix, 2026-11-12) ---------
+# 16 entries: all domain-equivalent, all closed-domain arguments (status/count
+# domains enforced by the DisjointnessProof / EvidenceRecord constructors and
+# the _verification_row_ok (True, None) / (False, reason) invariant).
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceComparisonOperator_Eq_GtE:8"
+module = "textforensics.benchmark"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 8
+start_pos = [302, 35]
+end_pos = [302, 37]
+function = "benchmark_with_calibration_jsonl"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "ae3224b54c1bd14041a296e051c112c09cf2b573e3a11b96b9994d2e59b80584"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (benchmark_with_calibration_jsonl): `disjointness_proof.status == \"verified\"` -> `>=` in the held-out dispatch. DisjointnessProof.__post_init__ restricts status to {'verified', 'unknown', 'contaminated'} and 'verified' is the lexicographic maximum of that closed domain, so `>=` agrees with `==`. W2 defect-fix targeted proof (2026-11-12, audit-w2-fix): the mutant survived the owning F probe, the DefectFixTypesTests, the DefectFixKillTests and the broader module test class; the reason below is the source-verified equivalence argument."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceComparisonOperator_Eq_LtE:9"
+module = "textforensics.benchmark"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 9
+start_pos = [303, 50]
+end_pos = [303, 52]
+function = "benchmark_with_calibration_jsonl"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "ae3224b54c1bd14041a296e051c112c09cf2b573e3a11b96b9994d2e59b80584"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (benchmark_with_calibration_jsonl): `disjointness_proof.group_overlap_count == -1` -> `<=` in the sample-only branch. DisjointnessProof.__post_init__ enforces group_overlap_count >= -1, so `x <= -1` holds exactly when `x == -1`; the branch is taken identically. W2 defect-fix targeted proof (2026-11-12, audit-w2-fix): the mutant survived the owning F probe, the DefectFixTypesTests, the DefectFixKillTests and the broader module test class; the reason below is the source-verified equivalence argument."
+
+[[equivalent]]
+id = "textforensics.benchmark:core/ReplaceComparisonOperator_Eq_LtE:10"
+module = "textforensics.benchmark"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 10
+start_pos = [320, 35]
+end_pos = [320, 37]
+function = "benchmark_with_calibration_jsonl"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "ae3224b54c1bd14041a296e051c112c09cf2b573e3a11b96b9994d2e59b80584"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (benchmark_with_calibration_jsonl): `disjointness_proof.status == \"contaminated\"` -> `<=` in the contaminated dispatch. DisjointnessProof.__post_init__ restricts status to {'verified', 'unknown', 'contaminated'} and 'contaminated' is the lexicographic minimum of that closed domain, so `<=` agrees with `==`. W2 defect-fix targeted proof (2026-11-12, audit-w2-fix): the mutant survived the owning F probe, the DefectFixTypesTests, the DefectFixKillTests and the broader module test class; the reason below is the source-verified equivalence argument."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_GtE:38"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 38
+start_pos = [1917, 35]
+end_pos = [1917, 37]
+function = "evaluate_threshold"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "3c5134de69c72a5e6c2ab4994a60ee5ae41cde02dd7376116aa53d569f4a4a3b"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (evaluate_threshold): `disjointness_proof.status == \"verified\"` -> `>=` in the held-out dispatch. DisjointnessProof.__post_init__ restricts status to {'verified', 'unknown', 'contaminated'} and 'verified' is the lexicographic maximum of that closed domain, so `>=` agrees with `==`. W2 defect-fix targeted proof (2026-11-12, audit-w2-fix): the mutant survived the owning F probe, the DefectFixTypesTests, the DefectFixKillTests and the broader module test class; the reason below is the source-verified equivalence argument."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_LtE:37"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 37
+start_pos = [1911, 53]
+end_pos = [1911, 55]
+function = "evaluate_threshold"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "3c5134de69c72a5e6c2ab4994a60ee5ae41cde02dd7376116aa53d569f4a4a3b"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (evaluate_threshold): `disjointness_status == \"contaminated\"` -> `<=` in the allow_same_dataset branch. disjointness_status there is a DisjointnessProof.status or a 'contaminated'/'unknown' literal, so it lies in the closed {'verified', 'unknown', 'contaminated'} domain whose lexicographic minimum is 'contaminated'; `<=` agrees with `==`. W2 defect-fix targeted proof (2026-11-12, audit-w2-fix): the mutant survived the owning F probe, the DefectFixTypesTests, the DefectFixKillTests and the broader module test class; the reason below is the source-verified equivalence argument."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_LtE:39"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 39
+start_pos = [1918, 50]
+end_pos = [1918, 52]
+function = "evaluate_threshold"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "3c5134de69c72a5e6c2ab4994a60ee5ae41cde02dd7376116aa53d569f4a4a3b"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (evaluate_threshold): `disjointness_proof.group_overlap_count == -1` -> `<=` in the sample-only branch. DisjointnessProof.__post_init__ enforces group_overlap_count >= -1, so `x <= -1` holds exactly when `x == -1`; the branch is taken identically. W2 defect-fix targeted proof (2026-11-12, audit-w2-fix): the mutant survived the owning F probe, the DefectFixTypesTests, the DefectFixKillTests and the broader module test class; the reason below is the source-verified equivalence argument."
+
+[[equivalent]]
+id = "textforensics.calibration:core/ReplaceComparisonOperator_Eq_LtE:40"
+module = "textforensics.calibration"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 40
+start_pos = [1937, 35]
+end_pos = [1937, 37]
+function = "evaluate_threshold"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "3c5134de69c72a5e6c2ab4994a60ee5ae41cde02dd7376116aa53d569f4a4a3b"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (evaluate_threshold): `disjointness_proof.status == \"contaminated\"` -> `<=` in the contaminated dispatch. DisjointnessProof.__post_init__ restricts status to {'verified', 'unknown', 'contaminated'} and 'contaminated' is the lexicographic minimum of that closed domain, so `<=` agrees with `==`. W2 defect-fix targeted proof (2026-11-12, audit-w2-fix): the mutant survived the owning F probe, the DefectFixTypesTests, the DefectFixKillTests and the broader module test class; the reason below is the source-verified equivalence argument."
+
+[[equivalent]]
+id = "textforensics.evidence:core/ReplaceAndWithOr:25"
+module = "textforensics.evidence"
+operator = "core/ReplaceAndWithOr"
+occurrence = 25
+start_pos = [1222, 14]
+end_pos = [1222, 17]
+function = "check_record_eligibility"
+kind = "domain-equivalent"
+source_text = "and"
+source_fingerprint = "5b5e93f31ff1da93595833db5f0db130b59053397c8eadbc1bf242604ab9f465"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (check_record_eligibility): `not ok and verification_reason is not None` -> `or`. _verification_row_ok returns (True, None) exactly when ok and (False, <non-empty reason string>) otherwise, so `verification_reason is not None` holds exactly when `not ok`; `not ok and ...` and `not ok or ...` coincide on every reachable (ok, reason) pair, and the appended reason is identical. W2 defect-fix targeted proof (2026-11-12, audit-w2-fix): the mutant survived the owning F probe, the DefectFixTypesTests, the DefectFixKillTests and the broader module test class; the reason below is the source-verified equivalence argument."
+
+[[equivalent]]
+id = "textforensics.evidence:core/ReplaceComparisonOperator_Eq_GtE:3"
+module = "textforensics.evidence"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 3
+start_pos = [1031, 23]
+end_pos = [1031, 25]
+function = "DisjointnessProof.__post_init__"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "440de4b37806e18367739b574792459b32e036817b6a925bbce57e3eeff7937d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (DisjointnessProof.__post_init__): `self.status == \"verified\"` -> `>=` in the verified-overlap guard. The constructor restricts status to {'verified', 'unknown', 'contaminated'} and 'verified' is the lexicographic maximum of that closed domain, so `status >= \"verified\"` holds exactly when `status == \"verified\"`; the guard raises identically. W2 defect-fix targeted proof (2026-11-12, audit-w2-fix): the mutant survived the owning F probe, the DefectFixTypesTests, the DefectFixKillTests and the broader module test class; the reason below is the source-verified equivalence argument."
+
+[[equivalent]]
+id = "textforensics.evidence:core/ReplaceComparisonOperator_Eq_GtE:4"
+module = "textforensics.evidence"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 4
+start_pos = [1033, 23]
+end_pos = [1033, 25]
+function = "DisjointnessProof.__post_init__"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "440de4b37806e18367739b574792459b32e036817b6a925bbce57e3eeff7937d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (DisjointnessProof.__post_init__): `self.status == \"verified\"` -> `>=` in the verified-group-overlap guard. The constructor restricts status to {'verified', 'unknown', 'contaminated'} and 'verified' is the lexicographic maximum of that closed domain, so `status >= \"verified\"` holds exactly when `status == \"verified\"`; the guard raises identically. W2 defect-fix targeted proof (2026-11-12, audit-w2-fix): the mutant survived the owning F probe, the DefectFixTypesTests, the DefectFixKillTests and the broader module test class; the reason below is the source-verified equivalence argument."
+
+[[equivalent]]
+id = "textforensics.evidence:core/ReplaceComparisonOperator_Eq_LtE:5"
+module = "textforensics.evidence"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 5
+start_pos = [1039, 24]
+end_pos = [1039, 26]
+function = "DisjointnessProof.__post_init__"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "440de4b37806e18367739b574792459b32e036817b6a925bbce57e3eeff7937d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (DisjointnessProof.__post_init__): `self.status == \"contaminated\"` -> `<=` in the contaminated-overlap guard. The constructor restricts status to {'verified', 'unknown', 'contaminated'} and 'contaminated' is the lexicographic minimum of that closed domain, so `status <= \"contaminated\"` holds exactly when `status == \"contaminated\"`; the guard raises identically. W2 defect-fix targeted proof (2026-11-12, audit-w2-fix): the mutant survived the owning F probe, the DefectFixTypesTests, the DefectFixKillTests and the broader module test class; the reason below is the source-verified equivalence argument."
+
+[[equivalent]]
+id = "textforensics.evidence:core/ReplaceComparisonOperator_Eq_LtE:9"
+module = "textforensics.evidence"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 9
+start_pos = [1202, 44]
+end_pos = [1202, 46]
+function = "check_record_eligibility"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "5b5e93f31ff1da93595833db5f0db130b59053397c8eadbc1bf242604ab9f465"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (check_record_eligibility): `disjointness.group_overlap_count == -1` -> `<=` in the sample-only branch. DisjointnessProof.__post_init__ enforces group_overlap_count >= -1 (integer, bool excluded), so `x <= -1` holds exactly when `x == -1`; the sample-only reason is appended identically. W2 defect-fix targeted proof (2026-11-12, audit-w2-fix): the mutant survived the owning F probe, the DefectFixTypesTests, the DefectFixKillTests and the broader module test class; the reason below is the source-verified equivalence argument."
+
+[[equivalent]]
+id = "textforensics.evidence:core/ReplaceComparisonOperator_LtE_Eq:10"
+module = "textforensics.evidence"
+operator = "core/ReplaceComparisonOperator_LtE_Eq"
+occurrence = 10
+start_pos = [1207, 39]
+end_pos = [1207, 41]
+function = "check_record_eligibility"
+kind = "domain-equivalent"
+source_text = "<="
+source_fingerprint = "5b5e93f31ff1da93595833db5f0db130b59053397c8eadbc1bf242604ab9f465"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (check_record_eligibility): `disjointness.training_count <= 0` -> `==`. DisjointnessProof.__post_init__ enforces training_count >= 0, so `x <= 0` holds exactly when `x == 0`; the empty-set reason is appended identically. W2 defect-fix targeted proof (2026-11-12, audit-w2-fix): the mutant survived the owning F probe, the DefectFixTypesTests, the DefectFixKillTests and the broader module test class; the reason below is the source-verified equivalence argument."
+
+[[equivalent]]
+id = "textforensics.evidence:core/ReplaceComparisonOperator_LtE_Eq:11"
+module = "textforensics.evidence"
+operator = "core/ReplaceComparisonOperator_LtE_Eq"
+occurrence = 11
+start_pos = [1207, 77]
+end_pos = [1207, 79]
+function = "check_record_eligibility"
+kind = "domain-equivalent"
+source_text = "<="
+source_fingerprint = "5b5e93f31ff1da93595833db5f0db130b59053397c8eadbc1bf242604ab9f465"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (check_record_eligibility): `disjointness.evaluation_count <= 0` -> `==`. DisjointnessProof.__post_init__ enforces evaluation_count >= 0, so `x <= 0` holds exactly when `x == 0`; the empty-set reason is appended identically. W2 defect-fix targeted proof (2026-11-12, audit-w2-fix): the mutant survived the owning F probe, the DefectFixTypesTests, the DefectFixKillTests and the broader module test class; the reason below is the source-verified equivalence argument."
+
+[[equivalent]]
+id = "textforensics.evidence:core/ReplaceComparisonOperator_NotEq_Gt:6"
+module = "textforensics.evidence"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 6
+start_pos = [1164, 21]
+end_pos = [1164, 23]
+function = "check_record_eligibility"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "5b5e93f31ff1da93595833db5f0db130b59053397c8eadbc1bf242604ab9f465"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (check_record_eligibility): `record.status != \"active\"` -> `>`. EvidenceRecord.__post_init__ restricts status to {'active', 'retracted'} and 'active' is the lexicographic minimum of that closed domain, so `status > \"active\"` holds exactly when `status != \"active\"`; the reason is appended identically. W2 defect-fix targeted proof (2026-11-12, audit-w2-fix): the mutant survived the owning F probe, the DefectFixTypesTests, the DefectFixKillTests and the broader module test class; the reason below is the source-verified equivalence argument."
+
+[[equivalent]]
+id = "textforensics.evidence:core/ReplaceComparisonOperator_NotEq_Lt:9"
+module = "textforensics.evidence"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 9
+start_pos = [1198, 31]
+end_pos = [1198, 33]
+function = "check_record_eligibility"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "5b5e93f31ff1da93595833db5f0db130b59053397c8eadbc1bf242604ab9f465"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (check_record_eligibility): `disjointness.status != \"verified\"` -> `<`. DisjointnessProof.__post_init__ restricts status to {'verified', 'unknown', 'contaminated'} and 'verified' is the lexicographic maximum of that closed domain, so `status < \"verified\"` holds exactly when `status != \"verified\"`; the reason is appended identically. W2 defect-fix targeted proof (2026-11-12, audit-w2-fix): the mutant survived the owning F probe, the DefectFixTypesTests, the DefectFixKillTests and the broader module test class; the reason below is the source-verified equivalence argument."

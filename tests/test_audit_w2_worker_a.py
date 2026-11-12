@@ -1722,5 +1722,273 @@ class DefectFixTypesTests(unittest.TestCase):
             self.assertEqual(diagnostic["mode"], "diagnostic")
 
 
+class DefectFixKillTests(unittest.TestCase):
+    """Kill tests for the 11 changed-function mutants the targeted
+    cosmic-ray proof (2026-11-12, 683 mutants) could not kill with the
+    F probes + DefectFixTypesTests alone. Each method pins a real
+    contract of the changed code and was verified RED on its mutant by
+    hand-applying the mutant with cosmic-ray's mutate_code. The 16
+    other proof survivors are proven equivalent on closed domains (see
+    the fix report) and need no test. ``test_retracted_record_is_
+    ineligible`` is a behaviour pin, not a kill: the ``record.status
+    != 'active'`` -> ``>`` mutant is equivalent because 'active' is
+    the minimum of the {'active', 'retracted'} domain."""
+
+    def _eligible_setup(self, tmp: str):
+        """An otherwise-eligible record + inputs (mirrors
+        DefectFixTypesTests._eligible_setup)."""
+        from textforensics.evidence import EvidenceRegistry
+
+        root = Path(tmp)
+        fingerprint, bench_hash, run_hash = _write_artifacts(root)
+        record = _v2_record(
+            detector_id="a",
+            detector_version="1",
+            benchmark_fingerprint=fingerprint,
+            benchmark_hash=bench_hash,
+            run_hash=run_hash,
+        )
+        registry = EvidenceRegistry(records=[record])
+        return record, _eligible_inputs(registry, root), fingerprint
+
+    def _retracted_setup(self, tmp: str):
+        """An otherwise-eligible record whose status is 'retracted'."""
+        from textforensics.evidence import EvidenceRegistry
+
+        root = Path(tmp)
+        fingerprint, bench_hash, run_hash = _write_artifacts(root)
+        record = _v2_record(
+            detector_id="a",
+            detector_version="1",
+            benchmark_fingerprint=fingerprint,
+            benchmark_hash=bench_hash,
+            run_hash=run_hash,
+            status="retracted",
+        )
+        registry = EvidenceRegistry(records=[record])
+        return record, _eligible_inputs(registry, root)
+
+    def _eval_files(self, root: Path):
+        """(cal_path, eval_path) with disjoint synthetic rows."""
+        cal_path = root / "cal.jsonl"
+        eval_path = root / "eval.jsonl"
+        cal_path.write_text(
+            '{"label": "human", "text": "A calibration sentence."}\n'
+            '{"label": "ai", "text": "A calibration machine sentence."}\n',
+            encoding="utf-8",
+        )
+        eval_path.write_text(
+            '{"label": "human", "text": "A completely different human sentence."}\n'
+            '{"label": "ai", "text": "A completely different machine sentence."}\n',
+            encoding="utf-8",
+        )
+        return cal_path, eval_path
+
+    def test_retracted_record_is_ineligible(self):
+        """A retracted record is ineligible even when everything else
+        passes: the status check must fire for the only non-active
+        status the constructor allows. Behaviour pin for the
+        ``record.status != 'active'`` check (the ``!=`` -> ``>``
+        mutant is equivalent: 'active' is the minimum of the
+        {'active', 'retracted'} domain, so ``>`` agrees with ``!=``)."""
+        from textforensics.evidence import check_record_eligibility
+
+        with tempfile.TemporaryDirectory() as tmp:
+            record, inputs = self._retracted_setup(tmp)
+            verdict = check_record_eligibility(
+                record,
+                identity=inputs["identity"],
+                disjointness=inputs["disjointness"],
+                artifact_verification=inputs["artifact_verification"],
+                now=NOW,
+            )
+            self.assertFalse(verdict.eligible)
+            self.assertTrue(
+                any("record status is 'retracted'" in reason for reason in verdict.reasons),
+                f"retracted status must be reported: {verdict.reasons}",
+            )
+
+    def test_check_record_eligibility_params_are_keyword_only(self):
+        """The eligibility inputs after the record are keyword-only:
+        passing the identity positionally must raise TypeError. Kills
+        the ``*,`` -> ``/,`` mutant in the signature."""
+        from textforensics.evidence import check_record_eligibility
+
+        with tempfile.TemporaryDirectory() as tmp:
+            record, inputs, _fingerprint = self._eligible_setup(tmp)
+            with self.assertRaises(TypeError):
+                check_record_eligibility(record, inputs["identity"])
+
+    def test_evaluate_threshold_params_are_keyword_only(self):
+        """Same keyword-only contract for evaluate_threshold: the
+        calibration hash must not be passable positionally. Kills the
+        ``*,`` -> ``/,`` mutant in the signature."""
+        from textforensics.calibration import evaluate_threshold
+
+        with tempfile.TemporaryDirectory() as tmp:
+            _cal_path, eval_path = self._eval_files(Path(tmp))
+            with self.assertRaises(TypeError):
+                evaluate_threshold(eval_path, 0.5, "abc123")
+
+    def test_benchmark_jsonl_params_are_keyword_only(self):
+        """Same keyword-only contract for benchmark_with_calibration_
+        jsonl: the strict flag must not be passable positionally. Kills
+        the ``*,`` -> ``/,`` mutant in the signature."""
+        from textforensics.benchmark import (
+            benchmark_with_calibration_jsonl,
+            calibrate_threshold_jsonl,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cal_path, eval_path = self._eval_files(Path(tmp))
+            artifact = calibrate_threshold_jsonl(cal_path, target_fpr=0.0)
+            with self.assertRaises(TypeError):
+                benchmark_with_calibration_jsonl(eval_path, artifact, True)
+
+    def test_evaluate_threshold_same_dataset_hash_identity(self):
+        """The same-dataset guard compares hash VALUES, not object
+        identity: a calibration hash equal to the test hash but a
+        distinct string object must still raise. Kills the
+        ``test_hash == calibration_dataset_hash`` -> ``is`` mutant."""
+        from textforensics.benchmark import dataset_sha256
+        from textforensics.calibration import evaluate_threshold
+
+        with tempfile.TemporaryDirectory() as tmp:
+            _cal_path, eval_path = self._eval_files(Path(tmp))
+            test_hash = dataset_sha256(eval_path)
+            fresh = "".join(test_hash)
+            self.assertEqual(fresh, test_hash)
+            self.assertIsNot(fresh, test_hash, "test setup: hashes must be distinct objects")
+            with self.assertRaises(ValueError):
+                evaluate_threshold(eval_path, 0.5, calibration_dataset_hash=fresh)
+
+    def test_evaluate_threshold_overlap_count_is_zero(self):
+        """Both held-out and sample-only-diagnostic results report a
+        zero overlap count and no contamination detected: the
+        ``overlap_count = 0`` and ``contamination_detected = False``
+        assignments are returned values, not dead initialisations.
+        Kills both NumberReplacer mutants on the ``0`` literal and the
+        ``contamination_detected = False`` -> ``True`` mutant in the
+        sample-only branch."""
+        from textforensics.benchmark import DisjointnessProof, prove_disjointness
+        from textforensics.calibration import evaluate_threshold
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cal_path, eval_path = self._eval_files(Path(tmp))
+            full = prove_disjointness(cal_path, eval_path)
+            held_out = evaluate_threshold(eval_path, 0.5, disjointness_proof=full)
+            self.assertEqual(held_out.evaluation_mode, "held_out")
+            self.assertEqual(held_out.overlap_count, 0)
+            self.assertIs(held_out.contamination_detected, False)
+            sample_only = DisjointnessProof(
+                status="verified",
+                overlap_count=0,
+                group_overlap_count=-1,
+                training_count=full.training_count,
+                evaluation_count=full.evaluation_count,
+                training_hash=full.training_hash,
+                evaluation_hash=full.evaluation_hash,
+                errors=(),
+            )
+            diagnostic = evaluate_threshold(
+                eval_path, 0.5, disjointness_proof=sample_only, diagnostic=True
+            )
+            self.assertEqual(diagnostic.evaluation_mode, "diagnostic")
+            self.assertEqual(diagnostic.overlap_count, 0)
+            self.assertIs(diagnostic.contamination_detected, False)
+
+    def test_evaluate_threshold_no_proof_contamination_is_false(self):
+        """Evaluating with no proof at all is diagnostic with no
+        contamination detected. Kills the ``contamination_detected =
+        False`` -> ``True`` mutant in the no-proof branch."""
+        from textforensics.calibration import evaluate_threshold
+
+        with tempfile.TemporaryDirectory() as tmp:
+            _cal_path, eval_path = self._eval_files(Path(tmp))
+            result = evaluate_threshold(eval_path, 0.5)
+            self.assertEqual(result.evaluation_mode, "diagnostic")
+            self.assertEqual(result.disjointness_status, "unknown")
+            self.assertEqual(result.overlap_count, -1)
+            self.assertIs(result.contamination_detected, False)
+
+    def test_evaluate_threshold_strict_default(self):
+        """The strict default is True: calling evaluate_threshold
+        without ``strict`` on a file with an invalid JSON line must
+        raise DatasetFormatError instead of silently skipping the line.
+        Kills the ``strict: bool = True`` -> ``False`` mutant."""
+        from textforensics.benchmark import DatasetFormatError
+        from textforensics.calibration import evaluate_threshold
+
+        with tempfile.TemporaryDirectory() as tmp:
+            eval_path = Path(tmp) / "eval.jsonl"
+            eval_path.write_text(
+                '{"label": "human", "text": "A valid human sentence."}\n'
+                'this is not json\n'
+                '{"label": "ai", "text": "A valid machine sentence."}\n',
+                encoding="utf-8",
+            )
+            with self.assertRaises(DatasetFormatError):
+                evaluate_threshold(eval_path, 0.5)
+
+    def test_benchmark_jsonl_strict_default(self):
+        """Same strict default for benchmark_with_calibration_jsonl:
+        an invalid JSON line must raise DatasetFormatError when
+        ``strict`` is not passed. Kills the ``strict: bool = True`` ->
+        ``False`` mutant."""
+        from textforensics.benchmark import (
+            DatasetFormatError,
+            benchmark_with_calibration_jsonl,
+            calibrate_threshold_jsonl,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cal_path, eval_path = self._eval_files(Path(tmp))
+            eval_path.write_text(
+                '{"label": "human", "text": "A completely different human sentence."}\n'
+                'this is not json\n'
+                '{"label": "ai", "text": "A completely different machine sentence."}\n',
+                encoding="utf-8",
+            )
+            artifact = calibrate_threshold_jsonl(cal_path, target_fpr=0.0)
+            with self.assertRaises(DatasetFormatError):
+                benchmark_with_calibration_jsonl(eval_path, artifact)
+
+    def test_benchmark_jsonl_overlap_count_is_zero(self):
+        """Both held-out and sample-only-diagnostic benchmark runs
+        report a zero overlap count. Kills both NumberReplacer mutants
+        on the ``overlap = 0`` literal."""
+        from textforensics.benchmark import (
+            DisjointnessProof,
+            benchmark_with_calibration_jsonl,
+            calibrate_threshold_jsonl,
+            prove_disjointness,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cal_path, eval_path = self._eval_files(Path(tmp))
+            artifact = calibrate_threshold_jsonl(cal_path, target_fpr=0.0)
+            full = prove_disjointness(cal_path, eval_path)
+            held_out = benchmark_with_calibration_jsonl(
+                eval_path, artifact, disjointness_proof=full
+            )
+            self.assertEqual(held_out["mode"], "held_out_evaluation")
+            self.assertEqual(held_out["overlap_count"], 0)
+            sample_only = DisjointnessProof(
+                status="verified",
+                overlap_count=0,
+                group_overlap_count=-1,
+                training_count=full.training_count,
+                evaluation_count=full.evaluation_count,
+                training_hash=full.training_hash,
+                evaluation_hash=full.evaluation_hash,
+                errors=(),
+            )
+            diagnostic = benchmark_with_calibration_jsonl(
+                eval_path, artifact, disjointness_proof=sample_only, diagnostic=True
+            )
+            self.assertEqual(diagnostic["mode"], "diagnostic")
+            self.assertEqual(diagnostic["overlap_count"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()
