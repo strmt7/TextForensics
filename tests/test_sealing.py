@@ -8,8 +8,10 @@ import json
 import os
 import stat
 import tempfile
+import threading
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from textforensics.casefile import canonical_json_bytes
 from textforensics.dsse import (
@@ -319,8 +321,50 @@ class SealingKeyTests(unittest.TestCase):
             generate_sealing_key("auditor", "")
 
 
+def _signed_v2_case():
+    """A case signed under the current (v2) contract, with its key.
+
+    Returns ``(case, public_key, key_dict)``.
+    """
+    from textforensics.sealing import build_signature_record
+
+    key = generate_sealing_key("auditor@example.test", "auditor")
+    seed = base64.b64decode(key["seed_b64"])
+    public_key = base64.b64decode(key["public_key_b64"])
+    case = CaseSigningTests._case_static()
+    case["seal"]["signature"] = build_signature_record(
+        public_key, "auditor@example.test", "auditor"
+    )
+    envelope = sign_case_body(case, seed)
+    case["seal"]["signature"]["dsse"] = envelope
+    return case, public_key, key
+
+
+def _signed_v1_case():
+    """A legacy (v1) case: the whole signature mapping is outside the
+    signed body, so the record is attached after signing.
+
+    Returns ``(case, public_key, key_dict)``.
+    """
+    from textforensics.sealing import CASE_SIGNING_CONTRACT_V1
+
+    key = generate_sealing_key("auditor@example.test", "auditor")
+    seed = base64.b64decode(key["seed_b64"])
+    public_key = base64.b64decode(key["public_key_b64"])
+    case = CaseSigningTests._case_static()
+    envelope = sign_case_body(case, seed, contract=CASE_SIGNING_CONTRACT_V1)
+    case["seal"]["signature"] = {
+        "algorithm": "ed25519",
+        "key_fingerprint": fingerprint(public_key),
+        "signer": {"identity": "auditor@example.test", "role": "auditor"},
+        "dsse": envelope,
+    }
+    return case, public_key, key
+
+
 class CaseSigningTests(unittest.TestCase):
-    def _case(self) -> dict:
+    @staticmethod
+    def _case_static() -> dict:
         return {
             "schema": "textforensics.case-file/v2",
             "tool": {"name": "TextForensics", "version": "0.2.0"},
@@ -331,6 +375,15 @@ class CaseSigningTests(unittest.TestCase):
             "forensic_bundle": {"schema": "textforensics.forensic-bundle/v2"},
         }
 
+    def _case(self) -> dict:
+        return self._case_static()
+
+    def _signed_v2_case(self):
+        return _signed_v2_case()
+
+    def _signed_v1_case(self):
+        return _signed_v1_case()
+
     def test_case_signing_payload_matches_casefile_canonicalisation(self):
         case = self._case()
         expected_body = copy.deepcopy(case)
@@ -340,32 +393,67 @@ class CaseSigningTests(unittest.TestCase):
         self.assertEqual(case_signing_payload(case), canonical_json_bytes(expected_body))
 
     def test_case_signing_payload_ignores_seal_and_wall_clock(self):
+        # W3 (C02): under the LEGACY v1 contract the whole signature
+        # mapping is outside the signed body, so changing it (or the
+        # wall clock) does not change the payload.  Under v2 the signer
+        # record IS signed — see test_v2_payload_binds_signer_record.
+        from textforensics.sealing import CASE_SIGNING_CONTRACT_V1
+
         case = self._case()
-        first = case_signing_payload(case)
+        first = case_signing_payload(case, contract=CASE_SIGNING_CONTRACT_V1)
         case["created_at_utc"] = "2026-11-08T06:00:00+00:00"
         case["case_sha256"] = "c" * 64
         case["seal"]["signature"] = {"dsse": {"payloadType": "stale"}}
-        self.assertEqual(case_signing_payload(case), first)
+        self.assertEqual(case_signing_payload(case, contract=CASE_SIGNING_CONTRACT_V1), first)
+
+    def test_v2_payload_binds_signer_record_but_excludes_dsse(self):
+        # W3 (C02): the v2 signed body includes the signer record and
+        # excludes only the recursive DSSE envelope.
+        from textforensics.sealing import CASE_SIGNING_CONTRACT_V2, build_signature_record
+
+        key = generate_sealing_key("auditor@example.test", "auditor")
+        public_key = base64.b64decode(key["public_key_b64"])
+        case = self._case()
+        case["seal"]["signature"] = build_signature_record(
+            public_key, "auditor@example.test", "auditor"
+        )
+        first = case_signing_payload(case, contract=CASE_SIGNING_CONTRACT_V2)
+        # Changing the envelope or the wall clock does not change it.
+        case["seal"]["signature"]["dsse"] = {"payloadType": "stale"}
+        case["created_at_utc"] = "2026-11-08T06:00:00+00:00"
+        case["case_sha256"] = "c" * 64
+        self.assertEqual(case_signing_payload(case, contract=CASE_SIGNING_CONTRACT_V2), first)
+        # Changing the signer record DOES change it.
+        case["seal"]["signature"]["signer"] = {
+            "identity": "mallory@example.test",
+            "role": "admin",
+        }
+        self.assertNotEqual(case_signing_payload(case, contract=CASE_SIGNING_CONTRACT_V2), first)
 
     def test_sign_and_verify_case_body(self):
-        case = self._case()
-        key = generate_sealing_key("auditor@example.test", "auditor")
-        seed = base64.b64decode(key["seed_b64"])
-        public_key = base64.b64decode(key["public_key_b64"])
-        envelope = sign_case_body(case, seed)
-        self.assertEqual(envelope["payloadType"], PAYLOAD_TYPE_CASE_FILE)
-        case["seal"]["signature"] = {"dsse": envelope}
+        from textforensics.sealing import CASE_SIGNING_CONTRACT_V2
+
+        case, public_key, key = self._signed_v2_case()
+        envelope = case["seal"]["signature"]["dsse"]
+        self.assertEqual(envelope["payloadType"], CASE_SIGNING_CONTRACT_V2)
         result = verify_case_signature(case, public_key)
         self.assertTrue(result["valid"], result["errors"])
         self.assertEqual(result["errors"], [])
         self.assertEqual(result["keyid"], key["keyid"])
+        self.assertEqual(result["signing_contract"], "v2")
+        self.assertEqual(result["warnings"], [])
 
-    def test_verify_case_signature_fails_on_tampered_body(self):
-        case = self._case()
+    def test_sign_case_body_requires_signer_record_for_v2(self):
+        # W3 (C02): signing a body and attaching a signer record
+        # afterwards would leave the record unauthenticated, so v2
+        # signing refuses a case with no pre-placed record.
         key = generate_sealing_key("auditor@example.test", "auditor")
         seed = base64.b64decode(key["seed_b64"])
-        public_key = base64.b64decode(key["public_key_b64"])
-        case["seal"]["signature"] = {"dsse": sign_case_body(case, seed)}
+        with self.assertRaises(ValueError):
+            sign_case_body(self._case(), seed)
+
+    def test_verify_case_signature_fails_on_tampered_body(self):
+        case, public_key, _key = self._signed_v2_case()
         case["forensic_bundle"]["schema"] = "textforensics.forensic-bundle/v9"
         result = verify_case_signature(case, public_key)
         self.assertFalse(result["valid"])
@@ -388,6 +476,307 @@ class CaseSigningTests(unittest.TestCase):
                 result = verify_case_signature(case, public_key)
                 self.assertFalse(result["valid"])
                 self.assertTrue(result["errors"])
+
+
+class CaseSignerBindingTests(unittest.TestCase):
+    """W3 (C02): a valid bare-case signature must bind the displayed
+    signer, role and fingerprint.  Each mutation is tested individually
+    against a v2-signed case; the legacy v1 contract keeps explicit
+    legacy semantics (fingerprint/algorithm still fail, identity/role
+    are reported unauthenticated, never silently accepted as bound)."""
+
+    def _mutated(self, case, mutate):
+        mutated = copy.deepcopy(case)
+        mutate(mutated["seal"]["signature"])
+        return mutated
+
+    def test_identity_mutation_fails_v2(self):
+        case, public_key, _key = _signed_v2_case()
+        mutated = self._mutated(
+            case, lambda sig: sig["signer"].update({"identity": "mallory@example.test"})
+        )
+        result = verify_case_signature(mutated, public_key)
+        self.assertFalse(result["valid"])
+        self.assertTrue(result["errors"])
+
+    def test_role_mutation_fails_v2(self):
+        case, public_key, _key = _signed_v2_case()
+        mutated = self._mutated(case, lambda sig: sig["signer"].update({"role": "admin"}))
+        result = verify_case_signature(mutated, public_key)
+        self.assertFalse(result["valid"])
+        self.assertTrue(result["errors"])
+
+    def test_fingerprint_mutation_fails_v2(self):
+        case, public_key, _key = _signed_v2_case()
+        mutated = self._mutated(case, lambda sig: sig.update({"key_fingerprint": "0" * 64}))
+        result = verify_case_signature(mutated, public_key)
+        self.assertFalse(result["valid"])
+        self.assertTrue(any("fingerprint" in err for err in result["errors"]), result["errors"])
+
+    def test_algorithm_mutation_fails_v2(self):
+        case, public_key, _key = _signed_v2_case()
+        mutated = self._mutated(case, lambda sig: sig.update({"algorithm": "rsa"}))
+        result = verify_case_signature(mutated, public_key)
+        self.assertFalse(result["valid"])
+        self.assertTrue(result["errors"])
+
+    def test_v1_legacy_case_verifies_with_unauthenticated_signer_warning(self):
+        case, public_key, _key = _signed_v1_case()
+        result = verify_case_signature(case, public_key)
+        self.assertTrue(result["valid"], result["errors"])
+        self.assertEqual(result["signing_contract"], "v1")
+        self.assertTrue(
+            any(
+                w.startswith("signer_identity_role_not_authenticated_legacy_contract")
+                for w in result["warnings"]
+            ),
+            result["warnings"],
+        )
+
+    def test_v1_identity_mutation_is_valid_but_flagged_unauthenticated(self):
+        case, public_key, _key = _signed_v1_case()
+        mutated = self._mutated(
+            case, lambda sig: sig["signer"].update({"identity": "mallory@example.test"})
+        )
+        result = verify_case_signature(mutated, public_key)
+        # Legacy semantics: the identity is NOT in the v1 signed body,
+        # so the signature still verifies — but the result must say so
+        # unmistakably instead of presenting it as bound.
+        self.assertTrue(result["valid"], result["errors"])
+        self.assertTrue(
+            any(
+                w.startswith("signer_identity_role_not_authenticated_legacy_contract")
+                for w in result["warnings"]
+            ),
+            result["warnings"],
+        )
+
+    def test_v1_fingerprint_mutation_fails(self):
+        case, public_key, _key = _signed_v1_case()
+        mutated = self._mutated(case, lambda sig: sig.update({"key_fingerprint": "0" * 64}))
+        result = verify_case_signature(mutated, public_key)
+        self.assertFalse(result["valid"])
+        self.assertTrue(any("fingerprint" in err for err in result["errors"]), result["errors"])
+
+    def test_v1_algorithm_mutation_fails(self):
+        case, public_key, _key = _signed_v1_case()
+        mutated = self._mutated(case, lambda sig: sig.update({"algorithm": "rsa"}))
+        result = verify_case_signature(mutated, public_key)
+        self.assertFalse(result["valid"])
+
+    def test_unknown_payload_type_is_rejected(self):
+        case, public_key, _key = _signed_v2_case()
+        mutated = copy.deepcopy(case)
+        mutated["seal"]["signature"]["dsse"] = dict(
+            mutated["seal"]["signature"]["dsse"],
+            payloadType="textforensics.case-file/v9",
+        )
+        result = verify_case_signature(mutated, public_key)
+        self.assertFalse(result["valid"])
+        self.assertTrue(result["errors"])
+
+
+class SealingKeyWindowsTests(unittest.TestCase):
+    """W3 (C11): key generation must work without ``os.fchmod``
+    (Windows has none), must never leak the ``mkstemp`` descriptor,
+    and no-clobber publication must be genuinely atomic."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.dir = Path(self._tmp.name)
+
+    def _tracked_mkstemp(self, fds):
+        real_mkstemp = tempfile.mkstemp
+
+        def tracking(*args, **kwargs):
+            fd, name = real_mkstemp(*args, **kwargs)
+            fds.append(fd)
+            return fd, name
+
+        return tracking
+
+    def _assert_fd_closed(self, fd):
+        with self.assertRaises(OSError):
+            os.fstat(fd)
+
+    def test_save_without_fchmod_succeeds(self):
+        # Simulate Windows: no os.fchmod; the Windows owner-private
+        # restrictor is stubbed (its real ctypes implementation runs
+        # on Windows CI — see test_windows_acl_is_owner_only).
+        import textforensics.sealing as sealing_module
+
+        calls: list = []
+
+        def fake_restrict(path):
+            calls.append(path)
+
+        fds: list = []
+        had_fchmod = hasattr(os, "fchmod")
+        orig_fchmod = getattr(os, "fchmod", None)
+        if had_fchmod:
+            delattr(os, "fchmod")
+        try:
+            with (
+                mock.patch.object(
+                    sealing_module,
+                    "_restrict_to_owner_windows",
+                    fake_restrict,
+                    create=True,
+                ),
+                mock.patch.object(tempfile, "mkstemp", self._tracked_mkstemp(fds)),
+            ):
+                key = generate_sealing_key("auditor@example.test", "auditor")
+                path = self.dir / "sealing-key.json"
+                saved = save_sealing_key(path, key)
+                self.assertEqual(saved, path)
+                self.assertEqual(len(calls), 1)
+                self.assertEqual(load_sealing_key(path), key)
+                self.assertEqual(len(fds), 1)
+                self._assert_fd_closed(fds[0])
+                self.assertEqual(list(self.dir.iterdir()), [path])
+        finally:
+            # Restore os.fchmod for the rest of the suite.
+            if had_fchmod:
+                os.fchmod = orig_fchmod
+            elif hasattr(os, "fchmod"):
+                delattr(os, "fchmod")
+
+    def test_save_closes_descriptor_when_fchmod_fails(self):
+        fds: list = []
+        with (
+            mock.patch.object(tempfile, "mkstemp", self._tracked_mkstemp(fds)),
+            mock.patch.object(os, "fchmod", side_effect=OSError("simulated fchmod failure")),
+        ):
+            key = generate_sealing_key("auditor@example.test", "auditor")
+            with self.assertRaises(OSError):
+                save_sealing_key(self.dir / "k.json", key)
+        self.assertEqual(len(fds), 1)
+        self._assert_fd_closed(fds[0])
+        self.assertEqual(list(self.dir.iterdir()), [])
+        self.assertFalse((self.dir / "k.json").exists())
+
+    def test_save_closes_descriptor_when_write_fails(self):
+        fds: list = []
+        with (
+            mock.patch.object(tempfile, "mkstemp", self._tracked_mkstemp(fds)),
+            mock.patch.object(os, "fsync", side_effect=OSError("simulated fsync failure")),
+        ):
+            key = generate_sealing_key("auditor@example.test", "auditor")
+            with self.assertRaises(OSError):
+                save_sealing_key(self.dir / "k.json", key)
+        self.assertEqual(len(fds), 1)
+        self._assert_fd_closed(fds[0])
+        self.assertEqual(list(self.dir.iterdir()), [])
+        self.assertFalse((self.dir / "k.json").exists())
+
+    def test_no_clobber_publication_is_atomic(self):
+        # A racing writer that creates the destination between the
+        # existence check and publication must NOT be overwritten:
+        # publication via link fails with FileExistsError instead.
+        real_link = os.link
+        destination = self.dir / "sealing-key.json"
+
+        def racing_link(src, dst, *args, **kwargs):
+            # Simulate the racer winning first, then publish.
+            Path(dst).write_bytes(b"racer-key-bytes")
+            return real_link(src, dst, *args, **kwargs)
+
+        key = generate_sealing_key("auditor@example.test", "auditor")
+        with (
+            mock.patch.object(os, "link", racing_link),
+            self.assertRaises(FileExistsError),
+        ):
+            save_sealing_key(destination, key)
+        self.assertEqual(destination.read_bytes(), b"racer-key-bytes")
+        self.assertEqual(
+            [p.name for p in self.dir.iterdir()],
+            ["sealing-key.json"],
+        )
+
+    def test_concurrent_no_clobber_two_writers(self):
+        # Deterministic two-writer/no-clobber regression: N writers race
+        # on one destination; exactly one succeeds, the rest get
+        # FileExistsError, the winner's key is intact, no temp files
+        # are left behind.  (The audit's residual hypothesis 1 notes
+        # native POSIX concurrency was NOT executed on the Windows audit
+        # host; this test executes it.)
+        destination = self.dir / "sealing-key.json"
+        barrier = threading.Barrier(8)
+        results: list = []
+
+        def writer(index):
+            key = generate_sealing_key(f"writer{index}@example.test", "auditor")
+            barrier.wait(timeout=30)
+            try:
+                save_sealing_key(destination, key)
+                results.append(("saved", key))
+            except FileExistsError:
+                results.append(("exists", key))
+            except Exception as exc:  # pragma: no cover - failure surface
+                results.append(("error", exc))
+
+        threads = [threading.Thread(target=writer, args=(i,)) for i in range(8)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=30)
+        saved = [key for status, key in results if status == "saved"]
+        self.assertEqual(len(saved), 1, results)
+        self.assertEqual(sum(1 for status, _ in results if status == "exists"), 7, results)
+        self.assertEqual(load_sealing_key(destination), saved[0])
+        self.assertEqual(list(self.dir.iterdir()), [destination])
+
+    @unittest.skipUnless(os.name == "nt", "Windows ACL assertions need Windows")
+    def test_windows_acl_is_owner_only(self):
+        # Real Windows run: the saved key file's DACL must grant access
+        # only to the current user (one ACE, current-user SID).
+        import ctypes
+        from ctypes import wintypes
+
+        key = generate_sealing_key("auditor@example.test", "auditor")
+        path = self.dir / "sealing-key.json"
+        save_sealing_key(path, key)
+        advapi32 = ctypes.windll.advapi32
+        kernel32 = ctypes.windll.kernel32
+        SE_FILE_OBJECT = 1
+        DACL_SECURITY_INFORMATION = 0x00000004
+        p_sd = wintypes.LPVOID()
+        result = advapi32.GetNamedSecurityInfoW(
+            str(path),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION,
+            None,
+            None,
+            ctypes.byref(wintypes.LPVOID()),
+            None,
+            ctypes.byref(p_sd),
+        )
+        self.assertEqual(result, 0)
+        try:
+            p_dacl = wintypes.LPVOID()
+            present = wintypes.BOOL()
+            defaulted = wintypes.BOOL()
+            self.assertTrue(
+                advapi32.GetSecurityDescriptorDacl(
+                    p_sd, ctypes.byref(present), ctypes.byref(p_dacl), ctypes.byref(defaulted)
+                )
+            )
+            self.assertTrue(present.value)
+            acl_size = ctypes.create_string_buffer(64)
+            # ACL_SIZE_INFORMATION: AceCount is the second DWORD.
+            self.assertTrue(
+                advapi32.GetAclInformation(
+                    p_dacl,
+                    acl_size,
+                    ctypes.sizeof(acl_size),
+                    2,  # AclSizeInformation
+                )
+            )
+            ace_count = int.from_bytes(acl_size.raw[4:8], "little")
+            self.assertEqual(ace_count, 1)
+        finally:
+            kernel32.LocalFree(p_sd)
 
 
 if __name__ == "__main__":

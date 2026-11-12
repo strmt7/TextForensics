@@ -26,13 +26,18 @@ from textforensics.casefile import (
     seal_case_file,
     validate_checklist,
     verify_case_file,
+    verify_case_file_path,
 )
 from textforensics.conditions import conditions_from_dict, length_band
+from textforensics.ed25519 import fingerprint, public_key_from_seed
 from textforensics.report import build_forensic_bundle
 from textforensics.schema import load_schema
 from textforensics.trust import TrustDimension
 from textforensics.validation import ValidationRegistry, _overall_state_v3, derive_trust_map
-from textforensics.verify import verify_case_file as nversion_verify_case_file
+from textforensics.verify import (
+    verify_case_file as nversion_verify_case_file,
+)
+from textforensics.verify import verify_case_file_combined
 
 TEXT = (
     "The committee met on Tuesday to review the quarterly figures and "
@@ -599,6 +604,213 @@ class BundleTrustMapPairTests(unittest.TestCase):
             any("forensic_bundle" in error or "trust_map" in error for error in result["errors"]),
             result["errors"],
         )
+
+
+class SignedCustodyAppendTests(unittest.TestCase):
+    """W3 (C22): appending custody to a signed (T2) case must produce a
+    correctly re-signed successor, an explicitly reported downgrade, or
+    a refusal — never a successor carrying a stale, invalid signature
+    as if it were the current seal."""
+
+    def _signed_case(self, version="v3"):
+        case = seal_case_file(
+            build_forensic_bundle(TEXT).to_dict(),
+            deterministic=True,
+            fixed_timestamp="2026-11-07T00:00:00+00:00",
+            version=version,
+            signing_seed=SEED,
+            signer=dict(SIGNER),
+        )
+        return case, public_key_from_seed(SEED)
+
+    def test_signed_append_with_resign_verifies_with_key(self):
+        case, public_key = self._signed_case()
+        original = copy.deepcopy(case)
+        old_signature = copy.deepcopy(case["seal"]["signature"])
+        successor = append_custody_entry(
+            case,
+            actor="custodian",
+            action="transferred",
+            at_utc="2026-11-08T00:00:00+00:00",
+            signing_seed=SEED,
+            signer=dict(SIGNER),
+        )
+        # Predecessor immutability: the input is untouched.
+        self.assertEqual(case, original)
+        # Successor verifies in both modes with the key.
+        self.assertTrue(verify_case_file(successor, public_key=public_key)["valid"])
+        self.assertTrue(verify_case_file_combined(successor, public_key=public_key)["valid"])
+        # Custody continuity: chain extended, head updated, old
+        # signature preserved verbatim as historical evidence.
+        self.assertEqual(len(successor["custody"]), len(case["custody"]) + 1)
+        self.assertEqual(
+            successor["seal"]["custody_head"],
+            successor["custody"][-1]["entry_hash"],
+        )
+        previous = successor["seal"]["previous_signatures"]
+        self.assertEqual(len(previous), 1)
+        self.assertEqual(previous[0]["dsse"], old_signature["dsse"])
+        self.assertEqual(previous[0]["key_fingerprint"], old_signature["key_fingerprint"])
+        self.assertEqual(previous[0]["signer"], old_signature["signer"])
+        self.assertEqual(previous[0]["superseded_reason"], "re-signed-after-custody-append")
+        self.assertEqual(previous[0]["superseded_at_utc"], "2026-11-08T00:00:00+00:00")
+        # The successor carries a fresh signature, not the old one.
+        self.assertNotEqual(successor["seal"]["signature"]["dsse"], old_signature["dsse"])
+        self.assertNotEqual(successor["case_sha256"], case["case_sha256"])
+
+    def test_signed_append_without_key_is_refused(self):
+        case, public_key = self._signed_case()
+        original = copy.deepcopy(case)
+        with self.assertRaises(ValueError):
+            append_custody_entry(
+                case,
+                actor="custodian",
+                action="transferred",
+                at_utc="2026-11-08T00:00:00+00:00",
+            )
+        self.assertEqual(case, original)
+        self.assertTrue(verify_case_file(case, public_key=public_key)["valid"])
+
+    def test_signed_append_with_explicit_downgrade(self):
+        case, public_key = self._signed_case()
+        old_signature = copy.deepcopy(case["seal"]["signature"])
+        successor = append_custody_entry(
+            case,
+            actor="custodian",
+            action="transferred",
+            at_utc="2026-11-08T00:00:00+00:00",
+            invalidate_signature=True,
+        )
+        # Downgraded to T1: no current signature, but the old one is
+        # preserved as history and the downgrade is reported.
+        self.assertIsNone(successor["seal"]["signature"])
+        previous = successor["seal"]["previous_signatures"]
+        self.assertEqual(len(previous), 1)
+        self.assertEqual(previous[0]["dsse"], old_signature["dsse"])
+        self.assertEqual(previous[0]["superseded_reason"], "invalidated-no-signing-key")
+        result = verify_case_file(successor)
+        self.assertTrue(result["valid"], result["errors"])
+        self.assertTrue(
+            any("signature_absent_t1" in w for w in result["warnings"]),
+            result["warnings"],
+        )
+        self.assertTrue(
+            any("prior_signature_superseded" in w for w in result["warnings"]),
+            result["warnings"],
+        )
+        self.assertTrue(verify_case_file_combined(successor)["valid"])
+
+    def test_signed_append_rejects_partial_signing_material(self):
+        case, _public_key = self._signed_case()
+        with self.assertRaises(ValueError):
+            append_custody_entry(
+                case,
+                actor="c",
+                action="a",
+                signing_seed=SEED,
+            )
+        with self.assertRaises(ValueError):
+            append_custody_entry(
+                case,
+                actor="c",
+                action="a",
+                signer=dict(SIGNER),
+            )
+        with self.assertRaises(ValueError):
+            append_custody_entry(
+                case,
+                actor="c",
+                action="a",
+                signing_seed=SEED,
+                signer=dict(SIGNER),
+                invalidate_signature=True,
+            )
+
+    def test_resign_with_different_key_rotates(self):
+        case, old_public_key = self._signed_case()
+        new_seed = bytes(range(32, 64))
+        new_public_key = public_key_from_seed(new_seed)
+        successor = append_custody_entry(
+            case,
+            actor="custodian",
+            action="transferred",
+            at_utc="2026-11-08T00:00:00+00:00",
+            signing_seed=new_seed,
+            signer={"identity": "successor@example.test", "role": "sealer"},
+        )
+        self.assertTrue(verify_case_file(successor, public_key=new_public_key)["valid"])
+        self.assertFalse(verify_case_file(successor, public_key=old_public_key)["valid"])
+        self.assertEqual(
+            successor["seal"]["previous_signatures"][0]["key_fingerprint"],
+            fingerprint(old_public_key),
+        )
+        self.assertEqual(
+            successor["seal"]["signature"]["key_fingerprint"],
+            fingerprint(new_public_key),
+        )
+
+    def test_unsigned_append_is_unchanged(self):
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        case = seal_case_file(bundle, deterministic=True)
+        self.assertIsNone(case["seal"]["signature"])
+        successor = append_custody_entry(case, actor="reviewer", action="reviewed")
+        self.assertIsNone(successor["seal"]["signature"])
+        self.assertNotIn("previous_signatures", successor["seal"])
+        self.assertTrue(verify_case_file(successor)["valid"])
+
+    @unittest.skipUnless(
+        importlib.util.find_spec("jsonschema"),
+        "jsonschema is a development dependency",
+    )
+    def test_resigned_successor_validates_against_case_schema(self):
+        import jsonschema
+
+        case, _public_key = self._signed_case()
+        successor = append_custody_entry(
+            case,
+            actor="custodian",
+            action="transferred",
+            at_utc="2026-11-08T00:00:00+00:00",
+            signing_seed=SEED,
+            signer=dict(SIGNER),
+        )
+        jsonschema.validate(successor, load_schema("case-file"))
+        downgraded = append_custody_entry(
+            case,
+            actor="custodian",
+            action="transferred",
+            at_utc="2026-11-08T00:00:00+00:00",
+            invalidate_signature=True,
+        )
+        jsonschema.validate(downgraded, load_schema("case-file"))
+
+    def test_archive_path_for_successor_and_predecessor(self):
+        import tempfile
+
+        case, public_key = self._signed_case()
+        with tempfile.TemporaryDirectory() as tmp:
+            predecessor_path = Path(tmp) / "predecessor.json"
+            successor_path = Path(tmp) / "successor.json"
+            predecessor_path.write_text(
+                json.dumps(case, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+            )
+            before = predecessor_path.read_bytes()
+            successor = append_custody_entry(
+                case,
+                actor="custodian",
+                action="transferred",
+                at_utc="2026-11-08T00:00:00+00:00",
+                signing_seed=SEED,
+                signer=dict(SIGNER),
+            )
+            # The predecessor file on disk is untouched by the append.
+            self.assertEqual(predecessor_path.read_bytes(), before)
+            successor_path.write_text(
+                json.dumps(successor, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            self.assertTrue(verify_case_file_path(successor_path, public_key=public_key)["valid"])
+            self.assertTrue(verify_case_file_path(predecessor_path, public_key=public_key)["valid"])
 
 
 if __name__ == "__main__":

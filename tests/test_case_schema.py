@@ -104,5 +104,146 @@ class CaseAndSchemaTests(unittest.TestCase):
         jsonschema.validate(case["forensic_bundle"], load_schema("forensic-bundle"))
 
 
+class BundleTrustMapPairTableTests(unittest.TestCase):
+    """W3 (C23 + CORE-10): the full bundle/map version pair table —
+    every accepted pair validates through every applicable public
+    schema and the generic surface; every rejected pair is refused
+    by the schema, the pair validator and the sealer.  The table is
+    the W2 decision and is NOT loosened here: v1 bundle + v1/v2 map;
+    v2 bundle + v2/v3 map; never v3-in-v1, never v1-in-v2."""
+
+    ACCEPTED_PAIRS = [
+        ("textforensics.forensic-bundle/v1", "textforensics.trust-map/v1"),
+        ("textforensics.forensic-bundle/v1", "textforensics.trust-map/v2"),
+        ("textforensics.forensic-bundle/v2", "textforensics.trust-map/v2"),
+        ("textforensics.forensic-bundle/v2", "textforensics.trust-map/v3"),
+    ]
+    REJECTED_PAIRS = [
+        ("textforensics.forensic-bundle/v1", "textforensics.trust-map/v3"),
+        ("textforensics.forensic-bundle/v2", "textforensics.trust-map/v1"),
+    ]
+
+    def _v1_trust_map(self):
+        from textforensics.schema import DECLARED_TRUST_MAP_DIMENSIONS
+
+        return {
+            "schema": "textforensics.trust-map/v1",
+            "overall": "mixed",
+            "dimensions": [
+                {"dimension": dim, "state": "unknown", "reason": "legacy view"}
+                for dim in sorted(DECLARED_TRUST_MAP_DIMENSIONS)
+            ],
+            "limitations": ["legacy capability view"],
+        }
+
+    def _v3_trust_map(self, bundle):
+        from textforensics.conditions import conditions_from_dict
+        from textforensics.validation import ValidationRegistry, derive_trust_map
+
+        conditions = conditions_from_dict(bundle["input_conditions"])
+        return derive_trust_map(
+            conditions,
+            ValidationRegistry(),
+            detector_id="textforensics/builtin-heuristic",
+            detector_version="0.1.0",
+            now="2026-11-07T00:00:00Z",
+        ).to_dict()
+
+    def _bundle_with(self, bundle_schema, trust_map_schema):
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        bundle["schema"] = bundle_schema
+        if bundle_schema == "textforensics.forensic-bundle/v1":
+            bundle["verdict_integrity"] = {"verdict": "unknown"}
+        if trust_map_schema == "textforensics.trust-map/v1":
+            bundle["trust_map"] = self._v1_trust_map()
+        elif trust_map_schema == "textforensics.trust-map/v3":
+            bundle["trust_map"] = self._v3_trust_map(bundle)
+        else:
+            self.assertEqual(bundle["trust_map"]["schema"], "textforensics.trust-map/v2")
+        return bundle
+
+    @unittest.skipUnless(
+        importlib.util.find_spec("jsonschema"),
+        "jsonschema is a development dependency",
+    )
+    def test_every_accepted_pair_validates_against_all_schemas(self):
+        import jsonschema
+
+        from textforensics.schema import validate, validate_bundle_trust_map_pair
+
+        for bundle_schema, map_schema in self.ACCEPTED_PAIRS:
+            with self.subTest(bundle=bundle_schema, trust_map=map_schema):
+                bundle = self._bundle_with(bundle_schema, map_schema)
+                jsonschema.validate(bundle, load_schema("forensic-bundle"))
+                jsonschema.validate(bundle["trust_map"], load_schema("trust-map"))
+                self.assertEqual(validate_bundle_trust_map_pair(bundle_schema, map_schema), [])
+                self.assertEqual(validate(bundle, "forensic-bundle"), [])
+                self.assertEqual(validate(bundle["trust_map"], "trust-map"), [])
+
+    @unittest.skipUnless(
+        importlib.util.find_spec("jsonschema"),
+        "jsonschema is a development dependency",
+    )
+    def test_every_rejected_pair_fails_schema_and_pair_validator(self):
+        import jsonschema
+
+        from textforensics.schema import validate, validate_bundle_trust_map_pair
+
+        for bundle_schema, map_schema in self.REJECTED_PAIRS:
+            with self.subTest(bundle=bundle_schema, trust_map=map_schema):
+                bundle = self._bundle_with(bundle_schema, map_schema)
+                with self.assertRaises(jsonschema.ValidationError):
+                    jsonschema.validate(bundle, load_schema("forensic-bundle"))
+                self.assertNotEqual(validate_bundle_trust_map_pair(bundle_schema, map_schema), [])
+                self.assertNotEqual(validate(bundle, "forensic-bundle"), [])
+                with self.assertRaises(ValueError):
+                    seal_case_file(bundle)
+
+    def test_accepted_v2_pairs_seal_and_verify(self):
+        from textforensics.verify import verify_case_file_combined
+
+        for bundle_schema, map_schema in self.ACCEPTED_PAIRS:
+            if not bundle_schema.endswith("/v2"):
+                continue
+            with self.subTest(bundle=bundle_schema, trust_map=map_schema):
+                bundle = self._bundle_with(bundle_schema, map_schema)
+                case = seal_case_file(bundle, version="v3")
+                self.assertTrue(verify_case_file(case)["valid"])
+                self.assertTrue(verify_case_file_combined(case)["valid"])
+
+    def test_accepted_v1_pairs_seal_as_legacy_v1(self):
+        for bundle_schema, map_schema in self.ACCEPTED_PAIRS:
+            if not bundle_schema.endswith("/v1"):
+                continue
+            with self.subTest(bundle=bundle_schema, trust_map=map_schema):
+                bundle = self._bundle_with(bundle_schema, map_schema)
+                case = seal_case_file(bundle, version="v1")
+                self.assertEqual(case["schema"], "textforensics.case-file/v1")
+                self.assertTrue(verify_case_file(case)["valid"])
+
+    @unittest.skipUnless(
+        importlib.util.find_spec("jsonschema"),
+        "jsonschema is a development dependency",
+    )
+    def test_stale_v3_dimensions_validate_in_v2_bundle(self):
+        import jsonschema
+
+        from textforensics.verify import verify_case_file_combined
+
+        bundle = self._bundle_with("textforensics.forensic-bundle/v2", "textforensics.trust-map/v3")
+        trust_map = bundle["trust_map"]
+        # Flip one dimension to stale and keep the coverage counts exact.
+        stale_dim = trust_map["dimensions"][0]
+        old_state = stale_dim["state"]
+        stale_dim["state"] = "stale"
+        trust_map["coverage"][old_state] -= 1
+        trust_map["coverage"]["stale"] = trust_map["coverage"].get("stale", 0) + 1
+        jsonschema.validate(bundle, load_schema("forensic-bundle"))
+        jsonschema.validate(trust_map, load_schema("trust-map"))
+        case = seal_case_file(bundle, version="v3")
+        jsonschema.validate(case, load_schema("case-file"))
+        self.assertTrue(verify_case_file_combined(case)["valid"])
+
+
 if __name__ == "__main__":
     unittest.main()
