@@ -237,7 +237,33 @@ class CosmicRayIntegrationTests(unittest.TestCase):
         self.assertEqual(
             result_codec,
             "python -m pytest tests/test_result_codec.py tests/test_w2_worker_d.py "
-            "tests/test_audit_w2_worker_f_result_codec.py -x -q",
+            "tests/test_audit_w2_worker_f_result_codec.py "
+            "tests/test_audit_w3_worker_f_result_codec.py -x -q",
+        )
+        # W3 kill-test files are part of the per-mutant command for the
+        # modules they cover (audit-w3): watermarking, ledger and
+        # timestamp each get their W3 kill-test file.
+        watermarking = self.runner.test_command_for(
+            ["textforensics.watermarking"], self.project_root
+        )
+        self.assertEqual(
+            watermarking,
+            "python -m pytest tests/test_watermarking.py "
+            "tests/test_audit_w3_worker_f_watermarking.py -x -q",
+        )
+        ledger = self.runner.test_command_for(["textforensics.ledger"], self.project_root)
+        self.assertEqual(
+            ledger,
+            "python -m pytest tests/test_audit_log.py tests/test_audit_w3_worker_f_ledger.py -x -q",
+        )
+        # Ledger deliberately does NOT scope to test_audit_anchor.py:
+        # its 9 C08/C09 tests are red by design for W4 (audit-w3).
+        timestamp = self.runner.test_command_for(["textforensics.timestamp"], self.project_root)
+        self.assertEqual(
+            timestamp,
+            "python -m pytest tests/test_timestamp.py "
+            "tests/test_audit_w3_worker_c.py "
+            "tests/test_audit_w3_worker_f_timestamp.py -x -q",
         )
         semantic = self.runner.test_command_for(["textforensics.semantic"], self.project_root)
         self.assertEqual(
@@ -2873,6 +2899,61 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(summary["unexplained_surviving"], 0)
         result = self._check_summary(summary)
         self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_module_level_runtime_entry_validates(self):
+        """A runtime entry on a module-level statement (no enclosing
+        function) validates against the enclosing top-level
+        statement's fingerprint, and goes stale when the statement
+        changes. (W3: the watermarking ``_WINDOWS_RESERVED_NAMES``
+        ``BitOr_BitXor`` mutants — ``|`` -> ``^`` is equivalent
+        because the three sets are pairwise disjoint, but the
+        assignment sits at module level, so no function fingerprint
+        exists to pin it.)"""
+        import ast
+
+        runner = self.runner
+        source_path = self.project_root / "src" / "textforensics" / "watermarking.py"
+        source = source_path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        # The top-level Assign statement containing line 132.
+        assign = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and (node.lineno, node.col_offset)
+            <= (132, 4)
+            < (node.end_lineno or node.lineno, node.end_col_offset or 0)
+        )
+        fingerprint = runner._function_fingerprint(source, assign)
+        entry = {
+            "id": "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_BitXor:0",
+            "module": "textforensics.watermarking",
+            "operator": "core/ReplaceBinaryOperator_BitOr_BitXor",
+            "occurrence": 0,
+            "start_pos": [132, 4],
+            "end_pos": [132, 5],
+            "function": "<module>",
+            "kind": "domain-equivalent",
+            "source_text": "|",
+            "source_fingerprint": fingerprint,
+            "reason": (
+                "The three sets are pairwise disjoint (literal reserved "
+                "names, COM1-9, LPT1-9), so union and symmetric difference "
+                "coincide on every input."
+            ),
+        }
+        ok, reason = runner.validate_baseline_entry(entry, self.project_root)
+        self.assertTrue(ok, reason)
+        # A stale statement fingerprint must fail loudly.
+        tampered = dict(entry, source_fingerprint="0" * 64)
+        ok, reason = runner.validate_baseline_entry(tampered, self.project_root)
+        self.assertFalse(ok, "changed statement fingerprint must not validate")
+        self.assertIn("fingerprint mismatch", reason)
+        # A module-level entry naming a real function must fail.
+        wrong_fn = dict(entry, function="_is_valid_key_id")
+        ok, reason = runner.validate_baseline_entry(wrong_fn, self.project_root)
+        self.assertFalse(ok, "module-level entry with a function must not validate")
+        self.assertIn("enclosing function changed", reason)
 
     def test_stale_baseline_entry_fails_loudly(self):
         """An entry whose position moved out of an annotation fails (exit 1)."""

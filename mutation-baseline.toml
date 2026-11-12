@@ -9,6 +9,19 @@
 # where the equivalence proofs were established; add 11 for the
 # current positions.
 #
+# F3 re-proof entries (audit-w3-f3, 2026-11-12): 129 entries appended
+# after the re-proof of the 285 survivors in the four classified
+# modules (watermarking 198, ledger 27, result_codec 3, timestamp
+# 57): 156 killed by the W3 kill tests (119 tests in
+# tests/test_audit_w3_worker_f_<stem>.py, re-proved mutant by mutant
+# with cosmic-ray mutate_code), 129 proven equivalent with recorded
+# reasons (110 postponed-evaluation annotations + 19
+# domain-equivalent, incl. 2 module-level BitOr_BitXor entries
+# pinned by top-level-statement fingerprints — the validator
+# extension in scripts/run_mutation.py), 0 unexplained. The 7
+# incompetent mutants (operator crashes, no behaviour) are neither
+# killed nor surviving. See hidden_files/audit-w3-worker-f.md
+# sections 5-6 and audit-w3-f3-equiv-reasons.json.
 # POSITION REFRESH (2026-11-12, audit W3, head 85d14ce): W3 (watermark
 # payload binding, case sealing/signer binding/custody/privacy, offline
 # verification parity, ledger verification path) shifted lines in
@@ -53593,3 +53606,1578 @@ kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "5b5e93f31ff1da93595833db5f0db130b59053397c8eadbc1bf242604ab9f465"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "Domain-equivalent mutant (check_record_eligibility): `disjointness.status != \"verified\"` -> `<`. DisjointnessProof.__post_init__ restricts status to {'verified', 'unknown', 'contaminated'} and 'verified' is the lexicographic maximum of that closed domain, so `status < \"verified\"` holds exactly when `status != \"verified\"`; the reason is appended identically. W2 defect-fix targeted proof (2026-11-12, audit-w2-fix): the mutant survived the owning F probe, the DefectFixTypesTests, the DefectFixKillTests and the broader module test class; the reason below is the source-verified equivalence argument."
+
+# --- F3 re-proof entries (audit-w3-f3, 2026-11-12) ------------------
+# 129 entries: 110 postponed-evaluation annotations + 19
+# domain-equivalent (watermarking 10, result_codec 2, timestamp 7).
+# Each entry survived the re-proof and carries a source-verified
+# equivalence reason; every other survivor of the four modules was
+# killed by the W3 kill tests (audit-w3-f3-reprove.py 136 killed /
+# 39 survived, audit-w3-f3-reprove-targeted.py 10/10,
+# -targeted2.py 6/10 + -targeted3.py 4/4).
+[[equivalent]]
+id = "textforensics.ledger:core/ReplaceBinaryOperator_BitOr_Add:10"
+module = "textforensics.ledger"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 10
+start_pos = [530, 35]
+end_pos = [530, 36]
+function = "verify_audit_log"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_audit_log): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ledger:core/ReplaceBinaryOperator_BitOr_BitAnd:10"
+module = "textforensics.ledger"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 10
+start_pos = [530, 35]
+end_pos = [530, 36]
+function = "verify_audit_log"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_audit_log): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ledger:core/ReplaceBinaryOperator_BitOr_BitXor:10"
+module = "textforensics.ledger"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 10
+start_pos = [530, 35]
+end_pos = [530, 36]
+function = "verify_audit_log"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_audit_log): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ledger:core/ReplaceBinaryOperator_BitOr_Div:10"
+module = "textforensics.ledger"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 10
+start_pos = [530, 35]
+end_pos = [530, 36]
+function = "verify_audit_log"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_audit_log): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ledger:core/ReplaceBinaryOperator_BitOr_FloorDiv:10"
+module = "textforensics.ledger"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 10
+start_pos = [530, 35]
+end_pos = [530, 36]
+function = "verify_audit_log"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_audit_log): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ledger:core/ReplaceBinaryOperator_BitOr_LShift:10"
+module = "textforensics.ledger"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 10
+start_pos = [530, 35]
+end_pos = [530, 36]
+function = "verify_audit_log"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_audit_log): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ledger:core/ReplaceBinaryOperator_BitOr_Mod:10"
+module = "textforensics.ledger"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 10
+start_pos = [530, 35]
+end_pos = [530, 36]
+function = "verify_audit_log"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_audit_log): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ledger:core/ReplaceBinaryOperator_BitOr_Mul:10"
+module = "textforensics.ledger"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 10
+start_pos = [530, 35]
+end_pos = [530, 36]
+function = "verify_audit_log"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_audit_log): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ledger:core/ReplaceBinaryOperator_BitOr_Pow:10"
+module = "textforensics.ledger"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 10
+start_pos = [530, 35]
+end_pos = [530, 36]
+function = "verify_audit_log"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_audit_log): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ledger:core/ReplaceBinaryOperator_BitOr_RShift:10"
+module = "textforensics.ledger"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 10
+start_pos = [530, 35]
+end_pos = [530, 36]
+function = "verify_audit_log"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_audit_log): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ledger:core/ReplaceBinaryOperator_BitOr_Sub:10"
+module = "textforensics.ledger"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 10
+start_pos = [530, 35]
+end_pos = [530, 36]
+function = "verify_audit_log"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_audit_log): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.result_codec:core/ExceptionReplacer:4"
+module = "textforensics.result_codec"
+operator = "core/ExceptionReplacer"
+occurrence = 4
+start_pos = [243, 15]
+end_pos = [243, 25]
+function = "ResultCodec.decode"
+kind = "domain-equivalent"
+source_text = "ValueError"
+source_fingerprint = "871f57f224a02350e78083ca99ab59365aa408e3ec710211c92fa5ebd02dddbd"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (ResultCodec.decode): dead `except ValueError` handler around the second `reject_nonfinite_value(result)` call. decode first runs strict_json_loads on the identical object, which already ran reject_nonfinite_value on it (src/textforensics/probe_metrics.py:168), with only an isinstance check between; the pure check cannot raise the second time, so the handler can never trigger. Re-proved 2026-11-12 (audit-w3-f3-reprove.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.result_codec:core/ReplaceBinaryOperator_Mul_Div:1"
+module = "textforensics.result_codec"
+operator = "core/ReplaceBinaryOperator_Mul_Div"
+occurrence = 1
+start_pos = [206, 8]
+end_pos = [206, 9]
+function = "ResultCodec.decode"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "871f57f224a02350e78083ca99ab59365aa408e3ec710211c92fa5ebd02dddbd"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (ResultCodec.decode): the `*,` keyword-only separator -> `/,`. The mutant only makes the keyword-only parameters positional-or-keyword; every call site passes data/schema positionally and validate by keyword or omits it (src/textforensics/mcp_tools.py:541, result_codec.py:311/347, tests/test_result_codec.py, tests/test_w2_worker_d.py:992 validate=False), so no call breaks and no caller passes validate positionally. Call-site survey in hidden_files/audit-w3-f3-muldiv-survey.md. Precedent: the existing `encode` Mul_Div:0 baseline entry, same proof shape. Re-proved 2026-11-12 (audit-w3-f3-reprove.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.timestamp:core/ExceptionReplacer:7"
+module = "textforensics.timestamp"
+operator = "core/ExceptionReplacer"
+occurrence = 7
+start_pos = [957, 11]
+end_pos = [957, 25]
+function = "verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "TimestampError"
+source_fingerprint = "fa55ed26ca1e10cf3dfc03900c451a903b6b3f6c2651f9559c30eafdc70cebdf"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (verify_timestamp_token): dead `except TimestampError` handler around `_parse_all(message_digest_values[0])`. _parse_all is _parse_tlv plus a trailing-bytes check, and the value already parsed as a single SET element, so it cannot fail: the value is exactly one TLV (no trailing bytes, valid length, no indefinite length). The handler can never trigger. Re-proved 2026-11-12 (audit-w3-f3-reprove.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.timestamp:core/NumberReplacer:473"
+module = "textforensics.timestamp"
+operator = "core/NumberReplacer"
+occurrence = 473
+start_pos = [945, 36]
+end_pos = [945, 37]
+function = "verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "0"
+source_fingerprint = "fa55ed26ca1e10cf3dfc03900c451a903b6b3f6c2651f9559c30eafdc70cebdf"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (verify_timestamp_token): `parsed[\"signer_infos\"][0]` -> `[-1]`. The count check at line 942 rejects any signer_infos list whose length is not exactly 1 before this line, so the list has exactly one element and [0] and [-1] are the same element. Re-proved 2026-11-12 (audit-w3-f3-reprove.py): the recorded diff is exactly `[0]` -> `[ -1]`; survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.timestamp:core/NumberReplacer:477"
+module = "textforensics.timestamp"
+operator = "core/NumberReplacer"
+occurrence = 477
+start_pos = [956, 55]
+end_pos = [956, 56]
+function = "verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "0"
+source_fingerprint = "fa55ed26ca1e10cf3dfc03900c451a903b6b3f6c2651f9559c30eafdc70cebdf"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (verify_timestamp_token): `message_digest_values[0]` -> `[-1]`. The count check at line 952 rejects any list whose length is not exactly 1 before this line, so [0] and [-1] are the same element. Re-proved 2026-11-12 (audit-w3-f3-reprove.py): the recorded diff is exactly `[0]` -> `[ -1]`; survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.timestamp:core/ReplaceBinaryOperator_BitOr_Add:12"
+module = "textforensics.timestamp"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 12
+start_pos = [890, 24]
+end_pos = [890, 25]
+function = "verify_timestamp_token"
+kind = "arg"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (argument of verify_timestamp_token): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.timestamp:core/ReplaceBinaryOperator_BitOr_BitAnd:12"
+module = "textforensics.timestamp"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 12
+start_pos = [890, 24]
+end_pos = [890, 25]
+function = "verify_timestamp_token"
+kind = "arg"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (argument of verify_timestamp_token): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.timestamp:core/ReplaceBinaryOperator_BitOr_BitXor:12"
+module = "textforensics.timestamp"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 12
+start_pos = [890, 24]
+end_pos = [890, 25]
+function = "verify_timestamp_token"
+kind = "arg"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (argument of verify_timestamp_token): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.timestamp:core/ReplaceBinaryOperator_BitOr_Div:12"
+module = "textforensics.timestamp"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 12
+start_pos = [890, 24]
+end_pos = [890, 25]
+function = "verify_timestamp_token"
+kind = "arg"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (argument of verify_timestamp_token): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.timestamp:core/ReplaceBinaryOperator_BitOr_FloorDiv:12"
+module = "textforensics.timestamp"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 12
+start_pos = [890, 24]
+end_pos = [890, 25]
+function = "verify_timestamp_token"
+kind = "arg"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (argument of verify_timestamp_token): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.timestamp:core/ReplaceBinaryOperator_BitOr_LShift:12"
+module = "textforensics.timestamp"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 12
+start_pos = [890, 24]
+end_pos = [890, 25]
+function = "verify_timestamp_token"
+kind = "arg"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (argument of verify_timestamp_token): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.timestamp:core/ReplaceBinaryOperator_BitOr_Mod:12"
+module = "textforensics.timestamp"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 12
+start_pos = [890, 24]
+end_pos = [890, 25]
+function = "verify_timestamp_token"
+kind = "arg"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (argument of verify_timestamp_token): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.timestamp:core/ReplaceBinaryOperator_BitOr_Mul:12"
+module = "textforensics.timestamp"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 12
+start_pos = [890, 24]
+end_pos = [890, 25]
+function = "verify_timestamp_token"
+kind = "arg"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (argument of verify_timestamp_token): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.timestamp:core/ReplaceBinaryOperator_BitOr_Pow:12"
+module = "textforensics.timestamp"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 12
+start_pos = [890, 24]
+end_pos = [890, 25]
+function = "verify_timestamp_token"
+kind = "arg"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (argument of verify_timestamp_token): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.timestamp:core/ReplaceBinaryOperator_BitOr_RShift:12"
+module = "textforensics.timestamp"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 12
+start_pos = [890, 24]
+end_pos = [890, 25]
+function = "verify_timestamp_token"
+kind = "arg"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (argument of verify_timestamp_token): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.timestamp:core/ReplaceBinaryOperator_BitOr_Sub:12"
+module = "textforensics.timestamp"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 12
+start_pos = [890, 24]
+end_pos = [890, 25]
+function = "verify_timestamp_token"
+kind = "arg"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (argument of verify_timestamp_token): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.timestamp:core/ReplaceBinaryOperator_Mul_Div:17"
+module = "textforensics.timestamp"
+operator = "core/ReplaceBinaryOperator_Mul_Div"
+occurrence = 17
+start_pos = [887, 4]
+end_pos = [887, 5]
+function = "verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "fa55ed26ca1e10cf3dfc03900c451a903b6b3f6c2651f9559c30eafdc70cebdf"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (verify_timestamp_token): the `*,` keyword-only separator -> `/,`. Every call site passes token_der positionally and expected_digest/expected_hash_algorithm/expected_nonce by keyword (src/textforensics/cli.py:323, timestamp.py:504, sealed_bundle.py:257, tests/test_timestamp.py, tests/test_audit_w3_worker_f_timestamp.py:342 **params), so no call breaks. Call-site survey in hidden_files/audit-w3-f3-muldiv-survey.md. Re-proved 2026-11-12 (audit-w3-f3-reprove.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.timestamp:core/ReplaceComparisonOperator_NotEq_IsNot:10"
+module = "textforensics.timestamp"
+operator = "core/ReplaceComparisonOperator_NotEq_IsNot"
+occurrence = 10
+start_pos = [996, 40]
+end_pos = [996, 42]
+function = "verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "fa55ed26ca1e10cf3dfc03900c451a903b6b3f6c2651f9559c30eafdc70cebdf"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (verify_timestamp_token): `_RSA_SIGNATURE_OIDS[sig_oid] != hash_name` -> `is not`. The compared values are the module's shared interned strings (_RSA_SIGNATURE_OIDS values are the _HASH_OIDS values; verified empirically `_RSA_SIGNATURE_OIDS[x] is _HASH_OIDS[x]` is True), so equal values are the same object (both `is not` and `!=` False) and different values are different objects (both True). Re-proved 2026-11-12 (audit-w3-f3-reprove.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.timestamp:core/ReplaceComparisonOperator_NotEq_IsNot:11"
+module = "textforensics.timestamp"
+operator = "core/ReplaceComparisonOperator_NotEq_IsNot"
+occurrence = 11
+start_pos = [1015, 25]
+end_pos = [1015, 27]
+function = "verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "fa55ed26ca1e10cf3dfc03900c451a903b6b3f6c2651f9559c30eafdc70cebdf"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (verify_timestamp_token): `_ECDSA_SIGNATURE_OIDS[sig_oid] != hash_name` -> `is not`. Same interned-string proof as the RSA case (verified empirically for the ECDSA table). Re-proved 2026-11-12 (audit-w3-f3-reprove.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.timestamp:core/ReplaceFalseWithTrue:7"
+module = "textforensics.timestamp"
+operator = "core/ReplaceFalseWithTrue"
+occurrence = 7
+start_pos = [993, 15]
+end_pos = [993, 20]
+function = "verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "False"
+source_fingerprint = "fa55ed26ca1e10cf3dfc03900c451a903b6b3f6c2651f9559c30eafdc70cebdf"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (verify_timestamp_token): `verified = False` initialisation -> `True`. `verified` is unconditionally reassigned in both the RSA and ECDSA branches (or the function returns early) before any read, so the initial value is never observed. Re-proved 2026-11-12 (audit-w3-f3-reprove.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/NumberReplacer:10"
+module = "textforensics.watermarking"
+operator = "core/NumberReplacer"
+occurrence = 10
+start_pos = [197, 29]
+end_pos = [197, 30]
+function = "_is_valid_key_id"
+kind = "domain-equivalent"
+source_text = "1"
+source_fingerprint = "e6f2e7c282ffe9a897c338994d31fec8e2bd444e354d930706dda77a221eac31"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_is_valid_key_id): `key_id.split(\".\", 1)[0]` -> `split(\".\", 2)[0]`. The [0] element of str.split is the part before the first dot for every maxsplit >= 1, so the replacement coincides on every input. (The 1->0 mutant is killable and is killed by test_split_maxsplit_zero.) Re-proved 2026-11-12 (audit-w3-f3-reprove.py): the recorded diff is exactly `split(\".\", 1)` -> `split(\".\", 2)`; survives the full W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/NumberReplacer:16"
+module = "textforensics.watermarking"
+operator = "core/NumberReplacer"
+occurrence = 16
+start_pos = [326, 69]
+end_pos = [326, 72]
+function = "WatermarkKeyPair.generate"
+kind = "domain-equivalent"
+source_text = "365"
+source_fingerprint = "09008356532fb101e97aeacb3160a120c5ee94b6bc7f516dbee21e83a1ec1f2f"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (WatermarkKeyPair.generate): default `expires_days: int = 365` -> `366`. expires_days is used only in `expires_days // 365 + 1` for the expiry year (and the `if expires_days` truthiness, unchanged for 365/366); 366 // 365 == 365 // 365 == 1, so the computed expiry year — the only observable output — is identical. (The 365->364 mutant is killable and is killed by the default-expiry-year tests.) Re-proved 2026-11-12 (audit-w3-f3-reprove.py): the recorded diff is exactly `365` -> `366`; survives the full W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/NumberReplacer:30"
+module = "textforensics.watermarking"
+operator = "core/NumberReplacer"
+occurrence = 30
+start_pos = [597, 74]
+end_pos = [597, 77]
+function = "WatermarkManager.generate_key"
+kind = "domain-equivalent"
+source_text = "365"
+source_fingerprint = "af9ea5d1fc6c08b1e0e97398071accace0bf379416d3aef6af40bace71b918b5"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (WatermarkManager.generate_key): default `expires_days: int = 365` -> `366`. generate_key forwards expires_days unchanged to WatermarkKeyPair.generate, where 366 // 365 == 365 // 365 == 1, so the computed expiry year is identical. (The 365->364 mutant is killable and is killed by the default-expiry-year tests.) Re-proved 2026-11-12 (audit-w3-f3-reprove.py): the recorded diff is exactly `365` -> `366`; survives the full W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Add:2"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 2
+start_pos = [153, 60]
+end_pos = [153, 61]
+function = "_canonical_payload_hash"
+kind = "return"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (return of _canonical_payload_hash): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Add:3"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 3
+start_pos = [168, 48]
+end_pos = [168, 49]
+function = "_parse_iso_datetime"
+kind = "return"
+annotation = "datetime | None"
+reason = "Postponed-evaluation annotation (return of _parse_iso_datetime): the `|` in `datetime | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Add:4"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 4
+start_pos = [326, 34]
+end_pos = [326, 35]
+function = "WatermarkKeyPair.generate"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkKeyPair.generate): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Add:7"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 7
+start_pos = [597, 39]
+end_pos = [597, 40]
+function = "WatermarkManager.generate_key"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.generate_key): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Add:8"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 8
+start_pos = [615, 59]
+end_pos = [615, 60]
+function = "WatermarkManager.get_keypair"
+kind = "return"
+annotation = "WatermarkKeyPair | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_keypair): the `|` in `WatermarkKeyPair | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Add:9"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 9
+start_pos = [620, 64]
+end_pos = [620, 65]
+function = "WatermarkManager.get_public_key"
+kind = "return"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_public_key): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Add:13"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 13
+start_pos = [723, 39]
+end_pos = [723, 40]
+function = "WatermarkManager.verify_signature"
+kind = "arg"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.verify_signature): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Add:14"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 14
+start_pos = [752, 17]
+end_pos = [752, 18]
+function = "verify_watermark"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (argument of verify_watermark): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_BitAnd:2"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 2
+start_pos = [153, 60]
+end_pos = [153, 61]
+function = "_canonical_payload_hash"
+kind = "return"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (return of _canonical_payload_hash): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_BitAnd:3"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 3
+start_pos = [168, 48]
+end_pos = [168, 49]
+function = "_parse_iso_datetime"
+kind = "return"
+annotation = "datetime | None"
+reason = "Postponed-evaluation annotation (return of _parse_iso_datetime): the `|` in `datetime | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_BitAnd:4"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 4
+start_pos = [326, 34]
+end_pos = [326, 35]
+function = "WatermarkKeyPair.generate"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkKeyPair.generate): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_BitAnd:7"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 7
+start_pos = [597, 39]
+end_pos = [597, 40]
+function = "WatermarkManager.generate_key"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.generate_key): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_BitAnd:8"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 8
+start_pos = [615, 59]
+end_pos = [615, 60]
+function = "WatermarkManager.get_keypair"
+kind = "return"
+annotation = "WatermarkKeyPair | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_keypair): the `|` in `WatermarkKeyPair | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_BitAnd:9"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 9
+start_pos = [620, 64]
+end_pos = [620, 65]
+function = "WatermarkManager.get_public_key"
+kind = "return"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_public_key): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_BitAnd:13"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 13
+start_pos = [723, 39]
+end_pos = [723, 40]
+function = "WatermarkManager.verify_signature"
+kind = "arg"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.verify_signature): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_BitAnd:14"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 14
+start_pos = [752, 17]
+end_pos = [752, 18]
+function = "verify_watermark"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (argument of verify_watermark): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_BitXor:0"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 0
+start_pos = [132, 4]
+end_pos = [132, 5]
+function = "<module>"
+kind = "domain-equivalent"
+source_text = "|"
+source_fingerprint = "d0a4b6a426c13b8461f4c76354ae0dde68012f7bdaad585b3e8bf939dda774eb"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (module level, _WINDOWS_RESERVED_NAMES): the first set-union `|` -> `^`. The three sets are pairwise disjoint — the literal reserved names (CON, PRN, AUX, NUL, CONIN$, CONOUT$, ...), {COM1..COM9} and {LPT1..LPT9} share no element — so union and symmetric difference coincide. Module-level entry (function \"<module>\", fingerprint of the enclosing Assign statement); validated by the extended validator (tests/test_mutation.py::EquivalentBaselineTests::test_module_level_runtime_entry_validates). Re-proved 2026-11-12 (audit-w3-f3-reprove.py): survives the full W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_BitXor:1"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 1
+start_pos = [133, 4]
+end_pos = [133, 5]
+function = "<module>"
+kind = "domain-equivalent"
+source_text = "|"
+source_fingerprint = "d0a4b6a426c13b8461f4c76354ae0dde68012f7bdaad585b3e8bf939dda774eb"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (module level, _WINDOWS_RESERVED_NAMES): the second set-union `|` -> `^`. Same pairwise-disjointness proof as the first union. Module-level entry (function \"<module>\", fingerprint of the enclosing Assign statement). Re-proved 2026-11-12 (audit-w3-f3-reprove.py): survives the full W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_BitXor:2"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 2
+start_pos = [153, 60]
+end_pos = [153, 61]
+function = "_canonical_payload_hash"
+kind = "return"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (return of _canonical_payload_hash): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_BitXor:3"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 3
+start_pos = [168, 48]
+end_pos = [168, 49]
+function = "_parse_iso_datetime"
+kind = "return"
+annotation = "datetime | None"
+reason = "Postponed-evaluation annotation (return of _parse_iso_datetime): the `|` in `datetime | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_BitXor:4"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 4
+start_pos = [326, 34]
+end_pos = [326, 35]
+function = "WatermarkKeyPair.generate"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkKeyPair.generate): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_BitXor:7"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 7
+start_pos = [597, 39]
+end_pos = [597, 40]
+function = "WatermarkManager.generate_key"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.generate_key): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_BitXor:8"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 8
+start_pos = [615, 59]
+end_pos = [615, 60]
+function = "WatermarkManager.get_keypair"
+kind = "return"
+annotation = "WatermarkKeyPair | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_keypair): the `|` in `WatermarkKeyPair | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_BitXor:9"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 9
+start_pos = [620, 64]
+end_pos = [620, 65]
+function = "WatermarkManager.get_public_key"
+kind = "return"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_public_key): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_BitXor:13"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 13
+start_pos = [723, 39]
+end_pos = [723, 40]
+function = "WatermarkManager.verify_signature"
+kind = "arg"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.verify_signature): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_BitXor:14"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 14
+start_pos = [752, 17]
+end_pos = [752, 18]
+function = "verify_watermark"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (argument of verify_watermark): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Div:2"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 2
+start_pos = [153, 60]
+end_pos = [153, 61]
+function = "_canonical_payload_hash"
+kind = "return"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (return of _canonical_payload_hash): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Div:3"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 3
+start_pos = [168, 48]
+end_pos = [168, 49]
+function = "_parse_iso_datetime"
+kind = "return"
+annotation = "datetime | None"
+reason = "Postponed-evaluation annotation (return of _parse_iso_datetime): the `|` in `datetime | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Div:4"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 4
+start_pos = [326, 34]
+end_pos = [326, 35]
+function = "WatermarkKeyPair.generate"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkKeyPair.generate): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Div:7"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 7
+start_pos = [597, 39]
+end_pos = [597, 40]
+function = "WatermarkManager.generate_key"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.generate_key): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Div:8"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 8
+start_pos = [615, 59]
+end_pos = [615, 60]
+function = "WatermarkManager.get_keypair"
+kind = "return"
+annotation = "WatermarkKeyPair | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_keypair): the `|` in `WatermarkKeyPair | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Div:9"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 9
+start_pos = [620, 64]
+end_pos = [620, 65]
+function = "WatermarkManager.get_public_key"
+kind = "return"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_public_key): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Div:13"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 13
+start_pos = [723, 39]
+end_pos = [723, 40]
+function = "WatermarkManager.verify_signature"
+kind = "arg"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.verify_signature): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Div:14"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 14
+start_pos = [752, 17]
+end_pos = [752, 18]
+function = "verify_watermark"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (argument of verify_watermark): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_FloorDiv:2"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 2
+start_pos = [153, 60]
+end_pos = [153, 61]
+function = "_canonical_payload_hash"
+kind = "return"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (return of _canonical_payload_hash): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_FloorDiv:3"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 3
+start_pos = [168, 48]
+end_pos = [168, 49]
+function = "_parse_iso_datetime"
+kind = "return"
+annotation = "datetime | None"
+reason = "Postponed-evaluation annotation (return of _parse_iso_datetime): the `|` in `datetime | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_FloorDiv:4"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 4
+start_pos = [326, 34]
+end_pos = [326, 35]
+function = "WatermarkKeyPair.generate"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkKeyPair.generate): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_FloorDiv:7"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 7
+start_pos = [597, 39]
+end_pos = [597, 40]
+function = "WatermarkManager.generate_key"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.generate_key): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_FloorDiv:8"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 8
+start_pos = [615, 59]
+end_pos = [615, 60]
+function = "WatermarkManager.get_keypair"
+kind = "return"
+annotation = "WatermarkKeyPair | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_keypair): the `|` in `WatermarkKeyPair | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_FloorDiv:9"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 9
+start_pos = [620, 64]
+end_pos = [620, 65]
+function = "WatermarkManager.get_public_key"
+kind = "return"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_public_key): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_FloorDiv:13"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 13
+start_pos = [723, 39]
+end_pos = [723, 40]
+function = "WatermarkManager.verify_signature"
+kind = "arg"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.verify_signature): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_FloorDiv:14"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 14
+start_pos = [752, 17]
+end_pos = [752, 18]
+function = "verify_watermark"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (argument of verify_watermark): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_LShift:2"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 2
+start_pos = [153, 60]
+end_pos = [153, 61]
+function = "_canonical_payload_hash"
+kind = "return"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (return of _canonical_payload_hash): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_LShift:3"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 3
+start_pos = [168, 48]
+end_pos = [168, 49]
+function = "_parse_iso_datetime"
+kind = "return"
+annotation = "datetime | None"
+reason = "Postponed-evaluation annotation (return of _parse_iso_datetime): the `|` in `datetime | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_LShift:4"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 4
+start_pos = [326, 34]
+end_pos = [326, 35]
+function = "WatermarkKeyPair.generate"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkKeyPair.generate): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_LShift:7"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 7
+start_pos = [597, 39]
+end_pos = [597, 40]
+function = "WatermarkManager.generate_key"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.generate_key): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_LShift:8"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 8
+start_pos = [615, 59]
+end_pos = [615, 60]
+function = "WatermarkManager.get_keypair"
+kind = "return"
+annotation = "WatermarkKeyPair | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_keypair): the `|` in `WatermarkKeyPair | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_LShift:9"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 9
+start_pos = [620, 64]
+end_pos = [620, 65]
+function = "WatermarkManager.get_public_key"
+kind = "return"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_public_key): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_LShift:13"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 13
+start_pos = [723, 39]
+end_pos = [723, 40]
+function = "WatermarkManager.verify_signature"
+kind = "arg"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.verify_signature): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_LShift:14"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 14
+start_pos = [752, 17]
+end_pos = [752, 18]
+function = "verify_watermark"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (argument of verify_watermark): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Mod:2"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 2
+start_pos = [153, 60]
+end_pos = [153, 61]
+function = "_canonical_payload_hash"
+kind = "return"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (return of _canonical_payload_hash): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Mod:3"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 3
+start_pos = [168, 48]
+end_pos = [168, 49]
+function = "_parse_iso_datetime"
+kind = "return"
+annotation = "datetime | None"
+reason = "Postponed-evaluation annotation (return of _parse_iso_datetime): the `|` in `datetime | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Mod:4"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 4
+start_pos = [326, 34]
+end_pos = [326, 35]
+function = "WatermarkKeyPair.generate"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkKeyPair.generate): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Mod:7"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 7
+start_pos = [597, 39]
+end_pos = [597, 40]
+function = "WatermarkManager.generate_key"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.generate_key): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Mod:8"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 8
+start_pos = [615, 59]
+end_pos = [615, 60]
+function = "WatermarkManager.get_keypair"
+kind = "return"
+annotation = "WatermarkKeyPair | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_keypair): the `|` in `WatermarkKeyPair | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Mod:9"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 9
+start_pos = [620, 64]
+end_pos = [620, 65]
+function = "WatermarkManager.get_public_key"
+kind = "return"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_public_key): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Mod:13"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 13
+start_pos = [723, 39]
+end_pos = [723, 40]
+function = "WatermarkManager.verify_signature"
+kind = "arg"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.verify_signature): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Mod:14"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 14
+start_pos = [752, 17]
+end_pos = [752, 18]
+function = "verify_watermark"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (argument of verify_watermark): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Mul:2"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 2
+start_pos = [153, 60]
+end_pos = [153, 61]
+function = "_canonical_payload_hash"
+kind = "return"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (return of _canonical_payload_hash): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Mul:3"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 3
+start_pos = [168, 48]
+end_pos = [168, 49]
+function = "_parse_iso_datetime"
+kind = "return"
+annotation = "datetime | None"
+reason = "Postponed-evaluation annotation (return of _parse_iso_datetime): the `|` in `datetime | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Mul:4"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 4
+start_pos = [326, 34]
+end_pos = [326, 35]
+function = "WatermarkKeyPair.generate"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkKeyPair.generate): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Mul:7"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 7
+start_pos = [597, 39]
+end_pos = [597, 40]
+function = "WatermarkManager.generate_key"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.generate_key): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Mul:8"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 8
+start_pos = [615, 59]
+end_pos = [615, 60]
+function = "WatermarkManager.get_keypair"
+kind = "return"
+annotation = "WatermarkKeyPair | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_keypair): the `|` in `WatermarkKeyPair | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Mul:9"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 9
+start_pos = [620, 64]
+end_pos = [620, 65]
+function = "WatermarkManager.get_public_key"
+kind = "return"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_public_key): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Mul:13"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 13
+start_pos = [723, 39]
+end_pos = [723, 40]
+function = "WatermarkManager.verify_signature"
+kind = "arg"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.verify_signature): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Mul:14"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 14
+start_pos = [752, 17]
+end_pos = [752, 18]
+function = "verify_watermark"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (argument of verify_watermark): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Pow:2"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 2
+start_pos = [153, 60]
+end_pos = [153, 61]
+function = "_canonical_payload_hash"
+kind = "return"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (return of _canonical_payload_hash): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Pow:3"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 3
+start_pos = [168, 48]
+end_pos = [168, 49]
+function = "_parse_iso_datetime"
+kind = "return"
+annotation = "datetime | None"
+reason = "Postponed-evaluation annotation (return of _parse_iso_datetime): the `|` in `datetime | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Pow:4"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 4
+start_pos = [326, 34]
+end_pos = [326, 35]
+function = "WatermarkKeyPair.generate"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkKeyPair.generate): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Pow:7"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 7
+start_pos = [597, 39]
+end_pos = [597, 40]
+function = "WatermarkManager.generate_key"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.generate_key): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Pow:8"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 8
+start_pos = [615, 59]
+end_pos = [615, 60]
+function = "WatermarkManager.get_keypair"
+kind = "return"
+annotation = "WatermarkKeyPair | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_keypair): the `|` in `WatermarkKeyPair | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Pow:9"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 9
+start_pos = [620, 64]
+end_pos = [620, 65]
+function = "WatermarkManager.get_public_key"
+kind = "return"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_public_key): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Pow:13"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 13
+start_pos = [723, 39]
+end_pos = [723, 40]
+function = "WatermarkManager.verify_signature"
+kind = "arg"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.verify_signature): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Pow:14"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 14
+start_pos = [752, 17]
+end_pos = [752, 18]
+function = "verify_watermark"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (argument of verify_watermark): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_RShift:2"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 2
+start_pos = [153, 60]
+end_pos = [153, 61]
+function = "_canonical_payload_hash"
+kind = "return"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (return of _canonical_payload_hash): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_RShift:3"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 3
+start_pos = [168, 48]
+end_pos = [168, 49]
+function = "_parse_iso_datetime"
+kind = "return"
+annotation = "datetime | None"
+reason = "Postponed-evaluation annotation (return of _parse_iso_datetime): the `|` in `datetime | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_RShift:4"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 4
+start_pos = [326, 34]
+end_pos = [326, 35]
+function = "WatermarkKeyPair.generate"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkKeyPair.generate): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_RShift:7"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 7
+start_pos = [597, 39]
+end_pos = [597, 40]
+function = "WatermarkManager.generate_key"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.generate_key): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_RShift:8"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 8
+start_pos = [615, 59]
+end_pos = [615, 60]
+function = "WatermarkManager.get_keypair"
+kind = "return"
+annotation = "WatermarkKeyPair | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_keypair): the `|` in `WatermarkKeyPair | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_RShift:9"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 9
+start_pos = [620, 64]
+end_pos = [620, 65]
+function = "WatermarkManager.get_public_key"
+kind = "return"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_public_key): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_RShift:13"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 13
+start_pos = [723, 39]
+end_pos = [723, 40]
+function = "WatermarkManager.verify_signature"
+kind = "arg"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.verify_signature): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_RShift:14"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 14
+start_pos = [752, 17]
+end_pos = [752, 18]
+function = "verify_watermark"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (argument of verify_watermark): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Sub:2"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 2
+start_pos = [153, 60]
+end_pos = [153, 61]
+function = "_canonical_payload_hash"
+kind = "return"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (return of _canonical_payload_hash): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Sub:3"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 3
+start_pos = [168, 48]
+end_pos = [168, 49]
+function = "_parse_iso_datetime"
+kind = "return"
+annotation = "datetime | None"
+reason = "Postponed-evaluation annotation (return of _parse_iso_datetime): the `|` in `datetime | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Sub:4"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 4
+start_pos = [326, 34]
+end_pos = [326, 35]
+function = "WatermarkKeyPair.generate"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkKeyPair.generate): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Sub:7"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 7
+start_pos = [597, 39]
+end_pos = [597, 40]
+function = "WatermarkManager.generate_key"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.generate_key): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Sub:8"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 8
+start_pos = [615, 59]
+end_pos = [615, 60]
+function = "WatermarkManager.get_keypair"
+kind = "return"
+annotation = "WatermarkKeyPair | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_keypair): the `|` in `WatermarkKeyPair | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Sub:9"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 9
+start_pos = [620, 64]
+end_pos = [620, 65]
+function = "WatermarkManager.get_public_key"
+kind = "return"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (return of WatermarkManager.get_public_key): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Sub:13"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 13
+start_pos = [723, 39]
+end_pos = [723, 40]
+function = "WatermarkManager.verify_signature"
+kind = "arg"
+annotation = "WatermarkPublicKey | None"
+reason = "Postponed-evaluation annotation (argument of WatermarkManager.verify_signature): the `|` in `WatermarkPublicKey | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceBinaryOperator_BitOr_Sub:14"
+module = "textforensics.watermarking"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 14
+start_pos = [752, 17]
+end_pos = [752, 18]
+function = "verify_watermark"
+kind = "arg"
+annotation = "float | None"
+reason = "Postponed-evaluation annotation (argument of verify_watermark): the `|` in `float | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceComparisonOperator_NotEq_Gt:2"
+module = "textforensics.watermarking"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 2
+start_pos = [288, 28]
+end_pos = [288, 30]
+function = "_validate_watermark_signature"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "ccf89d62f64fe1d3f56a30f10f712aca1194047f181fdf9b036cd227041942aa"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_validate_watermark_signature): `len(signature_bytes) != 64` -> `>`. Same subsumption as the `<` mutant: a shorter signature that passes the `>` mutant is rejected by WatermarkPublicKey.verify (InvalidSignature/ValueError/TypeError -> False) exactly as the original rejects it. Re-proved 2026-11-12 (audit-w3-f3-reprove.py): survives the full W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceComparisonOperator_NotEq_Lt:2"
+module = "textforensics.watermarking"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 2
+start_pos = [288, 28]
+end_pos = [288, 30]
+function = "_validate_watermark_signature"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "ccf89d62f64fe1d3f56a30f10f712aca1194047f181fdf9b036cd227041942aa"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_validate_watermark_signature): `len(signature_bytes) != 64` -> `<`. WatermarkPublicKey.verify catches (InvalidSignature, ValueError, TypeError) and returns False, and the cryptography Ed25519 verify rejects any non-64-byte signature, so the length check is subsumed: a longer signature that passes the `<` mutant is rejected by verify exactly as the original rejects it. Re-proved 2026-11-12 (audit-w3-f3-reprove.py): the mutant survives the full W3 kill-test file (71 tests); the length check's outcome never differs."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceOrWithAnd:6"
+module = "textforensics.watermarking"
+operator = "core/ReplaceOrWithAnd"
+occurrence = 6
+start_pos = [560, 32]
+end_pos = [560, 34]
+function = "WatermarkManager._save_key"
+kind = "domain-equivalent"
+source_text = "or"
+source_fingerprint = "0ca603ed212be0561b34623742f2be372897f9061c1b943b3786e09b738da347"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (WatermarkManager._save_key): `if destination.exists() or destination.is_symlink()` -> `and`. The guard is subsumed by os.link: the mutant proceeds exactly when one disjunct holds, and os.link then raises FileExistsError for any pre-existing destination (regular file or symlink, including a broken one), which _save_key converts to the identical WatermarkError with the identical message. No input distinguishes the mutant. Re-proved 2026-11-12 (audit-w3-f3-reprove.py): survives the full W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceOrWithAnd:7"
+module = "textforensics.watermarking"
+operator = "core/ReplaceOrWithAnd"
+occurrence = 7
+start_pos = [609, 36]
+end_pos = [609, 38]
+function = "WatermarkManager.generate_key"
+kind = "domain-equivalent"
+source_text = "or"
+source_fingerprint = "af9ea5d1fc6c08b1e0e97398071accace0bf379416d3aef6af40bace71b918b5"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (WatermarkManager.generate_key): `if destination.exists() or destination.is_symlink()` -> `and`. Same subsumption as the _save_key guard: os.link raises FileExistsError for any pre-existing destination, converted to the identical WatermarkError. Re-proved 2026-11-12 (audit-w3-f3-reprove.py): survives the full W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.watermarking:core/ReplaceTrueWithFalse:13"
+module = "textforensics.watermarking"
+operator = "core/ReplaceTrueWithFalse"
+occurrence = 13
+start_pos = [595, 44]
+end_pos = [595, 48]
+function = "WatermarkManager._save_key"
+kind = "domain-equivalent"
+source_text = "True"
+source_fingerprint = "0ca603ed212be0561b34623742f2be372897f9061c1b943b3786e09b738da347"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (WatermarkManager._save_key): `temp_path.unlink(missing_ok=True)` -> `missing_ok=False` in the finally block. The temp file is created by tempfile.mkstemp in the same block and nothing deletes it before the finally, so it always exists there and `missing_ok=False` never raises. Re-proved 2026-11-12 (audit-w3-f3-reprove.py): survives the full W3 kill-test file."

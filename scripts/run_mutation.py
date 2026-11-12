@@ -288,6 +288,15 @@ BASELINE_RUNTIME_KINDS = {
 #: All baseline kinds (annotation + runtime).
 BASELINE_KINDS = BASELINE_ANNOTATION_KINDS | BASELINE_RUNTIME_KINDS
 
+#: ``function`` value recorded for a runtime entry whose mutant sits at
+#: module level (no enclosing function). The validator pins the
+#: enclosing top-level statement instead of a function fingerprint
+#: (see :func:`_validate_runtime_entry`); the proof depends on that
+#: statement's behaviour as a whole, exactly as a function-level proof
+#: depends on its function. W3 introduced it for the watermarking
+#: ``_WINDOWS_RESERVED_NAMES`` ``BitOr_BitXor`` mutants.
+MODULE_LEVEL_FUNCTION = "<module>"
+
 #: Fields every [[equivalent]] baseline entry must carry.
 BASELINE_COMMON_FIELDS = {
     "id",
@@ -638,7 +647,18 @@ def test_command_for(modules: list[str], project_root: Path) -> str:
 # The W2 kill-test files (tests/test_audit_w2_worker_f_<stem>.py) are
 # likewise listed for their modules (audit-w2 decision (c.1)): a
 # diff-mode run that scoped to the mapped files without them would
-# report the W2 mutants they kill as unexplained survivors.
+# report the W2 mutants they kill as unexplained survivors. The W3
+# kill-test files (tests/test_audit_w3_worker_f_<stem>.py) are listed
+# the same way (audit-w3): watermarking, ledger, result_codec and
+# timestamp each get their W3 kill-test file; the remaining W3 modules
+# (sealing, verify, casefile, sealed_bundle, bundle,
+# _standalone_verify) get theirs when their kill tests are written.
+# Ledger's entry lists tests/test_audit_log.py (the audit-log tests;
+# there is no test_ledger.py) and deliberately does NOT list
+# tests/test_audit_anchor.py: its 9 C08/C09 tests are RED BY DESIGN
+# for W4 (they assert the pre-W3 anchor behaviour W4 changes), so
+# including it would fail the per-mutant test command on every ledger
+# mutant. Those 9 tests are W4's corpus, not W3's.
 # Two modules have NO entry on purpose and still fall back to the full
 # suite, which collects their kill-test files anyway: evidence and
 # observatory. Evidence has no dedicated test file (its proof-driver
@@ -758,6 +778,30 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
         "tests/test_result_codec.py",
         "tests/test_w2_worker_d.py",
         "tests/test_audit_w2_worker_f_result_codec.py",
+        "tests/test_audit_w3_worker_f_result_codec.py",
+    ],
+    # W3 kill tests live in test_audit_w3_worker_f_watermarking.py
+    # alongside the dedicated file.
+    "textforensics.watermarking": [
+        "tests/test_watermarking.py",
+        "tests/test_audit_w3_worker_f_watermarking.py",
+    ],
+    # Ledger tests live in test_audit_log.py (there is no
+    # test_ledger.py); the W3 kill tests live in
+    # test_audit_w3_worker_f_ledger.py. test_audit_anchor.py is
+    # deliberately NOT listed: its 9 C08/C09 tests are red by design
+    # for W4 (see the comment above the map).
+    "textforensics.ledger": [
+        "tests/test_audit_log.py",
+        "tests/test_audit_w3_worker_f_ledger.py",
+    ],
+    # W3 Worker C tests live in test_audit_w3_worker_c.py alongside
+    # the dedicated file; the W3 kill tests live in
+    # test_audit_w3_worker_f_timestamp.py.
+    "textforensics.timestamp": [
+        "tests/test_timestamp.py",
+        "tests/test_audit_w3_worker_c.py",
+        "tests/test_audit_w3_worker_f_timestamp.py",
     ],
     # W2 Worker E tests: adversarial + semantic in test_w2_worker_e_if12.py
     # (IF-12), explain in test_w2_worker_e_if19.py (IF-19); the W2 kill
@@ -1030,6 +1074,10 @@ def _enclosing_function(tree: ast.AST, line: int, col: int) -> tuple[str | None,
 def _function_fingerprint(source: str, node: ast.AST) -> str:
     """SHA-256 of the whitespace-normalised source of a function node.
 
+    Works on any node, not only functions: a module-level runtime
+    entry fingerprints its enclosing top-level statement the same
+    way (see :func:`_validate_runtime_entry`).
+
     Pure-text normalisation (``" ".join(segment.split())``) makes the
     fingerprint independent of formatting and of the Python version that
     parses the tree (unlike ``ast.dump``, whose output gained
@@ -1095,6 +1143,7 @@ class _ModuleContext:
         "spans",
         "postponed",
         "functions",
+        "top_level",
         "fingerprints",
     )
 
@@ -1105,6 +1154,7 @@ class _ModuleContext:
         self.spans = _annotation_spans(tree, source)
         self.postponed = _has_postponed_evaluation(tree)
         self.functions = _function_table(tree)
+        self.top_level = _top_level_table(tree)
         self.fingerprints: dict[tuple[int, int], str] = {}
 
     def enclosing_function(self, line: int, col: int) -> tuple[str | None, ast.AST | None]:
@@ -1119,6 +1169,20 @@ class _ModuleContext:
             if start <= (line, col) < end:
                 found = (name, node)
         return found if found is not None else (None, None)
+
+    def enclosing_top_level(self, line: int, col: int) -> ast.AST | None:
+        """Top-level statement containing ``(line, col)``, or None.
+
+        Used for runtime mutants at module level, which have no
+        enclosing function: the equivalence proof depends on the
+        enclosing top-level statement's behaviour as a whole, so
+        that statement is fingerprinted instead (see
+        :func:`_validate_runtime_entry`).
+        """
+        for node, start, end in self.top_level:
+            if start <= (line, col) < end:
+                return node
+        return None
 
     def fingerprint(self, node: ast.AST) -> str:
         """Cached :func:`_function_fingerprint` for one function node.
@@ -1163,6 +1227,27 @@ def _function_table(tree: ast.AST) -> list[tuple[str, ast.AST, tuple[int, int], 
                 walk(child, owner)
 
     walk(tree, "")
+    return table
+
+
+def _top_level_table(tree: ast.AST) -> list[tuple[ast.AST, tuple[int, int], tuple[int, int]]]:
+    """``(node, start, end)`` for every top-level statement in ``tree``.
+
+    The module body in order. A decorated function's span starts at
+    its first decorator line, mirroring :func:`_function_table`;
+    every other statement spans its own lines. Used only as the
+    fallback pin for module-level runtime entries (see
+    :meth:`_ModuleContext.enclosing_top_level`).
+    """
+    table: list[tuple[ast.AST, tuple[int, int], tuple[int, int]]] = []
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.decorator_list:
+            first = node.decorator_list[0]
+            start = (first.lineno, 0)
+        else:
+            start = (node.lineno, node.col_offset)
+        end = (node.end_lineno or node.lineno, node.end_col_offset or 0)
+        table.append((node, start, end))
     return table
 
 
@@ -1353,6 +1438,12 @@ def _validate_runtime_entry(entry: dict[str, Any], context: _ModuleContext) -> t
     ever compared); any edit to the function — even far from the mutant
     — makes the entry stale so a human re-verifies the proof.
 
+    A mutant at module level has no enclosing function: the same
+    discipline applies to the enclosing top-level statement instead
+    (the entry records ``function`` ``"<module>"`` — see
+    ``MODULE_LEVEL_FUNCTION``), because the proof depends on that
+    statement's behaviour as a whole.
+
     The enclosing-function lookup and the function fingerprint come
     from the cached :class:`_ModuleContext`, so a full-baseline
     re-validation no longer walks the module tree per entry.
@@ -1377,10 +1468,13 @@ def _validate_runtime_entry(entry: dict[str, Any], context: _ModuleContext) -> t
         )
     name, node = context.enclosing_function(start_line, start_col)
     if node is None:
-        return (
-            False,
-            f"position L{start_line}:{start_col} is no longer inside a function",
-        )
+        node = context.enclosing_top_level(start_line, start_col)
+        if node is None:
+            return (
+                False,
+                f"position L{start_line}:{start_col} is no longer inside a function",
+            )
+        name = MODULE_LEVEL_FUNCTION
     if name != entry["function"]:
         return (
             False,
