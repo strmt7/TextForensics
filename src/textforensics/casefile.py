@@ -1132,6 +1132,35 @@ def _observations_match(sealed: list, expected: list, *, version: str) -> bool:
     return _strip(sealed) == _strip(expected)
 
 
+def _is_superseded_signature(entry: Any) -> bool:
+    """Shape check for one ``seal.previous_signatures`` entry (W3: C22).
+
+    A superseded signature is the previous signature preserved verbatim
+    (algorithm, key fingerprint, signer, DSSE envelope) plus the
+    reason and timestamp of its supersession.  A malformed entry fails
+    verification; a well-formed one is historical evidence, never the
+    current seal.
+    """
+    if not isinstance(entry, Mapping):
+        return False
+    if entry.get("algorithm") != "ed25519":
+        return False
+    fingerprint = entry.get("key_fingerprint")
+    if (
+        not isinstance(fingerprint, str)
+        or len(fingerprint) != 64
+        or any(c not in "0123456789abcdef" for c in fingerprint)
+    ):
+        return False
+    if not isinstance(entry.get("signer"), Mapping):
+        return False
+    if not isinstance(entry.get("dsse"), Mapping):
+        return False
+    if not isinstance(entry.get("superseded_reason"), str) or not entry["superseded_reason"]:
+        return False
+    return isinstance(entry.get("superseded_at_utc"), str) and bool(entry["superseded_at_utc"])
+
+
 def _verify_case_sections(
     case: Mapping[str, Any], bundle: Mapping[str, Any], *, version: str = "v3"
 ) -> list[str]:
@@ -1253,6 +1282,12 @@ def _verify_case_sections(
         digest_publication = seal.get("digest_publication")
         if digest_publication is not None and not isinstance(digest_publication, Mapping):
             errors.append("v3_seal_digest_publication_invalid")
+        previous = seal.get("previous_signatures")
+        if previous is not None and (
+            not isinstance(previous, list)
+            or any(not _is_superseded_signature(entry) for entry in previous)
+        ):
+            errors.append("v3_seal_previous_signatures_invalid")
     gaps = case.get("gaps")
     if not isinstance(gaps, list):
         errors.append("v3_gaps_missing")
@@ -1501,19 +1536,22 @@ def seal_case_file(
     # text while the case declares raw text absent.
     assert_case_portable(case, allow_raw_text=include_raw_text)
     if signing_seed is not None:
-        from .sealing import fingerprint, public_key_from_seed, sign_case_body
+        from .sealing import build_signature_record, public_key_from_seed, sign_case_body
 
         if not isinstance(signing_seed, (bytes, bytearray)) or len(signing_seed) != 32:
             raise ValueError("signing_seed must be 32 bytes.")
         if not isinstance(signer, Mapping) or not signer.get("identity") or not signer.get("role"):
             raise ValueError("signer needs identity and role.")
+        # The signer record is placed BEFORE signing (W3: C02, v2
+        # contract): it is inside the signed body, so signing first
+        # and attaching the record afterwards would leave it
+        # unauthenticated.
+        public_key = public_key_from_seed(bytes(signing_seed))
+        case["seal"]["signature"] = build_signature_record(
+            public_key, signer["identity"], signer["role"]
+        )
         envelope = sign_case_body(case, bytes(signing_seed))
-        case["seal"]["signature"] = {
-            "algorithm": "ed25519",
-            "key_fingerprint": fingerprint(public_key_from_seed(bytes(signing_seed))),
-            "signer": {"identity": signer["identity"], "role": signer["role"]},
-            "dsse": envelope,
-        }
+        case["seal"]["signature"]["dsse"] = envelope
     case["case_sha256"] = _hash_without_seal(case)
     return case
 
@@ -1618,6 +1656,14 @@ def verify_case_file(
                 result = verify_case_signature(payload, public_key)
                 if not result["valid"]:
                     errors.extend(f"signature_invalid:{detail}" for detail in result["errors"])
+                warnings.extend(result.get("warnings", []))
+            previous = seal.get("previous_signatures") if isinstance(seal, Mapping) else None
+            if isinstance(previous, list) and previous:
+                warnings.append(
+                    "prior_signature_superseded: a prior signature was superseded "
+                    "by a custody append (re-sign or explicit downgrade); it is "
+                    "preserved as historical evidence, not the current seal."
+                )
         if payload.get("tool", {}).get("name") != "TextForensics":
             errors.append("invalid_tool_identity")
 
@@ -1641,6 +1687,9 @@ def append_custody_entry(
     action: str,
     at_utc: str | None = None,
     note: str | None = None,
+    signing_seed: bytes | None = None,
+    signer: Mapping[str, Any] | None = None,
+    invalidate_signature: bool = False,
 ) -> dict[str, Any]:
     """Append a custody event to a sealed v3/v4 case file and re-seal it.
 
@@ -1649,22 +1698,86 @@ def append_custody_entry(
     custody hash chain — not the case hash — is the continuity record
     across versions: each version's seal covers that version, and the
     chain links the versions.  Only v3/v4 case files carry custody.
+
+    Signed successors (W3: C22): a case carrying a T2 signature must
+    either be re-signed (``signing_seed`` + ``signer``) or explicitly
+    downgraded (``invalidate_signature=True``); otherwise appending
+    is refused with ``ValueError`` — appending while keeping the old
+    signature would leave an invalid signature attached as if it were
+    the current seal.  In both successor modes the superseded
+    signature is preserved verbatim in ``seal.previous_signatures``
+    (with reason and timestamp) as historical evidence, and the
+    predecessor case itself is never mutated: it remains the evidence
+    for the old signature.  A downgraded successor has
+    ``seal.signature`` ``None`` and verifies as a T1 hash-only seal,
+    never as equivalent T2 evidence.
     """
     if case.get("schema") not in {CASE_SCHEMA_V3, CASE_SCHEMA_V4}:
         raise ValueError("Custody entries exist only on case-file/v3 and case-file/v4.")
+    if signing_seed is not None and signer is None:
+        raise ValueError("A signing_seed without signer identity/role cannot re-sign.")
+    if signing_seed is None and signer is not None:
+        raise ValueError("A signer without a signing_seed cannot re-sign.")
+    if signing_seed is not None and invalidate_signature:
+        raise ValueError("signing_seed and invalidate_signature contradict each other.")
+    seal = case.get("seal")
+    current_signature = seal.get("signature") if isinstance(seal, Mapping) else None
+    if current_signature is not None and not isinstance(current_signature, Mapping):
+        raise ValueError("Existing seal signature is malformed; refusing to append.")
+    if current_signature is not None and signing_seed is None and not invalidate_signature:
+        raise ValueError(
+            "Appending custody to a signed case requires signing_seed + signer "
+            "to re-sign the successor, or invalidate_signature=True to "
+            "explicitly downgrade it to a hash-only (T1) seal."
+        )
+    if signing_seed is not None and (
+        not isinstance(signing_seed, (bytes, bytearray)) or len(signing_seed) != 32
+    ):
+        raise ValueError("signing_seed must be 32 bytes.")
+    if signing_seed is not None and (
+        not isinstance(signer, Mapping) or not signer.get("identity") or not signer.get("role")
+    ):
+        raise ValueError("signer needs identity and role.")
     updated = deepcopy(dict(case))
     custody = list(updated.get("custody") or [])
+    stamp = at_utc or datetime.now(UTC).isoformat()
     entry = chain_custody_entry(
         custody,
         actor=actor,
         action=action,
-        at_utc=at_utc or datetime.now(UTC).isoformat(),
+        at_utc=stamp,
         note=note,
     )
     custody.append(entry)
     updated["custody"] = custody
     updated["seal"] = dict(updated.get("seal") or {})
     updated["seal"]["custody_head"] = entry["entry_hash"]
+    if current_signature is not None:
+        previous = list(updated["seal"].get("previous_signatures") or [])
+        superseded = dict(current_signature)
+        superseded["superseded_reason"] = (
+            "re-signed-after-custody-append"
+            if signing_seed is not None
+            else "invalidated-no-signing-key"
+        )
+        superseded["superseded_at_utc"] = stamp
+        previous.append(superseded)
+        updated["seal"]["previous_signatures"] = previous
+        if signing_seed is not None:
+            from .sealing import (
+                build_signature_record,
+                public_key_from_seed,
+                sign_case_body,
+            )
+
+            public_key = public_key_from_seed(bytes(signing_seed))
+            updated["seal"]["signature"] = build_signature_record(
+                public_key, signer["identity"], signer["role"]
+            )
+            envelope = sign_case_body(updated, bytes(signing_seed))
+            updated["seal"]["signature"]["dsse"] = envelope
+        else:
+            updated["seal"]["signature"] = None
     updated["case_sha256"] = _hash_without_seal(updated)
     return updated
 

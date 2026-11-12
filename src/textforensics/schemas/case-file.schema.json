@@ -770,6 +770,45 @@
             "null"
           ]
         },
+        "previous_signatures": {
+          "description": "Superseded signatures preserved as historical evidence (W3: C22). Each entry is a previous seal.signature preserved verbatim, plus the reason and timestamp of its supersession. A superseded signature is never the current seal.",
+          "type": "array",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "algorithm": {
+                "const": "ed25519"
+              },
+              "key_fingerprint": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "signer": {
+                "type": "object"
+              },
+              "dsse": {
+                "type": "object"
+              },
+              "superseded_reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "superseded_at_utc": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "algorithm",
+              "key_fingerprint",
+              "signer",
+              "dsse",
+              "superseded_reason",
+              "superseded_at_utc"
+            ],
+            "type": "object"
+          }
+        },
         "timestamp": {
           "additionalProperties": false,
           "properties": {

@@ -23,11 +23,30 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .dsse import PAYLOAD_TYPE_CASE_FILE, sign_envelope, verify_envelope
+from .dsse import sign_envelope, verify_envelope
 from .ed25519 import fingerprint, keygen, public_key_from_seed
 
 SEALING_KEY_SCHEMA = "textforensics.sealing-key/v1"
 SEALING_KEY_ALGORITHM = "ed25519"
+
+# Case signing contract versions (W3: C02).  The DSSE envelope's
+# ``payloadType`` IS the contract version marker — it is authenticated
+# (inside the DSSE PAE), so a contract cannot be silently downgraded.
+#
+# * v1 (legacy, ``textforensics.case-file/v3``): the signed body
+#   excludes the ENTIRE ``seal.signature`` mapping, so the displayed
+#   signer identity/role/fingerprint are NOT authenticated.  Genuine
+#   v1-signed cases still verify, with an explicit warning that the
+#   signer record is unauthenticated; fingerprint and algorithm
+#   mutations still fail (checked against the supplied key).
+# * v2 (current, ``textforensics.case-signing/v2``): the signed body
+#   excludes ONLY ``seal.signature.dsse`` — the signer record
+#   (``algorithm``, ``key_fingerprint``, ``signer.identity``,
+#   ``signer.role``) is inside the signed body.  New signatures are
+#   always v2; production never signs v1.
+# See hidden_files/audit-w3-signed-body-contract.md.
+CASE_SIGNING_CONTRACT_V1 = "textforensics.case-file/v3"
+CASE_SIGNING_CONTRACT_V2 = "textforensics.case-signing/v2"
 
 _CASE_BODY_EXCLUDED_KEYS = frozenset({"case_sha256", "created_at_utc"})
 
@@ -236,6 +255,15 @@ def save_sealing_key(path: str | Path, key_dict: Mapping[str, Any]) -> Path:
     must never be silently replaced).  Raises ``FileExistsError`` when
     the destination already exists and ``ValueError`` when the key dict
     is not a well-formed sealing key.
+
+    Publication is genuinely atomic (W3: C11): the key is written to
+    a temporary file in the destination directory, made owner-private
+    before any key bytes are written, fsynced, and then published
+    with a hard link, which fails with ``FileExistsError`` when the
+    destination already exists — including a racing writer that won
+    between the existence check above and publication.  The temporary
+    file descriptor is closed on EVERY failure path (a failed
+    ``fchmod`` used to leak it), and the temporary file is removed.
     """
     destination = Path(path)
     if destination.exists():
@@ -246,19 +274,192 @@ def save_sealing_key(path: str | Path, key_dict: Mapping[str, Any]) -> Path:
         dir=str(destination.parent), prefix=destination.name + ".", suffix=".tmp"
     )
     temp_path = Path(temp_name)
+    fd_owned = True  # This function owns the descriptor until os.fdopen takes it.
     try:
-        os.fchmod(fd, 0o600)
+        _set_private(fd, temp_path)
         with os.fdopen(fd, "wb") as handle:
+            fd_owned = False
             handle.write(encoded)
             handle.write(b"\n")
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temp_path, destination)
-    except BaseException:
+        _publish_no_clobber(temp_path, destination)
+    finally:
+        if fd_owned:
+            with contextlib.suppress(OSError):
+                os.close(fd)
         with contextlib.suppress(OSError):
             temp_path.unlink(missing_ok=True)
-        raise
     return destination
+
+
+def _set_private(fd: int, temp_path: Path) -> None:
+    """Make a fresh key file owner-private before any key bytes are written.
+
+    POSIX: ``fchmod`` the descriptor to 0600.  Windows (no ``fchmod``):
+    restrict the path's DACL to the current user.  Raises ``OSError``
+    on failure — the caller closes the descriptor and removes the
+    temporary file, so a key is never saved with unknown access.
+    """
+    fchmod = getattr(os, "fchmod", None)
+    if fchmod is not None:
+        fchmod(fd, 0o600)
+        return
+    _restrict_to_owner_windows(temp_path)
+
+
+def _publish_no_clobber(temp_path: Path, destination: Path) -> None:
+    """Atomically publish *temp_path* as *destination* without clobbering.
+
+    A hard link is atomic: it fails with ``FileExistsError`` when the
+    destination already exists (including a racing writer that won
+    between the caller's existence check and this call), and it never
+    overwrites.  The caller removes the temporary name afterwards; the
+    destination keeps the inode (and its owner-private mode/ACL).
+    A filesystem that cannot hard-link fails closed here rather than
+    silently replacing the destination.
+    """
+    try:
+        os.link(temp_path, destination)
+    except FileExistsError:
+        raise FileExistsError(f"sealing key file already exists: {destination}") from None
+    except OSError as exc:
+        raise OSError(f"could not publish sealing key file {destination}: {exc}") from exc
+
+
+def _restrict_to_owner_windows(path: Path) -> None:
+    """Restrict *path* to the current user on Windows (owner-only DACL).
+
+    Builds a DACL with a single ACE granting the current user
+    ``GENERIC_ALL`` and applies it with inheritance blocked, via
+    ctypes + advapi32 only (no third-party dependency).  Raises
+    ``OSError`` when the ACL cannot be established — fail closed, so
+    a sealing key is never saved with unknown access.  Only called
+    where ``os.fchmod`` is unavailable.
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    try:
+        advapi32 = ctypes.windll.advapi32
+        kernel32 = ctypes.windll.kernel32
+    except AttributeError as exc:
+        raise OSError("Windows owner-only ACL restriction requires Windows APIs") from exc
+
+    TOKEN_QUERY = 0x0008
+    TokenUser = 1
+    SE_FILE_OBJECT = 1
+    DACL_SECURITY_INFORMATION = 0x00000004
+    PROTECTED_DACL_SECURITY_INFORMATION = 0x80000000
+    GENERIC_ALL = 0x10000000
+    SET_ACCESS = 2
+    NO_INHERITANCE = 0
+    TRUSTEE_IS_SID = 0
+    TRUSTEE_IS_USER = 1
+
+    class SID_AND_ATTRIBUTES(ctypes.Structure):
+        _fields_ = [("Sid", wintypes.LPVOID), ("Attributes", wintypes.DWORD)]
+
+    class TOKEN_USER(ctypes.Structure):
+        _fields_ = [("User", SID_AND_ATTRIBUTES)]
+
+    class TRUSTEE(ctypes.Structure):
+        _fields_ = [
+            ("pMultipleTrustee", wintypes.LPVOID),
+            ("MultipleTrusteeOperation", wintypes.DWORD),
+            ("TrusteeForm", wintypes.DWORD),
+            ("TrusteeType", wintypes.DWORD),
+            ("ptstrName", wintypes.LPVOID),
+        ]
+
+    class EXPLICIT_ACCESS(ctypes.Structure):
+        _fields_ = [
+            ("grfAccessPermissions", wintypes.DWORD),
+            ("grfAccessMode", wintypes.DWORD),
+            ("grfInheritance", wintypes.DWORD),
+            ("Trustee", TRUSTEE),
+        ]
+
+    advapi32.OpenProcessToken.argtypes = [
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.HANDLE),
+    ]
+    advapi32.OpenProcessToken.restype = wintypes.BOOL
+    advapi32.GetTokenInformation.argtypes = [
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    advapi32.GetTokenInformation.restype = wintypes.BOOL
+    advapi32.SetEntriesInAclW.argtypes = [
+        wintypes.ULONG,
+        ctypes.POINTER(EXPLICIT_ACCESS),
+        wintypes.LPVOID,
+        ctypes.POINTER(wintypes.LPVOID),
+    ]
+    advapi32.SetEntriesInAclW.restype = wintypes.DWORD
+    advapi32.SetNamedSecurityInfoW.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.LPVOID,
+        wintypes.LPVOID,
+        wintypes.LPVOID,
+    ]
+    advapi32.SetNamedSecurityInfoW.restype = wintypes.DWORD
+    kernel32.GetCurrentProcess.argtypes = []
+    kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    kernel32.LocalFree.argtypes = [wintypes.LPVOID]
+    kernel32.LocalFree.restype = wintypes.LPVOID
+
+    token = wintypes.HANDLE()
+    if not advapi32.OpenProcessToken(
+        kernel32.GetCurrentProcess(), TOKEN_QUERY, ctypes.byref(token)
+    ):
+        raise OSError(f"OpenProcessToken failed: {ctypes.FormatError(ctypes.get_last_error())}")
+    try:
+        size = wintypes.DWORD(0)
+        # First call returns the required buffer size.
+        advapi32.GetTokenInformation(token, TokenUser, None, 0, ctypes.byref(size))
+        token_info = ctypes.create_string_buffer(size.value)
+        if not advapi32.GetTokenInformation(token, TokenUser, token_info, size, ctypes.byref(size)):
+            raise OSError(
+                f"GetTokenInformation failed: {ctypes.FormatError(ctypes.get_last_error())}"
+            )
+        user_sid = ctypes.cast(token_info, ctypes.POINTER(TOKEN_USER)).contents.User.Sid
+        entry = EXPLICIT_ACCESS()
+        entry.grfAccessPermissions = GENERIC_ALL
+        entry.grfAccessMode = SET_ACCESS
+        entry.grfInheritance = NO_INHERITANCE
+        entry.Trustee.TrusteeForm = TRUSTEE_IS_SID
+        entry.Trustee.TrusteeType = TRUSTEE_IS_USER
+        entry.Trustee.ptstrName = user_sid
+        new_acl = wintypes.LPVOID()
+        error = advapi32.SetEntriesInAclW(1, ctypes.byref(entry), None, ctypes.byref(new_acl))
+        if error != 0:
+            raise OSError(f"SetEntriesInAclW failed: {ctypes.FormatError(error)}")
+        try:
+            error = advapi32.SetNamedSecurityInfoW(
+                str(path),
+                SE_FILE_OBJECT,
+                DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                None,
+                None,
+                new_acl,
+                None,
+            )
+            if error != 0:
+                raise OSError(f"SetNamedSecurityInfoW failed: {ctypes.FormatError(error)}")
+        finally:
+            kernel32.LocalFree(new_acl)
+    finally:
+        kernel32.CloseHandle(token)
 
 
 def load_sealing_key(path: str | Path) -> dict[str, Any]:
@@ -357,43 +558,147 @@ def _canonical_json_bytes(payload: Mapping[str, Any]) -> bytes:
     ).encode("utf-8")
 
 
-def case_signing_payload(case: Mapping[str, Any]) -> bytes:
+def build_signature_record(public_key: bytes, identity: str, role: str) -> dict[str, Any]:
+    """Build the signer record that goes inside the signed body (C02, v2).
+
+    The record is placed in ``case["seal"]["signature"]`` BEFORE signing
+    (with ``dsse`` still ``None``); only the envelope is added
+    afterwards.  The fingerprint is derived from the supplied public
+    key, never copied from an untrusted record.
+    """
+    if not isinstance(public_key, (bytes, bytearray)) or len(public_key) != 32:
+        raise ValueError("public key must be exactly 32 bytes")
+    if not isinstance(identity, str) or not identity:
+        raise ValueError("signer identity must be a non-empty string")
+    if not isinstance(role, str) or not role:
+        raise ValueError("signer role must be a non-empty string")
+    return {
+        "algorithm": SEALING_KEY_ALGORITHM,
+        "key_fingerprint": fingerprint(bytes(public_key)),
+        "signer": {"identity": identity, "role": role},
+        "dsse": None,
+    }
+
+
+def _require_signature_record(case: Mapping[str, Any], seed: bytes) -> None:
+    """Require a well-formed pre-placed signer record for v2 signing.
+
+    Signing a body and attaching a signer record afterwards would leave
+    the record unauthenticated — exactly the C02 defect — so v2 signing
+    refuses a case with no record, a malformed record, or a record
+    whose fingerprint is not the signing key's fingerprint.
+    """
+    seal = case.get("seal")
+    if not isinstance(seal, Mapping):
+        raise ValueError("case has no seal mapping; cannot place a signer record")
+    signature = seal.get("signature")
+    if not isinstance(signature, Mapping):
+        raise ValueError(
+            "case seal has no pre-placed signer record; place one with "
+            "build_signature_record before signing (v2 contract)"
+        )
+    if signature.get("algorithm") != SEALING_KEY_ALGORITHM:
+        raise ValueError("signer record algorithm must be ed25519")
+    expected = fingerprint(public_key_from_seed(seed))
+    if signature.get("key_fingerprint") != expected:
+        raise ValueError("signer record key_fingerprint does not match the signing key")
+    signer = signature.get("signer")
+    if (
+        not isinstance(signer, Mapping)
+        or not isinstance(signer.get("identity"), str)
+        or not signer["identity"]
+        or not isinstance(signer.get("role"), str)
+        or not signer["role"]
+    ):
+        raise ValueError("signer record needs a non-empty identity and role")
+
+
+def case_signing_payload(
+    case: Mapping[str, Any], *, contract: str = CASE_SIGNING_CONTRACT_V2
+) -> bytes:
     """Canonical JSON bytes of a case body, for signing.
 
-    The top-level ``case_sha256`` and ``created_at_utc`` fields and the
-    ``seal.signature`` field are removed first, so that sealing the same
-    case body twice produces the same signed bytes regardless of when
-    the seal was created or what signature it already carries.
+    The top-level ``case_sha256`` and ``created_at_utc`` fields are
+    removed first, so that sealing the same case body twice produces
+    the same signed bytes regardless of when the seal was created or
+    what signature it already carries.
+
+    ``contract`` selects the signing contract (W3: C02): under the
+    legacy v1 contract the ENTIRE ``seal.signature`` mapping is
+    removed (signer identity/role/fingerprint unauthenticated); under
+    the current v2 contract only the recursive DSSE envelope
+    (``seal.signature.dsse``) is removed, so the signer record is
+    inside the signed body.
     """
     if not isinstance(case, Mapping):
         raise ValueError("case must be a mapping")
+    if contract not in (CASE_SIGNING_CONTRACT_V1, CASE_SIGNING_CONTRACT_V2):
+        raise ValueError(f"unknown case signing contract: {contract!r}")
     body = deepcopy(dict(case))
     for key in _CASE_BODY_EXCLUDED_KEYS:
         body.pop(key, None)
     seal = body.get("seal")
     if isinstance(seal, Mapping):
         seal = dict(seal)
-        seal.pop("signature", None)
+        if contract == CASE_SIGNING_CONTRACT_V1:
+            seal.pop("signature", None)
+        else:
+            signature = seal.get("signature")
+            if isinstance(signature, Mapping):
+                signature = dict(signature)
+                signature.pop("dsse", None)
+                seal["signature"] = signature
         body["seal"] = seal
     return _canonical_json_bytes(body)
 
 
-def sign_case_body(case: Mapping[str, Any], seed: bytes) -> dict[str, Any]:
-    """DSSE envelope signing the canonical bytes of a case body."""
-    return sign_envelope(PAYLOAD_TYPE_CASE_FILE, case_signing_payload(case), seed)
+def sign_case_body(
+    case: Mapping[str, Any], seed: bytes, *, contract: str = CASE_SIGNING_CONTRACT_V2
+) -> dict[str, Any]:
+    """DSSE envelope signing the canonical bytes of a case body.
+
+    Signs under the v2 contract by default: the signer record must
+    already be placed in ``case["seal"]["signature"]`` (see
+    :func:`build_signature_record`).  The legacy v1 contract is
+    available for building legacy fixtures only; production never
+    signs v1.
+    """
+    if contract == CASE_SIGNING_CONTRACT_V2:
+        _require_signature_record(case, seed)
+    return sign_envelope(contract, case_signing_payload(case, contract=contract), seed)
 
 
 def verify_case_signature(case: Mapping[str, Any], public_key: bytes) -> dict[str, Any]:
     """Verify the DSSE signature carried in ``case["seal"]["signature"]["dsse"]``.
 
     Never raises for bad input: every problem is reported in ``errors``
-    and ``valid`` is False.  Returns ``{"valid", "errors", "keyid"}``.
+    and ``valid`` is False.  Returns ``{"valid", "errors", "keyid",
+    "signing_contract", "warnings"}``.
+
+    The signing contract is dispatched on the envelope's
+    ``payloadType`` (W3: C02).  For BOTH contracts the recorded
+    algorithm must be ``ed25519`` and the recorded ``key_fingerprint``
+    must equal the fingerprint of the trusted supplied public key —
+    so a zeroed fingerprint fails even for a legacy v1 case.  Under
+    v2 the signer identity/role are authenticated by the signature;
+    under v1 they are not, and the result says so in ``warnings``
+    (``signer_identity_role_not_authenticated_legacy_contract``).
+    A signed self-asserted identity still does not replace an
+    external key-to-identity trust policy (human-only).
     """
     errors: list[str] = []
+    warnings: list[str] = []
+    contract: str | None = None
 
     def _fail(message: str) -> dict[str, Any]:
         errors.append(message)
-        return {"valid": False, "errors": errors, "keyid": None}
+        return {
+            "valid": False,
+            "errors": errors,
+            "keyid": None,
+            "signing_contract": contract,
+            "warnings": warnings,
+        }
 
     if not isinstance(case, Mapping):
         return _fail("case must be a mapping")
@@ -408,19 +713,53 @@ def verify_case_signature(case: Mapping[str, Any], public_key: bytes) -> dict[st
     envelope = signature.get("dsse")
     if envelope is None:
         return _fail("case seal signature has no dsse envelope")
+    payload_type = envelope.get("payloadType") if isinstance(envelope, Mapping) else None
+    if payload_type == CASE_SIGNING_CONTRACT_V2:
+        contract = "v2"
+    elif payload_type == CASE_SIGNING_CONTRACT_V1:
+        contract = "v1"
+    else:
+        return _fail(f"unknown case signing contract (payloadType {payload_type!r})")
+    if signature.get("algorithm") != SEALING_KEY_ALGORITHM:
+        return _fail("case seal signature algorithm is not ed25519")
+    if signature.get("key_fingerprint") != fingerprint(bytes(public_key)):
+        return _fail("case seal key_fingerprint does not match the supplied public key")
+    signer = signature.get("signer")
+    if (
+        not isinstance(signer, Mapping)
+        or not isinstance(signer.get("identity"), str)
+        or not signer["identity"]
+        or not isinstance(signer.get("role"), str)
+        or not signer["role"]
+    ):
+        return _fail("case seal signer must carry a non-empty identity and role")
+    expected_contract = CASE_SIGNING_CONTRACT_V2 if contract == "v2" else CASE_SIGNING_CONTRACT_V1
     try:
-        expected_payload = case_signing_payload(case)
+        expected_payload = case_signing_payload(case, contract=expected_contract)
     except (ValueError, TypeError) as exc:
         return _fail(f"case body cannot be canonicalised: {exc}")
-    result = verify_envelope(
-        envelope, bytes(public_key), expected_payload_type=PAYLOAD_TYPE_CASE_FILE
-    )
+    result = verify_envelope(envelope, bytes(public_key), expected_payload_type=expected_contract)
     if not result["valid"]:
         return {
             "valid": False,
             "errors": [*result["errors"]],
             "keyid": result["keyid"],
+            "signing_contract": contract,
+            "warnings": warnings,
         }
     if result["payload"] != expected_payload:
         return _fail("signed payload does not match the case body")
-    return {"valid": True, "errors": [], "keyid": result["keyid"]}
+    if contract == "v1":
+        warnings.append(
+            "signer_identity_role_not_authenticated_legacy_contract: "
+            "this case was signed under the legacy v1 contract, whose "
+            "signed body excludes the signer record; identity and role "
+            "are self-asserted, not authenticated by the signature."
+        )
+    return {
+        "valid": True,
+        "errors": [],
+        "keyid": result["keyid"],
+        "signing_contract": contract,
+        "warnings": warnings,
+    }

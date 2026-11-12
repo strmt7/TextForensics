@@ -70,6 +70,7 @@ DEFAULT_CONFIG = CodecConfig()
 # the U2 not_reproducible follow-up: casefile.py seals v4 by default);
 # the remaining v2 formats stay v2
 # (v2 is what the system produces everywhere else: report.py, trust.py);
+# the trust map is v3 (v3 is what derive_trust_map produces now);
 # the formats with no v2 yet stay v1. The codec must not maintain a
 # parallel v1 dialect of a current format: previously this map was
 # v1-only, so decoding a current v2 artifact silently relabelled it
@@ -79,13 +80,39 @@ _SCHEMA_VERSIONS = {
     "forensic-bundle": "textforensics.forensic-bundle/v2",
     "detector-result": "textforensics.detector-result/v2",
     "case-file": "textforensics.case-file/v4",
-    "trust-map": "textforensics.trust-map/v2",
+    "trust-map": "textforensics.trust-map/v3",
     "enterprise-policy": "textforensics.enterprise-policy/v1",
     "drift-report": "textforensics.drift-report/v1",
     "calibration": "textforensics.calibration/v1",
     "threshold-selection": "textforensics.threshold-selection/v1",
     "bundle-manifest": "textforensics.bundle-manifest/v1",
 }
+
+# Names whose versions are all live simultaneously (W3: C23).  The
+# trust map is the one format the codec must transport in every
+# registry-supported version (v1/v2/v3 all appear inside bundles under
+# the accepted pair table), so its accepted set comes from the schema
+# registry.  Every other name keeps the single-current-version
+# strictness pinned by tests/test_result_codec.py,
+# tests/test_verify_consolidation.py, tests/test_mcp_tools_new.py and
+# the W2 mutation kill grid: strict mode refuses any version other
+# than the current one.
+_MULTI_VERSION_NAMES = frozenset({"trust-map"})
+
+
+def _accepted_versions(schema_name: str) -> frozenset[str]:
+    """Versions the codec accepts for *schema_name* without relabelling."""
+    current = _SCHEMA_VERSIONS.get(schema_name)
+    if schema_name in _MULTI_VERSION_NAMES:
+        try:
+            from .schema import supported_versions
+
+            registered = supported_versions(schema_name)
+        except ValueError:
+            registered = frozenset()
+        if registered:
+            return registered
+    return frozenset({current}) if current else frozenset()
 
 
 def _extract_schema_version(data: dict[str, Any]) -> str | None:
@@ -216,11 +243,18 @@ class ResultCodec:
         except ValueError as exc:
             raise CodecError(f"Non-finite numeric value: {exc}") from exc
 
-        # Extract and check schema version
+        # Extract and check schema version.  A found version in the
+        # accepted set for this format is kept as-is (no migration, no
+        # relabelling): for trust-map that is v1/v2/v3 (W3: C23 — all
+        # three appear inside bundles under the accepted pair table),
+        # for every other format exactly the current version.  An
+        # unaccepted version is refused under strict mode and warned
+        # about (kept unchanged) otherwise.
         found_version = _extract_schema_version(result)
         expected_version = _SCHEMA_VERSIONS.get(schema_name)
+        accepted_versions = _accepted_versions(schema_name)
 
-        if expected_version and found_version and found_version != expected_version:
+        if expected_version and found_version and found_version not in accepted_versions:
             if self.config.strict_version:
                 raise VersionMigrationError(
                     f"Schema version mismatch: expected {expected_version}, got {found_version}"
