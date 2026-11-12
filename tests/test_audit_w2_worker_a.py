@@ -1923,7 +1923,7 @@ class DefectFixKillTests(unittest.TestCase):
             eval_path = Path(tmp) / "eval.jsonl"
             eval_path.write_text(
                 '{"label": "human", "text": "A valid human sentence."}\n'
-                'this is not json\n'
+                "this is not json\n"
                 '{"label": "ai", "text": "A valid machine sentence."}\n',
                 encoding="utf-8",
             )
@@ -1945,7 +1945,7 @@ class DefectFixKillTests(unittest.TestCase):
             cal_path, eval_path = self._eval_files(Path(tmp))
             eval_path.write_text(
                 '{"label": "human", "text": "A completely different human sentence."}\n'
-                'this is not json\n'
+                "this is not json\n"
                 '{"label": "ai", "text": "A completely different machine sentence."}\n',
                 encoding="utf-8",
             )
