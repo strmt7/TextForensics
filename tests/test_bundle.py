@@ -437,5 +437,197 @@ class ManifestSchemaTests(unittest.TestCase):
             self.assertEqual(len(m.per_file_digests), 3)
 
 
+class LegacyEmptyManifestTests(unittest.TestCase):
+    """C18: the legacy bundle verifier must validate the manifest
+    contract first and open/validate the container regardless of
+    file-map emptiness.  A legitimately empty bundle is NOT a
+    supported artifact (the packer refuses to create one), so an
+    empty per-file map is malformed — and arbitrary bytes are never
+    a bundle, even with a matching self-declared digest."""
+
+    def _write(self, tmp: Path, name: str, archive_bytes: bytes, manifest: dict) -> Path:
+        archive = tmp / name
+        archive.write_bytes(archive_bytes)
+        (tmp / (name + ".manifest.json")).write_text(
+            json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+        return archive
+
+    def _manifest(self, archive: Path, *, fmt="zip", schema=BUNDLE_SCHEMA,
+                  per_file=None, digest=None, bundle_digest=None):
+        return {
+            "schema": schema,
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "bundle_filename": archive.name,
+            "format": fmt,
+            "per_file_digests": {} if per_file is None else per_file,
+            "bundle_digest": _sha256(archive.read_bytes()) if bundle_digest is None else bundle_digest,
+        }
+
+    def test_non_archive_with_empty_manifest_rejected(self):
+        # The audit repro: plain non-ZIP bytes, matching self-declared
+        # digest, wrong manifest schema, unsupported format, empty map.
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            raw = b"this is not a zip archive at all, just plain bytes"
+            archive = tmp_path / "b.zip"
+            manifest = self._manifest(
+                archive, fmt="unsupported-format", schema="wrong-schema",
+                per_file={}, bundle_digest=_sha256(raw),
+            )
+            archive.write_bytes(raw)
+            (tmp_path / "b.zip.manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            result = verify_bundle(archive)
+            self.assertFalse(result.valid, result.errors)
+            self.assertTrue(result.errors)
+
+    def test_empty_file_map_rejected_for_real_archive(self):
+        import zipfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            archive = tmp_path / "b.zip"
+            with zipfile.ZipFile(archive, "w") as zf:
+                zf.writestr("case.json", b"{}")
+            manifest = self._manifest(archive, per_file={})
+            (tmp_path / "b.zip.manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            result = verify_bundle(archive)
+            self.assertFalse(result.valid, result.errors)
+
+    def test_wrong_manifest_schema_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            case = _make_case_file(Path(tmp))
+            output = Path(tmp) / "b.zip"
+            pack_bundle(case, output)
+            manifest_path = Path(tmp) / "b.zip.manifest.json"
+            data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            data["schema"] = "wrong-schema"
+            manifest_path.write_text(json.dumps(data), encoding="utf-8")
+            result = verify_bundle(output)
+            self.assertFalse(result.valid, result.errors)
+
+    def test_unsupported_format_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            case = _make_case_file(Path(tmp))
+            output = Path(tmp) / "b.zip"
+            pack_bundle(case, output)
+            manifest_path = Path(tmp) / "b.zip.manifest.json"
+            data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            data["format"] = "rar"
+            manifest_path.write_text(json.dumps(data), encoding="utf-8")
+            result = verify_bundle(output)
+            self.assertFalse(result.valid, result.errors)
+
+    def test_wrong_shaped_manifest_rejected(self):
+        for bad in (None, "x", [1], 42, {"schema": BUNDLE_SCHEMA}):
+            with self.subTest(manifest=bad):
+                with tempfile.TemporaryDirectory() as tmp:
+                    tmp_path = Path(tmp)
+                    archive = tmp_path / "b.zip"
+                    import zipfile
+
+                    with zipfile.ZipFile(archive, "w") as zf:
+                        zf.writestr("case.json", b"{}")
+                    (tmp_path / "b.zip.manifest.json").write_text(
+                        json.dumps(bad), encoding="utf-8"
+                    )
+                    result = verify_bundle(archive)
+                    self.assertFalse(result.valid, result.errors)
+
+    def test_non_dict_file_map_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            case = _make_case_file(Path(tmp))
+            output = Path(tmp) / "b.zip"
+            pack_bundle(case, output)
+            manifest_path = Path(tmp) / "b.zip.manifest.json"
+            data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            data["per_file_digests"] = ["case.json"]
+            manifest_path.write_text(json.dumps(data), encoding="utf-8")
+            result = verify_bundle(output)
+            self.assertFalse(result.valid, result.errors)
+
+    def test_extra_member_rejected(self):
+        import zipfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            case = _make_case_file(tmp_path)
+            output = tmp_path / "b.zip"
+            pack_bundle(case, output)
+            # Add an unlisted member without touching the manifest.
+            with zipfile.ZipFile(output, "a") as zf:
+                zf.writestr("extra.txt", b"unlisted")
+            manifest_path = tmp_path / "b.zip.manifest.json"
+            data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            data["bundle_digest"] = _sha256(output.read_bytes())
+            manifest_path.write_text(json.dumps(data), encoding="utf-8")
+            result = verify_bundle(output)
+            self.assertFalse(result.valid, result.errors)
+
+    def test_duplicate_member_rejected(self):
+        import zipfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            case = _make_case_file(tmp_path)
+            output = tmp_path / "b.zip"
+            pack_bundle(case, output)
+            with zipfile.ZipFile(output) as zf:
+                original = zf.read("case.json")
+            # A duplicate with IDENTICAL content: every per-file digest
+            # still matches, so only duplicate-member rejection can
+            # catch it.
+            with zipfile.ZipFile(output, "a") as zf:
+                zf.writestr("case.json", original)
+            manifest_path = tmp_path / "b.zip.manifest.json"
+            data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            data["bundle_digest"] = _sha256(output.read_bytes())
+            manifest_path.write_text(json.dumps(data), encoding="utf-8")
+            result = verify_bundle(output)
+            self.assertFalse(result.valid, result.errors)
+
+    def test_missing_member_rejected(self):
+        import zipfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            case = _make_case_file(tmp_path)
+            output = tmp_path / "b.zip"
+            manifest = pack_bundle(case, output)
+            # Rebuild the archive without case.json; manifest unchanged
+            # except the archive digest.
+            with zipfile.ZipFile(output, "w") as zf:
+                zf.writestr("other.txt", b"x")
+            manifest_path = tmp_path / "b.zip.manifest.json"
+            data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            data["bundle_digest"] = _sha256(output.read_bytes())
+            manifest_path.write_text(json.dumps(data), encoding="utf-8")
+            result = verify_bundle(output)
+            self.assertFalse(result.valid, result.errors)
+
+    def test_non_archive_bytes_with_valid_manifest_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            raw = b"not an archive"
+            archive = tmp_path / "b.zip"
+            manifest = self._manifest(archive, per_file={}, bundle_digest=_sha256(raw))
+            archive.write_bytes(raw)
+            (tmp_path / "b.zip.manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            result = verify_bundle(archive)
+            self.assertFalse(result.valid, result.errors)
+
+    def test_malformed_manifest_json_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            archive = tmp_path / "b.zip"
+            import zipfile
+
+            with zipfile.ZipFile(archive, "w") as zf:
+                zf.writestr("case.json", b"{}")
+            (tmp_path / "b.zip.manifest.json").write_text("{not json", encoding="utf-8")
+            result = verify_bundle(archive)
+            self.assertFalse(result.valid, result.errors)
+
+
 if __name__ == "__main__":
     unittest.main()

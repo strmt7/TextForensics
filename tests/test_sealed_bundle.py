@@ -115,6 +115,34 @@ class PackTests(unittest.TestCase):
         with self.assertRaises(SealedBundleError):
             pack_sealed_bundle(case)
 
+    def test_pack_refuses_case_failing_combined_verification(self):
+        """C04: the packer must gate on the COMBINED verifier, not the
+        primary verifier alone.  A case with a wrong Trust Map overall
+        passes the primary seal check but fails combined verification
+        (the replay re-derives a different overall) — packing it
+        would sign a semantically invalid case."""
+        import copy
+
+        case = sealed_case()
+        trust_map = case["forensic_bundle"]["trust_map"]
+        trust_map["overall"] = "strong" if trust_map["overall"] != "strong" else "mixed"
+        # Re-seal so the primary seal check passes: only the replay
+        # disagrees, which is exactly the gap the combined gate closes.
+        stripped = copy.deepcopy(case)
+        stripped.pop("case_sha256", None)
+        stripped.pop("created_at_utc", None)
+        canonical = json.dumps(
+            stripped, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+        )
+        case["case_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        from textforensics.casefile import verify_case_file as primary_verify
+        from textforensics.verify import verify_case_file_combined
+
+        self.assertTrue(primary_verify(case)["valid"], "primary must pass this case")
+        self.assertFalse(verify_case_file_combined(case)["valid"], "combined must fail it")
+        with self.assertRaises(SealedBundleError):
+            pack_sealed_bundle(case)
+
     def test_pack_refuses_seed_without_signer(self):
         with self.assertRaises(SealedBundleError):
             pack_sealed_bundle(sealed_case(), signing_seed=SEED)

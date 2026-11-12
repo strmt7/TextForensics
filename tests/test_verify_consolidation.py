@@ -368,3 +368,184 @@ class TestCombinedTrustMapCompleteness:
         mutated = _c10_mutated_case(case, dimensions=dims, overall="insufficient")
         result = verify_case_file_combined(mutated)
         assert result["valid"] is False
+
+
+class TestCombinedTrustMapCompletenessV3:
+    """C10 through the combined entry point for a v3 map (the audit's
+    precise follow-up: update manifest.schema_versions.trust_map
+    consistently and recompute the unsigned hash)."""
+
+    def _v3_mutated_case(self, case, *, dimensions, overall):
+        mutated = copy.deepcopy(case)
+        trust_map = mutated["forensic_bundle"]["trust_map"]
+        trust_map["schema"] = "textforensics.trust-map/v3"
+        trust_map["dimensions"] = dimensions
+        trust_map["overall"] = overall
+        trust_map["coverage"] = _c10_coverage(dimensions)
+        trust_map["coverage"]["stale"] = 0
+        mutated["manifest"]["schema_versions"]["trust_map"] = "textforensics.trust-map/v3"
+        return _reseal(mutated)
+
+    def test_one_undeclared_dimension_v3_fails_combined(self):
+        case = _sealed_case()
+        mutated = self._v3_mutated_case(
+            case, dimensions=[_c10_dim("not-a-declared-dimension")], overall="strong"
+        )
+        result = verify_case_file_combined(mutated)
+        assert result["valid"] is False
+        assert result["trust_map_verified"] is False
+
+    def test_complete_supported_v3_map_passes_combined(self):
+        case = _sealed_case()
+        dims = [_c10_dim(name) for name in TRUST_DIMENSIONS]
+        mutated = self._v3_mutated_case(case, dimensions=dims, overall="strong")
+        result = verify_case_file_combined(mutated)
+        assert result["valid"] is True, result["errors"]
+        assert result["trust_map_verified"] is True
+
+    def test_primary_alone_boundary_preserved(self):
+        """W2 known boundary, preserved deliberately: the primary
+        verifier alone still returns valid for a one-dimension
+        undeclared map (it does not re-derive trust maps); the
+        combined verifier and the replay are the gates that refuse
+        it.  If this ever changes, it is an intended behavior change
+        that must be documented with tests — not a silent fix."""
+        from textforensics.casefile import verify_case_file as primary_verify
+
+        case = _sealed_case()
+        mutated = self._v3_mutated_case(
+            case, dimensions=[_c10_dim("not-a-declared-dimension")], overall="strong"
+        )
+        assert primary_verify(mutated)["valid"] is True
+        assert verify_case_file_combined(mutated)["valid"] is False
+
+
+class TestNVersionShapeGaps:
+    """C12: the N-version verifier alone must report malformed
+    shapes as structured invalid results — a missing/non-dict Trust
+    Map or a non-dict detector result cannot be silently valid just
+    because the combined entry point also runs the primary path."""
+
+    def test_trust_map_missing_is_invalid_nversion(self):
+        from textforensics.verify import verify_case_file as nversion_verify
+
+        case = _sealed_case()
+        del case["forensic_bundle"]["trust_map"]
+        case = _reseal(case)
+        result = nversion_verify(case)
+        assert result["valid"] is False
+        assert result["trust_map_verified"] is False
+        assert result["errors"]
+
+    def test_trust_map_not_a_dict_is_invalid_nversion(self):
+        from textforensics.verify import verify_case_file as nversion_verify
+
+        case = _sealed_case()
+        case["forensic_bundle"]["trust_map"] = "not a dict"
+        case = _reseal(case)
+        result = nversion_verify(case)
+        assert result["valid"] is False
+        assert result["trust_map_verified"] is False
+
+    def test_detector_result_not_a_dict_is_invalid_nversion(self):
+        from textforensics.verify import verify_case_file as nversion_verify
+
+        case = _sealed_case()
+        case["forensic_bundle"]["detector_results"] = [None]
+        case = _reseal(case)
+        result = nversion_verify(case)
+        assert result["valid"] is False
+        assert result["errors"]
+
+
+class TestMalformedShapeMatrix:
+    """C12: null/scalar/list/object variants at every nested field of
+    a case file must be structured invalid results, never escaping
+    exceptions, with the 0/1/2 semantics unchanged."""
+
+    @pytest.mark.parametrize(
+        "field,bad",
+        [
+            ("forensic_bundle", None),
+            ("forensic_bundle", "x"),
+            ("forensic_bundle", [1]),
+            ("forensic_bundle", 42),
+        ],
+    )
+    def test_bundle_shape_variants(self, field, bad):
+        from textforensics.verify import verify_case_file as nversion_verify
+
+        case = _sealed_case()
+        case[field] = bad
+        result = verify_case_file_combined(case)
+        assert result["valid"] is False
+        assert nversion_verify(case)["valid"] is False
+
+    @pytest.mark.parametrize("bad", [None, "x", [1], 42, {"dimensions": "x"}])
+    def test_trust_map_shape_variants(self, bad):
+        case = _sealed_case()
+        case["forensic_bundle"]["trust_map"] = bad
+        result = verify_case_file_combined(case)
+        assert result["valid"] is False
+
+    @pytest.mark.parametrize("bad", [None, "x", {"a": 1}, 42, [None], ["x"], [{}]])
+    def test_dimensions_shape_variants(self, bad):
+        case = _sealed_case()
+        case["forensic_bundle"]["trust_map"]["dimensions"] = bad
+        result = verify_case_file_combined(case)
+        assert result["valid"] is False
+
+    @pytest.mark.parametrize("bad", [None, "x", {"a": 1}, 42, [None], ["x"]])
+    def test_detector_results_shape_variants(self, bad):
+        case = _sealed_case()
+        case["forensic_bundle"]["detector_results"] = bad
+        result = verify_case_file_combined(case)
+        assert result["valid"] is False
+
+    @pytest.mark.parametrize("bad", [None, "x", [1], 42])
+    def test_manifest_shape_variants(self, bad):
+        case = _sealed_case()
+        case["manifest"] = bad
+        result = verify_case_file_combined(case)
+        assert result["valid"] is False
+
+    @pytest.mark.parametrize("bad", [None, "x", [1], 42])
+    def test_process_shape_variants(self, bad):
+        case = _sealed_case()
+        case["process"] = bad
+        result = verify_case_file_combined(case)
+        assert result["valid"] is False
+
+    @pytest.mark.parametrize("bad", [None, "x", [1], 42])
+    def test_tool_shape_variants(self, bad):
+        case = _sealed_case()
+        case["tool"] = bad
+        result = verify_case_file_combined(case)
+        assert result["valid"] is False
+
+    def test_deeply_nested_case_is_structured_invalid(self, tmp_path):
+        """Explicit parser-depth limit: a case nested 500 levels deep
+        is a structured invalid result, never a RecursionError."""
+        from textforensics.verify import verify_case_file_path_combined
+
+        nested: object = "leaf"
+        for _ in range(500):
+            nested = [nested]
+        case = _sealed_case()
+        case["forensic_bundle"]["detector_results"] = nested
+        path = tmp_path / "deep.json"
+        path.write_text(json.dumps(case), encoding="utf-8")
+        result = verify_case_file_path_combined(path)
+        assert result["valid"] is False
+        assert result["errors"]
+
+    def test_oversized_case_file_is_structured_invalid(self, tmp_path):
+        """Explicit input limit: a case file over the 32 MiB cap is a
+        structured invalid result, never an unbounded read."""
+        from textforensics.verify import verify_case_file_path_combined
+
+        path = tmp_path / "big.json"
+        path.write_bytes(b" " * (33 * 1024 * 1024))
+        result = verify_case_file_path_combined(path)
+        assert result["valid"] is False
+        assert any("exceeds" in e for e in result["errors"]), result["errors"]

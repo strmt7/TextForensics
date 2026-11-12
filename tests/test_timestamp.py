@@ -588,5 +588,164 @@ class TimestampVerifyTests(unittest.TestCase):
         self.assertTrue(report["errors"])
 
 
+# ---------------------------------------------------------------------------
+# W3 Worker C (C13/C14): RFC 3161 genTime grammar parity and EC
+# curve/hash decoupling.  Fixtures come from tests/_w3c_token_fixture.py:
+# a test-only DER encoder with literal OIDs — nothing is imported from
+# textforensics.timestamp — and keys/signatures come from cryptography.
+# ---------------------------------------------------------------------------
+
+# ECDSA-with-SHA* OIDs, written out here as literals (same rule as
+# OID_SIGNED_DATA_TRUE above).
+OID_ECDSA_SHA256 = "1.2.840.10045.4.3.2"
+OID_ECDSA_SHA384 = "1.2.840.10045.4.3.3"
+OID_ECDSA_SHA512 = "1.2.840.10045.4.3.4"
+
+
+class TimestampGenTimeTests(unittest.TestCase):
+    """C13: an invalid RFC 3161 genTime is a structured verification
+    failure, never an escaping exception, and never silently read as
+    UTC when the timezone is missing."""
+
+    def _token(self, **kwargs):
+        from _w3c_token_fixture import build_w3c_token, make_ec_cert
+
+        cert = make_ec_cert("P-256")
+        return build_w3c_token(DIGEST, cert, **kwargs), cert
+
+    def test_invalid_gen_time_is_structured_invalid_not_an_exception(self):
+        # The audit repro: an independently encoded, correctly
+        # ECDSA-signed token with genTime="invalid-date".  Before the
+        # fix the package raised ValueError from strptime.
+        token, _ = self._token(gen_time="invalid-date")
+        report = verify_timestamp_token(token, expected_digest=DIGEST)
+        self.assertFalse(report["valid"])
+        self.assertTrue(report["errors"], "an invalid genTime must be reported")
+        self.assertTrue(
+            any("gen_time" in e or "token_unparseable" in e for e in report["errors"]),
+            report["errors"],
+        )
+
+    def test_invalid_month_day_rejected(self):
+        for bad in ("20261307120000Z", "20260230120000Z", "20261132120000Z", "20261107250000Z"):
+            with self.subTest(gen_time=bad):
+                token, _ = self._token(gen_time=bad)
+                report = verify_timestamp_token(token, expected_digest=DIGEST)
+                self.assertFalse(report["valid"], bad)
+                self.assertTrue(report["errors"])
+
+    def test_missing_z_rejected_not_assumed_utc(self):
+        # A timezone-free timestamp must NOT be silently interpreted
+        # as UTC (DER requires the Z designator).
+        for bad in ("20261107120000", "20261107120000.123456", "20261107120000+00:00"):
+            with self.subTest(gen_time=bad):
+                token, _ = self._token(gen_time=bad)
+                report = verify_timestamp_token(token, expected_digest=DIGEST)
+                self.assertFalse(report["valid"], bad)
+                self.assertTrue(report["errors"])
+
+    def test_malformed_fraction_rejected(self):
+        for bad in ("20261107120000.Z", "20261107120000.12X456Z", "20261107120000,123Z"):
+            with self.subTest(gen_time=bad):
+                token, _ = self._token(gen_time=bad)
+                report = verify_timestamp_token(token, expected_digest=DIGEST)
+                self.assertFalse(report["valid"], bad)
+                self.assertTrue(report["errors"])
+
+    def test_non_ascii_gen_time_rejected(self):
+        token, _ = self._token(gen_time_bytes=b"20261107120000\xffZ")
+        report = verify_timestamp_token(token, expected_digest=DIGEST)
+        self.assertFalse(report["valid"])
+        self.assertTrue(report["errors"])
+
+    def test_valid_fractional_second_token_verifies(self):
+        token, _ = self._token(gen_time="20261107120000.123456Z")
+        report = verify_timestamp_token(token, expected_digest=DIGEST)
+        self.assertTrue(report["valid"], report["errors"])
+        self.assertEqual(report["gen_time"], "20261107120000.123456Z")
+        self.assertEqual(report["gen_time_utc"], "2026-11-07T12:00:00.123456+00:00")
+
+    def test_valid_gen_time_control_verifies(self):
+        token, _ = self._token(gen_time="20261107120000Z")
+        report = verify_timestamp_token(token, expected_digest=DIGEST)
+        self.assertTrue(report["valid"], report["errors"])
+        self.assertEqual(report["gen_time_utc"], "2026-11-07T12:00:00+00:00")
+
+    def test_parse_token_raises_timestamp_error_not_value_error(self):
+        token, _ = self._token(gen_time="invalid-date")
+        with self.assertRaises(TimestampError):
+            parse_timestamp_token(token)
+
+
+class TimestampCurveHashMatrixTests(unittest.TestCase):
+    """C14: the ECDSA signature OID selects the hash; the curve comes
+    from the certificate's EC parameters (RFC 5758 §3.2 does not
+    require the OID-implied pairing).  Published matrix (see
+    docs/TSA_INTEROP.md): P-256/P-384 × SHA-256/384/512, each
+    cross-checked against the independent engine before the product
+    paths run."""
+
+    def _token(self, curve, sig_hash, *, check_independent=True, **kwargs):
+        from _w3c_token_fixture import (
+            build_w3c_token,
+            make_ec_cert,
+            verify_token_with_cryptography,
+        )
+
+        cert = make_ec_cert(curve)
+        token = build_w3c_token(DIGEST, cert, sig_hash=sig_hash, **kwargs)
+        if check_independent:
+            self.assertTrue(
+                verify_token_with_cryptography(token, cert[1]),
+                f"independent engine must accept the {curve}/{sig_hash} fixture",
+            )
+        return token
+
+    def test_matrix_all_combinations_verify(self):
+        expected_sig_oids = {
+            "sha256": OID_ECDSA_SHA256,
+            "sha384": OID_ECDSA_SHA384,
+            "sha512": OID_ECDSA_SHA512,
+        }
+        for curve in ("P-256", "P-384"):
+            for sig_hash in ("sha256", "sha384", "sha512"):
+                with self.subTest(curve=curve, sig_hash=sig_hash):
+                    token = self._token(curve, sig_hash)
+                    report = verify_timestamp_token(token, expected_digest=DIGEST)
+                    self.assertTrue(report["valid"], report["errors"])
+                    self.assertEqual(report["signature_algorithm"], expected_sig_oids[sig_hash])
+
+    def test_unsupported_curve_rejected(self):
+        # P-521 is a genuinely unsupported curve: the certificate
+        # declares it, no product curve table entry exists, and the
+        # token must fail with an explicit unsupported-curve error —
+        # not a misleading curve-mismatch against a supported curve.
+        from _w3c_token_fixture import build_w3c_token, make_ec_cert
+
+        cert = make_ec_cert("P-521")
+        token = build_w3c_token(DIGEST, cert, curve_name="P-521", sig_hash="sha256")
+        report = verify_timestamp_token(token, expected_digest=DIGEST)
+        self.assertFalse(report["valid"])
+        self.assertTrue(
+            any("ec_curve_unsupported" in e for e in report["errors"]), report["errors"]
+        )
+
+    def test_hash_disagreement_still_rejected(self):
+        # Signer digest SHA-256 vs ECDSA-with-SHA-384 signature OID:
+        # the hash-algorithm agreement check must still fail.
+        token = self._token("P-256", "sha384", check_independent=False, digest_hash="sha256")
+        report = verify_timestamp_token(token, expected_digest=DIGEST)
+        self.assertFalse(report["valid"])
+        self.assertTrue(
+            any("signature_hash_mismatch" in e for e in report["errors"]), report["errors"]
+        )
+
+    def test_tampered_p256_sha384_signature_fails(self):
+        token = self._token("P-256", "sha384", check_independent=False, tamper_signature=True)
+        report = verify_timestamp_token(token, expected_digest=DIGEST)
+        self.assertFalse(report["valid"])
+        self.assertIn("signature_verification_failed", report["errors"])
+
+
 if __name__ == "__main__":
     unittest.main()

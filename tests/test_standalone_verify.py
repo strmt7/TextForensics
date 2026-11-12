@@ -665,5 +665,324 @@ class StandaloneTrustMapTests(unittest.TestCase):
         self.assertEqual(set(declared), set(DECLARED_TRUST_MAP_DIMENSIONS))
 
 
+# ---------------------------------------------------------------------------
+# W3 Worker C: C13/C14 timestamp parity, C10 legacy-branch scope,
+# C12 malformed shapes, C04 checklist/manifest/tool/detector parity.
+# ---------------------------------------------------------------------------
+
+
+class StandaloneW3CTimestampTests(unittest.TestCase):
+    """C13/C14 through the standalone token verifier: the same
+    grammar and the same curve/hash decoupling as the package path,
+    driven by the independent fixture (tests/_w3c_token_fixture.py)."""
+
+    def setUp(self):
+        self.mod = load_standalone()
+
+    def _bundle_with_token(self, token):
+        case_bytes, case = build_case_bytes()
+        return build_bundle(case_bytes=case_bytes, case=case, token_der=token)[0], case_bytes
+
+    def _token_for_case_bytes(self, case_bytes, **kwargs):
+        from _w3c_token_fixture import build_w3c_token, make_ec_cert
+
+        digest = hashlib.sha256(case_bytes).digest()
+        cert = make_ec_cert(kwargs.pop("curve", "P-256"))
+        return build_w3c_token(digest, cert, **kwargs)
+
+    def _check_status(self, report, check_id):
+        for check in report["checks"]:
+            if check["id"] == check_id:
+                return check["status"]
+        return None
+
+    def test_invalid_gen_time_rejected(self):
+        case_bytes, _ = build_case_bytes()
+        token = self._token_for_case_bytes(case_bytes, gen_time="invalid-date")
+        bundle, _ = self._bundle_with_token(token)
+        report = self.mod.verify_bundle_bytes(bundle)
+        self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+        self.assertEqual(self._check_status(report, "seal_timestamp"), "fail")
+
+    def test_missing_z_and_bad_calendar_rejected(self):
+        for bad in ("20261107120000", "20261307120000Z", "20260230120000Z", "20261107120000.Z"):
+            with self.subTest(gen_time=bad):
+                case_bytes, _ = build_case_bytes()
+                token = self._token_for_case_bytes(case_bytes, gen_time=bad)
+                bundle, _ = self._bundle_with_token(token)
+                report = self.mod.verify_bundle_bytes(bundle)
+                self.assertEqual(report["exit_code"], 1, bad)
+                self.assertEqual(self._check_status(report, "seal_timestamp"), "fail")
+
+    def test_valid_fractional_gen_time_verifies(self):
+        case_bytes, _ = build_case_bytes()
+        token = self._token_for_case_bytes(case_bytes, gen_time="20261107120000.123456Z")
+        bundle, _ = self._bundle_with_token(token)
+        report = self.mod.verify_bundle_bytes(bundle)
+        self.assertEqual(report["exit_code"], 0, json.dumps(report, indent=2))
+        self.assertEqual(report["timestamp"]["gen_time"], "20261107120000.123456Z")
+
+    def test_curve_hash_matrix_verifies(self):
+        for curve in ("P-256", "P-384"):
+            for sig_hash in ("sha256", "sha384", "sha512"):
+                with self.subTest(curve=curve, sig_hash=sig_hash):
+                    case_bytes, _ = build_case_bytes()
+                    token = self._token_for_case_bytes(
+                        case_bytes, curve=curve, sig_hash=sig_hash
+                    )
+                    bundle, _ = self._bundle_with_token(token)
+                    report = self.mod.verify_bundle_bytes(bundle)
+                    self.assertEqual(report["exit_code"], 0, json.dumps(report, indent=2))
+                    self.assertEqual(self._check_status(report, "seal_timestamp"), "pass")
+
+    def test_unsupported_curve_rejected(self):
+        from _w3c_token_fixture import build_w3c_token, make_ec_cert
+
+        case_bytes, _ = build_case_bytes()
+        cert = make_ec_cert("P-521")
+        token = build_w3c_token(
+            hashlib.sha256(case_bytes).digest(), cert, curve_name="P-521", sig_hash="sha256"
+        )
+        bundle, _ = self._bundle_with_token(token)
+        report = self.mod.verify_bundle_bytes(bundle)
+        self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+        self.assertEqual(self._check_status(report, "seal_timestamp"), "fail")
+
+    def test_tampered_token_signature_rejected(self):
+        case_bytes, _ = build_case_bytes()
+        token = self._token_for_case_bytes(
+            case_bytes, curve="P-256", sig_hash="sha384", tamper_signature=True
+        )
+        bundle, _ = self._bundle_with_token(token)
+        report = self.mod.verify_bundle_bytes(bundle)
+        self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+
+
+class StandaloneLegacyTrustMapTests(unittest.TestCase):
+    """C10 legacy-branch decision (W3 Worker C): a v1/v2 case keeps
+    hash-check-only for the sections it genuinely lacks (checklist,
+    determinism, v3 sections), but a v2/v3 Trust Map embedded in it
+    must still carry exactly the declared dimension set with a
+    re-derived overall — the same completeness the installed verifier
+    requires of v2 maps.  A v1 map stays exempt: no declared set
+    exists in v1, so the legacy branch does not re-derive it."""
+
+    def setUp(self):
+        self.mod = load_standalone()
+
+    def _v2_case(self):
+        bundle = build_forensic_bundle(TEXT).to_dict()
+        return seal_case_file(bundle, version="v2")
+
+    def _check_status(self, report, check_id):
+        for check in report["checks"]:
+            if check["id"] == check_id:
+                return check["status"]
+        return None
+
+    def test_genuine_v2_case_still_passes(self):
+        case = self._v2_case()
+        bundle, _, _ = build_bundle(case_bytes=canonical_json(case), case=case)
+        report = self.mod.verify_bundle_bytes(bundle)
+        self.assertEqual(report["exit_code"], 0, json.dumps(report, indent=2))
+        self.assertEqual(self._check_status(report, "seal_case_legacy"), "pass")
+        self.assertEqual(self._check_status(report, "seal_trust_map"), "pass")
+
+    def test_v2_case_with_one_dim_map_fails(self):
+        import copy
+
+        case = self._v2_case()
+        mutated = copy.deepcopy(case)
+        tm = mutated["forensic_bundle"]["trust_map"]
+        tm["dimensions"] = [_sa_dim("not-a-declared-dimension")]
+        tm["overall"] = "strong"
+        tm["coverage"] = _sa_coverage(tm["dimensions"], stale_key=False)
+        mutated = _sa_reseal(mutated)
+        bundle, _, _ = build_bundle(case_bytes=canonical_json(mutated), case=mutated)
+        report = self.mod.verify_bundle_bytes(bundle)
+        self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+        self.assertEqual(self._check_status(report, "seal_trust_map"), "fail")
+
+    def test_v1_map_in_legacy_case_stays_hash_only(self):
+        """Deliberate boundary (see class docstring): a v1 map in a
+        legacy case is NOT re-derived by the standalone legacy branch.
+        The installed combined verifier rejects the v2-bundle/v1-map
+        pair on C23 grounds; the legacy branch's scope is completeness
+        of v2/v3 maps, not C23 pair enforcement for v1 maps."""
+        import copy
+
+        case = self._v2_case()
+        mutated = copy.deepcopy(case)
+        mutated["forensic_bundle"]["trust_map"]["schema"] = "textforensics.trust-map/v1"
+        mutated = _sa_reseal(mutated)
+        bundle, _, _ = build_bundle(case_bytes=canonical_json(mutated), case=mutated)
+        report = self.mod.verify_bundle_bytes(bundle)
+        self.assertEqual(report["exit_code"], 0, json.dumps(report, indent=2))
+
+
+class StandaloneMalformedShapeTests(unittest.TestCase):
+    """C12: malformed shapes in the portable verifier are structured
+    failures with stable check ids, never escaping exceptions."""
+
+    def setUp(self):
+        self.mod = load_standalone()
+
+    def _bundle_with_manifest(self, manifest):
+        case_bytes, case = build_case_bytes()
+        entries = {
+            "case.json": case_bytes,
+            "verify.py": STANDALONE_PATH.read_bytes(),
+            "manifest.json": canonical_json(manifest),
+        }
+        return pack_bundle(entries)
+
+    def test_manifest_item_not_an_object_fails(self):
+        manifest = make_manifest({"case.json": build_case_bytes()[0]})
+        manifest["files"] = ["not-an-object"]
+        report = self.mod.verify_bundle_bytes(self._bundle_with_manifest(manifest))
+        self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+
+    def test_manifest_path_types_fail(self):
+        for bad_path in (None, 42, ["case.json"], {"path": "case.json"}):
+            with self.subTest(path=bad_path):
+                case_bytes, _ = build_case_bytes()
+                manifest = make_manifest({"case.json": case_bytes})
+                manifest["files"] = [
+                    {
+                        "path": bad_path,
+                        "role": "case-file",
+                        "sha256": hashlib.sha256(case_bytes).hexdigest(),
+                        "size": len(case_bytes),
+                    }
+                ]
+                report = self.mod.verify_bundle_bytes(self._bundle_with_manifest(manifest))
+                self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+
+    def test_manifest_files_not_a_list_fails(self):
+        manifest = make_manifest({"case.json": build_case_bytes()[0]})
+        manifest["files"] = {"case.json": "x"}
+        report = self.mod.verify_bundle_bytes(self._bundle_with_manifest(manifest))
+        self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+
+    def test_nan_detector_score_is_structured_failure_not_a_crash(self):
+        """A case.json carrying a NaN detector score parses (Python's
+        json accepts NaN) but must fail verification structurally —
+        the case-hash canonicalisation raises ValueError on
+        allow_nan=False, which must not escape verify_bundle_bytes."""
+        import copy
+
+        _, _, case = build_bundle()
+        mutated = copy.deepcopy(case)
+        mutated["forensic_bundle"]["detector_results"][0]["score"] = float("nan")
+        # Re-seal over the NaN spelling so the case hash matches.
+        stripped = copy.deepcopy(mutated)
+        stripped.pop("case_sha256", None)
+        stripped.pop("created_at_utc", None)
+        canonical = json.dumps(
+            stripped, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=True
+        )
+        mutated["case_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        raw = json.dumps(
+            mutated, ensure_ascii=True, sort_keys=True, separators=(",", ":"), allow_nan=True
+        ).encode("utf-8")
+        bundle, _, _ = build_bundle(case_bytes=raw, case=mutated)
+        report = self.mod.verify_bundle_bytes(bundle)
+        self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+
+    def test_deeply_nested_case_json_is_structured_failure(self):
+        """A hostile nesting depth must not crash the parser: the
+        standalone verifier reports the case unparseable/invalid."""
+        import copy
+
+        _, _, case = build_bundle()
+        nested: object = "leaf"
+        for _ in range(500):
+            nested = [nested]
+        mutated = copy.deepcopy(case)
+        mutated["forensic_bundle"]["detector_results"] = nested
+        raw = json.dumps(
+            mutated, ensure_ascii=True, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        bundle, _, _ = build_bundle(case_bytes=raw, case=mutated)
+        report = self.mod.verify_bundle_bytes(bundle)
+        self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+
+
+class StandaloneChecklistStructureTests(unittest.TestCase):
+    """C04: the standalone checklist check must enforce the full
+    required D1–D10 structure and template notice, not only
+    consistency of the satisfied entries that happen to be present."""
+
+    def setUp(self):
+        self.mod = load_standalone()
+
+    def _check_status(self, report, check_id):
+        for check in report["checks"]:
+            if check["id"] == check_id:
+                return check["status"]
+        return None
+
+    def _report_for(self, mutate):
+        import copy
+
+        _, _, case = build_bundle()
+        mutated = copy.deepcopy(case)
+        mutate(mutated)
+        mutated = _sa_reseal(mutated)
+        bundle, _, _ = build_bundle(case_bytes=canonical_json(mutated), case=mutated)
+        return self.mod.verify_bundle_bytes(bundle)
+
+    def test_empty_checklist_fails(self):
+        report = self._report_for(lambda c: c["process"].update(items={}))
+        self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+        self.assertEqual(self._check_status(report, "seal_checklist"), "fail")
+
+    def test_altered_template_notice_fails(self):
+        report = self._report_for(lambda c: c["process"].update(template_notice="altered"))
+        self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+        self.assertEqual(self._check_status(report, "seal_checklist"), "fail")
+
+    def test_missing_d1_fails(self):
+        def _mut(c):
+            del c["process"]["items"]["D1"]
+
+        report = self._report_for(_mut)
+        self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+        self.assertEqual(self._check_status(report, "seal_checklist"), "fail")
+
+    def test_invalid_status_fails(self):
+        report = self._report_for(lambda c: c["process"]["items"]["D1"].update(status="banana"))
+        self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+        self.assertEqual(self._check_status(report, "seal_checklist"), "fail")
+
+    def test_manifest_mismatch_fails(self):
+        def _mut(c):
+            c["manifest"]["calibration_ids"] = ["tampered"]
+
+        report = self._report_for(_mut)
+        self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+        self.assertEqual(self._check_status(report, "seal_case_manifest"), "fail")
+
+    def test_tool_identity_mismatch_fails(self):
+        report = self._report_for(lambda c: c["tool"].update(name="EvilTool"))
+        self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+        self.assertEqual(self._check_status(report, "seal_case_tool"), "fail")
+
+    def test_bad_detector_verdict_fails(self):
+        def _mut(c):
+            c["forensic_bundle"]["detector_results"][0]["verdict"] = "definitely_ai"
+
+        report = self._report_for(_mut)
+        self.assertEqual(report["exit_code"], 1, json.dumps(report, indent=2))
+        self.assertEqual(self._check_status(report, "seal_case_detectors"), "fail")
+
+    def test_checklist_template_notice_matches_package(self):
+        from textforensics.casefile import CHECKLIST_TEMPLATE_NOTICE
+
+        self.assertEqual(
+            self.mod._CHECKLIST_TEMPLATE_NOTICE, CHECKLIST_TEMPLATE_NOTICE
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
