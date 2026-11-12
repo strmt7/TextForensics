@@ -588,3 +588,41 @@ class TestSealRecordAfterRejection:
         result = verify_sealed_bundle(archive, seal_record=record)
         assert result["exit_code"] == 1
         assert result["seal_record"]["errors"]
+
+
+# ---------------------------------------------------------------------------
+# Recovery: expected-digest mismatch must not trip the container gates
+# ---------------------------------------------------------------------------
+
+
+class TestExpectedDigestMismatchRunsSealSection:
+    """The C05 expected-digest check runs before any early return so
+    its comparison is always recorded — but a digest mismatch alone
+    must not trip the container gates: the seal section still runs
+    and the final scope names the digest check (W2 probe rows
+    expected-low / expected-high pin this)."""
+
+    def test_digest_mismatch_names_digest_and_runs_seal_checks(self):
+        case = sealed_case()
+        sa_archive, _, _ = sa_build_bundle(case_bytes=canonical_json_bytes(case), case=case)
+        report = STANDALONE.verify_bundle_bytes(sa_archive, expected_digest="0" * 64)
+        assert report["exit_code"] == 1
+        assert report["scope_statement"] == ("seal: not verified (seal_expected_digest failed)")
+        by_id = {c["id"]: c["status"] for c in report["checks"]}
+        assert by_id["seal_expected_digest"] == "fail"
+        # The seal section ran: case checks are present and passing.
+        assert by_id["seal_case_hash"] == "pass"
+        assert by_id["seal_case_id"] == "pass"
+        assert by_id["seal_trust_map"] == "pass"
+        assert report["gaps"], report["gaps"]
+
+    def test_digest_match_still_verifies_clean_control(self):
+        import hashlib as _hashlib
+
+        case = sealed_case()
+        sa_archive, _, _ = sa_build_bundle(case_bytes=canonical_json_bytes(case), case=case)
+        digest = _hashlib.sha256(sa_archive).hexdigest()
+        report = STANDALONE.verify_bundle_bytes(sa_archive, expected_digest=digest)
+        assert report["exit_code"] == 0, report["scope_statement"]
+        by_id = {c["id"]: c["status"] for c in report["checks"]}
+        assert by_id["seal_expected_digest"] == "pass"

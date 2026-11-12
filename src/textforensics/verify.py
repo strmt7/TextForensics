@@ -342,8 +342,13 @@ def verify_case_file(payload: dict[str, Any]) -> dict[str, Any]:
         # C10/C12: a missing or non-dict Trust Map is malformed data,
         # not a valid case with an unverified map — the N-version
         # result must say invalid, not merely trust_map_verified
-        # False alongside valid True.
-        errors.append("trust_map is missing or not an object")
+        # False alongside valid True.  This applies only when the
+        # bundle itself is a dict: when the bundle is absent or not
+        # a dict, the bundle error already invalidates and a
+        # trust-map error would be redundant noise (the W2 probe
+        # rows bundle-not-dict / no-bundle pin the single error).
+        if isinstance(bundle, dict):
+            errors.append("trust_map is missing or not an object")
         info["trust_map_verified"] = False
 
     # --- Forensic bundle structural checks (independent path) ---

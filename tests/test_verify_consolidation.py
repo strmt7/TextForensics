@@ -457,6 +457,32 @@ class TestNVersionShapeGaps:
         assert result["valid"] is False
         assert result["errors"]
 
+    def test_bundle_not_a_dict_reports_single_bundle_error(self):
+        """Recovery (W2 probe rows bundle-not-dict / no-bundle): when
+        the bundle itself is absent or not a dict, the N-version
+        result reports exactly the bundle error.  The C12
+        trust-map-missing error applies only inside a dict bundle;
+        appending it here would be redundant noise on top of an
+        already-invalidating bundle error."""
+        from textforensics.verify import verify_case_file as nversion_verify
+
+        case = _sealed_case()
+        case["forensic_bundle"] = "x"
+        case = _reseal(case)
+        result = nversion_verify(case)
+        assert result["valid"] is False
+        assert result["errors"] == ["forensic_bundle is not a dict"]
+
+    def test_no_bundle_reports_single_bundle_error(self):
+        from textforensics.verify import verify_case_file as nversion_verify
+
+        case = _sealed_case()
+        del case["forensic_bundle"]
+        case = _reseal(case)
+        result = nversion_verify(case)
+        assert result["valid"] is False
+        assert result["errors"] == ["forensic_bundle is not a dict"]
+
 
 class TestMalformedShapeMatrix:
     """C12: null/scalar/list/object variants at every nested field of

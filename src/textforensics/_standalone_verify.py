@@ -1723,6 +1723,22 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
         unavailable = True
         _check(checks, check_id, "unavailable", detail)
 
+    def _container_failed():
+        """True when a genuine container check failed.
+
+        The expected-digest check runs before any early return (C05)
+        so its comparison is always recorded, but a digest mismatch
+        alone must NOT trip the container gates below: the seal
+        section still runs and the final scope names the digest
+        check (the W2 probe rows expected-low / expected-high pin
+        this).  Only a failure of a check other than
+        seal_expected_digest trips the gates.
+        """
+        return any(
+            check.get("status") == "fail" and check.get("id") != "seal_expected_digest"
+            for check in checks
+        )
+
     # -- (1) container checks, MPL order: caps and EOCD before reads. --
     if len(data) > MAX_BUNDLE_BYTES:
         fail("container_outer_size", "bundle exceeds the 288 MiB outer cap")
@@ -1842,7 +1858,7 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
         )
     else:
         ok("container_total_size", "total uncompressed size is within the 256 MiB cap")
-    if failed:
+    if _container_failed():
         report["exit_code"] = 1
         report["scope_statement"] = "seal: not verified (container checks failed)"
         return report
@@ -1889,7 +1905,7 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
         report["exit_code"] = 1
         report["scope_statement"] = "seal: not verified (bundle unreadable)"
         return report
-    if failed:
+    if _container_failed():
         report["exit_code"] = 1
         report["scope_statement"] = "seal: not verified (container checks failed)"
         return report
