@@ -298,9 +298,7 @@ def _module_level_test_imports() -> dict[str, set[str]]:
 
     tests_dir = REPO_ROOT / "tests"
     in_repo = {p.stem for p in tests_dir.glob("*.py")}
-    in_repo |= {
-        p.name for p in tests_dir.iterdir() if p.is_dir() and not p.name.startswith(".")
-    }
+    in_repo |= {p.name for p in tests_dir.iterdir() if p.is_dir() and not p.name.startswith(".")}
     in_repo |= {"tests", "textforensics"}
     found: dict[str, set[str]] = {}
     for path in sorted(tests_dir.rglob("*.py")):
