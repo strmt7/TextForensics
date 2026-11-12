@@ -1117,7 +1117,17 @@ EXPECTED_PROBE_VERIFY_CASE_FILE = [
         # form on every supported Python.
         ("raise", "ValueError", "Out of range float values are not JSON compliant"),
     ),
-    ("tm-no-trust-map", ("ok", False, False, False, ["case hash seal mismatch"], [])),
+    (
+        "tm-no-trust-map",
+        (
+            "ok",
+            False,
+            False,
+            False,
+            ["case hash seal mismatch", "trust_map is missing or not an object"],
+            [],
+        ),
+    ),
     (
         "raw-text-key",
         (
