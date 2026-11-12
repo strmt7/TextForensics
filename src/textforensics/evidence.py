@@ -34,8 +34,10 @@ of these hold:
   :data:`APPROVED_HELD_OUT_SPLITS` (``test`` / ``heldout`` / ``held-out``).
   A ``train`` / ``fit`` / selection split is not held-out evidence;
 * contamination state — the caller supplies a :class:`DisjointnessProof`
-  (Worker B's proof type) with status ``"verified"``, zero overlap, and
-  an ``evaluation_hash`` equal to the record's benchmark fingerprint.
+  (Worker B's proof type) with status ``"verified"``, zero sample
+  overlap, group overlap evaluated and zero (a sample-only proof,
+  ``group_overlap_count == -1``, never confers held-out eligibility),
+  and an ``evaluation_hash`` equal to the record's benchmark fingerprint.
   No proof, or any other status, means the contamination state is
   unknown and the record is ineligible;
 * applicable conditions — per slice, via :meth:`SliceConditions.matches`
@@ -866,6 +868,23 @@ class InferenceIdentity:
     ``native_score_semantics`` cannot be bound by a v1 evidence record —
     the schema carries no such fields — and are reported as unbound by
     :func:`check_record_eligibility` rather than assumed.
+
+    Field-contract reconciliation (W2 defect fix, 2026-11-12): the two
+    pre-fix definitions disagreed — this module's (2 required fields,
+    6 optional, ``None`` = unbound) vs calibration.py's (all 8 required
+    ``str``, ``config_hash`` a 64-char SHA-256 hex string). The canonical
+    type keeps THIS module's optional-field shape, because the
+    eligibility predicate must be able to represent "unbound", and the
+    constructor validates a bound field only as a non-empty string. The
+    calibration strictness is NOT dropped: it lives at the application
+    point, in :mod:`textforensics.calibration` — a
+    :class:`CalibrationManager` only selects an artifact for emitting a
+    validated probability from a fully-bound identity (see
+    :attr:`is_fully_bound` and
+    ``CalibrationManager.get_for_identity``), and a partially-bound
+    identity never matches an artifact. A bound ``config_hash`` that is
+    not a SHA-256 digest is therefore refused exactly where a
+    probability would be emitted, never silently accepted.
     """
 
     detector_id: str
@@ -891,6 +910,26 @@ class InferenceIdentity:
             value = getattr(self, name)
             if value is not None:
                 _require_nonempty_string(value, f"identity.{name}")
+
+    @property
+    def is_fully_bound(self) -> bool:
+        """True when every field is bound (no ``None``).
+
+        Only a fully-bound identity can select a calibration artifact
+        for emitting a validated probability; a partially-bound identity
+        is a statement about what ran, not a calibration binding.
+        """
+        return all(
+            getattr(self, name) is not None
+            for name in (
+                "provider",
+                "model",
+                "config_hash",
+                "native_score_semantics",
+                "calibration_id",
+                "regime",
+            )
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -924,10 +963,17 @@ class InferenceIdentity:
 class DisjointnessProof:
     """Sample/group-level disjointness proof (audit W2, CORE-01/CORE-06).
 
+    The ONE canonical proof type. Defined here, in the import-base
+    evidence module, so the evidence module and the evaluation modules
+    share one type; producers must import this type, not define a
+    second one. (W2 defect fix, 2026-11-12: benchmark.py defined a
+    second 8-field proof while this module defined a 6-field one, so
+    the eligibility predicate could not see ``group_overlap_count``.)
+
     Field list agreed with Worker B (calibration.py / benchmark.py):
-    the contamination state CORE-01's predicate consumes. Defined here
-    so the evidence module and the evaluation modules share one type;
-    producers must import this type, not define a second one.
+    the contamination state CORE-01's predicate consumes, plus the two
+    fields only benchmark.py carried: ``group_overlap_count`` and
+    ``errors``.
 
     ``status`` is ``"verified"`` only when the producer compared
     immutable training and evaluation manifests and found no overlap;
@@ -935,6 +981,27 @@ class DisjointnessProof:
     ``"contaminated"`` when overlap was found. ``evaluation_hash`` must
     equal the evaluated record's benchmark fingerprint for the proof to
     bind to that record.
+
+    ``group_overlap_count`` is ``-1`` when group-level overlap was
+    never evaluated (a sample-only proof, e.g. the proof attached by
+    :func:`textforensics.benchmark.check_disjointness`, which checks
+    sample hashes only). A sample-only proof is a legitimate object —
+    it says "no sample overlap; groups not checked" — but it NEVER
+    confers held-out eligibility: ``"verified"`` authorises a held-out
+    label only when group overlap was evaluated and is zero. Consumers
+    that confer held-out status (:func:`check_record_eligibility`,
+    :func:`textforensics.calibration.evaluate_threshold`,
+    :func:`textforensics.benchmark.benchmark_with_calibration_jsonl`)
+    must refuse a sample-only proof; see their docstrings.
+
+    ``training_hash`` / ``evaluation_hash`` are ``None`` when unbound
+    (this module's pre-fix shape) or ``""`` when the file could not be
+    hashed at all (benchmark.py's ``prove_disjointness`` sentinel for
+    an unreadable file). Neither is validated here: the constructor
+    cannot tell an unreadable file from a missing binding, and the
+    eligibility predicate treats a missing or empty training hash as
+    unbound. Serialised form is ``textforensics.disjointness-proof/v1``
+    (see :meth:`to_dict`).
     """
 
     status: str
@@ -943,41 +1010,72 @@ class DisjointnessProof:
     evaluation_count: int
     training_hash: str | None
     evaluation_hash: str | None
+    group_overlap_count: int = 0
+    errors: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.status not in ("verified", "unknown", "contaminated"):
             raise EvidenceError(
-                "disjointness status must be 'verified', 'unknown' or 'contaminated'."
+                "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'."
             )
-        _require_int(self.overlap_count, "disjointness.overlap_count")
-        _require_int(self.training_count, "disjointness.training_count")
-        _require_int(self.evaluation_count, "disjointness.evaluation_count")
-        for name in ("training_hash", "evaluation_hash"):
-            value = getattr(self, name)
-            if value is not None:
-                _require_nonempty_string(value, f"disjointness.{name}")
+        for field_name in ("overlap_count", "group_overlap_count"):
+            value = getattr(self, field_name)
+            if isinstance(value, bool) or not isinstance(value, int) or value < -1:
+                raise EvidenceError(
+                    f"DisjointnessProof {field_name} must be an integer >= -1."
+                )
+        for field_name in ("training_count", "evaluation_count"):
+            value = getattr(self, field_name)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise EvidenceError(
+                    f"DisjointnessProof {field_name} must be a non-negative integer."
+                )
+        if self.status == "verified" and self.overlap_count != 0:
+            raise EvidenceError("A verified DisjointnessProof must have zero sample overlap.")
+        if self.status == "verified" and self.group_overlap_count not in (0, -1):
+            raise EvidenceError(
+                "A verified DisjointnessProof must have zero group overlap "
+                "or unevaluated group overlap (-1, sample-only proof)."
+            )
+        if (
+            self.status == "contaminated"
+            and self.overlap_count == 0
+            and self.group_overlap_count == 0
+        ):
+            raise EvidenceError("A contaminated DisjointnessProof must record overlap.")
+        object.__setattr__(self, "errors", tuple(str(item) for item in self.errors))
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "schema": "textforensics.disjointness-proof/v1",
             "status": self.status,
             "overlap_count": self.overlap_count,
+            "group_overlap_count": self.group_overlap_count,
             "training_count": self.training_count,
             "evaluation_count": self.evaluation_count,
             "training_hash": self.training_hash,
             "evaluation_hash": self.evaluation_hash,
+            "errors": list(self.errors),
         }
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> DisjointnessProof:
         if not isinstance(payload, Mapping):
             raise EvidenceError("disjointness proof must be an object.")
+        # No silent coercion: values pass through and __post_init__
+        # validates them. A payload that does not record group overlap
+        # (the pre-fix 6-field evidence shape) reads as zero group
+        # overlap, matching benchmark.py's pre-fix from_dict default;
+        # only the eligibility predicate decides what a proof confers.
         return cls(
-            status=str(payload["status"]),
+            status=payload["status"],
             overlap_count=payload["overlap_count"],
             training_count=payload["training_count"],
             evaluation_count=payload["evaluation_count"],
             training_hash=payload.get("training_hash"),
             evaluation_hash=payload.get("evaluation_hash"),
+            group_overlap_count=payload.get("group_overlap_count", 0),
+            errors=tuple(payload.get("errors", ())),
         )
 
 
@@ -1103,6 +1201,13 @@ def check_record_eligibility(
             reasons.append(f"disjointness status is {disjointness.status!r}, not 'verified'")
         if disjointness.overlap_count > 0:
             reasons.append(f"disjointness overlap_count is {disjointness.overlap_count}, not 0")
+        if disjointness.group_overlap_count == -1:
+            # Sample-only proof: group-level disjointness was never
+            # evaluated, so "verified" covers samples only and cannot
+            # authorise held-out support (W2 defect fix, 2026-11-12).
+            reasons.append(
+                "disjointness group overlap was not evaluated (sample-only proof)"
+            )
         if disjointness.training_count <= 0 or disjointness.evaluation_count <= 0:
             reasons.append("disjointness proof has an empty training or evaluation set")
         if (
@@ -1113,7 +1218,7 @@ def check_record_eligibility(
                 "disjointness proof does not bind to this record's benchmark fingerprint"
             )
         if (
-            disjointness.training_hash is None
+            not disjointness.training_hash
             or disjointness.training_hash == disjointness.evaluation_hash
         ):
             reasons.append("disjointness training and evaluation hashes are not distinct")

@@ -24,6 +24,7 @@ from w2_f_kill_helpers import (
     probe_bm_sample_hashes,
 )
 
+
 EXPECTED_PROBE_BM_CHECK_DISJOINTNESS = [
     ("disjoint", ("ok", True, 0, [], True, [], [], "verified", 0, 4, 4, -1)),
     (
@@ -229,19 +230,19 @@ EXPECTED_PROBE_BM_JSONL = [
 EXPECTED_PROBE_BM_POST_INIT = [
     (
         ("verified", -1, -1),
-        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+        ("raise", "EvidenceError", "A verified DisjointnessProof must have zero sample overlap."),
     ),
     (
         ("verified", -1, 0),
-        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+        ("raise", "EvidenceError", "A verified DisjointnessProof must have zero sample overlap."),
     ),
     (
         ("verified", -1, 1),
-        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+        ("raise", "EvidenceError", "A verified DisjointnessProof must have zero sample overlap."),
     ),
     (
         ("verified", -1, 2),
-        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+        ("raise", "EvidenceError", "A verified DisjointnessProof must have zero sample overlap."),
     ),
     (
         ("verified", 0, -1),
@@ -261,7 +262,7 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("verified", 0, 1),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "A verified DisjointnessProof must have zero group overlap or unevaluated group overlap (-1, sample-only proof).",
         ),
     ),
@@ -269,41 +270,41 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("verified", 0, 2),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "A verified DisjointnessProof must have zero group overlap or unevaluated group overlap (-1, sample-only proof).",
         ),
     ),
     (
         ("verified", 1, -1),
-        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+        ("raise", "EvidenceError", "A verified DisjointnessProof must have zero sample overlap."),
     ),
     (
         ("verified", 1, 0),
-        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+        ("raise", "EvidenceError", "A verified DisjointnessProof must have zero sample overlap."),
     ),
     (
         ("verified", 1, 1),
-        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+        ("raise", "EvidenceError", "A verified DisjointnessProof must have zero sample overlap."),
     ),
     (
         ("verified", 1, 2),
-        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+        ("raise", "EvidenceError", "A verified DisjointnessProof must have zero sample overlap."),
     ),
     (
         ("verified", 2, -1),
-        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+        ("raise", "EvidenceError", "A verified DisjointnessProof must have zero sample overlap."),
     ),
     (
         ("verified", 2, 0),
-        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+        ("raise", "EvidenceError", "A verified DisjointnessProof must have zero sample overlap."),
     ),
     (
         ("verified", 2, 1),
-        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+        ("raise", "EvidenceError", "A verified DisjointnessProof must have zero sample overlap."),
     ),
     (
         ("verified", 2, 2),
-        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+        ("raise", "EvidenceError", "A verified DisjointnessProof must have zero sample overlap."),
     ),
     (
         ("unknown", -1, -1),
@@ -454,7 +455,7 @@ EXPECTED_PROBE_BM_POST_INIT = [
     ),
     (
         ("contaminated", 0, 0),
-        ("raise", "ValueError", "A contaminated DisjointnessProof must record overlap."),
+        ("raise", "EvidenceError", "A contaminated DisjointnessProof must record overlap."),
     ),
     (
         ("contaminated", 0, 1),
@@ -530,7 +531,7 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("bogus", -1, -1),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
         ),
     ),
@@ -538,7 +539,7 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("bogus", -1, 0),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
         ),
     ),
@@ -546,7 +547,7 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("bogus", -1, 1),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
         ),
     ),
@@ -554,7 +555,7 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("bogus", -1, 2),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
         ),
     ),
@@ -562,7 +563,7 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("bogus", 0, -1),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
         ),
     ),
@@ -570,7 +571,7 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("bogus", 0, 0),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
         ),
     ),
@@ -578,7 +579,7 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("bogus", 0, 1),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
         ),
     ),
@@ -586,7 +587,7 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("bogus", 0, 2),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
         ),
     ),
@@ -594,7 +595,7 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("bogus", 1, -1),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
         ),
     ),
@@ -602,7 +603,7 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("bogus", 1, 0),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
         ),
     ),
@@ -610,7 +611,7 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("bogus", 1, 1),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
         ),
     ),
@@ -618,7 +619,7 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("bogus", 1, 2),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
         ),
     ),
@@ -626,7 +627,7 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("bogus", 2, -1),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
         ),
     ),
@@ -634,7 +635,7 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("bogus", 2, 0),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
         ),
     ),
@@ -642,7 +643,7 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("bogus", 2, 1),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
         ),
     ),
@@ -650,51 +651,75 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("bogus", 2, 2),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
         ),
     ),
     (
         ("invalid-overlap_count", True),
-        ("raise", "ValueError", "DisjointnessProof overlap_count must be an integer >= -1."),
+        ("raise", "EvidenceError", "DisjointnessProof overlap_count must be an integer >= -1."),
     ),
     (
         ("invalid-overlap_count", -2),
-        ("raise", "ValueError", "DisjointnessProof overlap_count must be an integer >= -1."),
+        ("raise", "EvidenceError", "DisjointnessProof overlap_count must be an integer >= -1."),
     ),
     (
         ("invalid-overlap_count", "x"),
-        ("raise", "ValueError", "DisjointnessProof overlap_count must be an integer >= -1."),
+        ("raise", "EvidenceError", "DisjointnessProof overlap_count must be an integer >= -1."),
     ),
     (
         ("invalid-group_overlap_count", True),
-        ("raise", "ValueError", "DisjointnessProof group_overlap_count must be an integer >= -1."),
+        (
+            "raise",
+            "EvidenceError",
+            "DisjointnessProof group_overlap_count must be an integer >= -1.",
+        ),
     ),
     (
         ("invalid-group_overlap_count", -2),
-        ("raise", "ValueError", "DisjointnessProof group_overlap_count must be an integer >= -1."),
+        (
+            "raise",
+            "EvidenceError",
+            "DisjointnessProof group_overlap_count must be an integer >= -1.",
+        ),
     ),
     (
         ("invalid-group_overlap_count", "x"),
-        ("raise", "ValueError", "DisjointnessProof group_overlap_count must be an integer >= -1."),
+        (
+            "raise",
+            "EvidenceError",
+            "DisjointnessProof group_overlap_count must be an integer >= -1.",
+        ),
     ),
     (
         ("invalid-training_count", True),
-        ("raise", "ValueError", "DisjointnessProof training_count must be a non-negative integer."),
+        (
+            "raise",
+            "EvidenceError",
+            "DisjointnessProof training_count must be a non-negative integer.",
+        ),
     ),
     (
         ("invalid-training_count", -1),
-        ("raise", "ValueError", "DisjointnessProof training_count must be a non-negative integer."),
+        (
+            "raise",
+            "EvidenceError",
+            "DisjointnessProof training_count must be a non-negative integer.",
+        ),
     ),
     (
         ("invalid-training_count", "x"),
-        ("raise", "ValueError", "DisjointnessProof training_count must be a non-negative integer."),
+        (
+            "raise",
+            "EvidenceError",
+            "DisjointnessProof training_count must be a non-negative integer.",
+        ),
     ),
     (
         ("invalid-evaluation_count", True),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "DisjointnessProof evaluation_count must be a non-negative integer.",
         ),
     ),
@@ -702,7 +727,7 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("invalid-evaluation_count", -1),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "DisjointnessProof evaluation_count must be a non-negative integer.",
         ),
     ),
@@ -710,7 +735,7 @@ EXPECTED_PROBE_BM_POST_INIT = [
         ("invalid-evaluation_count", "x"),
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "DisjointnessProof evaluation_count must be a non-negative integer.",
         ),
     ),
@@ -724,14 +749,14 @@ EXPECTED_PROBE_BM_PROOF_DICT = [
         "fromdict-group-3",
         (
             "raise",
-            "ValueError",
+            "EvidenceError",
             "A verified DisjointnessProof must have zero group overlap or unevaluated group overlap (-1, sample-only proof).",
         ),
     ),
     ("fromdict-group-neg1", ("ok", -1, ())),
     ("fromdict-no-errors", ("ok", 0, ())),
     ("fromdict-errors", ("ok", 0, ("e1", "e2"))),
-    ("fromdict-non-dict", ("raise", "ValueError", "Disjointness proof must be a JSON object.")),
+    ("fromdict-non-dict", ("raise", "EvidenceError", "disjointness proof must be an object.")),
     ("proof-frozen", ("raise", "FrozenInstanceError", "cannot assign to field 'status'")),
     ("proof-slots", ("ok", False)),
     ("proof-default-group", ("ok", 0)),

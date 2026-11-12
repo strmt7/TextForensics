@@ -2955,7 +2955,14 @@ def probe_ev_check_eligibility():
     _check(("ver-2",), base_record, _ident(detector_version="2"), base_dj)
     _check(("rec-ver-bang",), _ev_record(detector_version="!"), _ident(), base_dj)
     _check(("rec-ver-0.9",), _ev_record(detector_version="0.9"), _ident(), base_dj)
-    _check(("overlap-1",), base_record, _ident(), _dj(overlap_count=1))
+    # "verified" + overlap 1 cannot be constructed: the canonical
+    # DisjointnessProof (benchmark.py's __post_init__ rule, moved to
+    # evidence.py by the W2 defect fix) refuses it at construction, so
+    # the predicate never sees it. Record the construction raise.
+    try:
+        _check(("overlap-1",), base_record, _ident(), _dj(overlap_count=1))
+    except Exception as exc:  # noqa: BLE001
+        rows.append((("overlap-1",), ("raise", type(exc).__name__, str(exc))))
     # Distinct-but-equal identity strings: `is not` vs `!=`. The record's
     # detector_id/version are the literals "det"/"1"; the joined strings
     # are equal but distinct objects, so the `is not` mutants report a
@@ -2968,16 +2975,12 @@ def probe_ev_check_eligibility():
     # (verified: "".join(["", "1"]) is "1" -> False, == "1" -> True).
     _check(("ver-distinct",), base_record, _ident(detector_version="".join(["", "1"])), base_dj)
     # Unknown proof with overlap -1: `overlap_count > 0` vs `!= 0` differ
-    # only for negative overlap. Kills Gt_NotEq:6 [1104,38]. The constructor
-    # forbids overlap_count < 0 for ANY status (_require_int minimum 0,
-    # evidence.py:952), so the tampered proof is built by __setattr__ on a
-    # valid proof — the frozen-dataclass technique the probe already uses
-    # for calibration artifacts. (The earlier "unknown + -1 is valid" note
-    # was wrong: it crashed the constructor, which is why the probe failed
-    # on the original source until this fix.)
-    _dj_neg1 = _dj(status="unknown")
-    object.__setattr__(_dj_neg1, "overlap_count", -1)
-    _check(("overlap-neg1-unknown",), base_record, _ident(), _dj_neg1)
+    # only for negative overlap. Kills Gt_NotEq:6 [1104,38]. The canonical
+    # constructor allows overlap_count -1 (overlap unknown) for any
+    # status, so the proof is built directly (W2 defect fix: the
+    # pre-fix evidence constructor forbade it via _require_int minimum
+    # 0, which is why the probe used the __setattr__ trick).
+    _check(("overlap-neg1-unknown",), base_record, _ident(), _dj(status="unknown", overlap_count=-1))
     _check(("train-1",), base_record, _ident(), _dj(training_count=1))
     _check(("eval-1",), base_record, _ident(), _dj(evaluation_count=1))
     _check(("train-1-eval-1",), base_record, _ident(), _dj(training_count=1, evaluation_count=1))

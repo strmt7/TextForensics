@@ -1415,5 +1415,310 @@ class C10OverallTests(unittest.TestCase):
         self.assertEqual(len(DECLARED_TRUST_MAP_DIMENSIONS), 10)
 
 
+# ---------------------------------------------------------------------------
+# W2 defect fix — duplicate identity/proof types + sample-only proof
+# ---------------------------------------------------------------------------
+# Parent review (2026-11-11) found InferenceIdentity / DisjointnessProof
+# each defined twice (evidence.py vs calibration.py / benchmark.py) and a
+# sample-only proof (status "verified", group_overlap_count == -1, i.e.
+# group disjointness never evaluated) conferring held-out eligibility.
+# These tests are RED on the integrated audit-w2 head (597bfdd) and must
+# turn green only via the unification + predicate fix.
+# ---------------------------------------------------------------------------
+
+
+class DefectFixTypesTests(unittest.TestCase):
+    def _eligible_setup(self, tmp: str):
+        """An otherwise-eligible record + inputs; returns (record, inputs, fingerprint)."""
+        from textforensics.evidence import EvidenceRegistry
+
+        root = Path(tmp)
+        fingerprint, bench_hash, run_hash = _write_artifacts(root)
+        record = _v2_record(
+            detector_id="a",
+            detector_version="1",
+            benchmark_fingerprint=fingerprint,
+            benchmark_hash=bench_hash,
+            run_hash=run_hash,
+        )
+        registry = EvidenceRegistry(records=[record])
+        return record, _eligible_inputs(registry, root), fingerprint
+
+    def _proof(self, *, group_overlap_count: int, fingerprint: str):
+        from textforensics.benchmark import DisjointnessProof
+
+        return DisjointnessProof(
+            status="verified",
+            overlap_count=0,
+            group_overlap_count=group_overlap_count,
+            training_count=100,
+            evaluation_count=200,
+            training_hash=hex64(10),
+            evaluation_hash=fingerprint,
+            errors=(),
+        )
+
+    def test_sample_only_proof_is_ineligible(self):
+        """A 'verified' proof that never evaluated group overlap must not
+        confer held-out eligibility."""
+        from textforensics.evidence import check_record_eligibility
+
+        with tempfile.TemporaryDirectory() as tmp:
+            record, inputs, fingerprint = self._eligible_setup(tmp)
+            verdict = check_record_eligibility(
+                record,
+                identity=inputs["identity"],
+                disjointness=self._proof(group_overlap_count=-1, fingerprint=fingerprint),
+                artifact_verification=inputs["artifact_verification"],
+                now=NOW,
+            )
+            self.assertFalse(verdict.eligible)
+            self.assertTrue(
+                any("group overlap" in reason for reason in verdict.reasons),
+                f"a reason must name the unevaluated group overlap: {verdict.reasons}",
+            )
+
+    def test_full_proof_is_eligible(self):
+        """Control: the same record with group overlap evaluated and zero
+        stays eligible — the contrast the sample-only test pins."""
+        from textforensics.evidence import check_record_eligibility
+
+        with tempfile.TemporaryDirectory() as tmp:
+            record, inputs, fingerprint = self._eligible_setup(tmp)
+            verdict = check_record_eligibility(
+                record,
+                identity=inputs["identity"],
+                disjointness=self._proof(group_overlap_count=0, fingerprint=fingerprint),
+                artifact_verification=inputs["artifact_verification"],
+                now=NOW,
+            )
+            self.assertTrue(verdict.eligible, f"full proof must stay eligible: {verdict.reasons}")
+            self.assertEqual(verdict.reasons, ())
+
+    def test_empty_training_hash_is_ineligible(self):
+        """Compensation for the unification dropping evidence.py's old
+        empty-hash constructor rejection (``""`` is benchmark.py's
+        'could not hash' sentinel): the predicate itself refuses a
+        proof whose training hash is missing or empty."""
+        from textforensics.benchmark import DisjointnessProof
+        from textforensics.evidence import check_record_eligibility
+
+        with tempfile.TemporaryDirectory() as tmp:
+            record, inputs, fingerprint = self._eligible_setup(tmp)
+            proof = DisjointnessProof(
+                status="verified",
+                overlap_count=0,
+                group_overlap_count=0,
+                training_count=100,
+                evaluation_count=200,
+                training_hash="",
+                evaluation_hash=fingerprint,
+                errors=(),
+            )
+            verdict = check_record_eligibility(
+                record,
+                identity=inputs["identity"],
+                disjointness=proof,
+                artifact_verification=inputs["artifact_verification"],
+                now=NOW,
+            )
+            self.assertFalse(verdict.eligible)
+            self.assertIn(
+                "disjointness training and evaluation hashes are not distinct",
+                verdict.reasons,
+            )
+
+    def test_types_are_the_same_object(self):
+        """The canonical types are one class object in every module that
+        imports them, so the duplication can never silently return."""
+        import textforensics
+        from textforensics import benchmark, calibration, evidence
+
+        self.assertIs(evidence.InferenceIdentity, calibration.InferenceIdentity)
+        self.assertIs(evidence.DisjointnessProof, benchmark.DisjointnessProof)
+        self.assertIs(calibration.DisjointnessProof, benchmark.DisjointnessProof)
+        self.assertIs(textforensics.InferenceIdentity, evidence.InferenceIdentity)
+        self.assertIs(textforensics.DisjointnessProof, evidence.DisjointnessProof)
+
+    def test_identity_contracts_reconciled(self):
+        """A fully-bound identity (all 8 fields, SHA-256 config_hash) is
+        accepted by the CalibrationManager; a partially-bound identity is
+        reported as unbound by the eligibility predicate (not silently
+        accepted as fully bound) and refused by the manager's
+        identity-selection path."""
+        from textforensics.calibration import (
+            CalibrationCurve,
+            CalibrationError,
+            CalibrationManager,
+            DatasetReference,
+        )
+        from textforensics.evidence import InferenceIdentity, check_record_eligibility
+
+        full = InferenceIdentity(
+            detector_id="det1",
+            detector_version="1.0",
+            provider="local",
+            model="builtin-heuristic-0.1.0",
+            config_hash=hex64(5),
+            native_score_semantics="probability_higher_means_ai",
+            calibration_id="cal1",
+            regime="unedited",
+        )
+        self.assertTrue(full.is_fully_bound)
+        with tempfile.TemporaryDirectory() as tmp:
+            manager = CalibrationManager(tmp)
+            stored = manager.store(
+                detector_id="det1",
+                detector_version="1.0",
+                curve=CalibrationCurve(
+                    method="platt",
+                    parameters={"A": 1.0, "B": 0.0},
+                    reference_dataset_hash=hex64(1),
+                    reference_dataset_name="test",
+                    calibrated_at="2024-01-01T00:00:00Z",
+                    sample_count=200,
+                ),
+                calibration_id="cal1",
+                created_at="2024-01-01T00:00:00+00:00",
+                identity=full,
+                fit_dataset=DatasetReference(
+                    name="fit", fingerprint_sha256=hex64(2), split="train", sample_count=200
+                ),
+                evaluation_dataset=DatasetReference(
+                    name="eval", fingerprint_sha256=hex64(3), split="test", sample_count=200
+                ),
+                disjointness={"strategy": "disjoint_sample_ids", "evidence": "ids differ"},
+                metrics={"brier": 0.10, "ece": 0.05, "log_loss": 0.30},
+                code_version="abc123",
+                run_artifact_sha256=hex64(4),
+            )
+            found = manager.get_for_identity(full)
+            self.assertIsNotNone(found)
+            self.assertEqual(found.artifact_id, stored.artifact_id)
+            self.assertTrue(found.matches_identity(full))
+
+            partial = InferenceIdentity(
+                detector_id="det1",
+                detector_version="1.0",
+                provider="local",
+            )
+            self.assertFalse(partial.is_fully_bound)
+            self.assertFalse(found.matches_identity(partial))
+            with self.assertRaises(CalibrationError):
+                manager.get_for_identity(partial)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            record, inputs, fingerprint = self._eligible_setup(tmp)
+            partial_identity = InferenceIdentity(
+                detector_id="a",
+                detector_version="1",
+                provider="prov",
+                regime="human_only",
+            )
+            self.assertFalse(partial_identity.is_fully_bound)
+            verdict = check_record_eligibility(
+                record,
+                identity=partial_identity,
+                disjointness=self._proof(group_overlap_count=0, fingerprint=fingerprint),
+                artifact_verification=inputs["artifact_verification"],
+                now=NOW,
+            )
+            self.assertIn("provider", verdict.unbound_identity_fields)
+
+    def test_sample_only_proof_is_not_held_out_in_evaluate_threshold(self):
+        """Same gap in the calibration evaluation entry point: a verified
+        sample-only proof must not yield a held_out evaluation."""
+        from textforensics.benchmark import prove_disjointness
+        from textforensics.calibration import evaluate_threshold
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cal_path = root / "cal.jsonl"
+            eval_path = root / "eval.jsonl"
+            cal_path.write_text(
+                '{"label": "human", "text": "A calibration sentence."}\n'
+                '{"label": "ai", "text": "A calibration machine sentence."}\n',
+                encoding="utf-8",
+            )
+            eval_path.write_text(
+                '{"label": "human", "text": "A completely different human sentence."}\n'
+                '{"label": "ai", "text": "A completely different machine sentence."}\n',
+                encoding="utf-8",
+            )
+            full = prove_disjointness(cal_path, eval_path)
+            self.assertEqual(full.status, "verified")
+            self.assertEqual(full.group_overlap_count, 0)
+            result = evaluate_threshold(eval_path, 0.5, disjointness_proof=full)
+            self.assertEqual(result.evaluation_mode, "held_out")
+            # Rebind the sample-only proof to these files: same hashes as
+            # the full proof, only the group overlap is unevaluated.
+            from textforensics.benchmark import DisjointnessProof
+
+            sample_only = DisjointnessProof(
+                status="verified",
+                overlap_count=0,
+                group_overlap_count=-1,
+                training_count=full.training_count,
+                evaluation_count=full.evaluation_count,
+                training_hash=full.training_hash,
+                evaluation_hash=full.evaluation_hash,
+                errors=(),
+            )
+            with self.assertRaises(ValueError, msg="sample-only proof must not be held out"):
+                evaluate_threshold(eval_path, 0.5, disjointness_proof=sample_only)
+            diagnostic = evaluate_threshold(
+                eval_path, 0.5, disjointness_proof=sample_only, diagnostic=True
+            )
+            self.assertEqual(diagnostic.evaluation_mode, "diagnostic")
+
+    def test_sample_only_proof_is_not_held_out_in_benchmark(self):
+        """Same gap in benchmark_with_calibration_jsonl: a verified
+        sample-only proof must not yield held_out_evaluation."""
+        from textforensics.benchmark import (
+            benchmark_with_calibration_jsonl,
+            calibrate_threshold_jsonl,
+            prove_disjointness,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cal_path = root / "cal.jsonl"
+            eval_path = root / "eval.jsonl"
+            rows = (
+                '{"label": "human", "text": "Calibration human one."}\n'
+                '{"label": "ai", "text": "Calibration machine one."}\n'
+            )
+            cal_path.write_text(rows, encoding="utf-8")
+            eval_path.write_text(
+                '{"label": "human", "text": "Evaluation human one."}\n'
+                '{"label": "ai", "text": "Evaluation machine one."}\n',
+                encoding="utf-8",
+            )
+            artifact = calibrate_threshold_jsonl(cal_path, target_fpr=0.0)
+            full = prove_disjointness(cal_path, eval_path)
+            held_out = benchmark_with_calibration_jsonl(
+                eval_path, artifact, disjointness_proof=full
+            )
+            self.assertEqual(held_out["mode"], "held_out_evaluation")
+            from textforensics.benchmark import DisjointnessProof
+
+            sample_only = DisjointnessProof(
+                status="verified",
+                overlap_count=0,
+                group_overlap_count=-1,
+                training_count=full.training_count,
+                evaluation_count=full.evaluation_count,
+                training_hash=full.training_hash,
+                evaluation_hash=full.evaluation_hash,
+                errors=(),
+            )
+            with self.assertRaises(ValueError, msg="sample-only proof must not be held out"):
+                benchmark_with_calibration_jsonl(eval_path, artifact, disjointness_proof=sample_only)
+            diagnostic = benchmark_with_calibration_jsonl(
+                eval_path, artifact, disjointness_proof=sample_only, diagnostic=True
+            )
+            self.assertEqual(diagnostic["mode"], "diagnostic")
+
+
 if __name__ == "__main__":
     unittest.main()

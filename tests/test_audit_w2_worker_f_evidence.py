@@ -27,6 +27,7 @@ from w2_f_kill_helpers import (
     probe_ev_worst_fpr,
 )
 
+
 EXPECTED_PROBE_EV_ASSESS_COVERAGE = [
     (
         ("active", "base"),
@@ -3058,15 +3059,7 @@ EXPECTED_PROBE_EV_CHECK_ELIGIBILITY = [
     ),
     (
         ("overlap-1",),
-        (
-            "ok",
-            False,
-            [
-                "disjointness overlap_count is 1, not 0",
-                "artifact integrity is unverified (no verification supplied)",
-            ],
-            [],
-        ),
+        ("raise", "EvidenceError", "A verified DisjointnessProof must have zero sample overlap."),
     ),
     (
         ("id-distinct",),
@@ -3506,7 +3499,7 @@ EXPECTED_PROBE_EV_IDENTITY_PROOF = [
         "proof-fromdict-class",
         (
             "ok",
-            "DisjointnessProof(status='verified', overlap_count=0, training_count=10, evaluation_count=10, training_hash='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', evaluation_hash='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')",
+            "DisjointnessProof(status='verified', overlap_count=0, training_count=10, evaluation_count=10, training_hash='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', evaluation_hash='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', group_overlap_count=0, errors=())",
         ),
     ),
     ("ident-fromdict-nonmap", ("raise", "EvidenceError", "inference identity must be an object.")),
@@ -3541,20 +3534,36 @@ EXPECTED_PROBE_EV_IDENTITY_PROOF = [
         (
             "raise",
             "EvidenceError",
-            "disjointness status must be 'verified', 'unknown' or 'contaminated'.",
+            "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'.",
         ),
     ),
-    ("proof-neg-overlap", ("raise", "EvidenceError", "disjointness.overlap_count must be >= 0.")),
-    ("proof-neg-training", ("raise", "EvidenceError", "disjointness.training_count must be >= 0.")),
+    (
+        "proof-neg-overlap",
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=-1, training_count=0, evaluation_count=0, training_hash=None, evaluation_hash=None, group_overlap_count=0, errors=())",
+        ),
+    ),
+    (
+        "proof-neg-training",
+        (
+            "raise",
+            "EvidenceError",
+            "DisjointnessProof training_count must be a non-negative integer.",
+        ),
+    ),
     (
         "proof-empty-hash",
-        ("raise", "EvidenceError", "disjointness.training_hash must be a non-empty string."),
+        (
+            "ok",
+            "DisjointnessProof(status='unknown', overlap_count=0, training_count=0, evaluation_count=0, training_hash='', evaluation_hash=None, group_overlap_count=0, errors=())",
+        ),
     ),
     (
         "proof-hash-set",
         (
             "ok",
-            "DisjointnessProof(status='unknown', overlap_count=0, training_count=0, evaluation_count=0, training_hash='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', evaluation_hash=None)",
+            "DisjointnessProof(status='unknown', overlap_count=0, training_count=0, evaluation_count=0, training_hash='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', evaluation_hash=None, group_overlap_count=0, errors=())",
         ),
     ),
 ]

@@ -21,6 +21,7 @@ from typing import Any
 
 from .detectors import BuiltinHeuristicDetector
 from .engine import analyze_text
+from .evidence import DisjointnessProof
 
 CALIBRATION_SCHEMA = "textforensics.calibration/v1"
 
@@ -252,7 +253,11 @@ def benchmark_with_calibration_jsonl(
     The run is labelled ``held_out_evaluation`` only when the caller
     supplies a :class:`DisjointnessProof` with status ``"verified"``
     for exactly this evaluation file (and for the calibration file's
-    hash).  Without a proof the result is ``diagnostic`` with
+    hash), with group overlap evaluated and zero. A verified
+    sample-only proof (``group_overlap_count == -1``: group
+    disjointness never evaluated) never yields a held-out label — it
+    raises unless ``diagnostic=True``, like an unknown proof. Without
+    a proof the result is ``diagnostic`` with
     ``disjointness_status`` ``"unknown"``; a contaminated or unknown
     proof raises unless ``diagnostic=True``, in which case the result
     is diagnostic and records the actual overlap.  ``allow_same_dataset``
@@ -295,9 +300,23 @@ def benchmark_with_calibration_jsonl(
         status = "unknown"
         overlap = -1
     elif disjointness_proof.status == "verified":
-        mode = "held_out_evaluation"
-        status = "verified"
-        overlap = 0
+        if disjointness_proof.group_overlap_count == -1:
+            # Sample-only proof: group disjointness was never evaluated,
+            # so "verified" covers samples only and cannot authorise a
+            # held-out label (W2 defect fix, 2026-11-12).
+            if not diagnostic:
+                raise ValueError(
+                    "Disjointness group overlap was not evaluated "
+                    "(sample-only proof). Refusing to treat sample-only "
+                    "datasets as held out."
+                )
+            mode = "diagnostic"
+            status = "verified"
+            overlap = 0
+        else:
+            mode = "held_out_evaluation"
+            status = "verified"
+            overlap = 0
     elif disjointness_proof.status == "contaminated":
         if not diagnostic:
             raise ValueError(
@@ -353,98 +372,15 @@ def load_calibration_artifact(path: str | Path) -> dict[str, Any]:
 # used by the contamination gates.
 
 
-@dataclass(frozen=True, slots=True)
-class DisjointnessProof:
-    """Sample/group-level proof that two datasets are disjoint.
-
-    Produced by :func:`prove_disjointness` and consumed by the
-    evaluation entry points in ``calibration.py`` (and by the CORE-01
-    eligibility predicate in ``evidence.py`` as its contamination
-    state).  ``status`` is the only field that may authorize a
-    ``held_out`` label:
-
-    * ``"verified"`` — both files were read completely and share no
-      sample hash and no source-document group hash (``group_overlap_count``
-      is ``-1`` only for sample-only proofs, e.g. the proof attached by
-      ``check_disjointness``, which never evaluated groups).
-    * ``"contaminated"`` — at least one sample or group overlaps.
-    * ``"unknown"`` — disjointness could not be established (a file
-      could not be read/parsed, or a side is empty).  Unknown is never
-      held out and fails release-quality evaluation.
-
-    ``overlap_count`` / ``group_overlap_count`` are ``-1`` when the
-    corresponding overlap is unknown.  ``training_hash`` /
-    ``evaluation_hash`` are the SHA-256 digests of the exact files the
-    proof was computed over, so a proof cannot be silently reused for
-    different files.
-    """
-
-    status: str
-    overlap_count: int
-    training_count: int
-    evaluation_count: int
-    training_hash: str
-    evaluation_hash: str
-    group_overlap_count: int = 0
-    errors: tuple[str, ...] = ()
-
-    def __post_init__(self) -> None:
-        if self.status not in {"verified", "unknown", "contaminated"}:
-            raise ValueError(
-                "DisjointnessProof status must be 'verified', 'unknown' or 'contaminated'."
-            )
-        for field_name in ("overlap_count", "group_overlap_count"):
-            value = getattr(self, field_name)
-            if isinstance(value, bool) or not isinstance(value, int) or value < -1:
-                raise ValueError(f"DisjointnessProof {field_name} must be an integer >= -1.")
-        for field_name in ("training_count", "evaluation_count"):
-            value = getattr(self, field_name)
-            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-                raise ValueError(f"DisjointnessProof {field_name} must be a non-negative integer.")
-        if self.status == "verified" and self.overlap_count != 0:
-            raise ValueError("A verified DisjointnessProof must have zero sample overlap.")
-        if self.status == "verified" and self.group_overlap_count not in (0, -1):
-            raise ValueError(
-                "A verified DisjointnessProof must have zero group overlap "
-                "or unevaluated group overlap (-1, sample-only proof)."
-            )
-        if (
-            self.status == "contaminated"
-            and self.overlap_count == 0
-            and self.group_overlap_count == 0
-        ):
-            raise ValueError("A contaminated DisjointnessProof must record overlap.")
-        object.__setattr__(self, "errors", tuple(str(item) for item in self.errors))
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "schema": "textforensics.disjointness-proof/v1",
-            "status": self.status,
-            "overlap_count": self.overlap_count,
-            "group_overlap_count": self.group_overlap_count,
-            "training_count": self.training_count,
-            "evaluation_count": self.evaluation_count,
-            "training_hash": self.training_hash,
-            "evaluation_hash": self.evaluation_hash,
-            "errors": list(self.errors),
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> DisjointnessProof:
-        if not isinstance(data, dict):
-            raise ValueError("Disjointness proof must be a JSON object.")
-        return cls(
-            status=str(data["status"]),
-            overlap_count=int(data["overlap_count"]),
-            training_count=int(data["training_count"]),
-            evaluation_count=int(data["evaluation_count"]),
-            training_hash=str(data["training_hash"]),
-            evaluation_hash=str(data["evaluation_hash"]),
-            group_overlap_count=int(data.get("group_overlap_count", 0)),
-            errors=tuple(data.get("errors", [])),
-        )
-
-
+# The canonical DisjointnessProof lives in evidence.py (the import-base
+# module); this module imports it, it does not define a second one (W2
+# defect fix, 2026-11-12: the pre-fix duplicate defined here carried
+# group_overlap_count + errors while evidence.py's 6-field one did not,
+# so the eligibility predicate could not see group overlap). The
+# __post_init__ validation moved with the class, unchanged in substance:
+# "verified" still allows group_overlap_count in (0, -1) — a sample-only
+# proof is a legitimate object — but no consumer may treat it as full
+# verification for a held-out label.
 _GROUP_ID_FIELDS = ("source_document_id", "document_id", "source_id", "group_id")
 
 

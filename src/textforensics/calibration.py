@@ -58,13 +58,13 @@ from types import MappingProxyType
 from typing import Any
 
 from .benchmark import (
-    DisjointnessProof,
     _compute_sample_hashes,
     _load_scores,
     _metrics,
     dataset_sha256,
     prove_disjointness,
 )
+from .evidence import DisjointnessProof, InferenceIdentity
 
 __all__ = [
     "CALIBRATION_SCHEMA",
@@ -261,70 +261,56 @@ def _deep_thaw(value: Any) -> Any:
 # ---------------------------------------------------------------------------
 # Inference identity
 # ---------------------------------------------------------------------------
+# The canonical InferenceIdentity lives in evidence.py (the import-base
+# module); this module imports it, it does not define a second one (W2
+# defect fix, 2026-11-12: the pre-fix duplicate required all 8 fields
+# and SHA-256-validated config_hash in its constructor, while evidence's
+# allowed 6 optional fields as None = unbound).
+#
+# Reconciliation: the canonical type keeps evidence's optional-field
+# shape (the eligibility predicate must represent "unbound"), and the
+# strictness lives at the application point — here. A partially-bound
+# identity never matches an artifact (see
+# CalibrationArtifact.matches_identity) and can never select one for
+# emitting a validated probability (see
+# CalibrationManager.get_for_identity, which requires a fully-bound
+# identity via _require_fully_bound_identity below). A bound
+# config_hash that is not a SHA-256 digest is refused at that same
+# point. Storing an artifact (CalibrationManager.store) deliberately
+# does NOT require a fully-bound identity: a fit-only artifact may
+# record a partial identity and is then ineligible for probability
+# emission via _identity_issues instead.
 
 
-@dataclass(frozen=True, slots=True)
-class InferenceIdentity:
-    """The exact identity a calibration artifact must match to be applied.
+def _require_fully_bound_identity(identity: InferenceIdentity) -> None:
+    """Raise unless ``identity`` binds every field exactly.
 
-    All eight fields are required and compared exactly.  An artifact
-    whose recorded identity differs in any field — detector version,
-    provider, model, configuration hash, native-score semantics,
-    calibration id or regime — must not emit a validated probability
-    for this identity, and latest-by-time selection never crosses
-    identity epochs.  ``config_hash`` is the SHA-256 of the canonical
-    detector configuration; ``native_score_semantics`` names the input
-    domain and direction the curve was fitted for, e.g.
-    ``"probability_higher_means_ai"`` or ``"logit_lower_means_ai"``.
+    A fully-bound identity has all eight fields set, with
+    ``config_hash`` a 64-char lowercase SHA-256 hex string. This is the
+    gate for selecting a calibration artifact to emit a validated
+    probability: an unbound field means the caller has not said what
+    ran, so no artifact may be bound to it.
     """
-
-    detector_id: str
-    detector_version: str
-    provider: str
-    model: str
-    config_hash: str
-    native_score_semantics: str
-    calibration_id: str
-    regime: str
-
-    def __post_init__(self) -> None:
-        _nonempty_string(self.detector_id, "detector_id")
-        _nonempty_string(self.detector_version, "detector_version")
-        _nonempty_string(self.provider, "provider")
-        _nonempty_string(self.model, "model")
-        _sha256_hex(self.config_hash, "config_hash")
-        _nonempty_string(self.native_score_semantics, "native_score_semantics")
-        _nonempty_string(self.calibration_id, "calibration_id")
-        _nonempty_string(self.regime, "regime")
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "detector_id": self.detector_id,
-            "detector_version": self.detector_version,
-            "provider": self.provider,
-            "model": self.model,
-            "config_hash": self.config_hash,
-            "native_score_semantics": self.native_score_semantics,
-            "calibration_id": self.calibration_id,
-            "regime": self.regime,
-        }
-
-    @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> InferenceIdentity:
-        if not isinstance(data, Mapping):
-            raise CalibrationError("Inference identity must be a mapping.")
-        return cls(
-            detector_id=_nonempty_string(data.get("detector_id"), "detector_id"),
-            detector_version=_nonempty_string(data.get("detector_version"), "detector_version"),
-            provider=_nonempty_string(data.get("provider"), "provider"),
-            model=_nonempty_string(data.get("model"), "model"),
-            config_hash=_sha256_hex(data.get("config_hash"), "config_hash"),
-            native_score_semantics=_nonempty_string(
-                data.get("native_score_semantics"), "native_score_semantics"
-            ),
-            calibration_id=_nonempty_string(data.get("calibration_id"), "calibration_id"),
-            regime=_nonempty_string(data.get("regime"), "regime"),
+    missing = [
+        name
+        for name in (
+            "provider",
+            "model",
+            "config_hash",
+            "native_score_semantics",
+            "calibration_id",
+            "regime",
         )
+        if getattr(identity, name) is None
+    ]
+    if missing:
+        raise CalibrationError(
+            "InferenceIdentity is not fully bound: missing "
+            + ", ".join(missing)
+            + "; a fully-bound identity is required to select a "
+            "calibration artifact for a validated probability."
+        )
+    _sha256_hex(identity.config_hash, "config_hash")
 
 
 # ---------------------------------------------------------------------------
@@ -904,9 +890,18 @@ class CalibrationArtifact:
         )
 
     def matches_identity(self, identity: InferenceIdentity) -> bool:
-        """True only when the artifact matches the identity exactly."""
+        """True only when the artifact matches the identity exactly.
+
+        A partially-bound identity never matches: the artifact records
+        an exact identity, and an unbound field is not a wildcard (W2
+        defect fix — the strictness the pre-fix calibration
+        InferenceIdentity carried in its constructor now lives here,
+        at the application point).
+        """
         if not isinstance(identity, InferenceIdentity):
             raise CalibrationError("identity must be an InferenceIdentity.")
+        if not identity.is_fully_bound:
+            return False
         return self.inference_identity() == identity
 
     # -- eligibility -----------------------------------------------------
@@ -1310,9 +1305,14 @@ class CalibrationManager:
         Only artifacts whose recorded identity equals ``identity`` in
         every field are candidates, so latest-by-time never crosses
         identity epochs.  Returns ``None`` when no artifact matches.
+        ``identity`` must be fully bound (all eight fields set, with a
+        SHA-256 ``config_hash``); a partially-bound identity raises
+        instead of silently matching nothing — selecting an artifact
+        for a validated probability requires saying exactly what ran.
         """
         if not isinstance(identity, InferenceIdentity):
             raise CalibrationError("identity must be an InferenceIdentity.")
+        _require_fully_bound_identity(identity)
         artifacts = [item for item in self._artifacts.values() if item.matches_identity(identity)]
         if not artifacts:
             return None
@@ -1695,7 +1695,9 @@ class EvaluationResult:
     evaluation_mode: str = "held_out"
     contamination_detected: bool = False
     # Disjointness proof state (CORE-06).  ``evaluation_mode`` is
-    # ``"held_out"`` only when ``disjointness_status`` is ``"verified"``.
+    # ``"held_out"`` only when ``disjointness_status`` is ``"verified"``
+    # for a full (sample+group) proof; a verified sample-only proof
+    # never yields ``"held_out"``.
     # ``overlap_count`` is -1 when the overlap is unknown.
     disjointness_status: str = "unknown"
     overlap_count: int = -1
@@ -1839,12 +1841,16 @@ def evaluate_threshold(
 
     The result is labelled ``held_out`` only when the caller supplies a
     :class:`DisjointnessProof` with status ``"verified"`` for exactly
-    this evaluation file.  Without a proof the result is ``diagnostic``
-    with ``disjointness_status`` ``"unknown"``.  A contaminated or
-    unknown proof raises :class:`ValueError` unless ``diagnostic=True``,
-    in which case the result is diagnostic and records the actual
-    overlap (or ``"unknown"`` status).  ``allow_same_dataset=True`` is
-    likewise a diagnostic override and never yields a held-out label.
+    this evaluation file, with group overlap evaluated and zero. A
+    verified sample-only proof (``group_overlap_count == -1``: group
+    disjointness never evaluated) never yields ``held_out`` — it raises
+    unless ``diagnostic=True``, like an unknown proof. Without a proof
+    the result is ``diagnostic`` with ``disjointness_status``
+    ``"unknown"``.  A contaminated or unknown proof raises
+    :class:`ValueError` unless ``diagnostic=True``, in which case the
+    result is diagnostic and records the actual overlap (or ``"unknown"``
+    status).  ``allow_same_dataset=True`` is likewise a diagnostic
+    override and never yields a held-out label.
 
     Args:
         test_path: Path to test/evaluation JSONL dataset
@@ -1909,10 +1915,25 @@ def evaluate_threshold(
         overlap_count = -1
         contamination_detected = False
     elif disjointness_proof.status == "verified":
-        evaluation_mode = "held_out"
-        disjointness_status = "verified"
-        overlap_count = 0
-        contamination_detected = False
+        if disjointness_proof.group_overlap_count == -1:
+            # Sample-only proof: group disjointness was never evaluated,
+            # so "verified" covers samples only and cannot authorise a
+            # held-out label (W2 defect fix, 2026-11-12).
+            if not diagnostic:
+                raise ValueError(
+                    "Disjointness group overlap was not evaluated "
+                    "(sample-only proof). Refusing to treat sample-only "
+                    "datasets as held out."
+                )
+            evaluation_mode = "diagnostic"
+            disjointness_status = "verified"
+            overlap_count = 0
+            contamination_detected = False
+        else:
+            evaluation_mode = "held_out"
+            disjointness_status = "verified"
+            overlap_count = 0
+            contamination_detected = False
     elif disjointness_proof.status == "contaminated":
         if not diagnostic:
             raise ValueError(

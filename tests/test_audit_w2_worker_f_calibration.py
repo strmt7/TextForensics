@@ -28,6 +28,7 @@ from w2_f_kill_helpers import (
     probe_cal_validate_no_contamination,
 )
 
+
 EXPECTED_PROBE_CAL_CALIBRATE = [
     (("platt", "probability", "higher_means_ai", 0.0), ("ok", "0.5")),
     (("platt", "probability", "higher_means_ai", 0.25), ("ok", "0.5621765008857981")),
@@ -373,11 +374,11 @@ EXPECTED_PROBE_CAL_CALIBRATE = [
 EXPECTED_PROBE_CAL_EVALUATE_THRESHOLD = [
     (
         ("verified", -1, False),
-        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+        ("raise", "EvidenceError", "A verified DisjointnessProof must have zero sample overlap."),
     ),
     (
         ("verified", -1, True),
-        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+        ("raise", "EvidenceError", "A verified DisjointnessProof must have zero sample overlap."),
     ),
     (
         ("verified", 0, False),
@@ -395,19 +396,19 @@ EXPECTED_PROBE_CAL_EVALUATE_THRESHOLD = [
     ),
     (
         ("verified", 1, False),
-        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+        ("raise", "EvidenceError", "A verified DisjointnessProof must have zero sample overlap."),
     ),
     (
         ("verified", 1, True),
-        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+        ("raise", "EvidenceError", "A verified DisjointnessProof must have zero sample overlap."),
     ),
     (
         ("verified", 2, False),
-        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+        ("raise", "EvidenceError", "A verified DisjointnessProof must have zero sample overlap."),
     ),
     (
         ("verified", 2, True),
-        ("raise", "ValueError", "A verified DisjointnessProof must have zero sample overlap."),
+        ("raise", "EvidenceError", "A verified DisjointnessProof must have zero sample overlap."),
     ),
     (
         ("unknown", -1, False),
@@ -486,11 +487,11 @@ EXPECTED_PROBE_CAL_EVALUATE_THRESHOLD = [
     ),
     (
         ("contaminated", 0, False),
-        ("raise", "ValueError", "A contaminated DisjointnessProof must record overlap."),
+        ("raise", "EvidenceError", "A contaminated DisjointnessProof must record overlap."),
     ),
     (
         ("contaminated", 0, True),
-        ("raise", "ValueError", "A contaminated DisjointnessProof must record overlap."),
+        ("raise", "EvidenceError", "A contaminated DisjointnessProof must record overlap."),
     ),
     (
         ("contaminated", 1, False),
@@ -687,10 +688,7 @@ EXPECTED_PROBE_CAL_IDENTITY = [
             "InferenceIdentity(detector_id='det1', detector_version='1.0', provider='local', model='m', config_hash='0000000000000000000000000000000000000000000000000000000000000005', native_score_semantics='probability_higher_means_ai', calibration_id='cal1', regime='unedited')",
         ),
     ),
-    (
-        "from-dict-nonmapping",
-        ("raise", "CalibrationError", "Inference identity must be a mapping."),
-    ),
+    ("from-dict-nonmapping", ("raise", "EvidenceError", "inference identity must be an object.")),
     ("frozen-assign", ("raise", "FrozenInstanceError", "cannot assign to field 'provider'")),
     ("slots-no-dict", ("ok", "False")),
     ("evalresult-default", ("ok", "-1")),
@@ -2646,7 +2644,7 @@ EXPECTED_PROBE_CAL_VALIDATE_NO_CONTAMINATION = [
     ),
     (
         ("bad-utf8-identical",),
-        ("raise", "ValueError", "A contaminated DisjointnessProof must record overlap."),
+        ("raise", "EvidenceError", "A contaminated DisjointnessProof must record overlap."),
     ),
     (
         ("partial-overlap-bad-json",),
