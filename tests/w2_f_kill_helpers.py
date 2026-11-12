@@ -430,9 +430,12 @@ def probe_sa_recompute():
     import importlib.util
     from pathlib import Path
 
+    # Repo-relative: the W2-F worktree path this used to hardcode was
+    # deleted after W2 merged, so the absolute path can never resolve.
+    # The standalone verifier under test is the repo's own copy.
     spec = importlib.util.spec_from_file_location(
         "standalone_verify",
-        Path("/home/hatch/workspace/TextForensics-w2-f/src/textforensics/_standalone_verify.py"),
+        Path(__file__).parent.parent / "src" / "textforensics" / "_standalone_verify.py",
     )
     sa = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(sa)

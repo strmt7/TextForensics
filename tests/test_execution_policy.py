@@ -248,6 +248,7 @@ class TestRedactingErrorContract:
         assert "Traceback" not in str(body)
 
     def test_error_status_for_exception(self):
+        pytest.importorskip("fastapi")
         from fastapi import HTTPException
 
         assert error_status_for_exception(HTTPException(status_code=413)) == 413
