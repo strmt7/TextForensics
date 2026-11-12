@@ -2294,7 +2294,7 @@
       },
       {
         "name": "pyprojectSha256",
-        "value": "d02a30111ecebfb6393b6cd83a53b368e35b1fc98ec98fb7691d55e71313d79a"
+        "value": "fdd37c4492ff23e6b23e2795772c18628f16907362cd03a0b62151cb148aefe8"
       },
       {
         "name": "requirementsPinnedSha256",
@@ -2313,7 +2313,7 @@
       }
     ]
   },
-  "serialNumber": "urn:uuid:592461c2-08ab-564d-92ee-2c4c5d72a2e7",
+  "serialNumber": "urn:uuid:255814c0-010e-5732-952c-f73559536124",
   "specVersion": "1.6",
   "version": 1
 }
