@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import tempfile
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,7 @@ from textforensics.ledger import (
     AuditLog,
     AuditLogEntry,
     AuditLogError,
+    _compute_entry_hash,
     verify_audit_log,
 )
 
@@ -275,6 +277,172 @@ class TestAuditLog:
             entry = log.append("init", input_data=None, output_data=None)
             assert entry.input_hash is None
             assert entry.output_hash is None
+
+
+class TestVerifyAuditLogGenesisC07:
+    """C07: the public wrapper must not discard a detected missing genesis
+    or a non-contiguous index.
+
+    The class-level ``verify_chain()`` already detects a non-genesis first
+    entry (its predecessor loop starts from the zero genesis hash), but
+    ``verify_audit_log`` collected that failure and returned valid anyway.
+    These tests compare the class decision with the wrapper decision for
+    every mutation: they must agree, and both must reject.
+    """
+
+    @staticmethod
+    def _two_record_log(log_path: Path) -> AuditLog:
+        log = AuditLog(log_path)
+        log.append("scan", input_data={"text": "test1"})
+        log.append("report", input_data={"text": "test2"})
+        return log
+
+    @staticmethod
+    def _rewrite_line(log_path: Path, line_no: int, mutate) -> None:
+        lines = log_path.read_text(encoding="utf-8").splitlines()
+        data = json.loads(lines[line_no])
+        mutate(data)
+        # Recompute the entry hash over the mutated content so that only
+        # the targeted structural property (genesis / index) is under
+        # test, not a stale entry hash. ``prev_hash`` is excluded from
+        # the entry hash, so mutating it needs no recomputation.
+        data["entry_hash"] = _compute_entry_hash(data)
+        lines[line_no] = json.dumps(data, separators=(",", ":"), sort_keys=True)
+        log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    def test_prefix_deletion_load_rejects_non_genesis(self, tmp_path: Path):
+        """Deleting the first line leaves a first entry that is not genesis."""
+        log_path = tmp_path / "audit.log"
+        self._two_record_log(log_path)
+        lines = log_path.read_text(encoding="utf-8").splitlines(keepends=True)
+        log_path.write_text("".join(lines[1:]), encoding="utf-8")
+
+        with pytest.raises(AuditLogError, match="genesis"):
+            AuditLog(log_path)
+
+    def test_prefix_deletion_wrapper_reports_invalid(self, tmp_path: Path):
+        """The wrapper must report the prefix-deleted log invalid, with errors."""
+        log_path = tmp_path / "audit.log"
+        self._two_record_log(log_path)
+        lines = log_path.read_text(encoding="utf-8").splitlines(keepends=True)
+        log_path.write_text("".join(lines[1:]), encoding="utf-8")
+
+        result = verify_audit_log(log_path)
+        assert result["valid"] is False
+        assert result["entry_count"] == 0
+        assert result["errors"]
+        assert any("genesis" in error.lower() for error in result["errors"])
+
+    def test_replaced_first_predecessor_rejected(self, tmp_path: Path):
+        """First entry whose prev_hash is not the zero genesis hash rejects."""
+        log_path = tmp_path / "audit.log"
+        self._two_record_log(log_path)
+        self._rewrite_line(log_path, 0, lambda data: data.update(prev_hash="f" * 64))
+
+        with pytest.raises(AuditLogError, match="genesis"):
+            AuditLog(log_path)
+
+        result = verify_audit_log(log_path)
+        assert result["valid"] is False
+        assert result["errors"]
+        assert any("genesis" in error.lower() for error in result["errors"])
+
+    def test_altered_starting_index_single_entry_rejected(self, tmp_path: Path):
+        """A single-entry log whose first index is not 0 rejects."""
+        log_path = tmp_path / "audit.log"
+        log = AuditLog(log_path)
+        log.append("scan", input_data={"text": "test1"})
+        self._rewrite_line(log_path, 0, lambda data: data.update(index=1))
+
+        with pytest.raises(AuditLogError, match="index"):
+            AuditLog(log_path)
+
+        result = verify_audit_log(log_path)
+        assert result["valid"] is False
+        assert result["errors"]
+        assert any("index" in error.lower() for error in result["errors"])
+
+    def test_index_gap_in_second_entry_rejected(self, tmp_path: Path):
+        """Indices must be contiguous: 0, 1 -- a second entry numbered 5 rejects."""
+        log_path = tmp_path / "audit.log"
+        self._two_record_log(log_path)
+        self._rewrite_line(log_path, 1, lambda data: data.update(index=5))
+
+        with pytest.raises(AuditLogError, match="index"):
+            AuditLog(log_path)
+
+        result = verify_audit_log(log_path)
+        assert result["valid"] is False
+        assert result["errors"]
+        assert any("index" in error.lower() for error in result["errors"])
+
+    def test_verify_chain_detects_genesis_and_index_gap_in_memory(self, tmp_path: Path):
+        """verify_chain itself must fail on a non-genesis predecessor and on
+        a non-contiguous index, not only on broken links / bad entry hashes.
+        The index mutation recomputes the entry hash, so only the index
+        -- not a stale hash -- is under test."""
+        log_path = tmp_path / "audit.log"
+        log = self._two_record_log(log_path)
+        assert log.verify_chain() is True
+
+        mutated = replace(log._entries[0], prev_hash="f" * 64)
+        log._entries[0] = mutated
+        assert log.verify_chain() is False
+
+        log2 = self._two_record_log(tmp_path / "audit2.log")
+        assert log2.verify_chain() is True
+        renumbered = replace(log2._entries[1], index=7)
+        renumbered = replace(renumbered, entry_hash=_compute_entry_hash(renumbered.to_dict()))
+        log2._entries[1] = renumbered
+        assert log2.verify_chain() is False
+
+    def test_missing_file_is_invalid_not_empty(self, tmp_path: Path):
+        """Missing-file vs intentionally empty-log semantics: verifying a
+        log file that does not exist is invalid (fail closed); an existing
+        empty file is a valid empty log. Creating a new log from a missing
+        path still works -- that is the AuditLog constructor's job, not
+        the verifier's."""
+        missing = tmp_path / "no-such-audit.log"
+
+        result = verify_audit_log(missing)
+        assert result["valid"] is False
+        assert result["entry_count"] == 0
+        assert result["first_entry_hash"] is None
+        assert result["last_entry_hash"] is None
+        assert result["errors"]
+        assert any("not exist" in error or "missing" in error.lower() for error in result["errors"])
+
+        # Construction semantics are unchanged: a missing path is a new log.
+        assert len(AuditLog(missing)) == 0
+
+    def test_empty_file_is_valid_empty_log(self, tmp_path: Path):
+        """An existing but empty log file is a valid empty log."""
+        log_path = tmp_path / "audit.log"
+        log_path.touch()
+
+        result = verify_audit_log(log_path)
+        assert result["valid"] is True
+        assert result["entry_count"] == 0
+        assert result["first_entry_hash"] is None
+        assert result["last_entry_hash"] is None
+        assert result["errors"] == []
+
+    def test_intact_multirecord_control(self, tmp_path: Path):
+        """Intact control: class and wrapper agree the log is valid."""
+        log_path = tmp_path / "audit.log"
+        log = AuditLog(log_path)
+        log.append("scan", input_data={"text": "test1"})
+        log.append("report", input_data={"text": "test2"})
+        log.append("verify", input_data={"text": "test3"})
+
+        assert log.verify_chain() is True
+
+        result = verify_audit_log(log_path)
+        assert result["valid"] is True
+        assert result["entry_count"] == 3
+        assert result["first_entry_hash"] == log._entries[0].entry_hash
+        assert result["last_entry_hash"] == log._entries[-1].entry_hash
+        assert result["errors"] == []
 
 
 class TestAuditLogError:

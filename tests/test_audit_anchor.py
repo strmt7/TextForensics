@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -193,6 +194,133 @@ class TestHashDirectory:
 
 
 # ---------------------------------------------------------------------------
+# C09 RED corpus (W4 acceptance) -- DO NOT "fix" by editing these tests.
+# ---------------------------------------------------------------------------
+
+
+class TestHashDirectoryFramingC09Red:
+    """C09 (W3 side: RED tests only -- NOT closed in W3).
+
+    The tree preimage is concatenated ``relative_path || NUL ||
+    raw_content || LF`` records with no length framing and no per-file
+    hashes, so raw file content can contain the next record's
+    delimiter/path bytes. This is a framing defect, NOT a collision in
+    SHA-256, and it does NOT provide a second preimage for an arbitrary
+    pre-existing honest directory: the attacker must control crafted
+    artifact content/layout.
+
+    These tests FAIL on the current code for that reason. They are the
+    W4 acceptance corpus: W4 turns them green with the versioned framing
+    (canonical manifest or length-prefixed records) + the migration
+    decision (changing the algorithm invalidates existing anchors -- a
+    parent/integrator decision, not W3's). The green controls below pin
+    the behavior W4 must preserve (portable separators, empty/missing
+    distinction, deterministic ordering).
+    """
+
+    def test_two_trees_with_same_preimage_have_different_digests(self, tmp_path: Path):
+        """The audit's two-tree construction: Tree A holds one file whose
+        content embeds the next record's delimiter/path bytes; Tree B
+        holds two files. Both serialize to the exact specified preimage
+        ``b"a.bin\\x00x\\nb.bin\\x00y\\n"`` today -- they must not share
+        a digest once framing is fixed."""
+        tree_a = tmp_path / "a"
+        tree_b = tmp_path / "b"
+        tree_a.mkdir()
+        tree_b.mkdir()
+        (tree_a / "a.bin").write_bytes(b"x\nb.bin\x00y")
+        (tree_b / "a.bin").write_bytes(b"x")
+        (tree_b / "b.bin").write_bytes(b"y")
+
+        expected_preimage = b"a.bin\x00x\nb.bin\x00y\n"
+        expected_digest = hashlib.sha256(expected_preimage).hexdigest()
+        # Mechanism pin (true today, documents WHY the digests collide):
+        # both trees currently hash exactly the specified preimage.
+        assert _hash_directory(tree_a) == expected_digest
+        assert _hash_directory(tree_b) == expected_digest
+        # The requirement: different file maps/counts, different digests.
+        assert _hash_directory(tree_a) != _hash_directory(tree_b)
+
+    def test_nested_path_collision_has_different_digests(self, tmp_path: Path):
+        """Same framing hole through a nested path: a one-file tree
+        ``a/b.bin`` whose content embeds ``c.bin`` must not collide with
+        the two-file tree ``a/b.bin`` + ``c.bin``."""
+        tree_a = tmp_path / "a"
+        tree_b = tmp_path / "b"
+        (tree_a / "a").mkdir(parents=True)
+        (tree_b / "a").mkdir(parents=True)
+        (tree_a / "a" / "b.bin").write_bytes(b"x\nc.bin\x00y")
+        (tree_b / "a" / "b.bin").write_bytes(b"x")
+        (tree_b / "c.bin").write_bytes(b"y")
+
+        expected_preimage = b"a/b.bin\x00x\nc.bin\x00y\n"
+        expected_digest = hashlib.sha256(expected_preimage).hexdigest()
+        assert _hash_directory(tree_a) == expected_digest
+        assert _hash_directory(tree_b) == expected_digest
+        assert _hash_directory(tree_a) != _hash_directory(tree_b)
+
+    def test_binary_contents_with_delimiters_have_different_digests(self, tmp_path: Path):
+        """Binary contents (NUL / LF / non-UTF-8 bytes) must not smuggle
+        record boundaries either."""
+        tree_a = tmp_path / "a"
+        tree_b = tmp_path / "b"
+        tree_a.mkdir()
+        tree_b.mkdir()
+        (tree_a / "a.bin").write_bytes(b"x\nb.bin\x00y\xff\x00")
+        (tree_b / "a.bin").write_bytes(b"x")
+        (tree_b / "b.bin").write_bytes(b"y\xff\x00")
+
+        expected_preimage = b"a.bin\x00x\nb.bin\x00y\xff\x00\n"
+        expected_digest = hashlib.sha256(expected_preimage).hexdigest()
+        assert _hash_directory(tree_a) == expected_digest
+        assert _hash_directory(tree_b) == expected_digest
+        assert _hash_directory(tree_a) != _hash_directory(tree_b)
+
+    def test_nested_paths_use_portable_separators(self, tmp_path: Path):
+        """CONTROL (green now, must stay green after W4): a nested tree's
+        digest is built from forward-slash relative paths, so the same
+        tree hashes identically on POSIX and Windows."""
+        tree = tmp_path / "tree"
+        (tree / "a").mkdir(parents=True)
+        (tree / "a" / "b.bin").write_bytes(b"x")
+        (tree / "c.bin").write_bytes(b"y")
+        expected = hashlib.sha256(b"a/b.bin\x00x\nc.bin\x00y\n").hexdigest()
+        assert _hash_directory(tree) == expected
+
+    def test_empty_file_missing_file_and_empty_directory_are_distinct(self, tmp_path: Path):
+        """CONTROL (green now, must stay green after W4): a directory
+        holding one empty file, an empty directory, and a missing
+        directory all hash differently -- emptiness is never confused
+        with absence, at either level."""
+        with_empty_file = tmp_path / "with-empty-file"
+        with_empty_file.mkdir()
+        (with_empty_file / "a.bin").write_bytes(b"")
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        digests = {
+            _hash_directory(with_empty_file),
+            _hash_directory(empty),
+            _hash_directory(tmp_path / "does-not-exist"),
+        }
+        assert len(digests) == 3
+        assert _hash_directory(empty) == hashlib.sha256(b"").hexdigest()
+        assert _hash_directory(tmp_path / "does-not-exist") == ""
+
+    def test_deterministic_ordering(self, tmp_path: Path):
+        """CONTROL (green now, must stay green after W4): the digest
+        depends on the sorted file set, not on creation order."""
+        first = tmp_path / "first"
+        second = tmp_path / "second"
+        first.mkdir()
+        second.mkdir()
+        for name in ("a.json", "b.json", "c.json"):
+            _make_file(first / name, '{"v": 1}')
+        for name in ("c.json", "a.json", "b.json"):
+            _make_file(second / name, '{"v": 1}')
+        assert _hash_directory(first) == _hash_directory(second)
+
+
+# ---------------------------------------------------------------------------
 # verify_audit_anchor
 # ---------------------------------------------------------------------------
 
@@ -278,6 +406,147 @@ class TestVerifyAuditAnchor:
         chain.append("c" * 64)
         status = verify_audit_anchor(anchor, current_chain=chain, base_dir=workspace)
         assert status == "no_changes"
+
+
+# ---------------------------------------------------------------------------
+# C08 RED corpus (W4 acceptance) -- DO NOT "fix" by editing these tests.
+# ---------------------------------------------------------------------------
+
+
+class TestVerifyAuditAnchorC08Red:
+    """C08 (W3 side: RED tests only -- NOT closed in W3).
+
+    An unchanged calibration chain must never authorize changed artifact
+    roots. Today ``verify_audit_anchor`` accepts any hash mismatch when
+    ``current_chain.extends_anchor`` is true, and that predicate checks
+    only list-prefix equality: it does not bind the chain to either
+    current directory root, it does not bind detector versions at all,
+    and a calibration-only list authorizes benchmark changes.
+
+    These tests FAIL on the current code for that reason. They are the
+    W4 acceptance corpus: W4 turns them green with the versioned
+    state-transition redesign (binding calibration root + benchmark root
+    + detector-version state; validating loaded chain entries and state
+    lineage, not just hash syntax/prefix).
+
+    NOTE: the pre-existing ``test_chain_valid_when_chain_extends`` above
+    asserts the defective acceptance (an arbitrary appended digest
+    authorizes a calibration change). W4 must update that test when the
+    redesign lands; it directly contradicts
+    ``test_arbitrary_appended_digest_does_not_authorize_change`` here.
+    """
+
+    @staticmethod
+    def _anchored_workspace(workspace: Path) -> AuditAnchor:
+        chain = CalibrationChain()
+        chain.append("c" * 64)
+        return export_audit_anchor(
+            base_dir=workspace,
+            detector_versions={},
+            calibration_chain=chain.hashes,
+        )
+
+    @staticmethod
+    def _copied_chain() -> CalibrationChain:
+        chain = CalibrationChain()
+        chain.append("c" * 64)
+        return chain
+
+    def test_benchmark_change_with_unchanged_chain_rejected(self, workspace: Path):
+        """Changed benchmark file + the exact anchor chain must reject:
+        a calibration-only list cannot authorize benchmark tampering."""
+        anchor = self._anchored_workspace(workspace)
+        _make_file(workspace / "benchmarks" / "run1.json", '{"auroc": 0.5}')
+        with pytest.raises(RollbackError, match="Benchmark results rolled back"):
+            verify_audit_anchor(anchor, current_chain=self._copied_chain(), base_dir=workspace)
+
+    def test_calibration_rollback_with_copied_chain_rejected(self, workspace: Path):
+        """Changed calibration file + a verbatim copy of the anchor chain
+        (an equal, non-extended chain) must reject."""
+        anchor = self._anchored_workspace(workspace)
+        _make_file(workspace / "calibrations" / "det-a.json", '{"threshold": 0.1}')
+        with pytest.raises(RollbackError, match="Calibration artifacts rolled back"):
+            verify_audit_anchor(anchor, current_chain=self._copied_chain(), base_dir=workspace)
+
+    def test_arbitrary_appended_digest_does_not_authorize_change(self, workspace: Path):
+        """An arbitrary appended digest -- a well-formed hash bound to no
+        artifact -- must not authorize a calibration change."""
+        anchor = self._anchored_workspace(workspace)
+        _make_file(workspace / "calibrations" / "det-a.json", '{"threshold": 0.7}')
+        current_chain = CalibrationChain()
+        current_chain.append("c" * 64)
+        current_chain.append("f" * 64)
+        with pytest.raises(RollbackError, match="Calibration artifacts rolled back"):
+            verify_audit_anchor(anchor, current_chain=current_chain, base_dir=workspace)
+
+    def test_changed_detector_versions_rejected(self, workspace: Path, monkeypatch):
+        """A changed detector version must reject even when both directory
+        roots are unchanged: the anchor binds detector-version state too.
+
+        The current state is expressed through the same auto-detection
+        ``export_audit_anchor`` uses (patched here to report a new
+        version); the premise export proves the patched detection is
+        really observed. W4 may wire the current versions through a new
+        explicit parameter instead -- if so, adapt this call when the
+        redesign lands; the requirement (version change rejects) stands.
+        """
+        anchor = export_audit_anchor(
+            base_dir=workspace,
+            detector_versions={"textforensics/builtin-heuristic": "0.1.0"},
+            calibration_chain=["c" * 64],
+        )
+        monkeypatch.setattr(
+            "textforensics.detectors.list_detector_metadata",
+            lambda: [
+                {
+                    "detector_id": "textforensics/builtin-heuristic",
+                    "detector_version": "9.9.9",
+                }
+            ],
+        )
+        current = export_audit_anchor(base_dir=workspace)
+        assert current.detector_versions == {"textforensics/builtin-heuristic": "9.9.9"}
+        with pytest.raises(RollbackError):
+            verify_audit_anchor(anchor, base_dir=workspace)
+
+    def test_missing_calibration_root_with_copied_chain_rejected(self, workspace: Path):
+        """Deleting the whole calibrations directory + presenting the
+        unchanged chain must reject: a missing root is not an extension."""
+        anchor = self._anchored_workspace(workspace)
+        shutil.rmtree(workspace / "calibrations")
+        with pytest.raises(RollbackError, match="Calibration artifacts rolled back"):
+            verify_audit_anchor(anchor, current_chain=self._copied_chain(), base_dir=workspace)
+
+    def test_empty_root_anchor_does_not_authorize_new_artifacts(self, tmp_path: Path):
+        """An anchor exported from missing roots (both hashes empty, empty
+        chain) must not authorize artifacts appearing from nowhere just
+        because a non-empty chain is presented."""
+        base = tmp_path / "empty-base"
+        base.mkdir()
+        anchor = export_audit_anchor(base_dir=base, detector_versions={})
+        assert anchor.calibration_artifacts_sha256 == ""
+        assert anchor.benchmark_results_sha256 == ""
+        assert anchor.calibration_chain == []
+
+        (base / "calibrations").mkdir()
+        _make_file(base / "calibrations" / "det-a.json", '{"threshold": 0.5}')
+        current_chain = CalibrationChain()
+        current_chain.append("c" * 64)
+        with pytest.raises(RollbackError):
+            verify_audit_anchor(anchor, current_chain=current_chain, base_dir=base)
+
+    def test_legitimate_transition_still_valid(self, workspace: Path):
+        """CONTROL (green now, must stay green after W4): a real
+        transition -- calibration content changes AND the new chain entry
+        is the hash of the new calibration root -- still verifies. This
+        pins what W4 must accept while it rejects the cases above."""
+        anchor = self._anchored_workspace(workspace)
+        _make_file(workspace / "calibrations" / "det-a.json", '{"threshold": 0.7}')
+        current_chain = CalibrationChain()
+        current_chain.append("c" * 64)
+        current_chain.append(_hash_directory(workspace / "calibrations"))
+        status = verify_audit_anchor(anchor, current_chain=current_chain, base_dir=workspace)
+        assert status == "chain_valid"
 
 
 # ---------------------------------------------------------------------------

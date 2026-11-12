@@ -352,7 +352,15 @@ class AuditLog:
         self._load()
 
     def _load(self) -> None:
-        """Load existing log entries from disk."""
+        """Load existing log entries from disk.
+
+        Load-time validation is fail-closed: besides the link and entry
+        hashes, the first entry must be a genesis entry (index 0 with
+        the all-zero predecessor) and indices must be contiguous from 0.
+        A log that lost its prefix therefore fails here -- its first
+        surviving entry is not genesis -- instead of loading as a
+        shorter, apparently valid log.
+        """
         if not self.log_path.exists():
             return
 
@@ -364,6 +372,19 @@ class AuditLog:
                 try:
                     data = json.loads(line)
                     entry = AuditLogEntry.from_dict(data)
+                    # Genesis: the first entry must start the chain.
+                    if not self._entries and entry.prev_hash != "0" * 64:
+                        raise AuditLogError(
+                            "First entry is not a genesis entry: "
+                            "prev_hash must be all zeros "
+                            f"(line {line_num})"
+                        )
+                    # Contiguous indices from 0: no gaps, no renumbering.
+                    if entry.index != len(self._entries):
+                        raise AuditLogError(
+                            f"Non-contiguous index at entry {entry.index}: "
+                            f"expected {len(self._entries)} (line {line_num})"
+                        )
                     # Verify chain integrity on load
                     if self._entries and entry.prev_hash != self._entries[-1].entry_hash:
                         raise AuditLogError(
@@ -478,6 +499,10 @@ class AuditLog:
     def verify_chain(self) -> bool:
         """Verify the integrity of the entire hash chain.
 
+        Checks the genesis predecessor (first entry's ``prev_hash`` must
+        be all zeros), contiguous indices from 0, every link, and every
+        entry hash.
+
         Returns:
             True if the chain is intact, False otherwise.
         """
@@ -485,7 +510,9 @@ class AuditLog:
             return True
 
         prev_hash = "0" * 64
-        for entry in self._entries:
+        for expected_index, entry in enumerate(self._entries):
+            if entry.index != expected_index:
+                return False
             if entry.prev_hash != prev_hash:
                 return False
             if entry.entry_hash != _compute_entry_hash(entry.to_dict()):
@@ -503,6 +530,21 @@ class AuditLog:
 def verify_audit_log(log_path: str | Path) -> dict[str, Any]:
     """Verify an audit log file and return verification results.
 
+    Semantics (C07):
+    - A missing log file is INVALID (fail closed): there is no log to
+      verify. This is distinct from an intentionally empty log -- an
+      existing but empty file verifies as a valid empty log.
+    - A detected chain failure is preserved: ``valid`` is False and
+      ``errors`` carries the failure instead of being discarded.
+    - Genesis (first entry's predecessor must be all zeros) and
+      contiguous indices from 0 are validated on load; a log that lost
+      its prefix therefore reports invalid, not a shorter valid log.
+
+    This does NOT detect full-log replacement or suffix deletion: with
+    no external trusted head, a wholly replaced log (or a log truncated
+    from the tail) still verifies as internally consistent. Detecting
+    those requires comparing against an externally stored head hash.
+
     Args:
         log_path: Path to the audit log file.
 
@@ -515,10 +557,17 @@ def verify_audit_log(log_path: str | Path) -> dict[str, Any]:
         - errors: list of error messages
     """
     errors: list[str] = []
+    path = Path(log_path)
+    if not path.exists():
+        return {
+            "valid": False,
+            "entry_count": 0,
+            "first_entry_hash": None,
+            "last_entry_hash": None,
+            "errors": [f"Audit log file does not exist: {path}"],
+        }
     try:
-        log = AuditLog(log_path)
-        if not log.verify_chain():
-            errors.append("Hash chain verification failed")
+        log = AuditLog(path)
     except AuditLogError as exc:
         errors.append(str(exc))
         return {
@@ -529,21 +578,24 @@ def verify_audit_log(log_path: str | Path) -> dict[str, Any]:
             "errors": errors,
         }
 
+    if not log.verify_chain():
+        errors.append("Hash chain verification failed")
+
     if not log._entries:
         return {
-            "valid": True,
+            "valid": not errors,
             "entry_count": 0,
             "first_entry_hash": None,
             "last_entry_hash": None,
-            "errors": [],
+            "errors": errors,
         }
 
     return {
-        "valid": True,
+        "valid": not errors,
         "entry_count": len(log._entries),
         "first_entry_hash": log._entries[0].entry_hash,
         "last_entry_hash": log._entries[-1].entry_hash,
-        "errors": [],
+        "errors": errors,
     }
 
 
