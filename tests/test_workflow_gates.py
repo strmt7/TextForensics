@@ -224,3 +224,146 @@ def test_fuzz_direct_step_does_not_swallow_exit_code():
     for line in text.splitlines():
         if "run_fuzz.py" in line:
             assert "|| true" not in line, line
+
+
+# ---------------------------------------------------------------------------
+# CI Core collection gate: the dev extra must cover the core suite's
+# module-level imports (pydantic incident, 2026-11-12)
+# ---------------------------------------------------------------------------
+
+
+def _normalized_distribution_name(name: str) -> str:
+    """PEP 503 normalization for distribution-name comparison."""
+    import re
+
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def _dev_install_closure() -> set[str]:
+    """Distribution names installable via ``pip install -e ".[dev]"``.
+
+    The declared dev packages plus their transitive requirements,
+    resolved from installed package metadata with environment markers
+    evaluated (extras excluded: ``pip install -e ".[dev]"`` installs no
+    dependency extras). This is the set of distributions CI Core has
+    available when it collects the suite.
+    """
+    import tomllib
+    from importlib.metadata import distribution
+
+    from packaging.requirements import Requirement
+
+    project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    declared = {
+        _normalized_distribution_name(Requirement(spec).name)
+        for spec in project.get("dependencies", [])
+    }
+    declared |= {
+        _normalized_distribution_name(Requirement(spec).name)
+        for spec in project["project"]["optional-dependencies"]["dev"]
+    }
+    closure: set[str] = set()
+    stack = sorted(declared)
+    while stack:
+        name = stack.pop()
+        if name in closure:
+            continue
+        try:
+            metadata = distribution(name)
+        except Exception as exc:
+            raise AssertionError(
+                f"dev package {name!r} is not installed; the dev-install "
+                "closure cannot be verified in this environment"
+            ) from exc
+        closure.add(name)
+        for raw in metadata.requires or []:
+            req = Requirement(raw)
+            if req.marker is not None and not req.marker.evaluate():
+                continue
+            stack.append(_normalized_distribution_name(req.name))
+    return closure
+
+
+def _module_level_test_imports() -> dict[str, set[str]]:
+    """Top-level module -> test files importing it at module level.
+
+    Only direct children of a test module's body count: pytest executes
+    those imports unconditionally at collection time. Imports inside
+    functions, classes, or ``try/except ImportError`` blocks (the
+    optional-extra pattern, e.g. atheris/fastapi) are excluded — they do
+    not break collection when the extra is absent.
+    """
+    import ast
+    import sys
+
+    tests_dir = REPO_ROOT / "tests"
+    in_repo = {p.stem for p in tests_dir.glob("*.py")}
+    in_repo |= {
+        p.name for p in tests_dir.iterdir() if p.is_dir() and not p.name.startswith(".")
+    }
+    in_repo |= {"tests", "textforensics"}
+    found: dict[str, set[str]] = {}
+    for path in sorted(tests_dir.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in tree.body:
+            if isinstance(node, ast.Import):
+                names = [alias.name.split(".")[0] for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                names = [node.module.split(".")[0]]
+            else:
+                continue
+            for name in names:
+                if name in sys.stdlib_module_names or name in in_repo:
+                    continue
+                found.setdefault(name, set()).add(str(path.relative_to(REPO_ROOT)))
+    return found
+
+
+def test_dev_extra_covers_core_suite_module_level_imports():
+    """Every module-level import in tests/ must be in the .[dev] closure.
+
+    Incident (CI run 43286386301, main a907101): CI Core installs only
+    ``pip install -e ".[dev]"`` and collects ``pytest tests``. Collection
+    aborted with ``ModuleNotFoundError: No module named 'pydantic'`` at
+    tests/test_execution_policy.py:20 because pydantic was imported at
+    module level but declared in no dev dependency (it only reached the
+    local venv transitively via the mcp extra). The same six jobs failed
+    on the W1 head f1d8c83. A module-level import is executed
+    unconditionally at collection time, so its distribution must be
+    installable via .[dev] — either declared directly or a transitive
+    requirement of a declared dev package.
+    """
+    from importlib.metadata import packages_distributions
+
+    module_to_dist = packages_distributions()
+    closure = _dev_install_closure()
+    missing: dict[str, set[str]] = {}
+    for module, files in sorted(_module_level_test_imports().items()):
+        dists = module_to_dist.get(module) or [module]
+        for dist in dists:
+            normalized = _normalized_distribution_name(dist)
+            if normalized not in closure:
+                missing.setdefault(normalized, set()).update(files)
+    assert not missing, (
+        "module-level test imports not installable via pip install -e "
+        f"'.[dev]': {sorted(missing)} "
+        f"(files: { {k: sorted(v) for k, v in missing.items()} })"
+    )
+
+
+def test_pydantic_is_declared_in_dev_extra():
+    """pydantic must be declared in the dev extra (see test above)."""
+    import tomllib
+
+    from packaging.requirements import Requirement
+
+    project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    dev = {
+        _normalized_distribution_name(Requirement(spec).name)
+        for spec in project["project"]["optional-dependencies"]["dev"]
+    }
+    assert "pydantic" in dev, (
+        "pydantic is imported at module level by tests/test_execution_policy.py "
+        "but is not declared in the dev extra; CI Core (pip install -e "
+        "'.[dev]') fails collection with ModuleNotFoundError"
+    )
