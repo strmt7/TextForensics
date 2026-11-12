@@ -1677,6 +1677,23 @@ class TestCalibrationMutationKillTests:
             assert result["evaluation_result"]["evaluated"] == 8
             assert result["calibration_result"]["observed_false_positive_rate"] <= 0.01
 
+    def test_run_calibration_evaluation_disjoint_pipeline_is_held_out(self):
+        # Mutant ReplaceFalseWithTrue:34 (W2-era :24, renumbered by the
+        # W2 defect fix) flips `allow_same_dataset=False` in
+        # run_calibration_evaluation to True: evaluate_threshold then
+        # labels the result "diagnostic" instead of "held_out" even
+        # though the disjointness proof is verified. W2 broke the
+        # recorded equivalence: evaluate_threshold consults
+        # allow_same_dataset for evaluation_mode, not just for the
+        # same-dataset raise (audit-w2-f-diffprobe.py).
+        with tempfile.TemporaryDirectory() as tmp:
+            cal_path = Path(tmp) / "calibration.jsonl"
+            eval_path = Path(tmp) / "evaluation.jsonl"
+            _write_scored_rows(cal_path, "observation", "sample")
+            _write_scored_rows(eval_path, "eval", "check")
+            result = run_calibration_evaluation(cal_path, eval_path, target_fpr=0.01)
+            assert result["evaluation_result"]["evaluation_mode"] == "held_out"
+
     # -- validation_issues except handlers ([131], [132]) -----------------
 
     def test_validation_issues_bad_manifest_hash_reported(self):

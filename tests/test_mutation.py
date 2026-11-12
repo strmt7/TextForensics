@@ -131,7 +131,7 @@ class CosmicRayIntegrationTests(unittest.TestCase):
         self.assertEqual(
             scoped,
             "python -m pytest tests/test_trust.py tests/test_w1_worker_d.py "
-            "tests/test_audit_w2_worker_a.py -x -q",
+            "tests/test_audit_w2_worker_a.py tests/test_audit_w2_worker_f_trust.py -x -q",
         )
         # Policy tests live in test_enterprise_policy.py, not test_policy.py;
         # the override map scopes them instead of falling back to the full
@@ -141,7 +141,8 @@ class CosmicRayIntegrationTests(unittest.TestCase):
         self.assertEqual(
             policy,
             "python -m pytest tests/test_enterprise_policy.py "
-            "tests/test_execution_policy.py tests/test_audit_w2_worker_a.py -x -q",
+            "tests/test_execution_policy.py tests/test_audit_w2_worker_a.py "
+            "tests/test_audit_w2_worker_f_policy.py -x -q",
         )
         # W2 worker test files are part of the per-mutant command for the
         # modules they cover (audit-w2-f §10 follow-up).
@@ -149,22 +150,106 @@ class CosmicRayIntegrationTests(unittest.TestCase):
         self.assertEqual(
             casefile,
             "python -m pytest tests/test_casefile.py tests/test_w1_worker_d.py "
-            "tests/test_casefile_v3.py -x -q",
+            "tests/test_casefile_v3.py tests/test_audit_w2_worker_f_casefile.py -x -q",
         )
         probe_runs = self.runner.test_command_for(["textforensics.probe_runs"], self.project_root)
         self.assertEqual(
             probe_runs,
-            "python -m pytest tests/test_probe_runs.py tests/test_w2_worker_d.py -x -q",
+            "python -m pytest tests/test_probe_runs.py tests/test_w2_worker_d.py "
+            "tests/test_audit_w2_worker_f_probe_runs.py -x -q",
         )
         verify = self.runner.test_command_for(["textforensics.verify"], self.project_root)
         self.assertEqual(
             verify,
-            "python -m pytest tests/test_verify.py tests/test_casefile_v3.py -x -q",
+            "python -m pytest tests/test_verify.py tests/test_casefile_v3.py "
+            "tests/test_audit_w2_worker_f_verify.py -x -q",
         )
         adversarial = self.runner.test_command_for(["textforensics.adversarial"], self.project_root)
         self.assertEqual(
             adversarial,
-            "python -m pytest tests/test_adversarial.py tests/test_w2_worker_e_if12.py -x -q",
+            "python -m pytest tests/test_adversarial.py tests/test_w2_worker_e_if12.py "
+            "tests/test_audit_w2_worker_f_adversarial.py -x -q",
+        )
+        # The W2 kill-test files are part of the per-mutant command for
+        # every module they cover (audit-w2 decision (c.1)); modules
+        # without a prior map entry get one (dedicated file + kill tests).
+        calibration = self.runner.test_command_for(["textforensics.calibration"], self.project_root)
+        self.assertEqual(
+            calibration,
+            "python -m pytest tests/test_calibration.py "
+            "tests/test_audit_w2_worker_f_calibration.py -x -q",
+        )
+        benchmark = self.runner.test_command_for(["textforensics.benchmark"], self.project_root)
+        self.assertEqual(
+            benchmark,
+            "python -m pytest tests/test_benchmark.py "
+            "tests/test_audit_w2_worker_f_benchmark.py -x -q",
+        )
+        validation = self.runner.test_command_for(["textforensics.validation"], self.project_root)
+        self.assertEqual(
+            validation,
+            "python -m pytest tests/test_validation.py "
+            "tests/test_audit_w2_worker_f_validation.py -x -q",
+        )
+        report = self.runner.test_command_for(["textforensics.report"], self.project_root)
+        self.assertEqual(
+            report,
+            "python -m pytest tests/test_report.py tests/test_audit_w2_worker_f_report.py -x -q",
+        )
+        mixed_origin = self.runner.test_command_for(
+            ["textforensics.mixed_origin"], self.project_root
+        )
+        self.assertEqual(
+            mixed_origin,
+            "python -m pytest tests/test_mixed_origin.py "
+            "tests/test_audit_w2_worker_f_mixed_origin.py -x -q",
+        )
+        schema = self.runner.test_command_for(["textforensics.schema"], self.project_root)
+        self.assertEqual(
+            schema,
+            "python -m pytest tests/test_schema.py tests/test_audit_w2_worker_f_schema.py -x -q",
+        )
+        standalone_verify = self.runner.test_command_for(
+            ["textforensics._standalone_verify"], self.project_root
+        )
+        self.assertEqual(
+            standalone_verify,
+            "python -m pytest tests/test_standalone_verify.py "
+            "tests/test_audit_w2_worker_f__standalone_verify.py -x -q",
+        )
+        probe_metrics = self.runner.test_command_for(
+            ["textforensics.probe_metrics"], self.project_root
+        )
+        self.assertEqual(
+            probe_metrics,
+            "python -m pytest tests/test_probe_metrics.py tests/test_w2_worker_d.py "
+            "tests/test_audit_w2_worker_f_probe_metrics.py -x -q",
+        )
+        model_card = self.runner.test_command_for(["textforensics.model_card"], self.project_root)
+        self.assertEqual(
+            model_card,
+            "python -m pytest tests/test_model_card.py tests/test_w2_worker_d.py "
+            "tests/test_audit_w2_worker_f_model_card.py -x -q",
+        )
+        result_codec = self.runner.test_command_for(
+            ["textforensics.result_codec"], self.project_root
+        )
+        self.assertEqual(
+            result_codec,
+            "python -m pytest tests/test_result_codec.py tests/test_w2_worker_d.py "
+            "tests/test_audit_w2_worker_f_result_codec.py -x -q",
+        )
+        semantic = self.runner.test_command_for(["textforensics.semantic"], self.project_root)
+        self.assertEqual(
+            semantic,
+            "python -m pytest tests/test_semantic.py tests/test_w2_worker_e_if12.py "
+            "tests/test_audit_w2_worker_f_semantic.py -x -q",
+        )
+        explain = self.runner.test_command_for(["textforensics.explain"], self.project_root)
+        self.assertEqual(
+            explain,
+            "python -m pytest tests/test_explain.py tests/test_w2_worker_e_if19.py "
+            "tests/test_audit_w2_worker_f_explain.py -x -q",
         )
         # Observatory is deliberately NOT in _MODULE_TEST_FILES: eight
         # test files import it, so a bare override would narrow coverage;

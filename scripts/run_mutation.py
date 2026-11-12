@@ -635,14 +635,70 @@ def test_command_for(modules: list[str], project_root: Path) -> str:
 # of these modules is only killable by the tests that cover its new
 # behaviour, so the per-mutant command must include those files — the
 # dedicated file alone would report live kills as unexplained survivors.
+# The W2 kill-test files (tests/test_audit_w2_worker_f_<stem>.py) are
+# likewise listed for their modules (audit-w2 decision (c.1)): a
+# diff-mode run that scoped to the mapped files without them would
+# report the W2 mutants they kill as unexplained survivors.
+# Two modules have NO entry on purpose and still fall back to the full
+# suite, which collects their kill-test files anyway: evidence and
+# observatory. Evidence has no dedicated test file (its proof-driver
+# command was test_audit_w2_worker_a.py + test_evidence_manifest.py +
+# test_seed_evidence.py); observatory is imported by eight test files,
+# so a bare override would narrow coverage (see test_test_command_scoping).
 _MODULE_TEST_FILES: dict[str, list[str]] = {
+    # W2 kill tests live in test_audit_w2_worker_f_calibration.py
+    # alongside the dedicated file.
+    "textforensics.calibration": [
+        "tests/test_calibration.py",
+        "tests/test_audit_w2_worker_f_calibration.py",
+    ],
+    # W2 kill tests live in test_audit_w2_worker_f_benchmark.py
+    # alongside the dedicated file.
+    "textforensics.benchmark": [
+        "tests/test_benchmark.py",
+        "tests/test_audit_w2_worker_f_benchmark.py",
+    ],
+    # W2 kill tests live in test_audit_w2_worker_f_validation.py
+    # alongside the dedicated file.
+    "textforensics.validation": [
+        "tests/test_validation.py",
+        "tests/test_audit_w2_worker_f_validation.py",
+    ],
+    # W2 kill tests live in test_audit_w2_worker_f_report.py
+    # alongside the dedicated file.
+    "textforensics.report": [
+        "tests/test_report.py",
+        "tests/test_audit_w2_worker_f_report.py",
+    ],
+    # W2 kill tests live in test_audit_w2_worker_f_mixed_origin.py
+    # alongside the dedicated file.
+    "textforensics.mixed_origin": [
+        "tests/test_mixed_origin.py",
+        "tests/test_audit_w2_worker_f_mixed_origin.py",
+    ],
+    # W2 kill tests live in test_audit_w2_worker_f_schema.py
+    # alongside the dedicated file.
+    "textforensics.schema": [
+        "tests/test_schema.py",
+        "tests/test_audit_w2_worker_f_schema.py",
+    ],
+    # The dedicated file is tests/test_standalone_verify.py (no
+    # test__standalone_verify.py: the stem has a leading underscore),
+    # plus the W2 kill tests in
+    # tests/test_audit_w2_worker_f__standalone_verify.py.
+    "textforensics._standalone_verify": [
+        "tests/test_standalone_verify.py",
+        "tests/test_audit_w2_worker_f__standalone_verify.py",
+    ],
     # Policy tests live in test_enterprise_policy.py, not test_policy.py;
     # the capability-expiry tests live in test_execution_policy.py; the
-    # W2 Worker A trust/policy tests live in test_audit_w2_worker_a.py.
+    # W2 Worker A trust/policy tests live in test_audit_w2_worker_a.py;
+    # the W2 kill tests live in test_audit_w2_worker_f_policy.py.
     "textforensics.policy": [
         "tests/test_enterprise_policy.py",
         "tests/test_execution_policy.py",
         "tests/test_audit_w2_worker_a.py",
+        "tests/test_audit_w2_worker_f_policy.py",
     ],
     # Execution-policy tests are split across test_execution_policy.py
     # (contract) and test_w1_consent_stop.py (consent/stop behaviour).
@@ -657,20 +713,24 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
         "tests/test_w1_consent_stop.py",
     ],
     # CORE-07 trust-gate tests live in test_w1_worker_d.py; the W2
-    # Worker A trust tests live in test_audit_w2_worker_a.py.
+    # Worker A trust tests live in test_audit_w2_worker_a.py; the W2
+    # kill tests live in test_audit_w2_worker_f_trust.py.
     "textforensics.trust": [
         "tests/test_trust.py",
         "tests/test_w1_worker_d.py",
         "tests/test_audit_w2_worker_a.py",
+        "tests/test_audit_w2_worker_f_trust.py",
     ],
     # C03/C06/C12 + replay tests live in test_w1_worker_d.py; the v3
-    # case-file tests live in test_casefile_v3.py. (test_audit_w2_worker_a
+    # case-file tests live in test_casefile_v3.py; the W2 kill tests
+    # live in test_audit_w2_worker_f_casefile.py. (test_audit_w2_worker_a
     # is NOT listed: it contains zero casefile references — Worker A
     # tested trust/policy, not casefile.)
     "textforensics.casefile": [
         "tests/test_casefile.py",
         "tests/test_w1_worker_d.py",
         "tests/test_casefile_v3.py",
+        "tests/test_audit_w2_worker_f_casefile.py",
     ],
     # W2 Worker D tests (probe_runs / probe_metrics / model_card /
     # result_codec) live in test_w2_worker_d.py alongside the dedicated
@@ -682,37 +742,47 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
     "textforensics.probe_runs": [
         "tests/test_probe_runs.py",
         "tests/test_w2_worker_d.py",
+        "tests/test_audit_w2_worker_f_probe_runs.py",
     ],
     "textforensics.probe_metrics": [
         "tests/test_probe_metrics.py",
         "tests/test_w2_worker_d.py",
+        "tests/test_audit_w2_worker_f_probe_metrics.py",
     ],
     "textforensics.model_card": [
         "tests/test_model_card.py",
         "tests/test_w2_worker_d.py",
+        "tests/test_audit_w2_worker_f_model_card.py",
     ],
     "textforensics.result_codec": [
         "tests/test_result_codec.py",
         "tests/test_w2_worker_d.py",
+        "tests/test_audit_w2_worker_f_result_codec.py",
     ],
     # W2 Worker E tests: adversarial + semantic in test_w2_worker_e_if12.py
-    # (IF-12), explain in test_w2_worker_e_if19.py (IF-19).
+    # (IF-12), explain in test_w2_worker_e_if19.py (IF-19); the W2 kill
+    # tests live in the matching test_audit_w2_worker_f_<stem>.py files.
     "textforensics.adversarial": [
         "tests/test_adversarial.py",
         "tests/test_w2_worker_e_if12.py",
+        "tests/test_audit_w2_worker_f_adversarial.py",
     ],
     "textforensics.semantic": [
         "tests/test_semantic.py",
         "tests/test_w2_worker_e_if12.py",
+        "tests/test_audit_w2_worker_f_semantic.py",
     ],
     "textforensics.explain": [
         "tests/test_explain.py",
         "tests/test_w2_worker_e_if19.py",
+        "tests/test_audit_w2_worker_f_explain.py",
     ],
-    # The v3 case-file/verify tests live in test_casefile_v3.py.
+    # The v3 case-file/verify tests live in test_casefile_v3.py; the W2
+    # kill tests live in test_audit_w2_worker_f_verify.py.
     "textforensics.verify": [
         "tests/test_verify.py",
         "tests/test_casefile_v3.py",
+        "tests/test_audit_w2_worker_f_verify.py",
     ],
 }
 

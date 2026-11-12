@@ -908,6 +908,66 @@ class TrustMutationKillTests(unittest.TestCase):
         self.assertEqual(dim.state, "supported")
         self.assertEqual(tm.overall, "strong")
 
+    # -- Capability-ledger overall derivation (W2 follow-up kills) --------
+    # W2 broke the recorded equivalence for NumberReplacer:48/50/51 in
+    # the `unknown_count >= max(1, len(dimensions) // 2)` overall
+    # derivation: ineffective (expired / evidence-less VALIDATED) claims
+    # now map to "unknown", so unknown_count is no longer always 0
+    # (audit-w2-f-diffprobe.py). Each test below pins one boundary the
+    # corresponding mutant moves.
+
+    def test_ledger_single_ineffective_claim_is_insufficient(self):
+        # Mutant NumberReplacer:48 changes `max(1, ...)` to `max(2, ...)`:
+        # one unknown dimension out of one (1 >= 2 is false) reports
+        # "mixed" instead of "insufficient".
+        ledger = _ledger_with(_ledger_claim(valid_until="2020-01-01"))
+        tm = trust_map_from_capability_ledger(ledger)
+        dim = tm.dimension("language")
+        self.assertIsNotNone(dim)
+        self.assertEqual(dim.state, "unknown")
+        self.assertEqual(tm.overall, "insufficient")
+
+    def test_ledger_two_unknown_of_six_dimensions_is_mixed(self):
+        # Mutant NumberReplacer:50 changes `len(dimensions) // 2` to
+        # `// 3`: 2 >= max(1, 6 // 3) == 2 becomes true, so the map
+        # reports "insufficient" instead of "mixed".
+        capabilities = [
+            "language",
+            "length",
+            "domain",
+            "editing",
+            "generator",
+            "human_population",
+        ]
+        claims = [
+            _ledger_claim(
+                capability=capability,
+                valid_until="2020-01-01" if index < 2 else None,
+            )
+            for index, capability in enumerate(capabilities)
+        ]
+        tm = trust_map_from_capability_ledger(_ledger_with(*claims))
+        self.assertEqual(len(tm.dimensions), 6)
+        self.assertEqual(sum(dim.state == "unknown" for dim in tm.dimensions), 2)
+        self.assertEqual(tm.overall, "mixed")
+
+    def test_ledger_two_unknown_of_four_dimensions_is_insufficient(self):
+        # Mutant NumberReplacer:51 changes `len(dimensions) // 2` to
+        # `// 1`: 2 >= max(1, 4 // 1) == 4 is false, so the map reports
+        # "mixed" instead of "insufficient".
+        capabilities = ["language", "length", "domain", "editing"]
+        claims = [
+            _ledger_claim(
+                capability=capability,
+                valid_until="2020-01-01" if index < 2 else None,
+            )
+            for index, capability in enumerate(capabilities)
+        ]
+        tm = trust_map_from_capability_ledger(_ledger_with(*claims))
+        self.assertEqual(len(tm.dimensions), 4)
+        self.assertEqual(sum(dim.state == "unknown" for dim in tm.dimensions), 2)
+        self.assertEqual(tm.overall, "insufficient")
+
 
 # ---------------------------------------------------------------------------
 # W1 follow-up mutation kills (audit-w1-worker-f)
