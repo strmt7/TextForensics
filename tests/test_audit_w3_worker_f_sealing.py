@@ -22,7 +22,6 @@ CORRECTIONS to the F2 classify-notes (verified against the source):
 """
 
 import base64
-import copy
 import errno
 import json
 import tempfile
@@ -34,6 +33,7 @@ from textforensics.sealing import (
     CASE_SIGNING_CONTRACT_V1,
     CASE_SIGNING_CONTRACT_V2,
     _publish_no_clobber,
+    _require_signature_record,
     _restrict_to_owner_windows,
     build_signature_record,
     case_signing_payload,
@@ -43,7 +43,6 @@ from textforensics.sealing import (
     save_sealing_key,
     sign_case_body,
     verify_case_signature,
-    _require_signature_record,
 )
 
 SEED = bytes(range(32))
@@ -125,9 +124,7 @@ class TestSaveSealingKeyKill(unittest.TestCase):
             path = Path(tmp) / "k.key.json"
             save_sealing_key(path, key)
             raw = path.read_bytes()
-        expected = (
-            json.dumps(dict(key), indent=2, sort_keys=True).encode("utf-8") + b"\n"
-        )
+        expected = json.dumps(dict(key), indent=2, sort_keys=True).encode("utf-8") + b"\n"
         self.assertEqual(raw, expected)
 
 
@@ -155,14 +152,14 @@ class TestPublishNoClobberKill(unittest.TestCase):
             temp_path = Path(tmp) / "t.tmp"
             temp_path.write_bytes(b"x")
             destination = Path(tmp) / "d.key.json"
-            with mock.patch(
-                "textforensics.sealing.os.link",
-                side_effect=OSError(errno.EXDEV, "Invalid cross-device link"),
+            with (
+                mock.patch(
+                    "textforensics.sealing.os.link",
+                    side_effect=OSError(errno.EXDEV, "Invalid cross-device link"),
+                ),
+                self.assertRaisesRegex(OSError, "could not publish sealing key file"),
             ):
-                with self.assertRaisesRegex(
-                    OSError, "could not publish sealing key file"
-                ):
-                    _publish_no_clobber(temp_path, destination)
+                _publish_no_clobber(temp_path, destination)
 
 
 class TestBuildSignatureRecordKill(unittest.TestCase):
@@ -244,18 +241,14 @@ class TestRequireSignatureRecordKill(unittest.TestCase):
         # greater than the expected fingerprint: `!=` True (raise)
         # but `<` False (mutant proceeds).
         case = _case_with_record(key_fingerprint="f" * 64)
-        with self.assertRaisesRegex(
-            ValueError, "signer record key_fingerprint does not match"
-        ):
+        with self.assertRaisesRegex(ValueError, "signer record key_fingerprint does not match"):
             _require_signature_record(case, SEED)
 
     def test_min_fingerprint_kills_not_eq_gt(self):
         # [581,40] Gt: "0"*64 is the minimum hex string: `!=` True
         # but `>` False (mutant proceeds).
         case = _case_with_record(key_fingerprint="0" * 64)
-        with self.assertRaisesRegex(
-            ValueError, "signer record key_fingerprint does not match"
-        ):
+        with self.assertRaisesRegex(ValueError, "signer record key_fingerprint does not match"):
             _require_signature_record(case, SEED)
 
     def test_runtime_built_fingerprint_passes(self):
@@ -490,9 +483,7 @@ class TestVerifyCaseSignatureKill(unittest.TestCase):
         case["self"] = case
         result = verify_case_signature(case, public_key)
         self.assertIs(result["valid"], False)
-        self.assertTrue(
-            any("case body cannot be canonicalised" in e for e in result["errors"])
-        )
+        self.assertTrue(any("case body cannot be canonicalised" in e for e in result["errors"]))
 
     def test_set_value_body_is_canonicalisation_fail(self):
         # [717,24] ExceptionReplacer (TypeError): a set value makes
@@ -501,9 +492,7 @@ class TestVerifyCaseSignatureKill(unittest.TestCase):
         case["extra"] = {1, 2}
         result = verify_case_signature(case, public_key)
         self.assertIs(result["valid"], False)
-        self.assertTrue(
-            any("case body cannot be canonicalised" in e for e in result["errors"])
-        )
+        self.assertTrue(any("case body cannot be canonicalised" in e for e in result["errors"]))
 
     def test_tampered_payload_is_invalid(self):
         # [722,21] ReplaceFalseWithTrue ("valid": False in the

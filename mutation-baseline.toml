@@ -99,6 +99,23 @@
 # timeouts + 5 domain-equivalent + 4 unobservable-value), 0
 # unexplained. See hidden_files/audit-w3-worker-f.md sections
 # 5-6 and audit-w3-f3-equiv-reasons-verify.json.
+# F3 re-proof entries, sealed_bundle (audit-w3-f3, 2026-11-13): 149 entries
+# appended after the re-proof of the 211 sealed_bundle survivors: 62
+# killed by the 44 W3 kill tests in
+# tests/test_audit_w3_worker_f_sealed_bundle.py (re-proved mutant by
+# mutant with cosmic-ray mutate_code in the scratch worktree; the
+# full driver was killed by a VM restart at 47/90 and resumed by
+# audit-w3-f3-reprove-sealed_bundle-targeted.py: 32 killed / 18
+# survived / 6 gaps, all 6 gaps proven equivalent), 149 proven
+# equivalent with recorded reasons (121 postponed-evaluation
+# annotations + 18 domain-equivalent + 10 unobservable-value), 0
+# unexplained. Corrections: Eq_GtE [560,37] occ 1 is KILLABLE
+# (tampered seal record + warnings replay), not equivalent; the
+# [457,62]/[461,46]/[460,32] re-read guards are redundant with the
+# standalone verifier (verified empirically: duplicate/deflated
+# bundles give standalone exit 1 and seal_record unavailable).
+# See hidden_files/audit-w3-worker-f.md sections 5-6 and
+# audit-w3-f3-equiv-reasons-sealed_bundle.json.
 # POSITION REFRESH (2026-11-12, audit W3, head 85d14ce): W3 (watermark
 # payload binding, case sealing/signer binding/custody/privacy, offline
 # verification parity, ledger verification path) shifted lines in
@@ -58519,3 +58536,1825 @@ kind = "unobservable-value"
 source_text = "False"
 source_fingerprint = "ff607e7cd7da5406d569064772ffb17536de94fb6db8342cacb29e1f21eafadc"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "verify_case_file_combined RecursionError fallback at verify.py:461: the nversion \"trust_map_verified\": False in the fallback dict. Same pre-emption as [458,21]: the iterative _json_depth_exceeded check rejects circular and 100-deep payloads before any recursive work, so the fallback is never entered (verified empirically 2026-11-13)."
+
+# --- F3 re-proof entries, sealed_bundle (audit-w3-f3, 2026-11-13) ----
+# 149 entries: 121 postponed-evaluation annotations + 18
+# domain-equivalent + 10 unobservable-value. Each entry survived
+# the re-proof and carries a source-verified equivalence reason;
+# every other sealed_bundle survivor was killed by the W3 kill
+# tests (62 killed, 0 gaps after the 6 gap classifications).
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ExceptionReplacer:5"
+module = "textforensics.sealed_bundle"
+operator = "core/ExceptionReplacer"
+occurrence = 5
+start_pos = [478, 19]
+end_pos = [478, 36]
+function = "verify_sealed_bundle"
+kind = "unobservable-value"
+source_text = "SealedBundleError"
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle re-read at sealed_bundle.py:478: `except SealedBundleError`. SealedBundleError subclasses ValueError (verified: `class SealedBundleError(ValueError)`, MRO confirmed), so the preceding `except (BadZipFile, KeyError, OSError, ValueError, RecursionError)` tuple catches it first — the `except SealedBundleError` clause is DEAD CODE. (This shadowing is a genuine pre-existing code smell to flag in the report, not to fix in this wave.)"
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ExceptionReplacer:14"
+module = "textforensics.sealed_bundle"
+operator = "core/ExceptionReplacer"
+occurrence = 14
+start_pos = [547, 19]
+end_pos = [547, 36]
+function = "verify_sealed_bundle"
+kind = "unobservable-value"
+source_text = "SealedBundleError"
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle replay read at sealed_bundle.py:547: `except SealedBundleError`. Same shadowing as occ 5: SealedBundleError subclasses ValueError, so the preceding except tuple catches it first — DEAD CODE."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/NumberReplacer:46"
+module = "textforensics.sealed_bundle"
+operator = "core/NumberReplacer"
+occurrence = 46
+start_pos = [352, 45]
+end_pos = [352, 46]
+function = "_read_capped"
+kind = "domain-equivalent"
+source_text = "1"
+source_fingerprint = "534bf2d05ded6a33475c5295a6a1dde3c6f578ac2693c098cd3812ef2eb1ba79"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "_read_capped at sealed_bundle.py:352: `MAX_ENTRY_BYTES + 1` -> `+ 2`. The mutant reads one byte more, but the check is `len(data) > MAX_ENTRY_BYTES` — any entry the original rejects is also rejected by the mutant. The read bound is unobservable; only the check matters. (The 1->0 variant was killed by test_over_cap_entry_errors.)"
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/NumberReplacer:51"
+module = "textforensics.sealed_bundle"
+operator = "core/NumberReplacer"
+occurrence = 51
+start_pos = [459, 28]
+end_pos = [459, 29]
+function = "verify_sealed_bundle"
+kind = "unobservable-value"
+source_text = "0"
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle re-read total cap at sealed_bundle.py:459: `total = 0` -> `total = -1`. The mutant needs a bundle whose total exceeds MAX_TOTAL_BYTES to be observable, but the standalone verifier rejects over-total bundles before the cross-check runs; the over-total test was removed for that reason."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/NumberReplacer:55"
+module = "textforensics.sealed_bundle"
+operator = "core/NumberReplacer"
+occurrence = 55
+start_pos = [536, 38]
+end_pos = [536, 39]
+function = "verify_sealed_bundle"
+kind = "domain-equivalent"
+source_text = "0"
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle seal_failed replay branch at sealed_bundle.py:536: `report[\"exit_code\"] == 0` -> `== -1`. In this branch the exit code is the standalone exit code, which is 1 or 2 there (never 0 or -1), so both are always False. (The 0->1 variant was killed by the existing suite.)"
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/NumberReplacer:56"
+module = "textforensics.sealed_bundle"
+operator = "core/NumberReplacer"
+occurrence = 56
+start_pos = [537, 38]
+end_pos = [537, 39]
+function = "verify_sealed_bundle"
+kind = "unobservable-value"
+source_text = "2"
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle seal_failed replay branch at sealed_bundle.py:537: `report[\"exit_code\"] = 2` -> `= 3` (occ 56) / `= 1` (occ 57). This is a dead assignment: the exit code is overwritten by the replay branch that follows before any return, so the value is never observed."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/NumberReplacer:57"
+module = "textforensics.sealed_bundle"
+operator = "core/NumberReplacer"
+occurrence = 57
+start_pos = [537, 38]
+end_pos = [537, 39]
+function = "verify_sealed_bundle"
+kind = "unobservable-value"
+source_text = "2"
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle seal_failed replay branch at sealed_bundle.py:537: `report[\"exit_code\"] = 2` -> `= 1`. Dead assignment (same proof as occ 56): the exit code is overwritten by the replay branch that follows before any return, so the value is never observed."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/NumberReplacer:60"
+module = "textforensics.sealed_bundle"
+operator = "core/NumberReplacer"
+occurrence = 60
+start_pos = [549, 38]
+end_pos = [549, 39]
+function = "verify_sealed_bundle"
+kind = "unobservable-value"
+source_text = "1"
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle replay read handler at sealed_bundle.py:549: `report[\"exit_code\"] = 1` -> `= 0` (occ 60) / `= 2` (occ 61). The handler is in the dead `except SealedBundleError` clause (see ExceptionReplacer occ 14): SealedBundleError subclasses ValueError, so the preceding except tuple catches it first — the handler never runs."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/NumberReplacer:61"
+module = "textforensics.sealed_bundle"
+operator = "core/NumberReplacer"
+occurrence = 61
+start_pos = [549, 38]
+end_pos = [549, 39]
+function = "verify_sealed_bundle"
+kind = "unobservable-value"
+source_text = "1"
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle replay read handler at sealed_bundle.py:549: `report[\"exit_code\"] = 1` -> `= 2`. Dead handler (same proof as occ 60)."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceAndWithOr:2"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceAndWithOr"
+occurrence = 2
+start_pos = [480, 32]
+end_pos = [480, 35]
+function = "verify_sealed_bundle"
+kind = "domain-equivalent"
+source_text = "and"
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle seal-record comparison at sealed_bundle.py:480: `manifest is not None and seal_record is not None`. At this point manifest is not None implies seal_record is not None (the re-read that sets manifest runs only when seal_record is a dict), and seal_record None implies manifest None — the two are never exactly-one-None, so `and` coincides with `or`. (The \"manifest None + seal_record set\" case is unreachable: the standalone verifier's checks are a superset of the re-read's.)"
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_Add_BitOr:3"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_Add_BitOr"
+occurrence = 3
+start_pos = [352, 43]
+end_pos = [352, 44]
+function = "_read_capped"
+kind = "domain-equivalent"
+source_text = "+"
+source_fingerprint = "534bf2d05ded6a33475c5295a6a1dde3c6f578ac2693c098cd3812ef2eb1ba79"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "_read_capped at sealed_bundle.py:352: `MAX_ENTRY_BYTES + 1` where MAX_ENTRY_BYTES = 64 MiB = 67108864 (even). `MAX | 1` = 67108865 = MAX+1, identical to the original."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_Add_BitXor:3"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_Add_BitXor"
+occurrence = 3
+start_pos = [352, 43]
+end_pos = [352, 44]
+function = "_read_capped"
+kind = "domain-equivalent"
+source_text = "+"
+source_fingerprint = "534bf2d05ded6a33475c5295a6a1dde3c6f578ac2693c098cd3812ef2eb1ba79"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "_read_capped at sealed_bundle.py:352: `MAX_ENTRY_BYTES + 1` where MAX_ENTRY_BYTES = 67108864 (even). `MAX ^ 1` = 67108865 = MAX+1, identical to the original."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_Add_LShift:3"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_Add_LShift"
+occurrence = 3
+start_pos = [352, 43]
+end_pos = [352, 44]
+function = "_read_capped"
+kind = "domain-equivalent"
+source_text = "+"
+source_fingerprint = "534bf2d05ded6a33475c5295a6a1dde3c6f578ac2693c098cd3812ef2eb1ba79"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "_read_capped at sealed_bundle.py:352: `stream.read(MAX_ENTRY_BYTES + 1)`. The mutant reads `MAX_ENTRY_BYTES << 1` (134217728) bytes instead of MAX+1, but the check is `len(data) > MAX_ENTRY_BYTES` — any entry the original rejects (data > MAX) is also rejected by the mutant, because the mutant reads even more. The read bound is unobservable; only the check matters."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Add:5"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 5
+start_pos = [208, 24]
+end_pos = [208, 25]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Add:6"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 6
+start_pos = [209, 27]
+end_pos = [209, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Add:7"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 7
+start_pos = [210, 27]
+end_pos = [210, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Add:8"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 8
+start_pos = [211, 17]
+end_pos = [211, 18]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Add:9"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 9
+start_pos = [212, 39]
+end_pos = [212, 40]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Add:10"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 10
+start_pos = [361, 25]
+end_pos = [361, 26]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Add:11"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 11
+start_pos = [362, 22]
+end_pos = [362, 23]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Add:12"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 12
+start_pos = [363, 32]
+end_pos = [363, 33]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Add:13"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 13
+start_pos = [364, 14]
+end_pos = [364, 15]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Add:14"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 14
+start_pos = [365, 29]
+end_pos = [365, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Iterable[Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Iterable[Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Add:15"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 15
+start_pos = [366, 29]
+end_pos = [366, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Any | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Any | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitAnd:5"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 5
+start_pos = [208, 24]
+end_pos = [208, 25]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitAnd:6"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 6
+start_pos = [209, 27]
+end_pos = [209, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitAnd:7"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 7
+start_pos = [210, 27]
+end_pos = [210, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitAnd:8"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 8
+start_pos = [211, 17]
+end_pos = [211, 18]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitAnd:9"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 9
+start_pos = [212, 39]
+end_pos = [212, 40]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitAnd:10"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 10
+start_pos = [361, 25]
+end_pos = [361, 26]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitAnd:11"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 11
+start_pos = [362, 22]
+end_pos = [362, 23]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitAnd:12"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 12
+start_pos = [363, 32]
+end_pos = [363, 33]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitAnd:13"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 13
+start_pos = [364, 14]
+end_pos = [364, 15]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitAnd:14"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 14
+start_pos = [365, 29]
+end_pos = [365, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Iterable[Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Iterable[Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitAnd:15"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 15
+start_pos = [366, 29]
+end_pos = [366, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Any | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Any | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitXor:5"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 5
+start_pos = [208, 24]
+end_pos = [208, 25]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitXor:6"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 6
+start_pos = [209, 27]
+end_pos = [209, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitXor:7"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 7
+start_pos = [210, 27]
+end_pos = [210, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitXor:8"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 8
+start_pos = [211, 17]
+end_pos = [211, 18]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitXor:9"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 9
+start_pos = [212, 39]
+end_pos = [212, 40]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitXor:10"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 10
+start_pos = [361, 25]
+end_pos = [361, 26]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitXor:11"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 11
+start_pos = [362, 22]
+end_pos = [362, 23]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitXor:12"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 12
+start_pos = [363, 32]
+end_pos = [363, 33]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitXor:13"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 13
+start_pos = [364, 14]
+end_pos = [364, 15]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitXor:14"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 14
+start_pos = [365, 29]
+end_pos = [365, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Iterable[Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Iterable[Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_BitXor:15"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 15
+start_pos = [366, 29]
+end_pos = [366, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Any | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Any | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Div:5"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 5
+start_pos = [208, 24]
+end_pos = [208, 25]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Div:6"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 6
+start_pos = [209, 27]
+end_pos = [209, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Div:7"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 7
+start_pos = [210, 27]
+end_pos = [210, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Div:8"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 8
+start_pos = [211, 17]
+end_pos = [211, 18]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Div:9"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 9
+start_pos = [212, 39]
+end_pos = [212, 40]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Div:10"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 10
+start_pos = [361, 25]
+end_pos = [361, 26]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Div:11"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 11
+start_pos = [362, 22]
+end_pos = [362, 23]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Div:12"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 12
+start_pos = [363, 32]
+end_pos = [363, 33]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Div:13"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 13
+start_pos = [364, 14]
+end_pos = [364, 15]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Div:14"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 14
+start_pos = [365, 29]
+end_pos = [365, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Iterable[Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Iterable[Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Div:15"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 15
+start_pos = [366, 29]
+end_pos = [366, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Any | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Any | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_FloorDiv:5"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 5
+start_pos = [208, 24]
+end_pos = [208, 25]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_FloorDiv:6"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 6
+start_pos = [209, 27]
+end_pos = [209, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_FloorDiv:7"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 7
+start_pos = [210, 27]
+end_pos = [210, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_FloorDiv:8"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 8
+start_pos = [211, 17]
+end_pos = [211, 18]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_FloorDiv:9"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 9
+start_pos = [212, 39]
+end_pos = [212, 40]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_FloorDiv:10"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 10
+start_pos = [361, 25]
+end_pos = [361, 26]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_FloorDiv:11"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 11
+start_pos = [362, 22]
+end_pos = [362, 23]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_FloorDiv:12"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 12
+start_pos = [363, 32]
+end_pos = [363, 33]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_FloorDiv:13"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 13
+start_pos = [364, 14]
+end_pos = [364, 15]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_FloorDiv:14"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 14
+start_pos = [365, 29]
+end_pos = [365, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Iterable[Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Iterable[Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_FloorDiv:15"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 15
+start_pos = [366, 29]
+end_pos = [366, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Any | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Any | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_LShift:5"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 5
+start_pos = [208, 24]
+end_pos = [208, 25]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_LShift:6"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 6
+start_pos = [209, 27]
+end_pos = [209, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_LShift:7"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 7
+start_pos = [210, 27]
+end_pos = [210, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_LShift:8"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 8
+start_pos = [211, 17]
+end_pos = [211, 18]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_LShift:9"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 9
+start_pos = [212, 39]
+end_pos = [212, 40]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_LShift:10"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 10
+start_pos = [361, 25]
+end_pos = [361, 26]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_LShift:11"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 11
+start_pos = [362, 22]
+end_pos = [362, 23]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_LShift:12"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 12
+start_pos = [363, 32]
+end_pos = [363, 33]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_LShift:13"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 13
+start_pos = [364, 14]
+end_pos = [364, 15]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_LShift:14"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 14
+start_pos = [365, 29]
+end_pos = [365, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Iterable[Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Iterable[Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_LShift:15"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 15
+start_pos = [366, 29]
+end_pos = [366, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Any | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Any | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mod:5"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 5
+start_pos = [208, 24]
+end_pos = [208, 25]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mod:6"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 6
+start_pos = [209, 27]
+end_pos = [209, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mod:7"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 7
+start_pos = [210, 27]
+end_pos = [210, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mod:8"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 8
+start_pos = [211, 17]
+end_pos = [211, 18]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mod:9"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 9
+start_pos = [212, 39]
+end_pos = [212, 40]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mod:10"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 10
+start_pos = [361, 25]
+end_pos = [361, 26]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mod:11"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 11
+start_pos = [362, 22]
+end_pos = [362, 23]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mod:12"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 12
+start_pos = [363, 32]
+end_pos = [363, 33]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mod:13"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 13
+start_pos = [364, 14]
+end_pos = [364, 15]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mod:14"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 14
+start_pos = [365, 29]
+end_pos = [365, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Iterable[Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Iterable[Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mod:15"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 15
+start_pos = [366, 29]
+end_pos = [366, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Any | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Any | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mul:5"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 5
+start_pos = [208, 24]
+end_pos = [208, 25]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mul:6"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 6
+start_pos = [209, 27]
+end_pos = [209, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mul:7"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 7
+start_pos = [210, 27]
+end_pos = [210, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mul:8"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 8
+start_pos = [211, 17]
+end_pos = [211, 18]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mul:9"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 9
+start_pos = [212, 39]
+end_pos = [212, 40]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mul:10"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 10
+start_pos = [361, 25]
+end_pos = [361, 26]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mul:11"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 11
+start_pos = [362, 22]
+end_pos = [362, 23]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mul:12"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 12
+start_pos = [363, 32]
+end_pos = [363, 33]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mul:13"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 13
+start_pos = [364, 14]
+end_pos = [364, 15]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mul:14"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 14
+start_pos = [365, 29]
+end_pos = [365, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Iterable[Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Iterable[Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Mul:15"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 15
+start_pos = [366, 29]
+end_pos = [366, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Any | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Any | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Pow:5"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 5
+start_pos = [208, 24]
+end_pos = [208, 25]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Pow:6"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 6
+start_pos = [209, 27]
+end_pos = [209, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Pow:7"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 7
+start_pos = [210, 27]
+end_pos = [210, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Pow:8"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 8
+start_pos = [211, 17]
+end_pos = [211, 18]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Pow:9"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 9
+start_pos = [212, 39]
+end_pos = [212, 40]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Pow:10"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 10
+start_pos = [361, 25]
+end_pos = [361, 26]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Pow:11"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 11
+start_pos = [362, 22]
+end_pos = [362, 23]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Pow:12"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 12
+start_pos = [363, 32]
+end_pos = [363, 33]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Pow:13"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 13
+start_pos = [364, 14]
+end_pos = [364, 15]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Pow:14"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 14
+start_pos = [365, 29]
+end_pos = [365, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Iterable[Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Iterable[Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Pow:15"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 15
+start_pos = [366, 29]
+end_pos = [366, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Any | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Any | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_RShift:5"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 5
+start_pos = [208, 24]
+end_pos = [208, 25]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_RShift:6"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 6
+start_pos = [209, 27]
+end_pos = [209, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_RShift:7"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 7
+start_pos = [210, 27]
+end_pos = [210, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_RShift:8"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 8
+start_pos = [211, 17]
+end_pos = [211, 18]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_RShift:9"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 9
+start_pos = [212, 39]
+end_pos = [212, 40]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_RShift:10"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 10
+start_pos = [361, 25]
+end_pos = [361, 26]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_RShift:11"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 11
+start_pos = [362, 22]
+end_pos = [362, 23]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_RShift:12"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 12
+start_pos = [363, 32]
+end_pos = [363, 33]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_RShift:13"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 13
+start_pos = [364, 14]
+end_pos = [364, 15]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_RShift:14"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 14
+start_pos = [365, 29]
+end_pos = [365, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Iterable[Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Iterable[Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_RShift:15"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 15
+start_pos = [366, 29]
+end_pos = [366, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Any | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Any | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Sub:5"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 5
+start_pos = [208, 24]
+end_pos = [208, 25]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Sub:6"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 6
+start_pos = [209, 27]
+end_pos = [209, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Sub:7"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 7
+start_pos = [210, 27]
+end_pos = [210, 28]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Sub:8"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 8
+start_pos = [211, 17]
+end_pos = [211, 18]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Sub:9"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 9
+start_pos = [212, 39]
+end_pos = [212, 40]
+function = "pack_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of pack_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Sub:10"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 10
+start_pos = [361, 25]
+end_pos = [361, 26]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Sub:11"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 11
+start_pos = [362, 22]
+end_pos = [362, 23]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Sub:12"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 12
+start_pos = [363, 32]
+end_pos = [363, 33]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "dict[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `dict[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Sub:13"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 13
+start_pos = [364, 14]
+end_pos = [364, 15]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Sub:14"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 14
+start_pos = [365, 29]
+end_pos = [365, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Iterable[Any] | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Iterable[Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_BitOr_Sub:15"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 15
+start_pos = [366, 29]
+end_pos = [366, 30]
+function = "verify_sealed_bundle"
+kind = "arg"
+annotation = "Any | None"
+reason = "Postponed-evaluation annotation (argument of verify_sealed_bundle): the `|` in `Any | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_Mul_Div:9"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_Mul_Div"
+occurrence = 9
+start_pos = [207, 4]
+end_pos = [207, 5]
+function = "pack_sealed_bundle"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "a487e1184b9c4d04647302473e0ba160556ab642d2fd1a73c08637f81ac619f9"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "_read_capped: the `*,` keyword-only marker at sealed_bundle.py:207. Every caller passes its keyword-only arguments by keyword (call-site survey: all callers in sealed_bundle.py and all tests pass max_bytes by keyword or omit it); no caller passes them positionally, so replacing the marker with `/` (positional-only) is unobservable in the reachable call graph."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_Mul_Div:10"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceBinaryOperator_Mul_Div"
+occurrence = 10
+start_pos = [360, 4]
+end_pos = [360, 5]
+function = "verify_sealed_bundle"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle: the `*,` keyword-only marker at sealed_bundle.py:360. Every caller passes its keyword-only arguments by keyword (call-site survey: all tests pass public_key/expected_digest by keyword or omit them); no caller passes them positionally, so replacing the marker with `/` (positional-only) is unobservable in the reachable call graph."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceComparisonOperator_Eq_Lt:0"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceComparisonOperator_Eq_Lt"
+occurrence = 0
+start_pos = [536, 35]
+end_pos = [536, 37]
+function = "verify_sealed_bundle"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle seal_failed replay branch at sealed_bundle.py:536: `report[\"exit_code\"] == 0`. In this branch the exit code is the standalone exit code, which is 1 or 2 there (never 0), so `== 0`, `< 0` and `<= 0` are all False."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceComparisonOperator_Eq_LtE:0"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 0
+start_pos = [536, 35]
+end_pos = [536, 37]
+function = "verify_sealed_bundle"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle seal_failed replay branch at sealed_bundle.py:536: `report[\"exit_code\"] == 0`. In this branch the exit code is the standalone exit code, which is 1 or 2 there (never 0), so `== 0`, `< 0` and `<= 0` are all False."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceComparisonOperator_Eq_LtE:1"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 1
+start_pos = [560, 37]
+end_pos = [560, 39]
+function = "verify_sealed_bundle"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle replay warnings branch at sealed_bundle.py:560: `report[\"exit_code\"] == 0`. The exit code is 0, 1 or 2 (never negative), so `<= 0` is True exactly when the exit code is 0 — it coincides with `== 0` on the reachable domain."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceComparisonOperator_Gt_Is:7"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceComparisonOperator_Gt_Is"
+occurrence = 7
+start_pos = [463, 42]
+end_pos = [463, 43]
+function = "verify_sealed_bundle"
+kind = "unobservable-value"
+source_text = ">"
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle re-read entry-count check at sealed_bundle.py:463: `len(infos) > MAX_ENTRIES` -> `is`. The standalone verifier rejects >1024-entry bundles before the cross-check runs (verified: the 1024-entry test passes, and an over-count bundle gives standalone exit 1 with seal_record \"unavailable\"), so the re-read is only reached with <=1024 entries, where both `>` and `is` are always False."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceComparisonOperator_Gt_Is:8"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceComparisonOperator_Gt_Is"
+occurrence = 8
+start_pos = [468, 33]
+end_pos = [468, 34]
+function = "verify_sealed_bundle"
+kind = "unobservable-value"
+source_text = ">"
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle re-read per-entry cap at sealed_bundle.py:468: `info.file_size > MAX_ENTRY_BYTES` -> `is`. The standalone verifier rejects over-cap entries before the cross-check runs, so the re-read is only reached with entries <= MAX, where both `>` and `is` are always False."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceComparisonOperator_NotEq_Gt:2"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 2
+start_pos = [414, 42]
+end_pos = [414, 44]
+function = "verify_sealed_bundle"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle cross-check at sealed_bundle.py:414: `report[\"exit_code\"] != 0` where the standalone exit code is only ever 0, 1 or 2 (verified by grepping every `report[\"exit_code\"] =` assignment in _standalone_verify.py: initial 2, set to 1 on failures, 0 on success at line 2391, 2 at line 2389). `!= 0` coincides with `> 0` on {0,1,2}."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceComparisonOperator_NotEq_Gt:3"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 3
+start_pos = [457, 62]
+end_pos = [457, 64]
+function = "verify_sealed_bundle"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle re-read duplicates check at sealed_bundle.py:457: `len({info.filename for info in infos}) != len(infos)` -> `>`. The `>` mutant is always False (a set cannot exceed its list), and the original is True only for a duplicate-entries bundle — which the standalone verifier rejects first (verified empirically 2026-11-13: a duplicate bundle gives standalone exit 1 and seal_record \"unavailable\", so the re-read never runs). On the reachable domain both are always False."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceComparisonOperator_NotEq_Gt:4"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 4
+start_pos = [461, 46]
+end_pos = [461, 48]
+function = "verify_sealed_bundle"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle re-read STORED check at sealed_bundle.py:461: `info.compress_type != zipfile.ZIP_STORED` (0) -> `>`. Compression methods are >= 0, so `!= 0` coincides with `> 0` on the reachable domain."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceComparisonOperator_NotEq_IsNot:0"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceComparisonOperator_NotEq_IsNot"
+occurrence = 0
+start_pos = [240, 30]
+end_pos = [240, 32]
+function = "pack_sealed_bundle"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "a487e1184b9c4d04647302473e0ba160556ab642d2fd1a73c08637f81ac619f9"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "pack_sealed_bundle signer/seed guard at sealed_bundle.py:240: `(signing_seed is None) != (signer is None)` - both sides are booleans, and `is not` coincides with `!=` on the True/False singletons."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceComparisonOperator_NotEq_IsNot:2"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceComparisonOperator_NotEq_IsNot"
+occurrence = 2
+start_pos = [461, 46]
+end_pos = [461, 48]
+function = "verify_sealed_bundle"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle re-read STORED check at sealed_bundle.py:461: `info.compress_type != zipfile.ZIP_STORED` (0) -> `is not`. The compression method comes from the zip central directory as a small int (0, 8, 12, ...); CPython caches small ints, so `is not 0` is False exactly when the value is 0 and True otherwise — it coincides with `!= 0` on the reachable domain."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceComparisonOperator_NotEq_Lt:3"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 3
+start_pos = [457, 62]
+end_pos = [457, 64]
+function = "verify_sealed_bundle"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle re-read duplicates check at sealed_bundle.py:457: `len({info.filename for info in infos}) != len(infos)`. A set can never be larger than the list it came from, so `len(set) <= len(infos)` always, and `!=` coincides with `<` on that domain."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ReplaceComparisonOperator_NotEq_Lt:4"
+module = "textforensics.sealed_bundle"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 4
+start_pos = [461, 46]
+end_pos = [461, 48]
+function = "verify_sealed_bundle"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle re-read STORED check at sealed_bundle.py:461: `info.compress_type != zipfile.ZIP_STORED` (0) -> `<`. The `<` mutant is always False (compression methods are >= 0), and the original is True only for a non-STORED entry — which the standalone verifier rejects first (verified empirically 2026-11-13: a deflated-entry bundle gives standalone exit 1 and seal_record \"unavailable\", so the re-read never runs). On the reachable domain both are always False."
+
+[[equivalent]]
+id = "textforensics.sealed_bundle:core/ZeroIterationForLoop:3"
+module = "textforensics.sealed_bundle"
+operator = "core/ZeroIterationForLoop"
+occurrence = 3
+start_pos = [460, 32]
+end_pos = [460, 37]
+function = "verify_sealed_bundle"
+kind = "unobservable-value"
+source_text = "infos"
+source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_sealed_bundle re-read guard loop at sealed_bundle.py:460: `for info in infos:` (compress_type / per-entry cap / total cap checks). Skipping the loop is unobservable: the checks are redundant with the standalone verifier, which rejects non-STORED, over-cap, over-count and over-total bundles before the cross-check runs (verified empirically 2026-11-13 for duplicates and deflated entries); the loop accumulates only the local `total`, and `files` is populated by a separate loop at line 470, so skipping it changes no observable output."

@@ -206,9 +206,7 @@ class TestCombinedKill(unittest.TestCase):
             "trust_map_verified": True,
             "dimensions": {},
         }
-        with mock.patch(
-            "textforensics.verify.verify_case_file", return_value=mocked
-        ):
+        with mock.patch("textforensics.verify.verify_case_file", return_value=mocked):
             result = verify_case_file_combined(case)
         self.assertIs(result["valid"], False)
 

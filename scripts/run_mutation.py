@@ -817,6 +817,14 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
         "tests/test_audit_w3_worker_c.py",
         "tests/test_audit_w3_worker_f_bundle.py",
     ],
+    # W3 Worker C tests live in test_audit_w3_worker_c.py alongside
+    # the dedicated file; the W3 kill tests live in
+    # test_audit_w3_worker_f_sealed_bundle.py.
+    "textforensics.sealed_bundle": [
+        "tests/test_sealed_bundle.py",
+        "tests/test_audit_w3_worker_c.py",
+        "tests/test_audit_w3_worker_f_sealed_bundle.py",
+    ],
     # W3 Worker B tests live in test_audit_w3_worker_b.py alongside
     # the dedicated file; the W3 kill tests live in
     # test_audit_w3_worker_f_sealing.py.

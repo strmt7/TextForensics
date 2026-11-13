@@ -285,6 +285,15 @@ class CosmicRayIntegrationTests(unittest.TestCase):
             "tests/test_audit_w3_worker_b.py "
             "tests/test_audit_w3_worker_f_sealing.py -x -q",
         )
+        sealed_bundle = self.runner.test_command_for(
+            ["textforensics.sealed_bundle"], self.project_root
+        )
+        self.assertEqual(
+            sealed_bundle,
+            "python -m pytest tests/test_sealed_bundle.py "
+            "tests/test_audit_w3_worker_c.py "
+            "tests/test_audit_w3_worker_f_sealed_bundle.py -x -q",
+        )
         semantic = self.runner.test_command_for(["textforensics.semantic"], self.project_root)
         self.assertEqual(
             semantic,
