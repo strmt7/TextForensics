@@ -22,6 +22,24 @@
 # incompetent mutants (operator crashes, no behaviour) are neither
 # killed nor surviving. See hidden_files/audit-w3-worker-f.md
 # sections 5-6 and audit-w3-f3-equiv-reasons.json.
+# F3 re-proof entries, bundle (audit-w3-f3, 2026-11-13): 62 entries
+# appended after the re-proof of the 118 bundle survivors: 56
+# killed by the 35 W3 kill tests in
+# tests/test_audit_w3_worker_f_bundle.py (re-proved mutant by
+# mutant with cosmic-ray mutate_code in the scratch worktree), 62
+# proven equivalent with recorded reasons (51 postponed-evaluation
+# annotations + 11 domain-equivalent), 0 unexplained. The 4
+# incompetent mutants (operator crashes, no behaviour) are neither
+# killed nor surviving. The re-prove was interrupted once by a
+# runtime restart at 31/67 (log preserved as
+# audit-w3-f3-reprove-bundle-run1-interrupted.log) and re-run from
+# scratch with the corrected expected-equivalent set (the [508,21]
+# Eq_LtE elif-trap mutant); a targeted re-prove then closed the 4
+# remaining gaps (bad-CRC test, 12-member total test, error-ordering
+# test; the [547,15] KeyError mutant is killed via the undefined
+# CosmicRayTestingException NameError). See
+# hidden_files/audit-w3-worker-f.md sections 5-6 and
+# audit-w3-f3-equiv-reasons-bundle.json.
 # POSITION REFRESH (2026-11-12, audit W3, head 85d14ce): W3 (watermark
 # payload binding, case sealing/signer binding/custody/privacy, offline
 # verification parity, ledger verification path) shifted lines in
@@ -55181,3 +55199,765 @@ kind = "domain-equivalent"
 source_text = "True"
 source_fingerprint = "0ca603ed212be0561b34623742f2be372897f9061c1b943b3786e09b738da347"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "Domain-equivalent mutant (WatermarkManager._save_key): `temp_path.unlink(missing_ok=True)` -> `missing_ok=False` in the finally block. The temp file is created by tempfile.mkstemp in the same block and nothing deletes it before the finally, so it always exists there and `missing_ok=False` never raises. Re-proved 2026-11-12 (audit-w3-f3-reprove.py): survives the full W3 kill-test file."
+
+# --- F3 re-proof entries, bundle (audit-w3-f3, 2026-11-13) ----------
+# 62 entries: 51 postponed-evaluation annotations + 11
+# domain-equivalent. Each entry survived the re-proof and carries a
+# source-verified equivalence reason; every other bundle survivor
+# was killed by the W3 kill tests
+# (audit-w3-f3-reprove-bundle.py 52 killed / 15 survived, 4 gaps;
+# targeted re-prove 4/4 killed, 0 gaps).
+[[equivalent]]
+id = "textforensics.bundle:core/ExceptionReplacer:2"
+module = "textforensics.bundle"
+operator = "core/ExceptionReplacer"
+occurrence = 2
+start_pos = [328, 12]
+end_pos = [328, 21]
+function = "_validate_manifest_contract"
+kind = "domain-equivalent"
+source_text = "TypeError"
+source_fingerprint = "e75827ad8f075e26775e4cc50aec542973b8ddde6a8481c7cbdede6c6888d339"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_validate_manifest_contract): dead `except TypeError` handler around `BundleManifest.from_dict(manifest_data)`. from_dict is a plain dataclass constructor over filtered known fields (`cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})`, bundle.py:96-98) with no __post_init__ (verified: no __post_init__ anywhere in bundle.py), so it only assigns and cannot raise TypeError on contract-valid data — the contract check (lines 299-325) already established every field's shape before this call. Re-proved 2026-11-13 (audit-w3-f3-reprove-bundle.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ExceptionReplacer:3"
+module = "textforensics.bundle"
+operator = "core/ExceptionReplacer"
+occurrence = 3
+start_pos = [328, 23]
+end_pos = [328, 33]
+function = "_validate_manifest_contract"
+kind = "domain-equivalent"
+source_text = "ValueError"
+source_fingerprint = "e75827ad8f075e26775e4cc50aec542973b8ddde6a8481c7cbdede6c6888d339"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_validate_manifest_contract): dead `except ValueError` handler around `BundleManifest.from_dict(manifest_data)`. Same proof as the TypeError handler: the dataclass constructor has no __post_init__ and only assigns, so it cannot raise ValueError on contract-valid data. Re-proved 2026-11-13 (audit-w3-f3-reprove-bundle.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Add:5"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 5
+start_pos = [285, 76]
+end_pos = [285, 77]
+function = "_validate_manifest_contract"
+kind = "return"
+annotation = "tuple[BundleManifest | None, list[str]]"
+reason = "Postponed-evaluation annotation (return of _validate_manifest_contract): the `|` in `tuple[BundleManifest | None, list[str]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Add:6"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 6
+start_pos = [334, 33]
+end_pos = [334, 34]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Add:7"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 7
+start_pos = [334, 45]
+end_pos = [334, 46]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Add:8"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 8
+start_pos = [377, 21]
+end_pos = [377, 22]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Add:9"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 9
+start_pos = [378, 25]
+end_pos = [378, 26]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_BitAnd:5"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 5
+start_pos = [285, 76]
+end_pos = [285, 77]
+function = "_validate_manifest_contract"
+kind = "return"
+annotation = "tuple[BundleManifest | None, list[str]]"
+reason = "Postponed-evaluation annotation (return of _validate_manifest_contract): the `|` in `tuple[BundleManifest | None, list[str]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_BitAnd:6"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 6
+start_pos = [334, 33]
+end_pos = [334, 34]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_BitAnd:7"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 7
+start_pos = [334, 45]
+end_pos = [334, 46]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_BitAnd:8"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 8
+start_pos = [377, 21]
+end_pos = [377, 22]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_BitAnd:9"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 9
+start_pos = [378, 25]
+end_pos = [378, 26]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_BitXor:5"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 5
+start_pos = [285, 76]
+end_pos = [285, 77]
+function = "_validate_manifest_contract"
+kind = "return"
+annotation = "tuple[BundleManifest | None, list[str]]"
+reason = "Postponed-evaluation annotation (return of _validate_manifest_contract): the `|` in `tuple[BundleManifest | None, list[str]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_BitXor:6"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 6
+start_pos = [334, 33]
+end_pos = [334, 34]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_BitXor:7"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 7
+start_pos = [334, 45]
+end_pos = [334, 46]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_BitXor:9"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 9
+start_pos = [378, 25]
+end_pos = [378, 26]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Div:5"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 5
+start_pos = [285, 76]
+end_pos = [285, 77]
+function = "_validate_manifest_contract"
+kind = "return"
+annotation = "tuple[BundleManifest | None, list[str]]"
+reason = "Postponed-evaluation annotation (return of _validate_manifest_contract): the `|` in `tuple[BundleManifest | None, list[str]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Div:6"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 6
+start_pos = [334, 33]
+end_pos = [334, 34]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Div:7"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 7
+start_pos = [334, 45]
+end_pos = [334, 46]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Div:8"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 8
+start_pos = [377, 21]
+end_pos = [377, 22]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Div:9"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 9
+start_pos = [378, 25]
+end_pos = [378, 26]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_FloorDiv:5"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 5
+start_pos = [285, 76]
+end_pos = [285, 77]
+function = "_validate_manifest_contract"
+kind = "return"
+annotation = "tuple[BundleManifest | None, list[str]]"
+reason = "Postponed-evaluation annotation (return of _validate_manifest_contract): the `|` in `tuple[BundleManifest | None, list[str]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_FloorDiv:6"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 6
+start_pos = [334, 33]
+end_pos = [334, 34]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_FloorDiv:7"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 7
+start_pos = [334, 45]
+end_pos = [334, 46]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_FloorDiv:8"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 8
+start_pos = [377, 21]
+end_pos = [377, 22]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_FloorDiv:9"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 9
+start_pos = [378, 25]
+end_pos = [378, 26]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_LShift:5"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 5
+start_pos = [285, 76]
+end_pos = [285, 77]
+function = "_validate_manifest_contract"
+kind = "return"
+annotation = "tuple[BundleManifest | None, list[str]]"
+reason = "Postponed-evaluation annotation (return of _validate_manifest_contract): the `|` in `tuple[BundleManifest | None, list[str]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_LShift:6"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 6
+start_pos = [334, 33]
+end_pos = [334, 34]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_LShift:7"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 7
+start_pos = [334, 45]
+end_pos = [334, 46]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_LShift:8"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 8
+start_pos = [377, 21]
+end_pos = [377, 22]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_LShift:9"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 9
+start_pos = [378, 25]
+end_pos = [378, 26]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Mod:5"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 5
+start_pos = [285, 76]
+end_pos = [285, 77]
+function = "_validate_manifest_contract"
+kind = "return"
+annotation = "tuple[BundleManifest | None, list[str]]"
+reason = "Postponed-evaluation annotation (return of _validate_manifest_contract): the `|` in `tuple[BundleManifest | None, list[str]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Mod:7"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 7
+start_pos = [334, 45]
+end_pos = [334, 46]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Mod:8"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 8
+start_pos = [377, 21]
+end_pos = [377, 22]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Mod:9"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 9
+start_pos = [378, 25]
+end_pos = [378, 26]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Mul:6"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 6
+start_pos = [334, 33]
+end_pos = [334, 34]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Mul:7"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 7
+start_pos = [334, 45]
+end_pos = [334, 46]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Mul:8"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 8
+start_pos = [377, 21]
+end_pos = [377, 22]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Mul:9"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 9
+start_pos = [378, 25]
+end_pos = [378, 26]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Pow:5"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 5
+start_pos = [285, 76]
+end_pos = [285, 77]
+function = "_validate_manifest_contract"
+kind = "return"
+annotation = "tuple[BundleManifest | None, list[str]]"
+reason = "Postponed-evaluation annotation (return of _validate_manifest_contract): the `|` in `tuple[BundleManifest | None, list[str]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Pow:7"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 7
+start_pos = [334, 45]
+end_pos = [334, 46]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Pow:8"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 8
+start_pos = [377, 21]
+end_pos = [377, 22]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Pow:9"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 9
+start_pos = [378, 25]
+end_pos = [378, 26]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_RShift:5"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 5
+start_pos = [285, 76]
+end_pos = [285, 77]
+function = "_validate_manifest_contract"
+kind = "return"
+annotation = "tuple[BundleManifest | None, list[str]]"
+reason = "Postponed-evaluation annotation (return of _validate_manifest_contract): the `|` in `tuple[BundleManifest | None, list[str]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_RShift:6"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 6
+start_pos = [334, 33]
+end_pos = [334, 34]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_RShift:7"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 7
+start_pos = [334, 45]
+end_pos = [334, 46]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_RShift:8"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 8
+start_pos = [377, 21]
+end_pos = [377, 22]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_RShift:9"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 9
+start_pos = [378, 25]
+end_pos = [378, 26]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Sub:5"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 5
+start_pos = [285, 76]
+end_pos = [285, 77]
+function = "_validate_manifest_contract"
+kind = "return"
+annotation = "tuple[BundleManifest | None, list[str]]"
+reason = "Postponed-evaluation annotation (return of _validate_manifest_contract): the `|` in `tuple[BundleManifest | None, list[str]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Sub:6"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 6
+start_pos = [334, 33]
+end_pos = [334, 34]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Sub:7"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 7
+start_pos = [334, 45]
+end_pos = [334, 46]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Sub:8"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 8
+start_pos = [377, 21]
+end_pos = [377, 22]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Sub:9"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 9
+start_pos = [378, 25]
+end_pos = [378, 26]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceComparisonOperator_Eq_GtE:7"
+module = "textforensics.bundle"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 7
+start_pos = [508, 21]
+end_pos = [508, 23]
+function = "verify_bundle"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "101845eef3618ecb4b81870ff6a942716817b0ea66e9984157eb3c14b8068127"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (verify_bundle step 4): `fmt == \"zip\"` -> `>=` in the elif. The manifest contract restricts fmt to {\"tar.gz\", \"zip\"} (bundle.py:300); on that closed domain `fmt >= \"zip\"` coincides with `fmt == \"zip\"` (\"zip\" -> True, \"tar.gz\" -> False — and for \"tar.gz\" the preceding `if fmt == \"tar.gz\":` is True, so the elif is not even evaluated). Re-proved 2026-11-13 (audit-w3-f3-reprove-bundle.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceComparisonOperator_Eq_LtE:6"
+module = "textforensics.bundle"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 6
+start_pos = [493, 19]
+end_pos = [493, 21]
+function = "verify_bundle"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "101845eef3618ecb4b81870ff6a942716817b0ea66e9984157eb3c14b8068127"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (verify_bundle step 4): `fmt == \"tar.gz\"` -> `<=` in the if. The manifest contract restricts fmt to {\"tar.gz\", \"zip\"} (bundle.py:300); on that closed domain `fmt <= \"tar.gz\"` coincides with `fmt == \"tar.gz\"` (\"tar.gz\" -> True, \"zip\" -> False). Re-proved 2026-11-13 (audit-w3-f3-reprove-bundle.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceComparisonOperator_Eq_LtE:7"
+module = "textforensics.bundle"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 7
+start_pos = [508, 21]
+end_pos = [508, 23]
+function = "verify_bundle"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "101845eef3618ecb4b81870ff6a942716817b0ea66e9984157eb3c14b8068127"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (verify_bundle step 4): `fmt == \"zip\"` -> `<=` in the elif. The elif is only evaluated when `fmt != \"tar.gz\"`, and the manifest contract restricts fmt to {\"tar.gz\", \"zip\"} (bundle.py:300), so the only reachable value there is \"zip\", where `==` and `<=` coincide (both True). No input distinguishes the mutant — the elif trap: a tar.gz test cannot kill it because the preceding `if fmt == \"tar.gz\":` takes the tar branch first. Re-proved 2026-11-13 (audit-w3-f3-reprove-bundle.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceComparisonOperator_Eq_LtE:9"
+module = "textforensics.bundle"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 9
+start_pos = [555, 26]
+end_pos = [555, 28]
+function = "verify_bundle"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "101845eef3618ecb4b81870ff6a942716817b0ea66e9984157eb3c14b8068127"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (verify_bundle): `len(errors) == 0` -> `<= 0` in the final `valid=` computation. len() is never negative, so `<= 0` coincides with `== 0` on every input. Re-proved 2026-11-13 (audit-w3-f3-reprove-bundle.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceComparisonOperator_Gt_Is:6"
+module = "textforensics.bundle"
+operator = "core/ReplaceComparisonOperator_Gt_Is"
+occurrence = 6
+start_pos = [511, 38]
+end_pos = [511, 39]
+function = "verify_bundle"
+kind = "domain-equivalent"
+source_text = ">"
+source_fingerprint = "101845eef3618ecb4b81870ff6a942716817b0ea66e9984157eb3c14b8068127"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (verify_bundle step 4, zip branch): `info.file_size > MAX_BUNDLE_FILE_BYTES` -> `is`. Same pre-filtering proof as the tar branch (step 3 flags, step 4 skips). Re-proved 2026-11-13 (audit-w3-f3-reprove-bundle.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceContinueWithBreak:1"
+module = "textforensics.bundle"
+operator = "core/ReplaceContinueWithBreak"
+occurrence = 1
+start_pos = [501, 24]
+end_pos = [501, 32]
+function = "verify_bundle"
+kind = "domain-equivalent"
+source_text = "continue"
+source_fingerprint = "101845eef3618ecb4b81870ff6a942716817b0ea66e9984157eb3c14b8068127"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (verify_bundle step 4, tar branch): the `continue` after the over-cap error -> `break`. Unreachable: step 3 pre-flags every over-cap member (line 481) and step 4 skips flagged members at line 491, so the tar over-cap branch (line 496) is only evaluated with size <= MAX and its body never executes. Re-proved 2026-11-13 (audit-w3-f3-reprove-bundle.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceContinueWithBreak:2"
+module = "textforensics.bundle"
+operator = "core/ReplaceContinueWithBreak"
+occurrence = 2
+start_pos = [506, 24]
+end_pos = [506, 32]
+function = "verify_bundle"
+kind = "domain-equivalent"
+source_text = "continue"
+source_fingerprint = "101845eef3618ecb4b81870ff6a942716817b0ea66e9984157eb3c14b8068127"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (verify_bundle step 4, tar branch): the `continue` after `extractfile` returns None -> `break`. Unreachable: extractfile returns None only for non-regular files, but step 3's member list filters `m.isfile()` and any manifest entry naming a non-file member is flagged \"missing\" in step 3 and skipped at line 491, so this branch never executes. Re-proved 2026-11-13 (audit-w3-f3-reprove-bundle.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceContinueWithBreak:3"
+module = "textforensics.bundle"
+operator = "core/ReplaceContinueWithBreak"
+occurrence = 3
+start_pos = [516, 24]
+end_pos = [516, 32]
+function = "verify_bundle"
+kind = "domain-equivalent"
+source_text = "continue"
+source_fingerprint = "101845eef3618ecb4b81870ff6a942716817b0ea66e9984157eb3c14b8068127"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (verify_bundle step 4, zip branch): the `continue` after the over-cap error -> `break`. Unreachable: same step-3 pre-filtering proof as the tar branch (line 501). Re-proved 2026-11-13 (audit-w3-f3-reprove-bundle.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceContinueWithBreak:4"
+module = "textforensics.bundle"
+operator = "core/ReplaceContinueWithBreak"
+occurrence = 4
+start_pos = [522, 16]
+end_pos = [522, 24]
+function = "verify_bundle"
+kind = "domain-equivalent"
+source_text = "continue"
+source_fingerprint = "101845eef3618ecb4b81870ff6a942716817b0ea66e9984157eb3c14b8068127"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (verify_bundle step 4): the `continue` in the `else: unsupported_format` branch -> `break`. Unreachable: fmt is contract-restricted to \"tar.gz\"/\"zip\" (bundle.py:300), so the else branch never executes. Re-proved 2026-11-13 (audit-w3-f3-reprove-bundle.py): survives the W3 kill-test file."
