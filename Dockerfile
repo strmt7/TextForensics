@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.12-slim AS builder
+FROM python:3.15-slim AS builder
 
 # Build-time trust knob for TLS-intercepting egress proxies (empty by
 # default: pip verifies TLS normally). Behind such a proxy, pass e.g.
@@ -29,7 +29,7 @@ RUN python -m pip wheel \
 
 # ── Runtime stage ────────────────────────────────────────────────────────────
 
-FROM python:3.12-slim AS runtime
+FROM python:3.15-slim AS runtime
 
 LABEL org.opencontainers.image.source="https://github.com/strmt7/TextForensics" \
       org.opencontainers.image.title="TextForensics" \
