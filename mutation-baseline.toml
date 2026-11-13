@@ -164,6 +164,19 @@
 # re-derived from the actual mutant diffs.  See
 # hidden_files/audit-w3-worker-f.md sections 5-6 and
 # audit-w3-f3-equiv-reasons-_standalone_verify.json.
+# F4 re-proof entries, datasets (audit-w3-f4, 2026-11-13): 31 entries
+# appended after the re-proof of the 97 datasets phase-1 survivors:
+# the phase-2 FULL command (tests/test_datasets.py +
+# tests/test_w1_worker_d.py, 300 s timeout) killed the survivors
+# the pre-existing suite kills, and the remaining survivors were
+# hand re-proved mutant by mutant with cosmic-ray mutate_code in
+# the scratch worktree against the 17 F4 kill tests in
+# tests/test_audit_w3_worker_f4_datasets.py: every phase-2
+# survivor not in this block was killed there, 31 proven
+# equivalent with recorded reasons (11 postponed-evaluation
+# annotations + 6 domain-equivalent + 14 unobservable-value), 0
+# unexplained. See hidden_files/audit-w3-worker-f4.md sections
+# 5-6 and audit-w3-f4-equiv-reasons-datasets.json.
 # POSITION REFRESH (2026-11-12, audit W3, head 85d14ce): W3 (watermark
 # payload binding, case sealing/signer binding/custody/privacy, offline
 # verification parity, ledger verification path) shifted lines in
@@ -61815,3 +61828,402 @@ kind = "domain-equivalent"
 source_text = "or"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "Domain-equivalent mutant (_verify_timestamp_token): `if not point_der or point_der[0] != 0x04` -> `and`: for a non-empty point_der, `not point_der` is False, so the `and` variant is False even when point_der[0] != 0x04 (a compressed point 0x02/0x03) — the mutant accepts a compressed point at this format check, but the subsequent coordinate extraction and ECDSA verification fail for it (same as [1058,41]), so the token is rejected either way.  The empty-point case does not occur in any exercised input."
+
+# --- F4 re-proof entries, datasets (audit-w3-f4, 2026-11-13) ------
+# 31 entries: 11 postponed-evaluation annotations + 6
+# domain-equivalent + 14 unobservable-value. Each entry survived
+# the phase-2 FULL command and the hand re-proof, and carries a
+# source-verified equivalence reason; every other datasets
+# survivor was killed by the F4 kill tests
+# (audit-w3-f4-reprove-datasets.py, 0 gaps).
+[[equivalent]]
+id = "textforensics.datasets:core/NumberReplacer:200"
+module = "textforensics.datasets"
+operator = "core/NumberReplacer"
+occurrence = 200
+start_pos = [2350, 73]
+end_pos = [2350, 74]
+function = "iter_detectrl_x_rows"
+kind = "unobservable-value"
+source_text = "1"
+source_fingerprint = "9eee6b79f21bd3158ee86175619fb6a3bc99c0cf3afed6b1c8ba487a2d410796"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "iter_detectrl_x_rows: the literal `1` in `index - 1` in the \"expected ',' or ']'\" error message at datasets.py:2350. The message sits in the `if not expect_element` branch at datasets.py:2348, which is unreachable: expect_element is read only there (grep over datasets.py), the only assignment to False is at datasets.py:2393, and the post-yield separator handling (datasets.py:2395-2411) resolves it on every path (True / return / raise) before the next loop top, while _peek/_fill/_skip_ws never touch it — so the loop top is only ever reached with expect_element True. The f-string is never evaluated, so replacing the literal `1` with `2` changes no observable behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/NumberReplacer:201"
+module = "textforensics.datasets"
+operator = "core/NumberReplacer"
+occurrence = 201
+start_pos = [2350, 73]
+end_pos = [2350, 74]
+function = "iter_detectrl_x_rows"
+kind = "unobservable-value"
+source_text = "1"
+source_fingerprint = "9eee6b79f21bd3158ee86175619fb6a3bc99c0cf3afed6b1c8ba487a2d410796"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "iter_detectrl_x_rows: the literal `1` in `index - 1` in the \"expected ',' or ']'\" error message at datasets.py:2350. The message sits in the `if not expect_element` branch at datasets.py:2348, which is unreachable: expect_element is read only there (grep over datasets.py), the only assignment to False is at datasets.py:2393, and the post-yield separator handling (datasets.py:2395-2411) resolves it on every path (True / return / raise) before the next loop top, while _peek/_fill/_skip_ws never touch it — so the loop top is only ever reached with expect_element True. The f-string is never evaluated, so replacing the literal `1` with `0` changes no observable behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceAndWithOr:21"
+module = "textforensics.datasets"
+operator = "core/ReplaceAndWithOr"
+occurrence = 21
+start_pos = [2396, 19]
+end_pos = [2396, 22]
+function = "iter_detectrl_x_rows"
+kind = "domain-equivalent"
+source_text = "and"
+source_fingerprint = "9eee6b79f21bd3158ee86175619fb6a3bc99c0cf3afed6b1c8ba487a2d410796"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "iter_detectrl_x_rows: the `if eof and not buf` guard at datasets.py:2396 (post-row separator check). The mutant differs from the original only on the state (eof=True, buf non-empty). That state is unreachable here: eof becomes True only when a _fill returns '' — the JSONDecodeError handler's such fill is followed by a deterministic-failing retry that raises 'not parseable JSON' before any row completes, and _skip_ws's leaves buf empty; once eof is True _fill is a no-op, so buf can only shrink. Hence at this guard eof=True implies buf is empty, where both the original and the mutant fire identically. (The loop-top twin at datasets.py:2335 IS reachable in that state — the handler's final fill + continue lands there — and is killable; this post-row guard is not.)"
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_BitOr_Add:24"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 24
+start_pos = [2236, 35]
+end_pos = [2236, 36]
+function = "iter_detectrl_x_rows"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of iter_detectrl_x_rows): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_BitOr_BitAnd:24"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 24
+start_pos = [2236, 35]
+end_pos = [2236, 36]
+function = "iter_detectrl_x_rows"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of iter_detectrl_x_rows): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_BitOr_BitXor:24"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 24
+start_pos = [2236, 35]
+end_pos = [2236, 36]
+function = "iter_detectrl_x_rows"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of iter_detectrl_x_rows): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_BitOr_Div:24"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 24
+start_pos = [2236, 35]
+end_pos = [2236, 36]
+function = "iter_detectrl_x_rows"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of iter_detectrl_x_rows): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_BitOr_FloorDiv:24"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 24
+start_pos = [2236, 35]
+end_pos = [2236, 36]
+function = "iter_detectrl_x_rows"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of iter_detectrl_x_rows): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_BitOr_LShift:24"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 24
+start_pos = [2236, 35]
+end_pos = [2236, 36]
+function = "iter_detectrl_x_rows"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of iter_detectrl_x_rows): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_BitOr_Mod:24"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 24
+start_pos = [2236, 35]
+end_pos = [2236, 36]
+function = "iter_detectrl_x_rows"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of iter_detectrl_x_rows): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_BitOr_Mul:24"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 24
+start_pos = [2236, 35]
+end_pos = [2236, 36]
+function = "iter_detectrl_x_rows"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of iter_detectrl_x_rows): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_BitOr_Pow:24"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 24
+start_pos = [2236, 35]
+end_pos = [2236, 36]
+function = "iter_detectrl_x_rows"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of iter_detectrl_x_rows): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_BitOr_RShift:24"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 24
+start_pos = [2236, 35]
+end_pos = [2236, 36]
+function = "iter_detectrl_x_rows"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of iter_detectrl_x_rows): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_BitOr_Sub:24"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 24
+start_pos = [2236, 35]
+end_pos = [2236, 36]
+function = "iter_detectrl_x_rows"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of iter_detectrl_x_rows): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_Mul_Div:18"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_Mul_Div"
+occurrence = 18
+start_pos = [2184, 45]
+end_pos = [2184, 46]
+function = "_check_raw_json_nesting_depth"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "b9c39c743c6792bc3c562e07a35629b153b0b63ddcd51a28fc2627b6a3c82482"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "_check_raw_json_nesting_depth: the `*,` keyword-only marker at datasets.py:2184. Every caller passes its keyword-only arguments by keyword (call-site survey: the sole production caller iter_detectrl_x_rows at datasets.py:2363 passes max_depth= and row_index= by keyword, and all tests pass them by keyword); no caller passes them positionally, so replacing the marker with `/` (positional-only) is unobservable in the reachable call graph."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_Mul_Div:19"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_Mul_Div"
+occurrence = 19
+start_pos = [2236, 43]
+end_pos = [2236, 44]
+function = "iter_detectrl_x_rows"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "9eee6b79f21bd3158ee86175619fb6a3bc99c0cf3afed6b1c8ba487a2d410796"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "iter_detectrl_x_rows: the `*,` keyword-only marker at datasets.py:2236. Every caller passes max_object_bytes by keyword or omits it (call-site survey: the sole production caller sample_detectrl_x_rows at datasets.py:2436 omits it; all tests omit it or pass max_object_bytes= by keyword); no caller passes it positionally, so replacing the marker with `/` (positional-only) is unobservable in the reachable call graph."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_Sub_Add:7"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_Sub_Add"
+occurrence = 7
+start_pos = [2350, 71]
+end_pos = [2350, 72]
+function = "iter_detectrl_x_rows"
+kind = "unobservable-value"
+source_text = "-"
+source_fingerprint = "9eee6b79f21bd3158ee86175619fb6a3bc99c0cf3afed6b1c8ba487a2d410796"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "iter_detectrl_x_rows: the `index - 1` in the \"expected ',' or ']'\" error message at datasets.py:2350. The message sits in the `if not expect_element` branch at datasets.py:2348, which is unreachable: expect_element is read only there (grep over datasets.py), the only assignment to False is at datasets.py:2393, and the post-yield separator handling (datasets.py:2395-2411) resolves it on every path (True / return / raise) before the next loop top, while _peek/_fill/_skip_ws never touch it — so the loop top is only ever reached with expect_element True. The f-string is never evaluated, so replacing `-` with `+` changes no observable behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_Sub_BitAnd:7"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_Sub_BitAnd"
+occurrence = 7
+start_pos = [2350, 71]
+end_pos = [2350, 72]
+function = "iter_detectrl_x_rows"
+kind = "unobservable-value"
+source_text = "-"
+source_fingerprint = "9eee6b79f21bd3158ee86175619fb6a3bc99c0cf3afed6b1c8ba487a2d410796"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "iter_detectrl_x_rows: the `index - 1` in the \"expected ',' or ']'\" error message at datasets.py:2350. The message sits in the `if not expect_element` branch at datasets.py:2348, which is unreachable: expect_element is read only there (grep over datasets.py), the only assignment to False is at datasets.py:2393, and the post-yield separator handling (datasets.py:2395-2411) resolves it on every path (True / return / raise) before the next loop top, while _peek/_fill/_skip_ws never touch it — so the loop top is only ever reached with expect_element True. The f-string is never evaluated, so replacing `-` with `&` changes no observable behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_Sub_BitOr:7"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_Sub_BitOr"
+occurrence = 7
+start_pos = [2350, 71]
+end_pos = [2350, 72]
+function = "iter_detectrl_x_rows"
+kind = "unobservable-value"
+source_text = "-"
+source_fingerprint = "9eee6b79f21bd3158ee86175619fb6a3bc99c0cf3afed6b1c8ba487a2d410796"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "iter_detectrl_x_rows: the `index - 1` in the \"expected ',' or ']'\" error message at datasets.py:2350. The message sits in the `if not expect_element` branch at datasets.py:2348, which is unreachable: expect_element is read only there (grep over datasets.py), the only assignment to False is at datasets.py:2393, and the post-yield separator handling (datasets.py:2395-2411) resolves it on every path (True / return / raise) before the next loop top, while _peek/_fill/_skip_ws never touch it — so the loop top is only ever reached with expect_element True. The f-string is never evaluated, so replacing `-` with `|` changes no observable behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_Sub_BitXor:7"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_Sub_BitXor"
+occurrence = 7
+start_pos = [2350, 71]
+end_pos = [2350, 72]
+function = "iter_detectrl_x_rows"
+kind = "unobservable-value"
+source_text = "-"
+source_fingerprint = "9eee6b79f21bd3158ee86175619fb6a3bc99c0cf3afed6b1c8ba487a2d410796"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "iter_detectrl_x_rows: the `index - 1` in the \"expected ',' or ']'\" error message at datasets.py:2350. The message sits in the `if not expect_element` branch at datasets.py:2348, which is unreachable: expect_element is read only there (grep over datasets.py), the only assignment to False is at datasets.py:2393, and the post-yield separator handling (datasets.py:2395-2411) resolves it on every path (True / return / raise) before the next loop top, while _peek/_fill/_skip_ws never touch it — so the loop top is only ever reached with expect_element True. The f-string is never evaluated, so replacing `-` with `^` changes no observable behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_Sub_Div:7"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_Sub_Div"
+occurrence = 7
+start_pos = [2350, 71]
+end_pos = [2350, 72]
+function = "iter_detectrl_x_rows"
+kind = "unobservable-value"
+source_text = "-"
+source_fingerprint = "9eee6b79f21bd3158ee86175619fb6a3bc99c0cf3afed6b1c8ba487a2d410796"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "iter_detectrl_x_rows: the `index - 1` in the \"expected ',' or ']'\" error message at datasets.py:2350. The message sits in the `if not expect_element` branch at datasets.py:2348, which is unreachable: expect_element is read only there (grep over datasets.py), the only assignment to False is at datasets.py:2393, and the post-yield separator handling (datasets.py:2395-2411) resolves it on every path (True / return / raise) before the next loop top, while _peek/_fill/_skip_ws never touch it — so the loop top is only ever reached with expect_element True. The f-string is never evaluated, so replacing `-` with `/` changes no observable behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_Sub_FloorDiv:7"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_Sub_FloorDiv"
+occurrence = 7
+start_pos = [2350, 71]
+end_pos = [2350, 72]
+function = "iter_detectrl_x_rows"
+kind = "unobservable-value"
+source_text = "-"
+source_fingerprint = "9eee6b79f21bd3158ee86175619fb6a3bc99c0cf3afed6b1c8ba487a2d410796"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "iter_detectrl_x_rows: the `index - 1` in the \"expected ',' or ']'\" error message at datasets.py:2350. The message sits in the `if not expect_element` branch at datasets.py:2348, which is unreachable: expect_element is read only there (grep over datasets.py), the only assignment to False is at datasets.py:2393, and the post-yield separator handling (datasets.py:2395-2411) resolves it on every path (True / return / raise) before the next loop top, while _peek/_fill/_skip_ws never touch it — so the loop top is only ever reached with expect_element True. The f-string is never evaluated, so replacing `-` with `//` changes no observable behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_Sub_LShift:7"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_Sub_LShift"
+occurrence = 7
+start_pos = [2350, 71]
+end_pos = [2350, 72]
+function = "iter_detectrl_x_rows"
+kind = "unobservable-value"
+source_text = "-"
+source_fingerprint = "9eee6b79f21bd3158ee86175619fb6a3bc99c0cf3afed6b1c8ba487a2d410796"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "iter_detectrl_x_rows: the `index - 1` in the \"expected ',' or ']'\" error message at datasets.py:2350. The message sits in the `if not expect_element` branch at datasets.py:2348, which is unreachable: expect_element is read only there (grep over datasets.py), the only assignment to False is at datasets.py:2393, and the post-yield separator handling (datasets.py:2395-2411) resolves it on every path (True / return / raise) before the next loop top, while _peek/_fill/_skip_ws never touch it — so the loop top is only ever reached with expect_element True. The f-string is never evaluated, so replacing `-` with `<<` changes no observable behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_Sub_Mod:7"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_Sub_Mod"
+occurrence = 7
+start_pos = [2350, 71]
+end_pos = [2350, 72]
+function = "iter_detectrl_x_rows"
+kind = "unobservable-value"
+source_text = "-"
+source_fingerprint = "9eee6b79f21bd3158ee86175619fb6a3bc99c0cf3afed6b1c8ba487a2d410796"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "iter_detectrl_x_rows: the `index - 1` in the \"expected ',' or ']'\" error message at datasets.py:2350. The message sits in the `if not expect_element` branch at datasets.py:2348, which is unreachable: expect_element is read only there (grep over datasets.py), the only assignment to False is at datasets.py:2393, and the post-yield separator handling (datasets.py:2395-2411) resolves it on every path (True / return / raise) before the next loop top, while _peek/_fill/_skip_ws never touch it — so the loop top is only ever reached with expect_element True. The f-string is never evaluated, so replacing `-` with `%` changes no observable behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_Sub_Mul:7"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_Sub_Mul"
+occurrence = 7
+start_pos = [2350, 71]
+end_pos = [2350, 72]
+function = "iter_detectrl_x_rows"
+kind = "unobservable-value"
+source_text = "-"
+source_fingerprint = "9eee6b79f21bd3158ee86175619fb6a3bc99c0cf3afed6b1c8ba487a2d410796"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "iter_detectrl_x_rows: the `index - 1` in the \"expected ',' or ']'\" error message at datasets.py:2350. The message sits in the `if not expect_element` branch at datasets.py:2348, which is unreachable: expect_element is read only there (grep over datasets.py), the only assignment to False is at datasets.py:2393, and the post-yield separator handling (datasets.py:2395-2411) resolves it on every path (True / return / raise) before the next loop top, while _peek/_fill/_skip_ws never touch it — so the loop top is only ever reached with expect_element True. The f-string is never evaluated, so replacing `-` with `*` changes no observable behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_Sub_Pow:7"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_Sub_Pow"
+occurrence = 7
+start_pos = [2350, 71]
+end_pos = [2350, 72]
+function = "iter_detectrl_x_rows"
+kind = "unobservable-value"
+source_text = "-"
+source_fingerprint = "9eee6b79f21bd3158ee86175619fb6a3bc99c0cf3afed6b1c8ba487a2d410796"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "iter_detectrl_x_rows: the `index - 1` in the \"expected ',' or ']'\" error message at datasets.py:2350. The message sits in the `if not expect_element` branch at datasets.py:2348, which is unreachable: expect_element is read only there (grep over datasets.py), the only assignment to False is at datasets.py:2393, and the post-yield separator handling (datasets.py:2395-2411) resolves it on every path (True / return / raise) before the next loop top, while _peek/_fill/_skip_ws never touch it — so the loop top is only ever reached with expect_element True. The f-string is never evaluated, so replacing `-` with `**` changes no observable behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceBinaryOperator_Sub_RShift:7"
+module = "textforensics.datasets"
+operator = "core/ReplaceBinaryOperator_Sub_RShift"
+occurrence = 7
+start_pos = [2350, 71]
+end_pos = [2350, 72]
+function = "iter_detectrl_x_rows"
+kind = "unobservable-value"
+source_text = "-"
+source_fingerprint = "9eee6b79f21bd3158ee86175619fb6a3bc99c0cf3afed6b1c8ba487a2d410796"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "iter_detectrl_x_rows: the `index - 1` in the \"expected ',' or ']'\" error message at datasets.py:2350. The message sits in the `if not expect_element` branch at datasets.py:2348, which is unreachable: expect_element is read only there (grep over datasets.py), the only assignment to False is at datasets.py:2393, and the post-yield separator handling (datasets.py:2395-2411) resolves it on every path (True / return / raise) before the next loop top, while _peek/_fill/_skip_ws never touch it — so the loop top is only ever reached with expect_element True. The f-string is never evaluated, so replacing `-` with `>>` changes no observable behaviour."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceComparisonOperator_Eq_LtE:18"
+module = "textforensics.datasets"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 18
+start_pos = [2209, 21]
+end_pos = [2209, 23]
+function = "_check_raw_json_nesting_depth"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "b9c39c743c6792bc3c562e07a35629b153b0b63ddcd51a28fc2627b6a3c82482"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "_check_raw_json_nesting_depth: the `depth == 0` return at datasets.py:2209. The scanned text always begins with the current object's opening bracket — the sole production caller iter_detectrl_x_rows passes buf whose first non-whitespace character is `{` (verified at datasets.py:2353, which raises unless char == '{', and _peek strips leading whitespace) — so depth starts at 0, rises to 1 on the opening bracket, and can only reach <= 0 by passing through 0, where both the original and the mutant return. The mutant's extra return condition (depth < 0) needs a leading closer, which no caller can produce."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceComparisonOperator_Gt_GtE:3"
+module = "textforensics.datasets"
+operator = "core/ReplaceComparisonOperator_Gt_GtE"
+occurrence = 3
+start_pos = [2228, 21]
+end_pos = [2228, 22]
+function = "_json_value_depth"
+kind = "domain-equivalent"
+source_text = ">"
+source_fingerprint = "ac5edb11d435810491411ae45b0fbc31f33dadcfebd6f41d3afab5924931e69e"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "_json_value_depth: the `depth > max_seen` update at datasets.py:2228. The mutant `>=` differs from `>` only when depth == max_seen, and then the assignment max_seen = depth writes the value max_seen already holds — a no-op. On every input the two agree."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceComparisonOperator_Gt_NotEq:5"
+module = "textforensics.datasets"
+operator = "core/ReplaceComparisonOperator_Gt_NotEq"
+occurrence = 5
+start_pos = [2340, 25]
+end_pos = [2340, 26]
+function = "iter_detectrl_x_rows"
+kind = "domain-equivalent"
+source_text = ">"
+source_fingerprint = "9eee6b79f21bd3158ee86175619fb6a3bc99c0cf3afed6b1c8ba487a2d410796"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "iter_detectrl_x_rows: the `index > 0` guard at datasets.py:2340 (trailing-comma check inside the `]` branch). index starts at 0 and is only ever incremented (datasets.py:2331, 2391), so it is never negative and `index != 0` coincides with `index > 0` on every reachable state."
+
+[[equivalent]]
+id = "textforensics.datasets:core/ReplaceFalseWithTrue:8"
+module = "textforensics.datasets"
+operator = "core/ReplaceFalseWithTrue"
+occurrence = 8
+start_pos = [2393, 29]
+end_pos = [2393, 34]
+function = "iter_detectrl_x_rows"
+kind = "unobservable-value"
+source_text = "False"
+source_fingerprint = "9eee6b79f21bd3158ee86175619fb6a3bc99c0cf3afed6b1c8ba487a2d410796"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "iter_detectrl_x_rows: `expect_element = False` at datasets.py:2393. The flag is read only at datasets.py:2348, inside the `if not expect_element` branch, which is unreachable: the post-yield separator handling (datasets.py:2395-2411) resolves expect_element on every path (True / return / raise) before the next loop top, and _peek/_fill/_skip_ws never touch it. The separator handling itself does not consult the flag, so setting it True after a row changes no observable behaviour."

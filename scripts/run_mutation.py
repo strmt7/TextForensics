@@ -653,6 +653,16 @@ def test_command_for(modules: list[str], project_root: Path) -> str:
 # timestamp each get their W3 kill-test file; the remaining W3 modules
 # (sealing, verify, casefile, sealed_bundle, bundle,
 # _standalone_verify) get theirs when their kill tests are written.
+# The F4 kill-test files (tests/test_audit_w3_worker_f4_<stem>.py)
+# are listed the same way (audit-w3-f4): verify gets its F4 file,
+# and datasets gets an entry (dedicated file + the W1 DetectRLX /
+# Core-09 tests in test_w1_worker_d.py + the F4 kill-test file) —
+# datasets had no entry before F4 because it had no baseline
+# entries; the F4 re-proof appended 31. NOTE: the F4 datasets
+# kill-test file is slow (~54-80 s unmutated: the 16 MiB default-cap
+# test reads a 16 MiB object), so a future datasets proof run needs
+# a per-mutant timeout of at least 180 s (F4 precedent: 300 s);
+# the default 60 s would time out the unmutated baseline run.
 # Ledger's entry lists tests/test_audit_log.py (the audit-log tests;
 # there is no test_ledger.py) and deliberately does NOT list
 # tests/test_audit_anchor.py: its 9 C08/C09 tests are RED BY DESIGN
@@ -860,7 +870,8 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
     # consolidation tests live in test_verify_consolidation.py; the
     # W3 Worker B/C tests live in test_audit_w3_worker_b.py and
     # test_audit_w3_worker_c.py; the W3 kill tests live in
-    # test_audit_w3_worker_f_verify.py.
+    # test_audit_w3_worker_f_verify.py; the F4 kill tests live in
+    # test_audit_w3_worker_f4_verify.py.
     "textforensics.verify": [
         "tests/test_verify.py",
         "tests/test_casefile_v3.py",
@@ -869,6 +880,16 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
         "tests/test_audit_w3_worker_b.py",
         "tests/test_audit_w3_worker_c.py",
         "tests/test_audit_w3_worker_f_verify.py",
+        "tests/test_audit_w3_worker_f4_verify.py",
+    ],
+    # The W1 DetectRLX / Core-09 tests live in test_w1_worker_d.py;
+    # the F4 kill tests live in test_audit_w3_worker_f4_datasets.py
+    # (audit-w3-f4, 2026-11-13: 17 tests killing 65 of the 97
+    # phase-1 datasets survivors). See the timeout note above the map.
+    "textforensics.datasets": [
+        "tests/test_datasets.py",
+        "tests/test_w1_worker_d.py",
+        "tests/test_audit_w3_worker_f4_datasets.py",
     ],
 }
 
