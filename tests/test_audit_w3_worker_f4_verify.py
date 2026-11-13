@@ -34,9 +34,7 @@ class TestAuditW3WorkerF4Verify(unittest.TestCase):
             array_path = Path(tmp) / "array.json"
             array_path.write_text("[" * 1100 + "]" * 1100, encoding="utf-8")
             object_path = Path(tmp) / "object.json"
-            object_path.write_text(
-                '{"a": ' + "[" * 1100 + "]" * 1100 + "}", encoding="utf-8"
-            )
+            object_path.write_text('{"a": ' + "[" * 1100 + "]" * 1100 + "}", encoding="utf-8")
             with mock.patch.object(
                 verify_mod.json,
                 "loads",

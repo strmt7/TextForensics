@@ -300,9 +300,7 @@ class CosmicRayIntegrationTests(unittest.TestCase):
         # Datasets gets its entry with the F4 re-proof (audit-w3-f4):
         # the W1 DetectRLX / Core-09 tests in test_w1_worker_d.py and
         # the F4 kill tests are part of the per-mutant command.
-        datasets = self.runner.test_command_for(
-            ["textforensics.datasets"], self.project_root
-        )
+        datasets = self.runner.test_command_for(["textforensics.datasets"], self.project_root)
         self.assertEqual(
             datasets,
             "python -m pytest tests/test_datasets.py tests/test_w1_worker_d.py "
@@ -2206,7 +2204,8 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(len(unobservable), 129)
         self.assertEqual(
             {e["occurrence"] for e in unobservable},
-            {                0,
+            {
+                0,
                 1,
                 2,
                 3,
@@ -2270,7 +2269,7 @@ class EquivalentBaselineTests(unittest.TestCase):
                 550,
                 551,
                 554,
-                555
+                555,
             },
             "occurrences must match the W2 refresh + W2 proof + F2 "
             "re-proof append + W2 defect-fix repair + W3 re-proof "
@@ -2291,7 +2290,8 @@ class EquivalentBaselineTests(unittest.TestCase):
         )
         self.assertEqual(
             {e["function"] for e in unobservable},
-            {                "CalibrationCurve._validate_parameters",
+            {
+                "CalibrationCurve._validate_parameters",
                 "CapabilityPolicyEngine.evaluate",
                 "DatasetReference.from_dict",
                 "_analyze_text_internal",
@@ -2315,12 +2315,13 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "verify_bundle_bytes",
                 "verify_case_file_combined",
                 "verify_sealed_bundle",
-                "write_case_file"
+                "write_case_file",
             },
         )
         self.assertEqual(
             {e["source_text"] for e in unobservable},
-            {                "!=",
+            {
+                "!=",
                 "+",
                 "-",
                 "0",
@@ -2345,7 +2346,7 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "_DerError",
                 "infos",
                 "or",
-                "|"
+                "|",
             },
         )
         # The two lru_cache entries share one position and function.
@@ -2466,9 +2467,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         # (occ 7/200/201) and 1 ReplaceFalseWithTrue for the
         # write-only expect_element flag at datasets.py:2393 (occ 8),
         # all in iter_detectrl_x_rows, hence one fingerprint.
-        datasets_unobs = [
-            e for e in unobservable if e["module"] == "textforensics.datasets"
-        ]
+        datasets_unobs = [e for e in unobservable if e["module"] == "textforensics.datasets"]
         self.assertEqual(len(datasets_unobs), 14)
         self.assertEqual({e["occurrence"] for e in datasets_unobs}, {7, 8, 200, 201})
         self.assertEqual({e["function"] for e in datasets_unobs}, {"iter_detectrl_x_rows"})

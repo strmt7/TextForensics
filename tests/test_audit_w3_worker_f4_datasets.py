@@ -179,10 +179,7 @@ class TestAuditW3WorkerF4DetectRLX(unittest.TestCase):
             path = self._write(tmp, "str.json", b'[{"a": 1} "x"]')
             with self.assertRaisesRegex(
                 DatasetFetchError,
-                _exact(
-                    "detectrl_x: expected ',' or ']' after row 0, "
-                    "found '\"' (missing comma?)"
-                ),
+                _exact("detectrl_x: expected ',' or ']' after row 0, found '\"' (missing comma?)"),
             ):
                 list(iter_detectrl_x_rows(path))
 
@@ -287,18 +284,14 @@ class TestAuditW3WorkerF4DetectRLX(unittest.TestCase):
         self.assertEqual(len(obj), 100)
         with tempfile.TemporaryDirectory() as tmp:
             path = self._write(tmp, "exact.json", "[" + obj + "]")
-            self.assertEqual(
-                len(list(iter_detectrl_x_rows(path, max_object_bytes=100))), 1
-            )
+            self.assertEqual(len(list(iter_detectrl_x_rows(path, max_object_bytes=100))), 1)
 
     def test_raw_depth_check_rejects_violation_after_first_close(self):
         # Kills Eq_GtE [2209,21]: the mutant returns at the first closer
         # whose depth stays >= 0 (the ']' after [1]) and never scans the
         # deep nesting in the later "b" value.
         with self.assertRaises(DatasetFetchError):
-            _check_raw_json_nesting_depth(
-                '{"a": [1], "b": [[[[1]]]]}', max_depth=2, row_index=0
-            )
+            _check_raw_json_nesting_depth('{"a": [1], "b": [[[[1]]]]}', max_depth=2, row_index=0)
 
     def test_json_value_depth_uses_deepest_sibling(self):
         # Kills Gt_NotEq and Gt_IsNot [2228,21]: both mutants lower
