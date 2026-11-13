@@ -2178,7 +2178,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         by_id = {e["id"]: e for e in runtime}
         self.assertEqual(
             {e["occurrence"] for e in unreachable},
-            {1, 2, 6, 7, 12, 13, 14, 15, 45, 95},
+            {1, 2, 6, 7, 13, 14, 15, 16, 45, 95},
             "occurrences must match the W2 refresh plus the W3 sealing "
             "platform-gated entries (the W1 set was {12, 45, 48, 50, 51, "
             "95}; the trust entries 48/50/51 were DROPPED in the W2 "
@@ -2186,9 +2186,12 @@ class EquivalentBaselineTests(unittest.TestCase):
             "the baseline header note — and 12 was renumbered to 15 by "
             "the same refresh: it is the PolicyRevisionFloor."
             "_atomic_write_bytes missing_ok entry; the 16 sealing "
-            "entries (occurrences 1, 2, 6, 7, 12, 13, 14, 15) are the "
+            "entries (occurrences 1, 2, 6, 7, 13, 14, 15, 16) are the "
             "Windows-only _restrict_to_owner_windows conditions, "
-            "unreachable on POSIX — see the W3 sealing reasons)",
+            "unreachable on POSIX — see the W3 sealing reasons; the W3 "
+            "F4 refresh renumbered the sealing AddNot chain 12/13/14/15 "
+            "-> 13/14/15/16 because the iterative "
+            "find_forbidden_raw_text_keys added one AddNot mutant)",
         )
         # The two entries that shared L628:76 (occurrences 50 and 51)
         # are gone: they were among the trust entries dropped in the
@@ -3598,7 +3601,7 @@ class EquivalentBaselineTests(unittest.TestCase):
     def test_occurrence_disambiguates_same_position_mutants(self):
         """Two entries at one position differ only by occurrence — and match only their own mutant.
 
-        L1686:21 in verify_bundle_bytes carries occurrences 510 (`2` ->
+        L1707:21 in verify_bundle_bytes carries occurrences 510 (`2` ->
         `3`, unobservable-value) and 511 (`2` -> `1`, unobservable-value)
         — the report dict's initial exit_code, overwritten on every path
         before return. A survivor with an occurrence that matches neither
@@ -3608,14 +3611,16 @@ class EquivalentBaselineTests(unittest.TestCase):
         entries were dropped in the W2 refresh, so the test moved to the
         F2 re-proof pair; that pair is gone too — the W3 F2 refresh
         re-derived the exit_code position 1365 -> 1686 and renumbered
-        the occurrences 486/487 -> 510/511 — so the test moved again.)
+        the occurrences 486/487 -> 510/511 — so the test moved again;
+        the W3 F4 refresh re-derived the exit_code position 1686 -> 1707
+        with occurrences unchanged — so the test moved again.)
         """
         runtime = {
             e["occurrence"]: e
             for e in self.baseline["entries"]
             if e["kind"] == "unobservable-value"
             and e["module"] == "textforensics._standalone_verify"
-            and tuple(e["start_pos"]) == (1686, 21)
+            and tuple(e["start_pos"]) == (1707, 21)
         }
         entry_510 = runtime[510]
         entry_511 = runtime[511]
@@ -3628,8 +3633,8 @@ class EquivalentBaselineTests(unittest.TestCase):
             self._record(
                 operator="core/NumberReplacer",
                 occurrence=99,
-                start_pos=(1686, 21),
-                end_pos=(1686, 22),
+                start_pos=(1707, 21),
+                end_pos=(1707, 22),
                 outcome="survived",
                 module_path=str(
                     self.project_root / "src" / "textforensics" / "_standalone_verify.py"
