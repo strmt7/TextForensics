@@ -1022,6 +1022,22 @@ class VerifyCaseFilePathTests(unittest.TestCase):
             self.assertFalse(report.case_file["valid"])
             self.assertTrue(any("JSON" in e for e in report.case_file["errors"]))
 
+    def test_verify_case_file_path_deeply_nested_array(self):
+        """A deeply nested top-level array returns structured invalid.
+
+        Same bug class as verify_case_file_path_combined: on Python 3.11
+        the json C scanner shares the ~1000 Python recursion limit, so
+        parsing this raises RecursionError; the loader must return the
+        "case file must be a JSON object" report instead of raising.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "case.json"
+            path.write_text("[" * 1100 + "]" * 1100, encoding="utf-8")
+            report = verify_case_file_path(path)
+            self.assertFalse(report.overall_valid)
+            self.assertFalse(report.case_file["valid"])
+            self.assertIn("case file must be a JSON object", report.case_file["errors"])
+
     def test_verify_case_file_path_valid(self):
         """Test verify_case_file_path with valid case file."""
         from textforensics.casefile import seal_case_file

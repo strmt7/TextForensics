@@ -117,7 +117,7 @@ ALLOWED_PROCESS_METADATA_KEYS = frozenset(
 
 
 def find_forbidden_raw_text_keys(value: Any, path: str = "$") -> list[str]:
-    """Recursively find forbidden raw-text keys in *value*.
+    """Find forbidden raw-text keys in *value*.
 
     Returns the JSON-style paths (``$.process.reviewer.raw_text``,
     ``$.limitations.counterfactuals[0].excerpt``) of every mapping key
@@ -125,18 +125,40 @@ def find_forbidden_raw_text_keys(value: Any, path: str = "$") -> list[str]:
     :data:`FORBIDDEN_RAW_TEXT_KEYS`.  Mapping values, list items and
     nested mappings are all scanned.  Only key *names* are inspected —
     values are never read for content.
+
+    Iterative (explicit stack, no recursion): a deeply nested case file
+    must not raise ``RecursionError`` here. The traversal order is the
+    same depth-first pre-order as the recursive version — children are
+    pushed in reverse so they are visited in order, and a forbidden
+    key's path is recorded when its child is visited.
     """
     found: list[str] = []
-    if isinstance(value, Mapping):
-        for key, child in value.items():
-            key_string = str(key)
-            child_path = f"{path}.{key_string}"
-            if key_string.strip().lower() in FORBIDDEN_RAW_TEXT_KEYS:
-                found.append(child_path)
-            found.extend(find_forbidden_raw_text_keys(child, child_path))
-    elif isinstance(value, list):
-        for index, child in enumerate(value):
-            found.extend(find_forbidden_raw_text_keys(child, f"{path}[{index}]"))
+    # (value, path, key_is_forbidden). The root has no key, so it is
+    # never itself reported.
+    stack: list[tuple[Any, str, bool]] = [(value, path, False)]
+    while stack:
+        current, current_path, is_forbidden = stack.pop()
+        if is_forbidden:
+            found.append(current_path)
+        if isinstance(current, Mapping):
+            children = [
+                (
+                    child,
+                    f"{current_path}.{key}",
+                    str(key).strip().lower() in FORBIDDEN_RAW_TEXT_KEYS,
+                )
+                for key, child in current.items()
+            ]
+            stack.extend(reversed(children))
+        elif isinstance(current, list):
+            stack.extend(
+                reversed(
+                    [
+                        (child, f"{current_path}[{index}]", False)
+                        for index, child in enumerate(current)
+                    ]
+                )
+            )
     return found
 
 

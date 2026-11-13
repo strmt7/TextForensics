@@ -72,6 +72,7 @@ import json
 import logging
 import os
 import random
+import re
 import shutil
 import subprocess
 import time
@@ -2156,6 +2157,82 @@ def verify_detectrl_x_file(path: str | Path) -> Path:
     return path
 
 
+_DETECTRL_X_MAX_NESTING_DEPTH = 100
+"""Maximum JSON nesting depth accepted for a DetectRL-X row.
+
+Legitimate rows are flat objects (depth 1, with scalar or shallow list
+fields). The bound is enforced explicitly, independent of the ``json``
+module's recursion behaviour, which is version-dependent: on Python
+3.11 the C scanner shares the ~1000 Python recursion limit, on 3.12+
+it has its own, much larger C budget, and on 3.14+ deeply nested input
+no longer raises ``RecursionError`` at all — so relying on
+``RecursionError`` to bound depth silently accepts hostile nesting on
+newer Pythons. A limit of 100 is far above any legitimate row and far
+below every Python's recursion budget, so the same input is rejected
+on every supported version.
+"""
+
+# A JSON string literal, or an unterminated string running to the end of
+# the (possibly partial) buffer. Used to strip string contents before
+# counting bracket depth, so brackets inside strings are not mistaken
+# for structure. The second alternative matches a trailing unterminated
+# string so a partial buffer does not mis-count brackets inside it.
+_JSON_STRING_RE = re.compile(r'"(?:\\.|[^"\\])*"|"(?:\\.|[^"\\])*$')
+_JSON_BRACKET_RE = re.compile(r"[{\[\]}]")
+
+
+def _check_raw_json_nesting_depth(text: str, *, max_depth: int, row_index: int) -> None:
+    """Reject raw JSON text whose bracket nesting exceeds ``max_depth``.
+
+    Runs before ``json`` decodes the text, so a hostile deeply nested
+    row is rejected without the decoder first building the nested
+    structure in memory. Strings are stripped first (brackets inside
+    them are data, not structure). The scan stops when the current
+    object's closing bracket brings the depth back to zero, so it never
+    looks past the object being decoded; if the text runs out with the
+    object still open the input is partial and no conclusion is drawn —
+    the decoder will ask for more data and the scan runs again.
+    """
+    stripped = _JSON_STRING_RE.sub("", text)
+    depth = 0
+    for match in _JSON_BRACKET_RE.finditer(stripped):
+        char = match.group()
+        if char in "[{":
+            depth += 1
+            if depth > max_depth:
+                raise DatasetFetchError(
+                    f"detectrl_x: row {row_index} exceeds the nesting-depth budget "
+                    f"(>{max_depth} levels)"
+                )
+        else:
+            depth -= 1
+            if depth == 0:
+                return
+    # Ran out of text with the object still open: partial input, no
+    # conclusion — the decoder will request more data.
+
+
+def _json_value_depth(obj: object) -> int:
+    """Maximum container-nesting depth of a decoded JSON value.
+
+    Backstop for the raw-text depth scan: if the decoder ever accepts a
+    structure the scan missed, the decoded value is still measured and
+    rejected. Uses an explicit stack so the check itself cannot recurse.
+    A flat object has depth 1; each nested list/dict adds one level.
+    """
+    max_seen = 0
+    stack = [(obj, 1)]
+    while stack:
+        value, depth = stack.pop()
+        if isinstance(value, (dict, list)):
+            if depth > max_seen:
+                max_seen = depth
+            children = value.values() if isinstance(value, dict) else value
+            for child in children:
+                stack.append((child, depth + 1))
+    return max_seen
+
+
 def iter_detectrl_x_rows(path: str | Path, *, max_object_bytes: int = 16 * 1024 * 1024):
     """Yield ``(row_index, row_dict)`` from a DetectRL-X JSON-array file, streaming.
 
@@ -2183,7 +2260,13 @@ def iter_detectrl_x_rows(path: str | Path, *, max_object_bytes: int = 16 * 1024 
     * Malformed Unicode (invalid UTF-8 bytes, truncated sequences)
       and pathological nesting depth are rejected as
       :class:`DatasetFetchError`, never as a bare codec or recursion
-      exception escaping the parser.
+      exception escaping the parser. Nesting depth is bounded
+      explicitly at ``_DETECTRL_X_MAX_NESTING_DEPTH`` (100 levels),
+      enforced on the raw text before decoding and re-checked on the
+      decoded value — never by relying on the ``json`` module raising
+      ``RecursionError``, whose behaviour is Python-version-dependent
+      (3.11 shares the ~1000 Python limit, 3.12+ has a larger C
+      budget, 3.14+ no longer raises it for deep nesting at all).
     """
     decoder = json.JSONDecoder()
     path = Path(path)
@@ -2272,6 +2355,14 @@ def iter_detectrl_x_rows(path: str | Path, *, max_object_bytes: int = 16 * 1024 
                     f"detectrl_x: row {index} is not a JSON object (found {char!r})"
                 )
             try:
+                # Explicit depth bound, independent of the json module's
+                # version-dependent recursion behaviour (see
+                # _DETECTRL_X_MAX_NESTING_DEPTH). Without it, deeply
+                # nested input that no longer raises RecursionError on
+                # newer Pythons would be decoded — and allocated — whole.
+                _check_raw_json_nesting_depth(
+                    buf, max_depth=_DETECTRL_X_MAX_NESTING_DEPTH, row_index=index
+                )
                 obj, end = decoder.raw_decode(buf)
             except json.JSONDecodeError:
                 if eof:
@@ -2284,6 +2375,10 @@ def iter_detectrl_x_rows(path: str | Path, *, max_object_bytes: int = 16 * 1024 
                 raise DatasetFetchError(
                     f"detectrl_x: row {index} exceeds the nesting-depth budget"
                 ) from exc
+            if _json_value_depth(obj) > _DETECTRL_X_MAX_NESTING_DEPTH:
+                # Backstop: the decoder accepted a structure the raw-text
+                # scan missed (e.g. a future json behaviour change).
+                raise DatasetFetchError(f"detectrl_x: row {index} exceeds the nesting-depth budget")
             if end > max_object_bytes:
                 raise DatasetFetchError(
                     f"detectrl_x: row {index} exceeds the {max_object_bytes}-byte object budget"

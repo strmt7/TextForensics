@@ -35,7 +35,12 @@ from textforensics.casefile import (
 from textforensics.casefile import (
     verify_case_file as primary_verify_case_file,
 )
-from textforensics.datasets import DatasetFetchError, iter_detectrl_x_rows
+from textforensics.datasets import (
+    DatasetFetchError,
+    _check_raw_json_nesting_depth,
+    _json_value_depth,
+    iter_detectrl_x_rows,
+)
 from textforensics.explain import (
     explain_verdict,
     load_explanation_report,
@@ -539,6 +544,24 @@ class TestC12MalformedShapes(unittest.TestCase):
         self.assertFalse(result["valid"])
         self.assertIn("case file must be a JSON object", result["errors"])
 
+    def test_deeply_nested_object_json_is_structured_invalid(self):
+        # Same "never raises" contract for a deeply nested OBJECT: on
+        # Python 3.11 the json C scanner shares the ~1000 Python
+        # recursion limit, so parsing this raises RecursionError; the
+        # loader must map it to a structured invalid instead of letting
+        # it escape. The error wording is version-dependent (the object
+        # parses on 3.12+, where it is rejected later for missing case
+        # fields), so only the structured-invalid shape is asserted.
+        import tempfile
+
+        nested = '{"a": ' + "[" * 1100 + "]" * 1100 + "}"
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "case.json"
+            path.write_text(nested, encoding="utf-8")
+            result = verify_case_file_path_combined(path)
+        self.assertFalse(result["valid"])
+        self.assertTrue(result["errors"])
+
 
 class TestCore07TrustCompleteness(unittest.TestCase):
     def _row(
@@ -726,6 +749,102 @@ class TestCore09StrictArrayGrammar(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = self._write(tmp, "deep", blob)
             with self.assertRaises(DatasetFetchError):
+                list(iter_detectrl_x_rows(path))
+
+    def test_raw_nesting_depth_limit(self):
+        # Direct unit test of the explicit depth bound: the limit is
+        # enforced on the raw text before decoding, so it does not depend
+        # on the json module raising RecursionError (which 3.14+ no
+        # longer does for deep nesting).
+        from textforensics.datasets import _DETECTRL_X_MAX_NESTING_DEPTH
+
+        limit = _DETECTRL_X_MAX_NESTING_DEPTH
+        # Shallow rows pass.
+        _check_raw_json_nesting_depth('{"a": 1, "b": [1, 2]}', max_depth=limit, row_index=0)
+        # Exactly at the limit passes; one level over is rejected.
+        _check_raw_json_nesting_depth(
+            '{"a": ' + "[" * (limit - 1) + "]" * (limit - 1) + "}",
+            max_depth=limit,
+            row_index=0,
+        )
+        with self.assertRaises(DatasetFetchError):
+            _check_raw_json_nesting_depth(
+                '{"a": ' + "[" * limit + "]" * limit + "}",
+                max_depth=limit,
+                row_index=0,
+            )
+        # Brackets inside strings are data, not structure.
+        _check_raw_json_nesting_depth('{"a": "' + "[" * 500 + '"}', max_depth=limit, row_index=0)
+        # A partial buffer (object still open) draws no conclusion.
+        _check_raw_json_nesting_depth('{"a": ' + "[" * 50, max_depth=limit, row_index=0)
+        # The scan stops at the current object's close, so a later deep
+        # row in the same buffer is not blamed on this row.
+        _check_raw_json_nesting_depth('{"a": 1} ' + "[" * 500, max_depth=limit, row_index=0)
+
+    def test_json_value_depth_measures_nesting(self):
+        self.assertEqual(_json_value_depth({"a": 1}), 1)
+        self.assertEqual(_json_value_depth({"a": [1, 2]}), 2)
+        self.assertEqual(_json_value_depth([[[{"a": 1}]]]), 4)
+        self.assertEqual(_json_value_depth(42), 0)
+        nested = {}
+        cur = nested
+        for _ in range(199):
+            nxt = {}
+            cur["a"] = nxt
+            cur = nxt
+        self.assertEqual(_json_value_depth(nested), 200)
+
+    def test_deep_nesting_rejected_even_when_decoder_succeeds(self):
+        # Simulates the Python 3.14+ behaviour, where the json C scanner
+        # no longer raises RecursionError for deeply nested input: the
+        # decoder returns a deeply nested value for shallow text, and
+        # the decoded-value backstop must still reject it. (The raw-text
+        # scan passes here because the text itself is shallow.)
+        import tempfile
+        from unittest import mock
+
+        import textforensics.datasets as datasets_mod
+
+        real_json = datasets_mod.json
+
+        class _DeepDecoder:
+            def raw_decode(self, s):
+                obj = {}
+                cur = obj
+                for _ in range(200):
+                    nxt = {}
+                    cur["a"] = nxt
+                    cur = nxt
+                return obj, len(s)
+
+        fake_json = mock.Mock()
+        fake_json.JSONDecodeError = real_json.JSONDecodeError
+        fake_json.JSONDecoder = _DeepDecoder
+        blob = b'[{"a": 1}]'
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._write(tmp, "fake-deep", blob)
+            with (
+                mock.patch.object(datasets_mod, "json", fake_json),
+                self.assertRaises(DatasetFetchError),
+            ):
+                list(iter_detectrl_x_rows(path))
+
+    def test_decoded_depth_backstop_is_wired_in(self):
+        # The post-decode depth check is enforced: if the measured depth
+        # exceeds the budget, the row is rejected even though the text
+        # and the decoder both behaved.
+        import tempfile
+        from unittest import mock
+
+        import textforensics.datasets as datasets_mod
+
+        blob = b'[{"a": 1}]'
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._write(tmp, "shallow", blob)
+            with (
+                mock.patch.object(datasets_mod, "_json_value_depth", return_value=10**9),
+                self.assertRaises(DatasetFetchError),
+            ):
                 list(iter_detectrl_x_rows(path))
 
 

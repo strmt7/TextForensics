@@ -15,7 +15,12 @@ regenerate.
 
 import unittest
 
-from w2_f_kill_helpers import probe_verify_benchmark, probe_verify_case_file, probe_verify_recompute
+from w2_f_kill_helpers import (
+    _canonical_probe_error,
+    probe_verify_benchmark,
+    probe_verify_case_file,
+    probe_verify_recompute,
+)
 
 EXPECTED_PROBE_VERIFY_BENCHMARK = [
     (
@@ -1105,7 +1110,12 @@ EXPECTED_PROBE_VERIFY_CASE_FILE = [
     ),
     (
         "seal-nan-tuple",
-        ("raise", "ValueError", "Out of range float values are not JSON compliant: nan"),
+        # Canonical form: CPython 3.12 appends the offending value
+        # (": nan") to this json.dumps ValueError, 3.11 reports the bare
+        # message. The probe canonicalises it (see _canonical_probe_error
+        # in tests/w2_f_kill_helpers.py), so the table records the bare
+        # form on every supported Python.
+        ("raise", "ValueError", "Out of range float values are not JSON compliant"),
     ),
     ("tm-no-trust-map", ("ok", False, False, False, ["case hash seal mismatch"], [])),
     (
@@ -1605,6 +1615,22 @@ class TestWorkerFKillVerify(unittest.TestCase):
         self.assertEqual(len(got), len(exp))
         for i, (g, e) in enumerate(zip(got, exp, strict=True)):
             self.assertEqual(g, e, f"row {i}")
+
+    def test_canonical_probe_error_is_version_tolerant(self):
+        # CPython 3.12 appends the offending value to the json.dumps
+        # out-of-range message (": nan"); 3.11 reports the bare message.
+        # The probe canonicalises both to the bare form so the golden
+        # table is identical on every supported Python.
+        prefix = "Out of range float values are not JSON compliant"
+        self.assertEqual(_canonical_probe_error(prefix), prefix)
+        self.assertEqual(_canonical_probe_error(prefix + ": nan"), prefix)
+        self.assertEqual(_canonical_probe_error(prefix + ": inf"), prefix)
+        self.assertEqual(_canonical_probe_error(prefix + ": -inf"), prefix)
+        # Unrelated messages pass through untouched.
+        self.assertEqual(
+            _canonical_probe_error("something else entirely"),
+            "something else entirely",
+        )
 
     def test_probe_verify_recompute(self):
         got = probe_verify_recompute()

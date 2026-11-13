@@ -6199,8 +6199,26 @@ def probe_verify_case_file():
                 )
             )
         except Exception as exc:  # noqa: BLE001
-            rows.append((name, ("raise", type(exc).__name__, str(exc))))
+            rows.append((name, ("raise", type(exc).__name__, _canonical_probe_error(str(exc)))))
     return rows
+
+
+def _canonical_probe_error(message: str) -> str:
+    """Canonical form of a version-dependent ``json`` error message.
+
+    CPython 3.12 made ``json.dumps(..., allow_nan=False)`` include the
+    offending value in the ``ValueError`` (``"... compliant: nan"``); on
+    3.11 the same call reports the bare message (``"... compliant"``).
+    The probe oracle records the production behaviour, so it canonicalises
+    the message to the bare form — otherwise the golden table would be
+    correct on one Python and wrong on another for the same behaviour.
+    The ``ValueError`` itself (and its type) is still asserted; only the
+    version-dependent value suffix is normalised away.
+    """
+    prefix = "Out of range float values are not JSON compliant"
+    if message.startswith(prefix):
+        return prefix
+    return message
 
 
 # ---------------------------------------------------------------------------

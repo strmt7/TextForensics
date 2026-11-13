@@ -438,8 +438,9 @@ def verify_case_file_path_combined(
     input: malformed JSON or a non-dict payload returns a failed dict
     (same contract as :func:`verify_case_file_path`).
     """
+    text = Path(path).read_text(encoding="utf-8")
     try:
-        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        payload = json.loads(text)
     except json.JSONDecodeError as exc:
         return {
             "valid": False,
@@ -453,6 +454,29 @@ def verify_case_file_path_combined(
             "nversion": None,
             "primary": None,
         }
+    except RecursionError as exc:
+        # Deeply nested input exceeded this Python's recursion budget
+        # before the parser could report the type (on 3.11 the json C
+        # scanner shares the ~1000 Python recursion limit; 3.12+ gives
+        # the C scanner its own, much larger budget, so the same input
+        # parses there). A top-level array is definitely not a JSON
+        # object, so it is rejected as such; anything else is invalid
+        # JSON. Either way the contract holds: never raise for bad input.
+        if text.lstrip(" \t\r\n").startswith("["):
+            payload = None  # not a dict; rejected below
+        else:
+            return {
+                "valid": False,
+                "errors": [f"invalid JSON: {exc}"],
+                "seal_verified": False,
+                "trust_map_verified": False,
+                "dimensions": {},
+                "schema": None,
+                "case_sha256": None,
+                "note": None,
+                "nversion": None,
+                "primary": None,
+            }
     if not isinstance(payload, dict):
         return {
             "valid": False,
@@ -466,7 +490,25 @@ def verify_case_file_path_combined(
             "nversion": None,
             "primary": None,
         }
-    return verify_case_file_combined(payload, public_key=public_key)
+    try:
+        return verify_case_file_combined(payload, public_key=public_key)
+    except RecursionError as exc:
+        # A deeply nested object can exceed the Python recursion budget
+        # in a downstream helper (deepcopy, _sanitize_for_json, ...).
+        # The contract is to never raise for bad input: it is a
+        # structured invalid, not a crash.
+        return {
+            "valid": False,
+            "errors": [f"invalid JSON: {exc}"],
+            "seal_verified": False,
+            "trust_map_verified": False,
+            "dimensions": {},
+            "schema": None,
+            "case_sha256": None,
+            "note": None,
+            "nversion": None,
+            "primary": None,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -797,8 +839,9 @@ def verify_case_file_path(path: str | Path) -> VerificationReport:
     -------
     VerificationReport with results.
     """
+    text = Path(path).read_text(encoding="utf-8")
     try:
-        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        payload = json.loads(text)
     except json.JSONDecodeError as e:
         return VerificationReport(
             case_file={
@@ -810,6 +853,27 @@ def verify_case_file_path(path: str | Path) -> VerificationReport:
             },
             overall_valid=False,
         )
+    except RecursionError as exc:
+        # Deeply nested input exceeded this Python's recursion budget
+        # before the parser could report the type (on 3.11 the json C
+        # scanner shares the ~1000 Python recursion limit; 3.12+ gives
+        # the C scanner its own, much larger budget). A top-level array
+        # is definitely not a JSON object, so it is rejected as such;
+        # anything else is invalid JSON. Either way the contract holds:
+        # never raise for bad input.
+        if text.lstrip(" \t\r\n").startswith("["):
+            payload = None  # not a dict; rejected below
+        else:
+            return VerificationReport(
+                case_file={
+                    "valid": False,
+                    "errors": [f"invalid JSON: {exc}"],
+                    "seal_verified": False,
+                    "trust_map_verified": False,
+                    "dimensions": {},
+                },
+                overall_valid=False,
+            )
     if not isinstance(payload, dict):
         return VerificationReport(
             case_file={
@@ -821,7 +885,23 @@ def verify_case_file_path(path: str | Path) -> VerificationReport:
             },
             overall_valid=False,
         )
-    return verify_all(case_payload=payload)
+    try:
+        return verify_all(case_payload=payload)
+    except RecursionError as exc:
+        # A deeply nested object can exceed the Python recursion budget
+        # in a downstream helper (deepcopy, _sanitize_for_json, ...).
+        # The contract is to never raise for bad input: it is a
+        # structured invalid, not a crash.
+        return VerificationReport(
+            case_file={
+                "valid": False,
+                "errors": [f"invalid JSON: {exc}"],
+                "seal_verified": False,
+                "trust_map_verified": False,
+                "dimensions": {},
+            },
+            overall_valid=False,
+        )
 
 
 __all__ = [
