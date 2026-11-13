@@ -215,15 +215,20 @@ class TestAuditW3WorkerF4DetectRLX(unittest.TestCase):
             ):
                 list(iter_detectrl_x_rows(deep))
 
-    # NOTE (ordering): this guard test runs BEFORE the 16 MiB cap test
-    # below. Under a tiny-chunk mutant (21/20/1-byte chunks) the 16 MiB
-    # test is pathologically slow (hundreds of thousands of single-chunk
-    # fills, each rescanning the growing buffer), while this test kills
-    # those mutants in seconds — the guard fires after a few fills
-    # because the threshold is max_object_bytes + chunk_size with the
-    # small explicit cap (100). The re-prove runs the file with -x, so
-    # the guard failure stops the run before the heavy test.
-    def test_object_budget_guard_uses_chunk_size(self):
+    # NOTE (ordering): unittest runs TestCase methods ALPHABETICALLY,
+    # not in file order — so this test's NAME is what puts it first
+    # (test_chunk_... < test_close_... < test_default_...). It must run
+    # before the 16 MiB cap test: under a tiny-chunk mutant (21/20/1-byte
+    # chunks) the 16 MiB test is pathologically slow (hundreds of
+    # thousands of single-chunk fills, each rescanning the growing
+    # buffer — the first re-prove runs hung 30+ min on LShift_Add
+    # [2275,19] before being killed), while this test kills those
+    # mutants in seconds — the guard fires after a few fills because
+    # the threshold is max_object_bytes + chunk_size with the small
+    # explicit cap (100). The re-prove runs the file with -x, so the
+    # guard failure stops the run before the heavy test. Do NOT rename
+    # this test to something sorting after test_default_... .
+    def test_chunk_size_guard_threshold(self):
         # Kills all 10 chunk-size mutants at [2275,17]/[2275,19]/
         # [2275,22]. _fill raises when len(buf) exceeds max_object_bytes
         # + chunk_size, so the chunk size is observable through the
