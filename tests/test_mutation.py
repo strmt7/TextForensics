@@ -150,7 +150,10 @@ class CosmicRayIntegrationTests(unittest.TestCase):
         self.assertEqual(
             casefile,
             "python -m pytest tests/test_casefile.py tests/test_w1_worker_d.py "
-            "tests/test_casefile_v3.py tests/test_audit_w2_worker_f_casefile.py -x -q",
+            "tests/test_casefile_v3.py tests/test_casefile_v4.py "
+            "tests/test_audit_w2_worker_f_casefile.py "
+            "tests/test_audit_w3_worker_b.py "
+            "tests/test_audit_w3_worker_f_casefile.py -x -q",
         )
         probe_runs = self.runner.test_command_for(["textforensics.probe_runs"], self.project_root)
         self.assertEqual(

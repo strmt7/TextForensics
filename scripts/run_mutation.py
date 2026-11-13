@@ -745,12 +745,18 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
     # case-file tests live in test_casefile_v3.py; the W2 kill tests
     # live in test_audit_w2_worker_f_casefile.py. (test_audit_w2_worker_a
     # is NOT listed: it contains zero casefile references — Worker A
-    # tested trust/policy, not casefile.)
+    # tested trust/policy, not casefile.) The v4 tests live in
+    # test_casefile_v4.py; W3 Worker B tests live in
+    # test_audit_w3_worker_b.py; the W3 kill tests live in
+    # test_audit_w3_worker_f_casefile.py.
     "textforensics.casefile": [
         "tests/test_casefile.py",
         "tests/test_w1_worker_d.py",
         "tests/test_casefile_v3.py",
+        "tests/test_casefile_v4.py",
         "tests/test_audit_w2_worker_f_casefile.py",
+        "tests/test_audit_w3_worker_b.py",
+        "tests/test_audit_w3_worker_f_casefile.py",
     ],
     # W2 Worker D tests (probe_runs / probe_metrics / model_card /
     # result_codec) live in test_w2_worker_d.py alongside the dedicated

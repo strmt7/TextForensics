@@ -51,6 +51,21 @@
 # equivalent + 55 annotation + 4 incompetent. See
 # hidden_files/audit-w3-worker-f.md sections 5-6 and
 # audit-w3-f3-reprove-bundle-timeouts.py.
+# F3 re-proof entries, casefile (audit-w3-f3, 2026-11-13): 33 entries
+# appended after the re-proof of the 54 casefile survivors: 21
+# killed by the 22 W3 kill tests in
+# tests/test_audit_w3_worker_f_casefile.py (re-proved mutant by
+# mutant with cosmic-ray mutate_code in the scratch worktree), 33
+# proven equivalent with recorded reasons (22 postponed-evaluation
+# annotations + 11 domain-equivalent), 0 unexplained. The 8
+# version-comparison equivalents correct the F2 classify-notes:
+# seal_case_file rejects every version outside {"v1","v2","v3",
+# "v4"} up front, so version="v0"/"v5" kill plans cannot reach
+# the checks; _verify_case_sections is called only with "v3"/"v4".
+# The `!=` -> `<`/`>` kill inputs are the opposite of the notes
+# (Lt <- greater value, Gt <- lesser value). See
+# hidden_files/audit-w3-worker-f.md sections 5-6 and
+# audit-w3-f3-equiv-reasons-casefile.json.
 # POSITION REFRESH (2026-11-12, audit W3, head 85d14ce): W3 (watermark
 # payload binding, case sealing/signer binding/custody/privacy, offline
 # verification parity, ledger verification path) shifted lines in
@@ -56039,3 +56054,416 @@ kind = "domain-equivalent"
 source_text = ">"
 source_fingerprint = "101845eef3618ecb4b81870ff6a942716817b0ea66e9984157eb3c14b8068127"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "Domain-equivalent mutant (verify_bundle step 4, tar branch): `member.size > MAX_BUNDLE_FILE_BYTES` -> `is`. Step 3 pre-flags every member with size > MAX_BUNDLE_FILE_BYTES and step 4 skips flagged entries at line 491 before any getmember/getinfo call, so step 4 only ever sees size <= MAX, where `>` and `is` are both False. Same pre-filtering proof as the zip-branch [511,38] entry. Re-proved 2026-11-13 (audit-w3-f3-reprove-bundle-timeouts.py): survives the W3 kill-test file (36 tests)."
+
+# --- F3 re-proof entries, casefile (audit-w3-f3, 2026-11-13) --------
+# 33 entries: 22 postponed-evaluation annotations + 11
+# domain-equivalent. Each entry survived the re-proof and carries a
+# source-verified equivalence reason; every other casefile survivor
+# was killed by the W3 kill tests
+# (audit-w3-f3-reprove-casefile.py 21 killed / 11 survived, 0 gaps).
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_Add:46"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 46
+start_pos = [1690, 24]
+end_pos = [1690, 25]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_Add:47"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 47
+start_pos = [1691, 30]
+end_pos = [1691, 31]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "Mapping[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `Mapping[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_BitAnd:46"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 46
+start_pos = [1690, 24]
+end_pos = [1690, 25]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_BitAnd:47"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 47
+start_pos = [1691, 30]
+end_pos = [1691, 31]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "Mapping[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `Mapping[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_BitXor:46"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 46
+start_pos = [1690, 24]
+end_pos = [1690, 25]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_BitXor:47"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 47
+start_pos = [1691, 30]
+end_pos = [1691, 31]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "Mapping[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `Mapping[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_Div:46"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 46
+start_pos = [1690, 24]
+end_pos = [1690, 25]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_Div:47"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 47
+start_pos = [1691, 30]
+end_pos = [1691, 31]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "Mapping[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `Mapping[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_FloorDiv:46"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 46
+start_pos = [1690, 24]
+end_pos = [1690, 25]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_FloorDiv:47"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 47
+start_pos = [1691, 30]
+end_pos = [1691, 31]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "Mapping[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `Mapping[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_LShift:46"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 46
+start_pos = [1690, 24]
+end_pos = [1690, 25]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_LShift:47"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 47
+start_pos = [1691, 30]
+end_pos = [1691, 31]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "Mapping[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `Mapping[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_Mod:46"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 46
+start_pos = [1690, 24]
+end_pos = [1690, 25]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_Mod:47"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 47
+start_pos = [1691, 30]
+end_pos = [1691, 31]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "Mapping[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `Mapping[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_Mul:46"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 46
+start_pos = [1690, 24]
+end_pos = [1690, 25]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_Mul:47"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 47
+start_pos = [1691, 30]
+end_pos = [1691, 31]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "Mapping[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `Mapping[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_Pow:46"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 46
+start_pos = [1690, 24]
+end_pos = [1690, 25]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_Pow:47"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 47
+start_pos = [1691, 30]
+end_pos = [1691, 31]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "Mapping[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `Mapping[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_RShift:46"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 46
+start_pos = [1690, 24]
+end_pos = [1690, 25]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_RShift:47"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 47
+start_pos = [1691, 30]
+end_pos = [1691, 31]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "Mapping[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `Mapping[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_Sub:46"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 46
+start_pos = [1690, 24]
+end_pos = [1690, 25]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_BitOr_Sub:47"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 47
+start_pos = [1691, 30]
+end_pos = [1691, 31]
+function = "append_custody_entry"
+kind = "arg"
+annotation = "Mapping[str, Any] | None"
+reason = "Postponed-evaluation annotation (argument of append_custody_entry): the `|` in `Mapping[str, Any] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_Mul_Div:10"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_Mul_Div"
+occurrence = 10
+start_pos = [1165, 56]
+end_pos = [1165, 57]
+function = "_verify_case_sections"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "45eb9ae83165129f590a28fb70b4eaaeb0e685b27975782c736bb2c146ed90d0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (`*,` -> `/,` in _verify_case_sections): the `*,` marker only admits positional passing of the keyword-only `version` arg. Call-site survey verified 2026-11-13 (grep `_verify_case_sections(` over src/ + tests/): the only src/ caller (casefile.py:1637) passes `version=` by keyword and every test caller passes `version=` by keyword — 0 positional-overflow calls. Same proof shape as the ResultCodec.encode Mul_Div:0 baseline entry. Re-proved 2026-11-13 (audit-w3-f3-reprove-casefile.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_Mul_Div:12"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_Mul_Div"
+occurrence = 12
+start_pos = [1578, 32]
+end_pos = [1578, 33]
+function = "verify_case_file"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "2553bf27c80fec56f37ea84feb23fe3d31b1bde87fcb0429d4f979f341a6bbd4"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (`*,` -> `/,` in verify_case_file): the `*,` marker only admits positional passing of the keyword-only `public_key` arg. Call-site survey verified 2026-11-13 (grep `verify_case_file(` over src/ + tests/): every caller passes `public_key=` by keyword (casefile.py:1836) or omits it (casefile.py:2284, verify.py:453, all tests) — 0 positional-overflow calls. Same proof shape as the ResultCodec.encode Mul_Div:0 baseline entry. Re-proved 2026-11-13 (audit-w3-f3-reprove-casefile.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceBinaryOperator_Mul_Div:13"
+module = "textforensics.casefile"
+operator = "core/ReplaceBinaryOperator_Mul_Div"
+occurrence = 13
+start_pos = [1685, 4]
+end_pos = [1685, 5]
+function = "append_custody_entry"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "9597419d2e87a5efc57f2c5ff8bfbfcaba5dfe478f65ad31a6f9320bd745b86d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (`*,` -> `/,` in append_custody_entry): the `*,` marker only admits positional passing of the keyword-only args (actor, action, at_utc, note, signing_seed, signer, invalidate_signature). Call-site survey verified 2026-11-13 (grep `append_custody_entry(` over src/ + tests/): no src/ callers; every test caller passes all post-`case` args by keyword — 0 positional-overflow calls. Same proof shape as the ResultCodec.encode Mul_Div:0 baseline entry. Re-proved 2026-11-13 (audit-w3-f3-reprove-casefile.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceComparisonOperator_Eq_GtE:16"
+module = "textforensics.casefile"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 16
+start_pos = [1179, 29]
+end_pos = [1179, 31]
+function = "_verify_case_sections"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "45eb9ae83165129f590a28fb70b4eaaeb0e685b27975782c736bb2c146ed90d0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_verify_case_sections: `version == \"v4\"` -> `>=`, line 1179): the only in-repo caller is verify_case_file (casefile.py:1637), which passes \"v4\" iff schema == CASE_SCHEMA_V4 else \"v3\"; every test caller passes \"v4\". On the reachable domain {\"v3\",\"v4\"} `>= \"v4\"` coincides with `== \"v4\"` (v3 False; v4 True). A direct out-of-contract call with version=\"v5\" would distinguish the mutant, but no caller does — the equivalence is conditional on the single-caller contract, like the Mul_Div call-site-survey entries. Re-proved 2026-11-13 (audit-w3-f3-reprove-casefile.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceComparisonOperator_Eq_GtE:17"
+module = "textforensics.casefile"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 17
+start_pos = [1196, 27]
+end_pos = [1196, 29]
+function = "_verify_case_sections"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "45eb9ae83165129f590a28fb70b4eaaeb0e685b27975782c736bb2c146ed90d0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_verify_case_sections: `version == \"v4\"` -> `>=`, line 1196): same reachable-domain proof as the [1179,29] mutant — the only in-repo caller (verify_case_file, casefile.py:1637) passes \"v3\"/\"v4\" only; on {\"v3\",\"v4\"} `>= \"v4\"` coincides with `== \"v4\"`. A direct out-of-contract call with version=\"v5\" would distinguish the mutant, but no caller does. Re-proved 2026-11-13 (audit-w3-f3-reprove-casefile.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceComparisonOperator_Eq_GtE:21"
+module = "textforensics.casefile"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 21
+start_pos = [1510, 44]
+end_pos = [1510, 46]
+function = "seal_case_file"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "c2deaeca0fa78635db9ab3056142e580dce3885dde90970a6df9d6298564518a"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (seal_case_file: `version == \"v4\"` -> `>=`, line 1510): seal_case_file rejects every version outside {\"v1\",\"v2\",\"v3\",\"v4\"} up front (guard, line ~1365). On that domain `>= \"v4\"` coincides with `== \"v4\"` (v1/v2/v3 False; v4 True). The F2 classify-notes kill plan (version=\"v5\"/\"v9\") cannot reach the check — those versions raise at the guard. Re-proved 2026-11-13 (audit-w3-f3-reprove-casefile.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceComparisonOperator_Eq_GtE:22"
+module = "textforensics.casefile"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 22
+start_pos = [1638, 60]
+end_pos = [1638, 62]
+function = "verify_case_file"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "2553bf27c80fec56f37ea84feb23fe3d31b1bde87fcb0429d4f979f341a6bbd4"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (verify_case_file: `schema == CASE_SCHEMA_V4` -> `>=`, line 1638): line 1638 sits inside `if schema in {CASE_SCHEMA_V3, CASE_SCHEMA_V4}`, so the reachable domain is {\"textforensics.case-file/v3\", \"textforensics.case-file/v4\"}. On that domain `>= CASE_SCHEMA_V4` coincides with `== CASE_SCHEMA_V4` (v3 False; v4 True). The F2 classify-notes kill plan (a schema sorting above v4) cannot reach the check — the enclosing `if` excludes it. Re-proved 2026-11-13 (audit-w3-f3-reprove-casefile.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceComparisonOperator_Eq_LtE:18"
+module = "textforensics.casefile"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 18
+start_pos = [1387, 28]
+end_pos = [1387, 30]
+function = "seal_case_file"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "c2deaeca0fa78635db9ab3056142e580dce3885dde90970a6df9d6298564518a"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (seal_case_file: `bundle.get(\"schema\") == LEGACY_BUNDLE_SCHEMA` -> `<=`): _validate_portable_bundle (casefile.py:227) admits only {BUNDLE_SCHEMA (\"textforensics.forensic-bundle/v2\"), LEGACY_BUNDLE_SCHEMA (\"textforensics.forensic-bundle/v1\")} and raises for any other schema before line 1387 is reached. On that domain `<=` coincides with `==` (v1 <= v1 True; v2 <= v1 False, since v2 > v1). The F2 classify-notes kill plan (a schema sorting below v1, e.g. \"forensic-bundle/v0\") cannot reach the check — it is rejected by _validate_portable_bundle. Re-proved 2026-11-13 (audit-w3-f3-reprove-casefile.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceComparisonOperator_Eq_LtE:19"
+module = "textforensics.casefile"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 19
+start_pos = [1402, 15]
+end_pos = [1402, 17]
+function = "seal_case_file"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "c2deaeca0fa78635db9ab3056142e580dce3885dde90970a6df9d6298564518a"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (seal_case_file: `version == \"v1\"` -> `<=`): seal_case_file rejects every version outside {\"v1\",\"v2\",\"v3\",\"v4\"} up front (guard, line ~1365). On that domain `<= \"v1\"` coincides with `== \"v1\"` (v1 True; v2/v3/v4 False). The F2 classify-notes kill plan (version=\"v0\") cannot reach the check — v0 raises at the guard. Re-proved 2026-11-13 (audit-w3-f3-reprove-casefile.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceComparisonOperator_Eq_LtE:20"
+module = "textforensics.casefile"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 20
+start_pos = [1405, 15]
+end_pos = [1405, 17]
+function = "seal_case_file"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "c2deaeca0fa78635db9ab3056142e580dce3885dde90970a6df9d6298564518a"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (seal_case_file: `version == \"v2\"` -> `<=`): line 1405 is reached only for non-legacy bundles with version != \"v1\" (line 1402 raises for v1), i.e. version in {\"v2\",\"v3\",\"v4\"} after the up-front guard. On that domain `<= \"v2\"` coincides with `== \"v2\"` (v2 True; v3/v4 False). The F2 classify-notes kill plan (version=\"v0\") cannot reach the check — v0 raises at the guard, and v1 raises at line 1402 before reaching 1405. Re-proved 2026-11-13 (audit-w3-f3-reprove-casefile.py): survives the W3 kill-test file."
+
+[[equivalent]]
+id = "textforensics.casefile:core/ReplaceComparisonOperator_NotEq_Gt:17"
+module = "textforensics.casefile"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 17
+start_pos = [1388, 19]
+end_pos = [1388, 21]
+function = "seal_case_file"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "c2deaeca0fa78635db9ab3056142e580dce3885dde90970a6df9d6298564518a"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (seal_case_file: `version != \"v1\"` -> `>`, line 1388): line 1388 is reached only for legacy bundles (line 1387 True), with version in {\"v1\",\"v2\",\"v3\",\"v4\"} after the up-front guard. On that domain `> \"v1\"` coincides with `!= \"v1\"` (v1 False; v2/v3/v4 True — all sort above v1). The F2 classify-notes kill plan (version=\"v0\" for `<`, \"v2\" for `>`) is wrong both ways: v0 raises at the guard before reaching 1388, and v2 gives True under both original and mutant. Re-proved 2026-11-13 (audit-w3-f3-reprove-casefile.py): survives the W3 kill-test file."
