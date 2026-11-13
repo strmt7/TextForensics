@@ -221,7 +221,8 @@ class CosmicRayIntegrationTests(unittest.TestCase):
         self.assertEqual(
             standalone_verify,
             "python -m pytest tests/test_standalone_verify.py "
-            "tests/test_audit_w2_worker_f__standalone_verify.py -x -q",
+            "tests/test_audit_w2_worker_f__standalone_verify.py "
+            "tests/test_audit_w3_worker_f__standalone_verify.py -x -q",
         )
         probe_metrics = self.runner.test_command_for(
             ["textforensics.probe_metrics"], self.project_root

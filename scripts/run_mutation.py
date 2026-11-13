@@ -705,10 +705,14 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
     # The dedicated file is tests/test_standalone_verify.py (no
     # test__standalone_verify.py: the stem has a leading underscore),
     # plus the W2 kill tests in
-    # tests/test_audit_w2_worker_f__standalone_verify.py.
+    # tests/test_audit_w2_worker_f__standalone_verify.py and the W3
+    # kill tests in tests/test_audit_w3_worker_f__standalone_verify.py
+    # (audit-w3-f3, 2026-11-13: 107 tests killing 197 of the 305
+    # _standalone_verify survivors).
     "textforensics._standalone_verify": [
         "tests/test_standalone_verify.py",
         "tests/test_audit_w2_worker_f__standalone_verify.py",
+        "tests/test_audit_w3_worker_f__standalone_verify.py",
     ],
     # Policy tests live in test_enterprise_policy.py, not test_policy.py;
     # the capability-expiry tests live in test_execution_policy.py; the

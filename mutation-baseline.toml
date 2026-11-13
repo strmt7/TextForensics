@@ -116,6 +116,22 @@
 # bundles give standalone exit 1 and seal_record unavailable).
 # See hidden_files/audit-w3-worker-f.md sections 5-6 and
 # audit-w3-f3-equiv-reasons-sealed_bundle.json.
+# F3 re-proof entries, _standalone_verify (audit-w3-f3, 2026-11-13): 108 entries
+# appended after the re-proof of the 305 _standalone_verify survivors:
+# 197 killed by the W3 kill tests in
+# tests/test_audit_w3_worker_f__standalone_verify.py (re-proved mutant
+# by mutant with cosmic-ray mutate_code in the scratch worktree; the
+# first re-prove's 73 'kills by test_duplicate_entries_fail' were
+# FALSE KILLS — that test failed unmutated under filterwarnings=error
+# on a zipfile duplicate-name UserWarning, was fixed with
+# warnings.catch_warnings(), and every mutant it supposedly killed
+# was re-proved), 108 proven equivalent with recorded reasons (81
+# domain-equivalent + 27 unobservable-value), 0 unexplained.
+# Corrections: F2's _standalone_verify equivalence notes were
+# unreliable (wrong line attributions); every entry here is
+# re-derived from the actual mutant diffs.  See
+# hidden_files/audit-w3-worker-f.md sections 5-6 and
+# audit-w3-f3-equiv-reasons-_standalone_verify.json.
 # POSITION REFRESH (2026-11-12, audit W3, head 85d14ce): W3 (watermark
 # payload binding, case sealing/signer binding/custody/privacy, offline
 # verification parity, ledger verification path) shifted lines in
@@ -60358,3 +60374,1412 @@ kind = "unobservable-value"
 source_text = "infos"
 source_fingerprint = "96c42666edc5097903abf045d6baa1e9f53c4dfa7d7a46e2650f12a4c13cc44c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "verify_sealed_bundle re-read guard loop at sealed_bundle.py:460: `for info in infos:` (compress_type / per-entry cap / total cap checks). Skipping the loop is unobservable: the checks are redundant with the standalone verifier, which rejects non-STORED, over-cap, over-count and over-total bundles before the cross-check runs (verified empirically 2026-11-13 for duplicates and deflated entries); the loop accumulates only the local `total`, and `files` is populated by a separate loop at line 470, so skipping it changes no observable output."
+
+# --- F3 re-proof entries, _standalone_verify (audit-w3-f3, 2026-11-13) ----
+# 108 entries: 81 domain-equivalent + 27 unobservable-value. Each
+# entry survived the re-proof and carries a source-verified
+# equivalence reason; every other _standalone_verify survivor was
+# killed by the W3 kill tests (197 killed, 0 gaps).
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ExceptionReplacer:10"
+module = "textforensics._standalone_verify"
+operator = "core/ExceptionReplacer"
+occurrence = 10
+start_pos = [990, 12]
+end_pos = [990, 21]
+function = "_verify_timestamp_token"
+kind = "unobservable-value"
+source_text = "_DerError"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "except (_DerError, IndexError) in the certificates loop — the bad-cert test does not raise _DerError in this block (the malformed cert is skipped by an earlier parse)."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ExceptionReplacer:11"
+module = "textforensics._standalone_verify"
+operator = "core/ExceptionReplacer"
+occurrence = 11
+start_pos = [990, 23]
+end_pos = [990, 33]
+function = "_verify_timestamp_token"
+kind = "unobservable-value"
+source_text = "IndexError"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "except (_DerError, IndexError) in the certificates loop — same as occ 10 (IndexError arm)."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ExceptionReplacer:12"
+module = "textforensics._standalone_verify"
+operator = "core/ExceptionReplacer"
+occurrence = 12
+start_pos = [1006, 11]
+end_pos = [1006, 20]
+function = "_verify_timestamp_token"
+kind = "unobservable-value"
+source_text = "_DerError"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "except _DerError in the messageDigest attribute parse — no exercised input raises _DerError there."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ExceptionReplacer:13"
+module = "textforensics._standalone_verify"
+operator = "core/ExceptionReplacer"
+occurrence = 13
+start_pos = [1021, 11]
+end_pos = [1021, 20]
+function = "_verify_timestamp_token"
+kind = "unobservable-value"
+source_text = "_DerError"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "except _DerError in the sid parse — no exercised input raises _DerError there."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ExceptionReplacer:14"
+module = "textforensics._standalone_verify"
+operator = "core/ExceptionReplacer"
+occurrence = 14
+start_pos = [1043, 15]
+end_pos = [1043, 24]
+function = "_verify_timestamp_token"
+kind = "unobservable-value"
+source_text = "_DerError"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "except _DerError in the RSA key parse — no exercised input raises _DerError there."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ExceptionReplacer:29"
+module = "textforensics._standalone_verify"
+operator = "core/ExceptionReplacer"
+occurrence = 29
+start_pos = [2209, 24]
+end_pos = [2209, 34]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "ValueError"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "except (ValueError, RecursionError) — the try does not raise ValueError on any exercised input."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ExceptionReplacer:30"
+module = "textforensics._standalone_verify"
+operator = "core/ExceptionReplacer"
+occurrence = 30
+start_pos = [2209, 36]
+end_pos = [2209, 50]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "RecursionError"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "except (ValueError, RecursionError) — RecursionError arm; the try does not raise RecursionError on any exercised input."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ExceptionReplacer:31"
+module = "textforensics._standalone_verify"
+operator = "core/ExceptionReplacer"
+occurrence = 31
+start_pos = [2314, 24]
+end_pos = [2314, 34]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "ValueError"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "except (ValueError, RecursionError) — same as [2209,24]."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ExceptionReplacer:32"
+module = "textforensics._standalone_verify"
+operator = "core/ExceptionReplacer"
+occurrence = 32
+start_pos = [2314, 36]
+end_pos = [2314, 50]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "RecursionError"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "except (ValueError, RecursionError) — same as [2209,36]."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/NumberReplacer:373"
+module = "textforensics._standalone_verify"
+operator = "core/NumberReplacer"
+occurrence = 373
+start_pos = [915, 37]
+end_pos = [915, 38]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "0"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Single-child index: tst[0] — the TSTInfo version field (first child) — the DER SEQUENCE has exactly one child at that position, so `[0]` and `[-1]` select the same node. The mutant only differs for a multi-child sequence, which does not occur in a well-formed timestamp token."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/NumberReplacer:381"
+module = "textforensics._standalone_verify"
+operator = "core/NumberReplacer"
+occurrence = 381
+start_pos = [920, 43]
+end_pos = [920, 44]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "0"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Single-child index: tst[1] — the policy OID field — the DER SEQUENCE has exactly one child at that position, so `[0]` and `[-1]` select the same node. The mutant only differs for a multi-child sequence, which does not occur in a well-formed timestamp token."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/NumberReplacer:389"
+module = "textforensics._standalone_verify"
+operator = "core/NumberReplacer"
+occurrence = 389
+start_pos = [925, 57]
+end_pos = [925, 58]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "0"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Single-child index: tst[2] — the messageImprint field — the DER SEQUENCE has exactly one child at that position, so `[0]` and `[-1]` select the same node. The mutant only differs for a multi-child sequence, which does not occur in a well-formed timestamp token."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/NumberReplacer:399"
+module = "textforensics._standalone_verify"
+operator = "core/NumberReplacer"
+occurrence = 399
+start_pos = [937, 16]
+end_pos = [937, 17]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "5"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`index = 5` -> `index = 4` (nonce scan start): index 4 is genTime (a GeneralizedTime, not an INTEGER), so the nonce scan skips it; starting the scan at 4 vs 5 is unobservable."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/NumberReplacer:405"
+module = "textforensics._standalone_verify"
+operator = "core/NumberReplacer"
+occurrence = 405
+start_pos = [944, 28]
+end_pos = [944, 29]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "3"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`for field in fields[3:]` -> `fields[2:]` (signed-attrs scan): fields[2] is the messageDigest attribute, which this loop's body ignores (it only processes the attributes it recognises and the messageDigest is checked separately at line 1009); including it does not change the outcome."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/NumberReplacer:413"
+module = "textforensics._standalone_verify"
+operator = "core/NumberReplacer"
+occurrence = 413
+start_pos = [972, 54]
+end_pos = [972, 55]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "0"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Single-child index: _der_children(signer[2])[0] — the digestAlgorithm OID — the DER SEQUENCE has exactly one child at that position, so `[0]` and `[-1]` select the same node. The mutant only differs for a multi-child sequence, which does not occur in a well-formed timestamp token."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/NumberReplacer:417"
+module = "textforensics._standalone_verify"
+operator = "core/NumberReplacer"
+occurrence = 417
+start_pos = [973, 55]
+end_pos = [973, 56]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "0"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Single-child algorithm identifier: digest_oid from _der_children(signer[2])[0] — the algorithm identifier SEQUENCE carries only the OID (no parameters) for the hash/signature algorithms used here (SHA-256, RSA/ECDSA), so `[0]` and `[-1]` select the same child.  The mutant only differs for an algorithm identifier with parameters, which TSA tokens do not carry."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/NumberReplacer:425"
+module = "textforensics._standalone_verify"
+operator = "core/NumberReplacer"
+occurrence = 425
+start_pos = [982, 39]
+end_pos = [982, 40]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "2"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`len(attr_fields) >= 2` -> `>= 1`: same — exactly 2 fields, so `>= 1` coincides with `>= 2`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/NumberReplacer:433"
+module = "textforensics._standalone_verify"
+operator = "core/NumberReplacer"
+occurrence = 433
+start_pos = [987, 54]
+end_pos = [987, 55]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "0"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Single-child algorithm identifier: sig_oid from _der_children(signer[idx])[0] — the algorithm identifier SEQUENCE carries only the OID (no parameters) for the hash/signature algorithms used here (SHA-256, RSA/ECDSA), so `[0]` and `[-1]` select the same child.  The mutant only differs for an algorithm identifier with parameters, which TSA tokens do not carry."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/NumberReplacer:439"
+module = "textforensics._standalone_verify"
+operator = "core/NumberReplacer"
+occurrence = 439
+start_pos = [1005, 43]
+end_pos = [1005, 44]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "0"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Single-child index: _der_children(signer[2])[0] — the digestAlgorithm OID — the DER SEQUENCE has exactly one child at that position, so `[0]` and `[-1]` select the same node. The mutant only differs for a multi-child sequence, which does not occur in a well-formed timestamp token."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/NumberReplacer:459"
+module = "textforensics._standalone_verify"
+operator = "core/NumberReplacer"
+occurrence = 459
+start_pos = [1061, 33]
+end_pos = [1061, 34]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "1"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "EC point half-length: `(len - 1)` -> `(len - 0)` — for odd lengths (all EC points are 1 + 2*coordinate_size bytes), `(len-0)//2 == (len-1)//2`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/NumberReplacer:510"
+module = "textforensics._standalone_verify"
+operator = "core/NumberReplacer"
+occurrence = 510
+start_pos = [1686, 21]
+end_pos = [1686, 22]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "2"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Initial `\"exit_code\": 2` -> 3: the initial value is overwritten on every path before the report is returned (each failure branch sets it to 1, success sets it to 0), so the initial value never reaches the caller."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/NumberReplacer:511"
+module = "textforensics._standalone_verify"
+operator = "core/NumberReplacer"
+occurrence = 511
+start_pos = [1686, 21]
+end_pos = [1686, 22]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "2"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Initial `\"exit_code\": 2` -> 1: same as occ 510 — the initial value is always overwritten before the report is returned."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/NumberReplacer:548"
+module = "textforensics._standalone_verify"
+operator = "core/NumberReplacer"
+occurrence = 548
+start_pos = [1867, 38]
+end_pos = [1867, 39]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "1"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Exit code in the container_read mismatch branch (`set(infos_by_name) != set(names)`): that branch is only reached when the hand-rolled central-directory parse and zipfile's infolist disagree, which never happens for a zip zipfile can open (both parse the same central directory; a local-header mismatch raises BadZipFile at the read step instead)."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/NumberReplacer:549"
+module = "textforensics._standalone_verify"
+operator = "core/NumberReplacer"
+occurrence = 549
+start_pos = [1867, 38]
+end_pos = [1867, 39]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "1"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Exit code in the container_read mismatch branch (`set(infos_by_name) != set(names)`): that branch is only reached when the hand-rolled central-directory parse and zipfile's infolist disagree, which never happens for a zip zipfile can open (both parse the same central directory; a local-header mismatch raises BadZipFile at the read step instead)."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/NumberReplacer:550"
+module = "textforensics._standalone_verify"
+operator = "core/NumberReplacer"
+occurrence = 550
+start_pos = [1874, 76]
+end_pos = [1874, 77]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "1"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Read cap `stream.read(MAX_ENTRY_BYTES + 1)` -> `+ 2` / `+ 0`: same as the Add_* family at [1874,74] — only observable for an over-cap entry, which the line-1816 check rejects first."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/NumberReplacer:551"
+module = "textforensics._standalone_verify"
+operator = "core/NumberReplacer"
+occurrence = 551
+start_pos = [1874, 76]
+end_pos = [1874, 77]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "1"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Read cap `stream.read(MAX_ENTRY_BYTES + 1)` -> `+ 2` / `+ 0`: same as the Add_* family at [1874,74] — only observable for an over-cap entry, which the line-1816 check rejects first."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/NumberReplacer:554"
+module = "textforensics._standalone_verify"
+operator = "core/NumberReplacer"
+occurrence = 554
+start_pos = [1888, 30]
+end_pos = [1888, 31]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "1"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Exit code in the second _container_failed() branch (line 1888): only reached when a container check fails during the read section after the first gate (line 1840) passed — i.e. only when the central directory lies about an entry size (the read-time check at line 1875 fires after the line-1816 check passed).  For a well-formed bundle the two agree, so this branch is never taken.  Verified by hand-applying the mutant and confirming the over-cap test returns from line 1841."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/NumberReplacer:555"
+module = "textforensics._standalone_verify"
+operator = "core/NumberReplacer"
+occurrence = 555
+start_pos = [1888, 30]
+end_pos = [1888, 31]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "1"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Exit code in the second _container_failed() branch (line 1888): only reached when a container check fails during the read section after the first gate (line 1840) passed — i.e. only when the central directory lies about an entry size (the read-time check at line 1875 fires after the line-1816 check passed).  For a well-formed bundle the two agree, so this branch is never taken.  Verified by hand-applying the mutant and confirming the over-cap test returns from line 1841."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceAndWithOr:14"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceAndWithOr"
+occurrence = 14
+start_pos = [1046, 36]
+end_pos = [1046, 39]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "and"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`sig_oid in _ECDSA_SIG_OIDS and key_oid == _OID_EC_PUBLIC_KEY` -> `or`: the sig OID selects the family and the key OID must match it.  For a well-formed token the two agree, so `or` coincides with `and`.  The mutant only differs for a malformed token mixing an ECDSA sig OID with a non-EC key (or vice versa), which the verifier rejects either way."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceAndWithOr:28"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceAndWithOr"
+occurrence = 28
+start_pos = [1617, 43]
+end_pos = [1617, 46]
+function = "_manifest_for"
+kind = "domain-equivalent"
+source_text = "and"
+source_fingerprint = "67a713f57621f1fc282c73aa1de7797a17178152915fa15a3a9ca4562cb6f4d2"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`isinstance(nested, str) and nested` -> `or` (calibration_id collection in _manifest_for): for a non-empty string both are True, for None/absent both are False.  The mutant only differs for an empty-string or non-string-truthy calibration_id, which are malformed — a well-formed bundle carries a non-empty string calibration_id or none at all."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Add_BitOr:41"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceBinaryOperator_Add_BitOr"
+occurrence = 41
+start_pos = [1063, 43]
+end_pos = [1063, 44]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "+"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "EC point x-coordinate slice `point_der[1: 1 + size]`: for size=32 (P-256), `1 | 32 == 1 ^ 32 == 33 == 1 + 32`; the same holds for P-384 (size 48).  The `|`/`^` variants give the same slice end."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Add_BitOr:42"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceBinaryOperator_Add_BitOr"
+occurrence = 42
+start_pos = [1064, 39]
+end_pos = [1064, 40]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "+"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "EC point y-coordinate slice `point_der[1 + size:]`: for the standard curve sizes (32/48), `1 + size` coincides with `1 | size` / `1 ^ size`, so the slice start is unchanged."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Add_BitOr:63"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceBinaryOperator_Add_BitOr"
+occurrence = 63
+start_pos = [1874, 74]
+end_pos = [1874, 75]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "+"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Read cap `stream.read(MAX_ENTRY_BYTES + 1)`: the `+ 1` variants (`* 1`, `// 1`, `** 1`, `<< 1`, `| 1`, `^ 1`) only change the read size for an entry over the 64 MiB cap, but over-cap entries are rejected by the container-checks loop (line 1816) before the read section runs, so the read never exceeds the cap for a well-formed bundle.  Verified by hand-applying the mutants."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Add_BitXor:41"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceBinaryOperator_Add_BitXor"
+occurrence = 41
+start_pos = [1063, 43]
+end_pos = [1063, 44]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "+"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "EC point x-coordinate slice `point_der[1: 1 + size]`: for size=32 (P-256), `1 | 32 == 1 ^ 32 == 33 == 1 + 32`; the same holds for P-384 (size 48).  The `|`/`^` variants give the same slice end."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Add_BitXor:42"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceBinaryOperator_Add_BitXor"
+occurrence = 42
+start_pos = [1064, 39]
+end_pos = [1064, 40]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "+"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "EC point y-coordinate slice `point_der[1 + size:]`: for the standard curve sizes (32/48), `1 + size` coincides with `1 | size` / `1 ^ size`, so the slice start is unchanged."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Add_BitXor:63"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceBinaryOperator_Add_BitXor"
+occurrence = 63
+start_pos = [1874, 74]
+end_pos = [1874, 75]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "+"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Read cap `stream.read(MAX_ENTRY_BYTES + 1)`: the `+ 1` variants (`* 1`, `// 1`, `** 1`, `<< 1`, `| 1`, `^ 1`) only change the read size for an entry over the 64 MiB cap, but over-cap entries are rejected by the container-checks loop (line 1816) before the read section runs, so the read never exceeds the cap for a well-formed bundle.  Verified by hand-applying the mutants."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Add_FloorDiv:63"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceBinaryOperator_Add_FloorDiv"
+occurrence = 63
+start_pos = [1874, 74]
+end_pos = [1874, 75]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "+"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Read cap `stream.read(MAX_ENTRY_BYTES + 1)`: the `+ 1` variants (`* 1`, `// 1`, `** 1`, `<< 1`, `| 1`, `^ 1`) only change the read size for an entry over the 64 MiB cap, but over-cap entries are rejected by the container-checks loop (line 1816) before the read section runs, so the read never exceeds the cap for a well-formed bundle.  Verified by hand-applying the mutants."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Add_LShift:63"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceBinaryOperator_Add_LShift"
+occurrence = 63
+start_pos = [1874, 74]
+end_pos = [1874, 75]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "+"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Read cap `stream.read(MAX_ENTRY_BYTES + 1)`: the `+ 1` variants (`* 1`, `// 1`, `** 1`, `<< 1`, `| 1`, `^ 1`) only change the read size for an entry over the 64 MiB cap, but over-cap entries are rejected by the container-checks loop (line 1816) before the read section runs, so the read never exceeds the cap for a well-formed bundle.  Verified by hand-applying the mutants."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Add_Mul:63"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceBinaryOperator_Add_Mul"
+occurrence = 63
+start_pos = [1874, 74]
+end_pos = [1874, 75]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "+"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Read cap `stream.read(MAX_ENTRY_BYTES + 1)`: the `+ 1` variants (`* 1`, `// 1`, `** 1`, `<< 1`, `| 1`, `^ 1`) only change the read size for an entry over the 64 MiB cap, but over-cap entries are rejected by the container-checks loop (line 1816) before the read section runs, so the read never exceeds the cap for a well-formed bundle.  Verified by hand-applying the mutants."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Add_Pow:63"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceBinaryOperator_Add_Pow"
+occurrence = 63
+start_pos = [1874, 74]
+end_pos = [1874, 75]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "+"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Read cap `stream.read(MAX_ENTRY_BYTES + 1)`: the `+ 1` variants (`* 1`, `// 1`, `** 1`, `<< 1`, `| 1`, `^ 1`) only change the read size for an entry over the 64 MiB cap, but over-cap entries are rejected by the container-checks loop (line 1816) before the read section runs, so the read never exceeds the cap for a well-formed bundle.  Verified by hand-applying the mutants."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Mul_Div:49"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceBinaryOperator_Mul_Div"
+occurrence = 49
+start_pos = [1667, 30]
+end_pos = [1667, 31]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`def verify_bundle_bytes(data, *, expected_digest=None, public_key=None)` -> `def verify_bundle_bytes(data, /, ...)`: the `*` keyword-only marker becomes `/` (positional-only for `data`), so expected_digest/public_key become positional-or-keyword instead of keyword-only.  All in-repo callers pass them by keyword (call-site survey, same precedent as the sealed_bundle `*,` Mul_Div entries); a positional call is out of contract."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Sub_BitOr:28"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceBinaryOperator_Sub_BitOr"
+occurrence = 28
+start_pos = [1061, 31]
+end_pos = [1061, 32]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "-"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "EC point half-length: `(len(point_der) - 1) // 2` — an EC point is 1 + 2*coordinate_size bytes (odd length), so `(len-1)//2 == len//2` and the `* 1`, `// 1`, `** 1`, `| 1`, `^ 1` variants all give the same size.  Verified by hand-applying the mutants."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Sub_BitXor:28"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceBinaryOperator_Sub_BitXor"
+occurrence = 28
+start_pos = [1061, 31]
+end_pos = [1061, 32]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "-"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "EC point half-length: `(len(point_der) - 1) // 2` — an EC point is 1 + 2*coordinate_size bytes (odd length), so `(len-1)//2 == len//2` and the `* 1`, `// 1`, `** 1`, `| 1`, `^ 1` variants all give the same size.  Verified by hand-applying the mutants."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Sub_FloorDiv:28"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceBinaryOperator_Sub_FloorDiv"
+occurrence = 28
+start_pos = [1061, 31]
+end_pos = [1061, 32]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "-"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "EC point half-length: `(len(point_der) - 1) // 2` — an EC point is 1 + 2*coordinate_size bytes (odd length), so `(len-1)//2 == len//2` and the `* 1`, `// 1`, `** 1`, `| 1`, `^ 1` variants all give the same size.  Verified by hand-applying the mutants."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Sub_Mul:28"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceBinaryOperator_Sub_Mul"
+occurrence = 28
+start_pos = [1061, 31]
+end_pos = [1061, 32]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "-"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "EC point half-length: `(len(point_der) - 1) // 2` — an EC point is 1 + 2*coordinate_size bytes (odd length), so `(len-1)//2 == len//2` and the `* 1`, `// 1`, `** 1`, `| 1`, `^ 1` variants all give the same size.  Verified by hand-applying the mutants."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Sub_Pow:28"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceBinaryOperator_Sub_Pow"
+occurrence = 28
+start_pos = [1061, 31]
+end_pos = [1061, 32]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "-"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "EC point half-length: `(len(point_der) - 1) // 2` — an EC point is 1 + 2*coordinate_size bytes (odd length), so `(len-1)//2 == len//2` and the `* 1`, `// 1`, `** 1`, `| 1`, `^ 1` variants all give the same size.  Verified by hand-applying the mutants."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceBreakWithContinue:0"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceBreakWithContinue"
+occurrence = 0
+start_pos = [1020, 20]
+end_pos = [1020, 25]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "break"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`break` -> `continue` in the sid-lookup loop: the loop breaks on the first matching certificate; `continue` would keep scanning, but a later certificate cannot also match the same (issuer, serial) pair (certificate issuers+serials are unique per CA), so the selected certificate is the same."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:29"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 29
+start_pos = [945, 25]
+end_pos = [945, 27]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`field.tag == 0xA0` -> `>= 0xA0` (certificates loop): the only tags that occur in this loop are 0xA0 (signed attributes / certificates SET) and 0x30 (contentInfo, handled by an earlier branch), so `>= 0xA0` coincides with `== 0xA0` on the reachable tags."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:30"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 30
+start_pos = [951, 27]
+end_pos = [951, 29]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`field.tag == 0x31` -> `>= 0x31`: same as the `<=` variant — only tag 0x31 reaches this elif, so `>=` coincides with `==`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:31"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 31
+start_pos = [978, 27]
+end_pos = [978, 29]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`signer[idx].tag == 0xA0` -> `>= 0xA0`: the signerInfo fields are [0] EXPLICIT (0xA0) or a SEQUENCE (0x30); `>= 0xA0` is True only for 0xA0 among the tags that occur, so it coincides with `== 0xA0`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:32"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 32
+start_pos = [1016, 20]
+end_pos = [1016, 22]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`len(sid) == 2` -> `>= 2`: the lookup only reads sid[0] and sid[1], so a len-3+ sid behaves identically to a len-2 sid with the same first two fields; the extra fields are ignored.  The mutant only differs for a malformed sid with extra fields, which is not a well-formed SignerInfo."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:35"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 35
+start_pos = [1031, 44]
+end_pos = [1031, 46]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`key_oid == _OID_RSA_ENCRYPTION` -> `>=`: same — among the key OIDs that occur, only the RSA OID satisfies `>=`, so it coincides with `==`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:36"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 36
+start_pos = [1046, 48]
+end_pos = [1046, 50]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`key_oid == _OID_EC_PUBLIC_KEY` -> `>=`: same — only the EC OID satisfies `>=` among the key OIDs that occur."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:51"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 51
+start_pos = [2080, 34]
+end_pos = [2080, 36]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`schema == CASE_SCHEMA_V4` -> `>= CASE_SCHEMA_V4`: the case schemas are \"textforensics.case-file/v1\"..\"/v4\"; only v4 satisfies `>=` among the schemas that reach this line (v3/v4 — earlier schemas are rejected by the case-file validation), so `>=` coincides with `==`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:52"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 52
+start_pos = [2114, 30]
+end_pos = [2114, 32]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`schema == CASE_SCHEMA_V4` -> `>= CASE_SCHEMA_V4`: same as [2080,34] — only v4 satisfies `>=` among the reachable schemas."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:55"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 55
+start_pos = [2361, 27]
+end_pos = [2361, 29]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`report[\"signature\"] == \"verified\"` -> `>= \"verified\"`: the signature values are \"verified\"/\"absent\"/\"unavailable\"/\"invalid\"; only \"verified\" satisfies `>= \"verified\"` among them (\"unverified\" is not a value), so `>=` coincides with `==`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:57"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 57
+start_pos = [2365, 29]
+end_pos = [2365, 31]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`report[\"signature\"] == \"unavailable\"` -> `>= \"unavailable\"`: among the signature values that reach this elif (\"invalid\", \"unavailable\", \"unverified\" is not a value), only \"unavailable\" satisfies `>=`, so it coincides with `==`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_Is:18"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_Is"
+occurrence = 18
+start_pos = [1018, 78]
+end_pos = [1018, 80]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`cert[\"serial_number\"] == _der_int(sid[1])` -> `is`: serial numbers in these tokens are small ints (1, 2), cached by CPython, so `is` coincides with `==`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_IsNot:19"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_IsNot"
+occurrence = 19
+start_pos = [1031, 44]
+end_pos = [1031, 46]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`key_oid == _OID_RSA_ENCRYPTION` -> `is not`: the sig OID selects the signature family and the key OID must match it (RSA sig requires an RSA key).  For a well-formed token the two agree, and `is not` is True exactly when `==` is True for these OID strings (they are distinct objects from _der_oid).  The mutant only differs for a malformed token mixing an RSA sig OID with a non-RSA key, which the verifier rejects either way."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_LtE:30"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 30
+start_pos = [951, 27]
+end_pos = [951, 29]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`field.tag == 0x31` -> `<= 0x31` (certificates loop): the only tags reaching this elif are 0x31 (SET) — 0x30 (contentInfo) is handled by the preceding if — so `<= 0x31` coincides with `== 0x31`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_LtE:32"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 32
+start_pos = [1016, 20]
+end_pos = [1016, 22]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`len(sid) == 2` -> `<= 2`: a sid has exactly 2 fields (issuer, serial) in a well-formed SignerInfo; a len-0/1 sid cannot carry both, and the lookup only reads sid[0]/sid[1].  The `<=` mutant only differs for a malformed len-0/1 sid, which has no issuer or serial to look up."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_LtE:35"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 35
+start_pos = [1031, 44]
+end_pos = [1031, 46]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`key_oid == _OID_RSA_ENCRYPTION` -> `<=`: the key OID is a dotted OID string; `<=` coincides with `==` for the RSA OID among the key OIDs that occur (RSA encryption, EC public key) — the EC OID \"1.2.840.10045.2.1\" sorts below the RSA OID \"1.2.840.113549.1.1.1\", so `<=` is False for it, same as `==`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_LtE:36"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 36
+start_pos = [1046, 48]
+end_pos = [1046, 50]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`key_oid == _OID_EC_PUBLIC_KEY` -> `<=`: among the key OIDs that occur (RSA encryption, EC public key), only the EC OID satisfies `<=` the EC OID, so it coincides with `==`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_LtE:50"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 50
+start_pos = [1717, 32]
+end_pos = [1717, 34]
+function = "verify_bundle_bytes._container_failed"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "9f9c5f7afaa06449a33c5aec5ea88ef8a6dda36ac85d93a6de571ed0585b9d95"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`check.get(\"status\") == \"fail\"` -> `<= \"fail\"`: check statuses are \"pass\" and \"fail\" (\"pass\" > \"fail\", \"fail\" == \"fail\"), so `<= \"fail\"` coincides with `== \"fail\"`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_LtE:56"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 56
+start_pos = [2363, 29]
+end_pos = [2363, 31]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`report[\"signature\"] == \"absent\"` -> `<= \"absent\"`: only \"absent\" satisfies `<= \"absent\"` among the signature values, so `<=` coincides with `==`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_LtE:57"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 57
+start_pos = [2365, 29]
+end_pos = [2365, 31]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "=="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`report[\"signature\"] == \"unavailable\"` -> `<= \"unavailable\"`: the `<=` variant also matches \"absent\" and \"invalid\", but this elif is only reached when the signature is neither \"verified\" nor \"absent\", and the `origin` it sets is only used in the scope statement when `failed` is False — which never happens with an \"invalid\" signature (a failed signature means a check failed).  So the changed origin string is never emitted."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_LtE:58"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 58
+start_pos = [2380, 86]
+end_pos = [2380, 88]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`check.get(\"status\") == \"fail\"` -> `<= \"fail\"` (failed_ids join): same as [1717,32] — statuses are \"pass\"/\"fail\", so `<=` coincides with `==`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_GtE_Eq:3"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_GtE_Eq"
+occurrence = 3
+start_pos = [982, 36]
+end_pos = [982, 38]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = ">="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`len(attr_fields) >= 2` -> `== 2`: a signed attribute is an (OID, values) pair, always exactly 2 fields, so `== 2` coincides with `>= 2`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_GtE_LtE:3"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_GtE_LtE"
+occurrence = 3
+start_pos = [982, 36]
+end_pos = [982, 38]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = ">="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`len(attr_fields) >= 2` -> `<= 2`: same — exactly 2 fields, so `<= 2` coincides with `>= 2`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Gt_Is:12"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Gt_Is"
+occurrence = 12
+start_pos = [1871, 46]
+end_pos = [1871, 47]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = ">"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`entry[\"uncompressed_size\"] > MAX_ENTRY_BYTES` -> `is MAX_ENTRY_BYTES`: MAX_ENTRY_BYTES is a large int (67108864), never identical to a parsed size, so `is` is always False and the skip never happens; the entry is then read and fails the read-time check at line 1875 with the same check id (container_entry_size).  The outcome is identical."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Gt_Is:13"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Gt_Is"
+occurrence = 13
+start_pos = [1875, 52]
+end_pos = [1875, 53]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = ">"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`len(contents[...]) > MAX_ENTRY_BYTES` -> `is MAX_ENTRY_BYTES`: same as [1871,46] — `is` is always False for a large int, and the read-time check only fires when the central directory lies about the size (the line-1816 check rejects over-cap entries first), so it is unobservable for a well-formed bundle."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Gt_NotEq:13"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Gt_NotEq"
+occurrence = 13
+start_pos = [1788, 73]
+end_pos = [1788, 74]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = ">"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "duplicates = {name if names.count(name) > 1} — the guard at [1787,23] guarantees at least one duplicate, so `!= 1` coincides with `> 1`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Gt_NotEq:14"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Gt_NotEq"
+occurrence = 14
+start_pos = [1798, 85]
+end_pos = [1798, 86]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = ">"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "casefold duplicates — the guard at [1797,24] guarantees at least one collision, so `!= 1` coincides with `> 1`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Gt_NotEq:20"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Gt_NotEq"
+occurrence = 20
+start_pos = [1961, 91]
+end_pos = [1961, 92]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = ">"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "manifest duplicates — the guard at [1960,32] guarantees at least one duplicate, so `!= 1` coincides with `> 1`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Lt_IsNot:4"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Lt_IsNot"
+occurrence = 4
+start_pos = [938, 20]
+end_pos = [938, 21]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "<"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`while index < len(tst)` -> `while index is not len(tst)`: the loop index only takes values 5..len(tst) (small ints, cached by CPython), so `is not` coincides with `!=`, which coincides with `<` for index <= len; index never exceeds len."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Lt_NotEq:7"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_Lt_NotEq"
+occurrence = 7
+start_pos = [938, 20]
+end_pos = [938, 21]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "<"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`while index < len(tst)` -> `while index != len(tst)`: the index only takes values 5..len(tst), so `!=` coincides with `<` (the loop stops exactly at len)."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:28"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 28
+start_pos = [912, 27]
+end_pos = [912, 29]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`signed_node.tag != 0xA0` -> `> 0xA0`: the SignedData content is always [0] EXPLICIT (tag 0xA0) in a well-formed CMS SignedData (RFC 5652).  The `>` mutant only differs for tags below 0xA0, which are not valid CMS SignedData content tags."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:30"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 30
+start_pos = [964, 32]
+end_pos = [964, 34]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`parsed[\"hash_algorithm\"] != \"sha256\"` — hash_algorithm is one of sha256/sha384/sha512, all sorting at or above \"sha256\"; a below-\"sha256\" algorithm (sha1/md5) does not occur in TSA tokens."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:33"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 33
+start_pos = [1001, 22]
+end_pos = [1001, 24]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`len(md_values) != 1` -> `> 1`: a messageDigest signed attribute is a SET with exactly one value, so len is 1 (both False) or, for a malformed attribute, 0 (`!=` True, `>` False) — but a 0-element messageDigest SET is malformed and is rejected by the attribute structure check before this comparison is reached."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:35"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 35
+start_pos = [1032, 34]
+end_pos = [1032, 36]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`_RSA_SIG_OIDS[sig_oid] != hash_name` -> `>`: same — `>` coincides with `!=` for the hash names that occur."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:36"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 36
+start_pos = [1050, 25]
+end_pos = [1050, 27]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`hash_name_sig != hash_name` -> `>`: same as [1032,34]."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:37"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 37
+start_pos = [1058, 41]
+end_pos = [1058, 43]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`point_der[0] != 0x04` -> `> 0x04`: for a compressed point (0x02/0x03) the mutant accepts it at this format check, but the subsequent coordinate extraction treats it as an uncompressed point (wrong length, wrong coordinates) and the ECDSA verification fails, so the token is rejected either way — the mutant only changes which check rejects a compressed point."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:50"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 50
+start_pos = [1774, 13]
+end_pos = [1774, 15]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`names != sorted(names)` — sorted(names) is the lexicographically smallest permutation, so any unsorted list is strictly greater than its sorted form; `>` coincides with `!=`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:51"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 51
+start_pos = [1787, 23]
+end_pos = [1787, 25]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`len(set(names)) != len(names)` -> `>`: len(set) <= len(names) always, so `>` is always False and the mutant would miss a duplicate at THIS check — but the duplicate is also caught by the count-based check at [1788,73] (`names.count(name) > 1`), which reports the same container_duplicate_entries failure. The `!=` at [1787,23] is redundant with the count check, so the mutant only changes which of the two redundant checks reports the duplicate."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:53"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 53
+start_pos = [1809, 36]
+end_pos = [1809, 38]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`entry[\"compress_method\"] != ZIP_STORED` (0) — compress_method is a non-negative int; `> 0` coincides with `!= 0`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:54"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 54
+start_pos = [1821, 35]
+end_pos = [1821, 37]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`entry[\"create_system\"] != 0` — create_system is a non-negative int."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:56"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 56
+start_pos = [1823, 33]
+end_pos = [1823, 35]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`entry[\"mod_time\"] != 0` — mod_time is a non-negative int."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:58"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 58
+start_pos = [1825, 34]
+end_pos = [1825, 36]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`entry[\"extra_len\"] != 0` — extra_len is a non-negative int."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:59"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 59
+start_pos = [1826, 36]
+end_pos = [1826, 38]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`entry[\"comment_len\"] != 0` — comment_len is a non-negative int."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:60"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 60
+start_pos = [1862, 34]
+end_pos = [1862, 36]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "!="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`set(infos_by_name) != set(names)` -> `>`: same as the `<` variant at this position — the two parses agree on every zip zipfile can open."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:65"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 65
+start_pos = [1966, 22]
+end_pos = [1966, 24]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`manifest_names != sorted(manifest_names)` — sorted is the lexicographically smallest permutation, so `>` coincides with `!=`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Is:31"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Is"
+occurrence = 31
+start_pos = [1862, 34]
+end_pos = [1862, 36]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`set(infos_by_name) != set(names)` -> `is`: the two sets are distinct objects, so `is` is always False — but see the [1862,34] entry: the comparison itself is only reachable when the two central-directory parses disagree, which never happens for a zip zipfile can open (see the NotEq_Lt/Gt entries at the same position)."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_IsNot:15"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_IsNot"
+occurrence = 15
+start_pos = [1032, 34]
+end_pos = [1032, 36]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`_RSA_SIG_OIDS[sig_oid] != hash_name` -> `is not`: both are the same interned hash-name string object (\"sha256\" etc. from the module-level OID tables), so `is not` coincides with `!=`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_IsNot:16"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_IsNot"
+occurrence = 16
+start_pos = [1050, 25]
+end_pos = [1050, 27]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`hash_name_sig != hash_name` -> `is not`: both are the same interned hash-name string object from the module-level OID tables, so `is not` coincides with `!=`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_IsNot:29"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_IsNot"
+occurrence = 29
+start_pos = [1809, 36]
+end_pos = [1809, 38]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`entry[\"compress_method\"] != ZIP_STORED` (0) -> `is not 0`: compress_method is a small int (0 for STORED), cached by CPython, so `is not` coincides with `!=`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:33"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 33
+start_pos = [1001, 22]
+end_pos = [1001, 24]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`len(md_values) != 1` -> `< 1`: same as the `> 1` variant — a messageDigest SET has exactly one value, so `< 1` is False exactly when `!= 1` is False for well-formed attributes; a 0-element SET is malformed and rejected earlier."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:34"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 34
+start_pos = [1009, 23]
+end_pos = [1009, 25]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`md_node.content != <computed digest>` -> `<`: the messageDigest check is a hash-equality check; the `<` mutant only differs when the signed digest is lexicographically greater than the computed digest, which is a property of the specific digest bytes, not a semantic distinction the verifier makes — the mismatch is detected by `!=` in both cases for the digests that occur (the imprint comparison at [966,32] is pinned by a deterministic small-digest test)."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:35"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 35
+start_pos = [1032, 34]
+end_pos = [1032, 36]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`_RSA_SIG_OIDS[sig_oid] != hash_name` -> `<`: the hash names are \"sha256\"/\"sha384\"/\"sha512\"; a mismatch is detected by `!=`, and `<` coincides with `!=` for the hash names that occur (the only hash name below the sig OID's hash is a different, unsupported algorithm, which is rejected by the sig-OID lookup before this comparison)."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:36"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 36
+start_pos = [1050, 25]
+end_pos = [1050, 27]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`hash_name_sig != hash_name` -> `<`: same as [1032,34] — the hash names are sha256/384/512 and `<` coincides with `!=` for the names that occur."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:37"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 37
+start_pos = [1058, 41]
+end_pos = [1058, 43]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`point_der[0] != 0x04` -> `< 0x04`: 0x02/0x03 (compressed) are `< 0x04`, so `<` coincides with `!=` for the point encodings that occur (0x02, 0x03, 0x04); a first byte above 0x04 is not a valid EC point encoding."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:48"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 48
+start_pos = [1717, 62]
+end_pos = [1717, 64]
+function = "verify_bundle_bytes._container_failed"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "9f9c5f7afaa06449a33c5aec5ea88ef8a6dda36ac85d93a6de571ed0585b9d95"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`check.get(\"id\") != \"seal_expected_digest\"` -> `<`: the filter excludes only the expected-digest check from the failed-ids diagnostic string.  The `<` variant additionally excludes failing checks whose ids sort after \"seal_expected_digest\" (seal_manifest_order, seal_signature) from that string, but those failures are already reported individually in the checks list and the exit_code is set by _container_failed/seal_failed, not by this filter — no pass/fail decision depends on the string."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:51"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 51
+start_pos = [1787, 23]
+end_pos = [1787, 25]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`len(set(names)) != len(names)` -> `<`: len(set) <= len(names) always, so `<` coincides with `!=`."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:52"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 52
+start_pos = [1797, 24]
+end_pos = [1797, 26]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`len(set(folded)) != len(folded)` -> `<`: same — len(set) <= len(list) always."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:60"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 60
+start_pos = [1862, 34]
+end_pos = [1862, 36]
+function = "verify_bundle_bytes"
+kind = "unobservable-value"
+source_text = "!="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`set(infos_by_name) != set(names)` -> `<`: both sets are parses of the same central directory (hand-rolled vs zipfile infolist), so they agree on every zip zipfile can open; a local-header mismatch raises BadZipFile at the read step (caught by the except block) rather than reaching this comparison.  Verified by running the crafted local-vs-central zip and observing container_read fail with the BadZipFile message, not the mismatch message."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:64"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 64
+start_pos = [1960, 32]
+end_pos = [1960, 34]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`len(set(manifest_names)) != len(manifest_names)` -> `<`: same — len(set) <= len(list) always."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceContinueWithBreak:10"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceContinueWithBreak"
+occurrence = 10
+start_pos = [1872, 20]
+end_pos = [1872, 28]
+function = "verify_bundle_bytes"
+kind = "domain-equivalent"
+source_text = "continue"
+source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`continue` -> `break` in the entry-read loop: when an over-cap entry is found, `break` stops reading the remaining entries instead of skipping just that one — but the container_entry_size fail is already recorded and the bundle is already failed, so the remaining entries' content does not affect the verdict."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceFalseWithTrue:24"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceFalseWithTrue"
+occurrence = 24
+start_pos = [1029, 15]
+end_pos = [1029, 20]
+function = "_verify_timestamp_token"
+kind = "unobservable-value"
+source_text = "False"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`verified = False` -> `True`: `verified` is always assigned by `_rsa_verify(...)` / `_ecdsa_verify(...)` before it is read (the if/elif both assign it, and the else returns early), so the initial value never reaches the read at line 1069.  Verified by reading lines 1029-1070."
+
+[[equivalent]]
+id = "textforensics._standalone_verify:core/ReplaceOrWithAnd:14"
+module = "textforensics._standalone_verify"
+operator = "core/ReplaceOrWithAnd"
+occurrence = 14
+start_pos = [1058, 25]
+end_pos = [1058, 27]
+function = "_verify_timestamp_token"
+kind = "domain-equivalent"
+source_text = "or"
+source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "`if not point_der or point_der[0] != 0x04` -> `and`: for a non-empty point_der, `not point_der` is False, so the `and` variant is False even when point_der[0] != 0x04 (a compressed point 0x02/0x03) — the mutant accepts a compressed point at this format check, but the subsequent coordinate extraction and ECDSA verification fail for it (same as [1058,41]), so the token is rejected either way.  The empty-point case does not occur in any exercised input."
