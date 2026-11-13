@@ -165,7 +165,10 @@ class CosmicRayIntegrationTests(unittest.TestCase):
         self.assertEqual(
             verify,
             "python -m pytest tests/test_verify.py tests/test_casefile_v3.py "
-            "tests/test_audit_w2_worker_f_verify.py -x -q",
+            "tests/test_verify_consolidation.py "
+            "tests/test_audit_w2_worker_f_verify.py "
+            "tests/test_audit_w3_worker_b.py tests/test_audit_w3_worker_c.py "
+            "tests/test_audit_w3_worker_f_verify.py -x -q",
         )
         adversarial = self.runner.test_command_for(["textforensics.adversarial"], self.project_root)
         self.assertEqual(

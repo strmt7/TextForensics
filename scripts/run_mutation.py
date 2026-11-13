@@ -844,11 +844,19 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
         "tests/test_audit_w2_worker_f_explain.py",
     ],
     # The v3 case-file/verify tests live in test_casefile_v3.py; the W2
-    # kill tests live in test_audit_w2_worker_f_verify.py.
+    # kill tests live in test_audit_w2_worker_f_verify.py; the W3
+    # consolidation tests live in test_verify_consolidation.py; the
+    # W3 Worker B/C tests live in test_audit_w3_worker_b.py and
+    # test_audit_w3_worker_c.py; the W3 kill tests live in
+    # test_audit_w3_worker_f_verify.py.
     "textforensics.verify": [
         "tests/test_verify.py",
         "tests/test_casefile_v3.py",
+        "tests/test_verify_consolidation.py",
         "tests/test_audit_w2_worker_f_verify.py",
+        "tests/test_audit_w3_worker_b.py",
+        "tests/test_audit_w3_worker_c.py",
+        "tests/test_audit_w3_worker_f_verify.py",
     ],
 }
 

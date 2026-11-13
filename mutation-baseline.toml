@@ -84,6 +84,21 @@
 # (it would re-implement unverifiable Windows semantics). See
 # hidden_files/audit-w3-worker-f.md sections 5-6 and
 # audit-w3-f3-equiv-reasons-sealing.json.
+# F3 re-proof entries, verify (audit-w3-f3, 2026-11-13): 86 entries
+# appended after the re-proof of the 152 verify survivors: 66
+# killed by the 21 W3 kill tests in
+# tests/test_audit_w3_worker_f_verify.py (re-proved mutant by
+# mutant with cosmic-ray mutate_code in the scratch worktree;
+# 47 killed in the first pass, 19 more after kill-test fixes —
+# deep-list boundary tests for the [81,39]/[81,41] list branch,
+# a mocked-primary raise for the AddNot [475,47]/[476,57]
+# fallback dict, a deep-payload verify_case_file test for
+# [233,21]/[235,29]/[236,34], and a mocked primary without
+# "valid" for [481,76]), 86 proven equivalent with recorded
+# reasons (70 postponed-evaluation annotations + 7 annotation
+# timeouts + 5 domain-equivalent + 4 unobservable-value), 0
+# unexplained. See hidden_files/audit-w3-worker-f.md sections
+# 5-6 and audit-w3-f3-equiv-reasons-verify.json.
 # POSITION REFRESH (2026-11-12, audit W3, head 85d14ce): W3 (watermark
 # payload binding, case sealing/signer binding/custody/privacy, offline
 # verification parity, ledger verification path) shifted lines in
@@ -57456,3 +57471,1051 @@ kind = "unreachable-condition"
 source_text = "not"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+
+# --- F3 re-proof entries, verify (audit-w3-f3, 2026-11-13) --------
+# 86 entries: 70 postponed-evaluation annotations + 7 annotation
+# timeouts + 5 domain-equivalent + 4 unobservable-value. Each
+# entry survived the re-proof and carries a source-verified
+# equivalence reason; every other verify survivor was killed by
+# the W3 kill tests (audit-w3-f3-reprove-verify.py 66 killed / 9
+# survived, 0 gaps after the 19 gap fixes).
+[[equivalent]]
+id = "textforensics.verify:core/ExceptionReplacer:0"
+module = "textforensics.verify"
+operator = "core/ExceptionReplacer"
+occurrence = 0
+start_pos = [454, 11]
+end_pos = [454, 25]
+function = "verify_case_file_combined"
+kind = "unobservable-value"
+source_text = "RecursionError"
+source_fingerprint = "ff607e7cd7da5406d569064772ffb17536de94fb6db8342cacb29e1f21eafadc"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_case_file_combined RecursionError handler at verify.py:454: `except RecursionError` around the nversion call. The iterative _json_depth_exceeded check pre-empts RecursionError (a circular or 100-deep payload is rejected by the depth check before any recursive work), so the handler is never entered (verified empirically 2026-11-13 with circular, 100-deep and 99-deep payloads — the nversion errors never contain \"n-version verification failed\")."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Add:2"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 2
+start_pos = [410, 50]
+end_pos = [410, 51]
+function = "verify_case_file_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Add:3"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 3
+start_pos = [496, 14]
+end_pos = [496, 15]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Add:4"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 4
+start_pos = [496, 43]
+end_pos = [496, 44]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Add:5"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 5
+start_pos = [526, 38]
+end_pos = [526, 39]
+function = "_load_case_file_payload"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of _load_case_file_payload): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Add:6"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 6
+start_pos = [526, 59]
+end_pos = [526, 60]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Add:7"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 7
+start_pos = [526, 71]
+end_pos = [526, 72]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Add:11"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 11
+start_pos = [871, 36]
+end_pos = [871, 37]
+function = "verify_case_file_path"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_BitAnd:2"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 2
+start_pos = [410, 50]
+end_pos = [410, 51]
+function = "verify_case_file_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_BitAnd:3"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 3
+start_pos = [496, 14]
+end_pos = [496, 15]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_BitAnd:4"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 4
+start_pos = [496, 43]
+end_pos = [496, 44]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_BitAnd:5"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 5
+start_pos = [526, 38]
+end_pos = [526, 39]
+function = "_load_case_file_payload"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of _load_case_file_payload): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_BitAnd:6"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 6
+start_pos = [526, 59]
+end_pos = [526, 60]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_BitAnd:7"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 7
+start_pos = [526, 71]
+end_pos = [526, 72]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_BitAnd:11"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 11
+start_pos = [871, 36]
+end_pos = [871, 37]
+function = "verify_case_file_path"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_BitXor:2"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 2
+start_pos = [410, 50]
+end_pos = [410, 51]
+function = "verify_case_file_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_BitXor:3"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 3
+start_pos = [496, 14]
+end_pos = [496, 15]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_BitXor:4"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 4
+start_pos = [496, 43]
+end_pos = [496, 44]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_BitXor:5"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 5
+start_pos = [526, 38]
+end_pos = [526, 39]
+function = "_load_case_file_payload"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of _load_case_file_payload): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_BitXor:6"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 6
+start_pos = [526, 59]
+end_pos = [526, 60]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_BitXor:7"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 7
+start_pos = [526, 71]
+end_pos = [526, 72]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_BitXor:11"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 11
+start_pos = [871, 36]
+end_pos = [871, 37]
+function = "verify_case_file_path"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Div:2"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 2
+start_pos = [410, 50]
+end_pos = [410, 51]
+function = "verify_case_file_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Div:3"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 3
+start_pos = [496, 14]
+end_pos = [496, 15]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Div:4"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 4
+start_pos = [496, 43]
+end_pos = [496, 44]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Div:5"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 5
+start_pos = [526, 38]
+end_pos = [526, 39]
+function = "_load_case_file_payload"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of _load_case_file_payload): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Div:6"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 6
+start_pos = [526, 59]
+end_pos = [526, 60]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Div:7"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 7
+start_pos = [526, 71]
+end_pos = [526, 72]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Div:11"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 11
+start_pos = [871, 36]
+end_pos = [871, 37]
+function = "verify_case_file_path"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_FloorDiv:2"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 2
+start_pos = [410, 50]
+end_pos = [410, 51]
+function = "verify_case_file_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_FloorDiv:3"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 3
+start_pos = [496, 14]
+end_pos = [496, 15]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_FloorDiv:4"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 4
+start_pos = [496, 43]
+end_pos = [496, 44]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_FloorDiv:5"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 5
+start_pos = [526, 38]
+end_pos = [526, 39]
+function = "_load_case_file_payload"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of _load_case_file_payload): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_FloorDiv:6"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 6
+start_pos = [526, 59]
+end_pos = [526, 60]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_FloorDiv:7"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 7
+start_pos = [526, 71]
+end_pos = [526, 72]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_FloorDiv:11"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 11
+start_pos = [871, 36]
+end_pos = [871, 37]
+function = "verify_case_file_path"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_LShift:2"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 2
+start_pos = [410, 50]
+end_pos = [410, 51]
+function = "verify_case_file_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_LShift:3"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 3
+start_pos = [496, 14]
+end_pos = [496, 15]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_LShift:4"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 4
+start_pos = [496, 43]
+end_pos = [496, 44]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_LShift:5"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 5
+start_pos = [526, 38]
+end_pos = [526, 39]
+function = "_load_case_file_payload"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of _load_case_file_payload): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_LShift:6"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 6
+start_pos = [526, 59]
+end_pos = [526, 60]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_LShift:7"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 7
+start_pos = [526, 71]
+end_pos = [526, 72]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_LShift:11"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 11
+start_pos = [871, 36]
+end_pos = [871, 37]
+function = "verify_case_file_path"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Mod:2"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 2
+start_pos = [410, 50]
+end_pos = [410, 51]
+function = "verify_case_file_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Mod:3"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 3
+start_pos = [496, 14]
+end_pos = [496, 15]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Mod:4"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 4
+start_pos = [496, 43]
+end_pos = [496, 44]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Mod:5"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 5
+start_pos = [526, 38]
+end_pos = [526, 39]
+function = "_load_case_file_payload"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of _load_case_file_payload): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Mod:6"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 6
+start_pos = [526, 59]
+end_pos = [526, 60]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Mod:7"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 7
+start_pos = [526, 71]
+end_pos = [526, 72]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Mod:11"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 11
+start_pos = [871, 36]
+end_pos = [871, 37]
+function = "verify_case_file_path"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Mul:2"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 2
+start_pos = [410, 50]
+end_pos = [410, 51]
+function = "verify_case_file_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Mul:3"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 3
+start_pos = [496, 14]
+end_pos = [496, 15]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Mul:4"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 4
+start_pos = [496, 43]
+end_pos = [496, 44]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Mul:5"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 5
+start_pos = [526, 38]
+end_pos = [526, 39]
+function = "_load_case_file_payload"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of _load_case_file_payload): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Mul:6"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 6
+start_pos = [526, 59]
+end_pos = [526, 60]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Mul:7"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 7
+start_pos = [526, 71]
+end_pos = [526, 72]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Mul:11"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 11
+start_pos = [871, 36]
+end_pos = [871, 37]
+function = "verify_case_file_path"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Pow:2"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 2
+start_pos = [410, 50]
+end_pos = [410, 51]
+function = "verify_case_file_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Pow:3"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 3
+start_pos = [496, 14]
+end_pos = [496, 15]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Pow:4"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 4
+start_pos = [496, 43]
+end_pos = [496, 44]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Pow:5"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 5
+start_pos = [526, 38]
+end_pos = [526, 39]
+function = "_load_case_file_payload"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of _load_case_file_payload): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Pow:6"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 6
+start_pos = [526, 59]
+end_pos = [526, 60]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Pow:7"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 7
+start_pos = [526, 71]
+end_pos = [526, 72]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Pow:11"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 11
+start_pos = [871, 36]
+end_pos = [871, 37]
+function = "verify_case_file_path"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_RShift:2"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 2
+start_pos = [410, 50]
+end_pos = [410, 51]
+function = "verify_case_file_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_RShift:3"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 3
+start_pos = [496, 14]
+end_pos = [496, 15]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_RShift:4"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 4
+start_pos = [496, 43]
+end_pos = [496, 44]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_RShift:5"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 5
+start_pos = [526, 38]
+end_pos = [526, 39]
+function = "_load_case_file_payload"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of _load_case_file_payload): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_RShift:6"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 6
+start_pos = [526, 59]
+end_pos = [526, 60]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_RShift:7"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 7
+start_pos = [526, 71]
+end_pos = [526, 72]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_RShift:11"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 11
+start_pos = [871, 36]
+end_pos = [871, 37]
+function = "verify_case_file_path"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Sub:2"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 2
+start_pos = [410, 50]
+end_pos = [410, 51]
+function = "verify_case_file_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Sub:3"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 3
+start_pos = [496, 14]
+end_pos = [496, 15]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Sub:4"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 4
+start_pos = [496, 43]
+end_pos = [496, 44]
+function = "verify_case_file_path_combined"
+kind = "arg"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path_combined): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Sub:5"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 5
+start_pos = [526, 38]
+end_pos = [526, 39]
+function = "_load_case_file_payload"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of _load_case_file_payload): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Sub:6"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 6
+start_pos = [526, 59]
+end_pos = [526, 60]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Sub:7"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 7
+start_pos = [526, 71]
+end_pos = [526, 72]
+function = "_load_case_file_payload"
+kind = "return"
+annotation = "tuple[Any | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _load_case_file_payload): the `|` in `tuple[Any | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_BitOr_Sub:11"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 11
+start_pos = [871, 36]
+end_pos = [871, 37]
+function = "verify_case_file_path"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_case_file_path): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_Mul_Div:3"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_Mul_Div"
+occurrence = 3
+start_pos = [410, 29]
+end_pos = [410, 30]
+function = "verify_case_file_combined"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "ff607e7cd7da5406d569064772ffb17536de94fb6db8342cacb29e1f21eafadc"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_case_file_combined: the `*,` keyword-only marker at verify.py:410 (the combined verifier). Every caller passes its keyword-only arguments by keyword (call-site survey: verify_case_file_path_combined verify.py:520 and all tests pass public_key by keyword or omit it); no caller passes them positionally, so replacing the marker with `/` (positional-only) is unobservable in the reachable call graph."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceBinaryOperator_Mul_Div:4"
+module = "textforensics.verify"
+operator = "core/ReplaceBinaryOperator_Mul_Div"
+occurrence = 4
+start_pos = [496, 22]
+end_pos = [496, 23]
+function = "verify_case_file_path_combined"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "0aa1dd2cc3665e91d3f61d2fa67f6af8c94f6521dee3a7872e49fc3ba5bbaedc"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_case_file_path_combined: the `*,` keyword-only marker at verify.py:496. Every caller passes its keyword-only arguments by keyword (call-site survey: all tests pass public_key by keyword or omit it); no caller passes them positionally, so replacing the marker with `/` (positional-only) is unobservable in the reachable call graph."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceComparisonOperator_Eq_GtE:18"
+module = "textforensics.verify"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 18
+start_pos = [290, 31]
+end_pos = [290, 33]
+function = "verify_case_file"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "c26be23ec7b46035200e4f607a0e07374a8cd315af2d2b223f5ddf8ddc843d96"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_case_file hash-length guard at verify.py:290: `len(supplied_hash) == 64` inside a conjunction whose third conjunct is `supplied_hash == recomputed_hash`, and the recomputed hash is always exactly 64 hex characters (sha256 hexdigest). Whenever the conjunction is True, supplied_hash equals the 64-char recomputed hash, so its length is 64; whenever it differs, the third conjunct is False and the guard is False regardless of the length test. Hence `len >= 64` coincides with `len == 64` in this conjunction."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceComparisonOperator_Eq_LtE:18"
+module = "textforensics.verify"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 18
+start_pos = [290, 31]
+end_pos = [290, 33]
+function = "verify_case_file"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "c26be23ec7b46035200e4f607a0e07374a8cd315af2d2b223f5ddf8ddc843d96"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_case_file hash-length guard at verify.py:290: `len(supplied_hash) == 64` inside a conjunction whose third conjunct is `supplied_hash == recomputed_hash`, and the recomputed hash is always exactly 64 hex characters (sha256 hexdigest). Whenever the conjunction is True, supplied_hash equals the 64-char recomputed hash, so its length is 64; whenever it differs, the third conjunct is False and the guard is False regardless of the length test. Hence `len <= 64` coincides with `len == 64` in this conjunction."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceComparisonOperator_NotEq_Lt:0"
+module = "textforensics.verify"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 0
+start_pos = [325, 26]
+end_pos = [325, 28]
+function = "verify_case_file"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "c26be23ec7b46035200e4f607a0e07374a8cd315af2d2b223f5ddf8ddc843d96"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_case_file_combined status check at verify.py:325: `status != \"ok\"`. The statuses are \"ok\" or \"error:...\" (an error message prefixed with \"error:\"), and every \"error:...\" string sorts lexicographically BELOW \"ok\" (\"e\" < \"o\"). So `status < \"ok\"` coincides with `status != \"ok\"` on the reachable status set."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceFalseWithTrue:14"
+module = "textforensics.verify"
+operator = "core/ReplaceFalseWithTrue"
+occurrence = 14
+start_pos = [458, 21]
+end_pos = [458, 26]
+function = "verify_case_file_combined"
+kind = "unobservable-value"
+source_text = "False"
+source_fingerprint = "ff607e7cd7da5406d569064772ffb17536de94fb6db8342cacb29e1f21eafadc"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_case_file_combined RecursionError fallback at verify.py:458: the nversion \"valid\": False in the fallback dict. The iterative _json_depth_exceeded check (MAX_JSON_DEPTH 100) pre-empts RecursionError: a circular or 100-deep payload is rejected by the depth check before any recursive work, so the fallback is never entered (verified empirically 2026-11-13 with circular, 100-deep and 99-deep payloads — the nversion errors never contain \"n-version verification failed\")."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceFalseWithTrue:15"
+module = "textforensics.verify"
+operator = "core/ReplaceFalseWithTrue"
+occurrence = 15
+start_pos = [460, 29]
+end_pos = [460, 34]
+function = "verify_case_file_combined"
+kind = "unobservable-value"
+source_text = "False"
+source_fingerprint = "ff607e7cd7da5406d569064772ffb17536de94fb6db8342cacb29e1f21eafadc"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_case_file_combined RecursionError fallback at verify.py:460: the nversion \"seal_verified\": False in the fallback dict. Same pre-emption as [458,21]: the iterative _json_depth_exceeded check rejects circular and 100-deep payloads before any recursive work, so the fallback is never entered (verified empirically 2026-11-13)."
+
+[[equivalent]]
+id = "textforensics.verify:core/ReplaceFalseWithTrue:16"
+module = "textforensics.verify"
+operator = "core/ReplaceFalseWithTrue"
+occurrence = 16
+start_pos = [461, 34]
+end_pos = [461, 39]
+function = "verify_case_file_combined"
+kind = "unobservable-value"
+source_text = "False"
+source_fingerprint = "ff607e7cd7da5406d569064772ffb17536de94fb6db8342cacb29e1f21eafadc"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_case_file_combined RecursionError fallback at verify.py:461: the nversion \"trust_map_verified\": False in the fallback dict. Same pre-emption as [458,21]: the iterative _json_depth_exceeded check rejects circular and 100-deep payloads before any recursive work, so the fallback is never entered (verified empirically 2026-11-13)."
