@@ -127,7 +127,6 @@ def _build_token_k(
         _der_generalized_time(gen_time),
         _der_integer(nonce),
     )
-    econtent_digest = hashlib.new(hash_algorithm, tst_info).digest()
     # The messageDigest attribute is computed with the SIGNER's digest
     # algorithm (RFC 5652), which is digest_oid when overridden — not
     # the imprint hash. Otherwise a token whose signer digest differs
@@ -566,7 +565,6 @@ class TestWorkerFTimestampSidKill:
 
         ca_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         ca = _name("ZZZ")
-        ca_der = _make_cert(ca_key, ca, ca, 1)
         leaf_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         leaf_der = _make_cert(leaf_key, _name("Test TSA Leaf"), ca, 7, signing_key=ca_key)
         wrong_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -584,7 +582,6 @@ class TestWorkerFTimestampSidKill:
 
         ca_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         ca = _name("AAA")
-        ca_der = _make_cert(ca_key, ca, ca, 1)
         leaf_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         leaf_der = _make_cert(leaf_key, _name("Test TSA Leaf"), ca, 7, signing_key=ca_key)
         wrong_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -602,7 +599,6 @@ class TestWorkerFTimestampSidKill:
 
         ca_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         ca = _name("Test TSA CA")
-        ca_der = _make_cert(ca_key, ca, ca, 1)
         leaf_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         leaf_der = _make_cert(leaf_key, _name("Test TSA Leaf"), ca, 7, signing_key=ca_key)
         wrong_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -631,7 +627,6 @@ class TestWorkerFTimestampSidKill:
 
         ca_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         ca = _name("Test TSA CA")
-        ca_der = _make_cert(ca_key, ca, ca, 1)
         leaf_a_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         leaf_a_der = _make_cert(leaf_a_key, _name("Test TSA Leaf"), ca, 7, signing_key=ca_key)
         leaf_b_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)

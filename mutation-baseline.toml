@@ -66,6 +66,24 @@
 # (Lt <- greater value, Gt <- lesser value). See
 # hidden_files/audit-w3-worker-f.md sections 5-6 and
 # audit-w3-f3-equiv-reasons-casefile.json.
+# F3 re-proof entries, sealing (audit-w3-f3, 2026-11-13): 75 entries
+# appended after the re-proof of the 113 sealing survivors: 38
+# killed by the 38 W3 kill tests in
+# tests/test_audit_w3_worker_f_sealing.py (re-proved mutant by
+# mutant with cosmic-ray mutate_code in the scratch worktree;
+# 35 killed in the first pass, 3 more after kill-test fixes —
+# anchored regexes for [547,73] Lt/Gt so fingerprint()'s
+# "Ed25519 public key..." error cannot mask the guard, and an
+# envelope-signature tamper for [722,21] so line 722 is reached),
+# 75 proven equivalent with recorded reasons (11 postponed-
+# evaluation annotations + 7 domain-equivalent + 2 unobservable-
+# value + 55 platform-gated Windows-only _restrict_to_owner_windows
+# mutants: 39 unobservable-value + 16 unreachable-condition), 0
+# unexplained. Platform-gated mutants are NOT domain-equivalent
+# (they matter on Windows) and were NOT killed with a windll mock
+# (it would re-implement unverifiable Windows semantics). See
+# hidden_files/audit-w3-worker-f.md sections 5-6 and
+# audit-w3-f3-equiv-reasons-sealing.json.
 # POSITION REFRESH (2026-11-12, audit W3, head 85d14ce): W3 (watermark
 # payload binding, case sealing/signer binding/custody/privacy, offline
 # verification parity, ledger verification path) shifted lines in
@@ -56467,3 +56485,974 @@ kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "c2deaeca0fa78635db9ab3056142e580dce3885dde90970a6df9d6298564518a"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "Domain-equivalent mutant (seal_case_file: `version != \"v1\"` -> `>`, line 1388): line 1388 is reached only for legacy bundles (line 1387 True), with version in {\"v1\",\"v2\",\"v3\",\"v4\"} after the up-front guard. On that domain `> \"v1\"` coincides with `!= \"v1\"` (v1 False; v2/v3/v4 True — all sort above v1). The F2 classify-notes kill plan (version=\"v0\" for `<`, \"v2\" for `>`) is wrong both ways: v0 raises at the guard before reaching 1388, and v2 gives True under both original and mutant. Re-proved 2026-11-13 (audit-w3-f3-reprove-casefile.py): survives the W3 kill-test file."
+
+# --- F3 re-proof entries, sealing (audit-w3-f3, 2026-11-13) --------
+# 75 entries: 11 postponed-evaluation annotations + 7
+# domain-equivalent + 2 unobservable-value + 55 platform-gated.
+# Each entry survived the re-proof and carries a source-verified
+# equivalence reason; every other sealing survivor was killed by
+# the W3 kill tests (audit-w3-f3-reprove-sealing.py 38 killed / 64
+# survived, 0 gaps after the 3 gap fixes).
+[[equivalent]]
+id = "textforensics.sealing:core/AddNot:12"
+module = "textforensics.sealing"
+operator = "core/AddNot"
+occurrence = 12
+start_pos = [400, 7]
+end_pos = [400, 10]
+function = "_restrict_to_owner_windows"
+kind = "unreachable-condition"
+source_text = "not"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+
+[[equivalent]]
+id = "textforensics.sealing:core/AddNot:13"
+module = "textforensics.sealing"
+operator = "core/AddNot"
+occurrence = 13
+start_pos = [409, 11]
+end_pos = [409, 99]
+function = "_restrict_to_owner_windows"
+kind = "unreachable-condition"
+source_text = "not advapi32.GetTokenInformation(token, TokenUser, token_info, size, ctypes.byref(size))"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+
+[[equivalent]]
+id = "textforensics.sealing:core/AddNot:14"
+module = "textforensics.sealing"
+operator = "core/AddNot"
+occurrence = 14
+start_pos = [423, 11]
+end_pos = [423, 21]
+function = "_restrict_to_owner_windows"
+kind = "unreachable-condition"
+source_text = "error != 0"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+
+[[equivalent]]
+id = "textforensics.sealing:core/AddNot:15"
+module = "textforensics.sealing"
+operator = "core/AddNot"
+occurrence = 15
+start_pos = [435, 15]
+end_pos = [435, 25]
+function = "_restrict_to_owner_windows"
+kind = "unreachable-condition"
+source_text = "error != 0"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:6"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 6
+start_pos = [327, 18]
+end_pos = [327, 24]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0x0008"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:7"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 7
+start_pos = [327, 18]
+end_pos = [327, 24]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0x0008"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:8"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 8
+start_pos = [328, 16]
+end_pos = [328, 17]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "1"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:9"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 9
+start_pos = [328, 16]
+end_pos = [328, 17]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "1"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:10"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 10
+start_pos = [329, 21]
+end_pos = [329, 22]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "1"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:11"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 11
+start_pos = [329, 21]
+end_pos = [329, 22]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "1"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:12"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 12
+start_pos = [330, 32]
+end_pos = [330, 42]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0x00000004"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:13"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 13
+start_pos = [330, 32]
+end_pos = [330, 42]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0x00000004"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:14"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 14
+start_pos = [331, 42]
+end_pos = [331, 52]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0x80000000"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:15"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 15
+start_pos = [331, 42]
+end_pos = [331, 52]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0x80000000"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:16"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 16
+start_pos = [332, 18]
+end_pos = [332, 28]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0x10000000"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:17"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 17
+start_pos = [332, 18]
+end_pos = [332, 28]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0x10000000"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:18"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 18
+start_pos = [333, 17]
+end_pos = [333, 18]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "2"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:19"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 19
+start_pos = [333, 17]
+end_pos = [333, 18]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "2"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:20"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 20
+start_pos = [334, 21]
+end_pos = [334, 22]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:21"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 21
+start_pos = [334, 21]
+end_pos = [334, 22]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:22"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 22
+start_pos = [335, 21]
+end_pos = [335, 22]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:23"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 23
+start_pos = [335, 21]
+end_pos = [335, 22]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:24"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 24
+start_pos = [336, 22]
+end_pos = [336, 23]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "1"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:25"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 25
+start_pos = [336, 22]
+end_pos = [336, 23]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "1"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:26"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 26
+start_pos = [405, 30]
+end_pos = [405, 31]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:27"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 27
+start_pos = [405, 30]
+end_pos = [405, 31]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:28"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 28
+start_pos = [407, 61]
+end_pos = [407, 62]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:29"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 29
+start_pos = [407, 61]
+end_pos = [407, 62]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:30"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 30
+start_pos = [422, 42]
+end_pos = [422, 43]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "1"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:31"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 31
+start_pos = [422, 42]
+end_pos = [422, 43]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "1"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:32"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 32
+start_pos = [423, 20]
+end_pos = [423, 21]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:33"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 33
+start_pos = [423, 20]
+end_pos = [423, 21]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:34"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 34
+start_pos = [435, 24]
+end_pos = [435, 25]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/NumberReplacer:35"
+module = "textforensics.sealing"
+operator = "core/NumberReplacer"
+occurrence = 35
+start_pos = [435, 24]
+end_pos = [435, 25]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "0"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_Add:1"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 1
+start_pos = [229, 31]
+end_pos = [229, 32]
+function = "save_sealing_key"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of save_sealing_key): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_Add:2"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 2
+start_pos = [429, 42]
+end_pos = [429, 43]
+function = "_restrict_to_owner_windows"
+kind = "domain-equivalent"
+source_text = "|"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "SetNamedSecurityInfoW DACL flags at sealing.py:429: DACL (0x00000004) | PROTECTED (0x80000000) = 0x80000004. The two constants have disjoint bits, so `|` coincides with `+` (0x80000004) and with `^` (0x80000004); `-` gives -0x7ffffffc and `*` gives 0x200000000, which differ (both were killed by the existing suite)."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_BitAnd:1"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 1
+start_pos = [229, 31]
+end_pos = [229, 32]
+function = "save_sealing_key"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of save_sealing_key): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_BitAnd:2"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 2
+start_pos = [429, 42]
+end_pos = [429, 43]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "|"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_BitXor:1"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 1
+start_pos = [229, 31]
+end_pos = [229, 32]
+function = "save_sealing_key"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of save_sealing_key): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_BitXor:2"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 2
+start_pos = [429, 42]
+end_pos = [429, 43]
+function = "_restrict_to_owner_windows"
+kind = "domain-equivalent"
+source_text = "|"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "SetNamedSecurityInfoW DACL flags at sealing.py:429: DACL (0x00000004) | PROTECTED (0x80000000) = 0x80000004. The two constants have disjoint bits, so `|` coincides with `^` (0x80000004) and with `+` (0x80000004); `-` gives -0x7ffffffc and `*` gives 0x200000000, which differ (both were killed by the existing suite)."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_Div:1"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 1
+start_pos = [229, 31]
+end_pos = [229, 32]
+function = "save_sealing_key"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of save_sealing_key): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_Div:2"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 2
+start_pos = [429, 42]
+end_pos = [429, 43]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "|"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_FloorDiv:1"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 1
+start_pos = [229, 31]
+end_pos = [229, 32]
+function = "save_sealing_key"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of save_sealing_key): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_FloorDiv:2"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 2
+start_pos = [429, 42]
+end_pos = [429, 43]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "|"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_LShift:1"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 1
+start_pos = [229, 31]
+end_pos = [229, 32]
+function = "save_sealing_key"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of save_sealing_key): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_LShift:2"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 2
+start_pos = [429, 42]
+end_pos = [429, 43]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "|"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_Mod:1"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 1
+start_pos = [229, 31]
+end_pos = [229, 32]
+function = "save_sealing_key"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of save_sealing_key): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_Mod:2"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 2
+start_pos = [429, 42]
+end_pos = [429, 43]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "|"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_Mul:1"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 1
+start_pos = [229, 31]
+end_pos = [229, 32]
+function = "save_sealing_key"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of save_sealing_key): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_Mul:2"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 2
+start_pos = [429, 42]
+end_pos = [429, 43]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "|"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_Pow:1"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 1
+start_pos = [229, 31]
+end_pos = [229, 32]
+function = "save_sealing_key"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of save_sealing_key): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_Pow:2"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 2
+start_pos = [429, 42]
+end_pos = [429, 43]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "|"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_RShift:1"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 1
+start_pos = [229, 31]
+end_pos = [229, 32]
+function = "save_sealing_key"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of save_sealing_key): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_RShift:2"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 2
+start_pos = [429, 42]
+end_pos = [429, 43]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "|"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_Sub:1"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 1
+start_pos = [229, 31]
+end_pos = [229, 32]
+function = "save_sealing_key"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of save_sealing_key): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_Sub:2"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 2
+start_pos = [429, 42]
+end_pos = [429, 43]
+function = "_restrict_to_owner_windows"
+kind = "unobservable-value"
+source_text = "|"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_Mul_Div:2"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_Mul_Div"
+occurrence = 2
+start_pos = [595, 29]
+end_pos = [595, 30]
+function = "case_signing_payload"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "8eafeb6dc036bbb2b5f5bdeee2ae5cad35c483aebe449ad0652645120c2deb69"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "case_signing_payload: the `*,` keyword-only marker at sealing.py:595. Every caller passes `contract=` by keyword or omits it (call-site survey: sign_case_body sealing.py:634, verify_case_signature sealing.py:717, and all tests pass contract by keyword); no caller passes it positionally, so replacing the marker with `/` (positional-only) is unobservable in the reachable call graph."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceBinaryOperator_Mul_Div:3"
+module = "textforensics.sealing"
+operator = "core/ReplaceBinaryOperator_Mul_Div"
+occurrence = 3
+start_pos = [634, 42]
+end_pos = [634, 43]
+function = "sign_case_body"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "1f54f1078ab2dda6019bc3f759946974a14bbb260aec0008db16d4571cc3933c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "sign_case_body: the `*,` keyword-only marker at sealing.py:634. Every caller passes `contract=` by keyword or omits it (call-site survey: verify_case_file casefile.py:1836 passes public_key by keyword; all other callers omit it); no caller passes it positionally, so replacing the marker with `/` (positional-only) is unobservable in the reachable call graph."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceComparisonOperator_Eq_GtE:5"
+module = "textforensics.sealing"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 5
+start_pos = [714, 61]
+end_pos = [714, 63]
+function = "verify_case_signature"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "d32df707353650c632550216fbb09c141b6ddf2087f64e57e34922a05f0b4b8d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "case_signing_payload V2 branch at sealing.py:714: `contract == V2` where V1 = \"textforensics.case-file/v3\" < V2 = \"textforensics.case-signing/v2\" lexicographically. `contract >= V2` coincides with `contract == V2` on the guarded domain {V1, V2}: V1 >= V2 is False and V2 >= V2 is True."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceComparisonOperator_Eq_LtE:1"
+module = "textforensics.sealing"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 1
+start_pos = [621, 20]
+end_pos = [621, 22]
+function = "case_signing_payload"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "8eafeb6dc036bbb2b5f5bdeee2ae5cad35c483aebe449ad0652645120c2deb69"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "case_signing_payload contract guard at sealing.py:621: `contract == V1` where V1 = \"textforensics.case-file/v3\" and the guard already established `contract not in (V1, V2)` raises. On the reachable domain contract is V1 or V2; `contract <= V1` coincides with `contract == V1` there because V2 > V1 lexicographically and no other value reaches the line."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceComparisonOperator_Eq_LtE:6"
+module = "textforensics.sealing"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 6
+start_pos = [730, 16]
+end_pos = [730, 18]
+function = "verify_case_signature"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "d32df707353650c632550216fbb09c141b6ddf2087f64e57e34922a05f0b4b8d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "verify_case_signature contract dispatch at sealing.py:730: `contract == \"v1\"` where contract is \"v1\" or \"v2\" (the payloadType dispatch above admits only CASE_SIGNING_CONTRACT_V1/V2). `contract <= \"v1\"` coincides with `contract == \"v1\"` on {\"v1\",\"v2\"} because \"v2\" > \"v1\"."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceComparisonOperator_NotEq_Eq:1"
+module = "textforensics.sealing"
+operator = "core/ReplaceComparisonOperator_NotEq_Eq"
+occurrence = 1
+start_pos = [423, 17]
+end_pos = [423, 19]
+function = "_restrict_to_owner_windows"
+kind = "unreachable-condition"
+source_text = "!="
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceComparisonOperator_NotEq_Eq:2"
+module = "textforensics.sealing"
+operator = "core/ReplaceComparisonOperator_NotEq_Eq"
+occurrence = 2
+start_pos = [435, 21]
+end_pos = [435, 23]
+function = "_restrict_to_owner_windows"
+kind = "unreachable-condition"
+source_text = "!="
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceComparisonOperator_NotEq_Gt:1"
+module = "textforensics.sealing"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 1
+start_pos = [423, 17]
+end_pos = [423, 19]
+function = "_restrict_to_owner_windows"
+kind = "unreachable-condition"
+source_text = "!="
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceComparisonOperator_NotEq_Gt:2"
+module = "textforensics.sealing"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 2
+start_pos = [435, 21]
+end_pos = [435, 23]
+function = "_restrict_to_owner_windows"
+kind = "unreachable-condition"
+source_text = "!="
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceComparisonOperator_NotEq_GtE:1"
+module = "textforensics.sealing"
+operator = "core/ReplaceComparisonOperator_NotEq_GtE"
+occurrence = 1
+start_pos = [423, 17]
+end_pos = [423, 19]
+function = "_restrict_to_owner_windows"
+kind = "unreachable-condition"
+source_text = "!="
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceComparisonOperator_NotEq_GtE:2"
+module = "textforensics.sealing"
+operator = "core/ReplaceComparisonOperator_NotEq_GtE"
+occurrence = 2
+start_pos = [435, 21]
+end_pos = [435, 23]
+function = "_restrict_to_owner_windows"
+kind = "unreachable-condition"
+source_text = "!="
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceComparisonOperator_NotEq_Lt:1"
+module = "textforensics.sealing"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 1
+start_pos = [423, 17]
+end_pos = [423, 19]
+function = "_restrict_to_owner_windows"
+kind = "unreachable-condition"
+source_text = "!="
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceComparisonOperator_NotEq_Lt:2"
+module = "textforensics.sealing"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 2
+start_pos = [435, 21]
+end_pos = [435, 23]
+function = "_restrict_to_owner_windows"
+kind = "unreachable-condition"
+source_text = "!="
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceComparisonOperator_NotEq_LtE:1"
+module = "textforensics.sealing"
+operator = "core/ReplaceComparisonOperator_NotEq_LtE"
+occurrence = 1
+start_pos = [423, 17]
+end_pos = [423, 19]
+function = "_restrict_to_owner_windows"
+kind = "unreachable-condition"
+source_text = "!="
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceComparisonOperator_NotEq_LtE:2"
+module = "textforensics.sealing"
+operator = "core/ReplaceComparisonOperator_NotEq_LtE"
+occurrence = 2
+start_pos = [435, 21]
+end_pos = [435, 23]
+function = "_restrict_to_owner_windows"
+kind = "unreachable-condition"
+source_text = "!="
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceFalseWithTrue:2"
+module = "textforensics.sealing"
+operator = "core/ReplaceFalseWithTrue"
+occurrence = 2
+start_pos = [259, 23]
+end_pos = [259, 28]
+function = "save_sealing_key"
+kind = "unobservable-value"
+source_text = "False"
+source_fingerprint = "a61834f869cd58c616e61f22d4b1d295ee26aa6789baf4064aec0b71130a5c02"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "save_sealing_key fd ownership at sealing.py:259: `fd_owned = False` after `os.fdopen` succeeds. The fd is then owned by the file object, so the mutant's redundant `os.close(fd)` in the finally block raises EBADF, which is swallowed by `contextlib.suppress(OSError)`; the observable behaviour (file written, fd closed exactly once) is unchanged."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceTrueWithFalse:3"
+module = "textforensics.sealing"
+operator = "core/ReplaceTrueWithFalse"
+occurrence = 3
+start_pos = [270, 40]
+end_pos = [270, 44]
+function = "save_sealing_key"
+kind = "unobservable-value"
+source_text = "True"
+source_fingerprint = "a61834f869cd58c616e61f22d4b1d295ee26aa6789baf4064aec0b71130a5c02"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "save_sealing_key temp cleanup at sealing.py:270: `missing_ok=True` in the finally `unlink`. The temp file is removed ONLY by the finally block, so it always exists when `unlink` runs; `missing_ok=False` never raises and the observable behaviour is unchanged."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceUnaryOperator_Delete_Not:6"
+module = "textforensics.sealing"
+operator = "core/ReplaceUnaryOperator_Delete_Not"
+occurrence = 6
+start_pos = [400, 7]
+end_pos = [400, 10]
+function = "_restrict_to_owner_windows"
+kind = "unreachable-condition"
+source_text = "not"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+
+[[equivalent]]
+id = "textforensics.sealing:core/ReplaceUnaryOperator_Delete_Not:7"
+module = "textforensics.sealing"
+operator = "core/ReplaceUnaryOperator_Delete_Not"
+occurrence = 7
+start_pos = [409, 11]
+end_pos = [409, 14]
+function = "_restrict_to_owner_windows"
+kind = "unreachable-condition"
+source_text = "not"
+source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."

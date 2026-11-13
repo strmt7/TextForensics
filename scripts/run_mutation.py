@@ -817,6 +817,14 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
         "tests/test_audit_w3_worker_c.py",
         "tests/test_audit_w3_worker_f_bundle.py",
     ],
+    # W3 Worker B tests live in test_audit_w3_worker_b.py alongside
+    # the dedicated file; the W3 kill tests live in
+    # test_audit_w3_worker_f_sealing.py.
+    "textforensics.sealing": [
+        "tests/test_sealing.py",
+        "tests/test_audit_w3_worker_b.py",
+        "tests/test_audit_w3_worker_f_sealing.py",
+    ],
     # W2 Worker E tests: adversarial + semantic in test_w2_worker_e_if12.py
     # (IF-12), explain in test_w2_worker_e_if19.py (IF-19); the W2 kill
     # tests live in the matching test_audit_w2_worker_f_<stem>.py files.

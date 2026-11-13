@@ -701,7 +701,6 @@ class TestWorkerFWatermarkingSaveKey:
         propagates. The mutant replaces the caught type, so the fd
         leaks."""
         seen = []
-        real_fchmod = os.fchmod
 
         def _raising_fchmod(fd, mode):
             seen.append(fd)
