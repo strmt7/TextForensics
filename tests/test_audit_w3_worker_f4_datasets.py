@@ -215,27 +215,14 @@ class TestAuditW3WorkerF4DetectRLX(unittest.TestCase):
             ):
                 list(iter_detectrl_x_rows(deep))
 
-    def test_default_object_cap_boundary_16mib(self):
-        # Kills all 18 default-cap mutants at [2236,70]/[2236,73]/
-        # [2236,75]/[2236,80]/[2236,82]: the 10 smaller caps reject the
-        # exactly-16 MiB object the original accepts, and the 8 bigger
-        # caps accept the 16 MiB + 1 object the original rejects. Uses
-        # the DEFAULT cap (no max_object_bytes argument).
-        cap = 16 * 1024 * 1024
-        with tempfile.TemporaryDirectory() as tmp:
-            exact = '{"a": "' + "x" * (cap - 9) + '"}'
-            self.assertEqual(len(exact), cap)
-            path = self._write(tmp, "exact.json", "[" + exact + "]")
-            self.assertEqual(len(list(iter_detectrl_x_rows(path))), 1)
-            over = '{"a": "' + "x" * (cap - 8) + '"}'
-            self.assertEqual(len(over), cap + 1)
-            path = self._write(tmp, "over.json", "[" + over + "]")
-            with self.assertRaisesRegex(
-                DatasetFetchError,
-                _exact(f"detectrl_x: row 0 exceeds the {cap}-byte object budget"),
-            ):
-                list(iter_detectrl_x_rows(path))
-
+    # NOTE (ordering): this guard test runs BEFORE the 16 MiB cap test
+    # below. Under a tiny-chunk mutant (21/20/1-byte chunks) the 16 MiB
+    # test is pathologically slow (hundreds of thousands of single-chunk
+    # fills, each rescanning the growing buffer), while this test kills
+    # those mutants in seconds — the guard fires after a few fills
+    # because the threshold is max_object_bytes + chunk_size with the
+    # small explicit cap (100). The re-prove runs the file with -x, so
+    # the guard failure stops the run before the heavy test.
     def test_object_budget_guard_uses_chunk_size(self):
         # Kills all 10 chunk-size mutants at [2275,17]/[2275,19]/
         # [2275,22]. _fill raises when len(buf) exceeds max_object_bytes
@@ -265,6 +252,27 @@ class TestAuditW3WorkerF4DetectRLX(unittest.TestCase):
                 _exact("detectrl_x: row 0 is not parseable JSON"),
             ):
                 list(iter_detectrl_x_rows(small, max_object_bytes=100))
+
+    def test_default_object_cap_boundary_16mib(self):
+        # Kills all 18 default-cap mutants at [2236,70]/[2236,73]/
+        # [2236,75]/[2236,80]/[2236,82]: the 10 smaller caps reject the
+        # exactly-16 MiB object the original accepts, and the 8 bigger
+        # caps accept the 16 MiB + 1 object the original rejects. Uses
+        # the DEFAULT cap (no max_object_bytes argument).
+        cap = 16 * 1024 * 1024
+        with tempfile.TemporaryDirectory() as tmp:
+            exact = '{"a": "' + "x" * (cap - 9) + '"}'
+            self.assertEqual(len(exact), cap)
+            path = self._write(tmp, "exact.json", "[" + exact + "]")
+            self.assertEqual(len(list(iter_detectrl_x_rows(path))), 1)
+            over = '{"a": "' + "x" * (cap - 8) + '"}'
+            self.assertEqual(len(over), cap + 1)
+            path = self._write(tmp, "over.json", "[" + over + "]")
+            with self.assertRaisesRegex(
+                DatasetFetchError,
+                _exact(f"detectrl_x: row 0 exceeds the {cap}-byte object budget"),
+            ):
+                list(iter_detectrl_x_rows(path))
 
     def test_exact_object_size_accepted_with_small_cap(self):
         # Kills Gt_GtE [2382,19]: an object of exactly max_object_bytes
