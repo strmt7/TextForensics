@@ -13,14 +13,10 @@ tests exercise the standalone copy, not the package import.
 """
 
 import hashlib
-import io
 import json
-import struct
 import unittest
-import zipfile
 from pathlib import Path
 
-from _token_fixture import build_token_for_digest
 from test_standalone_verify import (
     _set_archive_comment,
     build_bundle,
@@ -195,36 +191,28 @@ class TestDetectorSanityKill(unittest.TestCase):
         # be reported. The AddNot mutant inverts the membership test;
         # the IsNot_Is mutant changes `not in` so a wrong schema is
         # no longer reported.
-        errors = m._detector_sanity_errors(
-            {"detector_results": [self._result(schema="bogus")]}
-        )
+        errors = m._detector_sanity_errors({"detector_results": [self._result(schema="bogus")]})
         self.assertIn("detector d1 has wrong schema", errors)
 
     def test_right_schema_is_not_error(self):
         m = load_standalone()
         # AddNot [1657,11], other direction: a right schema must not
         # be reported. The mutant reports it.
-        errors = m._detector_sanity_errors(
-            {"detector_results": [self._result()]}
-        )
+        errors = m._detector_sanity_errors({"detector_results": [self._result()]})
         self.assertEqual(errors, [])
 
     def test_bool_score_is_error(self):
         m = load_standalone()
         # [1658,39] OrWithAnd (first side): a bool score is the
         # wrong type but numeric (side 1 True, side 2 False).
-        errors = m._detector_sanity_errors(
-            {"detector_results": [self._result(score=True)]}
-        )
+        errors = m._detector_sanity_errors({"detector_results": [self._result(score=True)]})
         self.assertIn("detector d1 score is not numeric", errors)
 
     def test_str_score_is_error(self):
         m = load_standalone()
         # [1658,39] OrWithAnd (second side): a str score is not a
         # bool but not numeric either (side 1 False, side 2 True).
-        errors = m._detector_sanity_errors(
-            {"detector_results": [self._result(score="high")]}
-        )
+        errors = m._detector_sanity_errors({"detector_results": [self._result(score="high")]})
         self.assertIn("detector d1 score is not numeric", errors)
 
 
@@ -337,13 +325,9 @@ class TestChecklistStructureKill(unittest.TestCase):
         # + Delete_Not [1578,17]: a known name with an invalid
         # "tested" value must be reported.
         process = self._valid_process()
-        process["alternative_explanations"] = {
-            "short_text_limits": {"tested": "bogus"}
-        }
+        process["alternative_explanations"] = {"short_text_limits": {"tested": "bogus"}}
         errors = m._checklist_structure_errors(self._case(process))
-        self.assertIn(
-            "checklist_alternative_explanation_invalid:short_text_limits", errors
-        )
+        self.assertIn("checklist_alternative_explanation_invalid:short_text_limits", errors)
 
     def test_non_dict_explanation_is_error(self):
         m = load_standalone()
@@ -352,9 +336,7 @@ class TestChecklistStructureKill(unittest.TestCase):
         process = self._valid_process()
         process["alternative_explanations"] = {"short_text_limits": "not-a-dict"}
         errors = m._checklist_structure_errors(self._case(process))
-        self.assertIn(
-            "checklist_alternative_explanation_invalid:short_text_limits", errors
-        )
+        self.assertIn("checklist_alternative_explanation_invalid:short_text_limits", errors)
 
 
 class TestPreviousSignaturesKill(unittest.TestCase):
@@ -389,36 +371,28 @@ class TestPreviousSignaturesKill(unittest.TestCase):
         m = load_standalone()
         # [1243,32] NotEq_Gt: a 63-char fingerprint makes `!=` True
         # but `>` False.
-        errors = m._previous_signatures_errors(
-            self._seal([self._entry(key_fingerprint="a" * 63)])
-        )
+        errors = m._previous_signatures_errors(self._seal([self._entry(key_fingerprint="a" * 63)]))
         self.assertIn("previous_signatures[0] key_fingerprint is not 64 hex", errors)
 
     def test_long_fingerprint_is_error(self):
         m = load_standalone()
         # [1243,32] NotEq_Lt: a 65-char fingerprint makes `!=` True
         # but `<` False.
-        errors = m._previous_signatures_errors(
-            self._seal([self._entry(key_fingerprint="a" * 65)])
-        )
+        errors = m._previous_signatures_errors(self._seal([self._entry(key_fingerprint="a" * 65)]))
         self.assertIn("previous_signatures[0] key_fingerprint is not 64 hex", errors)
 
     def test_non_str_fingerprint_is_error(self):
         m = load_standalone()
         # [1243,12] OrWithAnd (first side): a non-str fingerprint
         # makes side 1 True; the mutant `and` calls len() on it.
-        errors = m._previous_signatures_errors(
-            self._seal([self._entry(key_fingerprint=123)])
-        )
+        errors = m._previous_signatures_errors(self._seal([self._entry(key_fingerprint=123)]))
         self.assertIn("previous_signatures[0] key_fingerprint is not 64 hex", errors)
 
     def test_non_dict_signer_is_error(self):
         m = load_standalone()
         # [1250,12] OrWithAnd (first side): a non-dict signer makes
         # side 1 True; the mutant `and` calls .get on it.
-        errors = m._previous_signatures_errors(
-            self._seal([self._entry(signer="not-a-dict")])
-        )
+        errors = m._previous_signatures_errors(self._seal([self._entry(signer="not-a-dict")]))
         self.assertIn("previous_signatures[0] signer is malformed", errors)
 
     def test_non_str_identity_is_error(self):
@@ -443,9 +417,7 @@ class TestPreviousSignaturesKill(unittest.TestCase):
         m = load_standalone()
         # AddNot [1256,11] + IsNot_Is [1256,29]: a non-dict dsse
         # must be reported.
-        errors = m._previous_signatures_errors(
-            self._seal([self._entry(dsse="not-a-dict")])
-        )
+        errors = m._previous_signatures_errors(self._seal([self._entry(dsse="not-a-dict")]))
         self.assertIn("previous_signatures[0] dsse is not an object", errors)
 
     def test_valid_superseded_at_is_not_error(self):
@@ -469,18 +441,14 @@ class TestPreviousSignaturesKill(unittest.TestCase):
         # [1261,64] OrWithAnd (first side): a non-str
         # superseded_at_utc makes side 1 True (side 2 False, since
         # `not 5` is False).
-        errors = m._previous_signatures_errors(
-            self._seal([self._entry(superseded_at_utc=5)])
-        )
+        errors = m._previous_signatures_errors(self._seal([self._entry(superseded_at_utc=5)]))
         self.assertIn("previous_signatures[0] superseded_at_utc is malformed", errors)
 
     def test_empty_superseded_at_is_error(self):
         m = load_standalone()
         # [1261,64] OrWithAnd (second side): an empty str makes side
         # 1 False and side 2 True.
-        errors = m._previous_signatures_errors(
-            self._seal([self._entry(superseded_at_utc="")])
-        )
+        errors = m._previous_signatures_errors(self._seal([self._entry(superseded_at_utc="")]))
         self.assertIn("previous_signatures[0] superseded_at_utc is malformed", errors)
 
 
@@ -517,9 +485,7 @@ class TestManifestForKill(unittest.TestCase):
         m = load_standalone()
         # AddNot [1607,7] + ZeroIterationForLoop [1608,22]: the loop
         # over results must run and collect nested calibration ids.
-        bundle = self._bundle(
-            detector_results=[{"calibration": {"calibration_id": "cal-2"}}]
-        )
+        bundle = self._bundle(detector_results=[{"calibration": {"calibration_id": "cal-2"}}])
         manifest = m._manifest_for(bundle, {"git_sha": "abc"})
         self.assertEqual(manifest["calibration_ids"], ["cal-2"])
 
@@ -770,7 +736,9 @@ class TestVerifyBundleBytesKill(unittest.TestCase):
                 z.writestr(info, entries[name])
         data = _set_archive_comment(
             buf.getvalue(),
-            ("mpl-bundle-sha256:" + hashlib.sha256(entries["manifest.json"]).hexdigest()).encode("ascii"),
+            ("mpl-bundle-sha256:" + hashlib.sha256(entries["manifest.json"]).hexdigest()).encode(
+                "ascii"
+            ),
         )
         report = m.verify_bundle_bytes(data)
         self.assertEqual(report["exit_code"], 1)
@@ -1087,11 +1055,11 @@ def _build_token(
                 else (
                     _der_sequence(_der_octet_string(b"not-a-certificate")) + cert_der * cert_count
                     if bad_cert_first
+                    # The partial-match extras come FIRST so the
+                    # sid-lookup loop reaches them before cert2;
+                    # a weakened mutant matches one of them and
+                    # the loop breaks on the wrong certificate.
                     else (
-                        # The partial-match extras come FIRST so the
-                        # sid-lookup loop reaches them before cert2;
-                        # a weakened mutant matches one of them and
-                        # the loop breaks on the wrong certificate.
                         extra_der + _TOKEN_CERT_DER + _TOKEN_CERT_DER2
                         if two_distinct_certs
                         else cert_der * cert_count
@@ -1110,9 +1078,7 @@ def _build_token(
         # Rebuild the [0] EXPLICIT wrapper with a different tag.
         content = _der_sequence(
             _der_oid(content_type or OID_SIGNED_DATA),
-            _der_context(
-                signed_node_tag & 0x1F, signed_data, constructed=True
-            ),
+            _der_context(signed_node_tag & 0x1F, signed_data, constructed=True),
         )
     if root_tag != 0x30:
         # Replace the outer SEQUENCE tag with the requested tag.
@@ -1183,18 +1149,14 @@ class TestVerifyTimestampTokenKill(unittest.TestCase):
         # [909,24] NotEq_Gt + NotEq_Is: content_type "1.2.3.4" is
         # lexicographically less than _OID_SIGNED_DATA, so `!=` is
         # True but `>` is False; `is` is False (different object).
-        info, errors = self._verify(
-            _build_token(self.DIGEST, content_type="1.2.3.4")
-        )
+        info, errors = self._verify(_build_token(self.DIGEST, content_type="1.2.3.4"))
         self.assertTrue(any(e.startswith("token_unparseable") for e in errors))
 
     def test_wrong_content_type_greater_is_unparseable(self):
         # [909,24] NotEq_Lt: content_type "1.2.840.113549.1.7.3"
         # is greater than _OID_SIGNED_DATA, so `!=` is True but
         # `<` is False.
-        info, errors = self._verify(
-            _build_token(self.DIGEST, content_type="1.2.840.113549.1.7.3")
-        )
+        info, errors = self._verify(_build_token(self.DIGEST, content_type="1.2.840.113549.1.7.3"))
         self.assertTrue(any(e.startswith("token_unparseable") for e in errors))
 
     def test_wrong_signed_node_tag_is_unparseable(self):
@@ -1203,25 +1165,19 @@ class TestVerifyTimestampTokenKill(unittest.TestCase):
         # 0xA0) and `>` is True — the Lt mutant is killed by this
         # token, the Gt mutant by a tag below 0xA0 (0x9F, tested
         # below).
-        info, errors = self._verify(
-            _build_token(self.DIGEST, signed_node_tag=0xA1)
-        )
+        info, errors = self._verify(_build_token(self.DIGEST, signed_node_tag=0xA1))
         self.assertTrue(any(e.startswith("token_unparseable") for e in errors))
 
     def test_signed_node_tag_below_is_unparseable(self):
         # [912,27] NotEq_Gt: a signed_node tag 0x9F (below 0xA0)
         # makes `!=` True but `>` False.
-        info, errors = self._verify(
-            _build_token(self.DIGEST, signed_node_tag=0x9F)
-        )
+        info, errors = self._verify(_build_token(self.DIGEST, signed_node_tag=0x9F))
         self.assertTrue(any(e.startswith("token_unparseable") for e in errors))
 
     def test_wrong_econtent_type_less_is_unparseable(self):
         # [918,25] NotEq_Gt + NotEq_Is: eContentType "1.2.3.4" is
         # less than _OID_TST_INFO.
-        info, errors = self._verify(
-            _build_token(self.DIGEST, econtent_type="1.2.3.4")
-        )
+        info, errors = self._verify(_build_token(self.DIGEST, econtent_type="1.2.3.4"))
         self.assertTrue(any(e.startswith("token_unparseable") for e in errors))
 
     def test_wrong_econtent_type_greater_is_unparseable(self):
@@ -1240,13 +1196,12 @@ class TestVerifyTimestampTokenKill(unittest.TestCase):
         # with a bare "token_unparseable" (IndexError on tst[4]),
         # not the "TSTInfo is truncated" message.
         from textforensics.timestamp import (
-            _der_generalized_time,
+            OID_SHA256,
             _der_integer,
             _der_octet_string,
             _der_oid,
             _der_sequence,
         )
-        from textforensics.timestamp import OID_SHA256
 
         fields = [
             _der_integer(1),
@@ -1265,13 +1220,13 @@ class TestVerifyTimestampTokenKill(unittest.TestCase):
         # exactly 5 fields makes `len(tst) < 5` False; the mutant
         # `<=` makes it True (5 <= 5) and rejects a valid token.
         from textforensics.timestamp import (
+            OID_SHA256,
             _der_generalized_time,
             _der_integer,
             _der_octet_string,
             _der_oid,
             _der_sequence,
         )
-        from textforensics.timestamp import OID_SHA256
 
         fields = [
             _der_integer(1),
@@ -1283,9 +1238,7 @@ class TestVerifyTimestampTokenKill(unittest.TestCase):
             _der_integer(1),
             _der_generalized_time("20261107120000Z"),
         ]
-        info, errors = self._verify(
-            _build_token(self.DIGEST, tst_fields=fields, nonce=None)
-        )
+        info, errors = self._verify(_build_token(self.DIGEST, tst_fields=fields, nonce=None))
         self.assertEqual(errors, [])
         self.assertIsNone(info["nonce"])
 
@@ -1304,13 +1257,13 @@ class TestVerifyTimestampTokenKill(unittest.TestCase):
         # [939,30] Eq_NotEq/Eq_Lt/Eq_LtE/Eq_Gt/Eq_GtE: a trailing
         # OCTET STRING field is not a nonce (tag != 0x02).
         from textforensics.timestamp import (
+            OID_SHA256,
             _der_generalized_time,
             _der_integer,
             _der_octet_string,
             _der_oid,
             _der_sequence,
         )
-        from textforensics.timestamp import OID_SHA256
 
         fields = [
             _der_integer(1),
@@ -1333,13 +1286,13 @@ class TestVerifyTimestampTokenKill(unittest.TestCase):
         # INTEGER at index 6.  The original steps 5 -> 6 and reads
         # the nonce; the mutant steps 5 -> 7 and never reads it.
         from textforensics.timestamp import (
+            OID_SHA256,
             _der_generalized_time,
             _der_integer,
             _der_octet_string,
             _der_oid,
             _der_sequence,
         )
-        from textforensics.timestamp import OID_SHA256
 
         fields = [
             _der_integer(1),
@@ -1362,6 +1315,7 @@ class TestVerifyTimestampTokenKill(unittest.TestCase):
         # trailing field (tag 0x01 < 0x02) is not a nonce under
         # `==`, but the mutant treats it as one.
         from textforensics.timestamp import (
+            OID_SHA256,
             _der_boolean,
             _der_generalized_time,
             _der_integer,
@@ -1369,7 +1323,6 @@ class TestVerifyTimestampTokenKill(unittest.TestCase):
             _der_oid,
             _der_sequence,
         )
-        from textforensics.timestamp import OID_SHA256
 
         fields = [
             _der_integer(1),
@@ -1411,9 +1364,7 @@ class TestVerifyTimestampTokenKill(unittest.TestCase):
         # and verifies with cert2; any mutant that skips or breaks
         # the lookup falls back to certificates[0] (cert1), whose
         # key did not sign the token, so verification fails.
-        info, errors = self._verify(
-            _build_token(self.DIGEST, two_distinct_certs=True)
-        )
+        info, errors = self._verify(_build_token(self.DIGEST, two_distinct_certs=True))
         self.assertEqual(errors, [])
         self.assertEqual(info["certificate_count"], 2)
 
@@ -1459,17 +1410,13 @@ class TestVerifyTimestampTokenKill(unittest.TestCase):
         # [945,27] Eq_GtE: an imprint alg OID of sha384
         # ("2.16.840.1.101.3.4.2.2") makes the hash_algorithm
         # "sha384", not "sha256".
-        info, errors = self._verify(
-            _build_token(self.DIGEST, imprint_alg="2.16.840.1.101.3.4.2.2")
-        )
+        info, errors = self._verify(_build_token(self.DIGEST, imprint_alg="2.16.840.1.101.3.4.2.2"))
         self.assertTrue(any("imprint_hash_algorithm_mismatch" in e for e in errors))
 
     def test_wrong_imprint_digest_is_mismatch(self):
         # [964,32]/[966,32]/[968,35] NotEq families: an imprint
         # over a different digest mismatches the expected digest.
-        info, errors = self._verify(
-            _build_token(self.DIGEST, imprint_digest=b"0" * 32)
-        )
+        info, errors = self._verify(_build_token(self.DIGEST, imprint_digest=b"0" * 32))
         self.assertIn("message_imprint_mismatch", errors)
 
     def test_smaller_imprint_digest_is_mismatch(self):
@@ -1479,9 +1426,7 @@ class TestVerifyTimestampTokenKill(unittest.TestCase):
         # `!=` rejects it.  (The "0"*32 imprint in the test above
         # sorts ABOVE self.DIGEST, so `>` coincides with `!=`
         # there.)  The zero digest is below any real sha256.
-        info, errors = self._verify(
-            _build_token(self.DIGEST, imprint_digest=b"\x00" * 32)
-        )
+        info, errors = self._verify(_build_token(self.DIGEST, imprint_digest=b"\x00" * 32))
         self.assertIn("message_imprint_mismatch", errors)
 
     def test_zero_signer_infos_is_error(self):
@@ -1500,25 +1445,19 @@ class TestVerifyTimestampTokenKill(unittest.TestCase):
     def test_missing_signed_attrs_is_error(self):
         # [1001,22] NotEq_Lt/Gt + [1005,43] NumberReplacer:
         # a signer info without the [0] signed-attrs field.
-        info, errors = self._verify(
-            _build_token(self.DIGEST, with_signed_attrs=False)
-        )
+        info, errors = self._verify(_build_token(self.DIGEST, with_signed_attrs=False))
         self.assertIn("signed_attrs_absent", errors)
 
     def test_unknown_digest_oid_is_error(self):
         # [1009,23] NotEq families + [1015,50] NumberReplacer:
         # a digest OID that is not in _HASH_OIDS.
-        info, errors = self._verify(
-            _build_token(self.DIGEST, digest_oid="1.2.3.4.99")
-        )
+        info, errors = self._verify(_build_token(self.DIGEST, digest_oid="1.2.3.4.99"))
         self.assertTrue(any("signer_digest_algorithm_unknown" in e for e in errors))
 
     def test_wrong_message_digest_is_mismatch(self):
         # [1016,20] Eq_* + [1016,23] NumberReplacer (2->1/3):
         # the message-digest attribute is over a different digest.
-        info, errors = self._verify(
-            _build_token(self.DIGEST, message_digest=b"1" * 32)
-        )
+        info, errors = self._verify(_build_token(self.DIGEST, message_digest=b"1" * 32))
         self.assertIn("message_digest_mismatch", errors)
 
     def test_wrong_sid_serial_falls_back_to_first_cert(self):
@@ -1527,9 +1466,7 @@ class TestVerifyTimestampTokenKill(unittest.TestCase):
         # ReplaceAndWithOr: a sid whose serial does not match any
         # certificate falls back to certificates[0] (the token
         # still verifies, because the fallback cert is the signer).
-        info, errors = self._verify(
-            _build_token(self.DIGEST, sid_serial=999)
-        )
+        info, errors = self._verify(_build_token(self.DIGEST, sid_serial=999))
         self.assertEqual(errors, [])
 
     def test_no_certificates_is_error(self):
@@ -1545,9 +1482,7 @@ class TestVerifyTimestampTokenKill(unittest.TestCase):
         # + [1046,48] Eq_IsNot/Eq_LtE/Eq_GtE + [1050,25]
         # NotEq_IsNot/Lt/Gt: a signature OID that is neither RSA
         # nor ECDSA.
-        info, errors = self._verify(
-            _build_token(self.DIGEST, sig_oid="1.2.3.4.99")
-        )
+        info, errors = self._verify(_build_token(self.DIGEST, sig_oid="1.2.3.4.99"))
         self.assertTrue(any("unsupported_signature_algorithm" in e for e in errors))
 
     def test_bad_signature_is_not_verified(self):
@@ -1592,8 +1527,15 @@ class TestVerifyBundleBytesKill2(unittest.TestCase):
             local = (
                 b"PK\x03\x04"
                 + _st.pack(
-                    "<HHHHHIII", 20, 0, 0, 0, 0x21, 0,
-                    len(payload), len(payload),
+                    "<HHHHHIII",
+                    20,
+                    0,
+                    0,
+                    0,
+                    0x21,
+                    0,
+                    len(payload),
+                    len(payload),
                 )
                 + _st.pack("<H", len(local_name))
                 + _st.pack("<H", 0)
@@ -1607,8 +1549,22 @@ class TestVerifyBundleBytesKill2(unittest.TestCase):
                 b"PK\x01\x02"
                 + _st.pack(
                     "<HHHHHHIIIHHHHHII",
-                    20, 20, 0, 0, 0, 0x21, 0, len(payload), len(payload),
-                    len(central_name), 0, 0, 0, 0, 0o644 << 16, local_offset,
+                    20,
+                    20,
+                    0,
+                    0,
+                    0,
+                    0x21,
+                    0,
+                    len(payload),
+                    len(payload),
+                    len(central_name),
+                    0,
+                    0,
+                    0,
+                    0,
+                    0o644 << 16,
+                    local_offset,
                 )
                 + central_name
             )
@@ -1624,9 +1580,8 @@ class TestVerifyBundleBytesKill2(unittest.TestCase):
             body += _entry(central_name, local_name, payload)
             cds += _cd(central_name, offset, payload)
             offset = len(body)
-        eocd = (
-            b"PK\x05\x06"
-            + _st.pack("<HHHHIIH", 0, 0, len(entries), len(entries), len(cds), len(body), 0)
+        eocd = b"PK\x05\x06" + _st.pack(
+            "<HHHHIIH", 0, 0, len(entries), len(entries), len(cds), len(body), 0
         )
         return body + cds + eocd
 
@@ -1647,8 +1602,6 @@ class TestVerifyBundleBytesKill2(unittest.TestCase):
         m = load_standalone()
         # [1888,30] NumberReplacer: a corrupt zip entry (bad CRC)
         # fails container_read with exit 1.
-        import io as _io
-        import zipfile as _zf
 
         case_bytes, case = build_case_bytes()
         entries = {"case.json": case_bytes, "verify.py": b"x"}
@@ -1668,7 +1621,6 @@ class TestVerifyBundleBytesKill2(unittest.TestCase):
         # test_deep_manifest_exit_one below.
         case_bytes, case = build_case_bytes()
         entries = {"case.json": case_bytes, "verify.py": b"x"}
-        manifest = make_manifest(entries, case_id=case["case_sha256"])
         entries["manifest.json"] = b"{not json"
         data = pack_bundle(entries)
         report = m.verify_bundle_bytes(data)
@@ -1756,9 +1708,10 @@ class TestVerifyBundleBytesKill2(unittest.TestCase):
         # `== "unavailable"` is False but `"verified" >=
         # "unavailable"` is True (v > u), so the mutant takes the
         # "unavailable" branch.
+        from test_standalone_verify import STANDALONE_PATH
+
         from textforensics.dsse import sign_envelope
         from textforensics.sealing import public_key_from_seed
-        from test_standalone_verify import STANDALONE_PATH
 
         seed = bytes(range(32))
         case_bytes, case = build_case_bytes()
@@ -1766,9 +1719,7 @@ class TestVerifyBundleBytesKill2(unittest.TestCase):
         entries = {"case.json": case_bytes, "verify.py": verifier_bytes}
         manifest = make_manifest(entries, case_id=case["case_sha256"])
         manifest_bytes = canonical_json(manifest)
-        envelope = sign_envelope(
-            "textforensics.sealed-bundle-manifest/v1", manifest_bytes, seed
-        )
+        envelope = sign_envelope("textforensics.sealed-bundle-manifest/v1", manifest_bytes, seed)
         manifest["context"]["signature"] = envelope
         entries["manifest.json"] = canonical_json(manifest)
         data = pack_bundle(entries)
@@ -1884,9 +1835,7 @@ class TestVerifyTimestampTokenEcKill(unittest.TestCase):
         # offsets `1 + size`; all of them corrupt the point and the
         # signature fails.
         m = load_standalone()
-        info, errors = m._verify_timestamp_token(
-            _build_ec_token(self.DIGEST), self.DIGEST
-        )
+        info, errors = m._verify_timestamp_token(_build_ec_token(self.DIGEST), self.DIGEST)
         self.assertEqual(errors, [])
         self.assertIs(info["present"], True)
 

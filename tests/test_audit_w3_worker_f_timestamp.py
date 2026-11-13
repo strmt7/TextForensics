@@ -34,6 +34,7 @@ from test_timestamp import (  # noqa: E402
 )
 
 from textforensics.timestamp import (
+    _HASH_OIDS,
     OID_ECDSA_WITH_SHA256,
     OID_ECDSA_WITH_SHA384,
     OID_ECDSA_WITH_SHA512,
@@ -376,7 +377,7 @@ class TestWorkerFTimestampImprintKill:
         string), not the digest bytes."""
         token = _rsa_token()
         name = "".join(["sha", "256"])
-        assert name != "sha256"
+        assert name is not _HASH_OIDS[OID_SHA256]
         report = _verify(token, expected_hash_algorithm=name)
         assert report["valid"] is True
 

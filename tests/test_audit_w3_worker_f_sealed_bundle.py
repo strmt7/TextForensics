@@ -49,21 +49,21 @@ CORRECTIONS to the F2 classify-notes (verified against the source):
 
 import hashlib
 import io
-import json
 import unittest
 import zipfile
 from unittest import mock
 
 from textforensics.casefile import seal_case_file
 from textforensics.detectors import DetectorPrediction
+from textforensics.dsse import sign_envelope
 from textforensics.report import build_forensic_bundle
 from textforensics.sealed_bundle import (
     COMMENT_PREFIX,
-    PAYLOAD_TYPE,
     MAX_ENTRIES,
     MAX_ENTRY_BYTES,
     MAX_SEALED_RESULTS_BYTES,
     MAX_TOTAL_BYTES,
+    PAYLOAD_TYPE,
     SealedBundleError,
     _pack_zip,
     _read_capped,
@@ -75,7 +75,6 @@ from textforensics.sealed_bundle import (
     verify_sealed_bundle,
 )
 from textforensics.sealing import public_key_from_seed
-from textforensics.dsse import sign_envelope
 
 TEXT = (
     "The committee met on Tuesday to review the quarterly figures and "
@@ -119,9 +118,7 @@ def _verify(archive, record=None, **kwargs):
 
 def _verify_signed(archive, record):
     """Verify a bundle built by _pack_with_extra_files (signed)."""
-    return verify_sealed_bundle(
-        archive, seal_record=record, public_key=public_key_from_seed(SEED)
-    )
+    return verify_sealed_bundle(archive, seal_record=record, public_key=public_key_from_seed(SEED))
 
 
 def _seal_record_errors(result):
@@ -139,17 +136,11 @@ def _case_of_size(target_bytes: int) -> dict:
     """
     bundle = build_forensic_bundle(TEXT).to_dict()
     bundle["padding"] = ""
-    case = seal_case_file(
-        bundle, deterministic=True, fixed_timestamp="1970-01-01T00:00:00+00:00"
-    )
+    case = seal_case_file(bundle, deterministic=True, fixed_timestamp="1970-01-01T00:00:00+00:00")
     base = len(canonical_json_bytes(case))
     bundle["padding"] = "x" * (target_bytes - base)
-    case = seal_case_file(
-        bundle, deterministic=True, fixed_timestamp="1970-01-01T00:00:00+00:00"
-    )
-    assert len(canonical_json_bytes(case)) == target_bytes, len(
-        canonical_json_bytes(case)
-    )
+    case = seal_case_file(bundle, deterministic=True, fixed_timestamp="1970-01-01T00:00:00+00:00")
+    assert len(canonical_json_bytes(case)) == target_bytes, len(canonical_json_bytes(case))
     return case
 
 
@@ -239,9 +230,8 @@ class TestReadCappedKill(unittest.TestCase):
         # (the mutant `is` is always False for the large int, so it
         # returns the data instead of raising).
         zf, info = _zip_with_member("case.json", b"x" * (MAX_ENTRY_BYTES + 1))
-        with zf:
-            with self.assertRaises(SealedBundleError):
-                _read_capped(zf, info)
+        with zf, self.assertRaises(SealedBundleError):
+            _read_capped(zf, info)
 
     def test_exact_cap_entry_reads(self):
         # Kills Gt_Eq/Gt_GtE [353,17]: the original reads an entry
@@ -319,9 +309,7 @@ class TestPackSignerKill(unittest.TestCase):
         # identity makes ONLY the second side (not identity) True.
         # The mutant `and` is False and proceeds to KeyError on
         # signer["identity"].
-        with self.assertRaisesRegex(
-            SealedBundleError, "signer needs identity and role"
-        ):
+        with self.assertRaisesRegex(SealedBundleError, "signer needs identity and role"):
             _pack(signing_seed=SEED, signer={"role": "sealer"})
 
     def test_signer_without_role_raises(self):
@@ -329,18 +317,14 @@ class TestPackSignerKill(unittest.TestCase):
         # identity but no role makes ONLY the third side (not role)
         # True. The mutant `and` is False and proceeds to KeyError
         # on signer["role"].
-        with self.assertRaisesRegex(
-            SealedBundleError, "signer needs identity and role"
-        ):
+        with self.assertRaisesRegex(SealedBundleError, "signer needs identity and role"):
             _pack(signing_seed=SEED, signer={"identity": "strmt7"})
 
     def test_non_dict_signer_raises(self):
         # [243,37] OrWithAnd, other side: a non-dict signer makes
         # ONLY the first side (not a Mapping) True. The mutant `and`
         # evaluates signer.get and raises AttributeError.
-        with self.assertRaisesRegex(
-            SealedBundleError, "signer needs identity and role"
-        ):
+        with self.assertRaisesRegex(SealedBundleError, "signer needs identity and role"):
             _pack(signing_seed=SEED, signer="not-a-dict")
 
     def test_short_seed_raises(self):
@@ -348,27 +332,21 @@ class TestPackSignerKill(unittest.TestCase):
         # the wrong length (side 1 False, side 2 True). The mutant
         # `and` is False and proceeds into public_key_from_seed,
         # which rejects the short seed.
-        with self.assertRaisesRegex(
-            SealedBundleError, "signing_seed must be 32 bytes"
-        ):
+        with self.assertRaisesRegex(SealedBundleError, "signing_seed must be 32 bytes"):
             _pack(signing_seed=b"x" * 31, signer=SIGNER)
 
     def test_long_seed_raises(self):
         # [291,81] NotEq_Lt: a 33-byte seed makes `len != 32` True
         # (original raises) but `len < 32` False (mutant proceeds
         # into public_key_from_seed, which rejects the long seed).
-        with self.assertRaisesRegex(
-            SealedBundleError, "signing_seed must be 32 bytes"
-        ):
+        with self.assertRaisesRegex(SealedBundleError, "signing_seed must be 32 bytes"):
             _pack(signing_seed=b"x" * 33, signer=SIGNER)
 
     def test_non_bytes_seed_raises(self):
         # [291,60] OrWithAnd, other side: a 32-char str seed is the
         # wrong type but the right length (side 1 True, side 2
         # False). The mutant `and` is False and proceeds.
-        with self.assertRaisesRegex(
-            SealedBundleError, "signing_seed must be 32 bytes"
-        ):
+        with self.assertRaisesRegex(SealedBundleError, "signing_seed must be 32 bytes"):
             _pack(signing_seed="x" * 32, signer=SIGNER)
 
 
@@ -410,9 +388,7 @@ class TestVerifyKill(unittest.TestCase):
         archive, record = _pack()
         record["manifest_sha256"] = "f" * 64
         result = _verify(archive, record)
-        self.assertIn(
-            "seal_record.manifest_sha256 mismatch", _seal_record_errors(result)
-        )
+        self.assertIn("seal_record.manifest_sha256 mismatch", _seal_record_errors(result))
 
     def test_manifest_sha_lesser_detected(self):
         # [461,46] NotEq_Gt: recorded "0"*64 is less than the
@@ -420,9 +396,7 @@ class TestVerifyKill(unittest.TestCase):
         archive, record = _pack()
         record["manifest_sha256"] = "0" * 64
         result = _verify(archive, record)
-        self.assertIn(
-            "seal_record.manifest_sha256 mismatch", _seal_record_errors(result)
-        )
+        self.assertIn("seal_record.manifest_sha256 mismatch", _seal_record_errors(result))
 
     def test_tampered_manifest_sha_detected(self):
         # [461,46] NotEq_Is: a tampered (distinct-object) digest
@@ -430,63 +404,49 @@ class TestVerifyKill(unittest.TestCase):
         archive, record = _pack()
         record["manifest_sha256"] = "a" * 64
         result = _verify(archive, record)
-        self.assertIn(
-            "seal_record.manifest_sha256 mismatch", _seal_record_errors(result)
-        )
+        self.assertIn("seal_record.manifest_sha256 mismatch", _seal_record_errors(result))
 
     def test_archive_sha_greater_detected(self):
         # [489,58] NotEq_Lt.
         archive, record = _pack()
         record["archive_sha256"] = "f" * 64
         result = _verify(archive, record)
-        self.assertIn(
-            "seal_record.archive_sha256 mismatch", _seal_record_errors(result)
-        )
+        self.assertIn("seal_record.archive_sha256 mismatch", _seal_record_errors(result))
 
     def test_archive_sha_lesser_detected(self):
         # [489,58] NotEq_Gt.
         archive, record = _pack()
         record["archive_sha256"] = "0" * 64
         result = _verify(archive, record)
-        self.assertIn(
-            "seal_record.archive_sha256 mismatch", _seal_record_errors(result)
-        )
+        self.assertIn("seal_record.archive_sha256 mismatch", _seal_record_errors(result))
 
     def test_tampered_archive_sha_detected(self):
         # [489,58] NotEq_Is.
         archive, record = _pack()
         record["archive_sha256"] = "a" * 64
         result = _verify(archive, record)
-        self.assertIn(
-            "seal_record.archive_sha256 mismatch", _seal_record_errors(result)
-        )
+        self.assertIn("seal_record.archive_sha256 mismatch", _seal_record_errors(result))
 
     def test_bundle_sha_greater_detected(self):
         # [493,56] NotEq_Lt.
         archive, record = _pack()
         record["bundle_sha256"] = "f" * 64
         result = _verify(archive, record)
-        self.assertIn(
-            "seal_record.bundle_sha256 mismatch", _seal_record_errors(result)
-        )
+        self.assertIn("seal_record.bundle_sha256 mismatch", _seal_record_errors(result))
 
     def test_bundle_sha_lesser_detected(self):
         # [493,56] NotEq_Gt.
         archive, record = _pack()
         record["bundle_sha256"] = "0" * 64
         result = _verify(archive, record)
-        self.assertIn(
-            "seal_record.bundle_sha256 mismatch", _seal_record_errors(result)
-        )
+        self.assertIn("seal_record.bundle_sha256 mismatch", _seal_record_errors(result))
 
     def test_tampered_bundle_sha_detected(self):
         # [493,56] NotEq_Is.
         archive, record = _pack()
         record["bundle_sha256"] = "a" * 64
         result = _verify(archive, record)
-        self.assertIn(
-            "seal_record.bundle_sha256 mismatch", _seal_record_errors(result)
-        )
+        self.assertIn("seal_record.bundle_sha256 mismatch", _seal_record_errors(result))
 
     def _token_bundle(self):
         from _token_fixture import build_token_for_digest
@@ -570,11 +530,7 @@ class TestVerifyKill(unittest.TestCase):
         with zipfile.ZipFile(io.BytesIO(probe_archive)) as zf:
             manifest_size = zf.getinfo("manifest.json").file_size
         remainder = (
-            MAX_TOTAL_BYTES
-            - len(case_bytes)
-            - len(verify_bytes)
-            - manifest_size
-            - base_extra
+            MAX_TOTAL_BYTES - len(case_bytes) - len(verify_bytes) - manifest_size - base_extra
         )
         self.assertGreater(remainder, 0)
         # The manifest grows when extra-3.bin's size gains digits
@@ -592,9 +548,7 @@ class TestVerifyKill(unittest.TestCase):
         archive, record = _pack_with_extra_files(case, extra)
         with zipfile.ZipFile(io.BytesIO(archive)) as zf:
             actual = sum(info.file_size for info in zf.infolist())
-        extra["extra-3.bin"] = b"x" * (
-            remainder - 1024 + (MAX_TOTAL_BYTES - actual)
-        )
+        extra["extra-3.bin"] = b"x" * (remainder - 1024 + (MAX_TOTAL_BYTES - actual))
         archive, record = _pack_with_extra_files(case, extra)
         with zipfile.ZipFile(io.BytesIO(archive)) as zf:
             total = sum(info.file_size for info in zf.infolist())
@@ -661,9 +615,7 @@ class TestReplayKill(unittest.TestCase):
         # `>= 0` differs from `== 0` exactly when exit_code is 1.)
         archive, record = _pack(self._warning_case())
         record["manifest_sha256"] = "a" * 64
-        result = _verify(
-            archive, record, text=TEXT, detectors=[_StubDetector()]
-        )
+        result = _verify(archive, record, text=TEXT, detectors=[_StubDetector()])
         self.assertIn("seal_record.manifest_sha256 mismatch", _seal_record_errors(result))
         self.assertTrue(result["replay"]["warnings"])
         self.assertEqual(result["exit_code"], 1)
@@ -688,9 +640,7 @@ class TestReplayKill(unittest.TestCase):
 
     def _replay_read_error(self, exc):
         archive, _ = _pack()
-        with mock.patch(
-            "textforensics.sealed_bundle._read_capped", side_effect=exc
-        ):
+        with mock.patch("textforensics.sealed_bundle._read_capped", side_effect=exc):
             return verify_sealed_bundle(archive, text=TEXT)
 
     def test_key_error_in_replay_is_unavailable(self):
@@ -730,9 +680,7 @@ class TestSealRecordCompareKill(unittest.TestCase):
 
     def _compare_error(self, exc):
         archive, record = _pack()
-        with mock.patch(
-            "textforensics.sealed_bundle._bundle_digest", side_effect=exc
-        ):
+        with mock.patch("textforensics.sealed_bundle._bundle_digest", side_effect=exc):
             return _verify(archive, record)
 
     def test_key_error_in_compare_is_reported(self):

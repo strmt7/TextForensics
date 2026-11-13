@@ -56552,7 +56552,7 @@ function = "_restrict_to_owner_windows"
 kind = "unreachable-condition"
 source_text = "not"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk). (source_text not)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/AddNot:13"
@@ -56565,7 +56565,7 @@ function = "_restrict_to_owner_windows"
 kind = "unreachable-condition"
 source_text = "not advapi32.GetTokenInformation(token, TokenUser, token_info, size, ctypes.byref(size))"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk). (source_text not advapi32.GetTokenInformation(token, TokenUser, token_info, size, ctypes.byref(size)))"
 
 [[equivalent]]
 id = "textforensics.sealing:core/AddNot:14"
@@ -56578,7 +56578,7 @@ function = "_restrict_to_owner_windows"
 kind = "unreachable-condition"
 source_text = "error != 0"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk). (source_text error != 0)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/AddNot:15"
@@ -56591,7 +56591,7 @@ function = "_restrict_to_owner_windows"
 kind = "unreachable-condition"
 source_text = "error != 0"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk). (source_text error != 0)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/NumberReplacer:6"
@@ -56604,7 +56604,7 @@ function = "_restrict_to_owner_windows"
 kind = "unobservable-value"
 source_text = "0x0008"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX. (source_text 0x0008)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/NumberReplacer:7"
@@ -56617,7 +56617,7 @@ function = "_restrict_to_owner_windows"
 kind = "unobservable-value"
 source_text = "0x0008"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX. (source_text 0x0008)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/NumberReplacer:8"
@@ -56682,7 +56682,7 @@ function = "_restrict_to_owner_windows"
 kind = "unobservable-value"
 source_text = "0x00000004"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX. (source_text 0x00000004)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/NumberReplacer:13"
@@ -56695,7 +56695,7 @@ function = "_restrict_to_owner_windows"
 kind = "unobservable-value"
 source_text = "0x00000004"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX. (source_text 0x00000004)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/NumberReplacer:14"
@@ -56708,7 +56708,7 @@ function = "_restrict_to_owner_windows"
 kind = "unobservable-value"
 source_text = "0x80000000"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX. (source_text 0x80000000)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/NumberReplacer:15"
@@ -56721,7 +56721,7 @@ function = "_restrict_to_owner_windows"
 kind = "unobservable-value"
 source_text = "0x80000000"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX. (source_text 0x80000000)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/NumberReplacer:16"
@@ -56734,7 +56734,7 @@ function = "_restrict_to_owner_windows"
 kind = "unobservable-value"
 source_text = "0x10000000"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX. (source_text 0x10000000)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/NumberReplacer:17"
@@ -56747,7 +56747,7 @@ function = "_restrict_to_owner_windows"
 kind = "unobservable-value"
 source_text = "0x10000000"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX. (source_text 0x10000000)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/NumberReplacer:18"
@@ -57006,7 +57006,7 @@ function = "_restrict_to_owner_windows"
 kind = "domain-equivalent"
 source_text = "|"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "SetNamedSecurityInfoW DACL flags at sealing.py:429: DACL (0x00000004) | PROTECTED (0x80000000) = 0x80000004. The two constants have disjoint bits, so `|` coincides with `+` (0x80000004) and with `^` (0x80000004); `-` gives -0x7ffffffc and `*` gives 0x200000000, which differ (both were killed by the existing suite)."
+reason = "Domain-equivalent mutant (_restrict_to_owner_windows): SetNamedSecurityInfoW DACL flags at sealing.py:429: DACL (0x00000004) | PROTECTED (0x80000000) = 0x80000004. The two constants have disjoint bits, so `|` coincides with `+` (0x80000004) and with `^` (0x80000004); `-` gives -0x7ffffffc and `*` gives 0x200000000, which differ (both were killed by the existing suite)."
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_BitAnd:1"
@@ -57031,7 +57031,7 @@ function = "_restrict_to_owner_windows"
 kind = "unobservable-value"
 source_text = "|"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX. (source_text |)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_BitXor:1"
@@ -57056,7 +57056,7 @@ function = "_restrict_to_owner_windows"
 kind = "domain-equivalent"
 source_text = "|"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "SetNamedSecurityInfoW DACL flags at sealing.py:429: DACL (0x00000004) | PROTECTED (0x80000000) = 0x80000004. The two constants have disjoint bits, so `|` coincides with `^` (0x80000004) and with `+` (0x80000004); `-` gives -0x7ffffffc and `*` gives 0x200000000, which differ (both were killed by the existing suite)."
+reason = "Domain-equivalent mutant (_restrict_to_owner_windows): SetNamedSecurityInfoW DACL flags at sealing.py:429: DACL (0x00000004) | PROTECTED (0x80000000) = 0x80000004. The two constants have disjoint bits, so `|` coincides with `^` (0x80000004) and with `+` (0x80000004); `-` gives -0x7ffffffc and `*` gives 0x200000000, which differ (both were killed by the existing suite)."
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_Div:1"
@@ -57081,7 +57081,7 @@ function = "_restrict_to_owner_windows"
 kind = "unobservable-value"
 source_text = "|"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX. (source_text |)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_FloorDiv:1"
@@ -57106,7 +57106,7 @@ function = "_restrict_to_owner_windows"
 kind = "unobservable-value"
 source_text = "|"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX. (source_text |)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_LShift:1"
@@ -57131,7 +57131,7 @@ function = "_restrict_to_owner_windows"
 kind = "unobservable-value"
 source_text = "|"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX. (source_text |)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_Mod:1"
@@ -57156,7 +57156,7 @@ function = "_restrict_to_owner_windows"
 kind = "unobservable-value"
 source_text = "|"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX. (source_text |)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_Mul:1"
@@ -57181,7 +57181,7 @@ function = "_restrict_to_owner_windows"
 kind = "unobservable-value"
 source_text = "|"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX. (source_text |)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_Pow:1"
@@ -57206,7 +57206,7 @@ function = "_restrict_to_owner_windows"
 kind = "unobservable-value"
 source_text = "|"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX. (source_text |)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_RShift:1"
@@ -57231,7 +57231,7 @@ function = "_restrict_to_owner_windows"
 kind = "unobservable-value"
 source_text = "|"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX. (source_text |)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceBinaryOperator_BitOr_Sub:1"
@@ -57256,7 +57256,7 @@ function = "_restrict_to_owner_windows"
 kind = "unobservable-value"
 source_text = "|"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The value is therefore never read on POSIX. (source_text |)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceBinaryOperator_Mul_Div:2"
@@ -57295,7 +57295,7 @@ function = "verify_case_signature"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "d32df707353650c632550216fbb09c141b6ddf2087f64e57e34922a05f0b4b8d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "case_signing_payload V2 branch at sealing.py:714: `contract == V2` where V1 = \"textforensics.case-file/v3\" < V2 = \"textforensics.case-signing/v2\" lexicographically. `contract >= V2` coincides with `contract == V2` on the guarded domain {V1, V2}: V1 >= V2 is False and V2 >= V2 is True."
+reason = "Domain-equivalent mutant (verify_case_signature): case_signing_payload V2 branch at sealing.py:714: `contract == V2` where V1 = \"textforensics.case-file/v3\" < V2 = \"textforensics.case-signing/v2\" lexicographically. `contract >= V2` coincides with `contract == V2` on the guarded domain {V1, V2}: V1 >= V2 is False and V2 >= V2 is True."
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceComparisonOperator_Eq_LtE:1"
@@ -57334,7 +57334,7 @@ function = "_restrict_to_owner_windows"
 kind = "unreachable-condition"
 source_text = "!="
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk). (source_text !=)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceComparisonOperator_NotEq_Eq:2"
@@ -57347,7 +57347,7 @@ function = "_restrict_to_owner_windows"
 kind = "unreachable-condition"
 source_text = "!="
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk). (source_text !=)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceComparisonOperator_NotEq_Gt:1"
@@ -57360,7 +57360,7 @@ function = "_restrict_to_owner_windows"
 kind = "unreachable-condition"
 source_text = "!="
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk). (source_text !=)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceComparisonOperator_NotEq_Gt:2"
@@ -57373,7 +57373,7 @@ function = "_restrict_to_owner_windows"
 kind = "unreachable-condition"
 source_text = "!="
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk). (source_text !=)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceComparisonOperator_NotEq_GtE:1"
@@ -57386,7 +57386,7 @@ function = "_restrict_to_owner_windows"
 kind = "unreachable-condition"
 source_text = "!="
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk). (source_text !=)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceComparisonOperator_NotEq_GtE:2"
@@ -57399,7 +57399,7 @@ function = "_restrict_to_owner_windows"
 kind = "unreachable-condition"
 source_text = "!="
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk). (source_text !=)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceComparisonOperator_NotEq_Lt:1"
@@ -57412,7 +57412,7 @@ function = "_restrict_to_owner_windows"
 kind = "unreachable-condition"
 source_text = "!="
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk). (source_text !=)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceComparisonOperator_NotEq_Lt:2"
@@ -57425,7 +57425,7 @@ function = "_restrict_to_owner_windows"
 kind = "unreachable-condition"
 source_text = "!="
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk). (source_text !=)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceComparisonOperator_NotEq_LtE:1"
@@ -57438,7 +57438,7 @@ function = "_restrict_to_owner_windows"
 kind = "unreachable-condition"
 source_text = "!="
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk). (source_text !=)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceComparisonOperator_NotEq_LtE:2"
@@ -57451,7 +57451,7 @@ function = "_restrict_to_owner_windows"
 kind = "unreachable-condition"
 source_text = "!="
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk). (source_text !=)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceFalseWithTrue:2"
@@ -57490,7 +57490,7 @@ function = "_restrict_to_owner_windows"
 kind = "unreachable-condition"
 source_text = "not"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk). (source_text not)"
 
 [[equivalent]]
 id = "textforensics.sealing:core/ReplaceUnaryOperator_Delete_Not:7"
@@ -57503,7 +57503,7 @@ function = "_restrict_to_owner_windows"
 kind = "unreachable-condition"
 source_text = "not"
 source_fingerprint = "e6889940d083ec796b3484c17a609cbb69e8e2c10a21d4ba4ed39bd560c06118"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk)."
+reason = "Platform-gated (Windows-only): this line is inside _restrict_to_owner_windows (sealing.py:308-435), which _set_private calls only when os.fchmod is unavailable (i.e. on Windows). On POSIX os.fchmod exists, so _set_private never calls it; a direct call raises OSError(\"Windows owner-only ACL restriction requires Windows APIs\") caused by AttributeError(\"module 'ctypes' has no attribute 'windll'\") from line 321, caught at [324,11] (verified empirically 2026-11-13). The condition is therefore never evaluated on POSIX. A windll-mock kill test was NOT written: it would re-implement unverifiable Windows semantics (false-kill risk). (source_text not)"
 
 # --- F3 re-proof entries, verify (audit-w3-f3, 2026-11-13) --------
 # 86 entries: 70 postponed-evaluation annotations + 7 annotation
@@ -60191,7 +60191,7 @@ function = "pack_sealed_bundle"
 kind = "domain-equivalent"
 source_text = "*"
 source_fingerprint = "a487e1184b9c4d04647302473e0ba160556ab642d2fd1a73c08637f81ac619f9"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "_read_capped: the `*,` keyword-only marker at sealed_bundle.py:207. Every caller passes its keyword-only arguments by keyword (call-site survey: all callers in sealed_bundle.py and all tests pass max_bytes by keyword or omit it); no caller passes them positionally, so replacing the marker with `/` (positional-only) is unobservable in the reachable call graph."
+reason = "Domain-equivalent mutant (pack_sealed_bundle): _read_capped: the `*,` keyword-only marker at sealed_bundle.py:207. Every caller passes its keyword-only arguments by keyword (call-site survey: all callers in sealed_bundle.py and all tests pass max_bytes by keyword or omit it); no caller passes them positionally, so replacing the marker with `/` (positional-only) is unobservable in the reachable call graph."
 
 [[equivalent]]
 id = "textforensics.sealed_bundle:core/ReplaceBinaryOperator_Mul_Div:10"
@@ -60391,7 +60391,7 @@ function = "_verify_timestamp_token"
 kind = "unobservable-value"
 source_text = "_DerError"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "except (_DerError, IndexError) in the certificates loop — the bad-cert test does not raise _DerError in this block (the malformed cert is skipped by an earlier parse)."
+reason = "Unobservable-value mutant (_verify_timestamp_token): except (_DerError, IndexError) in the certificates loop — the bad-cert test does not raise _DerError in this block (the malformed cert is skipped by an earlier parse)."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ExceptionReplacer:11"
@@ -60404,7 +60404,7 @@ function = "_verify_timestamp_token"
 kind = "unobservable-value"
 source_text = "IndexError"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "except (_DerError, IndexError) in the certificates loop — same as occ 10 (IndexError arm)."
+reason = "Unobservable-value mutant (_verify_timestamp_token): except (_DerError, IndexError) in the certificates loop — same as occ 10 (IndexError arm)."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ExceptionReplacer:12"
@@ -60417,7 +60417,7 @@ function = "_verify_timestamp_token"
 kind = "unobservable-value"
 source_text = "_DerError"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "except _DerError in the messageDigest attribute parse — no exercised input raises _DerError there."
+reason = "Unobservable-value mutant (_verify_timestamp_token): except _DerError in the messageDigest attribute parse — no exercised input raises _DerError there."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ExceptionReplacer:13"
@@ -60430,7 +60430,7 @@ function = "_verify_timestamp_token"
 kind = "unobservable-value"
 source_text = "_DerError"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "except _DerError in the sid parse — no exercised input raises _DerError there."
+reason = "Unobservable-value mutant (_verify_timestamp_token): except _DerError in the sid parse — no exercised input raises _DerError there."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ExceptionReplacer:14"
@@ -60443,7 +60443,7 @@ function = "_verify_timestamp_token"
 kind = "unobservable-value"
 source_text = "_DerError"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "except _DerError in the RSA key parse — no exercised input raises _DerError there."
+reason = "Unobservable-value mutant (_verify_timestamp_token): except _DerError in the RSA key parse — no exercised input raises _DerError there."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ExceptionReplacer:29"
@@ -60456,7 +60456,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "ValueError"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "except (ValueError, RecursionError) — the try does not raise ValueError on any exercised input."
+reason = "Unobservable-value mutant (verify_bundle_bytes): except (ValueError, RecursionError) — the try does not raise ValueError on any exercised input."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ExceptionReplacer:30"
@@ -60469,7 +60469,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "RecursionError"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "except (ValueError, RecursionError) — RecursionError arm; the try does not raise RecursionError on any exercised input."
+reason = "Unobservable-value mutant (verify_bundle_bytes): except (ValueError, RecursionError) — RecursionError arm; the try does not raise RecursionError on any exercised input."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ExceptionReplacer:31"
@@ -60482,7 +60482,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "ValueError"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "except (ValueError, RecursionError) — same as [2209,24]."
+reason = "Unobservable-value mutant (verify_bundle_bytes): except (ValueError, RecursionError) — same as [2209,24]."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ExceptionReplacer:32"
@@ -60495,7 +60495,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "RecursionError"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "except (ValueError, RecursionError) — same as [2209,36]."
+reason = "Unobservable-value mutant (verify_bundle_bytes): except (ValueError, RecursionError) — same as [2209,36]."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/NumberReplacer:373"
@@ -60508,7 +60508,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "0"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Single-child index: tst[0] — the TSTInfo version field (first child) — the DER SEQUENCE has exactly one child at that position, so `[0]` and `[-1]` select the same node. The mutant only differs for a multi-child sequence, which does not occur in a well-formed timestamp token."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): Single-child index: tst[0] — the TSTInfo version field (first child) — the DER SEQUENCE has exactly one child at that position, so `[0]` and `[-1]` select the same node. The mutant only differs for a multi-child sequence, which does not occur in a well-formed timestamp token."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/NumberReplacer:381"
@@ -60521,7 +60521,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "0"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Single-child index: tst[1] — the policy OID field — the DER SEQUENCE has exactly one child at that position, so `[0]` and `[-1]` select the same node. The mutant only differs for a multi-child sequence, which does not occur in a well-formed timestamp token."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): Single-child index: tst[1] — the policy OID field — the DER SEQUENCE has exactly one child at that position, so `[0]` and `[-1]` select the same node. The mutant only differs for a multi-child sequence, which does not occur in a well-formed timestamp token."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/NumberReplacer:389"
@@ -60534,7 +60534,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "0"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Single-child index: tst[2] — the messageImprint field — the DER SEQUENCE has exactly one child at that position, so `[0]` and `[-1]` select the same node. The mutant only differs for a multi-child sequence, which does not occur in a well-formed timestamp token."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): Single-child index: tst[2] — the messageImprint field — the DER SEQUENCE has exactly one child at that position, so `[0]` and `[-1]` select the same node. The mutant only differs for a multi-child sequence, which does not occur in a well-formed timestamp token."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/NumberReplacer:399"
@@ -60547,7 +60547,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "5"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`index = 5` -> `index = 4` (nonce scan start): index 4 is genTime (a GeneralizedTime, not an INTEGER), so the nonce scan skips it; starting the scan at 4 vs 5 is unobservable."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `index = 5` -> `index = 4` (nonce scan start): index 4 is genTime (a GeneralizedTime, not an INTEGER), so the nonce scan skips it; starting the scan at 4 vs 5 is unobservable."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/NumberReplacer:405"
@@ -60560,7 +60560,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "3"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`for field in fields[3:]` -> `fields[2:]` (signed-attrs scan): fields[2] is the messageDigest attribute, which this loop's body ignores (it only processes the attributes it recognises and the messageDigest is checked separately at line 1009); including it does not change the outcome."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `for field in fields[3:]` -> `fields[2:]` (signed-attrs scan): fields[2] is the messageDigest attribute, which this loop's body ignores (it only processes the attributes it recognises and the messageDigest is checked separately at line 1009); including it does not change the outcome."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/NumberReplacer:413"
@@ -60573,7 +60573,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "0"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Single-child index: _der_children(signer[2])[0] — the digestAlgorithm OID — the DER SEQUENCE has exactly one child at that position, so `[0]` and `[-1]` select the same node. The mutant only differs for a multi-child sequence, which does not occur in a well-formed timestamp token."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): Single-child index: _der_children(signer[2])[0] — the digestAlgorithm OID — the DER SEQUENCE has exactly one child at that position, so `[0]` and `[-1]` select the same node. The mutant only differs for a multi-child sequence, which does not occur in a well-formed timestamp token."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/NumberReplacer:417"
@@ -60586,7 +60586,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "0"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Single-child algorithm identifier: digest_oid from _der_children(signer[2])[0] — the algorithm identifier SEQUENCE carries only the OID (no parameters) for the hash/signature algorithms used here (SHA-256, RSA/ECDSA), so `[0]` and `[-1]` select the same child.  The mutant only differs for an algorithm identifier with parameters, which TSA tokens do not carry."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): Single-child algorithm identifier: digest_oid from _der_children(signer[2])[0] — the algorithm identifier SEQUENCE carries only the OID (no parameters) for the hash/signature algorithms used here (SHA-256, RSA/ECDSA), so `[0]` and `[-1]` select the same child.  The mutant only differs for an algorithm identifier with parameters, which TSA tokens do not carry."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/NumberReplacer:425"
@@ -60599,7 +60599,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "2"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`len(attr_fields) >= 2` -> `>= 1`: same — exactly 2 fields, so `>= 1` coincides with `>= 2`."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `len(attr_fields) >= 2` -> `>= 1`: same — exactly 2 fields, so `>= 1` coincides with `>= 2`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/NumberReplacer:433"
@@ -60612,7 +60612,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "0"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Single-child algorithm identifier: sig_oid from _der_children(signer[idx])[0] — the algorithm identifier SEQUENCE carries only the OID (no parameters) for the hash/signature algorithms used here (SHA-256, RSA/ECDSA), so `[0]` and `[-1]` select the same child.  The mutant only differs for an algorithm identifier with parameters, which TSA tokens do not carry."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): Single-child algorithm identifier: sig_oid from _der_children(signer[idx])[0] — the algorithm identifier SEQUENCE carries only the OID (no parameters) for the hash/signature algorithms used here (SHA-256, RSA/ECDSA), so `[0]` and `[-1]` select the same child.  The mutant only differs for an algorithm identifier with parameters, which TSA tokens do not carry."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/NumberReplacer:439"
@@ -60625,7 +60625,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "0"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Single-child index: _der_children(signer[2])[0] — the digestAlgorithm OID — the DER SEQUENCE has exactly one child at that position, so `[0]` and `[-1]` select the same node. The mutant only differs for a multi-child sequence, which does not occur in a well-formed timestamp token."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): Single-child index: _der_children(signer[2])[0] — the digestAlgorithm OID — the DER SEQUENCE has exactly one child at that position, so `[0]` and `[-1]` select the same node. The mutant only differs for a multi-child sequence, which does not occur in a well-formed timestamp token."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/NumberReplacer:459"
@@ -60638,7 +60638,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "1"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "EC point half-length: `(len - 1)` -> `(len - 0)` — for odd lengths (all EC points are 1 + 2*coordinate_size bytes), `(len-0)//2 == (len-1)//2`."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): EC point half-length: `(len - 1)` -> `(len - 0)` — for odd lengths (all EC points are 1 + 2*coordinate_size bytes), `(len-0)//2 == (len-1)//2`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/NumberReplacer:510"
@@ -60651,7 +60651,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "2"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Initial `\"exit_code\": 2` -> 3: the initial value is overwritten on every path before the report is returned (each failure branch sets it to 1, success sets it to 0), so the initial value never reaches the caller."
+reason = "Unobservable-value mutant (verify_bundle_bytes): Initial `\"exit_code\": 2` -> 3: the initial value is overwritten on every path before the report is returned (each failure branch sets it to 1, success sets it to 0), so the initial value never reaches the caller."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/NumberReplacer:511"
@@ -60664,7 +60664,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "2"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Initial `\"exit_code\": 2` -> 1: same as occ 510 — the initial value is always overwritten before the report is returned."
+reason = "Unobservable-value mutant (verify_bundle_bytes): Initial `\"exit_code\": 2` -> 1: same as occ 510 — the initial value is always overwritten before the report is returned."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/NumberReplacer:548"
@@ -60677,7 +60677,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "1"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Exit code in the container_read mismatch branch (`set(infos_by_name) != set(names)`): that branch is only reached when the hand-rolled central-directory parse and zipfile's infolist disagree, which never happens for a zip zipfile can open (both parse the same central directory; a local-header mismatch raises BadZipFile at the read step instead)."
+reason = "Unobservable-value mutant (verify_bundle_bytes): Exit code in the container_read mismatch branch (`set(infos_by_name) != set(names)`): that branch is only reached when the hand-rolled central-directory parse and zipfile's infolist disagree, which never happens for a zip zipfile can open (both parse the same central directory; a local-header mismatch raises BadZipFile at the read step instead). (source_text 1)"
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/NumberReplacer:549"
@@ -60690,7 +60690,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "1"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Exit code in the container_read mismatch branch (`set(infos_by_name) != set(names)`): that branch is only reached when the hand-rolled central-directory parse and zipfile's infolist disagree, which never happens for a zip zipfile can open (both parse the same central directory; a local-header mismatch raises BadZipFile at the read step instead)."
+reason = "Unobservable-value mutant (verify_bundle_bytes): Exit code in the container_read mismatch branch (`set(infos_by_name) != set(names)`): that branch is only reached when the hand-rolled central-directory parse and zipfile's infolist disagree, which never happens for a zip zipfile can open (both parse the same central directory; a local-header mismatch raises BadZipFile at the read step instead). (source_text 1)"
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/NumberReplacer:550"
@@ -60703,7 +60703,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "1"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Read cap `stream.read(MAX_ENTRY_BYTES + 1)` -> `+ 2` / `+ 0`: same as the Add_* family at [1874,74] — only observable for an over-cap entry, which the line-1816 check rejects first."
+reason = "Unobservable-value mutant (verify_bundle_bytes): Read cap `stream.read(MAX_ENTRY_BYTES + 1)` -> `+ 2` / `+ 0`: same as the Add_* family at [1874,74] — only observable for an over-cap entry, which the line-1816 check rejects first."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/NumberReplacer:551"
@@ -60716,7 +60716,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "1"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Read cap `stream.read(MAX_ENTRY_BYTES + 1)` -> `+ 2` / `+ 0`: same as the Add_* family at [1874,74] — only observable for an over-cap entry, which the line-1816 check rejects first."
+reason = "Unobservable-value mutant (verify_bundle_bytes): Read cap `stream.read(MAX_ENTRY_BYTES + 1)` -> `+ 2` / `+ 0`: same as the Add_* family at [1874,74] — only observable for an over-cap entry, which the line-1816 check rejects first."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/NumberReplacer:554"
@@ -60729,7 +60729,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "1"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Exit code in the second _container_failed() branch (line 1888): only reached when a container check fails during the read section after the first gate (line 1840) passed — i.e. only when the central directory lies about an entry size (the read-time check at line 1875 fires after the line-1816 check passed).  For a well-formed bundle the two agree, so this branch is never taken.  Verified by hand-applying the mutant and confirming the over-cap test returns from line 1841."
+reason = "Unobservable-value mutant (verify_bundle_bytes): Exit code in the second _container_failed() branch (line 1888): only reached when a container check fails during the read section after the first gate (line 1840) passed — i.e. only when the central directory lies about an entry size (the read-time check at line 1875 fires after the line-1816 check passed).  For a well-formed bundle the two agree, so this branch is never taken.  Verified by hand-applying the mutant and confirming the over-cap test returns from line 1841."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/NumberReplacer:555"
@@ -60742,7 +60742,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "1"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Exit code in the second _container_failed() branch (line 1888): only reached when a container check fails during the read section after the first gate (line 1840) passed — i.e. only when the central directory lies about an entry size (the read-time check at line 1875 fires after the line-1816 check passed).  For a well-formed bundle the two agree, so this branch is never taken.  Verified by hand-applying the mutant and confirming the over-cap test returns from line 1841."
+reason = "Unobservable-value mutant (verify_bundle_bytes): Exit code in the second _container_failed() branch (line 1888): only reached when a container check fails during the read section after the first gate (line 1840) passed — i.e. only when the central directory lies about an entry size (the read-time check at line 1875 fires after the line-1816 check passed).  For a well-formed bundle the two agree, so this branch is never taken.  Verified by hand-applying the mutant and confirming the over-cap test returns from line 1841."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceAndWithOr:14"
@@ -60755,7 +60755,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "and"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`sig_oid in _ECDSA_SIG_OIDS and key_oid == _OID_EC_PUBLIC_KEY` -> `or`: the sig OID selects the family and the key OID must match it.  For a well-formed token the two agree, so `or` coincides with `and`.  The mutant only differs for a malformed token mixing an ECDSA sig OID with a non-EC key (or vice versa), which the verifier rejects either way."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `sig_oid in _ECDSA_SIG_OIDS and key_oid == _OID_EC_PUBLIC_KEY` -> `or`: the sig OID selects the family and the key OID must match it.  For a well-formed token the two agree, so `or` coincides with `and`.  The mutant only differs for a malformed token mixing an ECDSA sig OID with a non-EC key (or vice versa), which the verifier rejects either way."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceAndWithOr:28"
@@ -60781,7 +60781,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "+"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "EC point x-coordinate slice `point_der[1: 1 + size]`: for size=32 (P-256), `1 | 32 == 1 ^ 32 == 33 == 1 + 32`; the same holds for P-384 (size 48).  The `|`/`^` variants give the same slice end."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): EC point x-coordinate slice `point_der[1: 1 + size]`: for size=32 (P-256), `1 | 32 == 1 ^ 32 == 33 == 1 + 32`; the same holds for P-384 (size 48).  The `|`/`^` variants give the same slice end."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Add_BitOr:42"
@@ -60794,7 +60794,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "+"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "EC point y-coordinate slice `point_der[1 + size:]`: for the standard curve sizes (32/48), `1 + size` coincides with `1 | size` / `1 ^ size`, so the slice start is unchanged."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): EC point y-coordinate slice `point_der[1 + size:]`: for the standard curve sizes (32/48), `1 + size` coincides with `1 | size` / `1 ^ size`, so the slice start is unchanged."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Add_BitOr:63"
@@ -60807,7 +60807,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "+"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Read cap `stream.read(MAX_ENTRY_BYTES + 1)`: the `+ 1` variants (`* 1`, `// 1`, `** 1`, `<< 1`, `| 1`, `^ 1`) only change the read size for an entry over the 64 MiB cap, but over-cap entries are rejected by the container-checks loop (line 1816) before the read section runs, so the read never exceeds the cap for a well-formed bundle.  Verified by hand-applying the mutants."
+reason = "Unobservable-value mutant (verify_bundle_bytes): Read cap `stream.read(MAX_ENTRY_BYTES + 1)`: the `+ 1` variants (`* 1`, `// 1`, `** 1`, `<< 1`, `| 1`, `^ 1`) only change the read size for an entry over the 64 MiB cap, but over-cap entries are rejected by the container-checks loop (line 1816) before the read section runs, so the read never exceeds the cap for a well-formed bundle.  Verified by hand-applying the mutants."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Add_BitXor:41"
@@ -60820,7 +60820,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "+"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "EC point x-coordinate slice `point_der[1: 1 + size]`: for size=32 (P-256), `1 | 32 == 1 ^ 32 == 33 == 1 + 32`; the same holds for P-384 (size 48).  The `|`/`^` variants give the same slice end."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): EC point x-coordinate slice `point_der[1: 1 + size]`: for size=32 (P-256), `1 | 32 == 1 ^ 32 == 33 == 1 + 32`; the same holds for P-384 (size 48).  The `|`/`^` variants give the same slice end."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Add_BitXor:42"
@@ -60833,7 +60833,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "+"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "EC point y-coordinate slice `point_der[1 + size:]`: for the standard curve sizes (32/48), `1 + size` coincides with `1 | size` / `1 ^ size`, so the slice start is unchanged."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): EC point y-coordinate slice `point_der[1 + size:]`: for the standard curve sizes (32/48), `1 + size` coincides with `1 | size` / `1 ^ size`, so the slice start is unchanged."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Add_BitXor:63"
@@ -60846,7 +60846,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "+"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Read cap `stream.read(MAX_ENTRY_BYTES + 1)`: the `+ 1` variants (`* 1`, `// 1`, `** 1`, `<< 1`, `| 1`, `^ 1`) only change the read size for an entry over the 64 MiB cap, but over-cap entries are rejected by the container-checks loop (line 1816) before the read section runs, so the read never exceeds the cap for a well-formed bundle.  Verified by hand-applying the mutants."
+reason = "Unobservable-value mutant (verify_bundle_bytes): Read cap `stream.read(MAX_ENTRY_BYTES + 1)`: the `+ 1` variants (`* 1`, `// 1`, `** 1`, `<< 1`, `| 1`, `^ 1`) only change the read size for an entry over the 64 MiB cap, but over-cap entries are rejected by the container-checks loop (line 1816) before the read section runs, so the read never exceeds the cap for a well-formed bundle.  Verified by hand-applying the mutants."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Add_FloorDiv:63"
@@ -60859,7 +60859,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "+"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Read cap `stream.read(MAX_ENTRY_BYTES + 1)`: the `+ 1` variants (`* 1`, `// 1`, `** 1`, `<< 1`, `| 1`, `^ 1`) only change the read size for an entry over the 64 MiB cap, but over-cap entries are rejected by the container-checks loop (line 1816) before the read section runs, so the read never exceeds the cap for a well-formed bundle.  Verified by hand-applying the mutants."
+reason = "Unobservable-value mutant (verify_bundle_bytes): Read cap `stream.read(MAX_ENTRY_BYTES + 1)`: the `+ 1` variants (`* 1`, `// 1`, `** 1`, `<< 1`, `| 1`, `^ 1`) only change the read size for an entry over the 64 MiB cap, but over-cap entries are rejected by the container-checks loop (line 1816) before the read section runs, so the read never exceeds the cap for a well-formed bundle.  Verified by hand-applying the mutants."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Add_LShift:63"
@@ -60872,7 +60872,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "+"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Read cap `stream.read(MAX_ENTRY_BYTES + 1)`: the `+ 1` variants (`* 1`, `// 1`, `** 1`, `<< 1`, `| 1`, `^ 1`) only change the read size for an entry over the 64 MiB cap, but over-cap entries are rejected by the container-checks loop (line 1816) before the read section runs, so the read never exceeds the cap for a well-formed bundle.  Verified by hand-applying the mutants."
+reason = "Unobservable-value mutant (verify_bundle_bytes): Read cap `stream.read(MAX_ENTRY_BYTES + 1)`: the `+ 1` variants (`* 1`, `// 1`, `** 1`, `<< 1`, `| 1`, `^ 1`) only change the read size for an entry over the 64 MiB cap, but over-cap entries are rejected by the container-checks loop (line 1816) before the read section runs, so the read never exceeds the cap for a well-formed bundle.  Verified by hand-applying the mutants."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Add_Mul:63"
@@ -60885,7 +60885,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "+"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Read cap `stream.read(MAX_ENTRY_BYTES + 1)`: the `+ 1` variants (`* 1`, `// 1`, `** 1`, `<< 1`, `| 1`, `^ 1`) only change the read size for an entry over the 64 MiB cap, but over-cap entries are rejected by the container-checks loop (line 1816) before the read section runs, so the read never exceeds the cap for a well-formed bundle.  Verified by hand-applying the mutants."
+reason = "Unobservable-value mutant (verify_bundle_bytes): Read cap `stream.read(MAX_ENTRY_BYTES + 1)`: the `+ 1` variants (`* 1`, `// 1`, `** 1`, `<< 1`, `| 1`, `^ 1`) only change the read size for an entry over the 64 MiB cap, but over-cap entries are rejected by the container-checks loop (line 1816) before the read section runs, so the read never exceeds the cap for a well-formed bundle.  Verified by hand-applying the mutants."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Add_Pow:63"
@@ -60898,7 +60898,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "+"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Read cap `stream.read(MAX_ENTRY_BYTES + 1)`: the `+ 1` variants (`* 1`, `// 1`, `** 1`, `<< 1`, `| 1`, `^ 1`) only change the read size for an entry over the 64 MiB cap, but over-cap entries are rejected by the container-checks loop (line 1816) before the read section runs, so the read never exceeds the cap for a well-formed bundle.  Verified by hand-applying the mutants."
+reason = "Unobservable-value mutant (verify_bundle_bytes): Read cap `stream.read(MAX_ENTRY_BYTES + 1)`: the `+ 1` variants (`* 1`, `// 1`, `** 1`, `<< 1`, `| 1`, `^ 1`) only change the read size for an entry over the 64 MiB cap, but over-cap entries are rejected by the container-checks loop (line 1816) before the read section runs, so the read never exceeds the cap for a well-formed bundle.  Verified by hand-applying the mutants."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Mul_Div:49"
@@ -60924,7 +60924,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "-"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "EC point half-length: `(len(point_der) - 1) // 2` — an EC point is 1 + 2*coordinate_size bytes (odd length), so `(len-1)//2 == len//2` and the `* 1`, `// 1`, `** 1`, `| 1`, `^ 1` variants all give the same size.  Verified by hand-applying the mutants."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): EC point half-length: `(len(point_der) - 1) // 2` — an EC point is 1 + 2*coordinate_size bytes (odd length), so `(len-1)//2 == len//2` and the `* 1`, `// 1`, `** 1`, `| 1`, `^ 1` variants all give the same size.  Verified by hand-applying the mutants."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Sub_BitXor:28"
@@ -60937,7 +60937,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "-"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "EC point half-length: `(len(point_der) - 1) // 2` — an EC point is 1 + 2*coordinate_size bytes (odd length), so `(len-1)//2 == len//2` and the `* 1`, `// 1`, `** 1`, `| 1`, `^ 1` variants all give the same size.  Verified by hand-applying the mutants."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): EC point half-length: `(len(point_der) - 1) // 2` — an EC point is 1 + 2*coordinate_size bytes (odd length), so `(len-1)//2 == len//2` and the `* 1`, `// 1`, `** 1`, `| 1`, `^ 1` variants all give the same size.  Verified by hand-applying the mutants."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Sub_FloorDiv:28"
@@ -60950,7 +60950,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "-"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "EC point half-length: `(len(point_der) - 1) // 2` — an EC point is 1 + 2*coordinate_size bytes (odd length), so `(len-1)//2 == len//2` and the `* 1`, `// 1`, `** 1`, `| 1`, `^ 1` variants all give the same size.  Verified by hand-applying the mutants."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): EC point half-length: `(len(point_der) - 1) // 2` — an EC point is 1 + 2*coordinate_size bytes (odd length), so `(len-1)//2 == len//2` and the `* 1`, `// 1`, `** 1`, `| 1`, `^ 1` variants all give the same size.  Verified by hand-applying the mutants."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Sub_Mul:28"
@@ -60963,7 +60963,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "-"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "EC point half-length: `(len(point_der) - 1) // 2` — an EC point is 1 + 2*coordinate_size bytes (odd length), so `(len-1)//2 == len//2` and the `* 1`, `// 1`, `** 1`, `| 1`, `^ 1` variants all give the same size.  Verified by hand-applying the mutants."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): EC point half-length: `(len(point_der) - 1) // 2` — an EC point is 1 + 2*coordinate_size bytes (odd length), so `(len-1)//2 == len//2` and the `* 1`, `// 1`, `** 1`, `| 1`, `^ 1` variants all give the same size.  Verified by hand-applying the mutants."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceBinaryOperator_Sub_Pow:28"
@@ -60976,7 +60976,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "-"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "EC point half-length: `(len(point_der) - 1) // 2` — an EC point is 1 + 2*coordinate_size bytes (odd length), so `(len-1)//2 == len//2` and the `* 1`, `// 1`, `** 1`, `| 1`, `^ 1` variants all give the same size.  Verified by hand-applying the mutants."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): EC point half-length: `(len(point_der) - 1) // 2` — an EC point is 1 + 2*coordinate_size bytes (odd length), so `(len-1)//2 == len//2` and the `* 1`, `// 1`, `** 1`, `| 1`, `^ 1` variants all give the same size.  Verified by hand-applying the mutants."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceBreakWithContinue:0"
@@ -60989,7 +60989,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "break"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`break` -> `continue` in the sid-lookup loop: the loop breaks on the first matching certificate; `continue` would keep scanning, but a later certificate cannot also match the same (issuer, serial) pair (certificate issuers+serials are unique per CA), so the selected certificate is the same."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `break` -> `continue` in the sid-lookup loop: the loop breaks on the first matching certificate; `continue` would keep scanning, but a later certificate cannot also match the same (issuer, serial) pair (certificate issuers+serials are unique per CA), so the selected certificate is the same."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:29"
@@ -61002,7 +61002,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`field.tag == 0xA0` -> `>= 0xA0` (certificates loop): the only tags that occur in this loop are 0xA0 (signed attributes / certificates SET) and 0x30 (contentInfo, handled by an earlier branch), so `>= 0xA0` coincides with `== 0xA0` on the reachable tags."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `field.tag == 0xA0` -> `>= 0xA0` (certificates loop): the only tags that occur in this loop are 0xA0 (signed attributes / certificates SET) and 0x30 (contentInfo, handled by an earlier branch), so `>= 0xA0` coincides with `== 0xA0` on the reachable tags."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:30"
@@ -61015,7 +61015,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`field.tag == 0x31` -> `>= 0x31`: same as the `<=` variant — only tag 0x31 reaches this elif, so `>=` coincides with `==`."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `field.tag == 0x31` -> `>= 0x31`: same as the `<=` variant — only tag 0x31 reaches this elif, so `>=` coincides with `==`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:31"
@@ -61028,7 +61028,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`signer[idx].tag == 0xA0` -> `>= 0xA0`: the signerInfo fields are [0] EXPLICIT (0xA0) or a SEQUENCE (0x30); `>= 0xA0` is True only for 0xA0 among the tags that occur, so it coincides with `== 0xA0`."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `signer[idx].tag == 0xA0` -> `>= 0xA0`: the signerInfo fields are [0] EXPLICIT (0xA0) or a SEQUENCE (0x30); `>= 0xA0` is True only for 0xA0 among the tags that occur, so it coincides with `== 0xA0`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:32"
@@ -61041,7 +61041,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`len(sid) == 2` -> `>= 2`: the lookup only reads sid[0] and sid[1], so a len-3+ sid behaves identically to a len-2 sid with the same first two fields; the extra fields are ignored.  The mutant only differs for a malformed sid with extra fields, which is not a well-formed SignerInfo."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `len(sid) == 2` -> `>= 2`: the lookup only reads sid[0] and sid[1], so a len-3+ sid behaves identically to a len-2 sid with the same first two fields; the extra fields are ignored.  The mutant only differs for a malformed sid with extra fields, which is not a well-formed SignerInfo."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:35"
@@ -61054,7 +61054,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`key_oid == _OID_RSA_ENCRYPTION` -> `>=`: same — among the key OIDs that occur, only the RSA OID satisfies `>=`, so it coincides with `==`."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `key_oid == _OID_RSA_ENCRYPTION` -> `>=`: same — among the key OIDs that occur, only the RSA OID satisfies `>=`, so it coincides with `==`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:36"
@@ -61067,7 +61067,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`key_oid == _OID_EC_PUBLIC_KEY` -> `>=`: same — only the EC OID satisfies `>=` among the key OIDs that occur."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `key_oid == _OID_EC_PUBLIC_KEY` -> `>=`: same — only the EC OID satisfies `>=` among the key OIDs that occur."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:51"
@@ -61080,7 +61080,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`schema == CASE_SCHEMA_V4` -> `>= CASE_SCHEMA_V4`: the case schemas are \"textforensics.case-file/v1\"..\"/v4\"; only v4 satisfies `>=` among the schemas that reach this line (v3/v4 — earlier schemas are rejected by the case-file validation), so `>=` coincides with `==`."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `schema == CASE_SCHEMA_V4` -> `>= CASE_SCHEMA_V4`: the case schemas are \"textforensics.case-file/v1\"..\"/v4\"; only v4 satisfies `>=` among the schemas that reach this line (v3/v4 — earlier schemas are rejected by the case-file validation), so `>=` coincides with `==`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:52"
@@ -61093,7 +61093,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`schema == CASE_SCHEMA_V4` -> `>= CASE_SCHEMA_V4`: same as [2080,34] — only v4 satisfies `>=` among the reachable schemas."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `schema == CASE_SCHEMA_V4` -> `>= CASE_SCHEMA_V4`: same as [2080,34] — only v4 satisfies `>=` among the reachable schemas."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:55"
@@ -61106,7 +61106,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`report[\"signature\"] == \"verified\"` -> `>= \"verified\"`: the signature values are \"verified\"/\"absent\"/\"unavailable\"/\"invalid\"; only \"verified\" satisfies `>= \"verified\"` among them (\"unverified\" is not a value), so `>=` coincides with `==`."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `report[\"signature\"] == \"verified\"` -> `>= \"verified\"`: the signature values are \"verified\"/\"absent\"/\"unavailable\"/\"invalid\"; only \"verified\" satisfies `>= \"verified\"` among them (\"unverified\" is not a value), so `>=` coincides with `==`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_GtE:57"
@@ -61119,7 +61119,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`report[\"signature\"] == \"unavailable\"` -> `>= \"unavailable\"`: among the signature values that reach this elif (\"invalid\", \"unavailable\", \"unverified\" is not a value), only \"unavailable\" satisfies `>=`, so it coincides with `==`."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `report[\"signature\"] == \"unavailable\"` -> `>= \"unavailable\"`: among the signature values that reach this elif (\"invalid\", \"unavailable\", \"unverified\" is not a value), only \"unavailable\" satisfies `>=`, so it coincides with `==`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_Is:18"
@@ -61132,7 +61132,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`cert[\"serial_number\"] == _der_int(sid[1])` -> `is`: serial numbers in these tokens are small ints (1, 2), cached by CPython, so `is` coincides with `==`."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `cert[\"serial_number\"] == _der_int(sid[1])` -> `is`: serial numbers in these tokens are small ints (1, 2), cached by CPython, so `is` coincides with `==`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_IsNot:19"
@@ -61145,7 +61145,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`key_oid == _OID_RSA_ENCRYPTION` -> `is not`: the sig OID selects the signature family and the key OID must match it (RSA sig requires an RSA key).  For a well-formed token the two agree, and `is not` is True exactly when `==` is True for these OID strings (they are distinct objects from _der_oid).  The mutant only differs for a malformed token mixing an RSA sig OID with a non-RSA key, which the verifier rejects either way."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `key_oid == _OID_RSA_ENCRYPTION` -> `is not`: the sig OID selects the signature family and the key OID must match it (RSA sig requires an RSA key).  For a well-formed token the two agree, and `is not` is True exactly when `==` is True for these OID strings (they are distinct objects from _der_oid).  The mutant only differs for a malformed token mixing an RSA sig OID with a non-RSA key, which the verifier rejects either way."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_LtE:30"
@@ -61158,7 +61158,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`field.tag == 0x31` -> `<= 0x31` (certificates loop): the only tags reaching this elif are 0x31 (SET) — 0x30 (contentInfo) is handled by the preceding if — so `<= 0x31` coincides with `== 0x31`."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `field.tag == 0x31` -> `<= 0x31` (certificates loop): the only tags reaching this elif are 0x31 (SET) — 0x30 (contentInfo) is handled by the preceding if — so `<= 0x31` coincides with `== 0x31`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_LtE:32"
@@ -61171,7 +61171,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`len(sid) == 2` -> `<= 2`: a sid has exactly 2 fields (issuer, serial) in a well-formed SignerInfo; a len-0/1 sid cannot carry both, and the lookup only reads sid[0]/sid[1].  The `<=` mutant only differs for a malformed len-0/1 sid, which has no issuer or serial to look up."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `len(sid) == 2` -> `<= 2`: a sid has exactly 2 fields (issuer, serial) in a well-formed SignerInfo; a len-0/1 sid cannot carry both, and the lookup only reads sid[0]/sid[1].  The `<=` mutant only differs for a malformed len-0/1 sid, which has no issuer or serial to look up."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_LtE:35"
@@ -61184,7 +61184,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`key_oid == _OID_RSA_ENCRYPTION` -> `<=`: the key OID is a dotted OID string; `<=` coincides with `==` for the RSA OID among the key OIDs that occur (RSA encryption, EC public key) — the EC OID \"1.2.840.10045.2.1\" sorts below the RSA OID \"1.2.840.113549.1.1.1\", so `<=` is False for it, same as `==`."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `key_oid == _OID_RSA_ENCRYPTION` -> `<=`: the key OID is a dotted OID string; `<=` coincides with `==` for the RSA OID among the key OIDs that occur (RSA encryption, EC public key) — the EC OID \"1.2.840.10045.2.1\" sorts below the RSA OID \"1.2.840.113549.1.1.1\", so `<=` is False for it, same as `==`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_LtE:36"
@@ -61197,7 +61197,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`key_oid == _OID_EC_PUBLIC_KEY` -> `<=`: among the key OIDs that occur (RSA encryption, EC public key), only the EC OID satisfies `<=` the EC OID, so it coincides with `==`."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `key_oid == _OID_EC_PUBLIC_KEY` -> `<=`: among the key OIDs that occur (RSA encryption, EC public key), only the EC OID satisfies `<=` the EC OID, so it coincides with `==`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_LtE:50"
@@ -61210,7 +61210,7 @@ function = "verify_bundle_bytes._container_failed"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "9f9c5f7afaa06449a33c5aec5ea88ef8a6dda36ac85d93a6de571ed0585b9d95"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`check.get(\"status\") == \"fail\"` -> `<= \"fail\"`: check statuses are \"pass\" and \"fail\" (\"pass\" > \"fail\", \"fail\" == \"fail\"), so `<= \"fail\"` coincides with `== \"fail\"`."
+reason = "Domain-equivalent mutant (verify_bundle_bytes._container_failed): `check.get(\"status\") == \"fail\"` -> `<= \"fail\"`: check statuses are \"pass\" and \"fail\" (\"pass\" > \"fail\", \"fail\" == \"fail\"), so `<= \"fail\"` coincides with `== \"fail\"`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_LtE:56"
@@ -61223,7 +61223,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`report[\"signature\"] == \"absent\"` -> `<= \"absent\"`: only \"absent\" satisfies `<= \"absent\"` among the signature values, so `<=` coincides with `==`."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `report[\"signature\"] == \"absent\"` -> `<= \"absent\"`: only \"absent\" satisfies `<= \"absent\"` among the signature values, so `<=` coincides with `==`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_LtE:57"
@@ -61236,7 +61236,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "=="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`report[\"signature\"] == \"unavailable\"` -> `<= \"unavailable\"`: the `<=` variant also matches \"absent\" and \"invalid\", but this elif is only reached when the signature is neither \"verified\" nor \"absent\", and the `origin` it sets is only used in the scope statement when `failed` is False — which never happens with an \"invalid\" signature (a failed signature means a check failed).  So the changed origin string is never emitted."
+reason = "Unobservable-value mutant (verify_bundle_bytes): `report[\"signature\"] == \"unavailable\"` -> `<= \"unavailable\"`: the `<=` variant also matches \"absent\" and \"invalid\", but this elif is only reached when the signature is neither \"verified\" nor \"absent\", and the `origin` it sets is only used in the scope statement when `failed` is False — which never happens with an \"invalid\" signature (a failed signature means a check failed).  So the changed origin string is never emitted."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Eq_LtE:58"
@@ -61249,7 +61249,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`check.get(\"status\") == \"fail\"` -> `<= \"fail\"` (failed_ids join): same as [1717,32] — statuses are \"pass\"/\"fail\", so `<=` coincides with `==`."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `check.get(\"status\") == \"fail\"` -> `<= \"fail\"` (failed_ids join): same as [1717,32] — statuses are \"pass\"/\"fail\", so `<=` coincides with `==`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_GtE_Eq:3"
@@ -61262,7 +61262,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = ">="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`len(attr_fields) >= 2` -> `== 2`: a signed attribute is an (OID, values) pair, always exactly 2 fields, so `== 2` coincides with `>= 2`."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `len(attr_fields) >= 2` -> `== 2`: a signed attribute is an (OID, values) pair, always exactly 2 fields, so `== 2` coincides with `>= 2`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_GtE_LtE:3"
@@ -61275,7 +61275,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = ">="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`len(attr_fields) >= 2` -> `<= 2`: same — exactly 2 fields, so `<= 2` coincides with `>= 2`."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `len(attr_fields) >= 2` -> `<= 2`: same — exactly 2 fields, so `<= 2` coincides with `>= 2`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Gt_Is:12"
@@ -61288,7 +61288,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = ">"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`entry[\"uncompressed_size\"] > MAX_ENTRY_BYTES` -> `is MAX_ENTRY_BYTES`: MAX_ENTRY_BYTES is a large int (67108864), never identical to a parsed size, so `is` is always False and the skip never happens; the entry is then read and fails the read-time check at line 1875 with the same check id (container_entry_size).  The outcome is identical."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `entry[\"uncompressed_size\"] > MAX_ENTRY_BYTES` -> `is MAX_ENTRY_BYTES`: MAX_ENTRY_BYTES is a large int (67108864), never identical to a parsed size, so `is` is always False and the skip never happens; the entry is then read and fails the read-time check at line 1875 with the same check id (container_entry_size).  The outcome is identical."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Gt_Is:13"
@@ -61301,7 +61301,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = ">"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`len(contents[...]) > MAX_ENTRY_BYTES` -> `is MAX_ENTRY_BYTES`: same as [1871,46] — `is` is always False for a large int, and the read-time check only fires when the central directory lies about the size (the line-1816 check rejects over-cap entries first), so it is unobservable for a well-formed bundle."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `len(contents[...]) > MAX_ENTRY_BYTES` -> `is MAX_ENTRY_BYTES`: same as [1871,46] — `is` is always False for a large int, and the read-time check only fires when the central directory lies about the size (the line-1816 check rejects over-cap entries first), so it is unobservable for a well-formed bundle."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Gt_NotEq:13"
@@ -61314,7 +61314,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = ">"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "duplicates = {name if names.count(name) > 1} — the guard at [1787,23] guarantees at least one duplicate, so `!= 1` coincides with `> 1`."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): duplicates = {name if names.count(name) > 1} — the guard at [1787,23] guarantees at least one duplicate, so `!= 1` coincides with `> 1`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Gt_NotEq:14"
@@ -61327,7 +61327,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = ">"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "casefold duplicates — the guard at [1797,24] guarantees at least one collision, so `!= 1` coincides with `> 1`."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): casefold duplicates — the guard at [1797,24] guarantees at least one collision, so `!= 1` coincides with `> 1`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Gt_NotEq:20"
@@ -61340,7 +61340,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = ">"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "manifest duplicates — the guard at [1960,32] guarantees at least one duplicate, so `!= 1` coincides with `> 1`."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): manifest duplicates — the guard at [1960,32] guarantees at least one duplicate, so `!= 1` coincides with `> 1`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Lt_IsNot:4"
@@ -61353,7 +61353,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "<"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`while index < len(tst)` -> `while index is not len(tst)`: the loop index only takes values 5..len(tst) (small ints, cached by CPython), so `is not` coincides with `!=`, which coincides with `<` for index <= len; index never exceeds len."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `while index < len(tst)` -> `while index is not len(tst)`: the loop index only takes values 5..len(tst) (small ints, cached by CPython), so `is not` coincides with `!=`, which coincides with `<` for index <= len; index never exceeds len."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_Lt_NotEq:7"
@@ -61366,7 +61366,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "<"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`while index < len(tst)` -> `while index != len(tst)`: the index only takes values 5..len(tst), so `!=` coincides with `<` (the loop stops exactly at len)."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `while index < len(tst)` -> `while index != len(tst)`: the index only takes values 5..len(tst), so `!=` coincides with `<` (the loop stops exactly at len)."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:28"
@@ -61379,7 +61379,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`signed_node.tag != 0xA0` -> `> 0xA0`: the SignedData content is always [0] EXPLICIT (tag 0xA0) in a well-formed CMS SignedData (RFC 5652).  The `>` mutant only differs for tags below 0xA0, which are not valid CMS SignedData content tags."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `signed_node.tag != 0xA0` -> `> 0xA0`: the SignedData content is always [0] EXPLICIT (tag 0xA0) in a well-formed CMS SignedData (RFC 5652).  The `>` mutant only differs for tags below 0xA0, which are not valid CMS SignedData content tags."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:30"
@@ -61392,7 +61392,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`parsed[\"hash_algorithm\"] != \"sha256\"` — hash_algorithm is one of sha256/sha384/sha512, all sorting at or above \"sha256\"; a below-\"sha256\" algorithm (sha1/md5) does not occur in TSA tokens."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `parsed[\"hash_algorithm\"] != \"sha256\"` — hash_algorithm is one of sha256/sha384/sha512, all sorting at or above \"sha256\"; a below-\"sha256\" algorithm (sha1/md5) does not occur in TSA tokens."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:33"
@@ -61405,7 +61405,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`len(md_values) != 1` -> `> 1`: a messageDigest signed attribute is a SET with exactly one value, so len is 1 (both False) or, for a malformed attribute, 0 (`!=` True, `>` False) — but a 0-element messageDigest SET is malformed and is rejected by the attribute structure check before this comparison is reached."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `len(md_values) != 1` -> `> 1`: a messageDigest signed attribute is a SET with exactly one value, so len is 1 (both False) or, for a malformed attribute, 0 (`!=` True, `>` False) — but a 0-element messageDigest SET is malformed and is rejected by the attribute structure check before this comparison is reached."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:35"
@@ -61418,7 +61418,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`_RSA_SIG_OIDS[sig_oid] != hash_name` -> `>`: same — `>` coincides with `!=` for the hash names that occur."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `_RSA_SIG_OIDS[sig_oid] != hash_name` -> `>`: same — `>` coincides with `!=` for the hash names that occur."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:36"
@@ -61431,7 +61431,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`hash_name_sig != hash_name` -> `>`: same as [1032,34]."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `hash_name_sig != hash_name` -> `>`: same as [1032,34]."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:37"
@@ -61444,7 +61444,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`point_der[0] != 0x04` -> `> 0x04`: for a compressed point (0x02/0x03) the mutant accepts it at this format check, but the subsequent coordinate extraction treats it as an uncompressed point (wrong length, wrong coordinates) and the ECDSA verification fails, so the token is rejected either way — the mutant only changes which check rejects a compressed point."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `point_der[0] != 0x04` -> `> 0x04`: for a compressed point (0x02/0x03) the mutant accepts it at this format check, but the subsequent coordinate extraction treats it as an uncompressed point (wrong length, wrong coordinates) and the ECDSA verification fails, so the token is rejected either way — the mutant only changes which check rejects a compressed point."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:50"
@@ -61457,7 +61457,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`names != sorted(names)` — sorted(names) is the lexicographically smallest permutation, so any unsorted list is strictly greater than its sorted form; `>` coincides with `!=`."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `names != sorted(names)` — sorted(names) is the lexicographically smallest permutation, so any unsorted list is strictly greater than its sorted form; `>` coincides with `!=`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:51"
@@ -61470,7 +61470,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`len(set(names)) != len(names)` -> `>`: len(set) <= len(names) always, so `>` is always False and the mutant would miss a duplicate at THIS check — but the duplicate is also caught by the count-based check at [1788,73] (`names.count(name) > 1`), which reports the same container_duplicate_entries failure. The `!=` at [1787,23] is redundant with the count check, so the mutant only changes which of the two redundant checks reports the duplicate."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `len(set(names)) != len(names)` -> `>`: len(set) <= len(names) always, so `>` is always False and the mutant would miss a duplicate at THIS check — but the duplicate is also caught by the count-based check at [1788,73] (`names.count(name) > 1`), which reports the same container_duplicate_entries failure. The `!=` at [1787,23] is redundant with the count check, so the mutant only changes which of the two redundant checks reports the duplicate."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:53"
@@ -61483,7 +61483,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`entry[\"compress_method\"] != ZIP_STORED` (0) — compress_method is a non-negative int; `> 0` coincides with `!= 0`."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `entry[\"compress_method\"] != ZIP_STORED` (0) — compress_method is a non-negative int; `> 0` coincides with `!= 0`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:54"
@@ -61496,7 +61496,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`entry[\"create_system\"] != 0` — create_system is a non-negative int."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `entry[\"create_system\"] != 0` — create_system is a non-negative int."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:56"
@@ -61509,7 +61509,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`entry[\"mod_time\"] != 0` — mod_time is a non-negative int."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `entry[\"mod_time\"] != 0` — mod_time is a non-negative int."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:58"
@@ -61522,7 +61522,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`entry[\"extra_len\"] != 0` — extra_len is a non-negative int."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `entry[\"extra_len\"] != 0` — extra_len is a non-negative int."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:59"
@@ -61535,7 +61535,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`entry[\"comment_len\"] != 0` — comment_len is a non-negative int."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `entry[\"comment_len\"] != 0` — comment_len is a non-negative int."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:60"
@@ -61548,7 +61548,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "!="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`set(infos_by_name) != set(names)` -> `>`: same as the `<` variant at this position — the two parses agree on every zip zipfile can open."
+reason = "Unobservable-value mutant (verify_bundle_bytes): `set(infos_by_name) != set(names)` -> `>`: same as the `<` variant at this position — the two parses agree on every zip zipfile can open."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Gt:65"
@@ -61561,7 +61561,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`manifest_names != sorted(manifest_names)` — sorted is the lexicographically smallest permutation, so `>` coincides with `!=`."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `manifest_names != sorted(manifest_names)` — sorted is the lexicographically smallest permutation, so `>` coincides with `!=`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Is:31"
@@ -61574,7 +61574,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`set(infos_by_name) != set(names)` -> `is`: the two sets are distinct objects, so `is` is always False — but see the [1862,34] entry: the comparison itself is only reachable when the two central-directory parses disagree, which never happens for a zip zipfile can open (see the NotEq_Lt/Gt entries at the same position)."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `set(infos_by_name) != set(names)` -> `is`: the two sets are distinct objects, so `is` is always False — but see the [1862,34] entry: the comparison itself is only reachable when the two central-directory parses disagree, which never happens for a zip zipfile can open (see the NotEq_Lt/Gt entries at the same position)."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_IsNot:15"
@@ -61587,7 +61587,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`_RSA_SIG_OIDS[sig_oid] != hash_name` -> `is not`: both are the same interned hash-name string object (\"sha256\" etc. from the module-level OID tables), so `is not` coincides with `!=`."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `_RSA_SIG_OIDS[sig_oid] != hash_name` -> `is not`: both are the same interned hash-name string object (\"sha256\" etc. from the module-level OID tables), so `is not` coincides with `!=`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_IsNot:16"
@@ -61600,7 +61600,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`hash_name_sig != hash_name` -> `is not`: both are the same interned hash-name string object from the module-level OID tables, so `is not` coincides with `!=`."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `hash_name_sig != hash_name` -> `is not`: both are the same interned hash-name string object from the module-level OID tables, so `is not` coincides with `!=`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_IsNot:29"
@@ -61613,7 +61613,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`entry[\"compress_method\"] != ZIP_STORED` (0) -> `is not 0`: compress_method is a small int (0 for STORED), cached by CPython, so `is not` coincides with `!=`."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `entry[\"compress_method\"] != ZIP_STORED` (0) -> `is not 0`: compress_method is a small int (0 for STORED), cached by CPython, so `is not` coincides with `!=`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:33"
@@ -61626,7 +61626,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`len(md_values) != 1` -> `< 1`: same as the `> 1` variant — a messageDigest SET has exactly one value, so `< 1` is False exactly when `!= 1` is False for well-formed attributes; a 0-element SET is malformed and rejected earlier."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `len(md_values) != 1` -> `< 1`: same as the `> 1` variant — a messageDigest SET has exactly one value, so `< 1` is False exactly when `!= 1` is False for well-formed attributes; a 0-element SET is malformed and rejected earlier."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:34"
@@ -61639,7 +61639,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`md_node.content != <computed digest>` -> `<`: the messageDigest check is a hash-equality check; the `<` mutant only differs when the signed digest is lexicographically greater than the computed digest, which is a property of the specific digest bytes, not a semantic distinction the verifier makes — the mismatch is detected by `!=` in both cases for the digests that occur (the imprint comparison at [966,32] is pinned by a deterministic small-digest test)."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `md_node.content != <computed digest>` -> `<`: the messageDigest check is a hash-equality check; the `<` mutant only differs when the signed digest is lexicographically greater than the computed digest, which is a property of the specific digest bytes, not a semantic distinction the verifier makes — the mismatch is detected by `!=` in both cases for the digests that occur (the imprint comparison at [966,32] is pinned by a deterministic small-digest test)."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:35"
@@ -61652,7 +61652,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`_RSA_SIG_OIDS[sig_oid] != hash_name` -> `<`: the hash names are \"sha256\"/\"sha384\"/\"sha512\"; a mismatch is detected by `!=`, and `<` coincides with `!=` for the hash names that occur (the only hash name below the sig OID's hash is a different, unsupported algorithm, which is rejected by the sig-OID lookup before this comparison)."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `_RSA_SIG_OIDS[sig_oid] != hash_name` -> `<`: the hash names are \"sha256\"/\"sha384\"/\"sha512\"; a mismatch is detected by `!=`, and `<` coincides with `!=` for the hash names that occur (the only hash name below the sig OID's hash is a different, unsupported algorithm, which is rejected by the sig-OID lookup before this comparison)."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:36"
@@ -61665,7 +61665,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`hash_name_sig != hash_name` -> `<`: same as [1032,34] — the hash names are sha256/384/512 and `<` coincides with `!=` for the names that occur."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `hash_name_sig != hash_name` -> `<`: same as [1032,34] — the hash names are sha256/384/512 and `<` coincides with `!=` for the names that occur."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:37"
@@ -61678,7 +61678,7 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`point_der[0] != 0x04` -> `< 0x04`: 0x02/0x03 (compressed) are `< 0x04`, so `<` coincides with `!=` for the point encodings that occur (0x02, 0x03, 0x04); a first byte above 0x04 is not a valid EC point encoding."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `point_der[0] != 0x04` -> `< 0x04`: 0x02/0x03 (compressed) are `< 0x04`, so `<` coincides with `!=` for the point encodings that occur (0x02, 0x03, 0x04); a first byte above 0x04 is not a valid EC point encoding."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:48"
@@ -61691,7 +61691,7 @@ function = "verify_bundle_bytes._container_failed"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "9f9c5f7afaa06449a33c5aec5ea88ef8a6dda36ac85d93a6de571ed0585b9d95"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`check.get(\"id\") != \"seal_expected_digest\"` -> `<`: the filter excludes only the expected-digest check from the failed-ids diagnostic string.  The `<` variant additionally excludes failing checks whose ids sort after \"seal_expected_digest\" (seal_manifest_order, seal_signature) from that string, but those failures are already reported individually in the checks list and the exit_code is set by _container_failed/seal_failed, not by this filter — no pass/fail decision depends on the string."
+reason = "Domain-equivalent mutant (verify_bundle_bytes._container_failed): `check.get(\"id\") != \"seal_expected_digest\"` -> `<`: the filter excludes only the expected-digest check from the failed-ids diagnostic string.  The `<` variant additionally excludes failing checks whose ids sort after \"seal_expected_digest\" (seal_manifest_order, seal_signature) from that string, but those failures are already reported individually in the checks list and the exit_code is set by _container_failed/seal_failed, not by this filter — no pass/fail decision depends on the string."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:51"
@@ -61704,7 +61704,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`len(set(names)) != len(names)` -> `<`: len(set) <= len(names) always, so `<` coincides with `!=`."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `len(set(names)) != len(names)` -> `<`: len(set) <= len(names) always, so `<` coincides with `!=`."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:52"
@@ -61717,7 +61717,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`len(set(folded)) != len(folded)` -> `<`: same — len(set) <= len(list) always."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `len(set(folded)) != len(folded)` -> `<`: same — len(set) <= len(list) always."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:60"
@@ -61730,7 +61730,7 @@ function = "verify_bundle_bytes"
 kind = "unobservable-value"
 source_text = "!="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`set(infos_by_name) != set(names)` -> `<`: both sets are parses of the same central directory (hand-rolled vs zipfile infolist), so they agree on every zip zipfile can open; a local-header mismatch raises BadZipFile at the read step (caught by the except block) rather than reaching this comparison.  Verified by running the crafted local-vs-central zip and observing container_read fail with the BadZipFile message, not the mismatch message."
+reason = "Unobservable-value mutant (verify_bundle_bytes): `set(infos_by_name) != set(names)` -> `<`: both sets are parses of the same central directory (hand-rolled vs zipfile infolist), so they agree on every zip zipfile can open; a local-header mismatch raises BadZipFile at the read step (caught by the except block) rather than reaching this comparison.  Verified by running the crafted local-vs-central zip and observing container_read fail with the BadZipFile message, not the mismatch message."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceComparisonOperator_NotEq_Lt:64"
@@ -61743,7 +61743,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "!="
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`len(set(manifest_names)) != len(manifest_names)` -> `<`: same — len(set) <= len(list) always."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `len(set(manifest_names)) != len(manifest_names)` -> `<`: same — len(set) <= len(list) always."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceContinueWithBreak:10"
@@ -61756,7 +61756,7 @@ function = "verify_bundle_bytes"
 kind = "domain-equivalent"
 source_text = "continue"
 source_fingerprint = "85ce6f7406884e8819514def0f907a2e3e39d24cff07fe9597554c96168900c0"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`continue` -> `break` in the entry-read loop: when an over-cap entry is found, `break` stops reading the remaining entries instead of skipping just that one — but the container_entry_size fail is already recorded and the bundle is already failed, so the remaining entries' content does not affect the verdict."
+reason = "Domain-equivalent mutant (verify_bundle_bytes): `continue` -> `break` in the entry-read loop: when an over-cap entry is found, `break` stops reading the remaining entries instead of skipping just that one — but the container_entry_size fail is already recorded and the bundle is already failed, so the remaining entries' content does not affect the verdict."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceFalseWithTrue:24"
@@ -61769,7 +61769,7 @@ function = "_verify_timestamp_token"
 kind = "unobservable-value"
 source_text = "False"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`verified = False` -> `True`: `verified` is always assigned by `_rsa_verify(...)` / `_ecdsa_verify(...)` before it is read (the if/elif both assign it, and the else returns early), so the initial value never reaches the read at line 1069.  Verified by reading lines 1029-1070."
+reason = "Unobservable-value mutant (_verify_timestamp_token): `verified = False` -> `True`: `verified` is always assigned by `_rsa_verify(...)` / `_ecdsa_verify(...)` before it is read (the if/elif both assign it, and the else returns early), so the initial value never reaches the read at line 1069.  Verified by reading lines 1029-1070."
 
 [[equivalent]]
 id = "textforensics._standalone_verify:core/ReplaceOrWithAnd:14"
@@ -61782,4 +61782,4 @@ function = "_verify_timestamp_token"
 kind = "domain-equivalent"
 source_text = "or"
 source_fingerprint = "99b5d4e7c28d2fad4b354331904b307a980680b7570b357e0965aeab462c907c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "`if not point_der or point_der[0] != 0x04` -> `and`: for a non-empty point_der, `not point_der` is False, so the `and` variant is False even when point_der[0] != 0x04 (a compressed point 0x02/0x03) — the mutant accepts a compressed point at this format check, but the subsequent coordinate extraction and ECDSA verification fail for it (same as [1058,41]), so the token is rejected either way.  The empty-point case does not occur in any exercised input."
+reason = "Domain-equivalent mutant (_verify_timestamp_token): `if not point_der or point_der[0] != 0x04` -> `and`: for a non-empty point_der, `not point_der` is False, so the `and` variant is False even when point_der[0] != 0x04 (a compressed point 0x02/0x03) — the mutant accepts a compressed point at this format check, but the subsequent coordinate extraction and ECDSA verification fail for it (same as [1058,41]), so the token is rejected either way.  The empty-point case does not occur in any exercised input."
