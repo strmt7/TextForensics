@@ -165,6 +165,19 @@ class ListArchiveMembersTests(unittest.TestCase):
             self.assertIsNone(members)
             self.assertEqual(error, "Unsupported format: y")
 
+    def test_format_above_zip_unsupported(self):
+        # "zz" > "zip": the >= mutant on `fmt == "zip"` takes the zip
+        # branch and tries to open the tar.gz file as a zip (BadZipFile
+        # -> "not a readable zip archive") instead of returning
+        # "Unsupported format". Kills ReplaceComparisonOperator_Eq_GtE
+        # [348,17] occ 4 (a timeout-kill re-proved as a survivor).
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "b.tar.gz"
+            archive.write_bytes(_tar_bytes([("a.bin", b"x")]))
+            members, error = _list_archive_members(archive, "zz")
+            self.assertIsNone(members)
+            self.assertEqual(error, "Unsupported format: zz")
+
     def test_truncated_gzip_is_eof_error(self):
         with tempfile.TemporaryDirectory() as tmp:
             raw = _tar_bytes([("a.bin", b"hello")])

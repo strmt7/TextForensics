@@ -40,6 +40,17 @@
 # CosmicRayTestingException NameError). See
 # hidden_files/audit-w3-worker-f.md sections 5-6 and
 # audit-w3-f3-equiv-reasons-bundle.json.
+# F3 bundle timeout correction (audit-w3-f3, 2026-11-13): 5 entries
+# appended after F2's re-proof showed the bundle proof's 11
+# timeout-kills were parallel-load artifacts (600s guard, 11/11
+# survived). F3 re-proved the 11 against the committed kill-test
+# file: 5 killed by existing tests, 1 killed by a new fmt="zz"
+# test, 5 survived (4 postponed-evaluation annotations + 1
+# domain-equivalent tar-branch Gt_Is). Corrected bundle
+# accounting: 328 = 195 exec-killed + 62 kill-test-killed + 12
+# equivalent + 55 annotation + 4 incompetent. See
+# hidden_files/audit-w3-worker-f.md sections 5-6 and
+# audit-w3-f3-reprove-bundle-timeouts.py.
 # POSITION REFRESH (2026-11-12, audit W3, head 85d14ce): W3 (watermark
 # payload binding, case sealing/signer binding/custody/privacy, offline
 # verification parity, ledger verification path) shifted lines in
@@ -55961,3 +55972,70 @@ kind = "domain-equivalent"
 source_text = "continue"
 source_fingerprint = "101845eef3618ecb4b81870ff6a942716817b0ea66e9984157eb3c14b8068127"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "Domain-equivalent mutant (verify_bundle step 4): the `continue` in the `else: unsupported_format` branch -> `break`. Unreachable: fmt is contract-restricted to \"tar.gz\"/\"zip\" (bundle.py:300), so the else branch never executes. Re-proved 2026-11-13 (audit-w3-f3-reprove-bundle.py): survives the W3 kill-test file."
+
+# --- F3 bundle timeout correction (audit-w3-f3, 2026-11-13) --------
+# 5 entries: 4 postponed-evaluation annotations + 1
+# domain-equivalent (tar-branch Gt_Is [496,35]). Each entry
+# survived the re-proof and carries a source-verified equivalence
+# reason; the other 6 timeout mutants were killed by the W3 kill
+# tests (5 by existing tests, 1 by the new fmt="zz" test).
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_BitXor:8"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 8
+start_pos = [377, 21]
+end_pos = [377, 22]
+function = "verify_bundle"
+kind = "arg"
+annotation = "str | Path"
+reason = "Postponed-evaluation annotation (argument of verify_bundle): the `|` in `str | Path` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Mod:6"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 6
+start_pos = [334, 33]
+end_pos = [334, 34]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Mul:5"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 5
+start_pos = [285, 76]
+end_pos = [285, 77]
+function = "_validate_manifest_contract"
+kind = "return"
+annotation = "tuple[BundleManifest | None, list[str]]"
+reason = "Postponed-evaluation annotation (return of _validate_manifest_contract): the `|` in `tuple[BundleManifest | None, list[str]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceBinaryOperator_BitOr_Pow:6"
+module = "textforensics.bundle"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 6
+start_pos = [334, 33]
+end_pos = [334, 34]
+function = "_list_archive_members"
+kind = "return"
+annotation = "tuple[list[tuple[str, int]] | None, str | None]"
+reason = "Postponed-evaluation annotation (return of _list_archive_members): the `|` in `tuple[list[tuple[str, int]] | None, str | None]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.bundle:core/ReplaceComparisonOperator_Gt_Is:5"
+module = "textforensics.bundle"
+operator = "core/ReplaceComparisonOperator_Gt_Is"
+occurrence = 5
+start_pos = [496, 35]
+end_pos = [496, 36]
+function = "verify_bundle"
+kind = "domain-equivalent"
+source_text = ">"
+source_fingerprint = "101845eef3618ecb4b81870ff6a942716817b0ea66e9984157eb3c14b8068127"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (verify_bundle step 4, tar branch): `member.size > MAX_BUNDLE_FILE_BYTES` -> `is`. Step 3 pre-flags every member with size > MAX_BUNDLE_FILE_BYTES and step 4 skips flagged entries at line 491 before any getmember/getinfo call, so step 4 only ever sees size <= MAX, where `>` and `is` are both False. Same pre-filtering proof as the zip-branch [511,38] entry. Re-proved 2026-11-13 (audit-w3-f3-reprove-bundle-timeouts.py): survives the W3 kill-test file (36 tests)."
