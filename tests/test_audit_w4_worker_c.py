@@ -3,6 +3,7 @@
 Every test states its expectation from the audit report / plan, not from
 current output (red-tests-first). Synthetic data only; no real user text.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -60,11 +61,21 @@ def _corpus() -> dict:
     }
 
 
-def _record(sample_id, *, score, verdict, text_sha=None, direction="higher_means_ai",
-            threshold=0.5, detector_id="det-a"):
+def _record(
+    sample_id,
+    *,
+    score,
+    verdict,
+    text_sha=None,
+    direction="higher_means_ai",
+    threshold=0.5,
+    detector_id="det-a",
+):
     return {
         "sample_id": sample_id,
-        "text_sha256": text_sha if text_sha is not None else _sha(
+        "text_sha256": text_sha
+        if text_sha is not None
+        else _sha(
             "human probe sentence one." if sample_id == "s1" else "human probe sentence two."
         ),
         "detector_id": detector_id,
@@ -361,10 +372,13 @@ class TestS05ImportedSnapshots:
     def test_compare_rejects_duplicate_records_and_bad_counts(self):
         obs = DriftObservatory(corpus=_corpus())
         snap = _snapshot(obs, [_record("s1", score=0.5, verdict="human_like")])
-        dup = _snapshot(obs, [
-            _record("s1", score=0.5, verdict="human_like"),
-            _record("s1", score=0.6, verdict="ai_like"),
-        ])
+        dup = _snapshot(
+            obs,
+            [
+                _record("s1", score=0.5, verdict="human_like"),
+                _record("s1", score=0.6, verdict="ai_like"),
+            ],
+        )
         dup["record_count"] = 2
         with pytest.raises(ValueError, match="uplicate"):
             obs.compare_snapshots(snap, dup)
@@ -391,8 +405,10 @@ class TestS05ImportedSnapshots:
         path = tmp_path / "store.json"
         path.write_text(
             json.dumps(
-                {"schema": "textforensics.drift-snapshot-store/v1",
-                 "snapshots": [_snapshot(obs, records)]},
+                {
+                    "schema": "textforensics.drift-snapshot-store/v1",
+                    "snapshots": [_snapshot(obs, records)],
+                },
                 allow_nan=False,
             ),
             encoding="utf-8",
@@ -409,17 +425,29 @@ class TestS05ImportedSnapshots:
             obs,
             [_record("s1", score=0.5, verdict="human_like")],
             snapshot_id="base",
-            failures=[{"sample_id": "s2", "detector_id": "det-failed",
-                       "detector_version": "1.0", "error_type": "timeout",
-                       "observed_at": "2026-01-01T00:00:00+00:00"}],
+            failures=[
+                {
+                    "sample_id": "s2",
+                    "detector_id": "det-failed",
+                    "detector_version": "1.0",
+                    "error_type": "timeout",
+                    "observed_at": "2026-01-01T00:00:00+00:00",
+                }
+            ],
         )
         cur = _snapshot(
             obs,
             [_record("s1", score=0.5, verdict="human_like")],
             snapshot_id="cur",
-            failures=[{"sample_id": "s2", "detector_id": "det-failed",
-                       "detector_version": "1.0", "error_type": "timeout",
-                       "observed_at": "2026-01-01T00:00:00+00:00"}],
+            failures=[
+                {
+                    "sample_id": "s2",
+                    "detector_id": "det-failed",
+                    "detector_version": "1.0",
+                    "error_type": "timeout",
+                    "observed_at": "2026-01-01T00:00:00+00:00",
+                }
+            ],
         )
         report = obs.compare_snapshots(base, cur)
         ids = [d["detector_id"] for d in report["detectors"]]
@@ -438,8 +466,9 @@ class TestS05ImportedSnapshots:
         with pytest.raises(ValueError):
             DriftObservatory.read_snapshot_file(path)
         nan_path = tmp_path / "nan.json"
-        nan_path.write_text(json.dumps(snap).replace('"score": 0.5', '"score": NaN'),
-                            encoding="utf-8")
+        nan_path.write_text(
+            json.dumps(snap).replace('"score": 0.5', '"score": NaN'), encoding="utf-8"
+        )
         with pytest.raises(ValueError):
             DriftObservatory.read_snapshot_file(nan_path)
 
@@ -452,21 +481,49 @@ class TestS09ScoreDirection:
         """Audit repro /state_followup/lower_score_direction_ignored:
         human 0.9, AI 0.1, lower-means-AI must yield TPR 1 at FPR 0."""
         records = [
-            {"sample_id": "h1", "score": 0.9, "verdict": "human_like",
-             "native_score_direction": "lower_means_ai", "threshold": 0.5},
-            {"sample_id": "h2", "score": 0.9, "verdict": "human_like",
-             "native_score_direction": "lower_means_ai", "threshold": 0.5},
-            {"sample_id": "a1", "score": 0.1, "verdict": "ai_like",
-             "native_score_direction": "lower_means_ai", "threshold": 0.5},
-            {"sample_id": "a2", "score": 0.1, "verdict": "ai_like",
-             "native_score_direction": "lower_means_ai", "threshold": 0.5},
+            {
+                "sample_id": "h1",
+                "score": 0.9,
+                "verdict": "human_like",
+                "native_score_direction": "lower_means_ai",
+                "threshold": 0.5,
+            },
+            {
+                "sample_id": "h2",
+                "score": 0.9,
+                "verdict": "human_like",
+                "native_score_direction": "lower_means_ai",
+                "threshold": 0.5,
+            },
+            {
+                "sample_id": "a1",
+                "score": 0.1,
+                "verdict": "ai_like",
+                "native_score_direction": "lower_means_ai",
+                "threshold": 0.5,
+            },
+            {
+                "sample_id": "a2",
+                "score": 0.1,
+                "verdict": "ai_like",
+                "native_score_direction": "lower_means_ai",
+                "threshold": 0.5,
+            },
         ]
         labels = {"h1": 0, "h2": 0, "a1": 1, "a2": 1}
-        slices = {"h1": "human-native", "h2": "human-native",
-                  "a1": "ai-paraphrased", "a2": "ai-paraphrased"}
+        slices = {
+            "h1": "human-native",
+            "h2": "human-native",
+            "a1": "ai-paraphrased",
+            "a2": "ai-paraphrased",
+        }
         out = compute_run_metrics(
-            current_records=records, baseline_records=None, previous_records=None,
-            labels=labels, slices=slices, detector_id="det-a",
+            current_records=records,
+            baseline_records=None,
+            previous_records=None,
+            labels=labels,
+            slices=slices,
+            detector_id="det-a",
         )
         attacked = out["slices"]["ai-paraphrased"]["attacked_tpr"]
         assert attacked["tpr_at_1pct_fpr"] == pytest.approx(1.0)
@@ -477,13 +534,25 @@ class TestS09ScoreDirection:
     def test_higher_and_lower_affine_equivalent_detectors_agree(self):
         def _run(direction, h_score, a_score):
             records = [
-                {"sample_id": "h1", "score": h_score, "verdict": "human_like",
-                 "native_score_direction": direction, "threshold": 0.5},
-                {"sample_id": "a1", "score": a_score, "verdict": "ai_like",
-                 "native_score_direction": direction, "threshold": 0.5},
+                {
+                    "sample_id": "h1",
+                    "score": h_score,
+                    "verdict": "human_like",
+                    "native_score_direction": direction,
+                    "threshold": 0.5,
+                },
+                {
+                    "sample_id": "a1",
+                    "score": a_score,
+                    "verdict": "ai_like",
+                    "native_score_direction": direction,
+                    "threshold": 0.5,
+                },
             ]
             return compute_run_metrics(
-                current_records=records, baseline_records=None, previous_records=None,
+                current_records=records,
+                baseline_records=None,
+                previous_records=None,
                 labels={"h1": 0, "a1": 1},
                 slices={"h1": "human-native", "a1": "ai-paraphrased"},
                 detector_id="det-a",
@@ -496,13 +565,19 @@ class TestS09ScoreDirection:
 
     def test_mixed_known_and_unknown_direction_fails_closed(self):
         records = [
-            {"sample_id": "h1", "score": 0.9, "verdict": "human_like",
-             "native_score_direction": "lower_means_ai"},
+            {
+                "sample_id": "h1",
+                "score": 0.9,
+                "verdict": "human_like",
+                "native_score_direction": "lower_means_ai",
+            },
             {"sample_id": "h2", "score": 0.9, "verdict": "human_like"},
         ]
         with pytest.raises(ProbeRunError, match="direction"):
             compute_run_metrics(
-                current_records=records, baseline_records=None, previous_records=None,
+                current_records=records,
+                baseline_records=None,
+                previous_records=None,
                 labels={"h1": 0, "h2": 0},
                 slices={"h1": "human-native", "h2": "human-native"},
                 detector_id="det-a",
@@ -551,8 +626,7 @@ class TestS10Nonfinite:
         obs = DriftObservatory(corpus=_corpus())
         snap = _snapshot(obs, [_record("s1", score=0.5, verdict="human_like")])
         path = tmp_path / "store.json"
-        raw = json.dumps({"schema": "textforensics.drift-snapshot-store/v1",
-                          "snapshots": [snap]})
+        raw = json.dumps({"schema": "textforensics.drift-snapshot-store/v1", "snapshots": [snap]})
         path.write_text(raw.replace('"score": 0.5', '"score": NaN'), encoding="utf-8")
         with pytest.raises(ValueError):
             obs.load_snapshots(path)
@@ -587,17 +661,34 @@ class TestS21PartialCalibratedBaseline:
         current calibrated items, one baseline item — no KeyError, and
         the missing calibration is recorded as structured evidence."""
         current = [
-            {"sample_id": "s", "score": 0.2, "verdict": "human_like",
-             "calibrated_ai_probability": 0.2, "calibration_id": "c1"},
-            {"sample_id": "t", "score": 0.8, "verdict": "ai_like",
-             "calibrated_ai_probability": 0.8, "calibration_id": "c1"},
+            {
+                "sample_id": "s",
+                "score": 0.2,
+                "verdict": "human_like",
+                "calibrated_ai_probability": 0.2,
+                "calibration_id": "c1",
+            },
+            {
+                "sample_id": "t",
+                "score": 0.8,
+                "verdict": "ai_like",
+                "calibrated_ai_probability": 0.8,
+                "calibration_id": "c1",
+            },
         ]
         baseline = [
-            {"sample_id": "s", "score": 0.2, "verdict": "human_like",
-             "calibrated_ai_probability": 0.2, "calibration_id": "c1"},
+            {
+                "sample_id": "s",
+                "score": 0.2,
+                "verdict": "human_like",
+                "calibrated_ai_probability": 0.2,
+                "calibration_id": "c1",
+            },
         ]
         out = compute_run_metrics(
-            current_records=current, baseline_records=baseline, previous_records=None,
+            current_records=current,
+            baseline_records=baseline,
+            previous_records=None,
             labels={"s": 0, "t": 1},
             slices={"s": "human-native", "t": "ai-paraphrased"},
             detector_id="det-a",
@@ -613,16 +704,30 @@ class TestS21PartialCalibratedBaseline:
 
     def test_complete_baseline_has_no_missing_calibration(self):
         current = [
-            {"sample_id": "s", "score": 0.2, "verdict": "human_like",
-             "calibrated_ai_probability": 0.2, "calibration_id": "c1"},
+            {
+                "sample_id": "s",
+                "score": 0.2,
+                "verdict": "human_like",
+                "calibrated_ai_probability": 0.2,
+                "calibration_id": "c1",
+            },
         ]
         baseline = [
-            {"sample_id": "s", "score": 0.2, "verdict": "human_like",
-             "calibrated_ai_probability": 0.2, "calibration_id": "c1"},
+            {
+                "sample_id": "s",
+                "score": 0.2,
+                "verdict": "human_like",
+                "calibrated_ai_probability": 0.2,
+                "calibration_id": "c1",
+            },
         ]
         out = compute_run_metrics(
-            current_records=current, baseline_records=baseline, previous_records=None,
-            labels={"s": 0}, slices={"s": "human-native"}, detector_id="det-a",
+            current_records=current,
+            baseline_records=baseline,
+            previous_records=None,
+            labels={"s": 0},
+            slices={"s": "human-native"},
+            detector_id="det-a",
         )
         cal = out["overall"]["calibration"]
         assert cal["baseline_ece"] is not None
@@ -721,8 +826,15 @@ class TestS22EnterpriseDigestAndFrozenPolicy:
             revision=1,
             digest="",
             settings={},
-            rules=[{"id": "r1", "description": "d", "action": "log", "scope": "all",
-                    "conditions": conditions}],
+            rules=[
+                {
+                    "id": "r1",
+                    "description": "d",
+                    "action": "log",
+                    "scope": "all",
+                    "conditions": conditions,
+                }
+            ],
         )
 
     def test_conditions_change_the_digest(self):
@@ -732,7 +844,9 @@ class TestS22EnterpriseDigestAndFrozenPolicy:
 
     def test_absent_and_empty_conditions_digest_the_same(self):
         no_cond = EnterprisePolicy(
-            revision=1, digest="", settings={},
+            revision=1,
+            digest="",
+            settings={},
             rules=[{"id": "r1", "description": "d", "action": "log", "scope": "all"}],
         )
         empty_cond = self._policy({})
@@ -741,9 +855,19 @@ class TestS22EnterpriseDigestAndFrozenPolicy:
     def test_load_policy_rejects_nonempty_conditions(self):
         engine = EnterprisePolicyEngine()
         errors = engine.load_policy(
-            {"revision": 1, "settings": {},
-             "rules": [{"id": "r1", "description": "d", "action": "log", "scope": "all",
-                        "conditions": {"env": "prod"}}]}
+            {
+                "revision": 1,
+                "settings": {},
+                "rules": [
+                    {
+                        "id": "r1",
+                        "description": "d",
+                        "action": "log",
+                        "scope": "all",
+                        "conditions": {"env": "prod"},
+                    }
+                ],
+            }
         )
         assert errors
         assert "condition" in " ".join(errors).lower()
@@ -751,10 +875,16 @@ class TestS22EnterpriseDigestAndFrozenPolicy:
 
     def test_frozen_policy_is_deeply_immutable(self):
         engine = EnterprisePolicyEngine()
-        assert engine.load_policy(
-            {"revision": 1, "settings": {"nested": {"flag": True}},
-             "rules": [{"id": "r1", "description": "d", "action": "log", "scope": "all"}]}
-        ) == []
+        assert (
+            engine.load_policy(
+                {
+                    "revision": 1,
+                    "settings": {"nested": {"flag": True}},
+                    "rules": [{"id": "r1", "description": "d", "action": "log", "scope": "all"}],
+                }
+            )
+            == []
+        )
         policy = engine.policy
         assert policy is not None
         with pytest.raises(TypeError):
@@ -769,8 +899,11 @@ class TestS22EnterpriseDigestAndFrozenPolicy:
     def test_to_dict_mutation_cannot_change_policy(self):
         engine = EnterprisePolicyEngine()
         engine.load_policy(
-            {"revision": 1, "settings": {},
-             "rules": [{"id": "r1", "description": "d", "action": "log", "scope": "all"}]}
+            {
+                "revision": 1,
+                "settings": {},
+                "rules": [{"id": "r1", "description": "d", "action": "log", "scope": "all"}],
+            }
         )
         policy = engine.policy
         assert policy is not None
@@ -783,16 +916,27 @@ class TestS22EnterpriseDigestAndFrozenPolicy:
     def test_unknown_action_rejected_at_construction(self):
         with pytest.raises(ValueError, match="action"):
             EnterprisePolicy(
-                revision=1, digest="", settings={},
+                revision=1,
+                digest="",
+                settings={},
                 rules=[{"id": "r1", "description": "d", "action": "explode", "scope": "all"}],
             )
 
     def test_engine_setter_rejects_unvalidated_policy(self):
         engine = EnterprisePolicyEngine()
         bad = EnterprisePolicy(
-            revision=1, digest="", settings={},
-            rules=[{"id": "r1", "description": "d", "action": "log", "scope": "all",
-                    "conditions": {"env": "prod"}}],
+            revision=1,
+            digest="",
+            settings={},
+            rules=[
+                {
+                    "id": "r1",
+                    "description": "d",
+                    "action": "log",
+                    "scope": "all",
+                    "conditions": {"env": "prod"},
+                }
+            ],
         )
         with pytest.raises(ValueError, match="condition"):
             engine.policy = bad
@@ -835,10 +979,7 @@ class TestS22ModelCardCodecOracles:
 
     def test_codec_decode_rejects_nan_token(self):
         codec = ResultCodec()
-        payload = (
-            b'{"schema": "textforensics.enterprise-policy/v1", '
-            b'"settings": {"x": NaN}}'
-        )
+        payload = b'{"schema": "textforensics.enterprise-policy/v1", "settings": {"x": NaN}}'
         with pytest.raises(Exception, match="NaN|non-finite"):
             codec.decode(payload, "enterprise-policy", validate=False)
 
@@ -905,9 +1046,7 @@ class TestCore04FrozenCalibration:
         hashing must not remain eligible under the old hash."""
         artifact = _eligible_artifact()
         assert artifact.eligible_for_probability is True
-        object.__setattr__(
-            artifact, "metrics", {"brier": 0.0, "ece": 0.0, "log_loss": 0.0}
-        )
+        object.__setattr__(artifact, "metrics", {"brier": 0.0, "ece": 0.0, "log_loss": 0.0})
         assert artifact.check_content_hash() is False
         assert artifact.eligible_for_probability is False
         assert any("content_hash" in issue for issue in artifact.validation_issues())
@@ -921,8 +1060,6 @@ class TestCore04FrozenCalibration:
 
     def test_tampered_artifact_cannot_be_applied(self):
         artifact = _eligible_artifact()
-        object.__setattr__(
-            artifact, "metrics", {"brier": 0.0, "ece": 0.0, "log_loss": 0.0}
-        )
+        object.__setattr__(artifact, "metrics", {"brier": 0.0, "ece": 0.0, "log_loss": 0.0})
         with pytest.raises(CalibrationError):
             artifact.calibrate(0.5)

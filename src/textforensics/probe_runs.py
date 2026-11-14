@@ -2870,8 +2870,7 @@ def perform_probe_run(
             and slice_missing is not overall_missing
         ):
             gaps.append(
-                f"Missing calibration evidence on slice {slice_name!r}: "
-                f"{slice_missing['reason']}"
+                f"Missing calibration evidence on slice {slice_name!r}: {slice_missing['reason']}"
             )
 
     manifest_out = build_run_manifest(

@@ -1281,13 +1281,9 @@ class DriftObservatory:
 
         corpus_sha = snapshot.get("corpus_sha256")
         if not _is_hex64(corpus_sha):
-            raise ValueError(
-                "Drift snapshot corpus_sha256 must be a 64-character hex digest."
-            )
+            raise ValueError("Drift snapshot corpus_sha256 must be a 64-character hex digest.")
         if corpus_sha != self.corpus_sha256:
-            raise ValueError(
-                "Drift snapshot corpus_sha256 does not match the loaded probe corpus."
-            )
+            raise ValueError("Drift snapshot corpus_sha256 does not match the loaded probe corpus.")
 
         taken_at = snapshot.get("taken_at")
         if taken_at is not None:
@@ -1313,9 +1309,7 @@ class DriftObservatory:
         for record in normalized_records:
             key = (record["detector_id"], record["sample_id"])
             if key in seen:
-                raise ValueError(
-                    f"Duplicate drift record for detector {key[0]} sample {key[1]}."
-                )
+                raise ValueError(f"Duplicate drift record for detector {key[0]} sample {key[1]}.")
             seen.add(key)
 
         validated = dict(snapshot)

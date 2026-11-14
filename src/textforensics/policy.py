@@ -860,7 +860,9 @@ def _deep_freeze_policy_value(value: Any) -> Any:
     while the stored digest stays unchanged (S22/§4.2.2 item 3).
     """
     if isinstance(value, Mapping):
-        return MappingProxyType({key: _deep_freeze_policy_value(item) for key, item in value.items()})
+        return MappingProxyType(
+            {key: _deep_freeze_policy_value(item) for key, item in value.items()}
+        )
     if isinstance(value, (list, tuple)):
         return tuple(_deep_freeze_policy_value(item) for item in value)
     if isinstance(value, (set, frozenset)):

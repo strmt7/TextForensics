@@ -2120,9 +2120,10 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             _write_json(None, payload)
             print(f"Registered: {args.detector}/{args.capability} ({tier.value})")
             if issues or not effective:
-                detail = "; ".join(issues) if issues else (
-                    "claim is not currently effective "
-                    "(expired or missing executed evidence)"
+                detail = (
+                    "; ".join(issues)
+                    if issues
+                    else ("claim is not currently effective (expired or missing executed evidence)")
                 )
                 print(
                     f"warning: registered claim {args.detector}/{args.capability} "
