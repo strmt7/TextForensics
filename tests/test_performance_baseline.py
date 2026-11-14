@@ -27,7 +27,7 @@ WORKFLOW = REPO_ROOT / ".github" / "workflows" / "benchmark.yml"
 # The old pin cf430e030ddbb5b0abf93d22962f4752f3646cd9 is an
 # upload-artifact commit: the same endpoint returns HTTP 422 for it
 # in actions/download-artifact.
-VALIDATED_DOWNLOAD_ARTIFACT_SHA = "37930b1c2abaa49bbe596cd826c3c89aef350131"  # v7.0.0
+VALIDATED_DOWNLOAD_ARTIFACT_SHA = "9000827ccba6bdab643e8b6fd33ac0654aef8333"  # v8.0.2
 INVALID_DOWNLOAD_ARTIFACT_SHA = "cf430e030ddbb5b0abf93d22962f4752f3646cd9"
 
 
