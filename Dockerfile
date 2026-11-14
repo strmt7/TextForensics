@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.15-slim AS builder
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928 AS builder
 
 # Build-time trust knob for TLS-intercepting egress proxies (empty by
 # default: pip verifies TLS normally). Behind such a proxy, pass e.g.
@@ -29,7 +29,7 @@ RUN python -m pip wheel \
 
 # ── Runtime stage ────────────────────────────────────────────────────────────
 
-FROM python:3.15-slim AS runtime
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928 AS runtime
 
 LABEL org.opencontainers.image.source="https://github.com/strmt7/TextForensics" \
       org.opencontainers.image.title="TextForensics" \
@@ -55,9 +55,12 @@ ENV PYTHONUNBUFFERED=1 \
 # and docs/INSTALLATION.md) and never `-p 8765:8765`. The API has no
 # authentication and must never be published on a network interface.
 
-# Install runtime deps from pre-built wheels
+# Install runtime deps from pre-built wheels (built in this Dockerfile from
+# the repo source; --no-index means no remote download, so the only
+# supply-chain input is the local wheel). Pinned to the repo version so the
+# exact built version is installed, not whatever wheel happens to be present.
 COPY --from=builder /wheels /wheels
-RUN python -m pip install --no-index --find-links=/wheels "textforensics[api]" \
+RUN python -m pip install --no-index --find-links=/wheels "textforensics[api]==0.2.0" \
     && rm -rf /wheels /tmp/pip*
 
 WORKDIR /app
