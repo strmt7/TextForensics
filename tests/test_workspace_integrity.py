@@ -421,6 +421,8 @@ class TestWorkspaceIntegrityReport:
             assert loaded.audit_chain_valid is True
             assert loaded.audit_chain_length == 5
             assert loaded.overall_status == "healthy"
+            # C17: the chain status round-trips (default: not requested).
+            assert loaded.audit_chain_status == "not_requested"
 
     def test_load_corrupt_report(self):
         with tempfile.TemporaryDirectory() as td:
@@ -488,6 +490,227 @@ class TestVerifyWorkspaceIntegrity:
             report = verify_workspace_integrity(workspace, audit_chain_path=chain_path)
             assert report.audit_chain_valid is False
             assert report.overall_status == "compromised"
+
+
+class TestAuditChainHeadValidationC16:
+    """C16: loaded workspace chains must validate their serialized head
+    fields against the actual entries instead of trusting them.
+
+    Reproduction (pre-W4): changing serialized ``chain_hash`` and
+    ``last_entry_hash`` to zeroes still loaded as valid, and the next
+    ``add_entry`` linked from the unverified cached last hash and
+    broke the previously accepted chain.
+    """
+
+    @staticmethod
+    def _saved_chain(tmp_path: Path, entries: int = 2) -> Path:
+        chain = create_audit_chain()
+        for i in range(entries):
+            chain.add_entry(f"op{i}", f"id{i}", {"n": i})
+        path = tmp_path / "chain.json"
+        assert save_audit_chain(chain, path) is True
+        return path
+
+    @staticmethod
+    def _rewrite_chain(path: Path, mutate) -> None:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        mutate(data)
+        path.write_text(json.dumps(data), encoding="utf-8")
+
+    def test_mutated_chain_hash_rejected_on_load(self, tmp_path: Path):
+        """A serialized chain_hash that disagrees with the entries is
+        rejected at load: the chain is unusable, not silently valid."""
+        path = self._saved_chain(tmp_path)
+        self._rewrite_chain(path, lambda data: data.update(chain_hash="0" * 64))
+        assert load_audit_chain(path) is None
+
+    def test_mutated_last_entry_hash_rejected_on_load(self, tmp_path: Path):
+        """A serialized last_entry_hash of zeroes is rejected at load,
+        so no later append can link from the unverified cached head."""
+        path = self._saved_chain(tmp_path)
+        self._rewrite_chain(path, lambda data: data.update(last_entry_hash="0" * 64))
+        assert load_audit_chain(path) is None
+
+    def test_omitted_head_fields_recomputed_on_load(self, tmp_path: Path):
+        """Heads that are absent (not tampered with) are recomputed
+        from the entries: older files that omit them still load when
+        their entries verify."""
+        path = self._saved_chain(tmp_path)
+        self._rewrite_chain(
+            path, lambda data: (data.pop("chain_hash"), data.pop("last_entry_hash"))
+        )
+        loaded = load_audit_chain(path)
+        assert loaded is not None
+        assert loaded.chain_hash == loaded.compute_chain_hash()
+        assert loaded.last_entry_hash == loaded.entries[-1].entry_hash
+        valid, error = verify_audit_chain(loaded)
+        assert valid is True
+        assert error is None
+
+    def test_noncontiguous_indices_rejected_on_load(self, tmp_path: Path):
+        """A renumbered entry is rejected at load, even when the
+        serialized heads still match the stored entries."""
+        path = self._saved_chain(tmp_path)
+
+        def _renumber(data):
+            data["entries"][1]["index"] = 5
+
+        self._rewrite_chain(path, _renumber)
+        assert load_audit_chain(path) is None
+
+    def test_unsupported_version_rejected_on_load(self, tmp_path: Path):
+        """A chain declaring an unknown version is rejected at load
+        instead of being verified under unknown rules."""
+        path = self._saved_chain(tmp_path)
+        self._rewrite_chain(path, lambda data: data.update(version=99))
+        assert load_audit_chain(path) is None
+
+    def test_append_after_valid_load_uses_verified_last_hash(self, tmp_path: Path):
+        """Control: a valid save-load-append round trip stays valid --
+        the new entry links from the verified last entry."""
+        path = self._saved_chain(tmp_path)
+        loaded = load_audit_chain(path)
+        assert loaded is not None
+        loaded.add_entry("op2", "id2", {"n": 2})
+        valid, error = verify_audit_chain(loaded)
+        assert valid is True
+        assert error is None
+        assert len(loaded.entries) == 3
+
+    def test_verify_chain_detects_cached_head_mismatch_in_memory(self):
+        """Tampering with the cached heads of an in-memory chain is
+        detected by verify_chain even when the entries are intact."""
+        chain = create_audit_chain()
+        chain.add_entry("op1", "id1", {"a": 1})
+        chain.chain_hash = "0" * 64
+        valid, error = verify_audit_chain(chain)
+        assert valid is False
+        assert error is not None
+        assert "chain_hash" in error
+
+        chain2 = create_audit_chain()
+        chain2.add_entry("op1", "id1", {"a": 1})
+        chain2._last_entry_hash = "0" * 64
+        valid, error = verify_audit_chain(chain2)
+        assert valid is False
+        assert error is not None
+        assert "last_entry_hash" in error
+
+    def test_verify_chain_detects_noncontiguous_index_in_memory(self):
+        """A renumbered entry is detected by verify_chain itself, not
+        only at load time."""
+        chain = create_audit_chain()
+        chain.add_entry("op1", "id1", {"a": 1})
+        entry2 = chain.add_entry("op2", "id2", {"b": 2})
+        renumbered = AuditChainEntry(
+            index=9,
+            timestamp=entry2.timestamp,
+            operation=entry2.operation,
+            operation_id=entry2.operation_id,
+            payload_hash=entry2.payload_hash,
+            previous_hash=entry2.previous_hash,
+            entry_hash=entry2.entry_hash,
+            metadata=entry2.metadata,
+        )
+        chain.entries[1] = renumbered
+        valid, error = verify_audit_chain(chain)
+        assert valid is False
+        assert error is not None
+        assert "index" in error.lower()
+
+
+class TestMissingRequiredChainC17:
+    """C17: an explicitly requested missing workspace chain must be
+    reported missing/unhealthy, never healthy.
+
+    Reproduction (pre-W4): passing a path to a nonexistent chain for a
+    clean workspace reported ``audit_chain_valid=true`` and
+    ``overall_status="healthy"``. The deliberate no-chain mode (no
+    path supplied) keeps its own label and stays healthy.
+    """
+
+    @staticmethod
+    def _workspace(tmp_path: Path) -> Path:
+        workspace = tmp_path
+        (workspace / "pyproject.toml").write_text("name = 'test'")
+        return workspace
+
+    def test_explicitly_missing_chain_is_not_healthy(self, tmp_path: Path):
+        """The audit's case: a requested chain file that does not exist
+        fails closed."""
+        report = verify_workspace_integrity(
+            self._workspace(tmp_path),
+            audit_chain_path=tmp_path / "missing-chain.json",
+        )
+        assert report.audit_chain_valid is False
+        assert report.audit_chain_length == 0
+        assert report.audit_chain_status == "missing"
+        assert report.overall_status == "compromised"
+
+    def test_no_chain_requested_stays_healthy_and_labelled(self, tmp_path: Path):
+        """Control: the deliberate no-chain mode is preserved as a
+        separately labelled status, not confused with a verified chain."""
+        report = verify_workspace_integrity(self._workspace(tmp_path))
+        assert report.audit_chain_valid is True
+        assert report.audit_chain_status == "not_requested"
+        assert report.overall_status == "healthy"
+
+    def test_unreadable_chain_is_not_healthy(self, tmp_path: Path):
+        """A chain path that exists but cannot be read (here: a
+        directory) is reported unreadable, never healthy."""
+        report = verify_workspace_integrity(
+            self._workspace(tmp_path),
+            audit_chain_path=tmp_path,
+        )
+        assert report.audit_chain_valid is False
+        assert report.audit_chain_status == "unreadable"
+        assert report.overall_status == "compromised"
+
+    def test_malformed_chain_is_not_healthy(self, tmp_path: Path):
+        """An unparseable chain file is reported malformed, never healthy."""
+        chain_path = tmp_path / "chain.json"
+        chain_path.write_text("not json")
+        report = verify_workspace_integrity(self._workspace(tmp_path), audit_chain_path=chain_path)
+        assert report.audit_chain_valid is False
+        assert report.audit_chain_status == "malformed"
+        assert report.overall_status == "compromised"
+
+    def test_deleted_previously_present_chain(self, tmp_path: Path):
+        """A chain that was present and valid, then deleted, is missing
+        on the next verification -- the prior healthy result does not
+        carry over."""
+        workspace = self._workspace(tmp_path)
+        chain = create_audit_chain()
+        chain.add_entry("op1", "id1", {"a": 1})
+        chain_path = workspace / "audit_chain.json"
+        assert save_audit_chain(chain, chain_path) is True
+        report = verify_workspace_integrity(workspace, audit_chain_path=chain_path)
+        assert report.audit_chain_valid is True
+        assert report.audit_chain_status == "valid"
+        assert report.overall_status == "healthy"
+
+        chain_path.unlink()
+        report = verify_workspace_integrity(workspace, audit_chain_path=chain_path)
+        assert report.audit_chain_valid is False
+        assert report.audit_chain_status == "missing"
+        assert report.overall_status == "compromised"
+
+    def test_head_tampered_chain_is_not_healthy(self, tmp_path: Path):
+        """A chain whose serialized heads were zeroed (C16) is
+        malformed at load and therefore never reported healthy here."""
+        workspace = self._workspace(tmp_path)
+        chain = create_audit_chain()
+        chain.add_entry("op1", "id1", {"a": 1})
+        chain_path = workspace / "audit_chain.json"
+        assert save_audit_chain(chain, chain_path) is True
+        data = json.loads(chain_path.read_text(encoding="utf-8"))
+        data["chain_hash"] = "0" * 64
+        data["last_entry_hash"] = "0" * 64
+        chain_path.write_text(json.dumps(data), encoding="utf-8")
+        report = verify_workspace_integrity(workspace, audit_chain_path=chain_path)
+        assert report.audit_chain_valid is False
+        assert report.audit_chain_status == "malformed"
+        assert report.overall_status == "compromised"
 
 
 if __name__ == "__main__":

@@ -35,6 +35,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import struct
+import threading
 import uuid
 from collections import defaultdict, deque
 from collections.abc import Callable, Iterator, Sequence
@@ -348,6 +350,11 @@ class AuditLog:
 
     def __init__(self, log_path: str | Path):
         self.log_path = Path(log_path)
+        # In-process lock for same-instance threads; cross-process and
+        # cross-instance serialization is the file lock in ``append``
+        # (C15). Created before ``_load`` so a failed load can never
+        # leave the instance without a lock.
+        self._lock = threading.RLock()
         self._entries: list[AuditLogEntry] = []
         self._load()
 
@@ -360,10 +367,15 @@ class AuditLog:
         A log that lost its prefix therefore fails here -- its first
         surviving entry is not genesis -- instead of loading as a
         shorter, apparently valid log.
+
+        The load builds a fresh list and swaps it in only on success:
+        a failed (re)load -- e.g. inside an ``append`` transaction --
+        never disturbs the previously loaded in-memory state (C15).
         """
         if not self.log_path.exists():
             return
 
+        entries: list[AuditLogEntry] = []
         with self.log_path.open("r", encoding="utf-8") as f:
             for line_num, line in enumerate(f, 1):
                 line = line.strip()
@@ -373,20 +385,20 @@ class AuditLog:
                     data = json.loads(line)
                     entry = AuditLogEntry.from_dict(data)
                     # Genesis: the first entry must start the chain.
-                    if not self._entries and entry.prev_hash != "0" * 64:
+                    if not entries and entry.prev_hash != "0" * 64:
                         raise AuditLogError(
                             "First entry is not a genesis entry: "
                             "prev_hash must be all zeros "
                             f"(line {line_num})"
                         )
                     # Contiguous indices from 0: no gaps, no renumbering.
-                    if entry.index != len(self._entries):
+                    if entry.index != len(entries):
                         raise AuditLogError(
                             f"Non-contiguous index at entry {entry.index}: "
-                            f"expected {len(self._entries)} (line {line_num})"
+                            f"expected {len(entries)} (line {line_num})"
                         )
                     # Verify chain integrity on load
-                    if self._entries and entry.prev_hash != self._entries[-1].entry_hash:
+                    if entries and entry.prev_hash != entries[-1].entry_hash:
                         raise AuditLogError(
                             f"Hash chain broken at entry {entry.index}: "
                             f"prev_hash mismatch (line {line_num})"
@@ -395,15 +407,24 @@ class AuditLog:
                         raise AuditLogError(
                             f"Entry hash mismatch at entry {entry.index} (line {line_num})"
                         )
-                    self._entries.append(entry)
+                    entries.append(entry)
                 except (json.JSONDecodeError, KeyError, ValueError) as exc:
                     raise AuditLogError(f"Invalid entry at line {line_num}: {exc}") from exc
+        self._entries = entries
 
     def _append_to_file(self, entry: AuditLogEntry) -> None:
-        """Append a single entry to the log file."""
+        """Append a single entry to the log file.
+
+        The write is flushed and fsynced before the caller may treat
+        the entry as durable: an entry is acknowledged only after
+        persistence succeeds (C15). A failure here must leave the
+        caller's in-memory head untouched -- see :meth:`append`.
+        """
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         with self.log_path.open("a", encoding="utf-8") as f:
             f.write(entry.to_json_line() + "\n")
+            f.flush()
+            os.fsync(f.fileno())
 
     def append(
         self,
@@ -425,6 +446,46 @@ class AuditLog:
 
         Returns:
             The created audit log entry.
+        Append transaction (C15): the in-process lock serializes
+        threads sharing this instance, the file lock serializes
+        other instances and processes, and the log is reloaded and
+        re-validated under that lock before the next head is derived
+        -- so a stale instance can never derive an index from a
+        cached head. The entry is persisted (flush + fsync) BEFORE
+        the in-memory head advances: a failed write raises, the
+        in-memory head stays at the prior durable state, and the
+        next append re-derives its index from disk, so the stored
+        indices stay contiguous.
+        """
+        with self._lock, _ledger_lock(self.log_path):
+            # Reload under the lock: another writer may have
+            # appended since this instance loaded. A corrupt log
+            # raises here (fail closed) instead of being appended
+            # to; a failed reload leaves _entries untouched.
+            self._load()
+            return self._append_locked(
+                operation,
+                actor=actor,
+                input_data=input_data,
+                output_data=output_data,
+                metadata=metadata,
+            )
+
+    def _append_locked(
+        self,
+        operation: str,
+        *,
+        actor: str | None = None,
+        input_data: Any | None = None,
+        output_data: Any | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> AuditLogEntry:
+        """Build, persist, then commit one entry.
+
+        Caller must hold both :attr:`_lock` and the file lock and
+        must have reloaded the log first. Persistence precedes the
+        in-memory commit: if :meth:`_append_to_file` raises, this
+        method raises without touching ``_entries``.
         """
         index = len(self._entries)
         prev_hash = self._entries[-1].entry_hash if self._entries else "0" * 64
@@ -481,8 +542,10 @@ class AuditLog:
         # Verify the hash
         assert entry.entry_hash == _compute_entry_hash(entry.to_dict())
 
-        self._entries.append(entry)
+        # Persist FIRST, commit to memory only on success (C15): a
+        # failed write must not advance the in-memory head.
         self._append_to_file(entry)
+        self._entries.append(entry)
 
         return entry
 
@@ -506,11 +569,14 @@ class AuditLog:
         Returns:
             True if the chain is intact, False otherwise.
         """
-        if not self._entries:
+        with self._lock:
+            entries = list(self._entries)
+
+        if not entries:
             return True
 
         prev_hash = "0" * 64
-        for expected_index, entry in enumerate(self._entries):
+        for expected_index, entry in enumerate(entries):
             if entry.index != expected_index:
                 return False
             if entry.prev_hash != prev_hash:
@@ -1418,7 +1484,19 @@ def load_graph(path: str | Path) -> ProvenanceGraph:
 # External-anchor rollback detection (was audit_anchor.py)
 # ----------------------------------------------------------------------------
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+
+# Directory-hash framing version (C09). v1 (``SCHEMA_VERSION == 1``)
+# concatenated ``relative_path || NUL || raw_content || LF`` records with
+# no length framing and no per-file hashes, so file content could smuggle
+# the next record's delimiter/path bytes and two different trees shared
+# one digest. v2 frames every file unambiguously (see
+# :func:`_hash_directory`). Anchors exported under v1 store v1 digests,
+# which can never match a v2 recomputation; ``verify_audit_anchor``
+# therefore rejects v1 anchors explicitly instead of reporting a
+# misleading rollback -- see ``docs/ANCHOR_MIGRATION.md``.
+DIRECTORY_HASH_VERSION = 2
+DIRECTORY_HASH_HEADER = b"textforensics.directory-hash/v2\n"
 
 
 class RollbackError(Exception):
@@ -1445,6 +1523,10 @@ class AuditAnchor:
         calibration_chain: Ordered list of calibration artifact hashes.
         exported_at: ISO 8601 timestamp of export.
         schema_version: Schema version for forward compatibility.
+            Version 2 (current) stores v2-framed directory digests
+            (``textforensics.directory-hash/v2``); v1 anchors are
+            rejected by :func:`verify_audit_anchor`, never silently
+            compared -- see ``docs/ANCHOR_MIGRATION.md``.
     """
 
     calibration_artifacts_sha256: str
@@ -1472,7 +1554,7 @@ class AuditAnchor:
             detector_versions=dict(data.get("detector_versions", {})),
             calibration_chain=list(data.get("calibration_chain", [])),
             exported_at=str(data.get("exported_at", "")),
-            schema_version=int(data.get("schema_version", 1)),
+            schema_version=int(data.get("schema_version", SCHEMA_VERSION)),
         )
 
 
@@ -1484,29 +1566,77 @@ _HASH_CHUNK_SIZE = 1 << 20
 def _hash_directory(dir_path: Path) -> str:
     """Compute a deterministic SHA-256 hash of a directory tree.
 
-    Files are sorted by relative path and hashed sequentially. A missing
-    directory returns ``""`` (the literal empty-string sentinel meaning
-    "directory absent"). An existing directory with no files returns the
-    SHA-256 of empty input
-    (``e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855``).
-    The two cases are deliberately distinct: an absent directory must
-    never be confused with an empty one.
+    Versioned framing (v2, C09) -- the hashed preimage is unambiguous,
+    so distinct trees cannot share a digest through delimiter smuggling:
+
+    - A fixed version header (``textforensics.directory-hash/v2\\n``)
+      domain-separates v2 digests from every v1 digest.
+    - One length-prefixed record per file, in sorted order of the
+      portable (forward-slash) relative path: an 8-byte big-endian
+      length, the path bytes, an 8-byte big-endian content size, and
+      the 32-byte SHA-256 digest of the file's content (streamed in
+      1 MiB chunks, so a large artifact never has to fit in RAM).
+    - Because each record carries its own path length, content size
+      and per-file digest, raw content can no longer contain the next
+      record's boundary bytes: the two trees of the C09 evidence
+      (one file holding ``x\\nb.bin\\x00y`` vs two files holding ``x``
+      and ``y``) hash differently.
+
+    A missing directory returns ``""`` (the literal empty-string
+    sentinel meaning "directory absent"). An existing directory with
+    no files returns the SHA-256 of the version header alone, which
+    is distinct from both the missing sentinel and the SHA-256 of
+    empty input. A directory holding one empty file differs from an
+    empty directory: the empty file contributes a record (path length,
+    path, size 0, SHA-256 of empty input).
+
+    Symlinks: as in v1, a symlink to a file is followed and hashed as
+    the file at that path (the record carries the link path, not the
+    target); directory traversal follows ``Path.rglob`` semantics.
     """
     if not dir_path.is_dir():
         return ""
 
     hasher = hashlib.sha256()
-    for file_path in sorted(dir_path.rglob("*")):
-        if file_path.is_file():
-            # Include relative path in hash so renaming files changes the result
-            rel = str(file_path.relative_to(dir_path))
-            hasher.update(rel.encode("utf-8"))
-            hasher.update(b"\x00")
-            with file_path.open("rb") as handle:
-                while chunk := handle.read(_HASH_CHUNK_SIZE):
-                    hasher.update(chunk)
-            hasher.update(b"\n")
+    hasher.update(DIRECTORY_HASH_HEADER)
+    entries = sorted(
+        (p for p in dir_path.rglob("*") if p.is_file()),
+        key=lambda p: p.relative_to(dir_path).as_posix(),
+    )
+    for file_path in entries:
+        # Portable separators: the same tree hashes identically on
+        # POSIX and Windows.
+        rel = file_path.relative_to(dir_path).as_posix()
+        rel_bytes = rel.encode("utf-8")
+        content_hasher = hashlib.sha256()
+        size = 0
+        with file_path.open("rb") as handle:
+            while chunk := handle.read(_HASH_CHUNK_SIZE):
+                size += len(chunk)
+                content_hasher.update(chunk)
+        hasher.update(struct.pack(">Q", len(rel_bytes)))
+        hasher.update(rel_bytes)
+        hasher.update(struct.pack(">Q", size))
+        hasher.update(content_hasher.digest())
     return hasher.hexdigest()
+
+
+def _detect_detector_versions() -> dict[str, str]:
+    """Auto-detect detector versions, mirroring :func:`export_audit_anchor`.
+
+    A detection failure yields ``{}`` (no versions declared) rather
+    than raising: export and verify share this helper so both sides
+    observe the same versions in the same environment.
+    """
+    try:
+        from .detectors import list_detector_metadata
+
+        return {
+            item["detector_id"]: item.get("detector_version", "unknown")
+            for item in list_detector_metadata()
+        }
+    except Exception:
+        return {}
 
 
 def _resolve_base_dir() -> Path:
@@ -1544,15 +1674,7 @@ def export_audit_anchor(
     bench_hash = _hash_directory(bench_dir)
 
     if detector_versions is None:
-        try:
-            from .detectors import list_detector_metadata
-
-            detector_versions = {
-                item["detector_id"]: item.get("detector_version", "unknown")
-                for item in list_detector_metadata()
-            }
-        except Exception:
-            detector_versions = {}
+        detector_versions = _detect_detector_versions()
 
     if calibration_chain is None:
         calibration_chain = []
@@ -1571,27 +1693,65 @@ def verify_audit_anchor(
     anchor: AuditAnchor,
     current_chain: CalibrationChain | None = None,
     base_dir: Path | None = None,
+    detector_versions: dict[str, str] | None = None,
 ) -> str:
     """Verify that the current state has not rolled back relative to *anchor*.
 
-    Checks (in order of specificity):
-    1. If calibration and benchmark hashes match the anchor exactly, return
-       "no_changes".
-    2. If a ``CalibrationChain`` is provided and the current chain extends the
-       anchor's chain, return "chain_valid".
-    3. Otherwise raise ``RollbackError``.
+    Versioned state-transition check (C08): an unchanged or arbitrary
+    chain must never authorize changed artifact roots. A transition is
+    accepted only as a *bound* transition -- every bound dimension
+    must agree:
+
+    1. The anchor must use the current anchor schema version. A v1
+       anchor stores v1-framed directory digests, which can never
+       match a v2 recomputation; it is rejected with an explicit
+       migration error instead of a misleading rollback (see
+       ``docs/ANCHOR_MIGRATION.md``).
+    2. If calibration and benchmark roots match the anchor exactly
+       *and* the detector versions the anchor declares (if any) match
+       the current versions, return ``"no_changes"``.
+    3. Otherwise a ``CalibrationChain`` may authorize the change only
+       if it is a bound transition: a strict extension of the anchor
+       chain (an equal chain is not an extension), with valid entries,
+       whose final entry is the hash of the *current* calibration
+       root -- so a copied chain or an arbitrary appended digest
+       authorizes nothing -- *and* the benchmark root is unchanged
+       (a calibration-only chain cannot authorize benchmark
+       tampering) *and* the declared detector versions are unchanged.
+       Then return ``"chain_valid"``.
+    4. Otherwise raise ``RollbackError`` naming every dimension that
+       changed.
+
+    Detector versions bind only what the anchor declares: an anchor
+    exported with no declared versions (``detector_versions == {}``)
+    makes no version claim and does not constrain versions. Anchors
+    exported by :func:`export_audit_anchor` without an explicit
+    override auto-detect versions, so real anchors do bind them.
 
     Args:
         anchor: The previously exported audit anchor to verify against.
         current_chain: The current calibration chain for chain verification.
         base_dir: Override the project root (default: auto-detected).
+        detector_versions: Override the current detector versions
+            (default: auto-detected, exactly as in export).
 
     Returns:
-        A status string: ``"no_changes"``, ``"chain_valid"``, or raises.
+        A status string: ``"no_changes"`` or ``"chain_valid"``.
 
     Raises:
-        RollbackError: When a rollback is detected.
+        RollbackError: When a rollback is detected, or the anchor
+            uses a superseded/unsupported schema version.
     """
+    if anchor.schema_version != SCHEMA_VERSION:
+        raise RollbackError(
+            f"Audit anchor uses schema version {anchor.schema_version}, "
+            f"but the current schema version is {SCHEMA_VERSION}: "
+            "the anchor was exported with the superseded v1 directory-hash "
+            "framing and its stored digests can never match current state. "
+            "Re-export the anchor (see docs/ANCHOR_MIGRATION.md); "
+            "the old anchor must not be treated as valid."
+        )
+
     if base_dir is None:
         base_dir = _resolve_base_dir()
 
@@ -1600,19 +1760,34 @@ def verify_audit_anchor(
 
     current_cal_hash = _hash_directory(cal_dir)
     current_bench_hash = _hash_directory(bench_dir)
+    if detector_versions is None:
+        detector_versions = _detect_detector_versions()
 
-    # Check 1: Exact match – no changes since anchor
+    # Detector-version binding applies to what the anchor declares.
+    versions_changed = bool(anchor.detector_versions) and (
+        detector_versions != anchor.detector_versions
+    )
+
+    # Check 1: Exact match -- no changes since anchor.
     if (
         current_cal_hash == anchor.calibration_artifacts_sha256
         and current_bench_hash == anchor.benchmark_results_sha256
+        and not versions_changed
     ):
         return "no_changes"
 
-    # Check 2: Chain verification – current chain extends anchor chain
-    if current_chain is not None and current_chain.extends_anchor(anchor):
+    # Check 2: Bound chain transition -- the chain must bind the
+    # current calibration root, the benchmark root must be unchanged,
+    # and the declared detector versions must be unchanged.
+    if (
+        current_chain is not None
+        and current_bench_hash == anchor.benchmark_results_sha256
+        and not versions_changed
+        and current_chain.authorizes_transition(anchor, calibration_root=current_cal_hash)
+    ):
         return "chain_valid"
 
-    # Determine which artifact(s) changed
+    # Determine which artifact(s) changed.
     reasons: list[str] = []
     if current_cal_hash != anchor.calibration_artifacts_sha256:
         reasons.append(
@@ -1626,11 +1801,15 @@ def verify_audit_anchor(
             f"(expected {anchor.benchmark_results_sha256[:16]}..., "
             f"got {current_bench_hash[:16]}...)"
         )
-
+    if versions_changed:
+        reasons.append(
+            "Detector versions changed "
+            f"(expected {anchor.detector_versions}, got {detector_versions})"
+        )
     if reasons:
         raise RollbackError("; ".join(reasons))
 
-    # Edge case: both empty – nothing to verify
+    # Edge case: both empty -- nothing to verify.
     return "no_changes"
 
 
@@ -1730,6 +1909,13 @@ class CalibrationChain:
 
         The current chain must contain all hashes from the anchor's chain
         in the same order, followed by zero or more additional hashes.
+
+        This is a raw list-prefix predicate only -- it does NOT decide
+        whether the chain authorizes a state transition (an equal chain
+        "extends" here, and the predicate binds the chain to no artifact
+        state at all). The authorization decision is
+        :meth:`authorizes_transition`, used by
+        :func:`verify_audit_anchor`.
         """
         anchor_chain = anchor.calibration_chain
         if not anchor_chain:
@@ -1744,6 +1930,37 @@ class CalibrationChain:
 
         # Check that the prefix matches
         return self._hashes[: len(anchor_chain)] == anchor_chain
+
+    def authorizes_transition(self, anchor: AuditAnchor, *, calibration_root: str) -> bool:
+        """Check whether this chain authorizes a transition from *anchor*
+        to the state whose calibration root is *calibration_root* (C08).
+
+        All of the following must hold; any failure means the chain
+        authorizes nothing:
+
+        - Every entry of both chains is a well-formed SHA-256 digest
+          (a malformed entry can never be lineage).
+        - This chain *strictly* extends the anchor chain: it has the
+          anchor chain as a prefix and at least one additional entry.
+          An equal (copied) chain is not an extension.
+        - The final entry is the hash of the current calibration root,
+          binding the chain to the actual current artifact state. An
+          arbitrary appended digest -- well-formed but bound to no
+          artifact -- authorizes nothing, and a missing calibration
+          root (``""``) can never be bound, since no entry is empty.
+        """
+        if not calibration_root:
+            return False
+        if self.verify_integrity():
+            return False
+        anchor_chain = anchor.calibration_chain
+        if any(not self._is_valid_hash(h) for h in anchor_chain):
+            return False
+        if len(self._hashes) <= len(anchor_chain):
+            return False
+        if self._hashes[: len(anchor_chain)] != anchor_chain:
+            return False
+        return self._hashes[-1] == calibration_root
 
     def load_from_file(self, path: Path) -> None:
         """Load a persisted chain from a JSON file."""

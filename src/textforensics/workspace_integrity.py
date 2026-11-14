@@ -205,15 +205,27 @@ class AuditChain:
 
         self.entries.append(entry)
         self._last_entry_hash = entry_hash
+        # Keep the cached heads in sync with the entries they summarize
+        # (C16): verify_chain() checks them against recomputed values,
+        # so every mutation must maintain them.
+        self.chain_hash = self.compute_chain_hash()
 
         return entry
 
     @property
     def last_entry_hash(self) -> str:
-        """Get the hash of the last entry, or genesis hash for empty chain."""
+        """Get the hash of the last entry, or genesis hash for empty chain.
+
+        Derived from the actual entries (C16): the serialized
+        ``_last_entry_hash`` field is never trusted as append state.
+        A loaded chain whose serialized head disagrees with its entries
+        is rejected in :meth:`from_dict` before it can be used, and
+        ``add_entry`` links from the verified last entry, not from a
+        cached field.
+        """
         if not self.entries:
             return "0" * 64
-        return self._last_entry_hash
+        return self.entries[-1].entry_hash
 
     def compute_chain_hash(self) -> str:
         """Compute the hash of the entire chain."""
@@ -224,12 +236,24 @@ class AuditChain:
         return hashlib.sha256(chain_bytes).hexdigest()
 
     def verify_chain(self) -> tuple[bool, str | None]:
-        """Verify the integrity of the audit chain."""
+        """Verify the integrity of the audit chain.
+
+        Checks, in order: contiguous indices from 0, every link, every
+        entry hash, and -- last, so a broken entry is reported as such
+        -- that the cached ``chain_hash`` / ``_last_entry_hash`` fields
+        (when set) agree with the values recomputed from the verified
+        entries (C16). A chain whose serialized heads were tampered
+        with is invalid even when its entries are intact.
+        """
         if not self.entries:
             return True, None
 
         prev_hash = "0" * 64
-        for entry in self.entries:
+        for position, entry in enumerate(self.entries):
+            if entry.index != position:
+                return False, (
+                    f"Non-contiguous index at position {position}: entry index is {entry.index}"
+                )
             if entry.previous_hash != prev_hash:
                 return False, f"Hash chain broken at index {entry.index}: previous hash mismatch"
 
@@ -253,6 +277,11 @@ class AuditChain:
 
             prev_hash = entry.entry_hash
 
+        if self.chain_hash and self.chain_hash != self.compute_chain_hash():
+            return False, "Cached chain_hash does not match the recomputed chain hash"
+        if self._last_entry_hash and self._last_entry_hash != self.entries[-1].entry_hash:
+            return False, "Cached last_entry_hash does not match the last entry"
+
         return True, None
 
     def to_dict(self) -> dict[str, Any]:
@@ -266,13 +295,49 @@ class AuditChain:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AuditChain:
+        """Deserialize a chain, validating what serialization cannot prove.
+
+        C16: serialized head fields are never trusted. The version must
+        be the current audit-chain version, indices must be contiguous
+        from 0, and a serialized ``chain_hash`` / ``last_entry_hash``
+        that is present but disagrees with the value recomputed from
+        the entries raises ``ValueError`` (the chain is rejected at
+        load, before it can be verified or appended to). A field that
+        is absent is recomputed and populated, so older files that
+        omit the heads still load when their entries verify.
+        """
+        version = data.get("version", AUDIT_CHAIN_VERSION)
+        if (
+            not isinstance(version, int)
+            or isinstance(version, bool)
+            or version != AUDIT_CHAIN_VERSION
+        ):
+            raise ValueError(f"Unsupported audit chain version: {version!r}")
+        entries = [AuditChainEntry.from_dict(e) for e in data.get("entries", [])]
+        for position, entry in enumerate(entries):
+            if entry.index != position:
+                raise ValueError(
+                    f"Non-contiguous audit chain index at position {position}: "
+                    f"entry index is {entry.index}"
+                )
         chain = cls(
-            version=data.get("version", AUDIT_CHAIN_VERSION),
-            entries=[AuditChainEntry.from_dict(e) for e in data.get("entries", [])],
+            version=version,
+            entries=entries,
             created_at=data.get("created_at", datetime.now(UTC).isoformat()),
         )
-        chain.chain_hash = data.get("chain_hash", "")
-        chain._last_entry_hash = data.get("last_entry_hash", chain._last_entry_hash)
+        expected_chain_hash = chain.compute_chain_hash()
+        serialized_chain_hash = data.get("chain_hash")
+        if serialized_chain_hash not in (None, "") and serialized_chain_hash != expected_chain_hash:
+            raise ValueError("Serialized chain_hash does not match the recomputed chain hash")
+        expected_last_entry_hash = chain.last_entry_hash
+        serialized_last_entry_hash = data.get("last_entry_hash")
+        if (
+            serialized_last_entry_hash not in (None, "")
+            and serialized_last_entry_hash != expected_last_entry_hash
+        ):
+            raise ValueError("Serialized last_entry_hash does not match the last entry")
+        chain.chain_hash = expected_chain_hash
+        chain._last_entry_hash = expected_last_entry_hash
         return chain
 
 
@@ -652,16 +717,43 @@ def create_audit_chain() -> AuditChain:
     return AuditChain()
 
 
-def load_audit_chain(path: Path) -> AuditChain | None:
-    """Load audit chain from JSON file."""
+def _load_audit_chain_detailed(path: Path) -> tuple[AuditChain | None, str]:
+    """Load an audit chain, classifying the failure (C17).
+
+    Returns ``(chain, status)`` where ``status`` is one of:
+
+    - ``"loaded"`` -- the chain parsed and its serialized heads
+      validated (callers still run :func:`verify_audit_chain` on it);
+    - ``"missing"`` -- the file does not exist;
+    - ``"unreadable"`` -- the file exists but cannot be read;
+    - ``"malformed"`` -- the file is not valid JSON, is not a chain
+      object, or fails structural validation (bad version, broken
+      indices, serialized heads that disagree with the entries).
+    """
     if not path.exists():
-        return None
+        return None, "missing"
     try:
         content = path.read_text(encoding="utf-8")
+    except OSError:
+        return None, "unreadable"
+    try:
         data = json.loads(content)
-        return AuditChain.from_dict(data)
-    except (json.JSONDecodeError, KeyError, ValueError):
-        return None
+        if not isinstance(data, dict):
+            return None, "malformed"
+        return AuditChain.from_dict(data), "loaded"
+    except (json.JSONDecodeError, KeyError, ValueError, TypeError, AttributeError):
+        return None, "malformed"
+
+
+def load_audit_chain(path: Path) -> AuditChain | None:
+    """Load audit chain from JSON file.
+
+    Returns ``None`` when the chain is missing, unreadable, or
+    malformed. Use :func:`_load_audit_chain_detailed` when the
+    failure kind matters (C17).
+    """
+    chain, _status = _load_audit_chain_detailed(path)
+    return chain
 
 
 def save_audit_chain(chain: AuditChain, path: Path) -> bool:
@@ -752,6 +844,13 @@ class WorkspaceIntegrityReport:
     overall_status: str  # "healthy", "degraded", "compromised", "emergency_stop"
     timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     details: dict[str, Any] = field(default_factory=dict)
+    audit_chain_status: str = "not_requested"
+    """Audit-chain state (C17): ``"not_requested"`` (no chain path was
+    supplied -- the deliberate no-chain mode), ``"valid"``,
+    ``"invalid"`` (loaded but failed verification), ``"missing"``
+    (an explicitly requested chain file does not exist),
+    ``"unreadable"`` (exists but cannot be read), or ``"malformed"``
+    (unparseable or structurally invalid)."""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -759,6 +858,7 @@ class WorkspaceIntegrityReport:
             "fingerprint_verified": self.fingerprint_verified,
             "audit_chain_valid": self.audit_chain_valid,
             "audit_chain_length": self.audit_chain_length,
+            "audit_chain_status": self.audit_chain_status,
             "emergency_stop_active": self.emergency_stop_active,
             "emergency_stop_configured": self.emergency_stop_configured,
             "emergency_stop_reason": self.emergency_stop_reason,
@@ -794,6 +894,7 @@ class WorkspaceIntegrityReport:
                 overall_status=data["overall_status"],
                 timestamp=data["timestamp"],
                 details=data.get("details", {}),
+                audit_chain_status=data.get("audit_chain_status", "not_requested"),
             )
         except Exception:
             return None
@@ -831,19 +932,24 @@ def verify_workspace_integrity(
     emergency_stop_status["configured"]
     emergency_stop_reason = emergency_stop_status.get("reason")
 
-    # 4. Load and verify audit chain
+    # 4. Load and verify audit chain (C17): an explicitly requested
+    # chain that is missing, unreadable, malformed, or invalid fails
+    # closed -- it is never reported healthy. Only a chain that was
+    # never requested keeps the deliberate no-chain mode, labelled
+    # "not_requested" instead of masquerading as a verified chain.
     audit_chain_valid = True
     audit_chain_length = 0
-    if audit_chain_path and audit_chain_path.exists():
-        chain = load_audit_chain(audit_chain_path)
-        if chain:
+    audit_chain_status = "not_requested"
+    if audit_chain_path is not None:
+        chain, load_status = _load_audit_chain_detailed(Path(audit_chain_path))
+        if chain is None:
+            audit_chain_valid = False
+            audit_chain_status = load_status  # missing / unreadable / malformed
+        else:
             valid, error = verify_audit_chain(chain)
             audit_chain_valid = valid
             audit_chain_length = len(chain.entries)
-        else:
-            audit_chain_valid = False
-    else:
-        audit_chain_length = 0
+            audit_chain_status = "valid" if valid else "invalid"
 
     # Determine overall status
     if emergency_stop_active:
@@ -858,6 +964,7 @@ def verify_workspace_integrity(
     details = {
         "fingerprint": fingerprint.fingerprint,
         "expected_fingerprint": expected_fingerprint,
+        "audit_chain_status": audit_chain_status,
         "emergency_stop_details": get_emergency_sentinel().get_status(),
     }
 
@@ -871,6 +978,7 @@ def verify_workspace_integrity(
         emergency_stop_reason=emergency_stop_reason,
         overall_status=overall_status,
         details=details,
+        audit_chain_status=audit_chain_status,
     )
 
 

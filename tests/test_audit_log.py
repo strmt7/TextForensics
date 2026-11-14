@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import tempfile
+import threading
 from dataclasses import replace
 from pathlib import Path
 
@@ -443,6 +445,135 @@ class TestVerifyAuditLogGenesisC07:
         assert result["first_entry_hash"] == log._entries[0].entry_hash
         assert result["last_entry_hash"] == log._entries[-1].entry_hash
         assert result["errors"] == []
+
+
+class TestAuditLogTransactionsC15:
+    """C15: appends are lock reload/check/advance/persist transactions.
+
+    Reproduction (pre-W4): two instances created before either appends
+    stored indices [0, 0]; an append whose disk write failed still
+    advanced the in-memory head, so the next successful append stored
+    index 2 after index 0 and the reloaded chain failed verification.
+    """
+
+    def test_two_stale_instances_append_serially(self, tmp_path: Path):
+        """Two instances created before either appends must store
+        contiguous indices: the second append reloads under the file
+        lock and derives its index from the durable head, not its
+        stale cache."""
+        log_path = tmp_path / "audit.log"
+        first = AuditLog(log_path)
+        second = AuditLog(log_path)
+        entry1 = first.append("op-a", input_data={"x": 1})
+        entry2 = second.append("op-b", input_data={"x": 2})
+
+        assert (entry1.index, entry2.index) == (0, 1)
+        assert entry2.prev_hash == entry1.entry_hash
+        lines = [json.loads(line) for line in log_path.read_text().splitlines()]
+        assert [entry["index"] for entry in lines] == [0, 1]
+        assert AuditLog(log_path).verify_chain() is True
+        result = verify_audit_log(log_path)
+        assert result["valid"] is True
+        assert result["entry_count"] == 2
+
+    def test_failed_append_does_not_advance_head(self, tmp_path: Path, monkeypatch):
+        """An append whose disk write raises must not advance the
+        in-memory head: the next append re-derives index 1 from disk
+        and the reloaded chain stays contiguous."""
+        log_path = tmp_path / "audit.log"
+        log = AuditLog(log_path)
+        log.append("op-0", input_data={"x": 0})
+        assert len(log) == 1
+        head_hash = log._entries[-1].entry_hash
+
+        def _boom(entry):
+            raise OSError("injected disk failure")
+
+        monkeypatch.setattr(log, "_append_to_file", _boom)
+        with pytest.raises(OSError, match="injected disk failure"):
+            log.append("op-1", input_data={"x": 1})
+        # The failed write left the in-memory head untouched and
+        # persisted nothing.
+        assert len(log) == 1
+        assert log._entries[-1].entry_hash == head_hash
+        assert len(log_path.read_text().splitlines()) == 1
+
+        monkeypatch.undo()
+        entry = log.append("op-1-retry", input_data={"x": 1})
+        assert entry.index == 1
+        assert entry.prev_hash == head_hash
+        reloaded = AuditLog(log_path)
+        assert len(reloaded) == 2
+        assert reloaded.verify_chain() is True
+        assert verify_audit_log(log_path)["valid"] is True
+
+    def test_failed_fsync_leaves_prior_state_recoverable(self, tmp_path: Path, monkeypatch):
+        """A write that lands on disk but whose fsync fails is not
+        acknowledged (the in-memory head does not advance), yet the
+        next append reloads the durable state and continues from it
+        instead of reusing the unacknowledged index."""
+        log_path = tmp_path / "audit.log"
+        log = AuditLog(log_path)
+        log.append("op-0", input_data={"x": 0})
+
+        def _boom_fsync(_fd):
+            raise OSError("injected fsync failure")
+
+        monkeypatch.setattr(os, "fsync", _boom_fsync)
+        with pytest.raises(OSError, match="injected fsync failure"):
+            log.append("op-1", input_data={"x": 1})
+        assert len(log) == 1
+        monkeypatch.undo()
+
+        entry = log.append("op-2", input_data={"x": 2})
+        assert entry.index == 2
+        lines = [json.loads(line) for line in log_path.read_text().splitlines()]
+        assert [entry["index"] for entry in lines] == [0, 1, 2]
+        assert AuditLog(log_path).verify_chain() is True
+
+    def test_append_to_corrupt_log_refuses_and_keeps_head(self, tmp_path: Path):
+        """Appending to a log that became corrupt on disk refuses
+        (fail closed) instead of appending onto corruption, and the
+        prior in-memory state is untouched."""
+        log_path = tmp_path / "audit.log"
+        log = AuditLog(log_path)
+        log.append("op-0", input_data={"x": 0})
+
+        lines = log_path.read_text().splitlines()
+        data = json.loads(lines[0])
+        data["operation"] = "tampered"
+        lines[0] = json.dumps(data, separators=(",", ":"), sort_keys=True)
+        log_path.write_text("\n".join(lines) + "\n")
+
+        with pytest.raises(AuditLogError):
+            log.append("op-1", input_data={"x": 1})
+        assert len(log) == 1
+
+    def test_concurrent_instances_append_contiguously(self, tmp_path: Path):
+        """Bounded cross-thread test: 4 instances x 10 appends each.
+        The outcome (contiguous 0..39, verifiable chain) must hold for
+        any interleaving; no timing assertions are made."""
+        log_path = tmp_path / "audit.log"
+        errors: list[BaseException] = []
+
+        def _worker(instance_no: int) -> None:
+            try:
+                log = AuditLog(log_path)
+                for i in range(10):
+                    log.append(f"op-{instance_no}-{i}", input_data={"n": i})
+            except BaseException as exc:  # noqa: BLE001 -- collected, re-raised below
+                errors.append(exc)
+
+        threads = [threading.Thread(target=_worker, args=(n,)) for n in range(4)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        assert errors == []
+        lines = [json.loads(line) for line in log_path.read_text().splitlines()]
+        assert [entry["index"] for entry in lines] == list(range(40))
+        assert AuditLog(log_path).verify_chain() is True
+        assert verify_audit_log(log_path)["valid"] is True
 
 
 class TestAuditLogError:

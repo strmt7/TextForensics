@@ -47,6 +47,22 @@ The project is pre-1.0. Public schemas and detector/calibration semantics are tr
   reports 0 findings.
 
 ### Changed
+- audit anchors are now schema version 2 with versioned directory-hash
+  framing v2 (see `docs/ANCHOR_MIGRATION.md`): the v1 framing had a
+  structural preimage collision (audit C09). **Existing v1 anchors are
+  invalidated** -- verification rejects them explicitly with a migration
+  error instead of reporting a misleading rollback; re-export from a
+  trusted state is required. Anchor verification now requires a bound
+  state transition (audit C08): a copied chain or arbitrary appended
+  digest no longer authorizes changed calibration/benchmark roots or
+  detector versions.
+- `AuditLog.append` is now a lock reload/check/advance/persist
+  transaction (audit C15): stale writers serialize on the durable
+  head and a failed write never advances the in-memory head.
+- workspace chains validate serialized head fields against their
+  entries on load (audit C16), and an explicitly requested missing
+  workspace chain is reported missing/compromised instead of healthy
+  (audit C17); the no-chain mode keeps its own `not_requested` status.
 - Python 3.10 is no longer supported after its upstream end-of-life; CI now covers Python 3.11–3.15.
 - the legacy `confidence` value is explicitly labeled an **uncalibrated diagnostic reliability heuristic**;
 - the legacy Verdict Integrity grade is explicitly marked an unvalidated alpha compatibility diagnostic;
