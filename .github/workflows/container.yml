@@ -154,7 +154,7 @@ jobs:
       # (the source tree). The source-tree inventory is not a runtime
       # image inventory.
       - name: Generate SBOM for built image (by digest)
-        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0 (2026-03-19 tip, Syft v1.42.3)
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0 (2026-03-19 tip, Syft v1.42.3)
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
           format: cyclonedx-json
@@ -326,7 +326,7 @@ jobs:
           provenance: true
 
       - name: Generate SBOM for promoted image (by digest)
-        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0 (2026-03-19 tip, Syft v1.42.3)
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0 (2026-03-19 tip, Syft v1.42.3)
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-push.outputs.digest }}
           format: cyclonedx-json
