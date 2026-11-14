@@ -25,7 +25,8 @@ concurrency:
 
 permissions:
   contents: read
-  actions: write
+  # Write permissions live at job level only (Scorecard Token-Permissions):
+  # each job declares the actions: write its own artifact upload needs.
 
 jobs:
   mutation-diff:

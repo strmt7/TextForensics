@@ -103,7 +103,9 @@ jobs:
       contents: read
       id-token: write
       attestations: write
-      security-events: write
+      # No SARIF is uploaded by this job (SBOM action runs with
+      # upload-artifact: false and no upload-sarif step), so
+      # security-events: write is not needed.
       actions: write
     steps:
       - name: Checkout
@@ -232,7 +234,9 @@ jobs:
       contents: read
       id-token: write
       attestations: write
-      security-events: write
+      # No SARIF is uploaded by this job (SBOM action runs with
+      # upload-artifact: false and no upload-sarif step), so
+      # security-events: write is not needed.
       actions: write
     steps:
       - name: Checkout candidate SHA

@@ -9,7 +9,8 @@ on:
 
 permissions:
   contents: read
-  actions: write
+  # Write permissions live at job level only (Scorecard Token-Permissions):
+  # the jobs that upload artifacts declare actions: write themselves.
 
 env:
   PIP_DISABLE_PIP_VERSION_CHECK: 1
@@ -154,7 +155,10 @@ jobs:
     name: Case File Determinism
     runs-on: ubuntu-latest
     permissions:
-      actions: write
+      # No artifact upload/download in this job; its only actions-scope use
+      # was the setup-python pip-cache save, which fails with a warning
+      # (not a job failure) without write — the same as every CI job, which
+      # runs cache: pip with no actions permission.
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -270,7 +274,7 @@ jobs:
     needs: [build-reproducibility, cli-determinism, case-file-determinism, detector-determinism]
     if: always()
     permissions:
-      actions: write
+      # Summary-only job: no checkout, no cache, no artifact up/download.
       contents: read
     steps:
       - name: Check all reproducibility results

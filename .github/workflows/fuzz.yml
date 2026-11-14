@@ -39,7 +39,9 @@ concurrency:
 
 permissions:
   contents: read
-  actions: write
+  # Write permissions live at job level only (Scorecard Token-Permissions):
+  # fuzz-regression and fuzz-weekly declare actions: write for their
+  # artifact uploads; fuzz-summary needs contents: read only.
 
 jobs:
   fuzz-regression:
