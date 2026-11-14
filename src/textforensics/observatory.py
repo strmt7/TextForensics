@@ -1766,6 +1766,16 @@ class HealthAlert:
     timestamp: str
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        # S19: persistence stores the severity as a plain string, so
+        # rehydration must restore the enum — otherwise to_dict()
+        # fails on ``str.value``. Coerce here so every construction
+        # path (including HealthAlert(**loaded_dict)) round-trips.
+        if not isinstance(self.severity, AlertSeverity):
+            object.__setattr__(self, "severity", AlertSeverity(self.severity))
+        if not math.isfinite(self.metric_value) or not math.isfinite(self.threshold):
+            raise ValueError("HealthAlert metric_value and threshold must be finite")
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "alert_id": self.alert_id,
@@ -1818,13 +1828,30 @@ class DetectorHealthReport:
     def load(cls, path: Path) -> DetectorHealthReport | None:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
+            # S19/S18: validate stored values fail-closed. A bad
+            # severity string raises in HealthAlert.__post_init__;
+            # nonfinite numbers and an out-of-range score are rejected
+            # here instead of being loaded as if they were evidence.
+            health_score = data["health_score"]
+            if (
+                not isinstance(health_score, (int, float))
+                or isinstance(health_score, bool)
+                or not math.isfinite(health_score)
+                or not 0.0 <= health_score <= 1.0
+            ):
+                return None
+            metrics = {
+                k: [HealthMetric(**m) for m in v] for k, v in data.get("metrics", {}).items()
+            }
+            for series in metrics.values():
+                for metric in series:
+                    if not math.isfinite(metric.value):
+                        return None
             return cls(
                 detector_id=data["detector_id"],
                 overall_state=HealthState(data["overall_state"]),
-                health_score=data["health_score"],
-                metrics={
-                    k: [HealthMetric(**m) for m in v] for k, v in data.get("metrics", {}).items()
-                },
+                health_score=health_score,
+                metrics=metrics,
                 alerts=[HealthAlert(**a) for a in data.get("alerts", [])],
                 last_updated=data.get("last_updated", datetime.now(UTC).isoformat()),
                 metadata=data.get("metadata", {}),
@@ -1847,6 +1874,7 @@ class HealthCheck:
         description: str = "",
         source_metric: str | None = None,
         inverted: bool = False,
+        min_samples: int = 1,
     ):
         self.name = name
         self.metric_name = metric_name
@@ -1861,10 +1889,18 @@ class HealthCheck:
         # If True, LOWER values are worse (e.g., entropy ratio).
         # If False (default), HIGHER values are worse (e.g., error rate, latency).
         self.inverted = inverted
+        # Minimum samples for the check to mean anything (S18). Fewer
+        # samples is "no evidence", never a pass: callers must skip
+        # the check rather than count it as healthy.
+        if not isinstance(min_samples, int) or isinstance(min_samples, bool):
+            raise ValueError("min_samples must be an integer")
+        if min_samples < 1:
+            raise ValueError("min_samples must be at least 1")
+        self.min_samples = min_samples
 
     def evaluate(self, values: list[float], detector_id: str = "") -> HealthAlert | None:
         """Evaluate the health check against a series of values."""
-        if not values:
+        if len(values) < self.min_samples:
             return None
 
         passed, value = self.check_fn(values)
@@ -1905,10 +1941,19 @@ class HealthCheck:
 
 
 # Built-in health checks
+#
+# S17: a check_fn is the check's own pass/fail gate and MUST implement
+# the check's declared warning threshold. A separate, wider threshold
+# inside check_fn (the old 5000 ms latency / 0.3 entropy / 0.1
+# throughput gates) made the declared warning interval unreachable:
+# values between the warning and the check_fn threshold were returned
+# healthy. HealthCheck.evaluate then maps the failing value to
+# WARNING vs CRITICAL from the declared thresholds, so check_fn only
+# has to decide pass/fail at the warning boundary.
 def _create_latency_check() -> HealthCheck:
     def check(values: list[float]) -> tuple[bool, float]:
         p95 = statistics.quantiles(values, n=20)[18] if len(values) >= 20 else max(values)
-        return p95 < 5000.0, p95  # 5 second p95 threshold
+        return p95 < 3000.0, p95  # warning threshold: 3 second p95
 
     return HealthCheck(
         name="latency_p95",
@@ -1961,8 +2006,10 @@ def _create_score_distribution_check() -> HealthCheck:
         entropy = -sum(p * math.log2(p) for p in probs)
         max_entropy = math.log2(len([h for h in hist if h > 0]))
         entropy_ratio = entropy / max_entropy if max_entropy > 0 else 0.0
-        # Healthy if entropy_ratio > 0.3 (not too uniform)
-        return entropy_ratio > 0.3, entropy_ratio
+        # Healthy if entropy_ratio > 0.5 (the declared warning
+        # threshold); at or below it the check fails and evaluate()
+        # maps the value to WARNING (<= 0.5) or CRITICAL (<= 0.3).
+        return entropy_ratio > 0.5, entropy_ratio
 
     return HealthCheck(
         name="score_distribution_entropy",
@@ -1974,19 +2021,22 @@ def _create_score_distribution_check() -> HealthCheck:
         description="Score distribution entropy too low (suspiciously uniform)",
         source_metric="score",
         inverted=True,
+        min_samples=10,
     )
 
 
 def _create_throughput_check() -> HealthCheck:
     def check(values: list[float]) -> tuple[bool, float]:
         # values are timestamps of requests
-        if len(values) < 2:
-            return True, 0.0
         # Calculate requests per second over last window
         now = time.time()
         recent = [v for v in values if now - v < 60]  # Last minute
         throughput = len(recent) / 60.0  # req/s
-        return throughput >= 0.1, throughput  # At least 0.1 req/s
+        # Healthy at or above the declared warning threshold (0.5
+        # rps); below it the check fails and evaluate() maps the
+        # value to WARNING (< 0.5) or CRITICAL (<= 0.1). A single
+        # request is a measurable rate (1/60 rps), not a pass.
+        return throughput >= 0.5, throughput
 
     return HealthCheck(
         name="throughput",
@@ -1997,6 +2047,8 @@ def _create_throughput_check() -> HealthCheck:
         severity=AlertSeverity.WARNING,
         source_metric="request_timestamp",
         description="Throughput below threshold",
+        # Lower throughput is worse: the direction is inverted.
+        inverted=True,
     )
 
 
@@ -2007,6 +2059,18 @@ except ImportError:
     np = None
 
 
+# S18: an observation older than this is stale evidence. It is
+# excluded from health evaluation, and a report whose only
+# observations are stale is UNKNOWN — never healthy. One hour keeps
+# the throughput check's 60 s window, the latency/error checks'
+# retained history, and ordinary infrequent-but-live detectors
+# inside the fresh window, while a 2000-dated observation is
+# unambiguously stale.
+HEALTH_OBSERVATION_MAX_AGE_SECONDS = 3600.0
+# Tolerance for a metric timestamp slightly in the future (clock skew).
+HEALTH_OBSERVATION_FUTURE_TOLERANCE_SECONDS = 60.0
+
+
 class DetectorHealthMonitor:
     """Monitors detector health with anomaly detection and alerting."""
 
@@ -2015,12 +2079,23 @@ class DetectorHealthMonitor:
         max_history: int = 10000,
         alert_callback: Callable[[HealthAlert], None] | None = None,
     ):
+        # S19: the history bound must be a real bound — it caps both
+        # retained metric points and retained alerts.
+        if not isinstance(max_history, int) or isinstance(max_history, bool):
+            raise ValueError("max_history must be an integer")
+        if max_history < 1:
+            raise ValueError("max_history must be at least 1")
         self.max_history = max_history
         self.alert_callback = alert_callback
         self._metrics: dict[str, dict[str, deque]] = defaultdict(lambda: defaultdict(deque))
         self._health_checks: dict[str, list[HealthCheck]] = defaultdict(list)
         self._reports: dict[str, DetectorHealthReport] = {}
         self._alerts: list[HealthAlert] = []
+        # S19: alert keys currently firing, per detector. An alert is
+        # stored (and the callback fired) only on a state transition
+        # — when a (check, severity) condition starts firing — not on
+        # every re-evaluation while it keeps firing.
+        self._active_alert_keys: dict[str, set[tuple[str, AlertSeverity]]] = defaultdict(set)
         self._lock = asyncio.Lock()
 
         # Register default health checks
@@ -2040,6 +2115,51 @@ class DetectorHealthMonitor:
                 _create_throughput_check(),
             ]
 
+    @staticmethod
+    def _parse_metric_timestamp(timestamp: str) -> datetime | None:
+        """Parse a metric timestamp to an aware UTC datetime, or None."""
+        try:
+            parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        except (ValueError, TypeError, AttributeError):
+            return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        return parsed.astimezone(UTC)
+
+    def _fresh_values(
+        self, detector_id: str, source_metric: str, *, now: datetime | None = None
+    ) -> list[float]:
+        """Fresh, finite values for one check's source series (S18).
+
+        Stale observations (older than
+        ``HEALTH_OBSERVATION_MAX_AGE_SECONDS``), unparseable
+        timestamps, and nonfinite values are excluded: they are not
+        evidence, and must never make a report healthy.
+        """
+        now = now or datetime.now(UTC)
+        values: list[float] = []
+        for metric in self._metrics[detector_id].get(source_metric, []):
+            if not math.isfinite(metric.value):
+                continue
+            observed_at = self._parse_metric_timestamp(metric.timestamp)
+            if observed_at is None:
+                continue
+            age = (now - observed_at).total_seconds()
+            if age > HEALTH_OBSERVATION_MAX_AGE_SECONDS:
+                continue
+            if age < -HEALTH_OBSERVATION_FUTURE_TOLERANCE_SECONDS:
+                continue
+            values.append(metric.value)
+        return values
+
+    def _checks_without_fresh_data(self, detector_id: str) -> list[str]:
+        """Names of registered checks with no fresh, sufficient data."""
+        missing: list[str] = []
+        for check in self._health_checks.get(detector_id, []):
+            if len(self._fresh_values(detector_id, check.source_metric)) < check.min_samples:
+                missing.append(check.name)
+        return missing
+
     def record_metric(
         self,
         detector_id: str,
@@ -2047,13 +2167,41 @@ class DetectorHealthMonitor:
         value: float,
         unit: str = "",
         metadata: dict[str, Any] | None = None,
+        timestamp: str | datetime | None = None,
     ) -> None:
-        """Record a metric value for a detector."""
+        """Record a metric value for a detector.
+
+        S18: nonfinite values are rejected — an undefined observation
+        must never be stored as if it were a measurement — and a
+        negative latency is physically impossible. ``timestamp`` is
+        the observation time (default now); it is stored as the
+        observation time, never rewritten by reporting.
+        """
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            raise ValueError(f"metric {metric_name!r} value must be a number")
+        if not math.isfinite(value):
+            raise ValueError(f"metric {metric_name!r} value must be finite")
+        if metric_name == "latency_ms" and value < 0:
+            raise ValueError("latency_ms must be non-negative")
+        if timestamp is None:
+            observed_at = datetime.now(UTC)
+        elif isinstance(timestamp, datetime):
+            observed_at = timestamp
+            if observed_at.tzinfo is None:
+                observed_at = observed_at.replace(tzinfo=UTC)
+            observed_at = observed_at.astimezone(UTC)
+        elif isinstance(timestamp, str):
+            parsed = self._parse_metric_timestamp(timestamp)
+            if parsed is None:
+                raise ValueError(f"unparseable metric timestamp: {timestamp!r}")
+            observed_at = parsed
+        else:
+            raise ValueError("timestamp must be an ISO string or datetime")
         metric = HealthMetric(
             name=metric_name,
             value=value,
             unit=unit,
-            timestamp=datetime.now(UTC).isoformat(),
+            timestamp=observed_at.isoformat(),
             detector_id=detector_id,
             metadata=metadata or {},
         )
@@ -2065,37 +2213,85 @@ class DetectorHealthMonitor:
         # Run health checks
         self._evaluate_health_checks(detector_id)
 
-    def record_latency(self, detector_id: str, latency_ms: float) -> None:
-        self.record_metric(detector_id, "latency_ms", latency_ms, "ms")
+    def record_latency(
+        self,
+        detector_id: str,
+        latency_ms: float,
+        timestamp: str | datetime | None = None,
+    ) -> None:
+        self.record_metric(detector_id, "latency_ms", latency_ms, "ms", timestamp=timestamp)
 
-    def record_error(self, detector_id: str, is_error: bool) -> None:
+    def record_error(
+        self,
+        detector_id: str,
+        is_error: bool,
+        timestamp: str | datetime | None = None,
+    ) -> None:
         # Record the per-event error flag. The error_rate health check reads
         # this series and derives its rate, so every event must be recorded —
         # recording only on failure would make the series all-1.0.
-        self.record_metric(detector_id, "error", 1.0 if is_error else 0.0, "count")
+        self.record_metric(
+            detector_id, "error", 1.0 if is_error else 0.0, "count", timestamp=timestamp
+        )
 
-    def record_score(self, detector_id: str, score: float) -> None:
-        self.record_metric(detector_id, "score", score, "ratio")
+    def record_score(
+        self,
+        detector_id: str,
+        score: float,
+        timestamp: str | datetime | None = None,
+    ) -> None:
+        self.record_metric(detector_id, "score", score, "ratio", timestamp=timestamp)
 
-    def record_request(self, detector_id: str) -> None:
-        self.record_metric(detector_id, "request_timestamp", time.time(), "timestamp")
+    def record_request(self, detector_id: str, timestamp: str | datetime | None = None) -> None:
+        self.record_metric(
+            detector_id, "request_timestamp", time.time(), "timestamp", timestamp=timestamp
+        )
+
+    def _append_alert(self, alert: HealthAlert) -> None:
+        """Store one alert, bounding history at ``max_history`` (S19)."""
+        self._alerts.append(alert)
+        if len(self._alerts) > self.max_history:
+            del self._alerts[: len(self._alerts) - self.max_history]
 
     def _evaluate_health_checks(self, detector_id: str) -> None:
         self._ensure_detector_checks(detector_id)
 
         for check in self._health_checks[detector_id]:
-            values = [m.value for m in self._metrics[detector_id].get(check.source_metric, [])]
-            if not values:
+            values = self._fresh_values(detector_id, check.source_metric)
+            active = self._active_alert_keys[detector_id]
+            if len(values) < check.min_samples:
+                # No evidence for this check: it neither fires nor
+                # counts as passed. Clear any firing state it had.
+                active.difference_update({key for key in active if key[0] == check.name})
                 continue
 
             alert = check.evaluate(values, detector_id=detector_id)
             if alert:
-                self._alerts.append(alert)
-                if self.alert_callback:
-                    self.alert_callback(alert)
+                # S19: store and notify only on a state transition —
+                # a (check, severity) condition starting to fire.
+                # Re-evaluating the same sustained condition (or an
+                # unrelated metric update) appends nothing. A severity
+                # change replaces the check's active key, so a later
+                # return to the old severity alerts again.
+                key = (check.name, alert.severity)
+                if key not in active:
+                    active.difference_update({k for k in active if k[0] == check.name})
+                    active.add(key)
+                    self._append_alert(alert)
+                    if self.alert_callback:
+                        self.alert_callback(alert)
+            else:
+                active.difference_update({key for key in active if key[0] == check.name})
 
     def get_report(self, detector_id: str) -> DetectorHealthReport:
-        """Generate a health report for a detector."""
+        """Generate a health report for a detector.
+
+        ``last_updated`` is the latest *observation* time, not the
+        report-generation time: a fresh report timestamp must never
+        imply fresh measurements (S18). Checks without fresh,
+        sufficient data are named in the metadata instead of being
+        silently omitted from the assessment.
+        """
         if detector_id not in self._reports:
             self._reports[detector_id] = DetectorHealthReport(
                 detector_id=detector_id,
@@ -2106,7 +2302,19 @@ class DetectorHealthMonitor:
         report = self._reports[detector_id]
         report.metrics = {k: list(v) for k, v in self._metrics.get(detector_id, {}).items()}
         report.alerts = [a for a in self._alerts if a.detector_id == detector_id]
-        report.last_updated = datetime.now(UTC).isoformat()
+        all_metrics = [m for series in report.metrics.values() for m in series]
+        if all_metrics:
+            latest = max(
+                all_metrics,
+                key=lambda m: (
+                    self._parse_metric_timestamp(m.timestamp) or datetime.min.replace(tzinfo=UTC)
+                ),
+            )
+            report.last_updated = latest.timestamp
+            report.metadata["last_observation_at"] = latest.timestamp
+        else:
+            report.metadata["last_observation_at"] = None
+        report.metadata["checks_without_fresh_data"] = self._checks_without_fresh_data(detector_id)
         report.overall_state, report.health_score = self._compute_overall_health(detector_id)
 
         return report
@@ -2117,7 +2325,9 @@ class DetectorHealthMonitor:
         Evaluates the checks for state/scoring only — it must not append to
         ``self._alerts``. ``_evaluate_health_checks`` is the single place that
         records alerts; re-firing here on every report call would duplicate
-        them indefinitely.
+        them indefinitely. Only fresh values count (S18); a check with
+        fewer than its minimum samples contributes no evidence and is
+        not counted as passed.
         """
         checks = self._health_checks.get(detector_id, [])
         if not checks:
@@ -2128,8 +2338,8 @@ class DetectorHealthMonitor:
         total_checks = 0
 
         for check in checks:
-            values = [m.value for m in self._metrics[detector_id].get(check.source_metric, [])]
-            if not values:
+            values = self._fresh_values(detector_id, check.source_metric)
+            if len(values) < check.min_samples:
                 continue
             total_checks += 1
             alert = check.evaluate(values, detector_id=detector_id)
@@ -2159,10 +2369,12 @@ class DetectorHealthMonitor:
         if detector_id:
             before = len(self._alerts)
             self._alerts = [a for a in self._alerts if a.detector_id != detector_id]
+            self._active_alert_keys.pop(detector_id, None)
             return before - len(self._alerts)
         else:
             count = len(self._alerts)
             self._alerts.clear()
+            self._active_alert_keys.clear()
             return count
 
 

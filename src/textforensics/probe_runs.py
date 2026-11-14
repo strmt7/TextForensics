@@ -93,14 +93,19 @@ import contextlib
 import dataclasses
 import hashlib
 import json
+import math
 import os
+import re
 import subprocess
 import tempfile
 import uuid
 from collections.abc import Mapping, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .execution_policy import CancellationToken, ExecutionPolicy
 
 from .datasets import default_cache_dir
 from .probe_metrics import (
@@ -1560,7 +1565,7 @@ def resolve_baseline(
     ]
     if not candidates:
         return None
-    return sorted(candidates, key=lambda r: str(r.get("run_at_utc", "")))[-1]
+    return sorted(candidates, key=_run_at_sort_key)[-1]
 
 
 def summarize_longitudinal(
@@ -1586,7 +1591,7 @@ def summarize_longitudinal(
             and run.get("detector_version") == detector_version
             and run.get("corpus_fingerprint") == corpus_fingerprint
         ),
-        key=lambda r: str(r.get("run_at_utc", "")),
+        key=_run_at_sort_key,
         reverse=True,
     )
     clean_run_ids: list[str] = []
@@ -1697,9 +1702,6 @@ def build_run_manifest(
             "min_clean_full_runs_for_temporal_support": MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT,
             "min_slice_n": MIN_SLICE_N,
             "min_slice_n_for_fpr_claim": MIN_SLICE_N_FOR_FPR_CLAIM,
-            "min_paired_n_for_drift_signal": MIN_SLICE_N,
-            "min_paired_human_n_for_flip_tier1": MIN_SLICE_N,
-            "min_matched_calibrated_n_for_calibration_drift": MIN_SLICE_N,
             "fpr_cap": FPR_CAP_DEFAULT,
         },
         "metrics": dict(metrics),
@@ -1717,36 +1719,232 @@ def build_run_manifest(
     return manifest
 
 
+# S20: the validator must enforce the shipped contract
+# (src/textforensics/schemas/probe-run.schema.json), not a weaker
+# subset of it. These lists mirror the schema's ``required`` and
+# ``properties`` (and the thresholds object's); a test pins them
+# against the schema file so the two cannot drift apart silently.
+_PROBE_RUN_REQUIRED_FIELDS = (
+    "schema",
+    "run_id",
+    "run_at_utc",
+    "scope",
+    "corpus_version",
+    "corpus_fingerprint",
+    "detector_id",
+    "detector_version",
+    "code_sha",
+    "baseline_run_id",
+    "is_baseline",
+    "previous_run_id",
+    "alpha_per_run",
+    "thresholds",
+    "metrics",
+    "alerts",
+    "breaches",
+    "demotions_applied",
+    "demotions_cleared",
+    "watches",
+    "gaps",
+    "scope_statement",
+    "limitations",
+)
+_PROBE_RUN_KNOWN_FIELDS = frozenset(
+    _PROBE_RUN_REQUIRED_FIELDS
+    + ("corpus_manifest_sha256", "provider_metadata", "rebaselined_from", "score_series")
+)
+_THRESHOLD_REQUIRED_FIELDS = (
+    "psi_action",
+    "ks_effect_size",
+    "ks_p_threshold",
+    "flip_rate_tier2",
+    "flip_rate_tier1",
+    "ece_increase_tier2",
+    "coverage_shortfall_tier2_pp",
+    "coverage_shortfall_tier1_pp",
+    "version_change_stale_days",
+    "min_clean_full_runs_for_temporal_support",
+    "min_slice_n",
+    "min_slice_n_for_fpr_claim",
+    "fpr_cap",
+)
+_THRESHOLD_INTEGER_FIELDS = {
+    "min_clean_full_runs_for_temporal_support": 1,
+    "min_slice_n": 1,
+    "min_slice_n_for_fpr_claim": 1,
+    "version_change_stale_days": 0,
+}
+# A run_id becomes a filename (``run-<run_id>.json``): it must be a
+# safe basename, never a path.
+_RUN_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
+
+
+def _require_finite_json(value: Any, field_name: str) -> None:
+    """Reject NaN/Infinity anywhere in a manifest (S20).
+
+    JSON text may spell them ``NaN``/``Infinity`` and Python's
+    ``json`` module accepts those spellings, so a strict validator
+    must walk the value instead of trusting the parser.
+    """
+    if isinstance(value, bool):
+        return
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ProbeRunError(f"run manifest {field_name} must be finite.")
+        return
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            _require_finite_json(item, f"{field_name}.{key}")
+        return
+    if isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            _require_finite_json(item, f"{field_name}[{index}]")
+
+
+def _require_finite_number(value: Any, field_name: str) -> float:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise ProbeRunError(f"run manifest {field_name} must be a number.")
+    if not math.isfinite(value):
+        raise ProbeRunError(f"run manifest {field_name} must be finite.")
+    return float(value)
+
+
+def _parse_run_at_utc(value: Any) -> datetime:
+    """Parse ``run_at_utc`` as a UTC timestamp (S20).
+
+    Naive timestamps and non-UTC offsets are rejected: chronological
+    ordering must come from parsed UTC instants, never from
+    arbitrary ISO strings.
+    """
+    if not isinstance(value, str):
+        raise ProbeRunError("run manifest run_at_utc must be an ISO-8601 UTC string.")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        raise ProbeRunError(
+            f"run manifest run_at_utc is not a valid timestamp: {value!r}."
+        ) from None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ProbeRunError("run manifest run_at_utc must carry a UTC offset.")
+    if parsed.utcoffset() != timedelta(0):
+        raise ProbeRunError("run manifest run_at_utc must be a UTC timestamp.")
+    return parsed.astimezone(UTC)
+
+
+def _run_at_sort_key(run: Mapping[str, Any]) -> datetime:
+    """Best-effort chronological key for history ordering (S20).
+
+    Validated histories always parse; an unparseable entry sorts
+    first instead of breaking the sort.
+    """
+    try:
+        return _parse_run_at_utc(run.get("run_at_utc"))
+    except ProbeRunError:
+        return datetime.min.replace(tzinfo=UTC)
+
+
 def validate_run_manifest(manifest: Mapping[str, Any]) -> None:
-    """Fail-closed validation of a probe-run manifest."""
+    """Fail-closed validation of a probe-run manifest.
+
+    Enforces the shipped ``textforensics.probe-run/v1`` schema:
+    every required field present, no unknown fields, finite values
+    throughout, UTC run times, safe run IDs, complete alert and
+    threshold objects, and — where the manifest states them —
+    metric totals and linkage consistent with the score series.
+    """
     if not isinstance(manifest, Mapping):
         raise ProbeRunError("run manifest must be an object.")
     if manifest.get("schema") != PROBE_RUN_SCHEMA:
         raise ProbeRunError(f"unsupported probe run schema: {manifest.get('schema')!r}.")
+    _require_finite_json(manifest, "manifest")
+    unknown = sorted(set(manifest) - _PROBE_RUN_KNOWN_FIELDS)
+    if unknown:
+        raise ProbeRunError(f"run manifest has unknown fields: {', '.join(unknown)}.")
+    for field in _PROBE_RUN_REQUIRED_FIELDS:
+        if field not in manifest:
+            raise ProbeRunError(f"run manifest is missing required field: {field}.")
+    run_id = manifest.get("run_id")
+    _require_nonempty_string(run_id, "run manifest run_id")
+    if not _RUN_ID_PATTERN.match(str(run_id)):
+        raise ProbeRunError(f"run manifest run_id must be a safe basename: {run_id!r}.")
+    _parse_run_at_utc(manifest.get("run_at_utc"))
     for field in (
-        "run_id",
-        "run_at_utc",
         "corpus_version",
         "detector_id",
         "detector_version",
     ):
         _require_nonempty_string(manifest.get(field), f"run manifest {field}")
+    _require_nonempty_string(manifest.get("code_sha"), "run manifest code_sha")
     if manifest.get("scope") not in RUN_SCOPES:
         raise ProbeRunError(f"run manifest scope must be one of {RUN_SCOPES}.")
     _require_hex64(manifest.get("corpus_fingerprint"), "corpus_fingerprint")
     if manifest.get("corpus_manifest_sha256") is not None:
         _require_hex64(manifest.get("corpus_manifest_sha256"), "corpus_manifest_sha256")
+    if not isinstance(manifest.get("is_baseline"), bool):
+        raise ProbeRunError("run manifest is_baseline must be a boolean.")
+    for field in ("previous_run_id", "baseline_run_id", "rebaselined_from"):
+        link = manifest.get(field)
+        if link is not None:
+            _require_nonempty_string(link, f"run manifest {field}")
+    alpha = _require_finite_number(manifest.get("alpha_per_run"), "alpha_per_run")
+    if not 0.0 < alpha <= 1.0:
+        raise ProbeRunError("run manifest alpha_per_run must be in (0, 1].")
+    thresholds = manifest.get("thresholds")
+    if not isinstance(thresholds, Mapping):
+        raise ProbeRunError("run manifest thresholds must be an object.")
+    for field in _THRESHOLD_REQUIRED_FIELDS:
+        if field not in thresholds:
+            raise ProbeRunError(f"run manifest thresholds is missing: {field}.")
+    unknown_thresholds = sorted(set(thresholds) - set(_THRESHOLD_REQUIRED_FIELDS))
+    if unknown_thresholds:
+        raise ProbeRunError(
+            f"run manifest thresholds has unknown fields: {', '.join(unknown_thresholds)}."
+        )
+    for field, value in thresholds.items():
+        _require_finite_number(value, f"thresholds.{field}")
+    for field, minimum in _THRESHOLD_INTEGER_FIELDS.items():
+        value = thresholds[field]
+        if not isinstance(value, int) or isinstance(value, bool) or value < minimum:
+            raise ProbeRunError(f"run manifest thresholds.{field} must be an integer >= {minimum}.")
+    fpr_cap = thresholds["fpr_cap"]
+    if not 0.0 <= fpr_cap <= 1.0:
+        raise ProbeRunError("run manifest thresholds.fpr_cap must be in [0, 1].")
     if not isinstance(manifest.get("metrics"), Mapping):
         raise ProbeRunError("run manifest metrics must be an object.")
     if not isinstance(manifest.get("alerts"), list):
         raise ProbeRunError("run manifest alerts must be a list.")
     for alert in manifest["alerts"]:
-        if not isinstance(alert, Mapping) or alert.get("tier") not in (1, 2, 3):
+        if not isinstance(alert, Mapping):
+            raise ProbeRunError("run manifest alerts must be objects.")
+        for field in ("tier", "rule", "slice", "action", "detail"):
+            if field not in alert:
+                raise ProbeRunError(f"run manifest alerts must carry {field}.")
+        if alert.get("tier") not in (1, 2, 3):
             raise ProbeRunError("run manifest alerts must carry tier 1, 2, or 3.")
         if alert.get("action") not in ("demote", "investigate", "record"):
             raise ProbeRunError("run manifest alerts must carry a valid action.")
+        for field in ("rule", "slice", "detail"):
+            _require_nonempty_string(alert.get(field), f"run manifest alert {field}")
     if not isinstance(manifest.get("breaches"), list):
         raise ProbeRunError("run manifest breaches must be a list.")
+    for breach in manifest["breaches"]:
+        if not isinstance(breach, Mapping):
+            raise ProbeRunError("run manifest breaches must be objects.")
+    for field in ("demotions_applied", "demotions_cleared"):
+        if not isinstance(manifest.get(field), Mapping):
+            raise ProbeRunError(f"run manifest {field} must be an object.")
+    if manifest.get("provider_metadata") is not None and not isinstance(
+        manifest.get("provider_metadata"), Mapping
+    ):
+        raise ProbeRunError("run manifest provider_metadata must be an object.")
+    for field in ("watches", "gaps", "limitations"):
+        values = manifest.get(field)
+        if not isinstance(values, list):
+            raise ProbeRunError(f"run manifest {field} must be a list.")
+    for field in ("gaps", "limitations"):
+        for item in manifest[field]:
+            if not isinstance(item, str):
+                raise ProbeRunError(f"run manifest {field} must contain strings.")
     score_series = manifest.get("score_series")
     if score_series is not None:
         if not isinstance(score_series, Mapping):
@@ -1754,23 +1952,141 @@ def validate_run_manifest(manifest: Mapping[str, Any]) -> None:
         for item_id, entry in score_series.items():
             if not isinstance(entry, Mapping):
                 raise ProbeRunError(f"score_series entry for {item_id!r} must be an object.")
-            score = entry.get("score")
-            if not isinstance(score, (int, float)) or isinstance(score, bool):
-                raise ProbeRunError(f"score_series entry for {item_id!r} needs a numeric score.")
+            unknown_entry = sorted(
+                set(entry)
+                - {
+                    "score",
+                    "verdict",
+                    "calibrated_ai_probability",
+                    "calibration_id",
+                    "native_score_direction",
+                    "score_range",
+                }
+            )
+            if unknown_entry:
+                raise ProbeRunError(
+                    f"score_series entry for {item_id!r} has unknown fields: "
+                    f"{', '.join(unknown_entry)}."
+                )
+            direction = entry.get("native_score_direction")
+            if direction is not None:
+                try:
+                    normalize_score_direction(direction)
+                except ValueError:
+                    raise ProbeRunError(
+                        f"score_series entry for {item_id!r} has an unknown "
+                        f"native_score_direction: {direction!r}."
+                    ) from None
+            score_range = entry.get("score_range")
+            if score_range is not None and (
+                not isinstance(score_range, (list, tuple))
+                or len(score_range) != 2
+                or any(
+                    not isinstance(endpoint, (int, float))
+                    or isinstance(endpoint, bool)
+                    or not math.isfinite(endpoint)
+                    for endpoint in score_range
+                )
+                or not score_range[0] < score_range[1]
+            ):
+                raise ProbeRunError(
+                    f"score_series entry for {item_id!r} score_range must be [lo, hi] with lo < hi."
+                )
+            for field in ("score", "verdict"):
+                if field not in entry:
+                    raise ProbeRunError(f"score_series entry for {item_id!r} must carry {field}.")
+            _require_finite_number(entry.get("score"), f"score_series {item_id!r} score")
             if entry.get("verdict") not in ("human_like", "ai_like", "abstain"):
                 raise ProbeRunError(f"score_series entry for {item_id!r} needs a valid verdict.")
+            calibrated = entry.get("calibrated_ai_probability")
+            if calibrated is not None:
+                probability = _require_finite_number(
+                    calibrated, f"score_series {item_id!r} calibrated_ai_probability"
+                )
+                if not 0.0 <= probability <= 1.0:
+                    raise ProbeRunError(
+                        f"score_series entry for {item_id!r} calibrated_ai_probability "
+                        "must be in [0, 1]."
+                    )
+            calibration_id = entry.get("calibration_id")
+            if calibration_id is not None and not isinstance(calibration_id, str):
+                raise ProbeRunError(
+                    f"score_series entry for {item_id!r} calibration_id must be a string."
+                )
     if manifest.get("scope_statement") != _SCOPE_STATEMENT:
         raise ProbeRunError("run manifest scope statement must match the canonical text.")
-    datetime.fromisoformat(str(manifest["run_at_utc"]))
+    # Linkage: a run cannot be its own predecessor or rebaselining
+    # source. A baseline run's baseline_run_id is itself by
+    # construction; any other run's baseline link must differ.
+    for field in ("previous_run_id", "rebaselined_from"):
+        if manifest.get(field) is not None and manifest[field] == run_id:
+            raise ProbeRunError(f"run manifest {field} must not equal run_id.")
+    baseline_link = manifest.get("baseline_run_id")
+    if baseline_link is not None and baseline_link == run_id and not manifest.get("is_baseline"):
+        raise ProbeRunError(
+            "run manifest baseline_run_id must not equal run_id for a non-baseline run."
+        )
+    # Metric totals against the score series, where the manifest
+    # states them: the overall n must be the series length, slice
+    # ns must sum to it, the metrics detector must be this run's
+    # detector, and the Holm alpha must be this run's alpha.
+    metrics = manifest["metrics"]
+    metrics_detector = metrics.get("detector_id")
+    if metrics_detector is not None and metrics_detector != manifest.get("detector_id"):
+        raise ProbeRunError("run manifest metrics detector_id does not match the run detector_id.")
+    holm = metrics.get("holm")
+    if isinstance(holm, Mapping) and "alpha_per_run" in holm:
+        holm_alpha = _require_finite_number(holm["alpha_per_run"], "metrics.holm.alpha_per_run")
+        if holm_alpha != alpha:
+            raise ProbeRunError(
+                "run manifest metrics holm alpha_per_run does not match alpha_per_run."
+            )
+    if score_series is not None:
+        overall = metrics.get("overall")
+        overall_n: int | None = None
+        if isinstance(overall, Mapping) and "n" in overall:
+            overall_n = overall["n"]
+            if not isinstance(overall_n, int) or isinstance(overall_n, bool) or overall_n < 0:
+                raise ProbeRunError(
+                    "run manifest metrics overall n must be a non-negative integer."
+                )
+            if overall_n != len(score_series):
+                raise ProbeRunError(
+                    "run manifest metrics overall n does not match the score_series length."
+                )
+        slices = metrics.get("slices")
+        if isinstance(slices, Mapping):
+            slice_total = 0
+            for slice_name, slice_metrics in slices.items():
+                if not isinstance(slice_metrics, Mapping) or "n" not in slice_metrics:
+                    continue
+                slice_n = slice_metrics["n"]
+                if not isinstance(slice_n, int) or isinstance(slice_n, bool) or slice_n < 0:
+                    raise ProbeRunError(
+                        f"run manifest metrics slice {slice_name!r} n must be a "
+                        "non-negative integer."
+                    )
+                slice_total += slice_n
+            if overall_n is not None and slice_total != overall_n:
+                raise ProbeRunError("run manifest metrics slice ns do not sum to the overall n.")
 
 
 def save_run(run: Mapping[str, Any], directory: str | Path) -> Path:
-    """Atomically write one run manifest to the run-history directory."""
+    """Atomically write one run manifest to the run-history directory.
+
+    Append-only (S20): a run_id is an immutable identity. Saving a
+    different manifest under an existing run_id is refused — the old
+    file is left untouched. Saving the exact same bytes again is
+    idempotent. Concurrent duplicate saves are safe: the file is
+    published with an exclusive hard link, so at most one writer can
+    claim the name.
+    """
     validate_run_manifest(run)
     target_dir = Path(directory)
     target_dir.mkdir(parents=True, exist_ok=True)
     target = target_dir / f"run-{run['run_id']}.json"
     rendered = json.dumps(run, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    rendered_bytes = rendered.encode("utf-8")
     temp_path: str | None = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -1785,7 +2101,23 @@ def save_run(run: Mapping[str, Any], directory: str | Path) -> Path:
             handle.write(rendered)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temp_path, target)
+        try:
+            os.link(temp_path, target)
+        except FileExistsError:
+            try:
+                existing = target.read_bytes()
+            except OSError as exc:
+                raise ProbeRunError(
+                    f"run {run['run_id']!r} already exists in {target_dir} "
+                    "and cannot be read to compare; refusing to overwrite."
+                ) from exc
+            if existing == rendered_bytes:
+                return target
+            raise ProbeRunError(
+                f"run {run['run_id']!r} already exists in {target_dir} with "
+                "different content; run history is append-only and a run "
+                "is never overwritten. Record a correction as a new run."
+            ) from None
         temp_path = None
     finally:
         if temp_path is not None:
@@ -1802,12 +2134,23 @@ def load_run(path: str | Path) -> dict[str, Any]:
 
 
 def load_run_history(directory: str | Path) -> list[dict[str, Any]]:
-    """Load all run manifests in a directory, oldest first."""
+    """Load all run manifests in a directory, oldest first.
+
+    Ordering is by parsed UTC instant, not by raw ISO string (S20).
+    A duplicate run_id is a corrupt history — run identities are
+    immutable and append-only — and fails closed.
+    """
     target_dir = Path(directory)
     if not target_dir.is_dir():
         return []
     runs = [load_run(path) for path in sorted(target_dir.glob("run-*.json"))]
-    runs.sort(key=lambda r: str(r.get("run_at_utc", "")))
+    seen: set[str] = set()
+    for run in runs:
+        run_id = run.get("run_id")
+        if run_id in seen:
+            raise ProbeRunError(f"duplicate run_id {run_id!r} in run history {target_dir}.")
+        seen.add(run_id)
+    runs.sort(key=_run_at_sort_key)
     return runs
 
 
@@ -1825,6 +2168,8 @@ def perform_probe_run(
     allow_remote: bool = False,
     primitives: Any = None,
     run_at: datetime | None = None,
+    execution_policy: ExecutionPolicy | None = None,
+    cancellation: CancellationToken | None = None,
 ) -> dict[str, Any]:
     """Run one U3 probe run end to end and return its run manifest.
 
@@ -1841,13 +2186,25 @@ def perform_probe_run(
     registry; it is required whenever a Tier-1 alert fires (demotion
     writes there) unless ``dry_run`` is set.
 
+    ``execution_policy`` / ``cancellation`` are the W1 stop channel:
+    the canonical emergency stop (and cooperative cancellation) is
+    checked before scoring, after scoring, and before any registry
+    mutation or save. A stop raises :class:`EmergencyStopError` —
+    terminal, never converted into an ordinary failure or a
+    clean-run record — and nothing is demoted or saved.
+
     The run is saved to ``runs_dir`` (default
     :func:`default_probe_runs_dir`) unless ``dry_run``. A Tier-1
     alert applies demotions to the registry; a clean full run clears
     U3 demotions for this detector. The returned manifest is the
     exact dict that was saved (or would have been saved, dry-run).
     """
+    from .execution_policy import assert_execution_allowed
     from .observatory import DriftObservatory
+
+    # S20 handoff (W2): the stop gate runs before any execution.
+    # No policy supplied means the default local-only policy.
+    assert_execution_allowed(execution_policy, cancellation=cancellation)
 
     if scope not in RUN_SCOPES:
         raise ProbeRunError(f"scope must be one of {RUN_SCOPES}, got {scope!r}.")
@@ -1903,11 +2260,21 @@ def perform_probe_run(
     if not scoped_items:
         raise ProbeRunError(f"scope {scope!r} selects no corpus items.")
 
-    # Score first. Labels are loaded only after this returns.
+    # Score first. Labels are loaded only after this returns. The
+    # policy/cancellation channel is threaded through so a stop
+    # raised inside scoring propagates unchanged.
     observatory = DriftObservatory(
         corpus={"schema": "textforensics.drift-corpus/v1", "samples": scoped_items}
     )
-    snapshot = observatory.take_snapshot(detectors=[detector], allow_remote=bool(allow_remote))
+    snapshot = observatory.take_snapshot(
+        detectors=[detector],
+        allow_remote=bool(allow_remote),
+        execution_policy=execution_policy,
+        cancellation=cancellation,
+    )
+    # A stop that activated during scoring must abort before labels
+    # are read, demotions applied, or anything saved.
+    assert_execution_allowed(execution_policy, cancellation=cancellation)
     current_records = snapshot.get("records") or []
     if not current_records:
         raise ProbeRunError("probe run scored no records.")
@@ -2015,6 +2382,9 @@ def perform_probe_run(
     run_id = uuid.uuid4().hex
     for watch in watches:
         watch["run_id"] = run_id
+    # A stop that activated anywhere up to here must abort before
+    # any durable mutation: no demotion, no clearing, no save.
+    assert_execution_allowed(execution_policy, cancellation=cancellation)
     demotions_applied: dict[str, Any] = {}
     demotions_cleared: dict[str, Any] = {}
     if not dry_run:

@@ -239,30 +239,38 @@ class TestDetectorHealthMonitor:
         for _ in range(5):  # < 10 minimum for entropy check
             m.record_score("d1", 0.5)
         r = m.get_report("d1")
-        # Entropy check skipped, no alerts
-        assert r.overall_state == HealthState.HEALTHY
+        # Entropy check skipped for lack of samples, and no other
+        # check has evidence: fewer-than-minimum samples count as no
+        # evidence (S18), never as a pass, so the report is UNKNOWN.
+        assert r.overall_state == HealthState.UNKNOWN
+        assert r.health_score == 0.0
 
     def test_throughput_low_triggers_warning(self):
         m = DetectorHealthMonitor()
-        # Record 1 request -> throughput ~0.016 rps < 0.1 critical threshold
+        # 2 requests in the last minute: 2/60 = 0.0333 rps, below
+        # the declared 0.1 critical threshold (S17: the old test
+        # expected healthy here from incorrect arithmetic).
         m.record_request("d1")
-        # Note: throughput check uses 60s window; a single request
-        # will be critical if evaluated within 60s of the request
-        # But since it's <2 values, check returns True (skipped)
-        # Need at least 2 requests
+        m.record_request("d1")
+        r = m.get_report("d1")
+        assert r.overall_state == HealthState.CRITICAL
+        # 30 requests in the last minute: 30/60 = 0.5 rps, at the
+        # declared warning threshold, so the check passes.
         m2 = DetectorHealthMonitor()
-        m2.record_request("d2")
-        m2.record_request("d2")
+        for _ in range(30):
+            m2.record_request("d2")
         r2 = m2.get_report("d2")
-        # With 2 requests in <60s, throughput > 0.1 -> passes
         assert r2.overall_state == HealthState.HEALTHY
 
     def test_alert_callback_fires_once_per_anomaly(self):
+        # A sustained anomaly is one incident: the callback fires on
+        # the state transition, not on every re-evaluation while the
+        # condition keeps firing (S19).
         hits = []
         m = DetectorHealthMonitor(alert_callback=lambda a: hits.append(a))
         for _ in range(5):
             m.record_error("d1", True)
-        assert len(hits) == 5
+        assert len(hits) == 1
 
     def test_clear_alerts_for_specific_detector(self):
         m = DetectorHealthMonitor()
@@ -270,9 +278,10 @@ class TestDetectorHealthMonitor:
             m.record_error("d1", True)
         for _ in range(3):
             m.record_error("d2", True)
+        # One sustained anomaly per detector is one stored alert (S19).
         n = m.clear_alerts("d1")
-        assert n == 5
-        assert len(m.get_all_alerts()) == 3
+        assert n == 1
+        assert len(m.get_all_alerts()) == 1
         assert all(a.detector_id == "d2" for a in m.get_all_alerts())
 
     def test_clear_all_alerts(self):
@@ -280,7 +289,7 @@ class TestDetectorHealthMonitor:
         for _ in range(5):
             m.record_error("d1", True)
         n = m.clear_alerts()
-        assert n == 5
+        assert n == 1
         assert len(m.get_all_alerts()) == 0
 
     def test_get_all_alerts_since_filter(self):
@@ -289,7 +298,7 @@ class TestDetectorHealthMonitor:
             m.record_error("d1", True)
         before = datetime.datetime.now(datetime.UTC) - datetime.timedelta(seconds=1)
         alerts = m.get_all_alerts(since=before)
-        assert len(alerts) == 3
+        assert len(alerts) == 1
         after = datetime.datetime.now(datetime.UTC) + datetime.timedelta(seconds=1)
         assert len(m.get_all_alerts(since=after)) == 0
 
@@ -348,7 +357,7 @@ class TestDetectorHealthMonitor:
             m.record_error("d1", True)
         a1 = len(m.get_report("d1").alerts)
         a2 = len(m.get_report("d1").alerts)
-        assert a1 == a2 == 5
+        assert a1 == a2 == 1
 
     def test_compute_overall_health_does_not_mutate_alerts(self):
         """_compute_overall_health must not append to self._alerts."""
@@ -379,16 +388,28 @@ class TestHighLevelDetectorHealthMonitor:
         import random
 
         random.seed(42)
-        for _ in range(20):
+        # 30 results: 30 requests in the last minute is 0.5 rps, at
+        # the throughput warning threshold (S17), and 1/30 = 3.33%
+        # errors is under the 5% error warning threshold.
+        for _ in range(29):
             h.record_detector_result("dy", 100.0, score=random.random(), is_error=False)
-        h.record_detector_result("dy", 100.0, score=0.5, is_error=True)  # 4.76%
+        h.record_detector_result("dy", 100.0, score=0.5, is_error=True)
         rh = h.get_detector_health("dy")
         assert rh.overall_state == HealthState.HEALTHY
 
     def test_get_all_health(self):
         h = create_detector_health_monitor()
-        h.record_detector_result("d1", 10.0, score=0.5, is_error=False)
-        h.record_detector_result("d2", 10.0, score=0.5, is_error=True)
+        import random
+
+        random.seed(7)
+        # 30 results each: enough requests for the throughput check
+        # to pass (30/60 = 0.5 rps, S17) while keeping d2 critical
+        # on its 100% error rate. Scores vary so the entropy check
+        # does not fire on a uniform series.
+        for _ in range(30):
+            h.record_detector_result("d1", 10.0, score=random.random(), is_error=False)
+        for _ in range(30):
+            h.record_detector_result("d2", 10.0, score=random.random(), is_error=True)
         all_health = h.get_all_health()
         assert "d1" in all_health
         assert "d2" in all_health
@@ -397,7 +418,11 @@ class TestHighLevelDetectorHealthMonitor:
 
     def test_check_detector_health_returns_state_and_score(self):
         h = create_detector_health_monitor()
-        h.record_detector_result("d1", 10.0, score=0.5, is_error=False)
+        import random
+
+        random.seed(11)
+        for _ in range(30):
+            h.record_detector_result("d1", 10.0, score=random.random(), is_error=False)
         state, score = h.check_detector_health("d1")
         assert state == HealthState.HEALTHY
         assert score == 1.0

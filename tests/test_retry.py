@@ -220,7 +220,9 @@ class TestWithRetryGate:
 
     @pytest.mark.asyncio
     async def test_retry_on_failure(self):
-        gate = create_retry_gate(max_retries=3)
+        # Small delays: waiting out the real backoff is not the point
+        # of this test (S16: waits are genuine now, not skipped).
+        gate = create_retry_gate(max_retries=3, base_delay=0.01, max_delay=0.05)
         call_count = 0
 
         async def operation():
@@ -236,7 +238,7 @@ class TestWithRetryGate:
 
     @pytest.mark.asyncio
     async def test_max_retries_exceeded(self):
-        gate = create_retry_gate(max_retries=2)
+        gate = create_retry_gate(max_retries=2, base_delay=0.01, max_delay=0.05)
 
         async def operation():
             raise ConnectionError("Persistent failure")
@@ -256,7 +258,13 @@ class TestWithRetryGate:
 
     @pytest.mark.asyncio
     async def test_circuit_opens_during_retries(self):
-        gate = create_retry_gate(circuit_open_after=2, max_retries=5, circuit_reset_timeout=0.01)
+        gate = create_retry_gate(
+            circuit_open_after=2,
+            max_retries=5,
+            circuit_reset_timeout=0.01,
+            base_delay=0.01,
+            max_delay=0.05,
+        )
 
         async def operation():
             raise ConnectionError("Persistent")
