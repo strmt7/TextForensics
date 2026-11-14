@@ -41,8 +41,8 @@ jobs:
 
       - name: Install development dependencies with all features
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,api,mcp,security]"
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[dev,api,mcp,security]"
 
       - name: Compile Python sources
         run: python -m compileall -q src tests
@@ -96,7 +96,9 @@ jobs:
           cache: pip
 
       - name: Install with coverage support
-        run: python -m pip install -e ".[dev]"
+        run: |
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[dev]"
 
       - name: Run tests with coverage
         run: |
@@ -152,9 +154,15 @@ jobs:
 
       - name: Install documentation tools
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
-          python -m pip install myst-parser sphinx sphinx-rtd-theme sphinx-linkcheck
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[dev]"
+          # Docs tools (myst-parser, sphinx, sphinx-rtd-theme) are
+          # hash-pinned in requirements-tools-hashed.txt. NOTE:
+          # sphinx-linkcheck was REMOVED from the install list — no such
+          # package exists on PyPI (404); linkcheck is a built-in Sphinx
+          # builder, not an installable package, so the old line could
+          # never succeed.
+          python -m pip install --require-hashes -r requirements-tools-hashed.txt
 
       - name: Check README renderability
         run: |
@@ -210,11 +218,11 @@ jobs:
       - name: Create isolated audit environment
         run: |
           python -m venv .audit-env
-          .audit-env/bin/python -m pip install --upgrade pip
 
       - name: Install all dependencies
         run: |
-          .audit-env/bin/python -m pip install -e ".[dev,api,mcp,security]"
+          .audit-env/bin/python -m pip install --require-hashes -r requirements-hashed.txt
+          .audit-env/bin/python -m pip install --no-deps -e ".[dev,api,mcp,security]"
 
       - name: Resolve runtime dependencies
         run: |
@@ -222,12 +230,8 @@ jobs:
 
       - name: Run pip-audit with zero tolerance
         run: |
-          # ENG-07(2): requirement ranges are quoted: unquoted
-          # `pip-audit>=2,<3` is a shell redirection (`3: No such file
-          # or directory`, creates a file named `=2,`), not a
-          # requirement string.
-          .audit-env/bin/python -m pip install "pip-audit>=2,<3"
-          .audit-env/bin/python -m pip install "bandit>=1.7,<2"
+          # pip-audit and bandit come from the hash-pinned lockfile
+          # installed above (pip-audit 2.10.1, bandit 1.9.4).
 
           # Strict dependency audit - fail on any vulnerability
           .audit-env/bin/pip-audit --strict --no-deps -r audit-requirements.txt
@@ -237,7 +241,9 @@ jobs:
 
       - name: Generate SBOM for audit
         run: |
-          .audit-env/bin/python -m pip install "cyclonedx-bom>=8,<9"
+          # cyclonedx-bom (8.0.1) is hash-pinned in
+          # requirements-tools-hashed.txt; it is NOT in the main lockfile.
+          .audit-env/bin/python -m pip install --require-hashes -r requirements-tools-hashed.txt
           .audit-env/bin/cyclonedx-py requirements \
             --pyproject pyproject.toml \
             audit-requirements.txt \
@@ -273,9 +279,10 @@ jobs:
           python-version: "3.12"
 
       - name: Install build tools
+        # build (1.6.1) and twine (7.0.0) come from the hash-pinned
+        # lockfile; no separate install line is needed.
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install "build>=1.2,<2" twine
+          python -m pip install --require-hashes -r requirements-hashed.txt
 
       - name: Build distributions
         run: python -m build
@@ -353,9 +360,10 @@ jobs:
       # (`ImportError: cannot import name 'CaseFile' from
       # 'textforensics.casefile'`).
       - name: Install jsonschema and the project
+        # jsonschema (4.26.0) comes from the hash-pinned lockfile.
         run: |
-          python -m pip install "jsonschema>=4.23,<5"
-          python -m pip install -e ".[dev]"
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[dev]"
 
       - name: Validate all schemas are valid JSON Schema
         run: |
@@ -442,7 +450,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install package
-        run: python -m pip install -e .
+        run: |
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e .
 
       - name: Test version command
         run: |
@@ -503,11 +513,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install API dependencies
+        # httpx (0.28.1) comes from the hash-pinned lockfile.
         run: |
-          python -m pip install -e ".[dev,api]"
-          # ENG-07(2): quoted — unquoted `httpx>=0.27,<1` is a shell
-          # redirection, not a requirement string.
-          python -m pip install "httpx>=0.27,<1"
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[dev,api]"
 
       - name: Test API import and instantiation
         run: |
@@ -575,10 +584,10 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
+        # pytest-benchmark (5.3.1) comes from the hash-pinned lockfile.
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
-          python -m pip install pytest-benchmark
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[dev]"
 
       - name: Run performance benchmarks
         run: |
@@ -663,7 +672,8 @@ jobs:
 
       - name: Install and test
         run: |
-          python -m pip install -e ".[dev]"
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[dev]"
           textforensics --version
 
   # Cross-platform jobs for other OSes
@@ -684,7 +694,8 @@ jobs:
 
       - name: Install and test Windows
         run: |
-          python -m pip install -e ".[dev]"
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[dev]"
           textforensics --version
 
       - name: Upload Windows verification
@@ -712,7 +723,8 @@ jobs:
 
       - name: Install and test macOS
         run: |
-          python -m pip install -e ".[dev]"
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[dev]"
           textforensics --version
 
       - name: Upload macOS verification

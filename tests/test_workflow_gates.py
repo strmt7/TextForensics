@@ -100,14 +100,23 @@ def test_deep_verification_no_forked_without_plugin():
 
 
 def test_deep_verification_requirement_ranges_quoted():
+    # Post-restructure (Scorecard Pinned-Dependencies): the file has NO
+    # version-range pip installs at all. Every install is either
+    # hash-pinned (--require-hashes -r <lockfile>) or a no-deps
+    # self-install (--no-deps -e .[...]). The old quoted ranges
+    # (pip-audit>=2,<3, bandit>=1.7,<2, httpx>=0.27,<1) were deleted —
+    # the tools now come from the hash-pinned lockfile — not left unquoted.
     text = _text("enterprise-deep-verification.yml")
     for spec in ("pip-audit>=2,<3", "bandit>=1.7,<2", "httpx>=0.27,<1"):
-        assert f'"{spec}"' in text, f"unquoted requirement range: {spec}"
-        # No bare (unquoted) occurrence on a pip install line.
-        for line in text.splitlines():
-            stripped = line.strip()
-            if spec in stripped and stripped.startswith(("python -m pip install", ".audit-env")):
-                assert stripped.count(f'"{spec}"') == 1, line
+        assert spec not in text, f"unpinned requirement range remains: {spec}"
+    for line in text.splitlines():
+        stripped = line.strip()
+        if "pip install" in stripped and stripped.startswith(
+            ("python -m pip install", ".audit-env")
+        ):
+            assert "--require-hashes" in stripped or "--no-deps" in stripped, (
+                f"unpinned pip install: {line}"
+            )
 
 
 def test_deep_verification_schema_job_installs_project_and_imports_real_symbol():
@@ -115,7 +124,8 @@ def test_deep_verification_schema_job_installs_project_and_imports_real_symbol()
     steps = _steps(workflow, "schema-validation")
     runs = [str(s.get("run", "")) for s in steps]
     joined = "\n".join(runs)
-    assert "pip install -e" in joined
+    assert "--require-hashes -r requirements-hashed.txt" in joined
+    assert "pip install --no-deps -e" in joined or "pip install -e" in joined
     assert "from textforensics.casefile import CaseFile" not in joined
     assert "import CaseFile" not in joined
     assert "load_schema" in joined
