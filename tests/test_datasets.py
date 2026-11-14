@@ -958,6 +958,10 @@ def _start_redirect_server(
     if tls is not None:
         cert_path, key_path = tls
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        # Explicit TLS floor: PROTOCOL_TLS_SERVER alone is flagged by
+        # CodeQL py/insecure-protocol as allowing TLSv1/TLSv1_1. This
+        # loopback-only test server accepts TLSv1.2+ only.
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
         context.load_cert_chain(cert_path, key_path)
         server.socket = context.wrap_socket(server.socket, server_side=True)
     thread = threading.Thread(target=server.serve_forever, daemon=True)

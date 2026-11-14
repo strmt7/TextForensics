@@ -27,6 +27,29 @@ class RegexTests(unittest.TestCase):
         sentences = SENTENCE_RE.split("First. Second! Third?")
         self.assertEqual(len(sentences), 3)
 
+    def test_sentence_regex_completes_quickly_on_long_whitespace_runs(self):
+        # Regression test for CodeQL py/polynomial-redos (alert #1):
+        # the pre-fix ``\s+`` form backtracked over long whitespace runs
+        # after a sentence terminator when the lookahead failed. The
+        # possessive ``\s++`` form must split this pathological input —
+        # many terminators each followed by a long tab run and a
+        # lowercase letter (so no split ever matches) — in well under a
+        # second. The 5 s bound is deliberately generous so a loaded
+        # runner cannot flake; the fixed code takes ~0.05 s.
+        import time
+
+        text = ("!" + "\t" * 2000 + "x") * 200
+        start = time.perf_counter()
+        sentences = SENTENCE_RE.split(text)
+        elapsed = time.perf_counter() - start
+        self.assertEqual(sentences, [text])
+        self.assertLess(elapsed, 5.0)
+        start = time.perf_counter()
+        features = extract_features(text)
+        elapsed = time.perf_counter() - start
+        self.assertEqual(features["sentence_count"], 1)
+        self.assertLess(elapsed, 5.0)
+
     def test_transition_list_is_non_empty(self):
         self.assertIn("furthermore", TRANSITIONS)
         self.assertIn("in conclusion", TRANSITIONS)

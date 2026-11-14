@@ -7,7 +7,13 @@ from collections import Counter
 from typing import Any
 
 WORD_RE = re.compile(r"\b[\w]+(?:['’][\w]+)?\b", re.UNICODE)
-SENTENCE_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"'“‘(])")
+# Possessive ``\s++`` (not ``\s+``): backtracking over a long whitespace run
+# can never turn a failed lookahead into a match — any shorter run ends at
+# a whitespace character, which is never in the lookahead class — so the
+# possessive quantifier only removes the backtracking (CodeQL
+# py/polynomial-redos on the ``\s+`` form) and preserves the exact split
+# behaviour for every input. Requires Python >= 3.11 (see pyproject).
+SENTENCE_RE = re.compile(r"(?<=[.!?])\s++(?=[A-Z0-9\"'“‘(])")
 
 TRANSITIONS = (
     "additionally",
