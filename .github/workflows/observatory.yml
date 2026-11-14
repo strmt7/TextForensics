@@ -87,7 +87,9 @@ jobs:
           python-version: '3.12'
           cache: pip
       - name: Install development dependencies
-        run: python -m pip install -e ".[dev]"
+        run: |
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[dev]"
       - name: U3 engine, orchestration, Trust Map and CLI tests
         run: |
           python -m pytest tests/test_probe_runs.py tests/test_probe_runs_e2e.py \
@@ -113,7 +115,9 @@ jobs:
           python-version: '3.12'
           cache: pip
       - name: Install development dependencies
-        run: python -m pip install -e ".[dev]"
+        run: |
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[dev]"
       - name: Check probe corpus availability
         id: corpus
         run: |

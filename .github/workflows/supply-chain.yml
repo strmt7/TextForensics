@@ -50,8 +50,8 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: Install pinned requirements (project + pip-audit)
-        run: python -m pip install -r requirements-pinned.txt
+      - name: Install hashed requirements (project + pip-audit)
+        run: python -m pip install --require-hashes -r requirements-hashed.txt
       - name: pip-audit gate
         # Fails (exit 2) on any finding not in pip-audit-baseline.toml
         # and (exit 1) on an expired baseline entry. See

@@ -52,7 +52,9 @@ jobs:
           python-version: '3.12'
           cache: pip
       - name: Install package (core only)
-        run: python -m pip install -e .
+        run: |
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e .
       - name: Prefix probe (urllib path)
         run: python scripts/download_prefix_probe.py
       - name: Prefix probe (forced-curl path)
@@ -72,7 +74,9 @@ jobs:
           python-version: '3.12'
           cache: pip
       - name: Install package (core only)
-        run: python -m pip install -e .
+        run: |
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e .
       - name: Resolve expected size and hash
         id: expected
         run: |

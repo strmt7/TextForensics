@@ -41,7 +41,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install development dependencies
-        run: python -m pip install -e ".[dev]"
+        run: |
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[dev]"
       - name: Run pre-commit hooks
         run: pre-commit run --all-files
       - name: Compile sources
@@ -100,7 +102,9 @@ jobs:
           python-version: "3.12"
           cache: pip
       - name: Install development dependencies
-        run: python -m pip install -e ".[dev,api,mcp,security]"
+        run: |
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[dev,api,mcp,security]"
       - name: Run claims gate
         run: python scripts/check_claims.py
       - name: Report card is up to date
@@ -116,8 +120,8 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: Install from requirements-pinned.txt
-        run: python -m pip install -r requirements-pinned.txt
+      - name: Install from requirements-hashed.txt
+        run: python -m pip install --require-hashes -r requirements-hashed.txt
       - name: Dependency consistency
         run: python -m pip check
       - name: CLI smoke
@@ -133,8 +137,8 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: Install from requirements-pinned.txt
-        run: python -m pip install -r requirements-pinned.txt
+      - name: Install from requirements-hashed.txt
+        run: python -m pip install --require-hashes -r requirements-hashed.txt
       - name: Regenerate SBOM and fail if stale
         run: python scripts/generate_sbom.py --check
 
@@ -153,7 +157,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-      - run: python -m pip install -e ".[enterprise]"
+      - run: |
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[enterprise]"
       - run: textforensics --version
       - name: JSON CLI smoke
         shell: bash
@@ -171,7 +177,9 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: python -m pip install "build>=1.2,<2" twine
+      # build + twine come from the hash-pinned lockfile (build 1.6.1,
+      # twine 7.0.0); no separate range install.
+      - run: python -m pip install --require-hashes -r requirements-hashed.txt
       - run: python -m build
       - run: python -m twine check dist/*
       - name: Inspect wheel contents
@@ -209,7 +217,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-      - run: python -m pip install -e ".[dev,api]"
+      - run: |
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[dev,api]"
       - run: python -m unittest tests.test_api -v
       - run: python -c "from textforensics.api import create_app; assert create_app() is not None"
 
@@ -227,5 +237,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-      - run: python -m pip install -e ".[mcp]"
+      - run: |
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[mcp]"
       - run: python -c "from textforensics.mcp_server import _server; assert _server() is not None"
