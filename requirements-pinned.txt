@@ -80,7 +80,7 @@ httpx==0.28.1
 fastapi==0.162.2
 jinja2==3.1.6
 uvicorn==0.54.0
-websockets==12.0
+websockets==17.4
 
 # MCP
 mcp==2.3.0
