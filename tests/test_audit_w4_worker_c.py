@@ -12,7 +12,6 @@ import sys
 import tempfile
 from datetime import date
 from io import StringIO
-from pathlib import Path
 
 import pytest
 
@@ -44,7 +43,7 @@ from textforensics.probe_runs import (
     load_run,
     validate_run_manifest,
 )
-from textforensics.result_codec import ResultCodec, decode_result
+from textforensics.result_codec import ResultCodec
 
 TODAY = date(2026, 11, 14)
 
