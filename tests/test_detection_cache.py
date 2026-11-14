@@ -450,8 +450,8 @@ class TestDetectionCache:
     @pytest.mark.asyncio
     async def test_save_load_persistence(self, cache_with_storage):
         cache = cache_with_storage
-        await cache.put("text1", "det1", "1.0", {"score": 0.5})
-        await cache.put("text2", "det1", "1.0", {"score": 0.6})
+        await cache.put("text1", "det1", "1.0", {"score": 0.5}, metadata={"config_hash": "config1"})
+        await cache.put("text2", "det1", "1.0", {"score": 0.6}, metadata={"config_hash": "config1"})
         cache.set_model_version("det1", "1.0")
         cache.set_config_hash("det1", "config1")
         cache._save_to_disk()

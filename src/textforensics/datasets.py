@@ -66,6 +66,7 @@ CrisisFake have no verified route (no loader), PAN 2025 is wave 2
 from __future__ import annotations
 
 import ast
+import contextlib
 import hashlib
 import http.client
 import json
@@ -75,6 +76,7 @@ import random
 import re
 import shutil
 import subprocess
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -270,6 +272,46 @@ def _sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(DOWNLOAD_CHUNK_SIZE), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _atomic_write_bytes(path: Path, data: bytes) -> None:
+    """Persist ``data`` atomically: temp file, flush, fsync, os.replace.
+
+    Writing bytes (never text mode) is what makes a declared digest
+    meaningful: the bytes hashed are exactly the bytes committed, with
+    no platform newline conversion in between (audit W4/CORE-08 — a
+    text-mode write on Windows persists CRLF while the manifest hashed
+    the LF in-memory string). A failure leaves any previous file at
+    ``path`` untouched and removes the temp file.
+    """
+    temp_path: str | None = None
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, temp_path = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(data)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp_path, path)
+            temp_path = None
+        finally:
+            if temp_path is not None:
+                with contextlib.suppress(FileNotFoundError):
+                    os.unlink(temp_path)
+        try:
+            dir_fd = os.open(path.parent, os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+        except OSError:
+            pass
+    except Exception:
+        if temp_path is not None:
+            with contextlib.suppress(FileNotFoundError):
+                os.unlink(temp_path)
+        raise
 
 
 def _log_host(url: str) -> str:
@@ -2016,6 +2058,15 @@ def write_sample_cache(
     the SHA-256 of the cache file, so a cached sample can be re-verified
     without re-downloading.
 
+    The UTF-8/LF byte encoding is defined exactly once and hashed only
+    after it is committed: the cache file and the manifest are both
+    written as bytes through atomic temp+replace, so the manifest's
+    ``file_sha256`` is always the digest of the persisted bytes, on
+    every platform (audit W4/CORE-08). The manifest is published after
+    the cache file; if the manifest write fails, the exception
+    propagates and the stale manifest fails any later read closed
+    (digest mismatch) instead of silently vouching for new bytes.
+
     ``filename`` overrides the cache file name (plain file name only,
     e.g. ``"train-segments.jsonl"``) — used when a second sample of
     the same config/split must coexist with the first, as the U4
@@ -2030,11 +2081,13 @@ def write_sample_cache(
         if not filename or filename != Path(filename).name:
             raise ValueError(f"filename must be a plain file name, got {filename!r}")
         path = path.with_name(filename)
-    path.parent.mkdir(parents=True, exist_ok=True)
     lines = [json.dumps(row.to_jsonl(), ensure_ascii=False, sort_keys=True) for row in normalized]
     content = "\n".join(lines) + ("\n" if lines else "")
-    path.write_text(content, encoding="utf-8")
-    file_sha256 = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    # One encoding, hashed only as persisted bytes — never a text-mode
+    # write whose platform newline conversion could change the bytes.
+    data = content.encode("utf-8")
+    _atomic_write_bytes(path, data)
+    file_sha256 = hashlib.sha256(data).hexdigest()
     manifest = {
         "dataset": spec.key,
         "hf_id": spec.hf_id,
@@ -2052,9 +2105,8 @@ def write_sample_cache(
         if filename is not None
         else manifest_path(spec.key, config, split, cache_dir=cache_dir)
     )
-    manifest_file.write_text(
-        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    manifest_bytes = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    _atomic_write_bytes(manifest_file, manifest_bytes)
     return path, manifest_file
 
 
@@ -2068,6 +2120,15 @@ def read_sample_cache(
 ) -> list[NormalizedRow]:
     """Read normalised rows back from a JSONL cache file.
 
+    When the manifest written by :func:`write_sample_cache` is present,
+    it is verified before any row is consumed: the SHA-256 of the
+    persisted bytes must match ``file_sha256``, the manifest must name
+    this file, and the row count must match. A mismatch raises
+    :class:`DatasetFetchError` — cached scientific evidence is never
+    consumed on a digest that does not describe the bytes on disk
+    (audit W4/CORE-08). A cache written without a manifest (e.g. by an
+    older version) is read as before, with no digest to verify against.
+
     ``filename`` is the ``write_sample_cache`` override: the plain
     file name of a coexisting second sample of the same config/split
     (e.g. ``"train-segments.jsonl"``).
@@ -2079,8 +2140,48 @@ def read_sample_cache(
         path = path.with_name(filename)
     if not path.exists():
         raise FileNotFoundError(f"No cached sample for {spec.key} {config}/{split}: {path}")
+    manifest_file = (
+        path.with_suffix(".manifest.json")
+        if filename is not None
+        else manifest_path(spec.key, config, split, cache_dir=cache_dir)
+    )
+    raw = path.read_bytes()
+    if manifest_file.exists():
+        try:
+            manifest = json.loads(manifest_file.read_bytes().decode("utf-8"))
+        except Exception as exc:
+            raise DatasetFetchError(
+                f"dataset cache manifest for {spec.key} {config}/{split} is unreadable: {exc}"
+            ) from exc
+        if not isinstance(manifest, dict):
+            raise DatasetFetchError(
+                f"dataset cache manifest for {spec.key} {config}/{split} is not an object"
+            )
+        declared = manifest.get("file_sha256")
+        actual = hashlib.sha256(raw).hexdigest()
+        if not isinstance(declared, str) or declared != actual:
+            raise DatasetFetchError(
+                f"dataset cache digest mismatch for {spec.key} {config}/{split}: "
+                f"manifest declares {declared!r} but the persisted bytes hash to {actual}"
+            )
+        declared_file = manifest.get("file")
+        if declared_file is not None and declared_file != path.name:
+            raise DatasetFetchError(
+                f"dataset cache manifest for {spec.key} {config}/{split} names "
+                f"{declared_file!r}, not {path.name!r}"
+            )
+        declared_rows = manifest.get("rows")
+        if declared_rows is not None and (
+            isinstance(declared_rows, bool) or not isinstance(declared_rows, int)
+        ):
+            raise DatasetFetchError(
+                f"dataset cache manifest for {spec.key} {config}/{split} has a "
+                f"non-integer row count {declared_rows!r}"
+            )
+    else:
+        declared_rows = None
     rows: list[NormalizedRow] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in raw.decode("utf-8").splitlines():
         if not line.strip():
             continue
         data = json.loads(line)
@@ -2095,6 +2196,11 @@ def read_sample_cache(
                 regime=data["regime"],
                 meta=data.get("meta", {}),
             )
+        )
+    if declared_rows is not None and declared_rows != len(rows):
+        raise DatasetFetchError(
+            f"dataset cache row count mismatch for {spec.key} {config}/{split}: "
+            f"manifest declares {declared_rows} rows but the file holds {len(rows)}"
         )
     return rows
 
