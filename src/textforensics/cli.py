@@ -1488,6 +1488,7 @@ def _drift_status(args: argparse.Namespace) -> int:
 
     from .probe_runs import (
         default_probe_runs_dir,
+        has_u3_demotion,
         load_run_history,
         summarize_longitudinal,
     )
@@ -1537,7 +1538,7 @@ def _drift_status(args: argparse.Namespace) -> int:
         for record in registry.records:
             if record.detector_id != args.detector_id:
                 continue
-            if record.limits.demoted_by and record.limits.demoted_by.startswith("U3 probe run "):
+            if record.limits.demoted_by and has_u3_demotion(record.limits.demoted_by):
                 demotions.append(
                     {
                         "record_id": record.record_id,
@@ -2362,16 +2363,17 @@ def _run_policy_command(args: argparse.Namespace) -> int:
             rules=[dict(r) for r in policy_data.get("rules", [])],
         )
 
-        # Check floor
-        rejections = floor.check_policy(policy)
+        # Check floor (+ advance in one transaction, S02) unless the
+        # caller asked for a check-only load.
+        if args.no_advance:
+            rejections = floor.check_policy(policy)
+        else:
+            rejections = floor.check_and_advance(policy)
         if rejections:
             print("error: policy rejected by revision floor:", file=sys.stderr)
             for rej in rejections:
                 print(f"  - {rej}", file=sys.stderr)
             return EXIT_INCOMPLETE
-
-        if not args.no_advance:
-            floor.advance_floor(policy)
 
         payload = {
             "accepted": True,
@@ -2468,16 +2470,14 @@ def _run_policy_command(args: argparse.Namespace) -> int:
             rules=[dict(r) for r in policy_data.get("rules", [])],
         )
 
-        # Check floor
-        rejections = floor.check_policy(policy)
+        # Check + advance in one transaction (S02): the floor cannot
+        # move between this instance's check and its commit.
+        rejections = floor.check_and_advance(policy)
         if rejections:
             print("error: cannot advance floor:", file=sys.stderr)
             for rej in rejections:
                 print(f"  - {rej}", file=sys.stderr)
             return EXIT_INCOMPLETE
-
-        # Advance
-        floor.advance_floor(policy)
 
         payload = {
             "advanced": True,

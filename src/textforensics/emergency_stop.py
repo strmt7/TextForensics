@@ -6,12 +6,19 @@ state and configured via the ``TEXTFORENSICS_EMERGENCY_STOP`` environment
 variable.
 
 Fail-closed semantics:
-- If the env var is unset/empty, emergency stop is **not** active.
+- If no sentinel path is configured anywhere (no env var and no
+  path configured on the module-level sentinel), emergency stop is
+  **not** active.
 - If the env var points to a malformed path, emergency stop is treated as
   **active** (fail-closed).
-- If the sentinel file exists at the configured path, emergency stop is
-  **active**.
-- If the sentinel file does not exist, emergency stop is **not** active.
+- If a sentinel file exists at ANY configured path (the env var's path
+  or the module-level sentinel's configured path), emergency stop is
+  **active**. A sentinel activated through
+  ``EmergencyStopSentinel.configure(...).activate()`` is therefore
+  visible to the canonical guard, not only one named by the env var
+  (audit W4/S08).
+- If no sentinel file exists at any configured path, emergency stop is
+  **not** active.
 
 Activation and deactivation are explicit file-creation / file-removal
 operations. There is no implicit activation path.
@@ -50,40 +57,60 @@ def _resolve_sentinel_path(path: str | os.PathLike[str] | None) -> Path | None:
     return Path(raw)
 
 
+def _path_is_active(path: str | os.PathLike[str]) -> bool:
+    """Return ``True`` iff the sentinel file at ``path`` exists.
+
+    Fail-closed: a malformed path or an un-stat-able path counts as
+    active.
+    """
+    try:
+        sentinel = _resolve_sentinel_path(path)
+    except ValueError:
+        return True
+    if sentinel is None:
+        return False
+    try:
+        return sentinel.exists()
+    except OSError:
+        return True
+
+
 def check_emergency_stop(
     path: str | os.PathLike[str] | None = None,
 ) -> bool:
     """Check whether the emergency stop sentinel is active.
 
     Resolution order:
-    1. Explicit ``path`` argument, if provided.
-    2. ``TEXTFORENSICS_EMERGENCY_STOP`` environment variable.
-    3. No configuration -> returns ``False`` (stop not active).
+    1. Explicit ``path`` argument, if provided — only that path is
+       consulted.
+    2. Otherwise the union of every configured route: the
+       ``TEXTFORENSICS_EMERGENCY_STOP`` environment variable AND the
+       path configured on the module-level sentinel
+       (:func:`get_sentinel`). The stop is active if ANY configured
+       sentinel file exists. A sentinel activated through
+       ``EmergencyStopSentinel.configure(...).activate()`` is therefore
+       visible to the canonical W1 guard
+       (``execution_policy.assert_execution_allowed``), not only a
+       sentinel named by the environment variable (audit W4/S08).
 
     Fail-closed behaviour:
     - Malformed path (empty, null byte) -> returns ``True`` (STOP).
     - Path resolves but file exists -> returns ``True`` (STOP).
-    - Path resolves but file does not exist -> returns ``False``.
+    - No path configured anywhere -> returns ``False``.
     """
-    if path is None:
-        path = os.environ.get(ENV_VAR)
-        if not path:
-            return False
+    if path is not None:
+        return _path_is_active(path)
 
-    try:
-        sentinel = _resolve_sentinel_path(path)
-    except ValueError:
-        # Malformed configuration: fail-closed.
-        return True
-
-    if sentinel is None:
+    candidates: list[str | os.PathLike[str]] = []
+    env_path = os.environ.get(ENV_VAR)
+    if env_path:
+        candidates.append(env_path)
+    configured = _sentinel._path if _sentinel is not None else None
+    if configured is not None:
+        candidates.append(configured)
+    if not candidates:
         return False
-
-    try:
-        return sentinel.exists()
-    except OSError:
-        # If we cannot stat the path, treat as active (fail-closed).
-        return True
+    return any(_path_is_active(candidate) for candidate in candidates)
 
 
 class EmergencyStopSentinel:
@@ -127,18 +154,15 @@ class EmergencyStopSentinel:
     def is_active(self) -> bool:
         """Return ``True`` when the emergency stop is active.
 
-        Fail-closed: a malformed configured path is treated as active.
+        The stop is active when ANY configured route is active: this
+        sentinel's own path, the ``TEXTFORENSICS_EMERGENCY_STOP``
+        environment variable, or the module-level sentinel's
+        configured path. Fail-closed: a malformed configured path is
+        treated as active.
         """
-        try:
-            sentinel = self._resolve()
-        except ValueError:
+        if self._path is not None and _path_is_active(self._path):
             return True
-        if sentinel is None:
-            return False
-        try:
-            return sentinel.exists()
-        except OSError:
-            return True
+        return check_emergency_stop()
 
     # ------------------------------------------------------------------
     # Explicit activation / deactivation

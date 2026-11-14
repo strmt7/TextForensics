@@ -27,9 +27,10 @@ What this module owns:
   three-tier alerts, demotions applied/cleared, watches, and gap
   declarations. Run history is a directory of one file per run
   (append-only: runs are never edited; a correction is a new run).
-* Baseline management: the first run after a corpus freeze is the
-  baseline; a detector/provider version change re-baselines explicitly
-  (the old baseline is retained in history, never silently replaced).
+* Baseline management: the first genuinely complete run after a corpus
+  freeze is the baseline; a detector/provider version change
+  re-baselines explicitly (the old baseline is retained in history,
+  never silently replaced). An incomplete run never becomes a baseline.
 * The three-tier, persistence-gated alert engine (``evaluate_tiers``)
   and the demotion hook into the U1 registry (``apply_demotions`` /
   ``clear_demotions`` via ``limits.demoted_by`` — see ``validation.py``).
@@ -45,7 +46,10 @@ Iron rules (research §7.5/§7.6, enforced in code, never merely in docs):
   consecutive runs). Tier 1 (demote) requires a measured performance
   breach: a human-slice FPR above its declared cap (CI-aware), a flip
   rate above 5%, a conformal coverage shortfall above 10pp, or a
-  detector/provider version change with no probe run within 7 days.
+  detector/provider version change with no probe run within 7 days on
+  an adequately sampled run (n>=50 scored observations; a below-floor
+  run records the change as a Tier-2 watch, never a demotion — audit
+  W4/S07).
 * Never claim drift from one sample or one run. Slices below n=50
   carry no drift signal; human-FPR claims need n>=100 per slice.
   The sample floor applies to the ACTUAL comparison denominator
@@ -69,6 +73,19 @@ Iron rules (research §7.5/§7.6, enforced in code, never merely in docs):
   the Trust Map then shows ``stale`` for the affected dimensions and
   the operator withholds binary verdicts on the affected slices until
   a full re-run passes. No verdict is ever rewritten by an alert.
+* Run completeness is an invariant against the selected item set
+  (audit W4/S01): failed/missing/abstained observations are retained
+  on the run manifest, and an incomplete run never clears demotions,
+  never becomes a baseline, and never advances temporal support.
+* Demotions are source-scoped (audit W4/S03): a U3 demotion is one
+  segment of ``limits.demoted_by``; a foreign/manual demotion is an
+  independent segment that a U3 demotion never overwrites and a later
+  clean run never erases.
+* Detector/provider/model/config/corpus identity defines an evidence
+  epoch (audit W4/S06): the longitudinal summary evaluates chronology
+  before filtering, so intervening versions, partial-run breaches and
+  provider changes break the streak; only genuinely complete clean
+  full runs in the current epoch count toward temporal support.
 
 Deliberate gaps in v1.0 (recorded in every run manifest's ``gaps``,
 never silently omitted):
@@ -108,6 +125,7 @@ if TYPE_CHECKING:
     from .execution_policy import CancellationToken, ExecutionPolicy
 
 from .datasets import default_cache_dir
+from .execution_policy import CompletenessAccounting
 from .probe_metrics import (
     normalize_score_direction,
     oriented_scores,
@@ -141,6 +159,8 @@ __all__ = [
     "ATTACKED_SLICES",
     "ProbeMetricsUnavailable",
     "ProbeRunError",
+    "compute_run_completeness",
+    "has_u3_demotion",
     "load_probe_metrics",
     "compute_run_metrics",
     "evaluate_tiers",
@@ -198,6 +218,7 @@ RUN_LIMITATIONS = [
     "A drift statistic alone never demotes a detector; demotion requires a measured performance breach on the probe corpus.",
     "A single run never demotes on a drift statistic (Tier 3 only; Tier 2 on 2 consecutive runs). A single run CAN demote on a measured performance breach at its declared floor: the absolute human-slice FPR rule (n_human >= 100, Wilson CI lower bound above the cap) or the human->AI flip rule (paired human-labelled n >= 50, flip rate above 5%). No other single-run demotion exists.",
     "Sample floors apply to the actual comparison denominator (paired n for flips and score shift, matched calibrated n for calibration drift, human-labelled paired n for the human->AI flip rate), never to total current records. Below-floor comparisons are recorded, never escalated as adequately sampled drift.",
+    "A version/provider change with no probe run within 7 days demotes only on an adequately sampled run (n>=50 scored observations); a below-floor run records the change as a Tier-2 watch for investigation, never as a demotion.",
     "An alert never silently changes a verdict on a user's text; demotion marks U1 registry records stale and the operator withholds binary verdicts on affected slices until a full re-run passes.",
     "Conformal coverage is unavailable: no conformal machinery exists in the repo (U5 is deferred to v1.1). Coverage-dependent tier rules are inactive.",
     "MMD is unavailable in v1.0 (needs ~500+ samples per set; per-slice n=50 is far below that). Tier 3 fires on PSI/KS.",
@@ -800,6 +821,90 @@ def _slice_metrics(
     }
 
 
+def compute_run_completeness(
+    *,
+    selected_item_ids: Sequence[str],
+    records: Sequence[Mapping[str, Any]],
+    failures: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Compute the run-completeness accounting for one probe run.
+
+    The accounting is an invariant against the *selected* item set
+    (audit W4/S01): every selected item is accounted for exactly once
+    as succeeded, abstained, failed, or missing. The counts use the
+    shared :class:`CompletenessAccounting` type (W1/CORE-07), so the
+    semantics are the ones ``trust.py``/``validation.py`` already
+    enforce: ``is_complete`` iff every selected item was attempted;
+    ``support_eligible`` iff the run is complete AND every selected
+    item succeeded — no failures, no abstentions. Failed, missing and
+    abstained item IDs are retained on the manifest; an incomplete run
+    is never a clean full-corpus revalidation, never clears demotions,
+    never becomes a baseline, and never advances temporal support.
+    """
+    selected = list(dict.fromkeys(str(item_id) for item_id in selected_item_ids))
+    selected_set = set(selected)
+    succeeded_ids: list[str] = []
+    abstained_ids: list[str] = []
+    seen_records: set[str] = set()
+    for record in records:
+        sample_id = record.get("sample_id")
+        if not isinstance(sample_id, str) or not sample_id:
+            raise ProbeRunError("snapshot records need a non-empty sample_id.")
+        if sample_id in seen_records:
+            raise ProbeRunError(f"duplicate snapshot record for sample {sample_id!r}.")
+        seen_records.add(sample_id)
+        if record.get("verdict") == "abstain":
+            abstained_ids.append(sample_id)
+        else:
+            succeeded_ids.append(sample_id)
+    failed_ids: list[str] = []
+    seen_failures: set[str] = set()
+    for failure in failures or []:
+        sample_id = failure.get("sample_id")
+        if not isinstance(sample_id, str) or not sample_id:
+            continue
+        if sample_id in seen_records or sample_id in seen_failures:
+            continue
+        seen_failures.add(sample_id)
+        failed_ids.append(sample_id)
+    attempted_ids = seen_records | seen_failures
+    missing_ids = sorted(selected_set - attempted_ids)
+    # Outcomes outside the selected set are attempted work, not
+    # selected work: they count toward attempted but cannot make the
+    # run complete for the selected set.
+    try:
+        accounting = CompletenessAccounting(
+            selected=len(selected),
+            attempted=len(attempted_ids),
+            succeeded=len(succeeded_ids),
+            abstained=len(abstained_ids),
+            failed=len(failed_ids),
+        )
+    except ValueError as exc:
+        raise ProbeRunError(f"run completeness accounting is inconsistent: {exc}") from exc
+    return {
+        **accounting.to_dict(),
+        "failed_item_ids": sorted(failed_ids),
+        "missing_item_ids": missing_ids,
+        "abstained_item_ids": sorted(abstained_ids),
+    }
+
+
+def _completeness_is_support_eligible(manifest: Mapping[str, Any]) -> bool:
+    """Return ``True`` iff a run manifest proves a complete clean run.
+
+    Only a manifest whose ``completeness`` accounting is present AND
+    ``support_eligible`` counts. A manifest without completeness
+    accounting (legacy, pre-W4) is NOT eligible: its coverage was
+    never verified, so it cannot clear demotions, serve as a baseline,
+    or advance temporal support (fail closed, S01).
+    """
+    completeness = manifest.get("completeness")
+    if not isinstance(completeness, Mapping):
+        return False
+    return bool(completeness.get("support_eligible"))
+
+
 def compute_run_metrics(
     *,
     current_records: Sequence[Mapping[str, Any]],
@@ -1019,6 +1124,31 @@ def _drift_breaches_for_slice(
             }
         )
     return breaches
+
+
+def _run_scored_count(metrics: Mapping[str, Any]) -> int | None:
+    """Return the run's total scored-observation count, or ``None``.
+
+    The overall ``n`` when present, else the sum of the per-slice
+    ``n`` values. ``None`` means the metrics carry no usable count —
+    the caller must treat that as below floor (fail closed, S07).
+    """
+    overall = metrics.get("overall")
+    if isinstance(overall, Mapping):
+        n = overall.get("n")
+        if isinstance(n, int) and not isinstance(n, bool):
+            return n
+    total = 0
+    seen_any = False
+    slices = metrics.get("slices")
+    if isinstance(slices, Mapping):
+        for slice_metrics in slices.values():
+            if isinstance(slice_metrics, Mapping):
+                n = slice_metrics.get("n")
+                if isinstance(n, int) and not isinstance(n, bool):
+                    total += n
+                    seen_any = True
+    return total if seen_any else None
 
 
 def evaluate_tiers(
@@ -1334,6 +1464,14 @@ def evaluate_tiers(
             )
 
     # --- Detector/provider version change with no probe run within 7 days.
+    # S07: this Tier-1 rule is a measurement-backed escalation, so it
+    # fires only on an adequately sampled run: at least MIN_SLICE_N
+    # scored observations in total. A below-floor run records the
+    # change as a Tier-2 watch for investigation — a single human
+    # sample must never cause a detector-wide demotion — and the change
+    # stays unrevalidated until an adequately sampled run decides it.
+    n_scored = _run_scored_count(metrics)
+    adequately_sampled = n_scored is not None and n_scored >= MIN_SLICE_N
     if previous_detector_version is not None and previous_detector_version != detector_version:
         days_since_previous = None
         if previous_run_at is not None and run_at is not None:
@@ -1341,24 +1479,47 @@ def evaluate_tiers(
                 datetime.fromisoformat(run_at) - datetime.fromisoformat(previous_run_at)
             ).days
         if days_since_previous is None or days_since_previous > VERSION_CHANGE_STALE_DAYS:
-            demote = True
-            _alert(
-                tier=1,
-                rule=RULE_VERSION_CHANGE_NO_RUN,
-                slice_name="overall",
-                statistic={
-                    "previous_detector_version": previous_detector_version,
-                    "detector_version": detector_version,
-                    "days_since_previous_run": days_since_previous,
-                },
-                threshold=VERSION_CHANGE_STALE_DAYS,
-                consecutive_runs=1,
-                action="demote",
-                detail=(
-                    f"Detector version changed {previous_detector_version!r} -> {detector_version!r} with no probe run within {VERSION_CHANGE_STALE_DAYS} days "
-                    f"({days_since_previous} days since the previous run). Demote the detector's U1 records to stale until this run completes."
-                ),
-            )
+            if adequately_sampled:
+                demote = True
+                _alert(
+                    tier=1,
+                    rule=RULE_VERSION_CHANGE_NO_RUN,
+                    slice_name="overall",
+                    statistic={
+                        "previous_detector_version": previous_detector_version,
+                        "detector_version": detector_version,
+                        "days_since_previous_run": days_since_previous,
+                        "n_scored": n_scored,
+                    },
+                    threshold=VERSION_CHANGE_STALE_DAYS,
+                    consecutive_runs=1,
+                    action="demote",
+                    detail=(
+                        f"Detector version changed {previous_detector_version!r} -> {detector_version!r} with no probe run within {VERSION_CHANGE_STALE_DAYS} days "
+                        f"({days_since_previous} days since the previous run). Demote the detector's U1 records to stale until this run completes."
+                    ),
+                )
+            else:
+                watch = True
+                _alert(
+                    tier=2,
+                    rule=RULE_VERSION_CHANGE_NO_RUN,
+                    slice_name="overall",
+                    statistic={
+                        "previous_detector_version": previous_detector_version,
+                        "detector_version": detector_version,
+                        "days_since_previous_run": days_since_previous,
+                        "n_scored": n_scored,
+                    },
+                    threshold=VERSION_CHANGE_STALE_DAYS,
+                    consecutive_runs=1,
+                    action="investigate",
+                    detail=(
+                        f"Detector version changed {previous_detector_version!r} -> {detector_version!r} with no probe run within {VERSION_CHANGE_STALE_DAYS} days "
+                        f"({days_since_previous} days since the previous run), but this run scored only {n_scored} observation(s) "
+                        f"(below the {MIN_SLICE_N} sample floor). The change is recorded for investigation, not escalated to a demotion."
+                    ),
+                )
     provider_diff = {}
     if previous_provider_metadata is not None and provider_metadata is not None:
         for key in sorted(set(previous_provider_metadata) | set(provider_metadata)):
@@ -1370,23 +1531,45 @@ def evaluate_tiers(
             datetime.fromisoformat(run_at) - datetime.fromisoformat(previous_run_at)
         ).days
         if days_since_previous > VERSION_CHANGE_STALE_DAYS:
-            demote = True
-            _alert(
-                tier=1,
-                rule=RULE_VERSION_CHANGE_NO_RUN,
-                slice_name="overall",
-                statistic={
-                    "provider_metadata_diff": provider_diff,
-                    "days_since_previous_run": days_since_previous,
-                },
-                threshold=VERSION_CHANGE_STALE_DAYS,
-                consecutive_runs=1,
-                action="demote",
-                detail=(
-                    f"Provider metadata changed {provider_diff} with no probe run within {VERSION_CHANGE_STALE_DAYS} days "
-                    f"({days_since_previous} days since the previous run). Demote the detector's U1 records to stale until this run completes."
-                ),
-            )
+            if adequately_sampled:
+                demote = True
+                _alert(
+                    tier=1,
+                    rule=RULE_VERSION_CHANGE_NO_RUN,
+                    slice_name="overall",
+                    statistic={
+                        "provider_metadata_diff": provider_diff,
+                        "days_since_previous_run": days_since_previous,
+                        "n_scored": n_scored,
+                    },
+                    threshold=VERSION_CHANGE_STALE_DAYS,
+                    consecutive_runs=1,
+                    action="demote",
+                    detail=(
+                        f"Provider metadata changed {provider_diff} with no probe run within {VERSION_CHANGE_STALE_DAYS} days "
+                        f"({days_since_previous} days since the previous run). Demote the detector's U1 records to stale until this run completes."
+                    ),
+                )
+            else:
+                watch = True
+                _alert(
+                    tier=2,
+                    rule=RULE_VERSION_CHANGE_NO_RUN,
+                    slice_name="overall",
+                    statistic={
+                        "provider_metadata_diff": provider_diff,
+                        "days_since_previous_run": days_since_previous,
+                        "n_scored": n_scored,
+                    },
+                    threshold=VERSION_CHANGE_STALE_DAYS,
+                    consecutive_runs=1,
+                    action="investigate",
+                    detail=(
+                        f"Provider metadata changed {provider_diff} with no probe run within {VERSION_CHANGE_STALE_DAYS} days "
+                        f"({days_since_previous} days since the previous run), but this run scored only {n_scored} observation(s) "
+                        f"(below the {MIN_SLICE_N} sample floor). The change is recorded for investigation, not escalated to a demotion."
+                    ),
+                )
 
     return {
         "alerts": alerts,
@@ -1401,32 +1584,76 @@ def evaluate_tiers(
 # ---------------------------------------------------------------------------
 
 
-def _demoted_record(record: ValidationRecord, *, reason: str) -> ValidationRecord:
-    """Return a copy of ``record`` with ``limits.demoted_by`` set + re-signed.
+# Demotions are source-scoped segments of ``limits.demoted_by``
+# (audit W4/S03). A record can carry several independent demotions at
+# once — a manual/foreign reason and one U3 reason per probe run — and
+# clearing the U3 restriction must never erase the foreign one. The
+# segments are joined with ``_DEMOTION_SEPARATOR``; a foreign reason is
+# kept verbatim as its own segment, never rewritten. A segment that
+# starts with the reserved ``U3 probe run `` prefix is a U3 demotion;
+# foreign reasons must not be given that prefix (a foreign reason that
+# already starts with it is indistinguishable from a U3 demotion, as
+# before — the prefix is reserved for U3).
+_DEMOTION_SEPARATOR = " || "
+_U3_DEMOTION_PREFIX = "U3 probe run "
 
-    The stored record changes (a new signature is computed), so the
-    registry id changes too. That is the point: demotion is a visible,
-    auditable registry event, not a silent flag. The signature is
-    computed from the unsigned dict first: ``ValidationRecord`` is a
-    frozen dataclass whose ``__post_init__`` rejects an empty signature,
-    so an intermediate ``signature=""`` record can never be built.
-    """
-    limits = dataclasses.replace(record.limits, demoted_by=reason)
+
+def _split_demotions(demoted_by: str | None) -> list[str]:
+    """Split a ``limits.demoted_by`` value into its source segments."""
+    if not demoted_by:
+        return []
+    return [segment for segment in demoted_by.split(_DEMOTION_SEPARATOR) if segment]
+
+
+def _join_demotions(segments: Sequence[str]) -> str | None:
+    """Join demotion segments, or ``None`` when none remain."""
+    kept = [segment for segment in segments if segment]
+    return _DEMOTION_SEPARATOR.join(kept) if kept else None
+
+
+def has_u3_demotion(demoted_by: str | None) -> bool:
+    """Return ``True`` iff ``demoted_by`` carries a U3 demotion segment."""
+    return any(segment.startswith(_U3_DEMOTION_PREFIX) for segment in _split_demotions(demoted_by))
+
+
+def _resigned_record(record: ValidationRecord, limits: Any) -> ValidationRecord:
+    """Return a copy of ``record`` with ``limits`` set + re-signed."""
     unsigned = record.to_dict()
     unsigned["limits"] = limits.to_dict()
     unsigned.pop("signature", None)
     return dataclasses.replace(record, limits=limits, signature=compute_signature(unsigned))
 
 
-def _undemoted_record(record: ValidationRecord) -> ValidationRecord:
-    unsigned = record.to_dict()
-    unsigned["limits"] = dataclasses.replace(record.limits, demoted_by=None).to_dict()
-    unsigned.pop("signature", None)
-    return dataclasses.replace(
-        record,
-        limits=dataclasses.replace(record.limits, demoted_by=None),
-        signature=compute_signature(unsigned),
-    )
+def _demoted_record(record: ValidationRecord, *, reason: str) -> ValidationRecord:
+    """Return a copy of ``record`` with a U3 demotion segment appended.
+
+    Any existing demotion segments — foreign/manual reasons and U3
+    reasons from earlier runs — are preserved verbatim; the new U3
+    reason is appended as its own segment, so the history stays
+    auditable. Re-applying the identical reason is a no-op (the
+    record is returned unchanged apart from re-signing with the same
+    content).
+    """
+    segments = _split_demotions(record.limits.demoted_by)
+    if reason not in segments:
+        segments.append(reason)
+    limits = dataclasses.replace(record.limits, demoted_by=_join_demotions(segments))
+    return _resigned_record(record, limits)
+
+
+def _u3_cleared_record(record: ValidationRecord) -> ValidationRecord:
+    """Return a copy of ``record`` with only its U3 segments removed.
+
+    Foreign/manual demotion segments survive verbatim; when none
+    remain, ``demoted_by`` becomes ``None``. The record is re-signed.
+    """
+    kept = [
+        segment
+        for segment in _split_demotions(record.limits.demoted_by)
+        if not segment.startswith(_U3_DEMOTION_PREFIX)
+    ]
+    limits = dataclasses.replace(record.limits, demoted_by=_join_demotions(kept))
+    return _resigned_record(record, limits)
 
 
 def apply_demotions(
@@ -1439,14 +1666,19 @@ def apply_demotions(
     """Apply Tier-1 demotions to the U1 registry for ``detector_id``.
 
     For every Tier-1 alert in ``alerts``, every record for the detector
-    gets ``limits.demoted_by`` set to a reason identifying the probe
-    run and the rule. Demotion is per-detector in v1.0 (not per-slice):
-    U1 records are regime-coarse, and a probe-corpus performance breach
-    indicts the detector's measured performance generally. Per-slice
-    demotion is a v1.1 refinement once records are slice-granular.
-    The registry is rewritten atomically and reloaded to verify. When
-    no record exists for the detector, nothing is demoted and the gap
-    is reported (demotion needs a record to land on).
+    gets a U3 demotion segment appended to ``limits.demoted_by``
+    identifying the probe run and the rule. Demotion is per-detector in
+    v1.0 (not per-slice): U1 records are regime-coarse, and a probe-corpus
+    performance breach indicts the detector's measured performance
+    generally. Per-slice demotion is a v1.1 refinement once records are
+    slice-granular.
+    Demotions are source-scoped (audit W4/S03): an existing
+    foreign/manual demotion segment is preserved verbatim — a U3
+    demotion never overwrites it — and a U3 demotion from an earlier
+    run stays in the history as its own segment. The registry is
+    rewritten atomically and reloaded to verify. When no record exists
+    for the detector, nothing is demoted and the gap is reported
+    (demotion needs a record to land on).
     """
     detector_id = _require_nonempty_string(detector_id, "detector_id")
     run_id = _require_nonempty_string(run_id, "run_id")
@@ -1497,28 +1729,32 @@ def clear_demotions(
 ) -> dict[str, Any]:
     """Clear U3 demotions for ``detector_id`` after a full re-run passes.
 
-    Only records whose ``demoted_by`` names a U3 probe run are cleared;
-    demotions from any other source are left untouched. The record is
-    re-signed on clearing, like on demotion.
+    Only the U3 demotion segments are removed; demotions from any
+    other source are left untouched (audit W4/S03), so a record that
+    was manually demoted stays manually demoted — and effectively
+    ``stale`` — after a clean U3 run. The record is re-signed on
+    clearing, like on demotion. ``cleared_record_ids`` lists every
+    record that lost a U3 segment; ``foreign_demotions_retained``
+    lists the records that remain demoted for a non-U3 reason.
     """
     detector_id = _require_nonempty_string(detector_id, "detector_id")
     run_id = _require_nonempty_string(run_id, "run_id")
     registry = load_validation_registry(registry_path)
     cleared_ids: list[str] = []
+    retained_ids: list[str] = []
     replaced: list[ValidationRecord] = []
     for record in registry.records:
         demoted_by = record.limits.demoted_by
-        if (
-            record.detector_id == detector_id
-            and demoted_by is not None
-            and demoted_by.startswith("U3 probe run ")
-        ):
-            replaced.append(_undemoted_record(record))
+        if record.detector_id == detector_id and has_u3_demotion(demoted_by):
+            cleared = _u3_cleared_record(record)
+            replaced.append(cleared)
             cleared_ids.append(record.record_id)
+            if cleared.limits.demoted_by is not None:
+                retained_ids.append(record.record_id)
         else:
             replaced.append(record)
     if not cleared_ids:
-        return {"cleared_record_ids": [], "reason": None}
+        return {"cleared_record_ids": [], "reason": None, "foreign_demotions_retained": []}
     updated = ValidationRegistry(replaced, created_at_utc=registry.created_at_utc)
     updated.save(registry_path)
     reloaded = load_validation_registry(registry_path)
@@ -1526,9 +1762,13 @@ def clear_demotions(
         r.record_id for r in updated.records
     ):
         raise ProbeRunError("registry reload after clearing demotions does not match.")
+    reason = f"U3 probe run {run_id}: full re-run passed with no Tier-1 alert"
+    if retained_ids:
+        reason += f"; {len(retained_ids)} record(s) remain demoted for a non-U3 reason"
     return {
         "cleared_record_ids": sorted(cleared_ids),
-        "reason": f"U3 probe run {run_id}: full re-run passed with no Tier-1 alert",
+        "reason": reason,
+        "foreign_demotions_retained": sorted(retained_ids),
     }
 
 
@@ -1537,12 +1777,19 @@ def clear_demotions(
 # ---------------------------------------------------------------------------
 
 
+def _provider_identity(run: Mapping[str, Any]) -> dict[str, Any]:
+    """Return a run's provider identity (missing means no provider)."""
+    provider = run.get("provider_metadata")
+    return dict(provider) if isinstance(provider, Mapping) else {}
+
+
 def resolve_baseline(
     history: Sequence[Mapping[str, Any]],
     *,
     detector_id: str,
     detector_version: str,
     corpus_fingerprint: str,
+    provider_metadata: Mapping[str, Any] | None = None,
 ) -> Mapping[str, Any] | None:
     """Return the baseline run for this detector/version/corpus, if any.
 
@@ -1553,6 +1800,13 @@ def resolve_baseline(
     A version change has no baseline until the re-baseline run
     completes (the caller marks that run ``is_baseline`` with
     ``rebaselined_from``).
+
+    Evidence epochs (audit W4/S01/S06): a baseline must also be a
+    *verified complete* run (its ``completeness`` accounting present
+    and ``support_eligible``) — an incomplete run can never be a
+    baseline — and, when ``provider_metadata`` is given, it must match
+    the caller's provider identity exactly, so a run recorded under
+    provider ``p1`` is never the baseline for a ``p2`` run.
     """
     candidates = [
         run
@@ -1562,6 +1816,8 @@ def resolve_baseline(
         and run.get("corpus_fingerprint") == corpus_fingerprint
         and run.get("is_baseline") is True
         and run.get("scope") in ("full", "event-driven")
+        and _completeness_is_support_eligible(run)
+        and (provider_metadata is None or _provider_identity(run) == dict(provider_metadata))
     ]
     if not candidates:
         return None
@@ -1577,41 +1833,90 @@ def summarize_longitudinal(
 ) -> dict[str, Any]:
     """Summarise U3 longitudinal evidence for one detector/version/corpus.
 
-    Counts consecutive clean *full* runs (scope ``full``, no Tier-1 or
-    Tier-2 alert) at the same detector version, most recent first. A
-    run with any Tier-1/2 alert, or a different detector version, or a
-    different corpus fingerprint, breaks the streak. Also reports the
-    active watch (latest Tier-2 alert) and active demotions.
+    The summary is computed by ONE chronological state machine over
+    the detector's full run history, most recent first (audit W4/S06):
+    chronology is evaluated BEFORE any filtering, so nothing that
+    breaks a streak is filtered out of sight first.
+
+    * The current evidence epoch is fixed by the most recent run at
+      the requested detector version + corpus fingerprint. An earlier
+      run with a different detector version, a different corpus
+      fingerprint, or a different provider identity ends the epoch:
+      the walk stops there, however clean the older runs were
+      (``v1 -> v2 -> v1`` is one clean v1 run, not two).
+    * A run counts toward the clean-full-run streak only when it is a
+      ``full``-scope run with no Tier-1/2 alert AND a verified
+      complete run (``completeness.support_eligible`` — audit W4/S01).
+      The first run that fails any of those stops the walk.
+    * A partial-scope run never counts, but a partial-scope run that
+      carries a Tier-1/2 alert DOES break the streak: a current breach
+      cannot disappear because its scope is partial.
+    * The watch is the most recent Tier-2 alert in the current epoch
+      that fewer than ``MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT``
+      clean full runs have followed — i.e. the watch expires once the
+      streak that re-establishes temporal support is rebuilt. A Tier-1
+      breach supersedes any older watch.
     """
-    runs = sorted(
-        (
-            run
-            for run in history
-            if run.get("detector_id") == detector_id
-            and run.get("detector_version") == detector_version
-            and run.get("corpus_fingerprint") == corpus_fingerprint
-        ),
-        key=_run_at_sort_key,
+    detector_runs = sorted(
+        (run for run in history if run.get("detector_id") == detector_id),
+        key=lambda r: (str(r.get("run_at_utc", "")), str(r.get("run_id", ""))),
         reverse=True,
     )
+    # Epoch membership is fixed BEFORE the streak walk: the current
+    # epoch is every run back to (but excluding) the first detector
+    # version / corpus fingerprint / provider identity change. A
+    # streak break inside the epoch (tier alert, incomplete run) does
+    # NOT shrink the epoch: total_runs counts the whole epoch.
+    epoch_runs: list[Mapping[str, Any]] = []
+    epoch_provider: dict[str, Any] | None = None
+    streak_break: dict[str, Any] | None = None
+    for run in detector_runs:
+        run_id = str(run.get("run_id"))
+        if run.get("detector_version") != detector_version:
+            streak_break = {"run_id": run_id, "reason": "detector_version_change"}
+            break
+        if run.get("corpus_fingerprint") != corpus_fingerprint:
+            streak_break = {"run_id": run_id, "reason": "corpus_change"}
+            break
+        provider = _provider_identity(run)
+        if epoch_provider is None:
+            epoch_provider = provider
+        elif provider != epoch_provider:
+            streak_break = {"run_id": run_id, "reason": "provider_change"}
+            break
+        epoch_runs.append(run)
     clean_run_ids: list[str] = []
-    for run in runs:
-        if run.get("scope") != "full":
-            continue
-        tiers = {a.get("tier") for a in run.get("alerts", [])}
-        if tiers & {1, 2}:
-            break
-        clean_run_ids.append(str(run.get("run_id")))
     watch: dict[str, Any] | None = None
-    for run in runs:
-        tier2 = [a for a in run.get("alerts", []) if a.get("tier") == 2]
-        if tier2:
-            watch = {
-                "run_id": str(run.get("run_id")),
-                "run_at_utc": str(run.get("run_at_utc")),
-                "alerts": tier2,
-            }
+    for run in epoch_runs:
+        run_id = str(run.get("run_id"))
+        tiers = {a.get("tier") for a in run.get("alerts", [])}
+        has_breach = bool(tiers & {1, 2})
+        if run.get("scope") != "full":
+            if has_breach:
+                streak_break = {"run_id": run_id, "reason": "partial_run_breach"}
+                tier2 = [a for a in run.get("alerts", []) if a.get("tier") == 2]
+                if tier2 and len(clean_run_ids) < MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT:
+                    watch = {
+                        "run_id": run_id,
+                        "run_at_utc": str(run.get("run_at_utc")),
+                        "alerts": tier2,
+                    }
+                break
+            continue
+        if has_breach:
+            streak_break = {"run_id": run_id, "reason": "tier_alert"}
+            tier2 = [a for a in run.get("alerts", []) if a.get("tier") == 2]
+            if tier2 and len(clean_run_ids) < MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT:
+                watch = {
+                    "run_id": run_id,
+                    "run_at_utc": str(run.get("run_at_utc")),
+                    "alerts": tier2,
+                }
             break
+        if not _completeness_is_support_eligible(run):
+            streak_break = {"run_id": run_id, "reason": "incomplete_run"}
+            break
+        clean_run_ids.append(run_id)
     return {
         "detector_id": detector_id,
         "detector_version": detector_version,
@@ -1621,14 +1926,59 @@ def summarize_longitudinal(
         "clean_full_runs_needed_for_temporal_support": MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT,
         "temporal_support": len(clean_run_ids) >= MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT,
         "watch": watch,
-        "total_runs": len(runs),
-        "last_run_at_utc": str(runs[0].get("run_at_utc")) if runs else None,
+        "total_runs": len(epoch_runs),
+        "last_run_at_utc": str(epoch_runs[0].get("run_at_utc")) if epoch_runs else None,
+        "epoch_provider_metadata": epoch_provider,
+        "streak_break": streak_break,
     }
 
 
 # ---------------------------------------------------------------------------
 # Run manifest: build / validate / store
 # ---------------------------------------------------------------------------
+
+
+def _validate_completeness(completeness: Mapping[str, Any]) -> None:
+    """Fail-closed validation of a run manifest's completeness accounting.
+
+    Counts must be non-negative integers that partition the attempts,
+    ``is_complete``/``support_eligible`` must agree with the counts,
+    and the retained item-ID lists must be lists of strings. A manifest
+    without a completeness field is legacy (pre-W4) and stays valid —
+    but it is NOT support-eligible (see :func:`_completeness_is_support_eligible`).
+    """
+    for field in ("selected", "attempted", "succeeded", "abstained", "failed"):
+        value = completeness.get(field)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ProbeRunError(
+                f"run manifest completeness.{field} must be a non-negative integer."
+            )
+    selected = completeness["selected"]
+    attempted = completeness["attempted"]
+    succeeded = completeness["succeeded"]
+    abstained = completeness["abstained"]
+    failed = completeness["failed"]
+    if attempted > selected:
+        raise ProbeRunError("run manifest completeness.attempted cannot exceed selected.")
+    if succeeded + abstained + failed != attempted:
+        raise ProbeRunError(
+            "run manifest completeness counts must partition the attempts: "
+            "succeeded + abstained + failed must equal attempted."
+        )
+    is_complete = completeness.get("is_complete")
+    support_eligible = completeness.get("support_eligible")
+    if is_complete is not None and bool(is_complete) != (attempted == selected):
+        raise ProbeRunError("run manifest completeness.is_complete disagrees with the counts.")
+    if support_eligible is not None and bool(support_eligible) != (
+        attempted == selected and failed == 0 and succeeded == selected
+    ):
+        raise ProbeRunError("run manifest completeness.support_eligible disagrees with the counts.")
+    for field in ("failed_item_ids", "missing_item_ids", "abstained_item_ids"):
+        ids = completeness.get(field)
+        if ids is not None and (
+            not isinstance(ids, list) or any(not isinstance(i, str) for i in ids)
+        ):
+            raise ProbeRunError(f"run manifest completeness.{field} must be a list of strings.")
 
 
 def build_run_manifest(
@@ -1655,6 +2005,7 @@ def build_run_manifest(
     watches: Sequence[Mapping[str, Any]] | None = None,
     gaps: Sequence[str] | None = None,
     score_series: Mapping[str, Mapping[str, Any]] | None = None,
+    completeness: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a ``textforensics.probe-run/v1`` run manifest (JSON-safe)."""
     if scope not in RUN_SCOPES:
@@ -1712,6 +2063,9 @@ def build_run_manifest(
         "watches": [dict(w) for w in (watches or [])],
         "gaps": gaps,
         "score_series": {k: dict(v) for k, v in (score_series or {}).items()},
+        # S01: the completeness accounting is the run's coverage proof.
+        # A manifest without it is legacy and never support-eligible.
+        "completeness": dict(completeness) if completeness is not None else None,
         "scope_statement": _SCOPE_STATEMENT,
         "limitations": list(RUN_LIMITATIONS),
     }
@@ -1911,6 +2265,11 @@ def validate_run_manifest(manifest: Mapping[str, Any]) -> None:
         raise ProbeRunError("run manifest thresholds.fpr_cap must be in [0, 1].")
     if not isinstance(manifest.get("metrics"), Mapping):
         raise ProbeRunError("run manifest metrics must be an object.")
+    completeness = manifest.get("completeness")
+    if completeness is not None:
+        if not isinstance(completeness, Mapping):
+            raise ProbeRunError("run manifest completeness must be an object or null.")
+        _validate_completeness(completeness)
     if not isinstance(manifest.get("alerts"), list):
         raise ProbeRunError("run manifest alerts must be a list.")
     for alert in manifest["alerts"]:
@@ -2195,9 +2554,12 @@ def perform_probe_run(
 
     The run is saved to ``runs_dir`` (default
     :func:`default_probe_runs_dir`) unless ``dry_run``. A Tier-1
-    alert applies demotions to the registry; a clean full run clears
-    U3 demotions for this detector. The returned manifest is the
-    exact dict that was saved (or would have been saved, dry-run).
+    alert applies demotions to the registry; a clean, genuinely
+    complete full run clears U3 demotions for this detector — an
+    incomplete run never clears them, never becomes a baseline, and
+    never advances temporal support (audit W4/S01). The returned
+    manifest is the exact dict that was saved (or would have been
+    saved, dry-run).
     """
     from .execution_policy import assert_execution_allowed
     from .observatory import DriftObservatory
@@ -2260,9 +2622,10 @@ def perform_probe_run(
     if not scoped_items:
         raise ProbeRunError(f"scope {scope!r} selects no corpus items.")
 
-    # Score first. Labels are loaded only after this returns. The
-    # policy/cancellation channel is threaded through so a stop
-    # raised inside scoring propagates unchanged.
+    # Score first. Labels are loaded only after this returns. A stop
+    # raised here (EmergencyStopError via the W1 execution channel)
+    # propagates: the run is never recorded, demoted, cleared, or
+    # baselined (audit W4/S08).
     observatory = DriftObservatory(
         corpus={"schema": "textforensics.drift-corpus/v1", "samples": scoped_items}
     )
@@ -2283,6 +2646,16 @@ def perform_probe_run(
         provider_version = record.get("provider_version")
         if provider_version is not None:
             provider_metadata[str(record.get("detector_id", detector_id))] = provider_version
+
+    # S01: the completeness accounting is an invariant against the
+    # scope-selected item set. The observatory already collects
+    # failures; they are retained here instead of discarded.
+    completeness = compute_run_completeness(
+        selected_item_ids=[item["id"] for item in scoped_items],
+        records=current_records,
+        failures=snapshot.get("failures") or [],
+    )
+    support_eligible = bool(completeness["support_eligible"])
 
     # Labels only now, after scoring.
     holdback = holdback_loader()
@@ -2318,21 +2691,31 @@ def perform_probe_run(
         detector_id=detector_id,
         detector_version=detector_version,
         corpus_fingerprint=corpus_fingerprint,
+        provider_metadata=provider_metadata,
     )
     version_changed = (
         previous is not None
         and previous.get("detector_version") is not None
         and previous.get("detector_version") != detector_version
     )
-    # Only a full-scope run can be (or re-establish) the baseline.
-    # A monthly partial run with no baseline yet simply has none.
-    is_baseline = baseline is None and scope in ("full", "event-driven")
+    # S06: a provider/model identity change is an evidence-epoch
+    # change exactly like a detector-version change: it re-baselines.
+    provider_changed = previous is not None and _provider_identity(previous) != provider_metadata
+    identity_changed = version_changed or provider_changed
+    # Only a genuinely complete full-scope run can be (or
+    # re-establish) the baseline (S01). A monthly partial run with no
+    # baseline yet simply has none, and an incomplete run never becomes
+    # one — the next complete run re-baselines instead.
+    is_baseline = baseline is None and scope in ("full", "event-driven") and support_eligible
     rebaselined_from: str | None = None
-    if version_changed and scope in ("full", "event-driven"):
-        is_baseline = True
-        rebaselined_from = (
-            baseline.get("run_id") if baseline else (previous.get("run_id") if previous else None)
-        )
+    if identity_changed and scope in ("full", "event-driven"):
+        if support_eligible:
+            is_baseline = True
+            rebaselined_from = (
+                baseline.get("run_id")
+                if baseline
+                else (previous.get("run_id") if previous else None)
+            )
         baseline = None
 
     metrics = compute_run_metrics(
@@ -2401,11 +2784,28 @@ def perform_probe_run(
                 alerts=tier1,
             )
         elif scope == "full" and registry_path is not None:
-            demotions_cleared = clear_demotions(
-                registry_path=registry_path,
-                detector_id=detector_id,
-                run_id=run_id,
-            )
+            # S01: only a genuinely complete clean full run clears U3
+            # demotions. An incomplete run keeps every demotion and
+            # says so in the gap, with the exact coverage shortfall.
+            if support_eligible:
+                demotions_cleared = clear_demotions(
+                    registry_path=registry_path,
+                    detector_id=detector_id,
+                    run_id=run_id,
+                )
+            else:
+                demotions_cleared = {
+                    "cleared_record_ids": [],
+                    "reason": None,
+                    "gap": (
+                        f"run is incomplete: {completeness['succeeded']} of "
+                        f"{completeness['selected']} selected items scored "
+                        f"successfully ({completeness['failed']} failed, "
+                        f"{completeness['abstained']} abstained, "
+                        f"{len(completeness['missing_item_ids'])} missing); "
+                        "demotions are retained."
+                    ),
+                }
 
     manifest_out = build_run_manifest(
         run_id=run_id,
@@ -2429,6 +2829,7 @@ def perform_probe_run(
         demotions_cleared=demotions_cleared,
         watches=watches,
         score_series=_series_from_records(current_records),
+        completeness=completeness,
     )
     if not dry_run:
         save_run(manifest_out, directory)

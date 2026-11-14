@@ -22,11 +22,13 @@ are preserved exactly.
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import json
 import logging
 import os
 import tempfile
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from enum import Enum
@@ -933,6 +935,57 @@ class PolicyKeyError(ValueError):
     """
 
 
+@contextlib.contextmanager
+def _policy_floor_lock(state_path: Path) -> Iterator[None]:
+    """Serialize policy-floor reads/writes across local processes.
+
+    A separate lock file (``<state_path>.lock``) avoids changing the
+    state contents merely to lock it. The lock file intentionally
+    persists; deleting lock files can introduce a race with another
+    process waiting on the same inode/handle. Same shape as the
+    provenance ledger's lock (``ledger._ledger_lock``): ``fcntl.flock``
+    on POSIX, ``msvcrt.locking`` on Windows. Every floor transaction
+    (key initialization, reload, check, advance, persist) runs inside
+    this lock, so two instances — in one process or two — can never
+    interleave a stale read with another instance's commit (audit
+    W4/S02). The lock is per state path; a state path and its key path
+    are one pair (the defaults live in the same directory), so key
+    creation under this lock is exclusive too.
+    """
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = Path(str(state_path) + ".lock")
+    handle = lock_path.open("a+b")
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            handle.seek(0, os.SEEK_END)
+            if handle.tell() == 0:
+                handle.write(b"\0")
+                handle.flush()
+                os.fsync(handle.fileno())
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            if os.name == "nt":
+                import msvcrt
+
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    finally:
+        handle.close()
+
+
 class PolicyRevisionFloor:
     """Tracks and enforces a monotonic revision floor with encrypted persistence.
 
@@ -942,6 +995,16 @@ class PolicyRevisionFloor:
        different digest is rejected (content changed at same revision number).
     3. **Monotonic advance** – the floor advances only when a higher revision
        is accepted.
+
+    Transactionality (audit W4/S02): every reload/check/advance/persist
+    runs under an interprocess lock on ``<state_path>.lock``, and the
+    persisted state is re-read while locked — so a stale instance (one
+    that loaded the floor before another instance advanced it) checks
+    against the disk floor, never its snapshot, and can never lower
+    the floor. :meth:`check_and_advance` holds the lock across the
+    check and the commit as one transaction. A new state is persisted
+    before it is published to memory, so a failed write never claims
+    an un-persisted advance.
 
     State is persisted encrypted with Fernet to a configurable path.
     """
@@ -982,13 +1045,19 @@ class PolicyRevisionFloor:
                 )
             )
         )
-        if key is not None:
-            self._key = key
-        else:
-            self._key = self._load_or_generate_key()
+        self._Fernet = Fernet
 
-        self._fernet = self._Fernet(self._key)
-        self._state = self._load_state()
+        # Key initialization and the first state load are one locked
+        # transaction (S02): two processes creating the floor at once
+        # must agree on one key, and neither may snapshot state the
+        # other is about to advance.
+        with _policy_floor_lock(self._state_path):
+            if key is not None:
+                self._key = key
+            else:
+                self._key = self._load_or_generate_key()
+            self._fernet = self._Fernet(self._key)
+            self._state = self._load_state()
 
     # -- key management ----------------------------------------------------
 
@@ -1091,14 +1160,26 @@ class PolicyRevisionFloor:
                 "floor."
             ) from exc
 
-    def save_state(self) -> None:
-        """Encrypt and persist current state to disk (atomically)."""
+    def _persist(self, state: PolicyState) -> None:
+        """Encrypt and atomically persist ``state`` to disk.
+
+        Writes durable state only; it never touches the in-memory
+        ``self._state``. Callers persist first and publish to memory
+        only after the write succeeds, so a failed persistence can
+        never leave the object claiming a floor the disk does not
+        have (S02).
+        """
         state_file = Path(self._state_path)
         state_file.parent.mkdir(parents=True, exist_ok=True)
         encrypted = self._fernet.encrypt(
-            json.dumps(self._state.to_dict(), separators=(",", ":")).encode("utf-8")
+            json.dumps(state.to_dict(), separators=(",", ":")).encode("utf-8")
         )
         self._atomic_write_bytes(state_file, encrypted)
+
+    def save_state(self) -> None:
+        """Encrypt and persist current state to disk (atomically)."""
+        with _policy_floor_lock(self._state_path):
+            self._persist(self._state)
 
     @property
     def state(self) -> PolicyState:
@@ -1114,20 +1195,23 @@ class PolicyRevisionFloor:
 
     # -- core rejection-rejector logic -------------------------------------
 
-    def check_policy(self, policy: EnterprisePolicy) -> list[str]:
-        """Check a policy against the revision floor.
+    @staticmethod
+    def _check_against(policy: EnterprisePolicy, state: PolicyState) -> list[str]:
+        """Rejection reasons for ``policy`` against ``state`` (pure).
 
-        Returns a list of rejection reasons (empty if accepted).
+        No disk or in-memory access: the caller supplies the state the
+        check was computed against, so a check and the advance that
+        follows it can share one freshly reloaded snapshot.
         """
         rejections: list[str] = []
 
-        if policy.revision < self._state.floor_revision:
+        if policy.revision < state.floor_revision:
             rejections.append(
                 f"ROLLBACK: revision {policy.revision} < floor "
-                f"{self._state.floor_revision}. Policy rollback is not allowed."
+                f"{state.floor_revision}. Policy rollback is not allowed."
             )
-        elif policy.revision == self._state.floor_revision:
-            expected_digest = self._state.floor_digest
+        elif policy.revision == state.floor_revision:
+            expected_digest = state.floor_digest
             if expected_digest and policy.digest != expected_digest:
                 rejections.append(
                     f"DRIFT: same-revision drift detected at revision "
@@ -1137,40 +1221,101 @@ class PolicyRevisionFloor:
 
         return rejections
 
+    @staticmethod
+    def _advanced_state(policy: EnterprisePolicy, state: PolicyState) -> PolicyState | None:
+        """Return the state after ``policy`` advances ``state``, or ``None``.
+
+        Advances only when the policy revision is strictly greater than
+        the floor, or when the floor has never been set. Returns a new
+        :class:`PolicyState` (the input is never mutated), so the caller
+        can persist it before publishing it to memory.
+        """
+        if policy.revision > state.floor_revision:
+            return PolicyState(
+                floor_revision=policy.revision,
+                floor_digest=policy.digest,
+                history=[
+                    *state.history,
+                    {
+                        "revision": policy.revision,
+                        "digest": policy.digest,
+                        "action": "advance",
+                    },
+                ],
+            )
+        if state.floor_revision == 0 and not state.floor_digest:
+            # First policy loaded: set the floor
+            return PolicyState(
+                floor_revision=policy.revision,
+                floor_digest=policy.digest,
+                history=[
+                    *state.history,
+                    {
+                        "revision": policy.revision,
+                        "digest": policy.digest,
+                        "action": "initialize",
+                    },
+                ],
+            )
+        return None
+
+    def check_policy(self, policy: EnterprisePolicy) -> list[str]:
+        """Check a policy against the revision floor.
+
+        Returns a list of rejection reasons (empty if accepted). The
+        persisted state is re-read under the floor lock first: a stale
+        instance checks against the disk floor, never its snapshot
+        (S02). The in-memory view is refreshed to the reloaded state.
+        """
+        with _policy_floor_lock(self._state_path):
+            self._state = self._load_state()
+            return self._check_against(policy, self._state)
+
     def advance_floor(self, policy: EnterprisePolicy) -> None:
         """Advance the floor to the policy's revision and digest.
 
         Only advances if the policy revision is strictly greater than the
-        current floor, or if the floor has never been set.
+        current floor, or if the floor has never been set. The persisted
+        state is re-read under the floor lock first, and the new state is
+        persisted before the in-memory floor is updated, so a stale
+        instance can never lower the disk floor and a failed write can
+        never publish an un-persisted advance (S02).
         """
-        if policy.revision > self._state.floor_revision:
-            self._state.floor_revision = policy.revision
-            self._state.floor_digest = policy.digest
-            self._state.history.append(
-                {
-                    "revision": policy.revision,
-                    "digest": policy.digest,
-                    "action": "advance",
-                }
-            )
-            self.save_state()
-        elif self._state.floor_revision == 0 and not self._state.floor_digest:
-            # First policy loaded: set the floor
-            self._state.floor_revision = policy.revision
-            self._state.floor_digest = policy.digest
-            self._state.history.append(
-                {
-                    "revision": policy.revision,
-                    "digest": policy.digest,
-                    "action": "initialize",
-                }
-            )
-            self.save_state()
+        with _policy_floor_lock(self._state_path):
+            fresh = self._load_state()
+            new_state = self._advanced_state(policy, fresh)
+            if new_state is not None:
+                self._persist(new_state)
+            self._state = new_state if new_state is not None else fresh
+
+    def check_and_advance(self, policy: EnterprisePolicy) -> list[str]:
+        """Check a policy and advance the floor in one transaction.
+
+        The reload, the check, the advance and the persist all run
+        under one hold of the floor lock, so no other instance can
+        advance the floor between this instance's check and its commit
+        (S02). Returns a list of rejection reasons (empty if accepted
+        and advanced). Callers that check and then advance in two
+        separate calls must use this method instead.
+        """
+        with _policy_floor_lock(self._state_path):
+            fresh = self._load_state()
+            rejections = self._check_against(policy, fresh)
+            if rejections:
+                self._state = fresh
+                return rejections
+            new_state = self._advanced_state(policy, fresh)
+            if new_state is not None:
+                self._persist(new_state)
+            self._state = new_state if new_state is not None else fresh
+            return []
 
     def reset(self) -> None:
         """Reset the floor to initial state. Use with caution."""
-        self._state = PolicyState()
-        self.save_state()
+        with _policy_floor_lock(self._state_path):
+            fresh = PolicyState()
+            self._persist(fresh)
+            self._state = fresh
 
 
 class EnterprisePolicyEngine:
@@ -1253,16 +1398,14 @@ class EnterprisePolicyEngine:
             rules=[dict(r) for r in policy_data.get("rules", [])],
         )
 
-        # 3. Floor check
+        # 3. Floor check + advance in ONE transaction (S02): a stale
+        # instance re-reads the persisted floor under the lock, and no
+        # other instance can advance between the check and the commit.
         rev_floor = floor or self._floor
         if rev_floor:
-            rejections = rev_floor.check_policy(policy)
+            rejections = rev_floor.check_and_advance(policy)
             if rejections:
                 return rejections
-
-        # 4. Advance floor
-        if rev_floor:
-            rev_floor.advance_floor(policy)
 
         self._policy = policy
         return []

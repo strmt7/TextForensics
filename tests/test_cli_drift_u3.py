@@ -213,12 +213,21 @@ def test_drift_run_full_succeeds(tmp_path, fake_modules, capsys):
     runs = list(runs_dir.glob("run-*.json"))
     assert len(runs) == 1
     run = json.loads(runs[0].read_text(encoding="utf-8"))
-    assert run["is_baseline"] is True
+    # The builtin detector abstains on every synthetic lorem-ipsum item
+    # (verified on main): the run is complete (every item attempted)
+    # but support-ineligible, so it is NOT a baseline and cannot clear
+    # demotions or advance temporal support (audit W4/S01).
+    assert run["completeness"]["selected"] == 470
+    assert run["completeness"]["attempted"] == 470
+    assert run["completeness"]["succeeded"] == 0
+    assert run["completeness"]["abstained"] == 470
+    assert run["completeness"]["support_eligible"] is False
+    assert run["is_baseline"] is False
     assert run["metrics"]["overall"]["n"] == 470
     assert "lorem ipsum" not in json.dumps(run)
     captured = capsys.readouterr()
-    assert "baseline: yes" in captured.out
-    assert "longitudinal:" in captured.out
+    assert "baseline: no" in captured.out
+    assert "longitudinal: 0 consecutive clean full run(s)" in captured.out
 
 
 def test_drift_run_unknown_detector_exits_3(tmp_path, fake_modules, capsys):
@@ -378,11 +387,15 @@ def test_drift_status_with_runs(tmp_path, fake_modules, capsys):
     assert code == 0
     captured = capsys.readouterr()
     payload = json.loads(captured.out)
-    assert payload["consecutive_clean_full_runs"] == 2
-    assert payload["temporal_support"] is True
+    # Both runs are all-abstain runs (the builtin detector abstains on
+    # every synthetic lorem-ipsum item): complete but
+    # support-ineligible, so neither counts toward the clean-full-run
+    # streak and temporal support stays false (audit W4/S01).
+    assert payload["consecutive_clean_full_runs"] == 0
+    assert payload["temporal_support"] is False
     assert payload["total_runs"] == 2
     assert payload["demotions"] == []
-    assert "temporal support: yes" in captured.err
+    assert "temporal support: no" in captured.err
 
 
 def test_drift_status_shows_demotions(tmp_path, fake_modules, monkeypatch, capsys):

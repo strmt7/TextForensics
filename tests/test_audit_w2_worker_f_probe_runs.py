@@ -1570,6 +1570,11 @@ EXPECTED_PROBE_PR_COMPUTE_RUN_METRICS = [
 ]
 
 
+# NOTE (audit W4/S07): the five version/provider-change Tier-1 rows now
+# carry 'n_scored': 60 in the alert statistic — the sample size that
+# justified the escalation. Pin updated by hand because the W2-F
+# generator is hardwired to the deleted audit-w2-f worktree; the
+# remaining rows are unchanged from the W2-F recording.
 EXPECTED_PROBE_PR_EVALUATE_TIERS = [
     ((None, 0), ("ok", "{'alerts': [], 'breaches': [], 'demote': False, 'watch': False}")),
     ((None, 1), ("ok", "{'alerts': [], 'breaches': [], 'demote': False, 'watch': False}")),
@@ -1822,7 +1827,7 @@ EXPECTED_PROBE_PR_EVALUATE_TIERS = [
         ("ver-10d",),
         (
             "ok",
-            "{'alerts': [{'tier': 1, 'rule': 'version_change_no_probe_run', 'slice': 'overall', 'statistic': {'previous_detector_version': '0.0.9', 'detector_version': '0.1.0', 'days_since_previous_run': 10}, 'threshold': 7, 'consecutive_runs': 1, 'action': 'demote', 'detail': \"Detector version changed '0.0.9' -> '0.1.0' with no probe run within 7 days (10 days since the previous run). Demote the detector's U1 records to stale until this run completes.\"}], 'breaches': [], 'demote': True, 'watch': False}",
+            "{'alerts': [{'tier': 1, 'rule': 'version_change_no_probe_run', 'slice': 'overall', 'statistic': {'previous_detector_version': '0.0.9', 'detector_version': '0.1.0', 'days_since_previous_run': 10, 'n_scored': 60}, 'threshold': 7, 'consecutive_runs': 1, 'action': 'demote', 'detail': \"Detector version changed '0.0.9' -> '0.1.0' with no probe run within 7 days (10 days since the previous run). Demote the detector's U1 records to stale until this run completes.\"}], 'breaches': [], 'demote': True, 'watch': False}",
         ),
     ),
     (("ver-7d",), ("ok", "{'alerts': [], 'breaches': [], 'demote': False, 'watch': False}")),
@@ -1831,7 +1836,7 @@ EXPECTED_PROBE_PR_EVALUATE_TIERS = [
         ("ver-no-run-at",),
         (
             "ok",
-            "{'alerts': [{'tier': 1, 'rule': 'version_change_no_probe_run', 'slice': 'overall', 'statistic': {'previous_detector_version': '0.0.9', 'detector_version': '0.1.0', 'days_since_previous_run': None}, 'threshold': 7, 'consecutive_runs': 1, 'action': 'demote', 'detail': \"Detector version changed '0.0.9' -> '0.1.0' with no probe run within 7 days (None days since the previous run). Demote the detector's U1 records to stale until this run completes.\"}], 'breaches': [], 'demote': True, 'watch': False}",
+            "{'alerts': [{'tier': 1, 'rule': 'version_change_no_probe_run', 'slice': 'overall', 'statistic': {'previous_detector_version': '0.0.9', 'detector_version': '0.1.0', 'days_since_previous_run': None, 'n_scored': 60}, 'threshold': 7, 'consecutive_runs': 1, 'action': 'demote', 'detail': \"Detector version changed '0.0.9' -> '0.1.0' with no probe run within 7 days (None days since the previous run). Demote the detector's U1 records to stale until this run completes.\"}], 'breaches': [], 'demote': True, 'watch': False}",
         ),
     ),
     (("ver-same",), ("ok", "{'alerts': [], 'breaches': [], 'demote': False, 'watch': False}")),
@@ -1840,7 +1845,7 @@ EXPECTED_PROBE_PR_EVALUATE_TIERS = [
         ("prov-diff-10d",),
         (
             "ok",
-            "{'alerts': [{'tier': 1, 'rule': 'version_change_no_probe_run', 'slice': 'overall', 'statistic': {'provider_metadata_diff': {'a': [1, 2]}, 'days_since_previous_run': 10}, 'threshold': 7, 'consecutive_runs': 1, 'action': 'demote', 'detail': \"Provider metadata changed {'a': [1, 2]} with no probe run within 7 days (10 days since the previous run). Demote the detector's U1 records to stale until this run completes.\"}], 'breaches': [], 'demote': True, 'watch': False}",
+            "{'alerts': [{'tier': 1, 'rule': 'version_change_no_probe_run', 'slice': 'overall', 'statistic': {'provider_metadata_diff': {'a': [1, 2]}, 'days_since_previous_run': 10, 'n_scored': 60}, 'threshold': 7, 'consecutive_runs': 1, 'action': 'demote', 'detail': \"Provider metadata changed {'a': [1, 2]} with no probe run within 7 days (10 days since the previous run). Demote the detector's U1 records to stale until this run completes.\"}], 'breaches': [], 'demote': True, 'watch': False}",
         ),
     ),
     (("prov-diff-7d",), ("ok", "{'alerts': [], 'breaches': [], 'demote': False, 'watch': False}")),
@@ -1848,7 +1853,7 @@ EXPECTED_PROBE_PR_EVALUATE_TIERS = [
         ("prov-diff-key",),
         (
             "ok",
-            "{'alerts': [{'tier': 1, 'rule': 'version_change_no_probe_run', 'slice': 'overall', 'statistic': {'provider_metadata_diff': {'b': [None, 2]}, 'days_since_previous_run': 10}, 'threshold': 7, 'consecutive_runs': 1, 'action': 'demote', 'detail': \"Provider metadata changed {'b': [None, 2]} with no probe run within 7 days (10 days since the previous run). Demote the detector's U1 records to stale until this run completes.\"}], 'breaches': [], 'demote': True, 'watch': False}",
+            "{'alerts': [{'tier': 1, 'rule': 'version_change_no_probe_run', 'slice': 'overall', 'statistic': {'provider_metadata_diff': {'b': [None, 2]}, 'days_since_previous_run': 10, 'n_scored': 60}, 'threshold': 7, 'consecutive_runs': 1, 'action': 'demote', 'detail': \"Provider metadata changed {'b': [None, 2]} with no probe run within 7 days (10 days since the previous run). Demote the detector's U1 records to stale until this run completes.\"}], 'breaches': [], 'demote': True, 'watch': False}",
         ),
     ),
     (("prov-nodiff",), ("ok", "{'alerts': [], 'breaches': [], 'demote': False, 'watch': False}")),
@@ -1872,7 +1877,7 @@ EXPECTED_PROBE_PR_EVALUATE_TIERS = [
         ("ver-prev-greater",),
         (
             "ok",
-            "{'alerts': [{'tier': 1, 'rule': 'version_change_no_probe_run', 'slice': 'overall', 'statistic': {'previous_detector_version': '0.2.0', 'detector_version': '0.1.0', 'days_since_previous_run': 10}, 'threshold': 7, 'consecutive_runs': 1, 'action': 'demote', 'detail': \"Detector version changed '0.2.0' -> '0.1.0' with no probe run within 7 days (10 days since the previous run). Demote the detector's U1 records to stale until this run completes.\"}], 'breaches': [], 'demote': True, 'watch': False}",
+            "{'alerts': [{'tier': 1, 'rule': 'version_change_no_probe_run', 'slice': 'overall', 'statistic': {'previous_detector_version': '0.2.0', 'detector_version': '0.1.0', 'days_since_previous_run': 10, 'n_scored': 60}, 'threshold': 7, 'consecutive_runs': 1, 'action': 'demote', 'detail': \"Detector version changed '0.2.0' -> '0.1.0' with no probe run within 7 days (10 days since the previous run). Demote the detector's U1 records to stale until this run completes.\"}], 'breaches': [], 'demote': True, 'watch': False}",
         ),
     ),
     (

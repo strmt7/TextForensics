@@ -598,8 +598,13 @@ class TestPolicyRevisionFloor:
         assert floor2.floor_revision == floor.floor_revision
         assert floor2.floor_digest == floor.floor_digest
         assert floor2.state.history == floor.state.history
-        # Atomic writes leave no temp files behind.
-        assert list(temp_state_dir.glob("state.enc.*")) == []
+        # Atomic writes leave no temp files behind. The floor lock file
+        # (state.enc.lock) intentionally persists -- it is the
+        # interprocess lock (W4/S02), not a temp file -- so it is
+        # excluded from the temp-file glob.
+        assert [
+            path for path in temp_state_dir.glob("state.enc.*") if path.name != "state.enc.lock"
+        ] == []
         assert list(temp_state_dir.glob("key.key.*")) == []
 
     def test_env_config(self, temp_state_dir, valid_policy, monkeypatch):
@@ -1764,7 +1769,11 @@ class TestPolicyMutationKills:
         monkeypatch.setattr(os, "replace", _boom)
         with pytest.raises(OSError, match="injected replace failure"):
             floor.save_state()
-        assert list(temp_state_dir.glob("state.enc.*")) == []
+        # The floor lock file (state.enc.lock) intentionally persists
+        # (W4/S02 interprocess lock); only temp files must be absent.
+        assert [
+            path for path in temp_state_dir.glob("state.enc.*") if path.name != "state.enc.lock"
+        ] == []
 
     # -- Key-length boundaries ----------------------------------------------
 

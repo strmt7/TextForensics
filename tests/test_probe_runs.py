@@ -940,6 +940,9 @@ def test_validate_run_manifest_rejects_tampered_scope_statement():
 
 
 def _history_run(run_id, at, *, baseline=False, version="0.1.0", alerts=()):
+    # Histories built here are genuinely complete runs (W4/S01): the
+    # completeness accounting is present and support-eligible, and the
+    # provider identity is the empty (local) identity.
     return {
         "schema": "textforensics.probe-run/v1",
         "run_id": run_id,
@@ -949,8 +952,21 @@ def _history_run(run_id, at, *, baseline=False, version="0.1.0", alerts=()):
         "corpus_fingerprint": HEX64,
         "detector_id": "textforensics/builtin-heuristic",
         "detector_version": version,
+        "provider_metadata": {},
         "is_baseline": baseline,
         "alerts": list(alerts),
+        "completeness": {
+            "selected": 50,
+            "attempted": 50,
+            "succeeded": 50,
+            "abstained": 0,
+            "failed": 0,
+            "is_complete": True,
+            "support_eligible": True,
+            "failed_item_ids": [],
+            "missing_item_ids": [],
+            "abstained_item_ids": [],
+        },
     }
 
 
