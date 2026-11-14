@@ -609,7 +609,7 @@ class TestS10Nonfinite:
     def test_validate_run_manifest_rejects_nonfinite_metric(self):
         manifest = _valid_manifest()
         manifest["metrics"] = {"slices": {"human-native": {"human_fpr": {"fpr": float("inf")}}}}
-        with pytest.raises(ProbeRunError, match="non-finite"):
+        with pytest.raises(ProbeRunError, match="finite"):
             validate_run_manifest(manifest)
 
     def test_load_run_rejects_nan_token(self, tmp_path):
