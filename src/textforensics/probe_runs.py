@@ -2105,7 +2105,13 @@ _PROBE_RUN_REQUIRED_FIELDS = (
 )
 _PROBE_RUN_KNOWN_FIELDS = frozenset(
     _PROBE_RUN_REQUIRED_FIELDS
-    + ("corpus_manifest_sha256", "provider_metadata", "rebaselined_from", "score_series")
+    + (
+        "corpus_manifest_sha256",
+        "provider_metadata",
+        "rebaselined_from",
+        "score_series",
+        "completeness",
+    )
 )
 _THRESHOLD_REQUIRED_FIELDS = (
     "psi_action",
