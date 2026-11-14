@@ -73,8 +73,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,fuzzing]"
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[dev,fuzzing]"
 
       - name: Check atheris availability
         id: atheris
@@ -140,8 +140,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,fuzzing]"
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[dev,fuzzing]"
 
       - name: Generate initial corpus
         run: |

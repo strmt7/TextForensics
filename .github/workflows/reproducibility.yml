@@ -38,8 +38,10 @@ jobs:
 
       - name: Install pinned build dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install build==1.2.2 setuptools==79.0.1 wheel==0.45.1
+          # Hash-pinned tools lockfile carries the SAME deliberate older
+          # versions (build 1.2.2, setuptools 79.0.1, wheel 0.45.1) — do
+          # NOT substitute the main lockfile's newer versions here.
+          python -m pip install --require-hashes -r requirements-tools-hashed.txt
 
       - name: Normalize file timestamps before first build
         run: |
@@ -102,8 +104,8 @@ jobs:
 
       - name: Install package
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[all]"
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[all]"
 
       - name: Create test input
         run: |
@@ -173,8 +175,8 @@ jobs:
 
       - name: Install package
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[all]"
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[all]"
 
       - name: Create test input
         run: |
@@ -221,8 +223,8 @@ jobs:
 
       - name: Install package
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[all]"
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[all]"
 
       - name: Create test input
         run: |

@@ -51,8 +51,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -e ".[dev,enterprise]"
-          pip install "cosmic-ray>=8.0,<9"
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[dev,enterprise]"
 
       - name: Get changed files
         id: changed-files
@@ -140,8 +140,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -e ".[dev,enterprise]"
-          pip install "cosmic-ray>=8.0,<9"
+          python -m pip install --require-hashes -r requirements-hashed.txt
+          python -m pip install --no-deps -e ".[dev,enterprise]"
 
       - name: Run full mutation testing
         id: mutation-full
