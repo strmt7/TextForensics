@@ -115,6 +115,35 @@ def _is_hex64(value: Any) -> bool:
     return all(char in "0123456789abcdef" for char in value.lower())
 
 
+def _strict_json_loads(text: str) -> Any:
+    """Parse JSON rejecting NaN/Infinity/-Infinity tokens (S10).
+
+    ``json.loads`` accepts those tokens by default, but they are not
+    valid JSON: a NaN score or threshold must never enter a snapshot,
+    corpus, or run manifest. Raises ``ValueError`` on any such token
+    or on malformed JSON.
+    """
+
+    def _reject_constant(value: str) -> Any:
+        raise ValueError(f"Non-JSON numeric token rejected: {value}")
+
+    try:
+        return json.loads(text, parse_constant=_reject_constant)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON: {exc}") from exc
+
+
+def _require_iso_timestamp(value: Any, field_name: str) -> str:
+    """Require an ISO-8601 timestamp string (S05 import validation)."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} must be an ISO-8601 timestamp string.")
+    try:
+        datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must be an ISO-8601 timestamp: {value!r}.") from exc
+    return value
+
+
 def _require_nonempty_string(value: Any, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field_name} must be a non-empty string.")
@@ -676,6 +705,41 @@ def _overall_summary(reports: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _validate_snapshot_records_structural(snapshot: Mapping[str, Any]) -> None:
+    """Structural per-record validation without corpus linkage (S05/S10).
+
+    Used by :meth:`DriftObservatory.read_snapshot_file`, which has no
+    observatory to link records against: directions and ranges must
+    be well-formed, numeric fields finite, and timestamps ISO-8601,
+    so a structurally invalid file is rejected at read time instead
+    of failing later — or never. Corpus membership is checked by the
+    import paths that do have an observatory
+    (:meth:`DriftObservatory._validate_imported_snapshot`).
+    """
+    taken_at = snapshot.get("taken_at")
+    if taken_at is not None:
+        _require_iso_timestamp(taken_at, "taken_at")
+    for record in snapshot.get("records", []):
+        if not isinstance(record, Mapping):
+            raise ValueError("Drift snapshot records must be objects.")
+        if "native_score_direction" in record:
+            normalize_score_direction(record.get("native_score_direction"))
+        if "score_range" in record:
+            _validate_score_range(record.get("score_range"))
+        for field in ("score", "threshold"):
+            if record.get(field) is not None:
+                _coerce_float(record.get(field), field)
+        if record.get("calibrated_ai_probability") is not None:
+            _coerce_float(
+                record.get("calibrated_ai_probability"),
+                "calibrated_ai_probability",
+                minimum=0.0,
+                maximum=1.0,
+            )
+        if record.get("observed_at") is not None:
+            _require_iso_timestamp(record.get("observed_at"), "observed_at")
+
+
 @dataclass(slots=True)
 class ProbeSample:
     sample_id: str
@@ -723,7 +787,7 @@ class DriftObservatory:
 
     def _load_corpus_path(self, corpus_path: str | Path) -> None:
         path = Path(corpus_path)
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = _strict_json_loads(path.read_text(encoding="utf-8"))
         self._load_corpus(data)
 
     def _load_corpus(self, corpus: Mapping[str, Any] | Sequence[Mapping[str, Any]]) -> None:
@@ -870,6 +934,11 @@ class DriftObservatory:
                 f"score_range {score_range}."
             )
 
+        # S05: a malformed observation timestamp is not silently
+        # replaced — an imported record that claims a time it cannot
+        # name is rejected, so drift timelines stay trustworthy.
+        observed_at = _require_iso_timestamp(data.get("observed_at") or _now_iso(), "observed_at")
+
         return {
             "sample_id": sample_id,
             "text_sha256": str(text_sha),
@@ -877,7 +946,7 @@ class DriftObservatory:
             "detector_version": detector_version,
             "detector_family": detector_family,
             "execution": execution,
-            "observed_at": data.get("observed_at") or _now_iso(),
+            "observed_at": observed_at,
             "score": score,
             "score_semantics": score_semantics,
             "native_score_direction": direction,
@@ -909,6 +978,8 @@ class DriftObservatory:
                 raise ValueError(f"Sample {sample_id}: failure text_sha256 does not match corpus.")
         if text_sha is not None and not _is_hex64(text_sha):
             raise ValueError("Failure text_sha256 must be a 64-character hex digest.")
+        # S05: same timestamp discipline as observations.
+        observed_at = _require_iso_timestamp(data.get("observed_at") or _now_iso(), "observed_at")
         return {
             "sample_id": sample_id,
             "text_sha256": text_sha,
@@ -916,7 +987,7 @@ class DriftObservatory:
             "detector_version": data.get("detector_version"),
             "detector_family": data.get("detector_family"),
             "error_type": data.get("error_type"),
-            "observed_at": data.get("observed_at") or _now_iso(),
+            "observed_at": observed_at,
         }
 
     def _observation_from_prediction(
@@ -1106,8 +1177,11 @@ class DriftObservatory:
         return snapshot
 
     def add_snapshot(self, snapshot: Mapping[str, Any]) -> dict[str, Any]:
-        self._validate_snapshot_schema(snapshot)
-        stored = dict(snapshot)
+        # S05: an imported snapshot is validated against this
+        # observatory's corpus before it is stored — foreign sample
+        # IDs, changed text hashes, duplicates and bad counts are
+        # rejected here, not discovered at comparison time.
+        stored = self._validate_imported_snapshot(snapshot)
         self.snapshots.append(stored)
         return stored
 
@@ -1130,7 +1204,7 @@ class DriftObservatory:
         replace: bool = True,
         expected_corpus_sha256: str | None = None,
     ) -> list[dict[str, Any]]:
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        data = _strict_json_loads(Path(path).read_text(encoding="utf-8"))
         if data.get("schema") == DRIFT_SNAPSHOT_STORE_SCHEMA:
             snapshots = data.get("snapshots", [])
         elif data.get("schema") == DRIFT_SNAPSHOT_SCHEMA:
@@ -1150,7 +1224,9 @@ class DriftObservatory:
                 raise ValueError(
                     "Drift snapshot corpus hash does not match the loaded probe corpus."
                 )
-            loaded.append(dict(snapshot))
+            # S05: full import validation (corpus linkage, per-record
+            # hashes, duplicates, counts) before anything is stored.
+            loaded.append(self._validate_imported_snapshot(snapshot))
 
         if replace:
             self.snapshots = loaded
@@ -1160,7 +1236,9 @@ class DriftObservatory:
 
     @staticmethod
     def read_snapshot_file(path: str | Path) -> dict[str, Any]:
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        # S10: strict parse — a NaN token in a snapshot file is not
+        # valid JSON and must be rejected, not silently loaded.
+        data = _strict_json_loads(Path(path).read_text(encoding="utf-8"))
         if data.get("schema") == DRIFT_SNAPSHOT_STORE_SCHEMA:
             snapshots = data.get("snapshots", [])
             if len(snapshots) != 1:
@@ -1174,6 +1252,10 @@ class DriftObservatory:
             raise ValueError("Unrecognized drift snapshot schema.")
         if not isinstance(snapshot, dict) or snapshot.get("schema") != DRIFT_SNAPSHOT_SCHEMA:
             raise ValueError("Unrecognized drift snapshot schema.")
+        # S05: structural record validation (direction/range/finite
+        # numbers/timestamps) without corpus linkage — this reader has
+        # no observatory to link against.
+        _validate_snapshot_records_structural(snapshot)
         return snapshot
 
     def _validate_snapshot_schema(self, snapshot: Mapping[str, Any]) -> None:
@@ -1194,6 +1276,70 @@ class DriftObservatory:
                 normalize_score_direction(record.get("native_score_direction"))
             if "score_range" in record:
                 _validate_score_range(record.get("score_range"))
+
+    def _validate_imported_snapshot(self, snapshot: Mapping[str, Any]) -> dict[str, Any]:
+        """Validate an imported snapshot against this observatory (S05).
+
+        The construction path (``snapshot_from_observations``) already
+        normalizes every record through :meth:`_normalize_observation`;
+        imports previously only schema-checked, so a foreign file
+        could carry records for samples that do not exist, text hashes
+        that do not match the corpus, duplicate records, or counts
+        that do not match its own lists — and ``compare_snapshots``
+        would then report ``stable`` on unlinked data.
+
+        Returns a normalized copy (records/failures re-validated, all
+        other top-level keys preserved). Raises ``ValueError`` on the
+        first unlinked or malformed element. Verdicts are NOT checked
+        for consistency with score/threshold: the verdict is the
+        detector's own decision and may legitimately vary at a fixed
+        score (drift tests rely on that).
+        """
+        self._validate_snapshot_schema(snapshot)
+
+        corpus_sha = snapshot.get("corpus_sha256")
+        if not _is_hex64(corpus_sha):
+            raise ValueError(
+                "Drift snapshot corpus_sha256 must be a 64-character hex digest."
+            )
+        if corpus_sha != self.corpus_sha256:
+            raise ValueError(
+                "Drift snapshot corpus_sha256 does not match the loaded probe corpus."
+            )
+
+        taken_at = snapshot.get("taken_at")
+        if taken_at is not None:
+            _require_iso_timestamp(taken_at, "taken_at")
+
+        records = snapshot.get("records", [])
+        failures = snapshot.get("failures", [])
+        for count_field, items in (("record_count", records), ("failure_count", failures)):
+            expected = snapshot.get(count_field)
+            if expected is not None:
+                if isinstance(expected, bool) or not isinstance(expected, int):
+                    raise ValueError(f"Drift snapshot {count_field} must be an integer.")
+                if expected != len(items):
+                    raise ValueError(
+                        f"Drift snapshot {count_field} is {expected} but the "
+                        f"snapshot contains {len(items)} items."
+                    )
+
+        normalized_records = [self._normalize_observation(record) for record in records]
+        normalized_failures = [self._normalize_failure(failure) for failure in failures]
+
+        seen: set[tuple[str, str]] = set()
+        for record in normalized_records:
+            key = (record["detector_id"], record["sample_id"])
+            if key in seen:
+                raise ValueError(
+                    f"Duplicate drift record for detector {key[0]} sample {key[1]}."
+                )
+            seen.add(key)
+
+        validated = dict(snapshot)
+        validated["records"] = normalized_records
+        validated["failures"] = normalized_failures
+        return validated
 
     def compare_snapshots(
         self, baseline: Mapping[str, Any], current: Mapping[str, Any]
@@ -1233,9 +1379,31 @@ class DriftObservatory:
                 ],
             }
 
+        # S05: both snapshots are fully import-validated (corpus
+        # linkage, per-record hashes, duplicates, counts) once the
+        # corpus-hash equality check above has passed, so the
+        # corpus_mismatch report contract is preserved. Comparison
+        # runs on the normalized copies.
+        baseline_dict = self._validate_imported_snapshot(baseline_dict)
+        current_dict = self._validate_imported_snapshot(current_dict)
+
         baseline_by_detector = _records_by_detector(baseline_dict)
         current_by_detector = _records_by_detector(current_dict)
-        detector_ids = sorted(set(baseline_by_detector) | set(current_by_detector))
+        # S05: the detector universe is the record detectors UNION the
+        # failure detectors — a detector that only failed in both
+        # snapshots is evidence (it was attempted and failed), not an
+        # absence; dropping it hid total-failure detectors from drift
+        # reports. Skipped detectors (declared but never attempted)
+        # stay out: no attempt, no evidence.
+        failure_detectors: set[str] = set()
+        for snapshot_dict in (baseline_dict, current_dict):
+            for failure in snapshot_dict.get("failures", []):
+                detector_id = failure.get("detector_id") if isinstance(failure, Mapping) else None
+                if isinstance(detector_id, str) and detector_id:
+                    failure_detectors.add(detector_id)
+        detector_ids = sorted(
+            set(baseline_by_detector) | set(current_by_detector) | failure_detectors
+        )
         detector_reports = [
             self._compare_detector(
                 detector_id,
