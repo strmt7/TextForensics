@@ -23,18 +23,20 @@ from __future__ import annotations
 
 import base64
 import contextlib
+import fnmatch
 import hashlib
 import json
 import logging
 import os
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from enum import Enum
 from functools import lru_cache
 from importlib.resources import files
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 from textforensics.trust import TrustDimension, _legacy_dimension_name
@@ -104,6 +106,15 @@ class CapabilityClaim:
     tier: EvidenceTier
     evidence: list[EvidenceRef] = field(default_factory=list)
     valid_until: str | None = None  # ISO date when this claim expires
+
+    def __post_init__(self) -> None:
+        # S22/§4.2.2 item 1: unsupported tiers are rejected at ingestion,
+        # never satisfied by a fail-open default downstream. A plain
+        # string naming a known tier is coerced to the enum member.
+        try:
+            object.__setattr__(self, "tier", EvidenceTier(self.tier))
+        except ValueError as exc:
+            raise ValueError(f"Unsupported evidence tier {self.tier!r}.") from exc
 
 
 def _parse_valid_until(value: str | None) -> date | None:
@@ -210,6 +221,10 @@ def _claim_is_effective(
     diagnostic validation (:func:`validate_claim`) still flags empty
     evidence. ``today`` accepts a ``date`` or ``datetime`` (UTC date).
     """
+    # S22/§4.2.2 item 1: an unsupported tier is never effective,
+    # whatever it claims.
+    if claim.tier not in EvidenceTier:
+        return False
     if claim_is_expired(claim, today=today):
         return False
     if claim.tier != EvidenceTier.VALIDATED:
@@ -480,12 +495,26 @@ def ledger_to_trust_dimension(
     (and, when a resolver is configured, resolving) evidence, cannot
     lift a dimension to 'supported' — it maps to 'unknown' with the
     reason stated.
+
+    Duplicate registration follows the ledger rule (latest registration
+    per detector+capability is current): a superseded claim — even an
+    effective one — never decides the dimension. Only the latest claim
+    per capability is considered, so this function agrees with
+    :meth:`CapabilityLedger.get` and
+    :meth:`CapabilityPolicyEngine.evaluate` on every claim set (S04).
+    A claim with an unknown tier contributes nothing: it is neither
+    'supported' nor 'partial'.
     """
     claims = ledger._claims.get(detector_id, [])
     relevant = [c for c in claims if c.capability.startswith(capability_prefix)]
+    # Latest registration per capability wins (same rule as _find).
+    latest_by_capability: dict[str, CapabilityClaim] = {}
+    for claim in relevant:
+        latest_by_capability[claim.capability] = claim
+    current = list(latest_by_capability.values())
     effective = [
         c
-        for c in relevant
+        for c in current
         if _claim_is_effective(c, today=today, evidence_resolver=ledger._evidence_resolver)
     ]
 
@@ -518,6 +547,7 @@ def ledger_to_trust_dimension(
 
     has_validated = any(c.tier == EvidenceTier.VALIDATED for c in effective)
     has_tool_backed = any(c.tier == EvidenceTier.TOOL_BACKED for c in effective)
+    has_known_tier = any(c.tier in EvidenceTier for c in effective)
 
     if has_validated:
         state = "supported"
@@ -528,11 +558,20 @@ def ledger_to_trust_dimension(
             f"Capability '{capability_prefix}' for {detector_id} is "
             f"TOOL_BACKED but not yet VALIDATED."
         )
-    else:
+    elif has_known_tier:
         state = "partial"
         reason = (
             f"Capability '{capability_prefix}' for {detector_id} is "
             f"only READABLE (documented but not machine-verifiable)."
+        )
+    else:
+        return TrustDimension(
+            dimension=_legacy_dimension_name(capability_prefix),
+            state="unknown",
+            reason=(
+                f"Capability claims for {detector_id} under prefix "
+                f"'{capability_prefix}' carry no recognised evidence tier."
+            ),
         )
 
     evidence_refs = []
@@ -606,6 +645,21 @@ class CapabilityPolicy:
     detector_pattern: str = "*"
     action_on_failure: str = "reject"  # "warn", "reject", "abstain"
 
+    def __post_init__(self) -> None:
+        # S22/§4.2.2 item 1: an unknown required tier must fail closed
+        # at ingestion, never satisfy every claim through a -1 default.
+        for _capability, min_tier in self.required_capabilities:
+            if not isinstance(min_tier, str) or min_tier.lower() not in {
+                "readable",
+                "tool_backed",
+                "validated",
+            }:
+                raise ValueError(f"Unsupported required tier {min_tier!r}.")
+        if not isinstance(self.detector_pattern, str) or not self.detector_pattern:
+            raise ValueError("detector_pattern must be a non-empty string.")
+        if self.action_on_failure not in ("warn", "reject", "abstain"):
+            raise ValueError(f"Invalid action_on_failure: {self.action_on_failure}")
+
 
 class CapabilityPolicyEngine:
     """Evaluates capability claims against policy rules."""
@@ -652,16 +706,23 @@ class CapabilityPolicyEngine:
                     missing.append(f"{capability} (required: {min_tier_str}+)")
                     continue
 
-                # Check tier meets minimum
+                # Check tier meets minimum. An unknown required tier or
+                # an unknown claim tier fails closed (S22/§4.2.2 item 1):
+                # it is recorded as a gap, never satisfied by default.
                 tier_order = {
                     "readable": 0,
                     "tool_backed": 1,
                     "validated": 2,
                 }
                 claim_tier = claim.tier.value if hasattr(claim.tier, "value") else str(claim.tier)
-                min_tier = min_tier_str.lower()
+                min_tier = min_tier_str.lower() if isinstance(min_tier_str, str) else ""
 
-                if tier_order.get(claim_tier, -1) < tier_order.get(min_tier, -1):
+                if min_tier not in tier_order:
+                    gaps.append(
+                        f"{capability}: required tier {min_tier_str!r} is not a "
+                        "recognised evidence tier; requirement cannot be verified"
+                    )
+                elif tier_order.get(claim_tier, -1) < tier_order[min_tier]:
                     gaps.append(f"{capability}: claim tier={claim_tier}, required={min_tier}+")
 
             passed = len(missing) == 0 and len(gaps) == 0
@@ -679,19 +740,15 @@ class CapabilityPolicyEngine:
         return results
 
     def _matches_pattern(self, detector_id: str, pattern: str) -> bool:
-        """Simple glob-style pattern matching."""
-        if pattern == "*":
-            return True
-        if "*" not in pattern:
-            return detector_id == pattern
-        # Simple prefix/suffix matching
-        if pattern.startswith("*") and pattern.endswith("*"):
-            return pattern[1:-1] in detector_id
-        elif pattern.startswith("*"):
-            return detector_id.endswith(pattern[1:])
-        elif pattern.endswith("*"):
-            return detector_id.startswith(pattern[:-1])
-        return False
+        """Glob-style pattern matching (S22/§4.2.2 item 1).
+
+        Proper glob semantics via :func:`fnmatch.fnmatchcase`: ``*``
+        matches any run of characters anywhere in the pattern (including
+        interior positions such as ``vendor/*-v1``), ``?`` matches one
+        character, and ``[...]`` matches a character class. Matching is
+        case-sensitive: detector IDs are exact identifiers.
+        """
+        return fnmatch.fnmatchcase(detector_id, pattern)
 
 
 def create_production_policy() -> CapabilityPolicyEngine:
@@ -792,26 +849,99 @@ def create_minimum_viable_policy() -> CapabilityPolicyEngine:
 # ----------------------------------------------------------------------------
 
 
+def _deep_freeze_policy_value(value: Any) -> Any:
+    """Recursively copy a JSON-like value into immutable containers.
+
+    Mappings become :class:`~types.MappingProxyType`, sequences become
+    tuples. The result shares no mutable structure with its input, so
+    mutating a constructor argument after construction cannot change a
+    frozen policy, and mutating a returned mapping raises
+    :class:`TypeError` instead of silently changing admitted content
+    while the stored digest stays unchanged (S22/§4.2.2 item 3).
+    """
+    if isinstance(value, Mapping):
+        return MappingProxyType({key: _deep_freeze_policy_value(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(_deep_freeze_policy_value(item) for item in value)
+    if isinstance(value, (set, frozenset)):
+        return frozenset(_deep_freeze_policy_value(item) for item in value)
+    return value
+
+
+def _deep_thaw_policy_value(value: Any) -> Any:
+    """Recursively convert frozen containers back to plain JSON values."""
+    if isinstance(value, Mapping):
+        return {key: _deep_thaw_policy_value(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_deep_thaw_policy_value(item) for item in value]
+    if isinstance(value, frozenset):
+        return [_deep_thaw_policy_value(item) for item in sorted(value, key=repr)]
+    return value
+
+
+def _validate_policy_rules(rules: Any) -> list[str]:
+    """Validate enterprise rule shapes; returns error strings (empty = valid).
+
+    Every rule must be a mapping with non-empty ``id``/``description``/
+    ``scope`` and an ``action`` in the known set. An unknown action
+    must never fall through to status ``ok`` (S22/§4.2.2 item 3).
+    ``conditions``, when present, must be a mapping.
+    """
+    errors: list[str] = []
+    if not isinstance(rules, (list, tuple)):
+        return ["rules must be a list of rule objects."]
+    for index, rule in enumerate(rules):
+        where = f"rules[{index}]"
+        if not isinstance(rule, Mapping):
+            errors.append(f"{where} must be an object.")
+            continue
+        for field_name in ("id", "description", "scope"):
+            value = rule.get(field_name)
+            if not isinstance(value, str) or not value.strip():
+                errors.append(f"{where}.{field_name} must be a non-empty string.")
+        action = rule.get("action")
+        if action not in ("enforce", "warn", "log", "disable"):
+            errors.append(
+                f"{where}.action must be one of 'enforce', 'warn', 'log', 'disable'; "
+                f"got {action!r}."
+            )
+        conditions = rule.get("conditions")
+        if conditions is not None and not isinstance(conditions, Mapping):
+            errors.append(f"{where}.conditions must be an object when present.")
+    return errors
+
+
 def compute_policy_digest(policy: EnterprisePolicy) -> str:
     """Compute a SHA-256 digest of the policy's revision, settings, and rules.
 
     The digest is the canonical integrity check.  It is deterministic: the
     same logical content always yields the same hash regardless of the
     ``digest`` field's current value.
+
+    Rule ``conditions`` are part of the digested content (S22/§4.2.2
+    item 2): a rule carrying a non-empty ``conditions`` mapping hashes
+    differently from the same rule without it, so changing conditions
+    can never leave the digest equal. An absent ``conditions`` and an
+    empty ``conditions`` mapping digest identically, so policies that
+    never carried conditions keep their historical digest.
     """
+    rule_blobs = []
+    for r in policy.rules:
+        entry: dict[str, Any] = {
+            "id": r["id"],
+            "description": r["description"],
+            "action": r["action"],
+            "scope": r["scope"],
+        }
+        conditions = r.get("conditions")
+        if isinstance(conditions, Mapping) and conditions:
+            entry["conditions"] = _deep_thaw_policy_value(conditions)
+        rule_blobs.append(entry)
     blob = json.dumps(
         {
             "revision": policy.revision,
-            "settings": policy.settings,
-            "rules": [
-                {
-                    "id": r["id"],
-                    "description": r["description"],
-                    "action": r["action"],
-                    "scope": r["scope"],
-                }
-                for r in policy.rules
-            ],
+            "settings": _deep_thaw_policy_value(policy.settings),
+            "rules": rule_blobs,
         },
         sort_keys=True,
         separators=(",", ":"),
@@ -865,11 +995,13 @@ class EnterprisePolicy:
     rules: list[dict[str, Any]]
 
     def to_dict(self) -> dict[str, Any]:
+        # Deep-thawed copies: mutating the returned dicts must never
+        # reach back into the frozen policy (S22/§4.2.2 item 3).
         return {
             "revision": self.revision,
             "digest": self.digest,
-            "settings": self.settings,
-            "rules": self.rules,
+            "settings": _deep_thaw_policy_value(self.settings),
+            "rules": _deep_thaw_policy_value(self.rules),
         }
 
     @classmethod
@@ -885,6 +1017,21 @@ class EnterprisePolicy:
             raise ValueError("Policy revision must be non-negative")
         if self.digest and len(self.digest) != 64:
             raise ValueError("Policy digest must be a 64-character hex string")
+        # S22/§4.2.2 item 3: one validated shape for every rule, at
+        # every construction path — an unknown action or a malformed
+        # rule can never be constructed into an admitted-looking policy.
+        errors = _validate_policy_rules(self.rules)
+        if errors:
+            raise ValueError("; ".join(errors))
+        if not isinstance(self.settings, Mapping):
+            raise ValueError("Policy settings must be an object.")
+        # Deep-freeze copies: the frozen dataclass alone does not stop
+        # nested mutation (policy.rules[0]['action'] = ... changed
+        # admitted content while the stored digest stayed unchanged).
+        # After this, mutating constructor inputs, returned mappings,
+        # or nested lists either fails or cannot affect the policy.
+        object.__setattr__(self, "settings", _deep_freeze_policy_value(dict(self.settings)))
+        object.__setattr__(self, "rules", _deep_freeze_policy_value(list(self.rules)))
 
 
 @dataclass
@@ -1318,6 +1465,42 @@ class PolicyRevisionFloor:
             self._state = fresh
 
 
+def _validate_admitted_policy(policy: EnterprisePolicy) -> list[str]:
+    """Validate a policy for admission to an :class:`EnterprisePolicyEngine`.
+
+    This is the ONE validated admission path (S22/§4.2.2 item 3): the
+    constructor, the ``policy`` setter and :meth:`load_policy` all go
+    through it, so no unvalidated policy can reach :meth:`evaluate`.
+
+    * rule shapes/actions were already enforced at construction
+      (:meth:`EnterprisePolicy.__post_init__`); this re-checks them so
+      a policy object that bypassed construction is still refused;
+    * a non-empty ``conditions`` mapping is rejected explicitly:
+      conditions are schema-accepted but have no implemented grammar
+      yet, and silently ignoring them would let an operator believe a
+      condition applies when it does not (S22/§4.2.2 item 2).
+
+    Digest integrity is NOT checked here: it is verified by
+    :meth:`load_policy`, the path that reads a stored digest from disk
+    and compares it against the recomputed digest. An in-memory policy
+    carries no stored integrity claim to verify (floor tests
+    deliberately construct policies with placeholder digests), so the
+    engine validates semantics here and leaves digest verification to
+    disk admission.
+    """
+    errors = _validate_policy_rules(policy.rules)
+    for rule in policy.rules:
+        conditions = rule.get("conditions") if isinstance(rule, Mapping) else None
+        if isinstance(conditions, Mapping) and conditions:
+            errors.append(
+                f"Rule {rule.get('id')!r} carries conditions {dict(conditions)!r}, "
+                "but no condition grammar is implemented yet: conditions are "
+                "rejected until one is specified. Remove the conditions or "
+                "wait for a specified condition grammar."
+            )
+    return errors
+
+
 class EnterprisePolicyEngine:
     """Enforces enterprise policy rules against operations.
 
@@ -1338,6 +1521,10 @@ class EnterprisePolicyEngine:
         policy: EnterprisePolicy | None = None,
         floor: PolicyRevisionFloor | None = None,
     ) -> None:
+        if policy is not None:
+            errors = _validate_admitted_policy(policy)
+            if errors:
+                raise ValueError("; ".join(errors))
         self._policy = policy
         self._floor = floor
 
@@ -1347,6 +1534,11 @@ class EnterprisePolicyEngine:
 
     @policy.setter
     def policy(self, value: EnterprisePolicy) -> None:
+        # One validated admission path: the setter refuses unvalidated
+        # policies instead of silently storing them (S22/§4.2.2 item 3).
+        errors = _validate_admitted_policy(value)
+        if errors:
+            raise ValueError("; ".join(errors))
         self._policy = value
 
     @property
@@ -1375,14 +1567,17 @@ class EnterprisePolicyEngine:
             return errors
 
         # 2. Compute digest (single implementation: compute_policy_digest)
-        computed_digest = compute_policy_digest(
-            EnterprisePolicy(
-                revision=int(policy_data["revision"]),
-                digest="",
-                settings=dict(policy_data.get("settings", {})),
-                rules=[dict(r) for r in policy_data.get("rules", [])],
+        try:
+            computed_digest = compute_policy_digest(
+                EnterprisePolicy(
+                    revision=int(policy_data["revision"]),
+                    digest="",
+                    settings=dict(policy_data.get("settings", {})),
+                    rules=[dict(r) for r in policy_data.get("rules", [])],
+                )
             )
-        )
+        except ValueError as exc:
+            return [str(exc)]
 
         # If the policy has a digest field, compare
         if "digest" in policy_data and policy_data["digest"] != computed_digest:
@@ -1391,12 +1586,22 @@ class EnterprisePolicyEngine:
                 f"computed {computed_digest[:16]}..."
             ]
 
-        policy = EnterprisePolicy(
-            revision=int(policy_data["revision"]),
-            digest=computed_digest,
-            settings=dict(policy_data.get("settings", {})),
-            rules=[dict(r) for r in policy_data.get("rules", [])],
-        )
+        try:
+            policy = EnterprisePolicy(
+                revision=int(policy_data["revision"]),
+                digest=computed_digest,
+                settings=dict(policy_data.get("settings", {})),
+                rules=[dict(r) for r in policy_data.get("rules", [])],
+            )
+        except ValueError as exc:
+            return [str(exc)]
+
+        # 2b. Admission validation (the one validated admission path):
+        # non-empty conditions are rejected explicitly — they have no
+        # implemented grammar yet and must not be silently ignored.
+        admission_errors = _validate_admitted_policy(policy)
+        if admission_errors:
+            return admission_errors
 
         # 3. Floor check + advance in ONE transaction (S02): a stale
         # instance re-reads the persisted floor under the lock, and no
@@ -1487,6 +1692,20 @@ class EnterprisePolicyEngine:
                 )
                 if rule_scope not in disabled_scopes:
                     disabled_scopes.append(rule_scope)
+            else:
+                # Defence in depth: an unknown action must never fall
+                # through to status "ok" (S22/§4.2.2 item 3). Construction
+                # rejects unknown actions, but a policy object that
+                # bypassed construction is still a violation here.
+                violations.append(
+                    {
+                        "rule_id": rule["id"],
+                        "description": (
+                            f"Unknown action {action!r} on rule {rule['id']!r}: "
+                            "the rule cannot be honoured, so the scope is in violation."
+                        ),
+                    }
+                )
 
         if violations:
             status = "violation"

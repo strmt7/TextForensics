@@ -1497,29 +1497,35 @@ class TestPolicyMutationKills:
         assert (len(result.evidence_gaps) > 0) == expect_gap
         assert result.passed is not expect_gap
 
-    def test_unknown_tier_falls_back_to_default(self):
-        # A non-Enum tier exercises the tier_order.get(..., -1)
-        # defaults on both sides. Case (a) kills NumberReplacer occ 6
-        # (claim default -1 -> -2: mutant flags a gap) and occ 9 (min
-        # default -1 -> 0: mutant flags a gap); case (b) kills occ 7
-        # (claim default -1 -> 0: mutant passes a bogus tier against a
-        # readable requirement).
-        claim = CapabilityClaim(
-            detector_id="det-a",
-            capability="language_coverage",
-            tier="bogus",
-            evidence=[],
-        )
-        ledger = _ledger_with_claim(claim)
-        engine = _engine_requiring("language_coverage", "nonsense")
-        (result,) = engine.evaluate(ledger, "det-a")
-        assert result.passed is True
-        assert result.evidence_gaps == []
+    def test_unknown_tier_rejected_at_construction(self):
+        # Audit W4/S22 (§4.2.2 item 1): an unsupported required tier
+        # fails closed at ingestion. Previously a "nonsense" min_tier
+        # fell back to the -1 default and satisfied every claim, and a
+        # bogus claim tier was likewise satisfiable; both now raise.
+        with pytest.raises(ValueError, match="tier"):
+            _engine_requiring("language_coverage", "nonsense")
+        with pytest.raises(ValueError, match="tier"):
+            CapabilityClaim(
+                detector_id="det-a",
+                capability="language_coverage",
+                tier="bogus",
+                evidence=[],
+            )
 
+    def test_bogus_claim_tier_fails_closed_at_evaluation(self):
+        # Defence in depth: even a claim object that bypassed the
+        # constructor must not satisfy a policy requirement.
+        claim = object.__new__(CapabilityClaim)
+        object.__setattr__(claim, "detector_id", "det-a")
+        object.__setattr__(claim, "capability", "language_coverage")
+        object.__setattr__(claim, "tier", "bogus")
+        object.__setattr__(claim, "evidence", [])
+        object.__setattr__(claim, "valid_until", None)
+        ledger = _ledger_with_claim(claim)
         engine = _engine_requiring("language_coverage", "readable")
         (result,) = engine.evaluate(ledger, "det-a")
         assert result.passed is False
-        assert len(result.evidence_gaps) == 1
+        assert result.missing_claims or result.evidence_gaps
 
     @pytest.mark.parametrize(
         "pattern,detector,expected",
@@ -1922,11 +1928,16 @@ class TestPolicyMutationKills298:
         engine = CapabilityPolicyEngine()
         assert engine._matches_pattern("det", pattern) is False
 
-    def test_matches_pattern_interior_star_returns_false(self):
-        # Kills ReplaceFalseWithTrue occ 0 (_matches_pattern: the final
-        # `return False` for an interior-`*` pattern becomes True).
+    def test_matches_pattern_interior_star_matches(self):
+        # Audit W4/S22 (§4.2.2 item 1): interior `*` is a real glob
+        # wildcard now (fnmatch): `vendor/*-v1` matches
+        # `vendor/model-v1`. Previously the hand-rolled matcher fell
+        # through to `return False` for any interior `*`, so the
+        # pattern silently never applied.
         engine = CapabilityPolicyEngine()
-        assert engine._matches_pattern("axb", "a*b") is False
+        assert engine._matches_pattern("vendor/model-v1", "vendor/*-v1") is True
+        assert engine._matches_pattern("vendor/model-v2", "vendor/*-v1") is False
+        assert engine._matches_pattern("axb", "a*b") is True
 
     # -- ledger_to_trust_dimension (G7–G8) ---------------------------------
 
@@ -2031,16 +2042,8 @@ class TestPolicyMutationKills298:
             json.dumps(
                 {
                     "revision": policy.revision,
-                    "settings": policy.settings,
-                    "rules": [
-                        {
-                            "id": r["id"],
-                            "description": r["description"],
-                            "action": r["action"],
-                            "scope": r["scope"],
-                        }
-                        for r in policy.rules
-                    ],
+                    "settings": policy.to_dict()["settings"],
+                    "rules": policy.to_dict()["rules"],
                 },
                 sort_keys=True,
                 separators=(",", ":"),
@@ -2071,16 +2074,8 @@ class TestPolicyMutationKills298:
             json.dumps(
                 {
                     "revision": policy.revision,
-                    "settings": policy.settings,
-                    "rules": [
-                        {
-                            "id": r["id"],
-                            "description": r["description"],
-                            "action": r["action"],
-                            "scope": r["scope"],
-                        }
-                        for r in policy.rules
-                    ],
+                    "settings": policy.to_dict()["settings"],
+                    "rules": policy.to_dict()["rules"],
                 },
                 sort_keys=True,
                 separators=(",", ":"),
@@ -2339,42 +2334,48 @@ class TestPolicyMutationKills298:
         assert result["rules_checked"] == 1
         assert [entry["rule_id"] for entry in result["logs"]] == ["r-m"]
 
-    def test_evaluate_unknown_action_is_not_warn(self):
-        # Kills ReplaceComparisonOperator_Eq_GtE occ 14 (evaluate:
-        # `action == "warn"` -> `>=`; an unknown action sorting at or
-        # after "warn" is then recorded as a warning).
-        engine = _enterprise_engine([_enterprise_rule("r-z", "all", "zzz")])
-        result = engine.evaluate("analysis")
-        assert result["status"] == "ok"
-        assert result["warnings"] == []
+    def test_evaluate_unknown_action_rejected_at_construction(self):
+        # Audit W4/S22 (§4.2.2 item 3): an unknown rule action is
+        # rejected at construction, not silently classified. The old
+        # fall-through treated unknown actions as status "ok" (an
+        # action sorting at/after "warn"/"log"/"disable" was never
+        # recorded anywhere); these inputs previously pinned that
+        # fall-through. All four mutants they killed
+        # (ReplaceComparisonOperator_Eq_GtE occ 14/15/16,
+        # ReplaceComparisonOperator_Eq_LtE occ 16) are killed the same
+        # way by the rejection: with `==` mutated to `>=`/`<=` the
+        # action enum check still rejects "zzz"/"audit".
+        for action in ("zzz", "audit"):
+            with pytest.raises(ValueError, match="action"):
+                _enterprise_engine([_enterprise_rule("r-z", "all", action)])
 
-    def test_evaluate_unknown_action_is_not_log(self):
-        # Kills ReplaceComparisonOperator_Eq_GtE occ 15 (evaluate:
-        # `action == "log"` -> `>=`; an unknown action sorting at or
-        # after "log" is then recorded as a log entry).
-        engine = _enterprise_engine([_enterprise_rule("r-z", "all", "zzz")])
+    def test_evaluate_unknown_action_is_violation_if_construction_bypassed(self):
+        # Defence in depth: an unknown action that bypassed
+        # construction is a violation at evaluation, never "ok".
+        # Admission itself refuses it too, so the bypass has to reach
+        # past admission: admit a valid policy, then smuggle the
+        # unknown action into the stored policy object.
+        policy = EnterprisePolicy(
+            revision=1,
+            digest="a" * 64,
+            settings={},
+            rules=[{"id": "r-z", "description": "rule r-z", "action": "log", "scope": "all"}],
+        )
+        engine = EnterprisePolicyEngine(policy=policy)
+        rules = list(policy.rules)
+        rules[0] = dict(rules[0], action="zzz")
+        object.__setattr__(policy, "rules", tuple(rules))
         result = engine.evaluate("analysis")
-        assert result["status"] == "ok"
-        assert result["logs"] == []
-
-    def test_evaluate_unknown_action_is_not_disable(self):
-        # Kills ReplaceComparisonOperator_Eq_GtE occ 16 (evaluate:
-        # `action == "disable"` -> `>=`; an unknown action sorting at
-        # or after "disable" is then recorded as disabling the scope).
-        engine = _enterprise_engine([_enterprise_rule("r-z", "all", "zzz")])
-        result = engine.evaluate("analysis")
-        assert result["status"] == "ok"
-        assert result["disabled"] == []
-
-    def test_evaluate_low_action_is_not_disable(self):
-        # Kills ReplaceComparisonOperator_Eq_LtE occ 16 (evaluate:
-        # `action == "disable"` -> `<=`; an unknown action sorting at
-        # or before "disable" is then recorded as disabling the
-        # scope).
-        engine = _enterprise_engine([_enterprise_rule("r-a", "all", "audit")])
-        result = engine.evaluate("analysis")
-        assert result["status"] == "ok"
-        assert result["disabled"] == []
+        assert result["status"] == "violation"
+        assert result["violations"] == [
+            {
+                "rule_id": "r-z",
+                "description": (
+                    "Unknown action 'zzz' on rule 'r-z': the rule cannot "
+                    "be honoured, so the scope is in violation."
+                ),
+            }
+        ]
 
 
 # ---------------------------------------------------------------------------
