@@ -50,7 +50,6 @@ from .localize import (
     visual_diff,
 )
 from .observatory import DriftObservatory
-from .probe_metrics import strict_json_loads
 from .policy import (
     CapabilityClaim,
     CapabilityLedger,
@@ -62,6 +61,7 @@ from .policy import (
     create_production_policy,
     create_report_generation_policy,
 )
+from .probe_metrics import strict_json_loads
 from .report import build_forensic_bundle
 from .verify import verify_all, verify_case_file_path_combined
 

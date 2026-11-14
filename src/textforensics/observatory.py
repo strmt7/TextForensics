@@ -708,9 +708,9 @@ def _validate_snapshot_records_structural(snapshot: Mapping[str, Any]) -> None:
             normalize_score_direction(record.get("native_score_direction"))
         if "score_range" in record:
             _validate_score_range(record.get("score_range"))
-        for field in ("score", "threshold"):
-            if record.get(field) is not None:
-                _coerce_float(record.get(field), field)
+        for numeric_field in ("score", "threshold"):
+            if record.get(numeric_field) is not None:
+                _coerce_float(record.get(numeric_field), numeric_field)
         if record.get("calibrated_ai_probability") is not None:
             _coerce_float(
                 record.get("calibrated_ai_probability"),

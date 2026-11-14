@@ -7,9 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 import sys
-import tempfile
 from datetime import date
 from io import StringIO
 
