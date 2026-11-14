@@ -50,6 +50,7 @@ from .localize import (
     visual_diff,
 )
 from .observatory import DriftObservatory
+from .probe_metrics import strict_json_loads
 from .policy import (
     CapabilityClaim,
     CapabilityLedger,
@@ -2030,10 +2031,17 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         )
         if Path(ledger_path).exists():
             try:
-                data = json.loads(Path(ledger_path).read_text(encoding="utf-8"))
+                data = strict_json_loads(Path(ledger_path).read_text(encoding="utf-8"))
                 ledger = CapabilityLedger.from_dict(data)
-            except (json.JSONDecodeError, KeyError):
-                ledger = CapabilityLedger()
+            except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                # S04: a corrupt ledger file must never silently become
+                # an empty ledger — every later decision would then
+                # rest on claims that were never read.
+                print(
+                    f"error: cannot load capability ledger {ledger_path}: {exc}",
+                    file=sys.stderr,
+                )
+                return EXIT_ERROR
         else:
             ledger = CapabilityLedger()
         if args.capability_command == "list":
@@ -2085,22 +2093,42 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
                 ],
                 valid_until=args.valid_until,
             )
-            ledger.register(claim)
+            issues = ledger.register(claim)
             # Save the ledger back to disk
             ledger_path = Path(args.ledger)
             ledger_path.parent.mkdir(parents=True, exist_ok=True)
             ledger_path.write_text(
                 json.dumps(ledger.to_dict(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
             )
+            # S04: the ledger stays an honest record (the claim is
+            # stored even when ineffective), but the CLI must not
+            # present it as validated: the validation issues and the
+            # effective flag travel in the payload, and an ineffective
+            # registration warns on stderr. `get` returns the claim
+            # only when it is currently effective, and the latest
+            # registration is the claim just stored.
+            effective = ledger.get(args.detector, args.capability) is claim
             payload = {
                 "detector_id": args.detector,
                 "capability": args.capability,
                 "tier": tier.value,
                 "artifact": args.artifact,
                 "registered": True,
+                "issues": issues,
+                "effective": effective,
             }
             _write_json(None, payload)
             print(f"Registered: {args.detector}/{args.capability} ({tier.value})")
+            if issues or not effective:
+                detail = "; ".join(issues) if issues else (
+                    "claim is not currently effective "
+                    "(expired or missing executed evidence)"
+                )
+                print(
+                    f"warning: registered claim {args.detector}/{args.capability} "
+                    f"is not effective: {detail}",
+                    file=sys.stderr,
+                )
         elif args.capability_command == "policy":
             # Ported from the former Typer CLI (capability policy). The Typer
             # version computed all_passed only in the non-JSON branch, so

@@ -909,6 +909,21 @@ class CalibrationArtifact:
     def validation_issues(self) -> list[str]:
         """Return every structural and eligibility issue (empty when valid)."""
         issues: list[str] = []
+        # CORE-04: the stored content hash is the tamper evidence. An
+        # artifact whose content no longer matches its hash (mutated
+        # after hashing, e.g. via object.__setattr__ past the frozen
+        # dataclass) is not eligible, however good its metrics look.
+        # A hash that cannot even be computed (corrupt content) is
+        # the same verdict, not an exception escaping validation.
+        try:
+            if not self.check_content_hash():
+                issues.append(
+                    "content_hash does not match the artifact content; "
+                    "the artifact is tampered or corrupt and is not "
+                    "probability-eligible"
+                )
+        except Exception as exc:
+            issues.append(f"content_hash cannot be verified: {exc}")
         if not self.detector_id:
             issues.append("detector_id is required")
         if not self.detector_version:
