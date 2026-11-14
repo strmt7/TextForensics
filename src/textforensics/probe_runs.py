@@ -129,7 +129,9 @@ from .execution_policy import CompletenessAccounting
 from .probe_metrics import (
     normalize_score_direction,
     oriented_scores,
+    reject_nonfinite_value,
     require_finite_number,
+    strict_json_loads,
 )
 from .validation import (
     MIN_CLEAN_FULL_RUNS_FOR_TEMPORAL_SUPPORT,
@@ -643,6 +645,12 @@ def _slice_metrics(
         "brier": None,
         "baseline_ece": None,
         "baseline_ece_reason": None,
+        # S21: structured missing-calibration evidence (None when the
+        # baseline covers every labelled item). A partial baseline
+        # withholds the aggregate AND records exactly which items are
+        # missing, instead of a bare reason string a reader must
+        # parse — or the KeyError the audit repro hit.
+        "missing_calibration": None,
         "n_calibrated_current": n_calibrated_current,
         "n_calibrated_paired": len(matched_items),
         "n_calibrated_baseline": n_calibrated_baseline,
@@ -672,12 +680,25 @@ def _slice_metrics(
                     primitives.ece(matched_baseline_probs, matched_labels)
                 )
             else:
+                missing_item_ids = [item for item in labelled if item not in matched_items]
                 calibration["baseline_ece_reason"] = (
                     f"baseline_ece unavailable: only {len(matched_items)} of "
                     f"{len(labelled)} labelled items have a matched baseline "
                     "calibrated probability; the aggregate is withheld, not "
                     "averaged over the surviving inputs."
                 )
+                calibration["missing_calibration"] = {
+                    "reason": (
+                        f"baseline_ece unavailable: only {len(matched_items)} of "
+                        f"{len(labelled)} labelled items have a matched baseline "
+                        "calibrated probability; missing calibrated baseline "
+                        f"probability for items {missing_item_ids}; the aggregate "
+                        "is withheld, not averaged over the surviving inputs."
+                    ),
+                    "n_matched": len(matched_items),
+                    "n_labelled": len(labelled),
+                    "missing_item_ids": missing_item_ids,
+                }
     elif probs and any(p is not None for p in probs):
         calibration["conformal_reason"] = (
             "calibrated probabilities are present for only some items; "
@@ -939,15 +960,24 @@ def compute_run_metrics(
     # S09: one score direction per run, from the shared contract.
     # Records that never declared one are "unknown" (never guessed);
     # two different known directions in one run cannot be aggregated
-    # — their scores are not comparable — and fail closed.
+    # — their scores are not comparable — and fail closed. The same
+    # holds for a run that mixes a known direction with undeclared
+    # records: silently orienting the undeclared records by the known
+    # direction would reverse a valid detector exactly as the audit
+    # repro shows (lower_score_direction_ignored), so that mix fails
+    # closed too. A run that is uniformly "unknown" stays computable:
+    # direction-dependent metrics are then withheld, not guessed.
     directions = {
         normalize_score_direction(record.get("native_score_direction"))
         for record in current.values()
     }
     known_directions = directions - {"unknown"}
-    if len(known_directions) > 1:
+    if len(known_directions) > 1 or (known_directions and "unknown" in directions):
         raise ProbeRunError(
-            f"mixed native_score_direction values in one run: {sorted(known_directions)}."
+            "mixed native_score_direction values in one run: "
+            f"{sorted(directions)}; records with an undeclared direction "
+            "cannot be aggregated with records that declared one — "
+            "their scores are not comparable."
         )
     score_direction = known_directions.pop() if known_directions else "unknown"
 
@@ -2271,6 +2301,13 @@ def validate_run_manifest(manifest: Mapping[str, Any]) -> None:
         raise ProbeRunError("run manifest thresholds.fpr_cap must be in [0, 1].")
     if not isinstance(manifest.get("metrics"), Mapping):
         raise ProbeRunError("run manifest metrics must be an object.")
+    # S10: a non-finite number anywhere in metrics (a NaN/±Infinity
+    # that slipped past construction) must be rejected, not stored as
+    # a fabricated metric.
+    try:
+        reject_nonfinite_value(manifest.get("metrics"), "metrics")
+    except ValueError as exc:
+        raise ProbeRunError(str(exc)) from exc
     completeness = manifest.get("completeness")
     if completeness is not None:
         if not isinstance(completeness, Mapping):
@@ -2493,7 +2530,12 @@ def save_run(run: Mapping[str, Any], directory: str | Path) -> Path:
 
 def load_run(path: str | Path) -> dict[str, Any]:
     """Load and validate one run manifest file."""
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    # S10: strict parse — a NaN/Infinity token or an overflowing
+    # literal (1e999) in a run file is rejected, not loaded.
+    try:
+        data = strict_json_loads(Path(path).read_text(encoding="utf-8"))
+    except ValueError as exc:
+        raise ProbeRunError(str(exc)) from exc
     validate_run_manifest(data)
     return dict(data)
 
@@ -2813,6 +2855,25 @@ def perform_probe_run(
                     ),
                 }
 
+    # S21: a withheld baseline aggregate is missing-calibration
+    # evidence, not a silent gap — surface it as a manifest gap line
+    # so the run record itself says the baseline was partial.
+    gaps: list[str] = []
+    overall_missing = metrics.get("overall", {}).get("calibration", {}).get("missing_calibration")
+    if isinstance(overall_missing, Mapping) and overall_missing.get("reason"):
+        gaps.append(f"Missing calibration evidence: {overall_missing['reason']}")
+    for slice_name, slice_result in (metrics.get("slices") or {}).items():
+        slice_missing = (slice_result or {}).get("calibration", {}).get("missing_calibration")
+        if (
+            isinstance(slice_missing, Mapping)
+            and slice_missing.get("reason")
+            and slice_missing is not overall_missing
+        ):
+            gaps.append(
+                f"Missing calibration evidence on slice {slice_name!r}: "
+                f"{slice_missing['reason']}"
+            )
+
     manifest_out = build_run_manifest(
         run_id=run_id,
         run_at_utc=run_at_utc,
@@ -2834,6 +2895,7 @@ def perform_probe_run(
         demotions_applied=demotions_applied,
         demotions_cleared=demotions_cleared,
         watches=watches,
+        gaps=gaps,
         score_series=_series_from_records(current_records),
         completeness=completeness,
     )

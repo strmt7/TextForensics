@@ -49,7 +49,7 @@ from .execution_policy import (
     ExecutionPolicy,
     assert_execution_allowed,
 )
-from .probe_metrics import normalize_score_direction
+from .probe_metrics import normalize_score_direction, strict_json_loads
 
 __all__ = [
     # Longitudinal drift observatory (from drift.py)
@@ -113,24 +113,6 @@ def _is_hex64(value: Any) -> bool:
     if not isinstance(value, str) or len(value) != 64:
         return False
     return all(char in "0123456789abcdef" for char in value.lower())
-
-
-def _strict_json_loads(text: str) -> Any:
-    """Parse JSON rejecting NaN/Infinity/-Infinity tokens (S10).
-
-    ``json.loads`` accepts those tokens by default, but they are not
-    valid JSON: a NaN score or threshold must never enter a snapshot,
-    corpus, or run manifest. Raises ``ValueError`` on any such token
-    or on malformed JSON.
-    """
-
-    def _reject_constant(value: str) -> Any:
-        raise ValueError(f"Non-JSON numeric token rejected: {value}")
-
-    try:
-        return json.loads(text, parse_constant=_reject_constant)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Invalid JSON: {exc}") from exc
 
 
 def _require_iso_timestamp(value: Any, field_name: str) -> str:
@@ -787,7 +769,7 @@ class DriftObservatory:
 
     def _load_corpus_path(self, corpus_path: str | Path) -> None:
         path = Path(corpus_path)
-        data = _strict_json_loads(path.read_text(encoding="utf-8"))
+        data = strict_json_loads(path.read_text(encoding="utf-8"))
         self._load_corpus(data)
 
     def _load_corpus(self, corpus: Mapping[str, Any] | Sequence[Mapping[str, Any]]) -> None:
@@ -1204,7 +1186,7 @@ class DriftObservatory:
         replace: bool = True,
         expected_corpus_sha256: str | None = None,
     ) -> list[dict[str, Any]]:
-        data = _strict_json_loads(Path(path).read_text(encoding="utf-8"))
+        data = strict_json_loads(Path(path).read_text(encoding="utf-8"))
         if data.get("schema") == DRIFT_SNAPSHOT_STORE_SCHEMA:
             snapshots = data.get("snapshots", [])
         elif data.get("schema") == DRIFT_SNAPSHOT_SCHEMA:
@@ -1238,7 +1220,7 @@ class DriftObservatory:
     def read_snapshot_file(path: str | Path) -> dict[str, Any]:
         # S10: strict parse — a NaN token in a snapshot file is not
         # valid JSON and must be rejected, not silently loaded.
-        data = _strict_json_loads(Path(path).read_text(encoding="utf-8"))
+        data = strict_json_loads(Path(path).read_text(encoding="utf-8"))
         if data.get("schema") == DRIFT_SNAPSHOT_STORE_SCHEMA:
             snapshots = data.get("snapshots", [])
             if len(snapshots) != 1:

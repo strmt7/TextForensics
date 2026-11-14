@@ -545,9 +545,12 @@ class TestS10Nonfinite:
             validate_run_manifest(manifest)
 
     def test_load_run_rejects_nan_token(self, tmp_path):
+        # The file must actually contain a NaN token: json.dumps with
+        # allow_nan=True only emits one when a value is non-finite.
         manifest = _valid_manifest()
         path = tmp_path / "run-r1.json"
-        path.write_text(json.dumps(manifest, allow_nan=True), encoding="utf-8")
+        raw = json.dumps(manifest, allow_nan=True).replace('"score": 0.5', '"score": NaN')
+        path.write_text(raw, encoding="utf-8")
         with pytest.raises((ProbeRunError, ValueError), match="non-finite|NaN"):
             load_run(path)
 
