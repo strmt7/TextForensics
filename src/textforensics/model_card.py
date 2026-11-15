@@ -35,6 +35,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from .atomic_io import atomic_write_text
 from .probe_metrics import (
     reject_nonfinite_value,
     require_finite_number,
@@ -729,16 +730,17 @@ class ModelCard:
 
     def save_json(self, path: Path) -> bool:
         try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(self.to_json(), encoding="utf-8")
+            # W5 item 4: atomic publication — a failed save returns
+            # False with the previous card untouched, never half-written.
+            atomic_write_text(path, self.to_json())
             return True
         except Exception:
             return False
 
     def save_markdown(self, path: Path) -> bool:
         try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(self.to_markdown(), encoding="utf-8")
+            # W5 item 4: atomic publication — see save_json.
+            atomic_write_text(path, self.to_markdown())
             return True
         except Exception:
             return False

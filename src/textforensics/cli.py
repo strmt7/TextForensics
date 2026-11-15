@@ -16,8 +16,10 @@ from .benchmark import (
     benchmark_with_calibration_jsonl,
     calibrate_threshold_jsonl,
     check_disjointness,
+    dataset_sha256,
     fingerprint_dataset,
     load_calibration_artifact,
+    prove_disjointness,
 )
 from .bundle import list_bundle, pack_bundle, read_bundle, verify_bundle
 from .bundle_consistency import check_bundle_consistency
@@ -584,6 +586,15 @@ def build_parser() -> argparse.ArgumentParser:
     group.add_argument("--threshold", type=float)
     group.add_argument("--calibration", help="Calibration artifact JSON.")
     bench.add_argument(
+        "--calibration-dataset",
+        help="Calibration dataset JSONL. The CLI fits (or, with "
+        "--calibration, verifies) the threshold on this dataset, "
+        "proves it disjoint from the evaluation dataset, and labels "
+        "the run held_out_evaluation only when the proof verifies. "
+        "Without it the run stays diagnostic: the artifact alone "
+        "carries only a file hash, not a disjointness proof.",
+    )
+    bench.add_argument(
         "--allow-same-dataset",
         action="store_true",
         help="Diagnostic only: permit evaluation on the calibration dataset.",
@@ -655,19 +666,18 @@ def build_parser() -> argparse.ArgumentParser:
     schema_cmd = sub.add_parser("schema", help="Validate and inspect JSON schemas.")
     schema_sub = schema_cmd.add_subparsers(dest="schema_command", required=True)
 
+    # The --type choices are the packaged schema registry itself
+    # (W5 item 2): every shipped schema is validatable by name, and an
+    # unknown name fails in argparse with the full valid list.
+    from .schema import list_schemas as _list_schemas
+
     schema_validate = schema_sub.add_parser(
         "validate", help="Validate a JSON file against a schema."
     )
     schema_validate.add_argument("file", help="Path to the JSON file to validate.")
     schema_validate.add_argument(
         "--type",
-        choices=[
-            "forensic-bundle",
-            "detector-result",
-            "case-file",
-            "trust-map",
-            "enterprise-policy",
-        ],
+        choices=_list_schemas(),
         required=True,
         help="Schema type to validate against.",
     )
@@ -1722,7 +1732,45 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         _write_json(args.output, artifact)
 
     elif args.command == "benchmark":
-        if args.calibration:
+        if args.calibration_dataset is not None:
+            if args.threshold is not None:
+                raise ValueError(
+                    "--calibration-dataset cannot be combined with --threshold: "
+                    "a fixed threshold needs no calibration dataset."
+                )
+            if args.calibration:
+                # The artifact must describe exactly this dataset:
+                # a fingerprint mismatch fails closed instead of
+                # proving disjointness for the wrong corpus.
+                calibration = load_calibration_artifact(args.calibration)
+                calibration_sha = dataset_sha256(args.calibration_dataset)
+                if calibration["calibration_dataset_sha256"] != calibration_sha:
+                    raise ValueError(
+                        "Calibration artifact fingerprint does not match the "
+                        f"calibration dataset {args.calibration_dataset!r}: the "
+                        "artifact was fitted on a different dataset. Refit "
+                        "the artifact on this dataset or pass the dataset "
+                        "it was fitted on."
+                    )
+            else:
+                # No artifact: fit the threshold on the calibration
+                # dataset itself (target FPR 0.01, as in `calibrate`).
+                calibration = calibrate_threshold_jsonl(args.calibration_dataset)
+            # Full sample+group proof (not the sample-only proof from
+            # `check`): only a proof with group overlap evaluated can
+            # authorise a held-out label.
+            proof = prove_disjointness(args.calibration_dataset, args.dataset)
+            result = benchmark_with_calibration_jsonl(
+                args.dataset,
+                calibration,
+                allow_same_dataset=args.allow_same_dataset,
+                disjointness_proof=proof,
+            )
+            result["disjointness_proof"] = proof.to_dict()
+            result["calibration_dataset_fingerprint"] = fingerprint_dataset(
+                args.calibration_dataset, name="calibration", split="calibration"
+            ).to_dict()
+        elif args.calibration:
             calibration = load_calibration_artifact(args.calibration)
             result = benchmark_with_calibration_jsonl(
                 args.dataset,
@@ -1793,10 +1841,7 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
         from .schema import (
             list_schemas,
             load_schema,
-            validate_case_file,
-            validate_detector_result,
-            validate_forensic_bundle,
-            validate_trust_map,
+            validate,
         )
 
         if args.schema_command == "list":
@@ -1808,18 +1853,12 @@ def _run(args: argparse.Namespace, settings: Settings) -> int:
             with open(args.file, encoding="utf-8") as f:
                 data = json.load(f)
 
-            if args.type == "forensic-bundle":
-                errors = validate_forensic_bundle(data)
-            elif args.type == "detector-result":
-                errors = validate_detector_result(data)
-            elif args.type == "case-file":
-                errors = validate_case_file(data)
-            elif args.type == "trust-map":
-                errors = validate_trust_map(data)
-            elif args.type == "enterprise-policy":
+            if args.type == "enterprise-policy":
                 errors = _import_enterprise().validate_enterprise_policy(data)
             else:
-                raise ValueError(f"Unknown schema type: {args.type}")
+                # Generic dispatch: the single published contract per
+                # name (schema.validate), so every registry name works.
+                errors = validate(data, args.type)
 
             result = {
                 "valid": len(errors) == 0,

@@ -1021,22 +1021,28 @@ class TestS22ModelCardCodec:
         decoded = decode_result(encoded, "forensic-bundle")
         assert decoded == bundle
         assert encode_result(decoded, "forensic-bundle") == encoded
-        # Strict round-trip symmetry also holds for enterprise-policy
-        # payloads when schema validation is off (that schema forbids
-        # the "schema" key the codec adds — a pre-existing mismatch
-        # outside this package's scope): encode(decode(x)) == x.
+        # Enterprise-policy payloads round-trip exactly: the schema is
+        # unversioned (no ``schema`` property), so the codec stamps no
+        # version — W5 item 5 reconciled the version map with the
+        # validator instead of stamping a version the schema forbids
+        # (which also broke validation-on encode/decode outright).
         from textforensics.result_codec import CodecConfig
 
         codec = ResultCodec(CodecConfig(validate_on_encode=False, validate_on_decode=False))
         policy = _valid_policy()
         encoded_policy = codec.encode(policy, "enterprise-policy")
-        assert codec.decode(encoded_policy, "enterprise-policy") == {
-            **policy,
-            "schema": "textforensics.enterprise-policy/v1",
-        }
+        assert "schema" not in json.loads(encoded_policy)
+        assert codec.decode(encoded_policy, "enterprise-policy") == policy
         assert (
             codec.encode(codec.decode(encoded_policy, "enterprise-policy"), "enterprise-policy")
             == encoded_policy
+        )
+        # And with validation on, which the old stamped version broke.
+        assert (
+            ResultCodec().decode(
+                ResultCodec().encode(dict(policy), "enterprise-policy"), "enterprise-policy"
+            )
+            == policy
         )
 
     def test_codec_validate_result_flags_nonfinite(self):

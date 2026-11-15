@@ -150,12 +150,12 @@ class TestResultCodec:
         assert decoded["schema"] == "textforensics.forensic-bundle/v2"
 
     def test_stream_encode(self):
-        """Stream encoding produces BytesIO."""
+        """Stream encoding produces a lazy readable stream."""
         data = dict(MINIMAL_BUNDLE)
         codec = ResultCodec()
         stream = codec.stream_encode(data, "forensic-bundle")
         assert hasattr(stream, "read")
-        decoded = json.loads(stream.getvalue().decode())
+        decoded = json.loads(stream.read().decode())
         assert decoded["schema"] == "textforensics.forensic-bundle/v2"
 
     def test_invalid_json_raises(self):

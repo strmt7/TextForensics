@@ -124,6 +124,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from .execution_policy import CancellationToken, ExecutionPolicy
 
+from .atomic_io import atomic_write_bytes, file_lock
 from .datasets import default_cache_dir
 from .execution_policy import CompletenessAccounting
 from .probe_metrics import (
@@ -1686,14 +1687,49 @@ def _u3_cleared_record(record: ValidationRecord) -> ValidationRecord:
     return _resigned_record(record, limits)
 
 
-def apply_demotions(
+@contextlib.contextmanager
+def _registry_transaction(registry_path: str | Path):
+    """Lock the registry and snapshot its bytes; restore on failure.
+
+    Transaction semantics for registry read-modify-write (W5 item 4):
+    the caller holds the exclusive :func:`atomic_io.file_lock` for the
+    whole ``with`` block, so concurrent registry writers serialize
+    instead of interleaving load/mutate/save, and any exception inside
+    the block restores the registry file to the exact bytes it had on
+    entry — a failed demotion, clearing, manifest build, or run save
+    never leaves a demotion/clearing whose cited run does not exist,
+    and never leaves a half-written registry. If the restore itself
+    fails, a :class:`ProbeRunError` naming both failures is raised
+    loudly instead of silently keeping the partial state.
+    """
+    path = Path(registry_path)
+    with file_lock(path):
+        before = path.read_bytes() if path.exists() else None
+        try:
+            yield
+        except BaseException as exc:
+            if before is not None:
+                try:
+                    current = path.read_bytes() if path.exists() else None
+                    if current != before:
+                        atomic_write_bytes(path, before)
+                except OSError as rollback_exc:
+                    raise ProbeRunError(
+                        f"registry mutation failed ({exc}) and the registry "
+                        f"could not be restored to its previous state "
+                        f"({rollback_exc}); inspect {path} before retrying."
+                    ) from rollback_exc
+            raise
+
+
+def _apply_demotions_inner(
     *,
     registry_path: str | Path,
     detector_id: str,
     run_id: str,
     alerts: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    """Apply Tier-1 demotions to the U1 registry for ``detector_id``.
+    """Apply Tier-1 demotions; caller must hold ``_registry_transaction``.
 
     For every Tier-1 alert in ``alerts``, every record for the detector
     gets a U3 demotion segment appended to ``limits.demoted_by``
@@ -1751,13 +1787,37 @@ def apply_demotions(
     return {"demoted_record_ids": sorted(demoted_ids), "reason": reason, "gap": None}
 
 
-def clear_demotions(
+def apply_demotions(
+    *,
+    registry_path: str | Path,
+    detector_id: str,
+    run_id: str,
+    alerts: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Apply Tier-1 demotions to the U1 registry for ``detector_id``.
+
+    The read-modify-write runs inside :func:`_registry_transaction`:
+    concurrent writers serialize on the registry lock, and any failure
+    (including a reload mismatch after the save) restores the registry
+    to the bytes it had on entry. See :func:`_apply_demotions_inner`
+    for the demotion semantics.
+    """
+    with _registry_transaction(registry_path):
+        return _apply_demotions_inner(
+            registry_path=registry_path,
+            detector_id=detector_id,
+            run_id=run_id,
+            alerts=alerts,
+        )
+
+
+def _clear_demotions_inner(
     *,
     registry_path: str | Path,
     detector_id: str,
     run_id: str,
 ) -> dict[str, Any]:
-    """Clear U3 demotions for ``detector_id`` after a full re-run passes.
+    """Clear U3 demotions; caller must hold ``_registry_transaction``.
 
     Only the U3 demotion segments are removed; demotions from any
     other source are left untouched (audit W4/S03), so a record that
@@ -1800,6 +1860,28 @@ def clear_demotions(
         "reason": reason,
         "foreign_demotions_retained": sorted(retained_ids),
     }
+
+
+def clear_demotions(
+    *,
+    registry_path: str | Path,
+    detector_id: str,
+    run_id: str,
+) -> dict[str, Any]:
+    """Clear U3 demotions for ``detector_id`` after a full re-run passes.
+
+    The read-modify-write runs inside :func:`_registry_transaction`:
+    concurrent writers serialize on the registry lock, and any failure
+    (including a reload mismatch after the save) restores the registry
+    to the bytes it had on entry. See :func:`_clear_demotions_inner`
+    for the clearing semantics.
+    """
+    with _registry_transaction(registry_path):
+        return _clear_demotions_inner(
+            registry_path=registry_path,
+            detector_id=detector_id,
+            run_id=run_id,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -2608,6 +2690,11 @@ def perform_probe_run(
     never advances temporal support (audit W4/S01). The returned
     manifest is the exact dict that was saved (or would have been
     saved, dry-run).
+
+    Registry mutation, manifest construction, and run save commit as
+    one transaction (audit W5 item 4): any failure in that block
+    restores the registry to its entry bytes, so a failed save never
+    leaves a demotion/clearing whose cited run does not exist.
     """
     from .execution_policy import assert_execution_allowed
     from .observatory import DriftObservatory
@@ -2818,42 +2905,6 @@ def perform_probe_run(
     assert_execution_allowed(execution_policy, cancellation=cancellation)
     demotions_applied: dict[str, Any] = {}
     demotions_cleared: dict[str, Any] = {}
-    if not dry_run:
-        if tier1:
-            if registry_path is None:
-                raise ProbeRunError(
-                    "Tier-1 alert fired but no validation registry path was "
-                    "given; refusing to demote without a registry."
-                )
-            demotions_applied = apply_demotions(
-                registry_path=registry_path,
-                detector_id=detector_id,
-                run_id=run_id,
-                alerts=tier1,
-            )
-        elif scope == "full" and registry_path is not None:
-            # S01: only a genuinely complete clean full run clears U3
-            # demotions. An incomplete run keeps every demotion and
-            # says so in the gap, with the exact coverage shortfall.
-            if support_eligible:
-                demotions_cleared = clear_demotions(
-                    registry_path=registry_path,
-                    detector_id=detector_id,
-                    run_id=run_id,
-                )
-            else:
-                demotions_cleared = {
-                    "cleared_record_ids": [],
-                    "reason": None,
-                    "gap": (
-                        f"run is incomplete: {completeness['succeeded']} of "
-                        f"{completeness['selected']} selected items scored "
-                        f"successfully ({completeness['failed']} failed, "
-                        f"{completeness['abstained']} abstained, "
-                        f"{len(completeness['missing_item_ids'])} missing); "
-                        "demotions are retained."
-                    ),
-                }
 
     # S21: a withheld baseline aggregate is missing-calibration
     # evidence, not a silent gap — surface it as a manifest gap line
@@ -2873,31 +2924,85 @@ def perform_probe_run(
                 f"Missing calibration evidence on slice {slice_name!r}: {slice_missing['reason']}"
             )
 
-    manifest_out = build_run_manifest(
-        run_id=run_id,
-        run_at_utc=run_at_utc,
-        scope=scope,
-        corpus_version=corpus_version,
-        corpus_fingerprint=corpus_fingerprint,
-        corpus_manifest_sha256=corpus_manifest_sha256,
-        detector_id=detector_id,
-        detector_version=detector_version,
-        provider_metadata=provider_metadata,
-        code_sha=git_code_sha(),
-        baseline_run_id=baseline.get("run_id") if baseline else (run_id if is_baseline else None),
-        is_baseline=is_baseline,
-        rebaselined_from=rebaselined_from,
-        previous_run_id=previous.get("run_id") if previous else None,
-        metrics=metrics,
-        alerts=alerts,
-        breaches=breaches,
-        demotions_applied=demotions_applied,
-        demotions_cleared=demotions_cleared,
-        watches=watches,
-        gaps=gaps,
-        score_series=_series_from_records(current_records),
-        completeness=completeness,
-    )
-    if not dry_run:
+    def _build_manifest() -> dict[str, Any]:
+        return build_run_manifest(
+            run_id=run_id,
+            run_at_utc=run_at_utc,
+            scope=scope,
+            corpus_version=corpus_version,
+            corpus_fingerprint=corpus_fingerprint,
+            corpus_manifest_sha256=corpus_manifest_sha256,
+            detector_id=detector_id,
+            detector_version=detector_version,
+            provider_metadata=provider_metadata,
+            code_sha=git_code_sha(),
+            baseline_run_id=baseline.get("run_id")
+            if baseline
+            else (run_id if is_baseline else None),
+            is_baseline=is_baseline,
+            rebaselined_from=rebaselined_from,
+            previous_run_id=previous.get("run_id") if previous else None,
+            metrics=metrics,
+            alerts=alerts,
+            breaches=breaches,
+            demotions_applied=demotions_applied,
+            demotions_cleared=demotions_cleared,
+            watches=watches,
+            gaps=gaps,
+            score_series=_series_from_records(current_records),
+            completeness=completeness,
+        )
+
+    if dry_run:
+        return _build_manifest()
+    if tier1 and registry_path is None:
+        raise ProbeRunError(
+            "Tier-1 alert fired but no validation registry path was "
+            "given; refusing to demote without a registry."
+        )
+    if tier1 or (scope == "full" and registry_path is not None):
+        # W5 item 4: registry mutation, manifest construction, and run
+        # save commit as ONE transaction under the registry lock. The
+        # pre-transaction order (mutate the registry, then build and
+        # save the manifest) could leave a demotion/clearing citing a
+        # run that was never saved; here any failure in the block —
+        # demotion, clearing, manifest build, or run save — restores
+        # the registry to its entry bytes, so the run and the registry
+        # either both commit or neither does.
+        with _registry_transaction(registry_path):
+            if tier1:
+                demotions_applied = _apply_demotions_inner(
+                    registry_path=registry_path,
+                    detector_id=detector_id,
+                    run_id=run_id,
+                    alerts=tier1,
+                )
+            elif scope == "full" and registry_path is not None:
+                # S01: only a genuinely complete clean full run clears U3
+                # demotions. An incomplete run keeps every demotion and
+                # says so in the gap, with the exact coverage shortfall.
+                if support_eligible:
+                    demotions_cleared = _clear_demotions_inner(
+                        registry_path=registry_path,
+                        detector_id=detector_id,
+                        run_id=run_id,
+                    )
+                else:
+                    demotions_cleared = {
+                        "cleared_record_ids": [],
+                        "reason": None,
+                        "gap": (
+                            f"run is incomplete: {completeness['succeeded']} of "
+                            f"{completeness['selected']} selected items scored "
+                            f"successfully ({completeness['failed']} failed, "
+                            f"{completeness['abstained']} abstained, "
+                            f"{len(completeness['missing_item_ids'])} missing); "
+                            "demotions are retained."
+                        ),
+                    }
+            manifest_out = _build_manifest()
+            save_run(manifest_out, directory)
+    else:
+        manifest_out = _build_manifest()
         save_run(manifest_out, directory)
     return manifest_out

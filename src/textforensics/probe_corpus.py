@@ -82,6 +82,8 @@ from typing import Any
 
 from textforensics.datasets import default_cache_dir
 
+from .atomic_io import atomic_write_text
+
 PROBE_CORPUS_VERSION = "1.0.0"
 PROBE_CORPUS_DIR_NAME = "probe-corpus"
 CORPUS_FILE_NAME = "corpus.jsonl"
@@ -577,8 +579,11 @@ def write_manifest(path: Path, manifest: ProbeCorpusManifest) -> None:
     file formatting is free — indented JSON keeps per-item diffs
     readable and gives each hash its own line (the detect-secrets
     baseline audit keys entries by filename + line number).
+
+    Publication is atomic (W5 item 4): a failed write leaves the
+    previous manifest untouched, never half-written.
     """
-    Path(path).write_text(
+    atomic_write_text(
+        path,
         json.dumps(manifest.to_dict(), indent=2, sort_keys=True, ensure_ascii=True) + "\n",
-        encoding="utf-8",
     )

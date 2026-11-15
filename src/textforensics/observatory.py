@@ -37,6 +37,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+from .atomic_io import atomic_write_text
 from .detectors import (
     Detector,
     DetectorPrediction,
@@ -1173,10 +1174,11 @@ class DriftObservatory:
             "snapshots": self.snapshots,
         }
         output = Path(path)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(
+        # W5 item 4: atomic publication — a failed save leaves the
+        # previous snapshot store untouched, never half-written.
+        atomic_write_text(
+            output,
             json.dumps(payload, indent=2, ensure_ascii=False, allow_nan=False) + "\n",
-            encoding="utf-8",
         )
 
     def load_snapshots(
@@ -1959,10 +1961,11 @@ class DetectorHealthReport:
 
     def save(self, path: Path) -> bool:
         try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(
+            # W5 item 4: atomic publication — a failed save returns
+            # False with the previous report untouched, never half-written.
+            atomic_write_text(
+                path,
                 json.dumps(self.to_dict(), indent=2, ensure_ascii=False),
-                encoding="utf-8",
             )
             return True
         except Exception:

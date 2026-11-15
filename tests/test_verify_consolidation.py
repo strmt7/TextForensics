@@ -254,18 +254,22 @@ class TestCodecOneFormat:
             decoded = ResultCodec().decode(json.dumps(data), "forensic-bundle", validate=False)
         assert decoded["schema"] == "textforensics.forensic-bundle/v2"
 
-    def test_decode_legacy_format_keeps_its_label_and_warns(self):
-        from textforensics.result_codec import ResultCodec
+    def test_decode_legacy_format_without_callback_fails_loudly(self):
+        # W5 item 5: a legacy version with no registered migration
+        # callback fails loudly instead of warning and returning the
+        # data unchanged — a migration that cannot run is an error,
+        # not a silent relabelling.
+        from textforensics.result_codec import ResultCodec, VersionMigrationError
 
         data = {
             "schema": "textforensics.forensic-bundle/v1",
             "content_sha256": "0" * 64,
             "input": {"word_count": 1, "raw_text_included": False},
         }
-        with pytest.warns(UserWarning, match="No migration path"):
-            decoded = ResultCodec().decode(json.dumps(data), "forensic-bundle", validate=False)
-        # No silent relabelling: the artifact keeps its true version.
-        assert decoded["schema"] == "textforensics.forensic-bundle/v1"
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            with pytest.raises(VersionMigrationError, match="No migration"):
+                ResultCodec().decode(json.dumps(data), "forensic-bundle", validate=False)
 
     def test_encode_adds_current_schema(self):
         from textforensics.result_codec import ResultCodec

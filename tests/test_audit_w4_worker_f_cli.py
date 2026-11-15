@@ -480,25 +480,25 @@ def test_schema_type_correct_value(tmp_path, schema_type):
 
 @pytest.mark.parametrize("schema_type", _SCHEMA_TYPES)
 def test_schema_type_greater_value_is_unknown(tmp_path, schema_type):
-    """(1811,25)/(1813,27)/(1815,27)/(1817,27)/(1819,27) Eq_GtE: a
-    --type sorting above the real value must raise 'Unknown schema
-    type', not run the validator."""
+    """W5 item 2: the --type dispatch is generic now (schema.validate),
+    so a --type sorting above the real value must raise 'Unknown
+    schema', not run the validator."""
     bad = _write_json(tmp_path / "bad.json", {})
     args = _args(["schema", "validate", str(bad), "--type", schema_type])
     args.type = schema_type + "0"
-    with pytest.raises(ValueError, match="Unknown schema type"):
+    with pytest.raises(ValueError, match="Unknown schema"):
         _run_captured(args)
 
 
 @pytest.mark.parametrize("schema_type", _SCHEMA_TYPES)
 def test_schema_type_lesser_value_is_unknown(tmp_path, schema_type):
-    """(1811,25)/(1813,27)/(1815,27)/(1817,27)/(1819,27) Eq_LtE: a
-    --type sorting below the real value must raise 'Unknown schema
-    type', not run the validator."""
+    """W5 item 2: the --type dispatch is generic now (schema.validate),
+    so a --type sorting below the real value must raise 'Unknown
+    schema', not run the validator."""
     bad = _write_json(tmp_path / "bad.json", {})
     args = _args(["schema", "validate", str(bad), "--type", schema_type])
     args.type = schema_type[:-1]
-    with pytest.raises(ValueError, match="Unknown schema type"):
+    with pytest.raises(ValueError, match="Unknown schema"):
         _run_captured(args)
 
 
