@@ -8,6 +8,27 @@ The project is pre-1.0. Public schemas and detector/calibration semantics are tr
 
 ### Added
 
+- `benchmark --calibration-dataset`: the CLI can prove a calibration
+  dataset disjoint from the evaluation dataset (sample + source-group
+  proof) and label the run `held_out_evaluation` only when the proof
+  verifies; contaminated pairs, artifact/dataset fingerprint
+  mismatches, and unverifiable proofs fail closed. `schema validate
+  --type` now accepts all 13 packaged schema names.
+- atomic state exports and probe-run transactions: observatory,
+  model-card, codec, and probe-corpus file writes commit via
+  write-temp + fsync + atomic rename, registry read-modify-write runs
+  under a file lock, and a failed probe-run manifest save rolls the
+  registry back, so a failed save never leaves a demotion/clearing
+  whose cited run does not exist.
+- result-codec migration dispatch and bounded streaming: configured
+  `CodecConfig.migrations` callbacks are actually invoked, a
+  migration that cannot run fails loudly, `iter_encode` /
+  `stream_encode` stream in bounded chunks without materializing the
+  serialized byte string, and the schema-version map matches the
+  generic validator (unversioned enterprise-policy is transported
+  without a stamped version; drift-report, calibration,
+  threshold-selection, and bundle-manifest have no packaged schema
+  and are refused, not advertised).
 - repository-wide audit of `5ea804c3bcfeaa333ae7d346ee6400ea434e5fdb`,
   privacy-minimized evidence and review inventory, an ordered
   [unpublished release-readiness plan](docs/RELEASE_READINESS_PLAN.md), and a

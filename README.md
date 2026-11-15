@@ -174,6 +174,13 @@ By default, TextForensics rejects evaluation when the evaluation file has the sa
 
 This prevents one easy form of in-sample performance inflation; it is not a complete replacement for source/near-duplicate leakage control on serious benchmarks.
 
+With `--calibration-dataset`, the CLI proves the calibration and evaluation datasets disjoint (sample + source-group level) and labels the run `held_out_evaluation` only when the proof verifies; the proof and the calibration fingerprint are recorded on the run. A contaminated pair, an artifact whose fingerprint does not match the supplied dataset, or an unverifiable proof fails closed instead of producing a verified claim. Without the option the run stays `diagnostic`, and `--calibration-dataset` alone (no artifact) fits the threshold on the supplied dataset first:
+
+```bash
+textforensics benchmark held-out.jsonl --calibration calibration.json --calibration-dataset calibration.jsonl
+textforensics benchmark held-out.jsonl --calibration-dataset calibration.jsonl
+```
+
 ## Install
 
 ### Core
