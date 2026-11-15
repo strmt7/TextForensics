@@ -1530,6 +1530,40 @@ def validate_baseline_entry(entry: dict[str, Any], project_root: Path) -> tuple[
     return False, f"unknown baseline kind {entry['kind']!r}"
 
 
+def _span_source_text(
+    lines: list[str], start_pos: tuple[int, int], end_pos: tuple[int, int]
+) -> str | None:
+    """Source text covered by a ``(start_pos, end_pos)`` span, or ``None``.
+
+    Single-line spans slice one line; multi-line spans (CC-14)
+    concatenate the covered columns — the tail of the first line, every
+    whole middle line, the head of the last line — joined with ``"\\n"``,
+    exactly what :func:`ast.get_source_segment` returns for the same
+    span, so a recorded ``source_text`` taken from a cosmic-ray span
+    matches. Returns ``None`` when the span is out of range: a line
+    outside the file, a reversed or empty span, or a column past the
+    end of its line. A multi-line span is therefore examined on its
+    merits (and fails closed on content) instead of being dismissed
+    as "outside the current source".
+    """
+    (start_line, start_col), (end_line, end_col) = start_pos, end_pos
+    if (
+        not (1 <= start_line <= end_line <= len(lines))
+        or start_col < 0
+        or end_col < 0
+        or (start_line == end_line and start_col >= end_col)
+    ):
+        return None
+    if start_col > len(lines[start_line - 1]) or end_col > len(lines[end_line - 1]):
+        return None
+    if start_line == end_line:
+        return lines[start_line - 1][start_col:end_col]
+    parts = [lines[start_line - 1][start_col:]]
+    parts.extend(lines[start_line : end_line - 1])
+    parts.append(lines[end_line - 1][:end_col])
+    return "\n".join(parts)
+
+
 def _validate_annotation_entry(entry: dict[str, Any], context: _ModuleContext) -> tuple[bool, str]:
     """Re-validate an annotation-kind entry against the current source.
 
@@ -1551,15 +1585,9 @@ def _validate_annotation_entry(entry: dict[str, Any], context: _ModuleContext) -
         )
     start_line, start_col = entry["start_pos"]
     end_line, end_col = entry["end_pos"]
-    if not (1 <= start_line <= len(context.lines)) or start_line != end_line:
+    segment = _span_source_text(context.lines, (start_line, start_col), (end_line, end_col))
+    if segment is None:
         return False, f"position {entry['start_pos']} is outside the current source"
-    line = context.lines[start_line - 1]
-    if not (0 <= start_col < end_col <= len(line)):
-        return (
-            False,
-            f"position {entry['start_pos']}-{entry['end_pos']} is outside line {start_line}",
-        )
-    segment = line[start_col:end_col]
     if "BitOr" in entry["operator"]:
         if segment != "|":
             return (
@@ -1632,7 +1660,12 @@ def _validate_runtime_entry(entry: dict[str, Any], context: _ModuleContext) -> t
     position still holds the recorded source text, it sits inside the
     recorded (innermost) function, and that function's
     whitespace-normalised source still hashes to the recorded
-    fingerprint. The fingerprint pins the WHOLE function because the
+    fingerprint. The recorded span may cover several lines (CC-14):
+    the recorded source text is validated against the concatenation
+    of the covered lines/columns (see :func:`_span_source_text`), so
+    a multi-line mutant span validates exactly like a single-line one.
+
+    The fingerprint pins the WHOLE function because the
     equivalence proof depends on its behaviour as a whole (which states
     are ever assigned, which branches are reachable, which values are
     ever compared); any edit to the function — even far from the mutant
@@ -1650,15 +1683,9 @@ def _validate_runtime_entry(entry: dict[str, Any], context: _ModuleContext) -> t
     """
     start_line, start_col = entry["start_pos"]
     end_line, end_col = entry["end_pos"]
-    if not (1 <= start_line <= len(context.lines)) or start_line != end_line:
+    segment = _span_source_text(context.lines, (start_line, start_col), (end_line, end_col))
+    if segment is None:
         return False, f"position {entry['start_pos']} is outside the current source"
-    line = context.lines[start_line - 1]
-    if not (0 <= start_col < end_col <= len(line)):
-        return (
-            False,
-            f"position {entry['start_pos']}-{entry['end_pos']} is outside line {start_line}",
-        )
-    segment = line[start_col:end_col]
     if segment != entry["source_text"]:
         return (
             False,

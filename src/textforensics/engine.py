@@ -179,3 +179,72 @@ def compare_texts(before: str, after: str) -> ComparisonResult:
         words_added_estimate=added,
         words_removed_estimate=removed,
     )
+
+
+# ---------------------------------------------------------------------------
+# Built-in engine inference identity (audit W6, CC-17 / CORE-05)
+# ---------------------------------------------------------------------------
+# The canonical identity of the built-in stylometric-heuristic engine:
+# the detector id/version, provider, model and native score semantics
+# that :class:`textforensics.detectors.BuiltinHeuristicDetector` stamps
+# on its predictions. A calibration artifact can be checked against
+# exactly what the engine ran, and a curve fitted for any other
+# version, provider, model or semantics is refused instead of silently
+# bound (see :func:`textforensics.detectors.apply_calibration`).
+# These constants are appended here, after all existing code, so the
+# line numbers of the functions above — and the mutation-baseline
+# entries pinned to them — do not move.
+BUILTIN_DETECTOR_ID = "textforensics/builtin-heuristic"
+BUILTIN_DETECTOR_VERSION = "0.1.0"
+BUILTIN_DETECTOR_PROVIDER = "textforensics"
+BUILTIN_DETECTOR_MODEL_ID = "builtin-stylometric-heuristic"
+BUILTIN_SCORE_SEMANTICS = "higher_means_more_machine_like; uncalibrated pattern score"
+#: The identity descriptor for the built-in score (CC-17): the
+#: calibration layer's normalised ``"{input_semantics}_{direction}"``
+#: vocabulary (see :func:`textforensics.detectors.inference_identity_for_prediction`).
+#: The built-in score is a [0, 1] native score with direction
+#: ``higher_means_ai``, so its descriptor is
+#: ``"probability_higher_means_ai"`` — "probability" here names the
+#: [0, 1] input domain the curve consumes, not a claim that the raw
+#: score is a probability. It is deliberately NOT the free-text
+#: ``BUILTIN_SCORE_SEMANTICS`` above: no eligible artifact can record
+#: that string (an artifact's semantics must equal its curve's input
+#: semantics and direction), so deriving the identity from it would
+#: make every binding refuse, including a genuinely matching curve.
+BUILTIN_NATIVE_SCORE_SEMANTICS = "probability_higher_means_ai"
+
+
+def builtin_inference_identity(
+    *,
+    config_hash: str | None = None,
+    calibration_id: str | None = None,
+    regime: str | None = None,
+):
+    """Current inference identity of the built-in heuristic engine.
+
+    Returns an :class:`textforensics.evidence.InferenceIdentity`. The
+    return annotation is deliberately omitted: the class is imported
+    lazily inside the function (below) so this module keeps its exact
+    import block — and the line numbers of the functions above, which
+    the mutation baseline pins — unchanged.
+
+    The fixed fields (detector id/version, provider, model, native
+    score semantics) come from the constants above; ``config_hash``,
+    ``calibration_id`` and ``regime`` have no engine-side value and
+    must be supplied by the caller. An identity with any of them left
+    ``None`` is partially bound: it can state what ran, but it can
+    never select or apply a calibration artifact — the manager and the
+    adapter refuse a partially-bound identity fail-closed.
+    """
+    from .evidence import InferenceIdentity
+
+    return InferenceIdentity(
+        detector_id=BUILTIN_DETECTOR_ID,
+        detector_version=BUILTIN_DETECTOR_VERSION,
+        provider=BUILTIN_DETECTOR_PROVIDER,
+        model=BUILTIN_DETECTOR_MODEL_ID,
+        config_hash=config_hash,
+        native_score_semantics=BUILTIN_NATIVE_SCORE_SEMANTICS,
+        calibration_id=calibration_id,
+        regime=regime,
+    )

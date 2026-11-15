@@ -4,8 +4,8 @@ import hashlib
 import importlib.metadata
 import math
 import time
-from dataclasses import asdict, dataclass, field
-from typing import Any, Protocol, runtime_checkable
+from dataclasses import asdict, dataclass, field, replace
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from .engine import analyze_text
 from .execution_policy import (
@@ -348,8 +348,8 @@ def _validate_calibration_metadata(prediction: DetectorPrediction) -> None:
         raise DetectorContractError(
             "calibration.evaluation_fingerprint must be a 64-character lowercase hex digest."
         )
-    if prediction.calibration_id is not None and prediction.calibration_id != calibration_id:
-        raise DetectorContractError("calibration.calibration_id does not match calibration_id.")
+    # CC-17: the binding check refuses an id mismatch and any recorded identity that does not match.
+    _validate_calibration_binding(prediction, calibration_id)
 
 
 def _validate_runtime_metadata(prediction: DetectorPrediction) -> None:
@@ -826,3 +826,314 @@ def run_all_detectors(
             )
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Adapter-level calibration binding (audit W6, CC-17 / CORE-05)
+# ---------------------------------------------------------------------------
+# The CalibrationManager API (W2) already requires an exact
+# InferenceIdentity to select or apply an artifact — but no production
+# call site threaded an identity through the adapter layer, so a curve
+# fitted for a stale detector version, provider, model or configuration
+# could be bound to a current prediction without any check. These
+# functions are that call site: the identity is derived from the
+# prediction (and its adapter) itself, and any mismatch — stale
+# version, provider, model, semantics, config or regime, or a
+# partially-bound identity — refuses the binding fail-closed. Nothing
+# here changes the uncalibrated paths: predictions without calibration
+# are untouched, and a refused binding leaves the input prediction
+# uncalibrated rather than silently stamping a probability on it.
+#
+# These functions are appended here, after all existing code, so the
+# line numbers of the functions above — and the mutation-baseline
+# entries pinned to them — do not move. The two imports they need
+# (``evidence`` for InferenceIdentity, ``calibration`` for
+# CalibrationArtifact) are deferred to call time: ``calibration``
+# imports ``benchmark``, which imports this module, so a top-level
+# import would be circular.
+
+
+def _identity_native_score_semantics(prediction: DetectorPrediction) -> str | None:
+    """Identity descriptor for a prediction's native score (CC-17).
+
+    The calibration layer's ``native_score_semantics`` is the
+    normalised ``"{input_semantics}_{direction}"`` vocabulary — an
+    eligible artifact's semantics must equal its curve's input
+    semantics and direction — so it is derived from the prediction's
+    controlled ``native_score_direction``, NOT from the free-text
+    ``score_semantics`` (which no eligible artifact can record: deriving
+    from it would make every binding refuse, including a genuinely
+    matching curve). A [0, 1] native score is a probability-domain
+    input to the curve, hence the ``"probability_"`` prefix; "probability"
+    here names the input domain, not a claim that the raw score is a
+    probability. An unknown or non-applicable direction has no
+    descriptor and stays unbound, so binding refuses fail-closed.
+    """
+    if prediction.native_score_direction in {"higher_means_ai", "lower_means_ai"}:
+        return f"probability_{prediction.native_score_direction}"
+    return None
+
+
+def _validate_calibration_binding(prediction: DetectorPrediction, calibration_id: str) -> None:
+    """Refuse calibration metadata bound to a stale identity (CC-17).
+
+    Called from :func:`_validate_calibration_metadata`: the
+    prediction's ``calibration_id`` must match the ``calibration``
+    dict's, and a ``calibration`` dict may record the inference
+    identity the curve was fitted for (``detector_id``,
+    ``detector_version``, ``provider``, ``model``,
+    ``native_score_semantics``, ``config_hash``). Any such field that
+    is present must agree with the prediction's own identity: a curve
+    fitted for another detector version, provider, model or score
+    semantics cannot be silently bound to this prediction — the
+    prediction is refused instead. A declared ``config_hash`` must
+    additionally be a 64-character lowercase hex digest. Fields the
+    prediction cannot determine have no prediction-side counterpart
+    and are not cross-checked here: ``regime`` (the prediction declares
+    supported regimes, not the regime of the text at hand) is enforced
+    where a curve is applied (:func:`apply_calibration`, via the
+    artifact's exact identity match), and an absent field is simply
+    unbound, never assumed.
+    """
+    if prediction.calibration_id is not None and prediction.calibration_id != calibration_id:
+        raise DetectorContractError("calibration.calibration_id does not match calibration_id.")
+    calibration = prediction.calibration
+    if calibration is None:
+        return
+    runtime = prediction.runtime if isinstance(prediction.runtime, dict) else None
+    expected: dict[str, Any] = {
+        "detector_id": prediction.detector_id,
+        "detector_version": prediction.detector_version,
+        "provider": runtime.get("provider") if runtime is not None else None,
+        "model": runtime.get("model_id") if runtime is not None else None,
+        "native_score_semantics": _identity_native_score_semantics(prediction),
+    }
+    for field_name, current in expected.items():
+        declared = calibration.get(field_name)
+        if declared is None:
+            continue
+        if not isinstance(declared, str) or not declared.strip():
+            raise DetectorContractError(
+                f"calibration.{field_name} must be a non-empty string or null."
+            )
+        if current is None or declared != current:
+            raise DetectorContractError(
+                f"calibration.{field_name} {declared!r} does not match the "
+                f"prediction's {field_name} {current!r}: the calibration was "
+                "fitted for a different inference identity and must not be "
+                "bound to this prediction."
+            )
+    config_hash = calibration.get("config_hash")
+    if config_hash is not None and (
+        not isinstance(config_hash, str)
+        or len(config_hash) != 64
+        or any(character not in "0123456789abcdef" for character in config_hash)
+    ):
+        raise DetectorContractError(
+            "calibration.config_hash must be a 64-character lowercase hex digest."
+        )
+
+
+def inference_identity_for_prediction(
+    prediction: DetectorPrediction,
+    *,
+    detector: Detector | None = None,
+    config_hash: str | None = None,
+    regime: str | None = None,
+) -> InferenceIdentity:
+    """Derive the current inference identity of a detector prediction.
+
+    The identity is built from the prediction's own fields — detector
+    id/version, runtime provider/model, score semantics and calibration
+    id — so it states exactly what ran. ``config_hash`` and ``regime``
+    have no prediction-side field and must be supplied by the caller;
+    leaving them ``None`` yields a partially-bound identity, which can
+    never select or apply an artifact. The score semantics in the
+    identity is the calibration layer's normalised descriptor derived
+    from the prediction's ``native_score_direction`` (see
+    :func:`_identity_native_score_semantics`), not the free-text
+    ``score_semantics``. The prediction is validated first (against
+    ``detector`` when given, as in :func:`execute_detector`): no identity
+    is derived from a contract-violating prediction.
+    """
+    from .evidence import InferenceIdentity
+
+    validate_prediction(prediction, detector=detector)
+    runtime = prediction.runtime if isinstance(prediction.runtime, dict) else {}
+    return InferenceIdentity(
+        detector_id=prediction.detector_id,
+        detector_version=prediction.detector_version,
+        provider=runtime.get("provider"),
+        model=runtime.get("model_id"),
+        config_hash=config_hash,
+        native_score_semantics=_identity_native_score_semantics(prediction),
+        calibration_id=prediction.calibration_id,
+        regime=regime,
+    )
+
+
+def apply_calibration(
+    prediction: DetectorPrediction,
+    artifact: Any,
+    *,
+    identity: InferenceIdentity | None = None,
+    detector: Detector | None = None,
+    config_hash: str | None = None,
+    regime: str | None = None,
+    allow_unvalidated: bool = False,
+) -> DetectorPrediction:
+    """Bind a calibration artifact to a prediction, or refuse (CC-17).
+
+    Returns a NEW prediction carrying the calibrated probability, the
+    calibration id and the calibration metadata recording the exact
+    binding identity; the input prediction is left uncalibrated, so a
+    refused binding can never leave a stale probability behind.
+
+    The binding identity is assembled from three sources, each of
+    which is authoritative for its own fields: the prediction (detector
+    id/version, provider, model, score semantics), the artifact (its
+    ``calibration_id`` — an uncalibrated prediction carries none yet,
+    so requiring it from the prediction would make a first binding
+    impossible), and the caller (``config_hash`` and ``regime``, via
+    the keyword arguments or an explicit ``identity``). An explicitly
+    supplied ``identity`` must agree with the prediction on every
+    field the prediction determines, and its ``calibration_id`` — when
+    set — must equal the artifact's; it may additionally supply the
+    ``config_hash``/``regime`` the keyword arguments did not.
+
+    Refusals (all fail-closed, nothing is stamped):
+
+    * ``artifact`` is not a :class:`CalibrationArtifact`, or the
+      prediction has no score to calibrate;
+    * an explicitly supplied ``identity`` disagrees with the identity
+      derived from the prediction on any field the prediction
+      determines (detector id/version, provider, model, score
+      semantics), or names a different ``calibration_id`` than the
+      artifact's;
+    * the binding identity is not fully bound (a ``config_hash`` or
+      ``regime`` the caller did not supply);
+    * the artifact's recorded identity does not match the binding
+      identity exactly — a stale curve (old version, provider, model,
+      configuration or regime) raises :class:`CalibrationError`
+      instead of emitting a probability for the wrong inference;
+    * the artifact is not eligible for probability emission (unless
+      the caller explicitly opts into diagnostics with
+      ``allow_unvalidated=True``, which yields an ``"unvalidated"``
+      result, never ``"validated"``).
+    """
+    from .calibration import CalibrationArtifact
+    from .evidence import InferenceIdentity
+
+    if not isinstance(artifact, CalibrationArtifact):
+        raise DetectorContractError("artifact must be a CalibrationArtifact.")
+    if prediction.score is None:
+        raise DetectorContractError("cannot apply calibration to a prediction without a score.")
+    current = inference_identity_for_prediction(
+        prediction, detector=detector, config_hash=config_hash, regime=regime
+    )
+    if identity is not None:
+        if not isinstance(identity, InferenceIdentity):
+            raise DetectorContractError("identity must be an InferenceIdentity.")
+        for field_name in (
+            "detector_id",
+            "detector_version",
+            "provider",
+            "model",
+            "native_score_semantics",
+        ):
+            if getattr(identity, field_name) != getattr(current, field_name):
+                raise DetectorContractError(
+                    f"identity.{field_name} {getattr(identity, field_name)!r} does "
+                    f"not match the prediction's current {field_name} "
+                    f"{getattr(current, field_name)!r}; refusing to bind the "
+                    "calibration."
+                )
+        if (
+            identity.calibration_id is not None
+            and identity.calibration_id != artifact.calibration_id
+        ):
+            raise DetectorContractError(
+                f"identity.calibration_id {identity.calibration_id!r} does not "
+                f"match the artifact's calibration_id "
+                f"{artifact.calibration_id!r}; refusing to bind the calibration."
+            )
+        binding = InferenceIdentity(
+            detector_id=current.detector_id,
+            detector_version=current.detector_version,
+            provider=current.provider,
+            model=current.model,
+            config_hash=(
+                identity.config_hash if identity.config_hash is not None else current.config_hash
+            ),
+            native_score_semantics=current.native_score_semantics,
+            calibration_id=artifact.calibration_id,
+            regime=identity.regime if identity.regime is not None else current.regime,
+        )
+    else:
+        binding = InferenceIdentity(
+            detector_id=current.detector_id,
+            detector_version=current.detector_version,
+            provider=current.provider,
+            model=current.model,
+            config_hash=current.config_hash,
+            native_score_semantics=current.native_score_semantics,
+            calibration_id=artifact.calibration_id,
+            regime=current.regime,
+        )
+    missing = [
+        name
+        for name in (
+            "provider",
+            "model",
+            "config_hash",
+            "native_score_semantics",
+            "calibration_id",
+            "regime",
+        )
+        if getattr(binding, name) is None
+    ]
+    if missing:
+        raise DetectorContractError(
+            "cannot bind calibration: the current inference identity is not "
+            "fully bound (missing "
+            + ", ".join(missing)
+            + "); a fully-bound identity is required to apply a calibration "
+            "artifact."
+        )
+    result = artifact.apply(
+        float(prediction.score),
+        identity=binding,
+        allow_unvalidated=allow_unvalidated,
+    )
+    calibration: dict[str, Any] = {
+        "calibration_id": result.calibration_id,
+        "method": artifact.curve.method,
+        "detector_id": binding.detector_id,
+        "detector_version": binding.detector_version,
+        "provider": binding.provider,
+        "model": binding.model,
+        "config_hash": binding.config_hash,
+        "native_score_semantics": binding.native_score_semantics,
+        "regime": binding.regime,
+    }
+    if artifact.evaluation_dataset is not None:
+        calibration["evaluation_fingerprint"] = artifact.evaluation_dataset.fingerprint_sha256
+    bound = replace(
+        prediction,
+        calibrated_ai_probability=result.value,
+        calibration_id=result.calibration_id,
+        calibration=calibration,
+    )
+    validate_prediction(bound, detector=detector)
+    return bound
+
+
+# TYPE_CHECKING-only import for the ``InferenceIdentity`` annotations in
+# inference_identity_for_prediction / apply_calibration above. It lives
+# at the end of the file (rather than with the imports at the top) so
+# the line numbers of the functions above — and the mutation-baseline
+# entries pinned to them — do not move; the name is only needed for
+# static annotation resolution, never at runtime (the functions import
+# it lazily when they need it).
+if TYPE_CHECKING:
+    from .evidence import InferenceIdentity
