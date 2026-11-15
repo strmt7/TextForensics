@@ -69,7 +69,7 @@ bandit==1.9.4
 cosmic-ray==8.8.0
 
 # Fuzz testing
-atheris==3.1.0
+atheris==3.1.0; python_version >= "3.12" and python_version < "3.15"
 
 # Coverage
 coverage==7.17.2

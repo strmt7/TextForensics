@@ -2373,11 +2373,11 @@
       },
       {
         "name": "pyprojectSha256",
-        "value": "fca2a8227185ab403399b9178d470279f5a46745b634dc83bb614fa965ee9abe"
+        "value": "5c78d4abffb95c929d7f870ed8305a295ce8acc4c07af4cb93ea2109aab36a67"
       },
       {
         "name": "requirementsPinnedSha256",
-        "value": "57717f985d1d4b3c1c04523373edc3201cba4a6a99a5a02d8b5aa9b8d0fa44d7"
+        "value": "1c80c465cd5d43d38414aed0a14639e70dc7c9aaa2cb7d07228491f4c56cf9e0"
       },
       {
         "name": "scope",

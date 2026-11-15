@@ -187,6 +187,27 @@ def test_mutation_job_status_cancelled_maps_to_fail_not_error():
     assert '("fail", 0, "mutation job was cancelled")' in cancelled
 
 
+def test_pinned_job_installs_project_before_cli_smoke():
+    """The ``pinned`` job must install the package before its CLI smoke.
+
+    Incident (CI run 43766060422, main af3742f): the job installed only
+    requirements-hashed.txt (third-party dependencies), never the
+    textforensics package itself, so the ``textforensics --version``
+    smoke step failed with exit 127 (``textforensics: command not
+    found``). The lockfile cannot provide the console script; the job
+    must install the project (``--no-deps -e .``) first.
+    """
+    workflow = _load("ci.yml")
+    steps = _steps(workflow, "pinned")
+    runs = [str(s.get("run", "")) for s in steps]
+    joined = "\n".join(runs)
+    assert "textforensics --version" in joined
+    assert "pip install --no-deps -e ." in joined
+    assert joined.index("pip install --no-deps -e .") < joined.index(
+        "textforensics --version"
+    )
+
+
 def test_artifact_action_pins_are_verified_upstream_shas():
     """Every artifact-action pin must be a SHA verified against upstream.
 

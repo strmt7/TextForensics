@@ -70,7 +70,7 @@ diagnostics = [
   "psutil>=6,<8",
 ]
 fuzzing = [
-  "atheris>=3.0,<4",
+  "atheris>=3.0,<4; python_version >= \"3.12\" and python_version < \"3.15\"",
 ]
 ollama = [
   "aiohttp>=3.9,<4",

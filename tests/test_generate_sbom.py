@@ -116,7 +116,14 @@ def test_real_pinned_file_is_exact_lock():
         line = raw_line.strip()
         if not line or line.startswith("#") or line.startswith("-e "):
             continue
-        match = re.fullmatch(r"([A-Za-z0-9_.\-]+)==([^\s#]+)", line.split("#", 1)[0].strip())
+        # An exact ``name==version`` pin, optionally followed by an
+        # environment marker (``; python_version >= "3.12" ...``) — the
+        # atheris line carries one (ENG-09: 3.1.0 has wheels only for
+        # cp312/cp313/cp314, so pip must skip it on 3.11/3.15).
+        match = re.fullmatch(
+            r"([A-Za-z0-9_.\-]+)==([^\s;#]+)(?:\s*;\s*.+)?",
+            line.split("#", 1)[0].strip(),
+        )
         assert match is not None, f"not an exact == pin: {raw_line!r}"
         pinned[sbom.normalize_name(match.group(1))] = match.group(2)
     assert pinned, "no pins found"
@@ -142,6 +149,63 @@ def test_real_pinned_file_is_exact_lock():
             assert Version(version) in SpecifierSet(specifier), (
                 f"{name}=={version} is outside its pyproject range {specifier!r}"
             )
+
+
+def test_atheris_marker_matches_wheel_coverage():
+    """The atheris marker is identical in all three places (ENG-09).
+
+    atheris 3.1.0 ships wheels only for cp312/cp313/cp314 and no sdist,
+    so the marker ``python_version >= "3.12" and python_version < "3.15"``
+    must appear on the pinned line, on the hash-pinned lockfile entry
+    (with the same three wheel hashes), and on the pyproject ``fuzzing``
+    extra — otherwise pip fails the install on 3.11/3.15 instead of
+    skipping atheris there.
+    """
+    from packaging.requirements import Requirement
+
+    expected_marker = 'python_version >= "3.12" and python_version < "3.15"'
+
+    pinned_lines = (REPO_ROOT / "requirements-pinned.txt").read_text(encoding="utf-8").splitlines()
+    pinned_req = next(
+        Requirement(line.strip())
+        for line in pinned_lines
+        if line.strip().startswith("atheris==")
+    )
+    assert str(pinned_req.specifier) == "==3.1.0"
+    assert pinned_req.marker is not None
+    assert str(pinned_req.marker) == expected_marker
+
+    hashed_text = (REPO_ROOT / "requirements-hashed.txt").read_text(encoding="utf-8")
+    # Join backslash continuations, then find the atheris entry; strip
+    # the --hash options before parsing it as a requirement.
+    joined = hashed_text.replace("\\\n", "")
+    atheris_line = next(
+        line for line in joined.splitlines() if line.strip().startswith("atheris==")
+    )
+    hashed_req = Requirement(atheris_line.split("--hash=")[0].strip())
+    assert str(hashed_req.specifier) == "==3.1.0"
+    assert hashed_req.marker is not None
+    assert str(hashed_req.marker) == expected_marker
+    # The three --hash lines directly under the atheris entry are its
+    # three cp312/cp313/cp314 wheel hashes; no other package's hashes.
+    hashed_lines = hashed_text.splitlines()
+    start = next(i for i, line in enumerate(hashed_lines) if line.startswith("atheris=="))
+    block = [hashed_lines[start]]
+    for line in hashed_lines[start + 1 :]:
+        if line.strip().startswith("--hash="):
+            block.append(line)
+        else:
+            break
+    hashes = re.findall(r"--hash=sha256:([0-9a-f]{64})", "\n".join(block))
+    assert len(hashes) == 3, f"atheris entry must carry exactly 3 hashes, got {len(hashes)}"
+    assert len(set(hashes)) == 3
+
+    with (REPO_ROOT / "pyproject.toml").open("rb") as handle:
+        project = tomllib.load(handle)["project"]
+    fuzzing = project["optional-dependencies"]["fuzzing"]
+    fuzzing_req = next(Requirement(spec) for spec in fuzzing if Requirement(spec).name == "atheris")
+    assert fuzzing_req.marker is not None
+    assert str(fuzzing_req.marker) == expected_marker
 
 
 def test_root_requirement_names(tmp_path):

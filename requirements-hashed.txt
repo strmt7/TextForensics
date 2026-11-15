@@ -150,7 +150,7 @@ bandit==1.9.4 \
 cosmic-ray==8.8.0 \
     --hash=sha256:ca5a89ef425311fc3e1e9ace16136bc3e3da15396144dd1d87f4dfbeb3285ace \
     --hash=sha256:d8fcec8ec9b3954a47b6232d5b629e5b9875862c87fdd936fecf90c79b69468b
-atheris==3.1.0 \
+atheris==3.1.0; python_version >= "3.12" and python_version < "3.15" \
     --hash=sha256:315a0b5c819852b1ffe1ca72efc389c7724881f2c33e4aacb8c6bcec49bd5011 \
     --hash=sha256:ec5e11f21a4c197fe91f7aea2b2de88e623c73a21fc07b105ac6329a1588457b \
     --hash=sha256:f8a9f51ce8369026e8eb7b7174835e8c4c85a1a6db5d9add36c15100779d2a39
