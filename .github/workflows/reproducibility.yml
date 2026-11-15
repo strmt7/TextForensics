@@ -36,53 +36,28 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
 
-      - name: Install pinned build dependencies
+      # ENG-03 (W6): the executable reproducibility check. It builds
+      # the wheel + sdist TWICE from two independent clean source
+      # copies (git archive HEAD exports, so untracked/uncommitted
+      # files cannot leak into either build) with
+      # SOURCE_DATE_EPOCH=1704067200 and PYTHONHASHSEED=0, using the
+      # exact audited build profile (pinned build/setuptools/wheel
+      # from requirements-tools-hashed.txt, installed into a throwaway
+      # venv), with outputs outside both source trees. It compares
+      # bytes FATALLY: any difference exits non-zero and the
+      # member-level diff is printed — a differing build fails this
+      # job, which fails the workflow summary. There is no soft-fail
+      # path in this job.
+      - name: Run the executable reproducibility check (ENG-03)
         run: |
-          # Hash-pinned tools lockfile carries the SAME deliberate older
-          # versions (build 1.2.2, setuptools 79.0.1, wheel 0.45.1) — do
-          # NOT substitute the main lockfile's newer versions here.
-          python -m pip install --require-hashes -r requirements-tools-hashed.txt
+          python scripts/check_reproducibility.py --outdir reproducibility-evidence
 
-      - name: Normalize file timestamps before first build
-        run: |
-          python -c "import os; [os.utime(os.path.join(root, f), (1704067200, 1704067200)) for root, _, files in os.walk('.') for f in files if f.endswith(('.py', '.toml', '.json'))]"
-
-      - name: Build wheel (first pass)
-        run: |
-          rm -rf dist_first build src/*.egg-info
-          SOURCE_DATE_EPOCH=1704067200 PYTHONHASHSEED=0 python -m build --no-isolation --wheel --outdir dist_first
-          WHEEL1=$(sha256sum dist_first/*.whl | cut -d' ' -f1)
-          echo "First wheel hash: $WHEEL1"
-          echo "WHEEL1=$WHEEL1" >> "$GITHUB_ENV"
-
-      - name: Normalize file timestamps and rebuild (second pass)
-        run: |
-          python -c "import os; [os.utime(os.path.join(root, f), (1704067200, 1704067200)) for root, _, files in os.walk('.') for f in files if f.endswith(('.py', '.toml', '.json'))]"
-          rm -rf build src/*.egg-info
-          SOURCE_DATE_EPOCH=1704067200 PYTHONHASHSEED=0 python -m build --no-isolation --wheel --outdir dist_second
-          WHEEL2=$(sha256sum dist_second/*.whl | cut -d' ' -f1)
-          echo "Second wheel hash: $WHEEL2"
-          echo "WHEEL2=$WHEEL2" >> "$GITHUB_ENV"
-
-      - name: Compare wheel hashes (skip - known non-deterministic on GH Actions)
-        run: |
-          echo "Wheel 1: $WHEEL1"
-          echo "Wheel 2: $WHEEL2"
-          if [ "$WHEEL1" = "$WHEEL2" ]; then
-            echo "PASS: Wheel builds are reproducible"
-          else
-            echo "NOTE: Wheel builds differ (known limitation on GH Actions due to metadata timestamps)"
-            echo "This is a known limitation of Python wheel builds on GitHub Actions."
-            echo "The build metadata includes timestamps not fully controlled by SOURCE_DATE_EPOCH."
-          fi
-
-      - name: Upload wheel artifacts
+      - name: Upload build artifacts and comparison report
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: build-artifacts
-          path: |
-            dist_first/
-            dist_second/
+          path: reproducibility-evidence/
           retention-days: 30
 
   cli-determinism:

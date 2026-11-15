@@ -138,11 +138,17 @@ class TestReproducibilityWorkflowIsFatal:
         )
 
     def test_workflow_has_no_soft_fail_compare(self):
-        text = WORKFLOW.read_text(encoding="utf-8")
-        lowered = text.lower()
+        # Scoped to the build-reproducibility job: the CLI/detector
+        # determinism jobs legitimately use `diff ... || true` to print
+        # a diagnostic diff while recording failure separately in FAIL.
+        # The build comparison itself must have no soft-fail path.
+        data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        job = data["jobs"]["build-reproducibility"]
+        job_text = "\n".join(str(step) for step in job["steps"])
+        lowered = job_text.lower()
         assert "known limitation" not in lowered
         assert "note: wheel builds differ" not in lowered
-        assert "|| true" not in text
+        assert "|| true" not in job_text
 
     def test_build_reproducibility_job_is_gating(self):
         data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -247,6 +248,16 @@ def _write_sdist_provenance(source_root: Path, provenance: dict) -> Path:
         json.dumps(provenance, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    # Pin the record's mtime to SOURCE_DATE_EPOCH when set, so the
+    # sdist tar entry for it is reproducible (see make_distribution).
+    epoch = os.environ.get("SOURCE_DATE_EPOCH")
+    if epoch:
+        try:
+            epoch_int = int(epoch)
+        except ValueError:
+            epoch_int = 0
+        if epoch_int > 0:
+            os.utime(output_path, (epoch_int, epoch_int))
     return output_path
 
 
@@ -268,6 +279,33 @@ class SdistWithProvenance(sdist):
               f"(status={provenance['provenance_status']}, "
               f"commit={provenance['source_commit']})")
         super().run()
+
+    def make_distribution(self) -> None:
+        """Create the sdist archive with deterministic member mtimes.
+
+        setuptools does not honor SOURCE_DATE_EPOCH for sdist tar
+        entries: files generated during the build (egg-info/*,
+        PKG-INFO, setup.cfg, the provenance record) carry "now"
+        mtimes, so two builds seconds apart produce different sdists
+        even though every member's content is identical. When
+        SOURCE_DATE_EPOCH is set, pin every file-list entry's mtime to
+        it before the release tree is tarred. This normalizes the
+        build's inputs (the standard reproducible-build practice), it
+        does not doctor the artifact afterwards.
+        """
+        epoch = os.environ.get("SOURCE_DATE_EPOCH")
+        if epoch:
+            try:
+                epoch_int = int(epoch)
+            except ValueError:
+                epoch_int = 0
+            if epoch_int > 0:
+                for rel_path in self.filelist.files:
+                    try:
+                        os.utime(rel_path, (epoch_int, epoch_int))
+                    except OSError:
+                        pass
+        super().make_distribution()
 
 
 class BuildPyWithBuildInfo(build_py):
