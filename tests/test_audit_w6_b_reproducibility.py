@@ -53,13 +53,24 @@ def _make_wheel(path: Path, members: dict[str, bytes]) -> None:
 
 
 def _make_sdist(path: Path, members: dict[str, bytes]) -> None:
-    with tarfile.open(path, "w:gz") as archive:
+    # Deterministic gzip: tarfile's "w:gz" mode writes the current time
+    # into the gzip header, so build the tar in memory and gzip it with
+    # a fixed mtime (the same rule the real build follows).
+    import gzip
+
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w") as archive:
         for name in sorted(members):
             data = members[name]
             info = tarfile.TarInfo(name)
             info.size = len(data)
             info.mtime = 1704067200
             archive.addfile(info, io.BytesIO(data))
+    with open(path, "wb") as raw:
+        # filename="" so no FNAME is stored in the gzip header (two
+        # files with different names must still hash identically).
+        with gzip.GzipFile("", "wb", compresslevel=9, mtime=1704067200, fileobj=raw) as out:
+            out.write(buffer.getvalue())
 
 
 @pytest.fixture(scope="module")
@@ -127,6 +138,46 @@ class TestCompareFunctions:
         joined = "\n".join(diffs).lower()
         assert "pkg/code.py" in joined
         assert "timestamp" not in joined
+
+    def test_check_reproducibility_reports_difference_fatally(
+        self, tmp_path, check_module, monkeypatch
+    ):
+        # The fatal path: when the two builds differ, the check must
+        # report identical=False with member diffs (main() turns that
+        # into exit 1). Proven by feeding two differing artifacts
+        # through the real comparison path, not by asserting on text.
+        wheel_a = tmp_path / "a.whl"
+        wheel_b = tmp_path / "b.whl"
+        sdist_a = tmp_path / "a.tar.gz"
+        sdist_b = tmp_path / "b.tar.gz"
+        _make_wheel(wheel_a, {"pkg/code.py": b"v1"})
+        _make_wheel(wheel_b, {"pkg/code.py": b"v2"})
+        _make_sdist(sdist_a, {"pkg-0.2.0/setup.py": b"a"})
+        _make_sdist(sdist_b, {"pkg-0.2.0/setup.py": b"a"})
+        calls = {"n": 0}
+
+        def fake_build_once(build_python, source_dir, outdir, epoch):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return {"wheel": wheel_a, "sdist": sdist_a}
+            return {"wheel": wheel_b, "sdist": sdist_b}
+
+        monkeypatch.setattr(check_module, "_build_once", fake_build_once)
+        monkeypatch.setattr(check_module, "_export_clean_copy", lambda *a: None)
+        monkeypatch.setattr(check_module, "_normalize_mtimes", lambda *a: None)
+        monkeypatch.setattr(
+            check_module, "_make_build_venv", lambda workdir: Path("python")
+        )
+        monkeypatch.setattr(
+            check_module, "_git_toplevel", lambda source: tmp_path
+        )
+        report = check_module.check_reproducibility(
+            tmp_path, 1704067200, tmp_path
+        )
+        assert report["identical"] is False
+        assert report["wheel_a_sha256"] != report["wheel_b_sha256"]
+        assert report["sdist_a_sha256"] == report["sdist_b_sha256"]
+        assert any("pkg/code.py" in d for d in report["diffs"])
 
 
 class TestReproducibilityWorkflowIsFatal:

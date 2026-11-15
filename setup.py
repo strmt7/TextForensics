@@ -349,8 +349,12 @@ class SdistWithProvenance(sdist):
 
         with gzip.open(path, "rb") as source:
             raw = source.read()
-        with gzip.GzipFile(path, "wb", compresslevel=9, mtime=epoch) as dest:
-            dest.write(raw)
+        with open(path, "wb") as raw_file:
+            # filename="" so no FNAME is stored in the gzip header.
+            with gzip.GzipFile(
+                "", "wb", compresslevel=9, mtime=epoch, fileobj=raw_file
+            ) as dest:
+                dest.write(raw)
         print(f"Re-gzipped {path} with mtime={epoch}")
 
 
