@@ -22,7 +22,26 @@ The following Wilson-upper-bound / FPR evidence exists in registry run artifacts
 
 ### Failed claims
 
-- **deterministic_builds** (`fail`; evidence `EV-20261106-doc-repro`): Claim deterministic_builds: status is 'unverified' - requires verification
+- **ruff_lint_clean** (`fail`; evidence `EV-20261106-ruff`): Command failed (exit 1):    -     get_build_info,
+49 |     verify_build_identity,
+   |
+
+SIM117 Use a single `with` statement with multiple contexts instead of nested `with` statements
+  --> tests/test_audit_w6_b_reproducibility.py:69:5
+   |
+67 |               info.mtime = 1704067200
+68 |               archive.addfile(info, io.BytesIO(data))
+69 | /     with open(path, "wb") as raw:
+70 | |         # filename="" so no FNAME is stored in the gzip header (two
+71 | |         # files with different names must still hash identically).
+72 | |         with gzip.GzipFile("", "wb", compresslevel=9, mtime=1704067200, fileobj=raw) as out:
+   | |____________________________________________________________________________________________^
+73 |               out.write(buffer.getvalue())
+   |
+help: Combine `with` statements
+
+Found 5 errors.
+[*] 3 fixable with `--fix` (1 unsafe fix available with `--fix --unsafe-fixes`).
 
 ### All claims
 
@@ -51,10 +70,10 @@ The following Wilson-upper-bound / FPR evidence exists in registry run artifacts
 | test_suite_measured | verified | EV-20261107-suite | pass |
 | test_suite_measured_core | verified | EV-20261107-suite-core | pass |
 | python_version_support | verified | EV-20261106-doc-ci-matrix | pass |
-| ruff_lint_clean | verified | EV-20261106-ruff | pass |
+| ruff_lint_clean | verified | EV-20261106-ruff | fail |
 | security.bandit_no_medium_high | verified | EV-20261108-bandit | pass |
 | security.pip_audit_tracked | verified | EV-20261108-pip-audit | pass |
-| deterministic_builds | unverified | EV-20261106-doc-repro | fail |
+| deterministic_builds | verified | EV-20261115-reproducibility | pass |
 | web_ui.index_renders | verified | EV-20261106-suite | pass |
 | core.emergency_stop_headless | verified | EV-20261106-suite | pass |
 | security.ollama_ssrf_guard | verified | EV-20261106-suite | pass |
@@ -100,3 +119,4 @@ The following Wilson-upper-bound / FPR evidence exists in registry run artifacts
 | EV-20261108-pip-audit | dependency-audit | 2026-11-08 | — | available | `537fbdaa4fc6...` |
 | EV-20261110-dataset-opai-bench | command | 2026-11-10 | — | available | `7849f829ac38...` |
 | EV-20261110-human-fpr | command | 2026-11-10 | 0.1.0 | available | `ceaa44f7da1c...` |
+| EV-20261115-reproducibility | determinism | 2026-11-15 | — | functional | `26441e2f655c...` |

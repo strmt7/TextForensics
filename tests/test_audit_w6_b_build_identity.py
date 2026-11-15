@@ -38,17 +38,12 @@ import shutil
 import subprocess
 import sys
 import tarfile
-import tempfile
-import zipfile
 from pathlib import Path
 
 import pytest
 
 import textforensics._build_info as build_info_mod
-from textforensics._build_info import (
-    get_build_info,
-    verify_build_identity,
-)
+from textforensics._build_info import verify_build_identity
 
 REPO_ROOT = Path(__file__).parent.parent
 TOOLS_LOCKFILE = REPO_ROOT / "requirements-tools-hashed.txt"
@@ -75,15 +70,11 @@ def _failing_build_info(**overrides):
 class TestVerifyBuildIdentityFailClosed:
     """Any failed required identity check must return invalid (ENG-02)."""
 
-    def test_unverified_commit_is_invalid_without_expected_commit(
-        self, monkeypatch
-    ):
+    def test_unverified_commit_is_invalid_without_expected_commit(self, monkeypatch):
         # The CLI's default path calls verify_build_identity() with no
         # expected commit: before the fix this returned valid=True while
         # recording failed checks.
-        monkeypatch.setattr(
-            build_info_mod, "BUILD_INFO", _failing_build_info()
-        )
+        monkeypatch.setattr(build_info_mod, "BUILD_INFO", _failing_build_info())
         result = verify_build_identity()
         assert result["valid"] is False
         assert result["errors"], "a failing identity must explain itself"
@@ -163,9 +154,7 @@ class TestVerifyBuildIdentityFailClosed:
         # Every failing check must appear in "checks" with passed=False
         # AND flip valid to False (before the fix, checks recorded the
         # failure but valid stayed True).
-        monkeypatch.setattr(
-            build_info_mod, "BUILD_INFO", _failing_build_info()
-        )
+        monkeypatch.setattr(build_info_mod, "BUILD_INFO", _failing_build_info())
         result = verify_build_identity()
         failed = [c for c in result["checks"] if not c["passed"]]
         assert len(failed) >= 3
@@ -189,9 +178,7 @@ class TestGitQueriesBindToSourceRoot:
         )
         (path / filename).write_text(content, encoding="utf-8")
         subprocess.run(["git", "-C", str(path), "add", "."], check=True)
-        subprocess.run(
-            ["git", "-C", str(path), "commit", "-qm", "initial"], check=True
-        )
+        subprocess.run(["git", "-C", str(path), "commit", "-qm", "initial"], check=True)
         head = subprocess.run(
             ["git", "-C", str(path), "rev-parse", "HEAD"],
             capture_output=True,
@@ -271,9 +258,7 @@ def _run(cmd, cwd, env=None):
     merged.pop("PYTHONPATH", None)
     if env:
         merged.update(env)
-    result = subprocess.run(
-        cmd, cwd=str(cwd), env=merged, capture_output=True, text=True
-    )
+    result = subprocess.run(cmd, cwd=str(cwd), env=merged, capture_output=True, text=True)
     return result
 
 
@@ -346,8 +331,7 @@ def _read_provenance_from_sdist(sdist_path: Path) -> dict:
         names = archive.getnames()
         prov = [n for n in names if n.endswith("src/textforensics/_sdist_provenance.json")]
         assert len(prov) == 1, (
-            "sdist must contain exactly one _sdist_provenance.json; "
-            f"members matching: {prov}"
+            f"sdist must contain exactly one _sdist_provenance.json; members matching: {prov}"
         )
         data = archive.extractfile(prov[0]).read()
     return json.loads(data.decode("utf-8"))
@@ -367,9 +351,7 @@ def _expected_schemas_digest() -> str:
     schemas_dir = REPO_ROOT / "src" / "textforensics" / "schemas"
     hashes = {}
     for schema_file in sorted(schemas_dir.glob("*.json")):
-        hashes[schema_file.name] = hashlib.sha256(
-            schema_file.read_bytes()
-        ).hexdigest()
+        hashes[schema_file.name] = hashlib.sha256(schema_file.read_bytes()).hexdigest()
     aggregate = hashlib.sha256()
     for name in sorted(hashes):
         aggregate.update(name.encode("utf-8"))
@@ -382,12 +364,11 @@ class TestSdistCarriesProvenance:
         provenance = _read_provenance_from_sdist(built_sdist)
         assert provenance["source_commit"] == _repo_head()
         assert provenance["provenance_status"] == "git"
-        assert provenance["contract_info"]["schemas_sha256"] == (
-            _expected_schemas_digest()
+        assert provenance["contract_info"]["schemas_sha256"] == (_expected_schemas_digest())
+        assert (
+            provenance["dependencies_sha256"]
+            == hashlib.sha256((REPO_ROOT / "pyproject.toml").read_bytes()).hexdigest()
         )
-        assert provenance["dependencies_sha256"] == hashlib.sha256(
-            (REPO_ROOT / "pyproject.toml").read_bytes()
-        ).hexdigest()
 
     def test_sdist_provenance_is_immutable_record(self, built_sdist):
         provenance = _read_provenance_from_sdist(built_sdist)
@@ -448,9 +429,7 @@ def _install_wheel_and_read_build_info(wheel: Path, tmp_path: Path) -> dict:
 
 
 class TestWheelFromSdistIdentity:
-    def test_wheel_built_outside_git_keeps_identity(
-        self, tmp_path, built_sdist, build_venv
-    ):
+    def test_wheel_built_outside_git_keeps_identity(self, tmp_path, built_sdist, build_venv):
         """Unpack the sdist outside any Git worktree, build a wheel from
         it, install it, and assert the identity fields are correct."""
         unpack = tmp_path / "unpacked"
@@ -459,18 +438,15 @@ class TestWheelFromSdistIdentity:
             archive.extractall(unpack)
         source_dir = next(unpack.iterdir())
         assert not (source_dir / ".git").exists()
-        wheel = _build_wheel_from_dir(
-            source_dir, build_venv, tmp_path / "wheel-out"
-        )
+        wheel = _build_wheel_from_dir(source_dir, build_venv, tmp_path / "wheel-out")
         payload = _install_wheel_and_read_build_info(wheel, tmp_path)
         info = payload["info"]
         assert info["source_commit"] == _repo_head()
-        assert info["contract_info"]["schemas_sha256"] == (
-            _expected_schemas_digest()
+        assert info["contract_info"]["schemas_sha256"] == (_expected_schemas_digest())
+        assert (
+            info["dependencies_sha256"]
+            == hashlib.sha256((REPO_ROOT / "pyproject.toml").read_bytes()).hexdigest()
         )
-        assert info["dependencies_sha256"] == hashlib.sha256(
-            (REPO_ROOT / "pyproject.toml").read_bytes()
-        ).hexdigest()
         assert payload["verify"]["valid"] is True
 
     def test_wheel_built_inside_unrelated_repo_keeps_identity(
@@ -486,14 +462,10 @@ class TestWheelFromSdistIdentity:
             ["git", "-C", str(other), "config", "user.email", "t@example.invalid"],
             check=True,
         )
-        subprocess.run(
-            ["git", "-C", str(other), "config", "user.name", "T"], check=True
-        )
+        subprocess.run(["git", "-C", str(other), "config", "user.name", "T"], check=True)
         (other / "other.txt").write_text("unrelated\n", encoding="utf-8")
         subprocess.run(["git", "-C", str(other), "add", "."], check=True)
-        subprocess.run(
-            ["git", "-C", str(other), "commit", "-qm", "unrelated"], check=True
-        )
+        subprocess.run(["git", "-C", str(other), "commit", "-qm", "unrelated"], check=True)
         other_head = subprocess.run(
             ["git", "-C", str(other), "rev-parse", "HEAD"],
             capture_output=True,
@@ -506,9 +478,7 @@ class TestWheelFromSdistIdentity:
         with tarfile.open(built_sdist, "r:gz") as archive:
             archive.extractall(unpack)
         source_dir = next(unpack.iterdir())
-        wheel = _build_wheel_from_dir(
-            source_dir, build_venv, tmp_path / "wheel-out"
-        )
+        wheel = _build_wheel_from_dir(source_dir, build_venv, tmp_path / "wheel-out")
         payload = _install_wheel_and_read_build_info(wheel, tmp_path)
         info = payload["info"]
         assert info["source_commit"] == _repo_head()
@@ -527,9 +497,7 @@ class TestWheelFromSdistIdentity:
         prov = source_dir / "src" / "textforensics" / "_sdist_provenance.json"
         assert prov.exists()
         prov.unlink()
-        wheel = _build_wheel_from_dir(
-            source_dir, build_venv, tmp_path / "wheel-out"
-        )
+        wheel = _build_wheel_from_dir(source_dir, build_venv, tmp_path / "wheel-out")
         payload = _install_wheel_and_read_build_info(wheel, tmp_path)
         info = payload["info"]
         assert info["source_commit"] == "unknown"
@@ -537,9 +505,7 @@ class TestWheelFromSdistIdentity:
         assert payload["verify"]["valid"] is False
         assert payload["verify"]["errors"]
 
-    def test_corrupted_embedded_build_info_fails_closed(
-        self, tmp_path, built_sdist, build_venv
-    ):
+    def test_corrupted_embedded_build_info_fails_closed(self, tmp_path, built_sdist, build_venv):
         """Negative test: corrupt the embedded _build_info.json in the
         installed wheel — loading must fall back to an unverifiable
         identity and verify() must return invalid."""
@@ -548,9 +514,7 @@ class TestWheelFromSdistIdentity:
         with tarfile.open(built_sdist, "r:gz") as archive:
             archive.extractall(unpack)
         source_dir = next(unpack.iterdir())
-        wheel = _build_wheel_from_dir(
-            source_dir, build_venv, tmp_path / "wheel-out"
-        )
+        wheel = _build_wheel_from_dir(source_dir, build_venv, tmp_path / "wheel-out")
         venv = tmp_path / "install-venv"
         result = _run([sys.executable, "-m", "venv", str(venv)], cwd=tmp_path)
         assert result.returncode == 0, result.stderr[-500:]
@@ -576,9 +540,7 @@ class TestWheelFromSdistIdentity:
         assert payload["valid"] is False
         assert payload["errors"]
 
-    def test_wheel_from_provenance_less_copy_fails_closed(
-        self, tmp_path, build_venv
-    ):
+    def test_wheel_from_provenance_less_copy_fails_closed(self, tmp_path, build_venv):
         """Negative test: a plain copy of the source tree with no .git
         and no provenance file must not verify as a known build."""
         source_dir = tmp_path / "plain-copy"
@@ -598,12 +560,8 @@ class TestWheelFromSdistIdentity:
         for name in ("pyproject.toml", "setup.py", "README.md", "LICENSE"):
             shutil.copy2(REPO_ROOT / name, source_dir / name)
         assert not (source_dir / ".git").exists()
-        assert not (
-            source_dir / "src" / "textforensics" / "_sdist_provenance.json"
-        ).exists()
-        wheel = _build_wheel_from_dir(
-            source_dir, build_venv, tmp_path / "wheel-out"
-        )
+        assert not (source_dir / "src" / "textforensics" / "_sdist_provenance.json").exists()
+        wheel = _build_wheel_from_dir(source_dir, build_venv, tmp_path / "wheel-out")
         payload = _install_wheel_and_read_build_info(wheel, tmp_path)
         assert payload["info"]["source_commit"] == "unknown"
         assert payload["verify"]["valid"] is False

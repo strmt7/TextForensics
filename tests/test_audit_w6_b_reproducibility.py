@@ -36,9 +36,7 @@ CHECK_SCRIPT = SCRIPTS_DIR / "check_reproducibility.py"
 
 
 def _load_check_script():
-    spec = importlib.util.spec_from_file_location(
-        "check_reproducibility", CHECK_SCRIPT
-    )
+    spec = importlib.util.spec_from_file_location("check_reproducibility", CHECK_SCRIPT)
     module = importlib.util.module_from_spec(spec)
     sys.modules["check_reproducibility"] = module
     spec.loader.exec_module(module)
@@ -66,11 +64,13 @@ def _make_sdist(path: Path, members: dict[str, bytes]) -> None:
             info.size = len(data)
             info.mtime = 1704067200
             archive.addfile(info, io.BytesIO(data))
-    with open(path, "wb") as raw:
-        # filename="" so no FNAME is stored in the gzip header (two
-        # files with different names must still hash identically).
-        with gzip.GzipFile("", "wb", compresslevel=9, mtime=1704067200, fileobj=raw) as out:
-            out.write(buffer.getvalue())
+    # filename="" so no FNAME is stored in the gzip header (two files
+    # with different names must still hash identically).
+    with (
+        open(path, "wb") as raw,
+        gzip.GzipFile("", "wb", compresslevel=9, mtime=1704067200, fileobj=raw) as out,
+    ):
+        out.write(buffer.getvalue())
 
 
 @pytest.fixture(scope="module")
@@ -124,9 +124,7 @@ class TestCompareFunctions:
         assert diffs
         assert any("setup.py" in d for d in diffs)
 
-    def test_compare_does_not_blame_timestamps_for_content_diffs(
-        self, tmp_path, check_module
-    ):
+    def test_compare_does_not_blame_timestamps_for_content_diffs(self, tmp_path, check_module):
         # Member diffs must name the differing member and its bytes, not
         # diagnose every difference as a timestamp (the old workflow's
         # failure mode was to wave differences away as timestamps).
@@ -165,15 +163,9 @@ class TestCompareFunctions:
         monkeypatch.setattr(check_module, "_build_once", fake_build_once)
         monkeypatch.setattr(check_module, "_export_clean_copy", lambda *a: None)
         monkeypatch.setattr(check_module, "_normalize_mtimes", lambda *a: None)
-        monkeypatch.setattr(
-            check_module, "_make_build_venv", lambda workdir: Path("python")
-        )
-        monkeypatch.setattr(
-            check_module, "_git_toplevel", lambda source: tmp_path
-        )
-        report = check_module.check_reproducibility(
-            tmp_path, 1704067200, tmp_path
-        )
+        monkeypatch.setattr(check_module, "_make_build_venv", lambda workdir: Path("python"))
+        monkeypatch.setattr(check_module, "_git_toplevel", lambda source: tmp_path)
+        report = check_module.check_reproducibility(tmp_path, 1704067200, tmp_path)
         assert report["identical"] is False
         assert report["wheel_a_sha256"] != report["wheel_b_sha256"]
         assert report["sdist_a_sha256"] == report["sdist_b_sha256"]
@@ -206,20 +198,17 @@ class TestReproducibilityWorkflowIsFatal:
         job = data["jobs"]["build-reproducibility"]
         assert job.get("continue-on-error") is not True
         steps = job["steps"]
-        assert any(
-            "check_reproducibility.py" in str(step.get("run", ""))
-            for step in steps
-        ), "no step runs scripts/check_reproducibility.py"
-        assert not any(
-            step.get("continue-on-error") is True for step in steps
-        ), "a compare step with continue-on-error cannot gate"
+        assert any("check_reproducibility.py" in str(step.get("run", "")) for step in steps), (
+            "no step runs scripts/check_reproducibility.py"
+        )
+        assert not any(step.get("continue-on-error") is True for step in steps), (
+            "a compare step with continue-on-error cannot gate"
+        )
 
     def test_summary_job_fails_when_build_reproducibility_fails(self):
         data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
         summary = data["jobs"]["reproducibility-summary"]
         assert "build-reproducibility" in summary["needs"]
-        run_text = "\n".join(
-            str(step.get("run", "")) for step in summary["steps"]
-        )
+        run_text = "\n".join(str(step.get("run", "")) for step in summary["steps"])
         assert "build-reproducibility" in run_text
         assert "exit 1" in run_text

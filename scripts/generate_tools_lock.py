@@ -136,8 +136,7 @@ def _resolve(pins: list[str], constraints: list[str]) -> list[tuple[str, str]]:
         )
         if result.returncode != 0:
             raise RuntimeError(
-                "pip resolution failed:\n"
-                f"{result.stdout[-2000:]}\n{result.stderr[-2000:]}"
+                f"pip resolution failed:\n{result.stdout[-2000:]}\n{result.stderr[-2000:]}"
             )
         match = WOULD_INSTALL_RE.search(result.stdout)
         if not match:
@@ -158,9 +157,7 @@ def _resolve(pins: list[str], constraints: list[str]) -> list[tuple[str, str]]:
 
 def _pypi_files(name: str, version: str) -> list[dict]:
     url = f"https://pypi.org/pypi/{name}/{version}/json"
-    request = urllib.request.Request(
-        url, headers={"User-Agent": "TextForensics-lockfile-gen/1.0"}
-    )
+    request = urllib.request.Request(url, headers={"User-Agent": "TextForensics-lockfile-gen/1.0"})
     with urllib.request.urlopen(request, timeout=30) as response:
         data = json.load(response)
     return data["urls"]
@@ -172,7 +169,9 @@ def generate(output: Path) -> list[tuple[str, str]]:
     constraints = _clean_constraints(MAIN_PINNED_FILE)
     resolved = _resolve(pins, constraints)
     lines: list[str] = []
-    lines.append("# requirements-tools-hashed.txt — HASH-PINNED LOCKFILE (Scorecard Pinned-Dependencies)")
+    lines.append(
+        "# requirements-tools-hashed.txt — HASH-PINNED LOCKFILE (Scorecard Pinned-Dependencies)"
+    )
     lines.append("# Generated from requirements-tools-pinned.txt via:")
     lines.append("#   python3 scripts/generate_tools_lock.py")
     lines.append("# Every package pins an exact version AND every downloadable file hash")
@@ -209,7 +208,11 @@ def generate(output: Path) -> list[tuple[str, str]]:
             lines.append(f"{name}=={version}")
             continue
         hashes = sorted(
-            {f"    --hash=sha256:{f['digests']['sha256']}" for f in files if f["digests"].get("sha256")}
+            {
+                f"    --hash=sha256:{f['digests']['sha256']}"
+                for f in files
+                if f["digests"].get("sha256")
+            }
         )
         lines.append(f"{name}=={version} \\")
         for index, hash_line in enumerate(hashes):

@@ -169,6 +169,11 @@
       "evidence_record_id": "EV-20261110-human-fpr",
       "run_artifact": "docs/evidence/runs/EV-20261110-human-fpr.json",
       "run_artifact_sha256": "ceaa44f7da1c2ae38435494963433899bd1b93c767376dbe41ebf0ba2c8781a3"
+    },
+    {
+      "evidence_record_id": "EV-20261115-reproducibility",
+      "run_artifact": "docs/evidence/runs/EV-20261115-reproducibility.json",
+      "run_artifact_sha256": "26441e2f655c5ba1175f1e09d514513c01ee257b81b92923a373d7fbc5f87fef"
     }
   ],
   "schema": "textforensics.evidence-registry/v1"

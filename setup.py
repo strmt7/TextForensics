@@ -18,6 +18,7 @@ verify time instead of claiming validity.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -232,9 +233,7 @@ def _capture_provenance(source_root: Path) -> dict:
         "dependencies_sha256": _compute_dependencies_hash(source_root),
         "contract_info": contract_info,
         "api_spec_sha256": contract_info.get("spec_md_sha256", "unavailable"),
-        "detector_adapter_api_sha256": contract_info.get(
-            "engineering_toml_sha256", "unavailable"
-        ),
+        "detector_adapter_api_sha256": contract_info.get("engineering_toml_sha256", "unavailable"),
         "provenance_status": "unknown",
         "embedded_at": "build_time",
     }
@@ -265,9 +264,11 @@ class SdistWithProvenance(sdist):
         source_root = _source_root()
         provenance = _capture_provenance(source_root)
         output_path = _write_sdist_provenance(source_root, provenance)
-        print(f"Captured sdist provenance: {output_path} "
-              f"(status={provenance['provenance_status']}, "
-              f"commit={provenance['source_commit']})")
+        print(
+            f"Captured sdist provenance: {output_path} "
+            f"(status={provenance['provenance_status']}, "
+            f"commit={provenance['source_commit']})"
+        )
         super().run()
 
     def make_release_tree(self, base_dir, files) -> None:
@@ -299,19 +300,13 @@ class SdistWithProvenance(sdist):
             return
         for dirpath, dirnames, filenames in os.walk(base_dir):
             for name in filenames:
-                try:
+                with contextlib.suppress(OSError):
                     os.utime(os.path.join(dirpath, name), (epoch_int, epoch_int))
-                except OSError:
-                    pass
             for name in dirnames:
-                try:
+                with contextlib.suppress(OSError):
                     os.utime(os.path.join(dirpath, name), (epoch_int, epoch_int))
-                except OSError:
-                    pass
-        try:
+        with contextlib.suppress(OSError):
             os.utime(base_dir, (epoch_int, epoch_int))
-        except OSError:
-            pass
 
     def make_distribution(self) -> None:
         """Create the sdist archive, then pin the gzip header mtime.
@@ -349,12 +344,12 @@ class SdistWithProvenance(sdist):
 
         with gzip.open(path, "rb") as source:
             raw = source.read()
-        with open(path, "wb") as raw_file:
-            # filename="" so no FNAME is stored in the gzip header.
-            with gzip.GzipFile(
-                "", "wb", compresslevel=9, mtime=epoch, fileobj=raw_file
-            ) as dest:
-                dest.write(raw)
+        # filename="" so no FNAME is stored in the gzip header.
+        with (
+            open(path, "wb") as raw_file,
+            gzip.GzipFile("", "wb", compresslevel=9, mtime=epoch, fileobj=raw_file) as dest,
+        ):
+            dest.write(raw)
         print(f"Re-gzipped {path} with mtime={epoch}")
 
 

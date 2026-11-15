@@ -53,7 +53,9 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _run(cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+def _run(
+    cmd: list[str], cwd: Path, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
     merged = dict(os.environ)
     merged["PYTHONDONTWRITEBYTECODE"] = "1"
     if env:
@@ -83,9 +85,7 @@ def _git_toplevel(source: Path) -> Path:
         check=False,
     )
     if result.returncode != 0:
-        raise RuntimeError(
-            f"{source} is not inside a git checkout: {result.stderr.strip()}"
-        )
+        raise RuntimeError(f"{source} is not inside a git checkout: {result.stderr.strip()}")
     return Path(result.stdout.strip())
 
 
@@ -166,7 +166,9 @@ def _build_once(build_python: Path, source_dir: Path, outdir: Path, epoch: int) 
     wheels = sorted(outdir.glob("*.whl"))
     sdists = sorted(outdir.glob("*.tar.gz"))
     if len(wheels) != 1 or len(sdists) != 1:
-        raise RuntimeError(f"expected exactly one wheel and one sdist in {outdir}: {wheels} {sdists}")
+        raise RuntimeError(
+            f"expected exactly one wheel and one sdist in {outdir}: {wheels} {sdists}"
+        )
     return {"wheel": wheels[0], "sdist": sdists[0]}
 
 
@@ -258,9 +260,7 @@ def compare_sdists(first: Path, second: Path) -> list[str]:
     return diffs
 
 
-def check_reproducibility(
-    source: Path, epoch: int, workdir: Path
-) -> dict[str, object]:
+def check_reproducibility(source: Path, epoch: int, workdir: Path) -> dict[str, object]:
     """Run the two-build comparison; return a report dict.
 
     Raises RuntimeError if the builds cannot be performed. The report
@@ -284,10 +284,7 @@ def check_reproducibility(
         hash_a = _sha256_file(artifacts_a[kind])
         hash_b = _sha256_file(artifacts_b[kind])
         if hash_a != hash_b:
-            diffs.append(
-                f"{kind} differs: {artifacts_a[kind].name} "
-                f"sha256={hash_a} vs {hash_b}"
-            )
+            diffs.append(f"{kind} differs: {artifacts_a[kind].name} sha256={hash_a} vs {hash_b}")
             if kind == "wheel":
                 diffs.extend(compare_wheels(artifacts_a[kind], artifacts_b[kind]))
             else:
@@ -296,9 +293,7 @@ def check_reproducibility(
     report: dict[str, object] = {
         "source_root": str(source_root),
         "source_date_epoch": epoch,
-        "build_profile": {
-            name: pins[name] for name in ("build", "setuptools", "wheel")
-        },
+        "build_profile": {name: pins[name] for name in ("build", "setuptools", "wheel")},
         "wheel_a_sha256": _sha256_file(artifacts_a["wheel"]),
         "wheel_b_sha256": _sha256_file(artifacts_b["wheel"]),
         "sdist_a_sha256": _sha256_file(artifacts_a["sdist"]),

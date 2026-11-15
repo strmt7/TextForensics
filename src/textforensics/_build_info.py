@@ -20,6 +20,7 @@ failed required identity check returns invalid, never valid.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import subprocess
@@ -312,10 +313,8 @@ def _load_embedded_build_info() -> dict[str, Any] | None:
         base = Path(__file__).resolve().parent
         embedded_path = base / "_build_info.json"
         if embedded_path.exists():
-            try:
+            with contextlib.suppress(json.JSONDecodeError, OSError):
                 data = json.loads(embedded_path.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError):
-                pass
 
     if data is None or not isinstance(data, dict):
         return None
@@ -355,12 +354,8 @@ def _apply_provenance(provenance: dict[str, Any], status: str) -> None:
     """Fill BUILD_INFO from a provenance record (embedded or sdist)."""
     global BUILD_INFO
     BUILD_INFO["source_commit"] = provenance.get("source_commit", "unknown")
-    BUILD_INFO["source_commit_verified"] = provenance.get(
-        "source_commit_verified", False
-    )
-    BUILD_INFO["dependencies_sha256"] = provenance.get(
-        "dependencies_sha256", "unavailable"
-    )
+    BUILD_INFO["source_commit_verified"] = provenance.get("source_commit_verified", False)
+    BUILD_INFO["dependencies_sha256"] = provenance.get("dependencies_sha256", "unavailable")
     contract_info = provenance.get("contract_info", {})
     BUILD_INFO["contract_info"] = contract_info
     BUILD_INFO["api_spec_sha256"] = provenance.get(
@@ -370,9 +365,7 @@ def _apply_provenance(provenance: dict[str, Any], status: str) -> None:
         "detector_adapter_api_sha256",
         contract_info.get("engineering_toml_sha256", "unavailable"),
     )
-    BUILD_INFO["provenance_status"] = provenance.get(
-        "provenance_status", status
-    )
+    BUILD_INFO["provenance_status"] = provenance.get("provenance_status", status)
 
 
 def initialize_build_info() -> None:
@@ -402,9 +395,7 @@ def initialize_build_info() -> None:
             BUILD_INFO["dependencies_sha256"] = _compute_dependencies_hash()
             contract_info = _compute_contract_info()
             BUILD_INFO["contract_info"] = contract_info
-            BUILD_INFO["api_spec_sha256"] = contract_info.get(
-                "spec_md_sha256", "unavailable"
-            )
+            BUILD_INFO["api_spec_sha256"] = contract_info.get("spec_md_sha256", "unavailable")
             BUILD_INFO["detector_adapter_api_sha256"] = contract_info.get(
                 "engineering_toml_sha256", "unavailable"
             )
@@ -506,8 +497,7 @@ def verify_build_identity(expected_commit: str | None = None) -> dict[str, Any]:
                 "source_commit",
                 expected_commit,
                 commit,
-                f"Source commit mismatch: expected {expected_commit}, "
-                f"got {commit}",
+                f"Source commit mismatch: expected {expected_commit}, got {commit}",
             )
         else:
             _pass("source_commit", expected_commit, commit)
