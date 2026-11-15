@@ -203,9 +203,7 @@ def test_pinned_job_installs_project_before_cli_smoke():
     joined = "\n".join(runs)
     assert "textforensics --version" in joined
     assert "pip install --no-deps -e ." in joined
-    assert joined.index("pip install --no-deps -e .") < joined.index(
-        "textforensics --version"
-    )
+    assert joined.index("pip install --no-deps -e .") < joined.index("textforensics --version")
 
 
 def test_artifact_action_pins_are_verified_upstream_shas():

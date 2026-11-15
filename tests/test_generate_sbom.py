@@ -167,9 +167,7 @@ def test_atheris_marker_matches_wheel_coverage():
 
     pinned_lines = (REPO_ROOT / "requirements-pinned.txt").read_text(encoding="utf-8").splitlines()
     pinned_req = next(
-        Requirement(line.strip())
-        for line in pinned_lines
-        if line.strip().startswith("atheris==")
+        Requirement(line.strip()) for line in pinned_lines if line.strip().startswith("atheris==")
     )
     assert str(pinned_req.specifier) == "==3.1.0"
     assert pinned_req.marker is not None
