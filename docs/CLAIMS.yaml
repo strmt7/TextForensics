@@ -107,6 +107,7 @@ claims:
     evidence_path: "pyproject.toml"
     doc_sha256: "f4400f8b1ec25475e60fe083eda29080138e880e829eaef0f640b211448d4b28"
     doc_as_of_sha: "973272ba33fe331b4280e5a2b6a8c2d6c29b593e"
+
     doc_state: "implemented"
     owner: "core"
     last_verified: "2026-11-06"
@@ -433,7 +434,7 @@ claims:
     evidence_type: "doc"
     evidence_path: ".github/workflows/reproducibility.yml"
     doc_sha256: "da3342a3a1ba4416d4ada01b0da059b53eaef1573307710e6ed040bd071adeec"
-    doc_as_of_sha: "1776f2bc044db8b2a69bd275a1f07507fbfa9e90"
+    doc_as_of_sha: "09057a7b4dbf2ac53a0c0f971b5a3ac74f14a533"
     doc_state: "implemented"
     executable_property: true
     executable_check: "python scripts/check_reproducibility.py"
