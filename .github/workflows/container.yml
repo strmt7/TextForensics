@@ -142,6 +142,7 @@ jobs:
 
       # Single-arch loadable copy for the running-image acceptance checks.
       - name: Build amd64 image for acceptance checks
+        id: load
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -152,13 +153,21 @@ jobs:
           tags: textforensics:candidate
           cache-from: type=gha
 
-      # ENG-14: the SBOM scans the BUILT IMAGE by digest, not `path: .`
-      # (the source tree). The source-tree inventory is not a runtime
-      # image inventory.
-      - name: Generate SBOM for built image (by digest)
+      # ENG-14: the SBOM scans the BUILT IMAGE, not `path: .` (the source
+      # tree). The source-tree inventory is not a runtime image inventory.
+      # The multi-arch build above runs with push: false, so it publishes
+      # no manifest and `steps.build.outputs.digest` is EMPTY -- it must
+      # not be used here (it made syft scan
+      # `ghcr.io/strmt7/textforensics@` with an empty digest and fail).
+      # Instead the SBOM scans the locally loaded single-arch candidate
+      # (`textforensics:candidate` -- the same image the acceptance checks
+      # run) by its local tag; the sbom-action fetches it from the Docker
+      # daemon. Its immutable image ID (`steps.load.outputs.imageid`) is
+      # recorded in the job summary below.
+      - name: Generate SBOM for built image (local candidate)
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0 (2026-03-19 tip, Syft v1.42.3)
         with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+          image: textforensics:candidate
           format: cyclonedx-json
           artifact-name: textforensics-sbom-cyclonedx.json
           output-file: textforensics-sbom.cdx.json
@@ -210,9 +219,9 @@ jobs:
           echo "- **Version:** \`${{ steps.version.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **SHA:** \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Platforms:** linux/amd64, linux/arm64" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Digest:** \`${{ steps.build.outputs.digest }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Digest:** \`${{ steps.load.outputs.imageid }}\` (loaded candidate image ID; the multi-arch build publishes no digest with push: false)" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Published:** no (candidate build only; promotion requires explicit dispatch + acceptance gate)" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **SBOM:** CycloneDX JSON for the built image digest, uploaded as artifact" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **SBOM:** CycloneDX JSON for the loaded candidate image (image ID above), uploaded as artifact" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Acceptance:** health endpoint, non-root, read-only, installed web resources" >> "$GITHUB_STEP_SUMMARY"
 
   # Promotion: ONLY via explicit workflow_dispatch with confirmation
