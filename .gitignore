@@ -26,3 +26,8 @@ output.txt
 verify*.txt
 pytest-performance.json
 coverage.txt
+# Build identity artifacts (ENG-02, W6): generated at build time, never
+# committed. The sdist provenance record is shipped inside the sdist
+# itself; the embedded _build_info.json lives in the built wheel.
+src/textforensics/_sdist_provenance.json
+src/textforensics/_build_info.json

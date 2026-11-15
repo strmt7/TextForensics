@@ -176,7 +176,7 @@ class TestGitQueriesBindToSourceRoot:
     """Git queries must run against the source root, never the cwd."""
 
     @staticmethod
-    def _init_repo(path: Path, filename: str = "marker.txt") -> str:
+    def _init_repo(path: Path, filename: str = "marker.txt", content: str = "x\n") -> str:
         path.mkdir(parents=True, exist_ok=True)
         subprocess.run(["git", "init", "-q", str(path)], check=True)
         subprocess.run(
@@ -187,7 +187,7 @@ class TestGitQueriesBindToSourceRoot:
             ["git", "-C", str(path), "config", "user.name", "Test"],
             check=True,
         )
-        (path / filename).write_text("x\n", encoding="utf-8")
+        (path / filename).write_text(content, encoding="utf-8")
         subprocess.run(["git", "-C", str(path), "add", "."], check=True)
         subprocess.run(
             ["git", "-C", str(path), "commit", "-qm", "initial"], check=True
@@ -206,8 +206,20 @@ class TestGitQueriesBindToSourceRoot:
         # in the cwd and would return B's HEAD.
         repo_a = tmp_path / "a"
         repo_b = tmp_path / "b"
-        head_a = self._init_repo(repo_a)
-        head_b = self._init_repo(repo_b)
+        # Shape repo A as a TextForensics source root: the git helpers
+        # only query git for a directory that looks like a source tree
+        # (pyproject.toml + src/textforensics/__init__.py), never for
+        # an arbitrary directory.
+        (repo_a / "src" / "textforensics").mkdir(parents=True)
+        (repo_a / "pyproject.toml").write_text(
+            '[project]\nname = "textforensics"\nversion = "0.2.0"\n',
+            encoding="utf-8",
+        )
+        (repo_a / "src" / "textforensics" / "__init__.py").write_text(
+            '"""Test package."""\n', encoding="utf-8"
+        )
+        head_a = self._init_repo(repo_a, content="repo a\n")
+        head_b = self._init_repo(repo_b, content="repo b\n")
         assert head_a != head_b
         old_cwd = os.getcwd()
         try:

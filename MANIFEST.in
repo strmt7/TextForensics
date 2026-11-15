@@ -1,0 +1,11 @@
+# MANIFEST.in — files shipped in the sdist beyond setuptools defaults.
+#
+# ENG-02 (W6): the sdist must carry the provenance record captured at
+# sdist time (src/textforensics/_sdist_provenance.json, written by the
+# custom sdist command in setup.py), so wheels built from the sdist
+# outside any Git worktree still carry the source commit and contract
+# digests. The file is gitignored (a build artifact, not a source
+# file); if it does not exist when the sdist is built without the
+# custom command, the include is skipped and the sdist simply carries
+# no provenance (wheels from it verify as unknown, fail closed).
+include src/textforensics/_sdist_provenance.json
