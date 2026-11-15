@@ -262,6 +262,13 @@ class TestGitQueriesBindToSourceRoot:
 def _run(cmd, cwd, env=None):
     merged = dict(os.environ)
     merged["PYTHONDONTWRITEBYTECODE"] = "1"
+    # CRITICAL: never inherit PYTHONPATH into build/install/probe
+    # subprocesses. The test suite itself runs with PYTHONPATH pointing
+    # at the worktree src/; a probe that inherits it imports the
+    # worktree package instead of the freshly installed wheel, so the
+    # test would read the worktree's identity and pass (or fail)
+    # vacuously instead of testing the artifact.
+    merged.pop("PYTHONPATH", None)
     if env:
         merged.update(env)
     result = subprocess.run(
@@ -578,7 +585,15 @@ class TestWheelFromSdistIdentity:
         shutil.copytree(
             REPO_ROOT / "src",
             source_dir / "src",
-            ignore=shutil.ignore_patterns("__pycache__"),
+            ignore=shutil.ignore_patterns(
+                "__pycache__",
+                # Build artifacts: the sdist build in this same test
+                # module writes _sdist_provenance.json into the worktree
+                # src/ (gitignored). A provenance-less copy must exclude
+                # it, or the copy would inherit the provenance.
+                "_sdist_provenance.json",
+                "_build_info.json",
+            ),
         )
         for name in ("pyproject.toml", "setup.py", "README.md", "LICENSE"):
             shutil.copy2(REPO_ROOT / name, source_dir / name)
