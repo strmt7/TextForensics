@@ -18,30 +18,7 @@ The following Wilson-upper-bound / FPR evidence exists in registry run artifacts
 
 ## Claims
 
-32 passed, 1 failed of 33 claims.
-
-### Failed claims
-
-- **ruff_lint_clean** (`fail`; evidence `EV-20261106-ruff`): Command failed (exit 1):    -     get_build_info,
-49 |     verify_build_identity,
-   |
-
-SIM117 Use a single `with` statement with multiple contexts instead of nested `with` statements
-  --> tests/test_audit_w6_b_reproducibility.py:69:5
-   |
-67 |               info.mtime = 1704067200
-68 |               archive.addfile(info, io.BytesIO(data))
-69 | /     with open(path, "wb") as raw:
-70 | |         # filename="" so no FNAME is stored in the gzip header (two
-71 | |         # files with different names must still hash identically).
-72 | |         with gzip.GzipFile("", "wb", compresslevel=9, mtime=1704067200, fileobj=raw) as out:
-   | |____________________________________________________________________________________________^
-73 |               out.write(buffer.getvalue())
-   |
-help: Combine `with` statements
-
-Found 5 errors.
-[*] 3 fixable with `--fix` (1 unsafe fix available with `--fix --unsafe-fixes`).
+33 passed, 0 failed of 33 claims.
 
 ### All claims
 
@@ -70,7 +47,7 @@ Found 5 errors.
 | test_suite_measured | verified | EV-20261107-suite | pass |
 | test_suite_measured_core | verified | EV-20261107-suite-core | pass |
 | python_version_support | verified | EV-20261106-doc-ci-matrix | pass |
-| ruff_lint_clean | verified | EV-20261106-ruff | fail |
+| ruff_lint_clean | verified | EV-20261106-ruff | pass |
 | security.bandit_no_medium_high | verified | EV-20261108-bandit | pass |
 | security.pip_audit_tracked | verified | EV-20261108-pip-audit | pass |
 | deterministic_builds | verified | EV-20261115-reproducibility | pass |

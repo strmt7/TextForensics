@@ -59,9 +59,7 @@ def _parse_lockfile(path: Path) -> dict[str, str]:
     """Parse a hash-pinned lockfile into {normalized-name: version}."""
     pins: dict[str, str] = {}
     text = path.read_text(encoding="utf-8")
-    for match in re.finditer(
-        r"^([A-Za-z0-9_.\-]+)==([^\s\\]+)", text, re.M
-    ):
+    for match in re.finditer(r"^([A-Za-z0-9_.\-]+)==([^\s\\]+)", text, re.M):
         pins[match.group(1).lower().replace("_", "-")] = match.group(2)
     return pins
 
@@ -88,9 +86,7 @@ def _pyproject_build_requires() -> dict[str, SpecifierSet]:
     for req in data["build-system"]["requires"]:
         match = re.match(r"^([A-Za-z0-9_.\-]+)\s*(.*)$", req.strip())
         assert match, req
-        requires[match.group(1).lower()] = SpecifierSet(
-            match.group(2).strip()
-        )
+        requires[match.group(1).lower()] = SpecifierSet(match.group(2).strip())
     return requires
 
 
@@ -123,8 +119,7 @@ class TestBuildProfileIsConsistent:
             assert package in tools, f"{package} missing from tools lockfile"
             version = Version(tools[package])
             assert version in spec, (
-                f"{package}=={tools[package]} is outside the pyproject "
-                f"build-system range {spec}"
+                f"{package}=={tools[package]} is outside the pyproject build-system range {spec}"
             )
 
     def test_every_tools_lockfile_entry_is_hash_pinned(self):
@@ -150,12 +145,9 @@ class TestToolsLockfileClosure:
             assert parent in pins, f"{parent} missing from tools lockfile"
             for dep in sorted(transitives):
                 assert dep in pins, (
-                    f"{dep} (transitive of {parent}) is not pinned in the "
-                    "tools lockfile"
+                    f"{dep} (transitive of {parent}) is not pinned in the tools lockfile"
                 )
-                assert counts.get(dep, 0) >= 1, (
-                    f"{dep} has no --hash entries in the tools lockfile"
-                )
+                assert counts.get(dep, 0) >= 1, f"{dep} has no --hash entries in the tools lockfile"
 
     def test_shared_packages_match_main_lockfile_versions(self):
         """Where a tools-lockfile package is also in the main lockfile,
@@ -169,17 +161,13 @@ class TestToolsLockfileClosure:
         shared = sorted(set(tools) & set(main))
         assert shared, "no shared packages between the lockfiles"
         mismatched = {
-            name: (tools[name], main[name])
-            for name in shared
-            if tools[name] != main[name]
+            name: (tools[name], main[name]) for name in shared if tools[name] != main[name]
         }
         # sphinx 8.2.3 requires docutils<0.22; the main lockfile pins
         # 0.23. The tools resolution therefore uses docutils 0.21.2.
         allowed = {"docutils"}
         unexpected = {name: v for name, v in mismatched.items() if name not in allowed}
-        assert not unexpected, (
-            "version mismatch between lockfiles: " + str(unexpected)
-        )
+        assert not unexpected, "version mismatch between lockfiles: " + str(unexpected)
         assert mismatched.keys() <= allowed
 
     def test_tools_lockfile_install_dry_run(self):
@@ -240,7 +228,9 @@ class TestNoWorkflowInstallsUnpinnedBuildInput:
         for filename, number, line in self._pip_install_lines():
             if "-r " in line or "--requirement" in line:
                 if "--require-hashes" not in line:
-                    bad.append((filename, number, line, "lockfile install without --require-hashes"))
+                    bad.append(
+                        (filename, number, line, "lockfile install without --require-hashes")
+                    )
             elif "-e " in line or "--editable" in line:
                 # Local editable install: must not resolve from the index.
                 if "--no-deps" not in line:
@@ -254,9 +244,8 @@ class TestNoWorkflowInstallsUnpinnedBuildInput:
                 continue
             else:
                 bad.append((filename, number, line, "bare pip install of a named package"))
-        assert not bad, (
-            "workflow installs an unpinned build input:\n"
-            + "\n".join(f"  {f}:{n}: {why}\n    {line}" for f, n, line, why in bad)
+        assert not bad, "workflow installs an unpinned build input:\n" + "\n".join(
+            f"  {f}:{n}: {why}\n    {line}" for f, n, line, why in bad
         )
 
     def test_workflows_build_from_a_pinned_lockfile(self):
