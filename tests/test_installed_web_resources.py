@@ -76,9 +76,7 @@ def _run(
     cmd: list[str], *, env: dict[str, str] | None = None, **kwargs
 ) -> subprocess.CompletedProcess[str]:
     """Run a command, failing the test with its output on error."""
-    result = subprocess.run(
-        cmd, capture_output=True, text=True, env=env, **kwargs
-    )
+    result = subprocess.run(cmd, capture_output=True, text=True, env=env, **kwargs)
     if result.returncode != 0:
         raise AssertionError(
             f"command failed ({result.returncode}): {' '.join(cmd)}\n"
@@ -105,9 +103,7 @@ def _free_port() -> int:
 
 def _http_get(base_url: str, path: str) -> tuple[int, str]:
     try:
-        with urllib.request.urlopen(
-            base_url + path, timeout=30
-        ) as response:
+        with urllib.request.urlopen(base_url + path, timeout=30) as response:
             return response.status, response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read().decode("utf-8", "replace")
@@ -145,9 +141,7 @@ def wheel_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture(scope="module")
-def installed_server_url(
-    wheel_path: Path, tmp_path_factory: pytest.TempPathFactory
-) -> str:
+def installed_server_url(wheel_path: Path, tmp_path_factory: pytest.TempPathFactory) -> str:
     """Install the wheel into a fresh venv and serve it on a free port.
 
     The venv is created outside the checkout and the wheel is installed
@@ -191,8 +185,7 @@ def installed_server_url(
     )
     imported_from = probe.stdout.strip()
     assert imported_from.startswith(str(venv_dir)), (
-        "fresh venv imports textforensics from outside the venv: "
-        f"{imported_from}"
+        f"fresh venv imports textforensics from outside the venv: {imported_from}"
     )
     port = _free_port()
     server = subprocess.Popen(
@@ -215,8 +208,7 @@ def installed_server_url(
         if server.poll() is not None:
             output = server.stdout.read() if server.stdout else ""
             raise AssertionError(
-                "installed web server exited during startup "
-                f"(exit {server.returncode}):\n{output}"
+                f"installed web server exited during startup (exit {server.returncode}):\n{output}"
             )
         try:
             status, _ = _http_get(base_url, "/healthz")
@@ -303,24 +295,15 @@ class TestInstalledServer:
 
     def test_static_chart_js_served(self, installed_server_url: str) -> None:
         """GET /static/chart.umd.min.js serves the vendored bundle (ENG-01)."""
-        status, body = _http_get(
-            installed_server_url, "/static/chart.umd.min.js"
-        )
-        assert status == 200, (
-            f"GET /static/chart.umd.min.js returned {status}"
-        )
+        status, body = _http_get(installed_server_url, "/static/chart.umd.min.js")
+        assert status == 200, f"GET /static/chart.umd.min.js returned {status}"
         assert CHART_JS_MARKER in body
         assert "@kurkle/color v0.3.2" in body
 
     def test_static_notices_served(self, installed_server_url: str) -> None:
         """GET /static/THIRD-PARTY-NOTICES.txt serves the notices (ENG-15)."""
-        status, body = _http_get(
-            installed_server_url, "/static/THIRD-PARTY-NOTICES.txt"
-        )
-        assert status == 200, (
-            "GET /static/THIRD-PARTY-NOTICES.txt returned "
-            f"{status}: {body[:200]}"
-        )
+        status, body = _http_get(installed_server_url, "/static/THIRD-PARTY-NOTICES.txt")
+        assert status == 200, f"GET /static/THIRD-PARTY-NOTICES.txt returned {status}: {body[:200]}"
         for marker in NOTICE_MARKERS:
             assert marker in body
 
@@ -337,10 +320,7 @@ def test_sbom_records_vendored_assets() -> None:
     sbom_path = REPO_ROOT / "sbom" / "textforensics.cdx.json"
     bom = json.loads(sbom_path.read_text(encoding="utf-8"))
     by_name = {c["name"]: c for c in bom["components"]}
-    vendored_file = (
-        REPO_ROOT / "src" / "textforensics" / "web_ui" / "static"
-        / "chart.umd.min.js"
-    )
+    vendored_file = REPO_ROOT / "src" / "textforensics" / "web_ui" / "static" / "chart.umd.min.js"
     file_sha256 = hashlib.sha256(vendored_file.read_bytes()).hexdigest()
     expected = {
         "chart.js": {
@@ -361,9 +341,7 @@ def test_sbom_records_vendored_assets() -> None:
         assert component["version"] == fields["version"]
         assert component["purl"] == fields["purl"]
         assert component["licenses"] == [{"license": {"id": "MIT"}}]
-        hashes = {
-            h["alg"]: h["content"] for h in component.get("hashes", [])
-        }
+        hashes = {h["alg"]: h["content"] for h in component.get("hashes", [])}
         assert hashes.get("SHA-256") == file_sha256, (
             f"SBOM hash for {name} does not match the shipped file"
         )

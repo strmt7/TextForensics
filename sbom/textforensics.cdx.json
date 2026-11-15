@@ -2,6 +2,37 @@
   "bomFormat": "CycloneDX",
   "components": [
     {
+      "bom-ref": "npm:@kurkle/color@0.3.2",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d2af8974e95271638772e9e9524db5b9a6f58d6ec2d5d781400447b4a31c681e"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "@kurkle/color",
+      "properties": [
+        {
+          "name": "vendored",
+          "value": "true"
+        },
+        {
+          "name": "vendored-path",
+          "value": "src/textforensics/web_ui/static/chart.umd.min.js"
+        }
+      ],
+      "purl": "pkg:npm/%40kurkle/color@0.3.2",
+      "scope": "required",
+      "type": "library",
+      "version": "0.3.2"
+    },
+    {
       "bom-ref": "aiohappyeyeballs@2.7.1",
       "name": "aiohappyeyeballs",
       "purl": "pkg:pypi/aiohappyeyeballs@2.7.1",
@@ -176,6 +207,37 @@
       "scope": "required",
       "type": "library",
       "version": "3.5.2"
+    },
+    {
+      "bom-ref": "npm:chart.js@4.4.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d2af8974e95271638772e9e9524db5b9a6f58d6ec2d5d781400447b4a31c681e"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "chart.js",
+      "properties": [
+        {
+          "name": "vendored",
+          "value": "true"
+        },
+        {
+          "name": "vendored-path",
+          "value": "src/textforensics/web_ui/static/chart.umd.min.js"
+        }
+      ],
+      "purl": "pkg:npm/chart.js@4.4.1",
+      "scope": "required",
+      "type": "library",
+      "version": "4.4.1"
     },
     {
       "bom-ref": "click@8.5.1",
@@ -1738,6 +1800,16 @@
       "ref": "nodeenv@1.12.0"
     },
     {
+      "dependsOn": [],
+      "ref": "npm:@kurkle/color@0.3.2"
+    },
+    {
+      "dependsOn": [
+        "npm:@kurkle/color@0.3.2"
+      ],
+      "ref": "npm:chart.js@4.4.1"
+    },
+    {
       "dependsOn": [
         "typing-extensions@4.16.0"
       ],
@@ -2127,6 +2199,8 @@
         "multidict@7.2.1",
         "nh3@0.3.7",
         "nodeenv@1.12.0",
+        "npm:@kurkle/color@0.3.2",
+        "npm:chart.js@4.4.1",
         "opentelemetry-api@1.45.2",
         "packageurl-python@0.17.6",
         "packaging@26.3",
@@ -2295,11 +2369,11 @@
     "properties": [
       {
         "name": "generator",
-        "value": "generate_sbom.py 1.0.1"
+        "value": "generate_sbom.py 1.0.2"
       },
       {
         "name": "pyprojectSha256",
-        "value": "bb95d58a98a107af26f081fb95ad884bbb63ef32101f7076b8ab63ea0e38163d"
+        "value": "fca2a8227185ab403399b9178d470279f5a46745b634dc83bb614fa965ee9abe"
       },
       {
         "name": "requirementsPinnedSha256",
@@ -2314,11 +2388,11 @@
       {
         "name": "generate_sbom.py",
         "vendor": "TextForensics",
-        "version": "1.0.1"
+        "version": "1.0.2"
       }
     ]
   },
-  "serialNumber": "urn:uuid:9e095999-93b7-5959-a7e3-e2172cc6b5ad",
+  "serialNumber": "urn:uuid:103a8cf1-1b93-556a-bc38-7a724d8c414b",
   "specVersion": "1.6",
   "version": 1
 }

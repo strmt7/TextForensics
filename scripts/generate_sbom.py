@@ -204,9 +204,7 @@ def vendored_components(root: Path) -> tuple[list[dict], list[dict]]:
                 "purl": asset.purl,
                 "scope": "required",
                 "licenses": [{"license": {"id": asset.license_id}}],
-                "hashes": [
-                    {"alg": "SHA-256", "content": sha256_file(asset_path)}
-                ],
+                "hashes": [{"alg": "SHA-256", "content": sha256_file(asset_path)}],
                 "properties": [
                     {"name": "vendored", "value": "true"},
                     {"name": "vendored-path", "value": asset.path},
@@ -217,9 +215,7 @@ def vendored_components(root: Path) -> tuple[list[dict], list[dict]]:
             {
                 "ref": ref,
                 "dependsOn": sorted(
-                    vendored_bom_ref(by_name[name])
-                    for name in asset.bundles
-                    if name in by_name
+                    vendored_bom_ref(by_name[name]) for name in asset.bundles if name in by_name
                 ),
             }
         )
@@ -475,9 +471,7 @@ def build_bom(
     )
     # Vendored assets ship inside the application itself, so the root
     # component depends on them directly (ENG-15).
-    direct_refs = sorted(
-        direct_refs + [c["bom-ref"] for c in vendored_components]
-    )
+    direct_refs = sorted(direct_refs + [c["bom-ref"] for c in vendored_components])
     dependencies.append({"ref": root_ref, "dependsOn": direct_refs})
     for name in sorted(included):
         dist = installed[name]
