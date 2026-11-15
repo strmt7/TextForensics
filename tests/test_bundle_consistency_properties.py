@@ -139,16 +139,20 @@ class TestBundleConsistencyProperties:
 
     @given(st.floats(min_value=-10.0, max_value=10.0, allow_nan=False, allow_infinity=False))
     @hypothesis_settings(deadline=None)
-    def test_ai_probability_range(self, prob: float):
-        """AI probability outside [0,1] should warn but not fail."""
+    def test_calibrated_ai_probability_range(self, prob: float):
+        """Calibrated AI probability outside [0,1] should warn but not fail."""
         bundle = {
             "schema": "textforensics.forensic-bundle/v1",
-            "consensus": {"verdict": "ai_like", "ai_probability": prob},
+            "consensus": {
+                "verdict": "ai_like",
+                "calibrated_ai_probability": prob,
+                "ensemble_calibration_id": "test-cal-1",
+            },
         }
         report = check_bundle_consistency(bundle)
         if prob < 0.0 or prob > 1.0:
             # Should produce a warning
-            assert any("ai_probability" in i.field for i in report.issues)
+            assert any("calibrated_ai_probability" in i.field for i in report.issues)
 
     @given(
         st.sampled_from(

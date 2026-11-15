@@ -58,12 +58,12 @@ def _bundle(verdict, prob=None, cal_id=None, votes=None):
                 if votes is not None
                 else [
                     {
-                        "detector_family": "statistical",
+                        "family": "statistical",
                         "verdict": verdict,
                         "calibrated_ai_probability": None,
                     },
                     {
-                        "detector_family": "perplexity",
+                        "family": "perplexity",
                         "verdict": verdict,
                         "calibrated_ai_probability": None,
                     },
@@ -156,12 +156,12 @@ class TestIF04FamilyChart:
     def test_calibrated_family_displays_exact_value(self):
         votes = [
             {
-                "detector_family": "statistical",
+                "family": "statistical",
                 "verdict": "ai_like",
                 "calibrated_ai_probability": 0.62,
             },
             {
-                "detector_family": "perplexity",
+                "family": "perplexity",
                 "verdict": "abstain",
                 "calibrated_ai_probability": None,
             },

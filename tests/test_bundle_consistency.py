@@ -17,7 +17,8 @@ class TestBundleConsistency:
             "schema": "textforensics.forensic-bundle/v1",
             "consensus": {
                 "verdict": "ai_like",
-                "ai_probability": 0.75,
+                "calibrated_ai_probability": 0.75,
+                "ensemble_calibration_id": "test-cal-1",
                 "independent_families": 1,
             },
             "detector_results": [
@@ -60,15 +61,41 @@ class TestBundleConsistency:
         assert report.is_consistent is True  # Warning doesn't fail
         assert any(i.field == "consensus.verdict" for i in report.issues)
 
-    def test_ai_probability_range(self):
-        """AI probability must be between 0 and 1."""
+    def test_calibrated_ai_probability_range(self):
+        """Calibrated AI probability must be between 0 and 1."""
         bundle = {
             "schema": "textforensics.forensic-bundle/v1",
-            "consensus": {"ai_probability": 1.5},
+            "consensus": {
+                "calibrated_ai_probability": 1.5,
+                "ensemble_calibration_id": "test-cal-1",
+            },
         }
         report = check_bundle_consistency(bundle)
         assert report.is_consistent is True  # Range warning doesn't fail
-        assert any("ai_probability" in i.field for i in report.issues)
+        assert any("calibrated_ai_probability" in i.field for i in report.issues)
+
+    def test_legacy_ai_probability_field_is_flagged(self):
+        """A legacy bare ai_probability field is not canonical (W5 IF-04):
+        it carries no calibration provenance, so it is an error even
+        when its value is in range."""
+        bundle = {
+            "schema": "textforensics.forensic-bundle/v1",
+            "consensus": {"verdict": "ai_like", "ai_probability": 0.75},
+        }
+        report = check_bundle_consistency(bundle)
+        assert report.is_consistent is False
+        assert any(i.field == "consensus.ai_probability" for i in report.issues)
+
+    def test_calibrated_probability_without_calibration_id_is_flagged(self):
+        """A calibrated value without its ensemble calibration identity
+        is invalid (W5 IF-04)."""
+        bundle = {
+            "schema": "textforensics.forensic-bundle/v1",
+            "consensus": {"verdict": "ai_like", "calibrated_ai_probability": 0.62},
+        }
+        report = check_bundle_consistency(bundle)
+        assert report.is_consistent is False
+        assert any(i.field == "consensus.calibrated_ai_probability" for i in report.issues)
 
     def test_duplicate_detector_ids_warns(self):
         """Duplicate detector IDs should produce a warning."""

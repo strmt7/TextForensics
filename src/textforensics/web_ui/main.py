@@ -20,6 +20,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
+from starlette.websockets import WebSocketState
 
 from .._build_info import get_version
 from ..config import (
@@ -168,13 +169,25 @@ def _validate_shared_bundle(data: Any) -> None:
     verdict = consensus.get("verdict")
     if not isinstance(verdict, str) or verdict not in _CONSENSUS_VERDICTS:
         raise ValueError("Shared bundle consensus verdict is not a known verdict.")
-    ai_probability = consensus.get("ai_probability")
-    if ai_probability is not None and (
-        isinstance(ai_probability, bool)
-        or not isinstance(ai_probability, (int, float))
-        or not 0.0 <= float(ai_probability) <= 1.0
+    # Canonical ensemble probability only (IF-04): a bare legacy
+    # `ai_probability` field is not a calibrated probability -- it has
+    # no calibration provenance -- so a shared bundle carrying it is
+    # refused, never retained. A calibrated value requires its
+    # ensemble calibration identity (both or neither).
+    if "ai_probability" in consensus:
+        raise ValueError("Shared bundle uses the legacy ai_probability field.")
+    calibrated = consensus.get("calibrated_ai_probability")
+    calibration_id = consensus.get("ensemble_calibration_id")
+    if calibrated is not None and (
+        isinstance(calibrated, bool)
+        or not isinstance(calibrated, (int, float))
+        or not 0.0 <= float(calibrated) <= 1.0
     ):
-        raise ValueError("Shared bundle AI probability is out of range.")
+        raise ValueError("Shared bundle calibrated probability is out of range.")
+    if (calibrated is None) != (calibration_id is None):
+        raise ValueError("Shared bundle calibrated probability requires its calibration identity.")
+    if calibration_id is not None and (not isinstance(calibration_id, str) or not calibration_id):
+        raise ValueError("Shared bundle calibration identity is not a non-empty string.")
     detector_results = data.get("detector_results", [])
     if not isinstance(detector_results, list):
         raise ValueError("Shared bundle detector results must be a list.")
@@ -233,7 +246,19 @@ def _ws_error_body(status: int) -> dict[str, Any]:
 
 
 class SessionManager:
-    """In-memory session management for real-time collaboration."""
+    """In-memory session management for real-time collaboration.
+
+    One typed mapping owns the socket-to-session relation
+    (``_ws_map: ws_key -> session_id``). Only :meth:`join_user`
+    writes it and only :meth:`leave_user` removes from it -- handlers
+    never edit the private maps directly, so a disconnect can never
+    strand a user entry (IF-10). ``last_activity`` is refreshed on
+    every join and every message routed through the session, and
+    :meth:`cleanup` expires sessions idle longer than
+    ``session_timeout_seconds`` as well as empty ones. Each web
+    application owns its own manager (``app.state.session_manager``);
+    there is no shared global manager.
+    """
 
     def __init__(
         self,
@@ -259,8 +284,10 @@ class SessionManager:
             self._evict_expired()
             if len(self._sessions) >= self.max_sessions:
                 raise ValueError("Maximum sessions reached")
+        now = datetime.now(UTC).isoformat()
         self._sessions[session_id] = {
-            "created_at": datetime.now(UTC).isoformat(),
+            "created_at": now,
+            "last_activity": now,
             "users": {},
             "connections": {},
         }
@@ -272,6 +299,23 @@ class SessionManager:
     def has_session(self, session_id: str) -> bool:
         return session_id in self._sessions
 
+    def session_id_for(self, ws_key: str) -> str | None:
+        """Return the session a socket belongs to, or None.
+
+        The single read path for the ``ws_key -> session_id`` mapping;
+        handlers use this instead of reading the private map.
+        """
+        return self._ws_map.get(ws_key)
+
+    def touch(self, ws_key: str) -> None:
+        """Refresh last-activity for the session a socket belongs to."""
+        session_id = self._ws_map.get(ws_key)
+        if session_id is None:
+            return
+        session = self._sessions.get(session_id)
+        if session is not None:
+            session["last_activity"] = datetime.now(UTC).isoformat()
+
     def join_user(
         self,
         session_id: str,
@@ -282,8 +326,14 @@ class SessionManager:
         session = self._sessions.get(session_id)
         if session is None:
             raise ValueError(f"Session {session_id} not found")
-        if len(session["users"]) >= self.max_users_per_session:
+        if len(session["users"]) >= self.max_users_per_session and ws_key not in session["users"]:
             raise ValueError("Session is full")
+        # A socket belongs to at most one session: joining another
+        # session first leaves the previous one, so a reconnect or a
+        # duplicate join can never strand the old entry.
+        previous = self._ws_map.get(ws_key)
+        if previous is not None and previous != session_id:
+            self.leave_user(ws_key)
         user_info = {
             "ws_key": ws_key,
             "display_name": display_name,
@@ -291,10 +341,17 @@ class SessionManager:
         }
         session["users"][ws_key] = user_info
         session["connections"][ws_key] = websocket
+        session["last_activity"] = datetime.now(UTC).isoformat()
         self._ws_map[ws_key] = session_id
         return user_info
 
     def leave_user(self, ws_key: str) -> str | None:
+        """Remove one socket from its session; exclusively owns removal.
+
+        Returns the session ID the socket belonged to, or None. The
+        last user's departure removes the session itself. Handlers
+        must call this instead of editing the private maps.
+        """
         session_id = self._ws_map.pop(ws_key, None)
         if session_id is None:
             return None
@@ -319,6 +376,40 @@ class SessionManager:
             return []
         return list(session["connections"].values())
 
+    async def broadcast(
+        self, session_id: str, payload: dict[str, Any], *, exclude_ws_key: str | None = None
+    ) -> int:
+        """Send ``payload`` once to every live connection in the session.
+
+        Connections whose client state is not CONNECTED are never
+        sent to; a failed send prunes the socket via :meth:`leave_user`
+        so a closed connection cannot linger or receive a second copy.
+        Returns the number of deliveries.
+        """
+        session = self._sessions.get(session_id)
+        if session is None:
+            return 0
+        dead: list[str] = []
+        sent = 0
+        for ws_key, conn in list(session["connections"].items()):
+            if ws_key == exclude_ws_key:
+                continue
+            state = getattr(conn, "client_state", None)
+            if state is not None and state is not WebSocketState.CONNECTED:
+                dead.append(ws_key)
+                continue
+            try:
+                await conn.send_json(payload)
+            except Exception:
+                dead.append(ws_key)
+            else:
+                sent += 1
+        for ws_key in dead:
+            self.leave_user(ws_key)
+        if session_id in self._sessions:
+            session["last_activity"] = datetime.now(UTC).isoformat()
+        return sent
+
     def session_info(self, session_id: str) -> dict[str, Any] | None:
         session = self._sessions.get(session_id)
         if session is None:
@@ -326,26 +417,48 @@ class SessionManager:
         return {
             "session_id": session_id,
             "created_at": session["created_at"],
+            "last_activity": session.get("last_activity"),
             "user_count": len(session["users"]),
             "users": session["users"],
         }
 
-    def _evict_expired(self) -> None:
+    def _evict_expired(self) -> int:
+        """Remove empty sessions and sessions idle past the timeout.
+
+        A session with no users is always reclaimable. A session with
+        users is reclaimable only when its last activity is older than
+        ``session_timeout_seconds`` (a zero timeout expires immediately).
+        Socket mappings pointing at a removed session are dropped with it.
+        Returns the number of sessions removed.
+        """
+        now = datetime.now(UTC)
         to_remove = []
         for sid, session in self._sessions.items():
             if not session["users"]:
                 to_remove.append(sid)
+                continue
+            if self.session_timeout_seconds <= 0:
+                to_remove.append(sid)
+                continue
+            last = session.get("last_activity") or session.get("created_at")
+            try:
+                last_dt = datetime.fromisoformat(last) if isinstance(last, str) else None
+            except ValueError:
+                last_dt = None
+            if (
+                last_dt is not None
+                and (now - last_dt).total_seconds() > self.session_timeout_seconds
+            ):
+                to_remove.append(sid)
         for sid in to_remove:
             self._sessions.pop(sid, None)
+            for ws_key in [k for k, v in self._ws_map.items() if v == sid]:
+                self._ws_map.pop(ws_key, None)
+        return len(to_remove)
 
     def cleanup(self) -> int:
         """Remove empty/expired sessions. Returns number removed."""
-        before = len(self._sessions)
-        self._evict_expired()
-        return before - len(self._sessions)
-
-
-session_manager = SessionManager()
+        return self._evict_expired()
 
 
 class TextRequest(BaseModel):
@@ -387,6 +500,12 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
         description="Real-time AI-text detector analysis and visualization dashboard.",
     )
     app.state.textforensics_settings = active_settings
+
+    # Application-scoped session manager (IF-10): each app instance
+    # owns its sessions, so two apps (two TestClients, two servers)
+    # never share users or socket references.
+    manager = SessionManager()
+    app.state.session_manager = manager
 
     # Shared redacting error handlers (IF-07): validation errors are
     # sanitized (loc/msg/type only), HTTPException status/detail are
@@ -483,11 +602,11 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                 if family not in families:
                     continue
             if min_score is not None:
-                score = consensus.get("ai_probability")
+                score = consensus.get("calibrated_ai_probability")
                 if score is None or score < min_score:
                     continue
             if max_score is not None:
-                score = consensus.get("ai_probability")
+                score = consensus.get("calibrated_ai_probability")
                 if score is None or score > max_score:
                     continue
 
@@ -496,7 +615,11 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                     "id": entry["id"],
                     "stored_at": entry["stored_at"],
                     "verdict": consensus.get("verdict"),
-                    "ai_probability": consensus.get("ai_probability"),
+                    # Canonical ensemble probability only (IF-04):
+                    # the calibrated value with its calibration identity;
+                    # no legacy bare ai_probability field is emitted.
+                    "calibrated_ai_probability": consensus.get("calibrated_ai_probability"),
+                    "ensemble_calibration_id": consensus.get("ensemble_calibration_id"),
                     "independent_families": consensus.get("independent_families"),
                     "word_count": data.get("input", {}).get("word_count"),
                     "content_sha256": data.get("content_sha256", "")[:16] + "…",
@@ -625,13 +748,13 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/api/session")
     def create_session() -> dict[str, str]:
         """Create a new collaboration session."""
-        session_id = session_manager.create_session()
+        session_id = manager.create_session()
         return {"session_id": session_id}
 
     @app.get("/api/session/{session_id}")
     def get_session_info(session_id: str) -> dict[str, Any]:
         """Get session info including connected users."""
-        info = session_manager.session_info(session_id)
+        info = manager.session_info(session_id)
         if info is None:
             # Constant detail: the caller-supplied identifier is never
             # reflected in an error (IF-07).
@@ -641,12 +764,12 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/session/{session_id}/users")
     def get_session_users(session_id: str) -> list[dict[str, Any]]:
         """List users in a session."""
-        return session_manager.list_users(session_id)
+        return manager.list_users(session_id)
 
     @app.delete("/api/session")
     def cleanup_sessions() -> dict[str, int]:
         """Clean up empty/expired sessions."""
-        removed = session_manager.cleanup()
+        removed = manager.cleanup()
         return {"removed": removed}
 
     @app.post("/api/analyze", response_model=AnalyzeResponse)
@@ -877,6 +1000,9 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                     await websocket.send_json(_ws_error_body(422))
                     continue
                 msg_type = message.get("type")
+                # Session activity: any message from a joined socket
+                # keeps its session live for the idle-expiry policy.
+                manager.touch(ws_key)
 
                 # ── Collaboration messages ────────────────────────
                 if msg_type == "join_session":
@@ -902,30 +1028,26 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                         await websocket.send_json(_ws_error_body(422))
                         continue
                     try:
-                        user_info = session_manager.join_user(
-                            sess_id, ws_key, websocket, display_name
-                        )
+                        user_info = manager.join_user(sess_id, ws_key, websocket, display_name)
                         await websocket.send_json(
                             {
                                 "type": "session_joined",
                                 "session_id": sess_id,
                                 "user": user_info,
-                                "users": session_manager.list_users(sess_id),
+                                "users": manager.list_users(sess_id),
                             }
                         )
-                        # Register ws_key for later cleanup
-                        session_manager._ws_map[ws_key] = id(websocket)
                         # Broadcast to other users in the session
-                        for conn_ws in session_manager.get_connected(sess_id):
-                            if id(conn_ws) != id(websocket):
-                                with suppress(Exception):
-                                    await conn_ws.send_json(
-                                        {
-                                            "type": "user_joined",
-                                            "user": user_info,
-                                            "users": session_manager.list_users(sess_id),
-                                        }
-                                    )
+                        # (exactly once each; closed sockets are pruned).
+                        await manager.broadcast(
+                            sess_id,
+                            {
+                                "type": "user_joined",
+                                "user": user_info,
+                                "users": manager.list_users(sess_id),
+                            },
+                            exclude_ws_key=ws_key,
+                        )
                     except ValueError:
                         # Constant: the session identifier is never
                         # reflected in an error (IF-07).
@@ -934,22 +1056,19 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
 
                 elif msg_type == "leave_session":
                     # Cleanup is always allowed, including while stopped.
-                    sess_id = session_manager._ws_map.pop(ws_key, None)
+                    # leave_user exclusively owns removal: no direct
+                    # private-map edit here (IF-10).
+                    sess_id = manager.leave_user(ws_key)
                     if sess_id:
-                        session_manager.leave_user(ws_key)
                         with suppress(Exception):
                             await websocket.send_json(
                                 {"type": "session_left", "session_id": sess_id}
                             )
-                        # Broadcast to remaining users
-                        for conn_ws in session_manager.get_connected(sess_id):
-                            with suppress(Exception):
-                                await conn_ws.send_json(
-                                    {
-                                        "type": "user_left",
-                                        "users": session_manager.list_users(sess_id),
-                                    }
-                                )
+                        # Broadcast to remaining users.
+                        await manager.broadcast(
+                            sess_id,
+                            {"type": "user_left", "users": manager.list_users(sess_id)},
+                        )
                     continue
 
                 elif msg_type == "analysis_shared":
@@ -963,7 +1082,7 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                     ) as exc:
                         await websocket.send_json(_ws_error_body(error_status_for_exception(exc)))
                         continue
-                    sess_id = session_manager._ws_map.get(ws_key)
+                    sess_id = manager.session_id_for(ws_key)
                     if not sess_id:
                         await websocket.send_json(_ws_error_body(404))
                         continue
@@ -1003,16 +1122,18 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
                     if not isinstance(shared_by, str) or len(shared_by) > _MAX_WS_ID_CHARS:
                         shared_by = ws_key
                     await websocket.send_json({"type": "analysis_shared", "analysis_id": stored_id})
-                    for conn_ws in session_manager.get_connected(sess_id):
-                        with suppress(Exception):
-                            await conn_ws.send_json(
-                                {
-                                    "type": "analysis_shared",
-                                    "data": shared_data,
-                                    "analysis_id": stored_id,
-                                    "shared_by": shared_by,
-                                }
-                            )
+                    # Peers receive the share exactly once each; the
+                    # sender already has the ack above.
+                    await manager.broadcast(
+                        sess_id,
+                        {
+                            "type": "analysis_shared",
+                            "data": shared_data,
+                            "analysis_id": stored_id,
+                            "shared_by": shared_by,
+                        },
+                        exclude_ws_key=ws_key,
+                    )
                     continue
 
                 # ── Existing analysis protocol ────────────────────
@@ -1089,26 +1210,36 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
 
                     # Build and send final bundle (same policy: local-only
                     # unless an explicitly consented policy is passed).
-                    bundle = build_forensic_bundle(validated_text, execution_policy=policy)
+                    # Exactly-once base observations (IF-06): the bundle
+                    # reuses the detector rows already streamed above
+                    # instead of running the base detectors a second time.
+                    bundle = build_forensic_bundle(
+                        validated_text,
+                        execution_policy=policy,
+                        observations=detector_results,
+                    )
                     result_data = bundle.to_dict()
                     analysis_id = store_analysis(result_data)
 
-                    # If in a session, broadcast to other collaborators
+                    # If in a session, broadcast to other collaborators.
+                    # The joined session (via join_session) owns routing;
+                    # the ?session= query parameter is the fallback for
+                    # clients that connect already addressed to a room.
+                    broadcast_session_id = manager.session_id_for(ws_key) or session_id
                     if (
-                        session_id
+                        broadcast_session_id
                         and analysis_id is not None
-                        and session_manager.has_session(session_id)
+                        and manager.has_session(broadcast_session_id)
                     ):
-                        for conn_ws in session_manager.get_connected(session_id):
-                            if id(conn_ws) != id(websocket):
-                                with suppress(Exception):
-                                    await conn_ws.send_json(
-                                        {
-                                            "type": "analysis_result_shared",
-                                            "data": result_data,
-                                            "analysis_id": analysis_id,
-                                        }
-                                    )
+                        await manager.broadcast(
+                            broadcast_session_id,
+                            {
+                                "type": "analysis_result_shared",
+                                "data": result_data,
+                                "analysis_id": analysis_id,
+                            },
+                            exclude_ws_key=ws_key,
+                        )
 
                     await websocket.send_json({"type": "complete", "data": result_data})
 
@@ -1125,8 +1256,9 @@ def create_web_app(settings: Settings | None = None) -> FastAPI:
             with suppress(Exception):
                 await websocket.send_json(_ws_error_body(error_status_for_exception(exc)))
         finally:
-            # Always clean up on disconnect
-            session_manager.leave_user(ws_key)
+            # Always clean up on disconnect; leave_user exclusively
+            # owns removal (IF-10).
+            manager.leave_user(ws_key)
 
     return app
 
@@ -1196,44 +1328,98 @@ def _report_timestamp() -> str:
     return datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
 
 
+def _calibrated_display(consensus: dict[str, Any]) -> tuple[str, str]:
+    """(probability display, calibration-ID display) for a consensus mapping.
+
+    A top-level probability is shown only from the canonical
+    ``calibrated_ai_probability`` field together with its
+    ``ensemble_calibration_id``; anything else is "Not calibrated",
+    never a number (IF-04).
+    """
+    value = consensus.get("calibrated_ai_probability")
+    cal_id = consensus.get("ensemble_calibration_id")
+    if (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and 0.0 <= float(value) <= 1.0
+        and isinstance(cal_id, str)
+        and cal_id
+    ):
+        return f"{float(value) * 100:.1f}%", cal_id
+    return "Not calibrated", "Not calibrated"
+
+
+def _csv_safe(value: object) -> object:
+    """Neutralize spreadsheet-formula injection in a CSV cell (IF-14).
+
+    A string cell whose first non-whitespace character could start a
+    formula (``=``, ``+``, ``-``, ``@``) is prefixed with a single
+    quote, the standard escaping; the quoted value round-trips through
+    a CSV parser as literal text. Numbers pass through unchanged.
+    """
+    if not isinstance(value, str):
+        return value
+    if value.lstrip()[:1] in ("=", "+", "-", "@"):
+        return "'" + value
+    return value
+
+
 def _write_csv_report(writer: csv.writer, data: dict[str, Any]) -> None:
-    """Write a CSV report from a forensic bundle dict."""
-    # Section: consensus
+    """Write a CSV report from a forensic bundle dict.
+
+    Every cell passes through :func:`_csv_safe`, so detector metadata
+    or limitation text can never start a spreadsheet formula. The
+    report carries the canonical calibrated probability (never a
+    legacy bare value), the trust map, the limitations and the
+    provenance needed to match the JSON export of the same bundle.
+    """
     consensus = data.get("consensus", {})
-    writer.writerow(["Section", "Field", "Value"])
-    writer.writerow(["Consensus", "Verdict", consensus.get("verdict", "")])
-    writer.writerow(["Consensus", "AI Probability", consensus.get("ai_probability", "N/A")])
-    writer.writerow(["Consensus", "Independent Families", consensus.get("independent_families", 0)])
-    writer.writerow(["Consensus", "Family Agreement", consensus.get("family_agreement", "N/A")])
+    prob_str, cal_id_str = _calibrated_display(consensus)
+
+    def row(*cells: object) -> None:
+        writer.writerow([_csv_safe(cell) for cell in cells])
+
+    # Section: consensus
+    row("Section", "Field", "Value")
+    row("Consensus", "Verdict", consensus.get("verdict", ""))
+    row("Consensus", "Calibrated AI Probability", prob_str)
+    row("Consensus", "Ensemble Calibration ID", cal_id_str)
+    row("Consensus", "Independent Families", consensus.get("independent_families", 0))
+    row("Consensus", "Family Agreement", consensus.get("family_agreement", "N/A"))
     # Section: detectors
     for det in data.get("detector_results", []):
-        writer.writerow(["Detector", det.get("detector_id", ""), ""])
-        writer.writerow(["Detector", "Version", det.get("detector_version", "")])
-        writer.writerow(["Detector", "Family", det.get("detector_family", "")])
-        writer.writerow(["Detector", "Score", det.get("score", "")])
-        writer.writerow(["Detector", "Verdict", det.get("verdict", "")])
-        writer.writerow(
-            [
-                "Detector",
-                "Calibrated AI Probability",
-                det.get("calibrated_ai_probability", "N/A"),
-            ]
+        row("Detector", det.get("detector_id", ""), "")
+        row("Detector", "Version", det.get("detector_version", ""))
+        row("Detector", "Family", det.get("detector_family", ""))
+        row("Detector", "Score", det.get("score", ""))
+        row("Detector", "Verdict", det.get("verdict", ""))
+        row(
+            "Detector",
+            "Calibrated AI Probability",
+            det.get("calibrated_ai_probability", "N/A"),
         )
-        writer.writerow(["Detector", "Execution", det.get("execution", "")])
-        writer.writerow([])
+        row("Detector", "Execution", det.get("execution", ""))
+        row()
     # Section: trust map
     trust_map = data.get("trust_map", {})
-    writer.writerow(["Trust Map", "Overall", trust_map.get("overall", "")])
+    row("Trust Map", "Overall", trust_map.get("overall", ""))
     for dim in trust_map.get("dimensions", []):
-        writer.writerow(["Trust Map", dim.get("dimension", ""), dim.get("state", "")])
-        writer.writerow(["Trust Map", "Reason", dim.get("reason", "")])
+        row("Trust Map", dim.get("dimension", ""), dim.get("state", ""))
+        row("Trust Map", "Reason", dim.get("reason", ""))
     # Section: input
     inp = data.get("input", {})
-    writer.writerow(["Input", "Word Count", inp.get("word_count", "")])
-    writer.writerow(["Input", "Sentence Count", inp.get("sentence_count", "")])
-    writer.writerow(["Input", "Paragraph Count", inp.get("paragraph_count", "")])
-    writer.writerow(["Input", "Content SHA256", data.get("content_sha256", "")])
-    writer.writerow(["Input", "Generated At", data.get("generated_at_utc", "")])
+    row("Input", "Word Count", inp.get("word_count", ""))
+    row("Input", "Sentence Count", inp.get("sentence_count", ""))
+    row("Input", "Paragraph Count", inp.get("paragraph_count", ""))
+    row("Input", "Content SHA256", data.get("content_sha256", ""))
+    row("Input", "Generated At", data.get("generated_at_utc", ""))
+    # Section: limitations (abstention is preserved, not dropped).
+    for limitation in data.get("limitations") or []:
+        row("Limitations", "Limitation", limitation)
+    # Section: provenance (matches the JSON export of this bundle).
+    row("Provenance", "Schema", data.get("schema", ""))
+    row("Provenance", "Content SHA256", data.get("content_sha256", ""))
+    row("Provenance", "Generated At", data.get("generated_at_utc", ""))
 
 
 def _build_html_report(data: dict[str, Any]) -> str:
@@ -1248,8 +1434,7 @@ def _build_html_report(data: dict[str, Any]) -> str:
         "mixed": "Mixed",
     }
     verdict_text = verdict_labels.get(verdict, verdict)
-    ai_prob = consensus.get("ai_probability")
-    ai_prob_str = f"{ai_prob * 100:.1f}%" if ai_prob is not None else "Not calibrated"
+    prob_str, cal_id_str = _calibrated_display(consensus)
 
     trust_map = data.get("trust_map", {})
     trust_overall = trust_map.get("overall", "unknown")
@@ -1300,7 +1485,7 @@ th {{ background: #f5f5f5; }}
 
 <h2>Consensus Verdict</h2>
 <div class="verdict verdict-{_escape(verdict)}">{_escape(verdict_text)}</div>
-<p>AI Probability: {_escape(ai_prob_str)} &middot; Independent Families: {_escape(consensus.get("independent_families", "N/A"))}</p>
+<p>AI Probability: {_escape(prob_str)} &middot; Ensemble Calibration: {_escape(cal_id_str)} &middot; Independent Families: {_escape(consensus.get("independent_families", "N/A"))}</p>
 
 <h2>Input Statistics</h2>
 <p>Words: {_escape(inp.get("word_count", "N/A"))} &middot; Sentences: {_escape(inp.get("sentence_count", "N/A"))} &middot; Paragraphs: {_escape(inp.get("paragraph_count", "N/A"))}</p>
@@ -1385,8 +1570,13 @@ def _build_comparison(data_a: dict[str, Any], data_b: dict[str, Any]) -> dict[st
             "verdict_a": consensus_a.get("verdict"),
             "verdict_b": consensus_b.get("verdict"),
             "verdict_changed": consensus_a.get("verdict") != consensus_b.get("verdict"),
-            "ai_probability_a": consensus_a.get("ai_probability"),
-            "ai_probability_b": consensus_b.get("ai_probability"),
+            # Canonical ensemble probability only (IF-04): the
+            # calibrated value with its calibration identity; no legacy
+            # bare ai_probability field is emitted.
+            "calibrated_ai_probability_a": consensus_a.get("calibrated_ai_probability"),
+            "calibrated_ai_probability_b": consensus_b.get("calibrated_ai_probability"),
+            "ensemble_calibration_id_a": consensus_a.get("ensemble_calibration_id"),
+            "ensemble_calibration_id_b": consensus_b.get("ensemble_calibration_id"),
             "families_a": consensus_a.get("independent_families"),
             "families_b": consensus_b.get("independent_families"),
             "trust_overall_a": data_a.get("trust_map", {}).get("overall"),

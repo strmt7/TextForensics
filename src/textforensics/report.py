@@ -349,6 +349,64 @@ def _registry_summary(
     }
 
 
+def _predictions_from_observations(
+    observations: Iterable[Mapping[str, Any]],
+    allowed_detectors: list[Detector],
+    skipped_detectors: list[dict[str, str]],
+) -> tuple[list[DetectorPrediction], list[DetectorFailure], list[Detector]]:
+    """Rebuild predictions/failures from ``run_all_detectors`` rows.
+
+    Fail closed: every row must be a mapping with a detector_id that
+    belongs to the allowed set or the skipped set. A prediction row
+    for a skipped detector, or any row for an unknown detector, raises
+    :class:`ValueError`. Rows for skipped detectors are dropped: the
+    policy refused that run, so there is no observation to reuse (in
+    practice only ``RemoteNotConsented`` failure rows). Rebuilt
+    predictions are re-validated against the detector contract, so a
+    hand-crafted row cannot smuggle in an uncalibrated probability
+    or an out-of-range value.
+    """
+    from dataclasses import fields as _dc_fields
+
+    allowed = {str(d.detector_id): d for d in allowed_detectors}
+    skipped_ids = {str(row.get("detector_id")) for row in skipped_detectors}
+    prediction_fields = {f.name for f in _dc_fields(DetectorPrediction)}
+    failure_fields = {f.name for f in _dc_fields(DetectorFailure)}
+    predictions: list[DetectorPrediction] = []
+    failures: list[DetectorFailure] = []
+    successful: list[Detector] = []
+    for row in observations:
+        if not isinstance(row, Mapping):
+            raise ValueError("Observation rows must be mappings.")
+        detector_id = row.get("detector_id")
+        if not isinstance(detector_id, str) or not detector_id:
+            raise ValueError("Observation row requires a detector_id.")
+        if detector_id in skipped_ids:
+            if row.get("failed") is True:
+                continue  # policy-refused run: no observation exists
+            raise ValueError(
+                f"Observation for policy-skipped detector {detector_id!r} cannot be a prediction."
+            )
+        detector = allowed.get(detector_id)
+        if detector is None:
+            raise ValueError(f"Observation for unknown detector {detector_id!r}.")
+        try:
+            if row.get("failed") is True:
+                failures.append(
+                    DetectorFailure(**{k: v for k, v in row.items() if k in failure_fields})
+                )
+            else:
+                prediction = DetectorPrediction(
+                    **{k: v for k, v in row.items() if k in prediction_fields}
+                )
+                prediction.validate(detector=detector)
+                predictions.append(prediction)
+                successful.append(detector)
+        except TypeError as exc:
+            raise ValueError(f"Observation for detector {detector_id!r} is incomplete.") from exc
+    return predictions, failures, successful
+
+
 def build_forensic_bundle(
     text: str,
     *,
@@ -367,7 +425,24 @@ def build_forensic_bundle(
     execution_policy: ExecutionPolicy | None = None,
     cancellation: CancellationToken | None = None,
     disjointness: Any | None = None,
+    observations: Iterable[Mapping[str, Any]] | None = None,
 ) -> ForensicBundle:
+    """Build the forensic bundle for ``text``.
+
+    ``observations`` reuses already-collected base detector observations
+    (rows exactly as produced by :func:`detectors.run_all_detectors`:
+    prediction dicts, plus failure dicts carrying ``"failed": True``)
+    instead of running the base detectors a second time. The caller
+    owns those observations: one operation runs the base detectors and
+    hands the rows here, so the base observation is exactly-once.
+    Benign-variant robustness probes are separate measurements and
+    still run (the ``"original"`` variant reuses the base prediction
+    without re-calling the detector). An observation for a detector
+    the execution policy skips is dropped (it can only be a
+    ``RemoteNotConsented`` failure row); an observation for an unknown
+    detector, or a prediction row for a skipped detector, fails
+    closed with :class:`ValueError`.
+    """
     if not isinstance(text, str) or not text.strip():
         raise ValueError("Text must not be empty.")
     if registry is not None and registry_path is not None:
@@ -417,16 +492,24 @@ def build_forensic_bundle(
     failures: list[DetectorFailure] = []
     successful_detectors: list[Detector] = []
 
-    for detector in detector_list:
+    if observations is not None:
+        # A stop raised between collection and bundle build refuses
+        # the bundle, exactly as it refuses a fresh detector run.
         assert_execution_allowed(effective_policy, cancellation=cancellation)
-        prediction, failure = execute_detector(
-            detector, text, policy=effective_policy, cancellation=cancellation
+        predictions, failures, successful_detectors = _predictions_from_observations(
+            observations, detector_list, skipped_detectors
         )
-        if prediction is not None:
-            predictions.append(prediction)
-            successful_detectors.append(detector)
-        if failure is not None:
-            failures.append(failure)
+    else:
+        for detector in detector_list:
+            assert_execution_allowed(effective_policy, cancellation=cancellation)
+            prediction, failure = execute_detector(
+                detector, text, policy=effective_policy, cancellation=cancellation
+            )
+            if prediction is not None:
+                predictions.append(prediction)
+                successful_detectors.append(detector)
+            if failure is not None:
+                failures.append(failure)
 
     robustness = [
         _robustness_for_detector(

@@ -145,10 +145,18 @@ function clearResults() {
     destroyCharts();
 }
 
+// WebSocket URL for the current page (IF-06): `wss:` under HTTPS,
+// `ws:` under HTTP. An HTTPS page must never open an insecure
+// `ws://` socket.
+function webSocketUrl(loc) {
+    const scheme = loc.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${scheme}//${loc.host}/ws/analyze`;
+}
+
 // Handle WebSocket analysis
 async function analyzeWithWebSocket(text) {
     return new Promise((resolve, reject) => {
-        const ws = new WebSocket(`ws://${window.location.host}/ws/analyze`);
+        const ws = new WebSocket(webSocketUrl(window.location));
         state.ws = ws;
 
         const detectorResults = [];
@@ -223,6 +231,31 @@ async function analyzeWithREST(text) {
 function updateStreamingDetectorList(results) {
     renderDetectorList(results);
     updateDetectorChart(results);
+}
+
+// Streaming detector chart (IF-06): the streaming path previously
+// called `updateDetectorChart`, which did not exist. Group the
+// streamed detector rows by family and render them through the same
+// canonical chart as the complete path. A family keeps its calibrated
+// probability only when it has exactly one member -- the same rule
+// the server consensus uses -- so a multi-detector family never
+// invents a fused probability; it renders as an uncalibrated gap.
+function updateDetectorChart(results) {
+    const byFamily = new Map();
+    for (const result of results || []) {
+        const family = result.detector_family || 'unknown';
+        if (!byFamily.has(family)) byFamily.set(family, []);
+        byFamily.get(family).push(result);
+    }
+    const familyVotes = [...byFamily.entries()].map(([family, members]) => {
+        const usable = members.filter(m => m.verdict === 'ai_like' || m.verdict === 'human_like');
+        const ai = usable.filter(m => m.verdict === 'ai_like').length;
+        const human = usable.filter(m => m.verdict === 'human_like').length;
+        const verdict = usable.length === 0 ? 'abstain' : (ai > human ? 'ai_like' : (human > ai ? 'human_like' : 'abstain'));
+        const calibrated = members.length === 1 ? (members[0].calibrated_ai_probability ?? null) : null;
+        return { family, verdict, calibrated_ai_probability: calibrated };
+    });
+    renderDetectorChart({ family_votes: familyVotes });
 }
 
 // Handle complete analysis result
@@ -411,10 +444,13 @@ function getGaugeColor(prob) {
 function renderDetectorChart(consensus) {
     const ctx = elements.detectorChart.getContext('2d');
 
-    // Prepare data from family votes. A missing family calibration
-    // is N/A (a gap in the chart), not a 50% substitute (IF-04).
+    // Prepare data from family votes. The canonical bundle names the
+    // field `family` (consensus.FamilyVote); a missing family
+    // calibration is N/A (a gap in the chart), not a 50% substitute
+    // (IF-04). A missing/blank family renders as 'unknown', never a
+    // crash on an undefined label (IF-06).
     const families = consensus.family_votes || [];
-    const labels = families.map(f => f.detector_family.replace(/-/g, ' '));
+    const labels = families.map(f => String(f.family || 'unknown').replace(/-/g, ' '));
     const scores = families.map(f => {
         const value = f.calibrated_ai_probability;
         return (typeof value === 'number' && Number.isFinite(value)) ? value * 100 : null;
@@ -594,9 +630,9 @@ function renderVerdictDisplay(data) {
             <h4>Consensus Details</h4>
             ${(consensus.family_votes || []).map(vote => `
                 <div class="verdict-row">
-                    <span class="verdict-key">${escapeHtml(vote.detector_family.replace(/-/g, ' '))}</span>
+                    <span class="verdict-key">${escapeHtml(String(vote.family || 'unknown').replace(/-/g, ' '))}</span>
                     <span class="verdict-value">
-                        ${vote.calibrated_ai_probability !== null ? (vote.calibrated_ai_probability * 100).toFixed(1) + '%' : 'Uncalibrated'}
+                        ${(typeof vote.calibrated_ai_probability === 'number' && Number.isFinite(vote.calibrated_ai_probability)) ? (vote.calibrated_ai_probability * 100).toFixed(1) + '%' : 'Uncalibrated'}
                         <span class="verdict-badge ${vote.verdict}" style="margin-left: 8px; font-size: 10px;">${formatVerdict(vote.verdict)}</span>
                     </span>
                 </div>
@@ -608,6 +644,11 @@ function renderVerdictDisplay(data) {
 // Warnings
 function renderWarnings(data) {
     const container = elements.warningsList;
+    // The template must provide #warningsList; a missing container
+    // fails visibly here instead of silently dropping limitations.
+    if (!container) {
+        throw new Error('warningsList element is missing from the page');
+    }
 
     const warnings = [
         ...(data.consensus.warnings || []),
@@ -789,24 +830,37 @@ window.addEventListener('beforeunload', () => {
 // New functionality: Export, Compare, History
 // ────────────────────────────────────────────────────────────────────
 
-function exportAnalysis(format) {
+// Export through the canonical server implementation (IF-14).
+// Every format is produced by POST /api/export for the current
+// bundle -- the client never builds a format itself, so a `.csv`
+// file can never contain a JSON wrapper. The download honors the
+// response's content type and Content-Disposition filename, and the
+// file extension always agrees with the requested format.
+async function exportAnalysis(format) {
     if (!state.currentAnalysis) {
         alert('No analysis to export. Run an analysis first.');
         return;
     }
 
-    const exportData = {
-        data: state.currentAnalysis,
-        format: format
-    };
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-        type: 'application/json'
+    const response = await fetch('/api/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: state.currentAnalysis, format })
     });
+    if (!response.ok) {
+        alert(`Export failed: ${response.status}.`);
+        throw new Error(`Export failed: ${response.status}`);
+    }
+    const blob = await response.blob();
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const filenameMatch = /filename="([^"]+)"/.exec(disposition);
+    const filename = filenameMatch
+        ? filenameMatch[1]
+        : `textforensics-report-${Date.now()}.${format}`;
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `textforensics-report-${Date.now()}.${format}`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
 }

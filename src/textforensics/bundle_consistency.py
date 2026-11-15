@@ -152,14 +152,72 @@ def _check_bundle_consistency(bundle: dict[str, Any]) -> list[ConsistencyIssue]:
                 )
             )
 
-        # Check AI probability range if present
-        ai_prob = consensus.get("ai_probability")
-        if ai_prob is not None:
-            issue = _check_field_value(
-                bundle, "consensus.ai_probability", min_value=0.0, max_value=1.0
+        # Canonical ensemble probability (IF-04): the bundle exposes
+        # `consensus.calibrated_ai_probability` ONLY together with
+        # `consensus.ensemble_calibration_id`. A legacy bare
+        # `consensus.ai_probability` field is not canonical: it has no
+        # calibration provenance, so its presence is an error -- a
+        # consumer could mistake it for a calibrated probability.
+        if "ai_probability" in consensus:
+            issues.append(
+                ConsistencyIssue(
+                    field="consensus.ai_probability",
+                    issue_type="invalid",
+                    message=(
+                        "Legacy field consensus.ai_probability is not canonical; "
+                        "use consensus.calibrated_ai_probability with "
+                        "consensus.ensemble_calibration_id."
+                    ),
+                    severity="error",
+                )
             )
-            if issue:
-                issues.append(issue)
+        calibrated = consensus.get("calibrated_ai_probability")
+        calibration_id = consensus.get("ensemble_calibration_id")
+        if calibrated is not None:
+            if isinstance(calibrated, bool) or not isinstance(calibrated, (int, float)):
+                issues.append(
+                    ConsistencyIssue(
+                        field="consensus.calibrated_ai_probability",
+                        issue_type="type_error",
+                        message=(
+                            "Field consensus.calibrated_ai_probability must be a number or null."
+                        ),
+                        severity="error",
+                    )
+                )
+            else:
+                issue = _check_field_value(
+                    bundle,
+                    "consensus.calibrated_ai_probability",
+                    min_value=0.0,
+                    max_value=1.0,
+                )
+                if issue:
+                    issues.append(issue)
+            if not isinstance(calibration_id, str) or not calibration_id:
+                issues.append(
+                    ConsistencyIssue(
+                        field="consensus.calibrated_ai_probability",
+                        issue_type="invalid",
+                        message=(
+                            "A calibrated ensemble probability requires "
+                            "consensus.ensemble_calibration_id."
+                        ),
+                        severity="error",
+                    )
+                )
+        elif calibration_id is not None:
+            issues.append(
+                ConsistencyIssue(
+                    field="consensus.ensemble_calibration_id",
+                    issue_type="invalid",
+                    message=(
+                        "An ensemble calibration ID without a calibrated "
+                        "ensemble probability is meaningless."
+                    ),
+                    severity="error",
+                )
+            )
 
     # Check detector results consistency
     detector_results = bundle.get("detector_results", [])
@@ -341,7 +399,8 @@ def check_bundle_consistency(bundle: dict[str, Any]) -> ConsistencyReport:
     checked_fields = [
         "schema",
         "consensus.verdict",
-        "consensus.ai_probability",
+        "consensus.calibrated_ai_probability",
+        "consensus.ensemble_calibration_id",
         "detector_results.*.detector_id",
         "detector_results.*.score",
         "detector_results.*.reliability",
