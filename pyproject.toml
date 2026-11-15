@@ -112,7 +112,18 @@ textforensics-web = "textforensics.web_ui.main:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-textforensics = ["schemas/*.json", "_build_info.json"]
+# ENG-01/ENG-15: the installed wheel must contain the web UI resources
+# (static files + templates, mounted/loaded by web_ui/main.py) and the
+# third-party licence notices shipped alongside the vendored Chart.js
+# bundle (web_ui/static/THIRD-PARTY-NOTICES.txt). Without these the
+# installed web entry point cannot construct (StaticFiles refuses a
+# missing directory) and the index template is unresolvable.
+textforensics = [
+  "schemas/*.json",
+  "_build_info.json",
+  "web_ui/static/*",
+  "web_ui/templates/*",
+]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

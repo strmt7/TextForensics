@@ -261,6 +261,47 @@ def test_generated_bom_validates_with_cyclonedx_lib(tmp_path):
     assert parsed.validate()
 
 
+def test_vendored_assets_included_when_file_present(tmp_path):
+    """A vendored file under the root yields SBOM components (ENG-15)."""
+    freeze = _fake_repo(tmp_path)
+    vendored = (
+        tmp_path / "src" / "textforensics" / "web_ui" / "static"
+        / "chart.umd.min.js"
+    )
+    vendored.parent.mkdir(parents=True)
+    vendored.write_bytes(b"/*! Chart.js v4.4.1 */ fake bundle\n")
+    text, count, unresolved = sbom.generate(tmp_path, freeze)
+    assert count == 6  # aaa, bbb, ccc, ddd + chart.js + @kurkle/color
+    assert unresolved == set()
+    bom = json.loads(text)
+    by_name = {c["name"]: c for c in bom["components"]}
+    expected_sha = hashlib.sha256(b"/*! Chart.js v4.4.1 */ fake bundle\n").hexdigest()
+    for name, version, purl in (
+        ("chart.js", "4.4.1", "pkg:npm/chart.js@4.4.1"),
+        ("@kurkle/color", "0.3.2", "pkg:npm/%40kurkle/color@0.3.2"),
+    ):
+        component = by_name[name]
+        assert component["version"] == version
+        assert component["purl"] == purl
+        assert component["licenses"] == [{"license": {"id": "MIT"}}]
+        assert component["hashes"] == [
+            {"alg": "SHA-256", "content": expected_sha}
+        ]
+        props = {p["name"]: p["value"] for p in component["properties"]}
+        assert props["vendored"] == "true"
+        assert (
+            props["vendored-path"]
+            == "src/textforensics/web_ui/static/chart.umd.min.js"
+        )
+    root_dep = next(d for d in bom["dependencies"] if d["ref"] == "textforensics@0.2.0")
+    assert "npm:chart.js@4.4.1" in root_dep["dependsOn"]
+    assert "npm:@kurkle/color@0.3.2" in root_dep["dependsOn"]
+    chart_dep = next(
+        d for d in bom["dependencies"] if d["ref"] == "npm:chart.js@4.4.1"
+    )
+    assert chart_dep["dependsOn"] == ["npm:@kurkle/color@0.3.2"]
+
+
 def test_real_repo_generation(tmp_path):
     """Real-repo run; skips unless the full pinned install is present."""
     installed = sbom.live_distributions()
@@ -293,3 +334,37 @@ def test_real_repo_generation(tmp_path):
     )
     assert props["pyprojectSha256"] == sbom.sha256_file(REPO_ROOT / "pyproject.toml")
     assert "unresolvedDependencies" not in props
+    # Vendored assets (ENG-15): the Chart.js bundle and the
+    # @kurkle/color it bundles, with MIT licences, npm purls, and the
+    # SHA-256 of the shipped file; the root component depends on them.
+    assert len(bom["components"]) == 122  # 120 locked packages + 2 vendored
+    vendored_file = (
+        REPO_ROOT / "src" / "textforensics" / "web_ui" / "static"
+        / "chart.umd.min.js"
+    )
+    vendored_sha = hashlib.sha256(vendored_file.read_bytes()).hexdigest()
+    by_name = {c["name"]: c for c in bom["components"]}
+    for name, version, purl in (
+        ("chart.js", "4.4.1", "pkg:npm/chart.js@4.4.1"),
+        ("@kurkle/color", "0.3.2", "pkg:npm/%40kurkle/color@0.3.2"),
+    ):
+        component = by_name[name]
+        assert component["version"] == version
+        assert component["purl"] == purl
+        assert component["licenses"] == [{"license": {"id": "MIT"}}]
+        assert component["hashes"] == [
+            {"alg": "SHA-256", "content": vendored_sha}
+        ]
+    root_dep = next(
+        d for d in bom["dependencies"] if d["ref"] == "textforensics@0.2.0"
+    )
+    assert "npm:chart.js@4.4.1" in root_dep["dependsOn"]
+    assert "npm:@kurkle/color@0.3.2" in root_dep["dependsOn"]
+    # The real BOM (including the vendored components) must validate
+    # as CycloneDX 1.6 when the library is available.
+    pytest.importorskip("cyclonedx")
+    from cyclonedx.model.bom import Bom
+
+    parsed = Bom.from_json(bom)
+    assert parsed is not None
+    assert parsed.validate()

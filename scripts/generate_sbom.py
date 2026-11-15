@@ -11,7 +11,12 @@ plus their transitive ``Requires-Dist`` closure. Since 2026-11-10 the
 file is an exact-pin lockfile naming the whole closure, so the root
 component's ``dependsOn`` lists the full locked closure; the true
 direct/transitive graph is in the per-component ``dependsOn`` edges.
-The project itself is the ``metadata.component`` (``textforensics``). Install tooling appears only
+The project itself is the ``metadata.component`` (``textforensics``).
+In addition, the SBOM lists the third-party assets vendored into the
+shipped package (ENG-15; see ``VENDORED_ASSETS``): Chart.js and the
+@kurkle/color it bundles, as ``library`` components with npm purls,
+SPDX licences, the SHA-256 of the shipped bytes, and ``vendored``
+properties. Install tooling appears only
 where it is genuinely required: ``setuptools`` and ``wheel`` are direct
 pins in requirements-pinned.txt. ``pip`` is EXCLUDED from the closure
 (see ``EXCLUDED_DISTRIBUTIONS``): it enters only as a transitive edge
@@ -91,7 +96,7 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
-GENERATOR_VERSION = "1.0.1"
+GENERATOR_VERSION = "1.0.2"
 GENERATOR_NAME = "generate_sbom.py"
 SPEC_VERSION = "1.6"
 PROJECT_URL = "https://github.com/strmt7/TextForensics"
@@ -121,6 +126,104 @@ class Distribution:
     version: str
     requires: list[str] = field(default_factory=list)  # Normalized names.
     license_expression: str | None = None
+
+
+@dataclass(frozen=True)
+class VendoredAsset:
+    """One third-party asset vendored into the shipped package (ENG-15)."""
+
+    name: str  # Upstream package name (npm name for JS assets).
+    version: str
+    license_id: str  # SPDX license id.
+    purl: str
+    path: str  # Path of the shipped file, relative to the repo root.
+    bundles: tuple[str, ...] = ()  # Names of assets bundled in the same file.
+
+
+# Third-party code shipped inside the installed package. The single
+# file chart.umd.min.js is jsDelivr's minified serving of Chart.js's
+# dist/chart.umd.js and bundles @kurkle/color; both libraries are
+# MIT-licensed and their exact full licence texts ship as package data
+# in THIRD-PARTY-NOTICES.txt next to the file. Versions are verified
+# against the vendored file's own banners and the upstream npm
+# tarballs (chart.js@4.4.1, @kurkle/color@0.3.2). app.js and style.css
+# in the same directory are first-party TextForensics code, not vendored.
+VENDORED_ASSETS: tuple[VendoredAsset, ...] = (
+    VendoredAsset(
+        name="chart.js",
+        version="4.4.1",
+        license_id="MIT",
+        purl="pkg:npm/chart.js@4.4.1",
+        path="src/textforensics/web_ui/static/chart.umd.min.js",
+        bundles=("@kurkle/color",),
+    ),
+    VendoredAsset(
+        name="@kurkle/color",
+        version="0.3.2",
+        license_id="MIT",
+        purl="pkg:npm/%40kurkle/color@0.3.2",
+        path="src/textforensics/web_ui/static/chart.umd.min.js",
+    ),
+)
+
+
+def vendored_bom_ref(asset: VendoredAsset) -> str:
+    """Return the deterministic bom-ref for a vendored asset."""
+    return f"npm:{asset.name}@{asset.version}"
+
+
+def vendored_components(root: Path) -> tuple[list[dict], list[dict]]:
+    """Build SBOM components for vendored assets present under ``root``.
+
+    Returns ``(components, dependencies)``: one ``library`` component
+    per asset whose file exists, with its npm purl, SPDX licence, the
+    SHA-256 of the shipped bytes, and ``vendored`` properties, plus a
+    dependency entry per asset (chart.js depends on the @kurkle/color
+    it bundles). Assets whose file is absent are skipped: synthetic
+    test repos have no vendored files. That skip is fail-closed in
+    practice, not silent: the real repo asserts the components'
+    presence (``tests/test_installed_web_resources.py`` and
+    ``tests/test_generate_sbom.py::test_real_repo_generation``), so a
+    missing vendored file fails the suite instead of quietly dropping
+    the component from the SBOM.
+    """
+    by_name = {asset.name: asset for asset in VENDORED_ASSETS}
+    components: list[dict] = []
+    dependencies: list[dict] = []
+    for asset in VENDORED_ASSETS:
+        asset_path = root / asset.path
+        if not asset_path.exists():
+            continue
+        ref = vendored_bom_ref(asset)
+        components.append(
+            {
+                "type": "library",
+                "bom-ref": ref,
+                "name": asset.name,
+                "version": asset.version,
+                "purl": asset.purl,
+                "scope": "required",
+                "licenses": [{"license": {"id": asset.license_id}}],
+                "hashes": [
+                    {"alg": "SHA-256", "content": sha256_file(asset_path)}
+                ],
+                "properties": [
+                    {"name": "vendored", "value": "true"},
+                    {"name": "vendored-path", "value": asset.path},
+                ],
+            }
+        )
+        dependencies.append(
+            {
+                "ref": ref,
+                "dependsOn": sorted(
+                    vendored_bom_ref(by_name[name])
+                    for name in asset.bundles
+                    if name in by_name
+                ),
+            }
+        )
+    return components, dependencies
 
 
 def normalize_name(name: str) -> str:
@@ -360,13 +463,20 @@ def build_bom(
     installed: dict[str, Distribution],
     pinned_sha256: str,
     pyproject_sha256: str,
+    vendored: tuple[list[dict], list[dict]] = ([], []),
 ) -> dict:
     """Build the CycloneDX 1.6 BOM document (without the serial number)."""
     root_ref = bom_ref(project_name, project_version)
+    vendored_components, vendored_dependencies = vendored
     components = []
     dependencies = []
     direct_refs = sorted(
         bom_ref(name, installed[name].version) for name in roots if name in included
+    )
+    # Vendored assets ship inside the application itself, so the root
+    # component depends on them directly (ENG-15).
+    direct_refs = sorted(
+        direct_refs + [c["bom-ref"] for c in vendored_components]
     )
     dependencies.append({"ref": root_ref, "dependsOn": direct_refs})
     for name in sorted(included):
@@ -391,6 +501,12 @@ def build_bom(
                 ),
             }
         )
+    components.extend(vendored_components)
+    dependencies.extend(vendored_dependencies)
+    # One sorted component order (by normalized name) for the whole BOM,
+    # PyPI and vendored alike, so the ordering is deterministic and the
+    # sorted-names assertions in tests/test_generate_sbom.py hold.
+    components.sort(key=lambda c: normalize_name(str(c["name"])))
     dependencies.sort(key=lambda entry: entry["ref"])
     properties = [
         {"name": "generator", "value": f"{GENERATOR_NAME} {GENERATOR_VERSION}"},
@@ -471,6 +587,7 @@ def generate(root: Path, freeze_file: Path | None = None) -> tuple[str, int, set
             installed, parse_freeze_file(freeze_file), project_name, project_version
         )
     included, unresolved = dependency_closure(roots, installed)
+    vendored = vendored_components(root)
     bom = build_bom(
         project_name=project_name,
         project_version=project_version,
@@ -481,8 +598,9 @@ def generate(root: Path, freeze_file: Path | None = None) -> tuple[str, int, set
         installed=installed,
         pinned_sha256=sha256_file(pinned_path),
         pyproject_sha256=sha256_file(pyproject_path),
+        vendored=vendored,
     )
-    return render_bom(bom), len(included), unresolved
+    return render_bom(bom), len(included) + len(vendored[0]), unresolved
 
 
 def main(argv: list[str] | None = None) -> int:
