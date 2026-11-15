@@ -170,7 +170,7 @@ transport (no network listener). Tool wrappers validate text with
 `validate_text_input` (`max_input_bytes`) and serialize with
 `json.dumps(…, allow_nan=False)`.
 
-### 4.1 Registered tools (16)
+### 4.1 Registered tools (19)
 
 | Operation | Inputs | Remote dispatch | Stop gated |
 | --- | --- | --- | --- |
@@ -190,21 +190,21 @@ transport (no network listener). Tool wrappers validate text with
 | `drift_report` | `params` (JSON string) | No — report from two snapshots | **No** — same as above |
 | `fingerprint_dataset` | `params` (JSON string) | No — dataset fingerprint | **No** — same as above |
 | `check_contamination` | `params` (JSON string) | No — contamination check | **No** — same as above |
+| `result_encode` | `params` (JSON string) | No — `mcp_tools.result_encode`, schema-validated codec; no text submission, no detector execution | **No** — same as above (registered in W5, audit IF-16) |
+| `result_decode` | `params` (JSON string) | No — `mcp_tools.result_decode`, schema-validated codec; no text submission, no detector execution | **No** — same as above (registered in W5, audit IF-16) |
+| `capability_policy_evaluate` | `params` (JSON string) | No — `mcp_tools.capability_policy_evaluate`, ledger policy evaluation; no text submission, no detector execution | **No** — same as above (registered in W5, audit IF-16) |
 
-### 4.2 Implemented but NOT registered (audit IF-16 — recorded, not fixed)
+### 4.2 Previously unregistered helpers (audit IF-16 — fixed in W5)
 
-`src/textforensics/mcp_tools.py` (648 lines) implements three helpers
-that have no `@mcp.tool()` registration in `mcp_server.py`, so no MCP
-client can discover or call them. This matches the audit evidence
-(`/interfaces_extra/unregistered_mcp_implementations`):
-
-| Helper | Location | What it does |
-| --- | --- | --- |
-| `result_encode` | `mcp_tools.py:465` | Encodes a detector result |
-| `result_decode` | `mcp_tools.py:509` | Decodes a detector result |
-| `capability_policy_evaluate` | `mcp_tools.py:562` | Evaluates capability-ledger policies for a detector |
-
-Fixing the registration gap belongs to W5; W0 records the fact.
+`src/textforensics/mcp_tools.py` implemented three helpers that had
+no `@mcp.tool()` registration in `mcp_server.py`. In W5 they were
+registered as public tools through the same `params`-JSON-string
+channel as the other dict-based tools (see §4.1), with regression
+tests in `tests/test_w5_worker_c_if16.py` asserting the exact
+19-tool inventory and schemas from the real server and comparing MCP
+dispatch results with the direct helpers and the CLI
+(`capability policy`) equivalent. There are no remaining implemented
+but unregistered MCP helpers.
 
 ## 5. UI actions — `src/textforensics/web_ui/static/app.js` (984 lines)
 

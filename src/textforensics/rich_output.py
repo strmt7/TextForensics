@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 try:
     from rich.console import Console
+    from rich.markup import escape
     from rich.panel import Panel
     from rich.progress import (
         BarColumn,
@@ -13,6 +14,7 @@ try:
         TimeElapsedColumn,
     )
     from rich.table import Table
+    from rich.text import Text
     from rich.tree import Tree
 
     HAS_RICH = True
@@ -97,13 +99,15 @@ def print_scan_results(
     words = data.get("word_count", 0)
 
     verdict_style = _verdict_style(verdict)
+    # IF-18: verdict is report data, not trusted markup — escape it
+    # before interpolating into the styled summary string.
     summary_text = (
-        f"[bold]Verdict:[/] [{verdict_style}]{verdict}[/{verdict_style}]\n"
+        f"[bold]Verdict:[/] [{verdict_style}]{escape(str(verdict))}[/{verdict_style}]\n"
         f"[bold]Pattern score:[/] {score:.1%}\n"
         f"[bold]Diagnostic reliability:[/] {confidence:.1%}\n"
         f"[bold]Analyzer disagreement:[/] {disagreement:.1%}\n"
         f"[bold]Robustness stability:[/] {robustness:.1%}\n"
-        f"[bold]Words:[/] {words}"
+        f"[bold]Words:[/] {escape(str(words))}"
     )
     c.print(Panel(summary_text, title="TextForensics Scan", border_style="blue"))
 
@@ -135,10 +139,12 @@ def print_scan_results(
             )
 
             verdict_style = _verdict_style(v)
+            # IF-18: table cells render markup by default, so detector
+            # names/verdicts (report data) are passed as literal Text.
             table.add_row(
-                name,
+                Text(str(name)),
                 f"{s:.1%}",
-                f"[{verdict_style}]{v}[/{verdict_style}]",
+                Text(str(v), style=verdict_style),
                 f"{conf:.1%}",
             )
         c.print(table)
@@ -148,7 +154,8 @@ def print_scan_results(
     if warnings:
         c.print("\n[bold yellow]Warnings:[/]")
         for w in warnings:
-            c.print(f"  [yellow]- {w}[/]")
+            # IF-18: warning text is report data, rendered literally.
+            c.print(Text(f"  - {w}", style="yellow"))
 
 
 def print_report_summary(
@@ -185,12 +192,14 @@ def print_report_summary(
     grade = integrity.get("grade", "N/A") if isinstance(integrity, dict) else "N/A"
     int_score = integrity.get("score", 0.0) if isinstance(integrity, dict) else 0.0
 
+    # IF-18: every interpolated value below is report data, escaped
+    # before it meets the trusted markup tags.
     c.print(
         Panel(
-            f"[bold]Content SHA-256:[/] {content_hash}\n"
-            f"[bold]Word count:[/] {word_count}\n"
-            f"[bold]Trust Map overall:[/] [bold]{overall}[/]\n"
-            f"[bold]Integrity grade:[/] [bold]{grade}[/] (score {int_score:.2f})",
+            f"[bold]Content SHA-256:[/] {escape(str(content_hash))}\n"
+            f"[bold]Word count:[/] {escape(str(word_count))}\n"
+            f"[bold]Trust Map overall:[/] [bold]{escape(str(overall))}[/]\n"
+            f"[bold]Integrity grade:[/] [bold]{escape(str(grade))}[/] (score {int_score:.2f})",
             title="Forensic Report Summary",
             border_style="blue",
         )
@@ -206,7 +215,8 @@ def print_report_summary(
         families = consensus.get("family_count", "-")
         c.print(
             Panel(
-                f"[bold]Family agreement:[/] {agreement}\n[bold]Families:[/] {families}",
+                f"[bold]Family agreement:[/] {escape(str(agreement))}\n"
+                f"[bold]Families:[/] {escape(str(families))}",
                 title="Consensus",
                 border_style="green",
             )
@@ -218,7 +228,7 @@ def print_report_summary(
         prov_valid = provenance.get("valid", "-")
         c.print(
             Panel(
-                f"[bold]Ledger valid:[/] {prov_valid}",
+                f"[bold]Ledger valid:[/] {escape(str(prov_valid))}",
                 title="Provenance",
                 border_style="cyan",
             )
@@ -229,7 +239,7 @@ def print_report_summary(
     if limitations:
         c.print("\n[bold red]Limitations:[/]")
         for lim in limitations:
-            c.print(f"  [dim]- {lim}[/]")
+            c.print(Text(f"  - {lim}", style="dim"))
 
 
 def print_case_summary(
@@ -254,16 +264,18 @@ def print_case_summary(
     tool_name = tool.get("name", "?") if isinstance(tool, dict) else "?"
     tool_version = tool.get("version", "?") if isinstance(tool, dict) else "?"
 
-    root = Tree(f"[bold cyan]Case File[/] ({schema})")
-    root.add(f"[dim]SHA-256:[/] {case_hash}")
-    root.add(f"[dim]Tool:[/] {tool_name} v{tool_version}")
+    # IF-18: Tree nodes render markup, so every value from the case
+    # file is escaped before it meets the trusted markup tags.
+    root = Tree(f"[bold cyan]Case File[/] ({escape(str(schema))})")
+    root.add(f"[dim]SHA-256:[/] {escape(str(case_hash))}")
+    root.add(f"[dim]Tool:[/] {escape(str(tool_name))} v{escape(str(tool_version))}")
 
     # Forensic bundle
     bundle = case.get("forensic_bundle", {})
     if isinstance(bundle, dict):
         bundle_node = root.add("[bold blue]forensic_bundle[/]")
         content_hash = bundle.get("content_sha256", "?")[:12] + "…"
-        bundle_node.add(f"[dim]content_sha256:[/] {content_hash}")
+        bundle_node.add(f"[dim]content_sha256:[/] {escape(str(content_hash))}")
 
         # Detector results
         det_results = bundle.get("detector_results", [])
@@ -272,7 +284,9 @@ def print_case_summary(
             for dr in det_results:
                 if isinstance(dr, dict):
                     det_id = dr.get("detector_id", "unknown")
-                    dr_node.add(f"[cyan]{det_id}[/] → {dr.get('verdict', '?')}")
+                    dr_node.add(
+                        f"[cyan]{escape(str(det_id))}[/] → {escape(str(dr.get('verdict', '?')))}"
+                    )
 
         # Detector failures
         det_failures = bundle.get("detector_failures", [])
@@ -281,7 +295,8 @@ def print_case_summary(
             for df in det_failures:
                 if isinstance(df, dict):
                     df_node.add(
-                        f"[red]{df.get('detector_id', '?')}[/] ({df.get('error_type', '?')})"
+                        f"[red]{escape(str(df.get('detector_id', '?')))}[/] "
+                        f"({escape(str(df.get('error_type', '?')))})"
                     )
 
         # Trust map
@@ -289,20 +304,20 @@ def print_case_summary(
         if isinstance(tm, dict):
             tm_node = bundle_node.add("[bold green]trust_map[/]")
             overall = tm.get("overall", "?")
-            tm_node.add(f"[dim]overall:[/] [bold]{overall}[/]")
+            tm_node.add(f"[dim]overall:[/] [bold]{escape(str(overall))}[/]")
 
         # Provenance
         prov = bundle.get("provenance")
         if prov:
             prov_node = bundle_node.add("[bold yellow]provenance[/]")
-            prov_node.add(f"[dim]valid:[/] {prov.get('valid', '?')}")
+            prov_node.add(f"[dim]valid:[/] {escape(str(prov.get('valid', '?')))}")
 
         # Limitations
         lims = bundle.get("limitations", [])
         if lims:
             lim_node = bundle_node.add("[bold red]limitations[/]")
             for lim in lims[:3]:
-                lim_node.add(f"[dim]{lim[:60]}[/]")
+                lim_node.add(f"[dim]{escape(str(lim[:60]))}[/]")
 
     c.print(root)
 
@@ -347,10 +362,12 @@ def print_trust_map(
             d_reason = getattr(dim, "reason", "")
 
         style = _state_style(d_state)
+        # IF-18: table cells render markup by default, so dimension
+        # names/states/reasons (report data) are literal Text.
         table.add_row(
-            d_name,
-            f"[{style}]{d_state}[/{style}]",
-            d_reason,
+            Text(str(d_name)),
+            Text(str(d_state), style=style),
+            Text(str(d_reason)),
         )
 
     c.print(table)
@@ -393,11 +410,13 @@ def print_detector_health(
             error = getattr(item, "error_type", "") or ""
 
         status_style = "green" if status == "ok" else "red"
+        # IF-18: table cells render markup by default, so entry
+        # points/statuses/IDs/errors (report data) are literal Text.
         table.add_row(
-            ep,
-            f"[{status_style}]{status}[/{status_style}]",
-            det_id,
-            error,
+            Text(str(ep)),
+            Text(str(status), style=status_style),
+            Text(str(det_id)),
+            Text(str(error)),
         )
 
     c.print(table)
@@ -429,10 +448,14 @@ def print_diff(
     if style == "unified":
         from .localize import visual_diff as _plain_diff
 
-        c.print(_plain_diff(text1, text2, style="unified"))
+        # IF-18: the plain diff is user text, not markup — print it as
+        # a literal Text renderable, never through markup parsing.
+        c.print(Text(_plain_diff(text1, text2, style="unified")))
         return None
 
-    # Side-by-side with Rich panel
+    # Side-by-side with Rich panel. IF-18: both texts are literal user
+    # data, so every cell is a Text object (styled spans for changed
+    # lines); no user string is ever interpolated into Rich markup.
     matcher = SequenceMatcher(None, lines1, lines2, autojunk=False)
     blocks = matcher.get_opcodes()
 
@@ -458,9 +481,9 @@ def print_diff(
                 right = right_lines[k] if k < len(right_lines) else ""
                 table.add_row(
                     str(i1 + k + 1),
-                    left,
+                    Text(left),
                     "  ",
-                    right,
+                    Text(right),
                 )
         elif tag == "replace":
             for k in range(max(len(left_lines), len(right_lines))):
@@ -468,15 +491,15 @@ def print_diff(
                 right = right_lines[k] if k < len(right_lines) else ""
                 table.add_row(
                     str(i1 + k + 1),
-                    f"[red]{left}[/]" if left else "",
+                    Text(left, style="red") if left else "",
                     "~",
-                    f"[green]{right}[/]" if right else "",
+                    Text(right, style="green") if right else "",
                 )
         elif tag == "delete":
             for k, line in enumerate(left_lines):
                 table.add_row(
                     str(i1 + k + 1),
-                    f"[red]{line}[/]",
+                    Text(line, style="red"),
                     "-",
                     "",
                 )
@@ -486,7 +509,7 @@ def print_diff(
                     "",
                     "",
                     "+",
-                    f"[green]{line}[/]",
+                    Text(line, style="green"),
                 )
 
     c.print(table)

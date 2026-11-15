@@ -209,6 +209,45 @@ def _server():
         """Check for benchmark contamination."""
         return dumped(mcp_tools.check_contamination(json.loads(params)))
 
+    # --- Result Codec tools (IF-16: registered as public tools in W5) ---
+
+    @mcp.tool()
+    def result_encode(params: str) -> str:
+        """Encode a forensic result object with schema validation.
+
+        ``params`` is a JSON object with ``data`` (the result object)
+        and ``schema`` (e.g. ``forensic-bundle``); ``canonical`` and
+        ``validate`` are optional. No text is submitted and no detector
+        runs, so this tool is not emergency-stop gated — like the other
+        ``params``-based tools below.
+        """
+        return dumped(mcp_tools.result_encode(json.loads(params)))
+
+    @mcp.tool()
+    def result_decode(params: str) -> str:
+        """Decode a forensic result object with schema validation.
+
+        ``params`` is a JSON object with ``encoded`` (the encoded
+        result string) and ``schema``; ``validate`` and
+        ``strict_version`` are optional. No text is submitted and no
+        detector runs, so this tool is not emergency-stop gated.
+        """
+        return dumped(mcp_tools.result_decode(json.loads(params)))
+
+    # --- Capability Policy tools (IF-16: registered as a public tool in W5) ---
+
+    @mcp.tool()
+    def capability_policy_evaluate(params: str) -> str:
+        """Evaluate capability-ledger policies for a detector.
+
+        ``params`` is a JSON object with ``ledger`` (a serialized
+        capability ledger), ``detector_id``, and ``policy`` (one of
+        ``production``, ``report``, ``calibration``, ``minimum``) or
+        ``custom_policy`` rules. No text is submitted and no detector
+        runs, so this tool is not emergency-stop gated.
+        """
+        return dumped(mcp_tools.capability_policy_evaluate(json.loads(params)))
+
     return mcp
 
 

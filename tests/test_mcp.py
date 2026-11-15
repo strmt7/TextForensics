@@ -58,6 +58,10 @@ class McpServerTests(unittest.TestCase):
             "drift_report",
             "fingerprint_dataset",
             "check_contamination",
+            # IF-16 (W5): the three codec/policy helpers are public tools.
+            "result_encode",
+            "result_decode",
+            "capability_policy_evaluate",
         }
         self.assertEqual(set(names), expected)
 

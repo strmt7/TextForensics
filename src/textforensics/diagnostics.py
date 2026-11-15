@@ -23,10 +23,13 @@ Design principles:
 
 from __future__ import annotations
 
+import math
 import os
 import platform
+import re
 import statistics
 import sys
+import tempfile
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -36,6 +39,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import psutil
+
+from ._build_info import get_version
 
 if TYPE_CHECKING:
     from textforensics.engine import Engine
@@ -183,58 +188,118 @@ class StorageHealth:
 
 
 class MetricsSnapshot:
-    """Privacy-safe metrics snapshot for external monitoring (OpenMetrics-compatible)."""
+    """Privacy-safe metrics snapshot for external monitoring (OpenMetrics-compatible).
+
+    Label values are escaped at source (``\\``, ``"``, newline) and
+    metric-family declarations are emitted once per family, without
+    labels, so :meth:`to_prometheus_format` is valid Prometheus
+    exposition text (IF-17).
+    """
+
+    # Prometheus metric/label name grammar (exposition format).
+    _NAME_RE = re.compile(r"[a-zA-Z_:][a-zA-Z0-9_:]*")
 
     def __init__(
         self,
         schema_version: int = 3,
         generated_at: datetime | None = None,
         service_name: str = "textforensics",
-        application_version: str = "unknown",
+        application_version: str | None = None,
     ):
         self.schema_version = schema_version
         self.generated_at = generated_at or datetime.now(UTC)
         self.service_name = service_name
-        self.application_version = "0.1.0"  # Would be from build info
+        # IF-17: the provided version round-trips; the default comes
+        # from build info, never from a hardcoded placeholder.
+        self.application_version = (
+            application_version if application_version is not None else get_version()
+        )
         self.generated_at_iso = self.generated_at.isoformat()
 
         # Privacy-safe aggregated metrics only
         self.metrics: dict[str, float] = {}
-        self.labels: dict[str, str] = {}
+        self.labels: dict[str, dict[str, str]] = {}
+        # Ordered samples: (metric name, labels, value). The dict
+        # above is the serialized view; this list is what exposition
+        # is rendered from, so families are declared exactly once.
+        self._samples: list[tuple[str, dict[str, str], float]] = []
+
+    @staticmethod
+    def _escape_label_value(value: str) -> str:
+        """Escape a label value per the Prometheus exposition format."""
+        return value.replace("\\", "\\\\").replace("\n", "\\n").replace('"', '\\"')
+
+    @classmethod
+    def _check_name(cls, name: str, what: str) -> None:
+        if not cls._NAME_RE.fullmatch(name):
+            raise ValueError(f"Invalid Prometheus {what} name: {name!r}")
+
+    @staticmethod
+    def _format_value(value: float) -> str:
+        """Format a sample value per the exposition format."""
+        if math.isnan(value):
+            return "Nan"
+        if math.isinf(value):
+            return "+Inf" if value > 0 else "-Inf"
+        return repr(float(value))
 
     def add_metric(self, name: str, value: float, labels: dict[str, str] | None = None) -> None:
         """Add a metric value."""
-        key = name
-        if labels:
-            label_str = ",".join(f'{k}="{v}"' for k, v in sorted(labels.items()))
+        self._check_name(name, "metric")
+        clean_labels = {str(k): str(v) for k, v in dict(labels or {}).items()}
+        for label_name in clean_labels:
+            self._check_name(label_name, "label")
+        if clean_labels:
+            label_str = ",".join(
+                f'{k}="{self._escape_label_value(v)}"' for k, v in sorted(clean_labels.items())
+            )
             key = f"{name}{{{label_str}}}"
-        self.metrics[key] = value
-        if labels:
-            self.labels[key] = ",".join(f'{k}="{v}"' for k, v in sorted(labels.items()))
+        else:
+            key = name
+        numeric = float(value)
+        self.metrics[key] = numeric
+        self.labels[key] = dict(clean_labels)
+        self._samples.append((name, dict(clean_labels), numeric))
 
     def to_prometheus_format(self) -> str:
         """Export in Prometheus/OpenMetrics format."""
-        lines = []
-        for name, value in self.metrics.items():
+        lines: list[str] = []
+        families: dict[str, list[tuple[dict[str, str], float]]] = {}
+        for name, labels, value in self._samples:
+            families.setdefault(name, []).append((labels, value))
+        for name, samples in families.items():
             lines.append(f"# TYPE {name} gauge")
-            lines.append(f"{name} {value}")
+            for labels, value in samples:
+                if labels:
+                    label_str = ",".join(
+                        f'{k}="{self._escape_label_value(v)}"' for k, v in sorted(labels.items())
+                    )
+                    lines.append(f"{name}{{{label_str}}} {self._format_value(value)}")
+                else:
+                    lines.append(f"{name} {self._format_value(value)}")
         return "\n".join(lines)
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "schema_version": 3,
+            "schema_version": self.schema_version,
             "generated_at": self.generated_at_iso,
-            "service_name": "textforensics",
-            "application_version": "0.1.0",
+            "service_name": self.service_name,
+            "application_version": self.application_version,
             "metrics": self.metrics,
         }
 
 
 class ReadinessAssessor:
-    """Assesses system readiness for operation."""
+    """Assesses system readiness for operation.
+
+    Each registered check keeps its declared criticality (IF-17): a
+    failed critical check reports ``critical`` overall, while a failed
+    optional check only degrades readiness. Check records carry their
+    ``critical`` flag so callers can tell the two apart.
+    """
 
     def __init__(self):
-        self._checks: dict[str, Callable[[], tuple[bool, str]]] = {}
+        self._checks: dict[str, tuple[Callable[[], tuple[bool, str]], bool]] = {}
 
     def register_check(
         self,
@@ -243,7 +308,7 @@ class ReadinessAssessor:
         critical: bool = True,
     ) -> None:
         """Register a readiness check."""
-        self._checks[name] = check_fn
+        self._checks[name] = (check_fn, critical)
 
     def assess(self) -> tuple[ReadinessState, list[dict[str, Any]]]:
         """Run all checks and return overall readiness state."""
@@ -251,29 +316,23 @@ class ReadinessAssessor:
         critical_failed = False
         any_failed = False
 
-        for name, check_fn in self._checks.items():
+        for name, (check_fn, critical) in self._checks.items():
             try:
                 passed, message = check_fn()
-                results.append(
-                    {
-                        "name": name,
-                        "passed": passed,
-                        "message": message,
-                    }
-                )
-                if not passed:
-                    any_failed = True
-                    critical_failed = True
             except Exception as e:
-                results.append(
-                    {
-                        "name": name,
-                        "passed": False,
-                        "message": f"Check failed with exception: {e}",
-                    }
-                )
+                passed, message = False, f"Check failed with exception: {e}"
+            results.append(
+                {
+                    "name": name,
+                    "passed": passed,
+                    "message": message,
+                    "critical": critical,
+                }
+            )
+            if not passed:
                 any_failed = True
-                critical_failed = True
+                if critical:
+                    critical_failed = True
 
         if critical_failed:
             return ReadinessState.CRITICAL, results
@@ -352,15 +411,30 @@ class MetricsCollector:
 
 
 class DiagnosticsEngine:
-    """Main diagnostics engine orchestrating all health checks."""
+    """Main diagnostics engine orchestrating all health checks.
+
+    The database/storage checks are real bounded checks, or explicit
+    not-configured state — never constant-true placeholders (IF-17).
+    Callers may inject their own checks (``database_check`` /
+    ``storage_check``: zero-argument callables returning
+    ``(passed, message)``); without an injected database check the
+    engine reports the database as not configured (a non-critical
+    failure, so readiness degrades rather than claiming healthy), and
+    without an injected storage check it probes writability with one
+    empty temporary file per configured path, removed immediately.
+    """
 
     def __init__(
         self,
         engine: Engine | None = None,
         storage_paths: list[Path] | None = None,
+        database_check: Callable[[], tuple[bool, str]] | None = None,
+        storage_check: Callable[[], tuple[bool, str]] | None = None,
     ):
         self.engine = engine
         self.storage_paths = storage_paths or [Path.cwd()]
+        self._database_check = database_check
+        self._storage_check = storage_check
         self.metrics_collector = MetricsCollector()
         self.readiness_assessor = ReadinessAssessor()
         self._register_default_checks()
@@ -373,14 +447,17 @@ class DiagnosticsEngine:
 
     def _register_default_checks(self) -> None:
         """Register default readiness checks."""
+        # No database is configured for this deployment, so the
+        # default database check states that explicitly instead of
+        # claiming a connection. Non-critical: it degrades readiness.
         self.readiness_assessor.register_check(
             "database",
-            lambda: (True, "Database connected"),  # Placeholder
-            critical=True,
+            self._check_database,
+            critical=False,
         )
         self.readiness_assessor.register_check(
             "storage",
-            lambda: (True, "Storage writable"),  # Placeholder
+            self._check_storage,
             critical=True,
         )
         self.readiness_assessor.register_check(
@@ -392,6 +469,42 @@ class DiagnosticsEngine:
             "memory",
             self._check_memory,
             critical=False,
+        )
+
+    def _check_database(self) -> tuple[bool, str]:
+        """Check the configured database, if one is injected."""
+        if self._database_check is not None:
+            try:
+                return self._database_check()
+            except Exception as e:
+                return False, f"Database check failed with exception: {e}"
+        return (
+            False,
+            "Database not configured: no database dependency is configured for this deployment",
+        )
+
+    def _check_storage(self) -> tuple[bool, str]:
+        """Check storage writability with a real bounded probe."""
+        if self._storage_check is not None:
+            try:
+                return self._storage_check()
+            except Exception as e:
+                return False, f"Storage check failed with exception: {e}"
+        failures: list[str] = []
+        for path in self.storage_paths:
+            try:
+                fd, tmp = tempfile.mkstemp(prefix=".textforensics-probe-", dir=str(path))
+                try:
+                    os.close(fd)
+                finally:
+                    os.unlink(tmp)
+            except Exception as e:
+                failures.append(f"{path}: {e}")
+        if failures:
+            return False, "Storage not writable: " + "; ".join(failures)
+        return (
+            True,
+            f"Storage writable: write probe succeeded on {len(self.storage_paths)} path(s)",
         )
 
     def _check_disk_space(self) -> tuple[bool, str]:
@@ -438,11 +551,18 @@ class DiagnosticsEngine:
         mem = psutil.virtual_memory()
         disk = psutil.disk_usage("/")
 
+        # Database/storage state follows the same real checks the
+        # readiness assessor runs — never a constant-true placeholder
+        # (IF-17). No database is configured by default, so
+        # database_connected is False unless an injected check passes.
+        database_connected, _ = self._check_database()
+        storage_writeable, _ = self._check_storage()
+
         indicators = OperationalIndicators(
-            database_connected=True,  # Placeholder
-            storage_writeable=True,  # Placeholder
-            detectors_available=0,  # Placeholder
-            detectors_healthy=0,  # Placeholder
+            database_connected=database_connected,
+            storage_writeable=storage_writeable,
+            detectors_available=0,  # No detector registry is injected; unknown, not claimed.
+            detectors_healthy=0,  # No detector registry is injected; unknown, not claimed.
             pipeline_healthy=True,  # Placeholder
             active_pipelines=0,
             failed_pipelines=0,
@@ -561,9 +681,11 @@ class DiagnosticsEngine:
 def create_diagnostics_engine(
     engine: Engine | None = None,
     storage_paths: list[Path] | None = None,
+    database_check: Callable[[], tuple[bool, str]] | None = None,
+    storage_check: Callable[[], tuple[bool, str]] | None = None,
 ) -> DiagnosticsEngine:
     """Create a diagnostics engine with default configuration."""
-    return DiagnosticsEngine(engine, storage_paths)
+    return DiagnosticsEngine(engine, storage_paths, database_check, storage_check)
 
 
 # Convenience function for quick diagnostics

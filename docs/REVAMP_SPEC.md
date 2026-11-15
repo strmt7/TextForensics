@@ -687,8 +687,15 @@ Global rules:
 - `drift_snapshot(params)` / `drift_compare(params)` / `drift_report(params)` — drift observatory.
 - `fingerprint_dataset(params)` — dataset fingerprint.
 - `check_contamination(params)` — benchmark contamination check.
+- `result_encode(params)` / `result_decode(params)` — result codec with schema validation.
+- `capability_policy_evaluate(params)` — capability-ledger policy evaluation.
 
-`src/textforensics/mcp_tools.py` additionally defines `result_encode`, `result_decode`, and `capability_policy_evaluate` as plain helper functions (unit-tested by direct import); they are **not** registered as MCP server tools.
+The three codec/policy tools are registered as public MCP tools (W5,
+audit IF-16) through the same `params`-JSON-string channel as the
+other dict-based tools; they take no text and run no detectors, so
+they are not emergency-stop gated, like `capability_*`,
+`verify_case_file`, `drift_*`, `fingerprint_dataset`, and
+`check_contamination`.
 
 Tool implementations in `mcp_tools.py` return `{success, exit_code, ...}` on success and `{success: False, error, exit_code}` on failure (exit codes are the §11.1 constants), and never echo raw text. The `@mcp.tool()` wrappers in `mcp_server.py` return the payload as a JSON string.
 
