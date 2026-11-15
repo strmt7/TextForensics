@@ -658,7 +658,12 @@ def test_command_for(modules: list[str], project_root: Path) -> str:
 # and datasets gets an entry (dedicated file + the W1 DetectRLX /
 # Core-09 tests in test_w1_worker_d.py + the F4 kill-test file) —
 # datasets had no entry before F4 because it had no baseline
-# entries; the F4 re-proof appended 31. NOTE: the F4 datasets
+# entries; the F4 re-proof appended 31. The W4 kill-test files
+# (tests/test_audit_w4_worker_f_<stem>.py) are listed the same way
+# (audit-w4-f2, 2026-11-15): calibration, probe_runs, ledger,
+# policy and datasets each get their W4 file appended, and cli,
+# detection_cache, emergency_stop, retry and workspace_integrity
+# each get a new entry (dedicated file + W4 kill-test file). NOTE: the F4 datasets
 # kill-test file is slow (~54-80 s unmutated: the 16 MiB default-cap
 # test reads a 16 MiB object), so a future datasets proof run needs
 # a per-mutant timeout of at least 180 s (F4 precedent: 300 s);
@@ -677,10 +682,12 @@ def test_command_for(modules: list[str], project_root: Path) -> str:
 # so a bare override would narrow coverage (see test_test_command_scoping).
 _MODULE_TEST_FILES: dict[str, list[str]] = {
     # W2 kill tests live in test_audit_w2_worker_f_calibration.py
-    # alongside the dedicated file.
+    # alongside the dedicated file; the W4 kill tests live in
+    # test_audit_w4_worker_f_calibration.py.
     "textforensics.calibration": [
         "tests/test_calibration.py",
         "tests/test_audit_w2_worker_f_calibration.py",
+        "tests/test_audit_w4_worker_f_calibration.py",
     ],
     # W2 kill tests live in test_audit_w2_worker_f_benchmark.py
     # alongside the dedicated file.
@@ -727,12 +734,14 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
     # Policy tests live in test_enterprise_policy.py, not test_policy.py;
     # the capability-expiry tests live in test_execution_policy.py; the
     # W2 Worker A trust/policy tests live in test_audit_w2_worker_a.py;
-    # the W2 kill tests live in test_audit_w2_worker_f_policy.py.
+    # the W2 kill tests live in test_audit_w2_worker_f_policy.py; the
+    # W4 kill tests live in test_audit_w4_worker_f_policy.py.
     "textforensics.policy": [
         "tests/test_enterprise_policy.py",
         "tests/test_execution_policy.py",
         "tests/test_audit_w2_worker_a.py",
         "tests/test_audit_w2_worker_f_policy.py",
+        "tests/test_audit_w4_worker_f_policy.py",
     ],
     # Execution-policy tests are split across test_execution_policy.py
     # (contract) and test_w1_consent_stop.py (consent/stop behaviour).
@@ -779,10 +788,14 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
     # test_w1_worker_d.py, ...), so a bare [test_w2_worker_d.py] override
     # would narrow coverage; it still falls back to the full suite until
     # the coordinator decides the file list.
+    # The W4 kill tests live in test_audit_w4_worker_f_probe_runs.py
+    # (audit-w4-f2, 2026-11-15: 168 tests killing 234 of the 287
+    # probe_runs runtime survivors).
     "textforensics.probe_runs": [
         "tests/test_probe_runs.py",
         "tests/test_w2_worker_d.py",
         "tests/test_audit_w2_worker_f_probe_runs.py",
+        "tests/test_audit_w4_worker_f_probe_runs.py",
     ],
     "textforensics.probe_metrics": [
         "tests/test_probe_metrics.py",
@@ -808,12 +821,14 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
     ],
     # Ledger tests live in test_audit_log.py (there is no
     # test_ledger.py); the W3 kill tests live in
-    # test_audit_w3_worker_f_ledger.py. test_audit_anchor.py is
+    # test_audit_w3_worker_f_ledger.py; the W4 kill tests live in
+    # test_audit_w4_worker_f_ledger.py. test_audit_anchor.py is
     # deliberately NOT listed: its 9 C08/C09 tests are red by design
     # for W4 (see the comment above the map).
     "textforensics.ledger": [
         "tests/test_audit_log.py",
         "tests/test_audit_w3_worker_f_ledger.py",
+        "tests/test_audit_w4_worker_f_ledger.py",
     ],
     # W3 Worker C tests live in test_audit_w3_worker_c.py alongside
     # the dedicated file; the W3 kill tests live in
@@ -886,10 +901,40 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
     # the F4 kill tests live in test_audit_w3_worker_f4_datasets.py
     # (audit-w3-f4, 2026-11-13: 17 tests killing 65 of the 97
     # phase-1 datasets survivors). See the timeout note above the map.
+    # The W4 kill tests live in test_audit_w4_worker_f_datasets.py
+    # (audit-w4-f2, 2026-11-15: 29 tests killing 39 of the 41
+    # datasets runtime survivors).
     "textforensics.datasets": [
         "tests/test_datasets.py",
         "tests/test_w1_worker_d.py",
         "tests/test_audit_w3_worker_f4_datasets.py",
+        "tests/test_audit_w4_worker_f_datasets.py",
+    ],
+    # The W4 kill-test files (tests/test_audit_w4_worker_f_<stem>.py)
+    # are listed the same way (audit-w4-f2, 2026-11-15) for the five
+    # W4 modules that had no map entry before: cli, detection_cache,
+    # emergency_stop, retry and workspace_integrity each get their
+    # dedicated file plus their W4 kill-test file. Observatory is
+    # deliberately NOT listed (see the comment above the map).
+    "textforensics.cli": [
+        "tests/test_cli.py",
+        "tests/test_audit_w4_worker_f_cli.py",
+    ],
+    "textforensics.detection_cache": [
+        "tests/test_detection_cache.py",
+        "tests/test_audit_w4_worker_f_detection_cache.py",
+    ],
+    "textforensics.emergency_stop": [
+        "tests/test_emergency_stop.py",
+        "tests/test_audit_w4_worker_f_emergency_stop.py",
+    ],
+    "textforensics.retry": [
+        "tests/test_retry.py",
+        "tests/test_audit_w4_worker_f_retry.py",
+    ],
+    "textforensics.workspace_integrity": [
+        "tests/test_workspace_integrity.py",
+        "tests/test_audit_w4_worker_f_workspace_integrity.py",
     ],
 }
 
@@ -1314,11 +1359,16 @@ def _top_level_table(tree: ast.AST) -> list[tuple[ast.AST, tuple[int, int], tupl
     return table
 
 
-#: Cached module contexts, keyed by (path, mtime_ns, size). The suite
-#: touches 5 modules; the cap is generous and only bounds a long-lived
-#: process that validates many different files.
+#: Cached module contexts, keyed by (path, mtime_ns, size). A full
+#: baseline classify touches every baseline module (37 in W4, and
+#: growing); the cap must stay above that count, or the earliest
+#: modules are evicted and re-parsed when their appended entries
+#: (at the end of the baseline file) are validated — the W4
+#: baseline exposed exactly that at cap 32 (policy parsed twice).
+#: 64 leaves headroom for the next waves while still bounding a
+#: long-lived process that validates many different files.
 _MODULE_CONTEXT_CACHE: dict[tuple[str, int, int], _ModuleContext] = {}
-_MODULE_CONTEXT_CACHE_MAX = 32
+_MODULE_CONTEXT_CACHE_MAX = 64
 
 
 def _load_module_context(source_path: Path) -> tuple[_ModuleContext | None, str | None]:
