@@ -50,25 +50,23 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
-import tempfile
 from collections.abc import Iterable, Mapping
-from contextlib import suppress
 from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from ._build_info import get_version
+from .atomic_io import atomic_write_bytes
 from .conditions import conditions_from_dict
 from .detectors import (
     DETERMINISM_VALUES,
     Detector,
     DetectorPrediction,
     execute_detector,
-    text_sha256,
 )
 from .evidence import EvidenceRegistry
+from .ledger import text_sha256
 from .schema import validate_bundle_trust_map_pair, validate_trust_map_dimensions
 from .sealing import (
     FORBIDDEN_RAW_TEXT_KEYS,
@@ -88,13 +86,17 @@ TRUST_SCHEMA = "textforensics.trust-map/v2"
 TRUST_SCHEMA_V3 = "textforensics.trust-map/v3"
 DETECTOR_SCHEMA = "textforensics.detector-result/v2"
 
-# The submitted text is hashed exactly as supplied, encoded as UTF-8,
-# with no case folding, whitespace normalisation, or other transformation
-# (see detectors.text_sha256).  Recording this verbatim is what makes
-# hash-then-reveal replay possible: the verifier applies the same steps.
+# The submitted text is hashed in the repository-controlled
+# representation: canonical LF newlines, encoded as UTF-8, with no case
+# folding or other transformation (see ledger.canonical_text_bytes).
+# CRLF and lone-CR newlines are normalised to LF before hashing, so the
+# same logical text hashes identically on Windows and Linux (audit
+# W6/ENG-08). Recording the rule verbatim is what makes hash-then-reveal
+# replay possible: the verifier applies the same steps.
 INPUT_NORMALISATION = (
-    "The submitted text is hashed exactly as supplied, encoded as UTF-8, "
-    "with no case folding, whitespace normalisation, or other transformation."
+    "The submitted text is hashed in canonical-LF form, encoded as UTF-8, "
+    "with CRLF and lone-CR newlines normalised to LF and no case folding "
+    "or other transformation."
 )
 
 CHECKLIST_ITEMS = ("D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10")
@@ -1797,28 +1799,17 @@ def write_case_file(
     )
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    rendered = json.dumps(case, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
-
-    temp_path: str | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            dir=target.parent,
-            prefix=f".{target.name}.",
-            suffix=".tmp",
-            delete=False,
-        ) as handle:
-            temp_path = handle.name
-            handle.write(rendered)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temp_path, target)
-        temp_path = None
-    finally:
-        if temp_path is not None:
-            with suppress(FileNotFoundError):
-                os.unlink(temp_path)
+    # Bytes, never text mode (audit W6/ENG-08): a text-mode write
+    # persists CRLF on a Windows host with autocrlf on, so the same
+    # case would hash differently per host wherever the file bytes are
+    # digested (e.g. a sealed-bundle manifest or an archive digest).
+    # The rendered JSON is LF by construction and is committed exactly
+    # as encoded; atomic_write_bytes stages, fsyncs and renames it, so
+    # a failed write leaves any previous file untouched.
+    rendered = (json.dumps(case, ensure_ascii=False, indent=2, allow_nan=False) + "\n").encode(
+        "utf-8"
+    )
+    atomic_write_bytes(target, rendered)
     return case
 
 

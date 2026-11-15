@@ -20,6 +20,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from .atomic_io import atomic_write_bytes
+
 BUNDLE_SCHEMA = "textforensics.bundle-manifest/v1"
 
 
@@ -266,11 +268,15 @@ def pack_bundle(case_file_path: str | Path, output_path: str | Path) -> BundleMa
         bundle_digest=archive_digest,
     )
 
-    # Write companion manifest
+    # Write companion manifest as bytes, never text mode (audit
+    # W6/ENG-08): a text-mode write persists CRLF on a Windows host
+    # with autocrlf on, so the manifest file bytes would differ per
+    # host for the same bundle. The manifest carries the archive
+    # digest; its bytes must be the same LF bytes everywhere.
     manifest_path = Path(output_path).with_name(bundle_filename + ".manifest.json")
-    manifest_path.write_text(
-        json.dumps(manifest.to_dict(), indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
+    atomic_write_bytes(
+        manifest_path,
+        (json.dumps(manifest.to_dict(), indent=2, ensure_ascii=False) + "\n").encode("utf-8"),
     )
 
     return manifest

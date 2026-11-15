@@ -85,6 +85,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .ledger import canonical_text_sha256
+
 DATASETS_SERVER_BASE = "https://datasets-server.huggingface.co"
 ROWS_PER_REQUEST = 100
 DEFAULT_TIMEOUT_S = 30
@@ -1565,7 +1567,7 @@ def _map_mage(row: dict[str, Any], config: str, split: str) -> list[NormalizedRo
             dataset="mage",
             config=config,
             split=split,
-            source_id=f"mage:{hashlib.sha256(text.encode('utf-8')).hexdigest()[:16]}",
+            source_id=f"mage:{canonical_text_sha256(text)[:16]}",
             regime="mage",
             meta={"src": src, "native_label": int(native)},
         )
@@ -2060,11 +2062,12 @@ def write_sample_cache(
 
     The UTF-8/LF byte encoding is defined exactly once and hashed only
     after it is committed: the cache file and the manifest are both
-    written as bytes through atomic temp+replace, so the manifest's
-    ``file_sha256`` is always the digest of the persisted bytes, on
-    every platform (audit W4/CORE-08). The manifest is published after
-    the cache file; if the manifest write fails, the exception
-    propagates and the stale manifest fails any later read closed
+    written as bytes through atomic temp+replace, and the manifest's
+    ``file_sha256`` is the digest of the persisted bytes read back
+    from disk after the write (audit W6/CORE-08), so it describes
+    what is actually on disk on every platform. The manifest is
+    published after the cache file; if the manifest write fails, the
+    exception propagates and the stale manifest fails any later read closed
     (digest mismatch) instead of silently vouching for new bytes.
 
     ``filename`` overrides the cache file name (plain file name only,
@@ -2087,7 +2090,14 @@ def write_sample_cache(
     # write whose platform newline conversion could change the bytes.
     data = content.encode("utf-8")
     _atomic_write_bytes(path, data)
-    file_sha256 = hashlib.sha256(data).hexdigest()
+    # CORE-08 (W6): the manifest records the digest of the PERSISTED
+    # bytes, read back from disk after the write — never the digest of
+    # the in-memory buffer. The two agree whenever the write path is
+    # byte-faithful, but only the read-back digest stays true if a host
+    # write path ever transforms the bytes (e.g. a CRLF conversion):
+    # the manifest then describes what is actually on disk, and a
+    # later read re-validates against exactly those bytes.
+    file_sha256 = _sha256_file(path)
     manifest = {
         "dataset": spec.key,
         "hf_id": spec.hf_id,

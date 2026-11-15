@@ -466,7 +466,10 @@ class DeterministicSealTests(unittest.TestCase):
             self.assertEqual(c1["case_sha256"], c2["case_sha256"])
 
     def test_write_case_file_cleans_up_temp_file_on_failure(self):
-        # Lines 204-207: finally block unlinks the temp file if os.replace fails.
+        # write_case_file publishes via atomic_write_bytes (audit
+        # W6/ENG-08: bytes, never text mode); its finally block unlinks
+        # the temp file if os.replace fails, so the seam is
+        # textforensics.atomic_io.os.replace.
         import unittest.mock as mock
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -479,7 +482,7 @@ class DeterministicSealTests(unittest.TestCase):
                 raise OSError("simulated replace failure")
 
             with (
-                mock.patch("textforensics.casefile.os.replace", side_effect=failing_replace),
+                mock.patch("textforensics.atomic_io.os.replace", side_effect=failing_replace),
                 self.assertRaises(OSError),
             ):
                 write_case_file(path, bundle)

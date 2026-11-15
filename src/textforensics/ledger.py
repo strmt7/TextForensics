@@ -46,6 +46,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from .atomic_io import atomic_write_bytes
+
 __all__ = [
     "AuditAnchor",
     "AuditLog",
@@ -690,9 +692,45 @@ def _validate_nonempty_text(text: str) -> None:
         raise DecisionLedgerError("Text must be a non-empty string.")
 
 
+def canonical_text(text: str) -> str:
+    """*text* in the repository-controlled representation (canonical LF).
+
+    CRLF and lone CR newlines become LF. This is the string form of
+    the normalisation :func:`canonical_text_bytes` applies before
+    hashing; use it when a hash input is built as JSON around the text
+    (the JSON escaping must see the normalised text, not the raw one).
+    """
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def canonical_text_bytes(text: str) -> bytes:
+    """UTF-8 bytes of *text* in the repository-controlled representation.
+
+    Hash-covered text is canonical LF (audit W6/ENG-08): CRLF and lone
+    CR newlines are normalised to LF before encoding, so the same
+    logical text hashes identically on a Windows host (where text may
+    arrive with CRLF line endings) and on Linux. This normalisation
+    applies to HASHES only — it never rewrites stored text (dataset
+    rows, case files and cached bytes keep their bytes verbatim).
+    """
+    return canonical_text(text).encode("utf-8")
+
+
+def canonical_text_sha256(text: str) -> str:
+    """SHA-256 of *text* in the canonical-LF representation (see above)."""
+    return hashlib.sha256(canonical_text_bytes(text)).hexdigest()
+
+
 def text_sha256(text: str) -> str:
-    """Compute SHA-256 hash of text."""
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+    """Compute SHA-256 hash of text, in the canonical-LF representation.
+
+    The digest is over :func:`canonical_text_bytes`, so ``"a\\r\\nb"``
+    and ``"a\\nb"`` — the same logical text on Windows and Linux —
+    hash identically (audit W6/ENG-08). Callers that hash canonical
+    JSON strings are unaffected: JSON escapes newlines, so those
+    strings contain no raw CR to normalise.
+    """
+    return canonical_text_sha256(text)
 
 
 @dataclass(frozen=True, slots=True)
@@ -956,12 +994,18 @@ class DecisionLedger:
 
 
 def save_ledger(records: Sequence[DecisionRecord], path: str | Path) -> None:
-    """Save records to JSONL file (one record per line)."""
+    """Save records to JSONL file (one record per line).
+
+    Bytes, never text mode (audit W6/ENG-08): the ledger file carries
+    the decision records and their entry hashes, so its bytes must be
+    the same canonical LF bytes on every host.
+    """
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("w", encoding="utf-8") as f:
-        for record in records:
-            f.write(record.to_json_line() + "\n")
+    atomic_write_bytes(
+        output,
+        b"".join((record.to_json_line() + "\n").encode("utf-8") for record in records),
+    )
 
 
 def load_ledger(path: str | Path) -> list[DecisionRecord]:
@@ -1467,10 +1511,15 @@ def create_evidence_node(
 
 
 def save_graph(graph: ProvenanceGraph, path: str | Path) -> None:
-    """Save graph to JSON file."""
-    Path(path).write_text(
-        json.dumps(graph.to_dict(), indent=2, ensure_ascii=False),
-        encoding="utf-8",
+    """Save graph to JSON file.
+
+    Bytes, never text mode (audit W6/ENG-08): see :func:`save_ledger`.
+    """
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_bytes(
+        target,
+        json.dumps(graph.to_dict(), indent=2, ensure_ascii=False).encode("utf-8"),
     )
 
 
@@ -1969,9 +2018,14 @@ class CalibrationChain:
             self._hashes = list(data.get("chain", []))
 
     def save_to_file(self, path: Path) -> None:
-        """Persist the chain to a JSON file."""
+        """Persist the chain to a JSON file.
+
+        Bytes, never text mode (audit W6/ENG-08): the chain file
+        carries the entry hashes, so its bytes must be the same
+        canonical LF bytes on every host.
+        """
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
-            json.dumps(self.to_dict(), indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
+        atomic_write_bytes(
+            path,
+            (json.dumps(self.to_dict(), indent=2, ensure_ascii=False) + "\n").encode("utf-8"),
         )

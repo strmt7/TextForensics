@@ -19,9 +19,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from .atomic_io import atomic_write_bytes
 from .detectors import BuiltinHeuristicDetector
 from .engine import analyze_text
 from .evidence import DisjointnessProof
+from .ledger import canonical_text
 
 CALIBRATION_SCHEMA = "textforensics.calibration/v1"
 
@@ -628,10 +630,16 @@ class DatasetFingerprint:
 
 
 def _compute_content_hash(text: str) -> str:
-    """Compute a stable hash for text content."""
+    """Compute a stable hash for text content.
+
+    The text is normalised to canonical LF first (audit W6/ENG-08):
+    the same logical text stored with CRLF newlines (Windows) and
+    with LF newlines (Linux) hashes identically. LF-only text is
+    unaffected, so existing fingerprints are unchanged.
+    """
     # Use canonical form for stability
     canonical = json.dumps(
-        {"text": text},
+        {"text": canonical_text(text)},
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=False,
@@ -687,6 +695,12 @@ def _compute_sample_hashes(
                 continue
 
             text = row.get("text", "")
+            if isinstance(text, str):
+                # Canonical LF before hashing (audit W6/ENG-08): the
+                # same logical text hashes identically whether the
+                # file stores it with CRLF or LF newlines. The stored
+                # row is never rewritten — only the hash input is.
+                text = canonical_text(text)
             if include_text and isinstance(text, str):
                 # When including text, hash the full text content
                 content = json.dumps(
@@ -945,12 +959,19 @@ def save_fingerprint(
     fingerprint: DatasetFingerprint,
     path: str | Path,
 ) -> Path:
-    """Save a fingerprint to a JSON file."""
+    """Save a fingerprint to a JSON file.
+
+    Bytes, never text mode (audit W6/ENG-08): the fingerprint carries
+    the dataset and content digests, so its file bytes must be the
+    same canonical LF bytes on every host.
+    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(fingerprint.to_dict(), indent=2, sort_keys=True, ensure_ascii=False) + "\n",
-        encoding="utf-8",
+    atomic_write_bytes(
+        path,
+        (
+            json.dumps(fingerprint.to_dict(), indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+        ).encode("utf-8"),
     )
     return path
 

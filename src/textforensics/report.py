@@ -31,7 +31,6 @@ from .detectors import (
     detector_determinism,
     execute_detector,
     filter_detectors_by_policy,
-    text_sha256,
 )
 from .evidence import EvidenceRegistry, load_registry
 from .execution_policy import (
@@ -41,7 +40,7 @@ from .execution_policy import (
     assert_execution_allowed,
 )
 from .features import benign_variants, extract_features
-from .ledger import verify_ledger
+from .ledger import text_sha256, verify_ledger
 from .trust import TrustMap, assess_trust_map
 
 BUNDLE_SCHEMA = "textforensics.forensic-bundle/v2"

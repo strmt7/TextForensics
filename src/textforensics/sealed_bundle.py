@@ -52,6 +52,7 @@ from pathlib import Path
 from typing import Any
 
 from ._build_info import get_version
+from .atomic_io import atomic_write_bytes
 from .casefile import (
     CASE_SCHEMA_V3,
     CASE_SCHEMA_V4,
@@ -576,8 +577,12 @@ def write_sealed_bundle(
     if seal_record_path is not None:
         record_target = Path(seal_record_path)
         record_target.parent.mkdir(parents=True, exist_ok=True)
-        record_target.write_text(
-            json.dumps(seal_record, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
+        # Bytes, never text mode (audit W6/ENG-08): a text-mode write
+        # persists CRLF on a Windows host with autocrlf on, so the
+        # seal-record file bytes — which carry the digests and may be
+        # hashed out of band — would differ per host for the same seal.
+        atomic_write_bytes(
+            record_target,
+            (json.dumps(seal_record, indent=2, sort_keys=True) + "\n").encode("utf-8"),
         )
     return seal_record

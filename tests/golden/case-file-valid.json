@@ -1,5 +1,5 @@
 {
-  "case_sha256": "197a2cbc185881d36e415498c1183716e0bcadc837eba699502822fab450027c",
+  "case_sha256": "129d1ea191eec0426c14bc0b75a7c552ea211857804048cb24e122b637bcfd68",
   "created_at_utc": "1970-01-01T00:00:00+00:00",
   "custody": [
     {
@@ -582,7 +582,7 @@
     "authorisation_ref": null,
     "char_count": 119,
     "content_sha256": "3c6a9d9e66d03095d9e2610b19d9c40655904a023a34b130267365741fd2c177",
-    "normalisation": "The submitted text is hashed exactly as supplied, encoded as UTF-8, with no case folding, whitespace normalisation, or other transformation.",
+    "normalisation": "The submitted text is hashed in canonical-LF form, encoded as UTF-8, with CRLF and lone-CR newlines normalised to LF and no case folding or other transformation.",
     "source": {},
     "word_count": 20
   },
