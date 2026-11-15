@@ -313,6 +313,46 @@ class SdistWithProvenance(sdist):
         except OSError:
             pass
 
+    def make_distribution(self) -> None:
+        """Create the sdist archive, then pin the gzip header mtime.
+
+        The tar stream itself is made deterministic by
+        make_release_tree (member mtimes pinned to SOURCE_DATE_EPOCH),
+        but distutils' make_tarball writes the gzip header with the
+        current time — Python's gzip provides no SOURCE_DATE_EPOCH
+        knob — so two builds seconds apart still differ in the gzip
+        header alone (proven: decompressed tar streams identical,
+        headers differ). When SOURCE_DATE_EPOCH is set, re-encode each
+        .tar.gz with the epoch as the gzip mtime. The tar content is
+        untouched; only the container timestamp is pinned (the same
+        normalization `gzip -n` / strip-nondeterminism performs).
+        """
+        super().make_distribution()
+        epoch = os.environ.get("SOURCE_DATE_EPOCH")
+        if not epoch:
+            return
+        try:
+            epoch_int = int(epoch)
+        except ValueError:
+            return
+        if epoch_int <= 0:
+            return
+        for archive in self.archive_files:
+            if not archive.endswith(".tar.gz"):
+                continue
+            self._regzip_deterministic(archive, epoch_int)
+
+    @staticmethod
+    def _regzip_deterministic(path: str, epoch: int) -> None:
+        """Re-encode a .tar.gz with a fixed gzip header mtime."""
+        import gzip
+
+        with gzip.open(path, "rb") as source:
+            raw = source.read()
+        with gzip.GzipFile(path, "wb", compresslevel=9, mtime=epoch) as dest:
+            dest.write(raw)
+        print(f"Re-gzipped {path} with mtime={epoch}")
+
 
 class BuildPyWithBuildInfo(build_py):
     """Custom build_py command that embeds build identity information.

@@ -347,9 +347,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.outdir is not None:
         args.outdir.mkdir(parents=True, exist_ok=True)
-        for name in ("dist-a", "dist-b"):
+        # Keep the two builds apart: both produce the same file names,
+        # so a flat copy would overwrite build A with build B.
+        for label, name in (("build-a", "dist-a"), ("build-b", "dist-b")):
+            dest_dir = args.outdir / label
+            dest_dir.mkdir(parents=True, exist_ok=True)
             for artifact in (workdir / name).glob("*"):
-                shutil.copy2(artifact, args.outdir / artifact.name)
+                shutil.copy2(artifact, dest_dir / artifact.name)
         (args.outdir / "report.json").write_text(
             json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
