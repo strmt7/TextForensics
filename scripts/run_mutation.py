@@ -674,12 +674,17 @@ def test_command_for(modules: list[str], project_root: Path) -> str:
 # for W4 (they assert the pre-W3 anchor behaviour W4 changes), so
 # including it would fail the per-mutant test command on every ledger
 # mutant. Those 9 tests are W4's corpus, not W3's.
-# Two modules have NO entry on purpose and still fall back to the full
+# Three modules have NO entry on purpose and still fall back to the full
 # suite, which collects their kill-test files anyway: evidence and
 # observatory. Evidence has no dedicated test file (its proof-driver
 # command was test_audit_w2_worker_a.py + test_evidence_manifest.py +
 # test_seed_evidence.py); observatory is imported by eight test files,
 # so a bare override would narrow coverage (see test_test_command_scoping).
+# web_ui.main likewise has no entry: the W5 proof driver's command for
+# it needs node-level scoping (single tests in test_core.py /
+# test_w1_consent_stop.py and 22 of the 36 tests in
+# test_audit_w5_worker_a.py) which the map cannot express, so a bare
+# file list would run whole files and exceed the per-mutant timeout.
 _MODULE_TEST_FILES: dict[str, list[str]] = {
     # W2 kill tests live in test_audit_w2_worker_f_calibration.py
     # alongside the dedicated file; the W4 kill tests live in
@@ -702,10 +707,12 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
         "tests/test_audit_w2_worker_f_validation.py",
     ],
     # W2 kill tests live in test_audit_w2_worker_f_report.py
-    # alongside the dedicated file.
+    # alongside the dedicated file; the W5 kill tests live in
+    # test_audit_w5_worker_f_report.py.
     "textforensics.report": [
         "tests/test_report.py",
         "tests/test_audit_w2_worker_f_report.py",
+        "tests/test_audit_w5_worker_f_report.py",
     ],
     # W2 kill tests live in test_audit_w2_worker_f_mixed_origin.py
     # alongside the dedicated file.
@@ -796,6 +803,7 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
         "tests/test_w2_worker_d.py",
         "tests/test_audit_w2_worker_f_probe_runs.py",
         "tests/test_audit_w4_worker_f_probe_runs.py",
+        "tests/test_audit_w5_worker_f_probe_runs.py",
     ],
     "textforensics.probe_metrics": [
         "tests/test_probe_metrics.py",
@@ -812,6 +820,7 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
         "tests/test_w2_worker_d.py",
         "tests/test_audit_w2_worker_f_result_codec.py",
         "tests/test_audit_w3_worker_f_result_codec.py",
+        "tests/test_audit_w5_worker_f_result_codec.py",
     ],
     # W3 kill tests live in test_audit_w3_worker_f_watermarking.py
     # alongside the dedicated file.
@@ -915,10 +924,14 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
     # W4 modules that had no map entry before: cli, detection_cache,
     # emergency_stop, retry and workspace_integrity each get their
     # dedicated file plus their W4 kill-test file. Observatory is
-    # deliberately NOT listed (see the comment above the map).
+    # deliberately NOT listed (see the comment above the map). The W5
+    # kill-test file lives in test_audit_w5_worker_f_cli.py
+    # (audit-w5-f, 2026-11-15: 40 tests killing 53 of the 68 cli
+    # runtime survivors).
     "textforensics.cli": [
         "tests/test_cli.py",
         "tests/test_audit_w4_worker_f_cli.py",
+        "tests/test_audit_w5_worker_f_cli.py",
     ],
     "textforensics.detection_cache": [
         "tests/test_detection_cache.py",
@@ -935,6 +948,80 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
     "textforensics.workspace_integrity": [
         "tests/test_workspace_integrity.py",
         "tests/test_audit_w4_worker_f_workspace_integrity.py",
+    ],
+    # The W5 kill-test files (tests/test_audit_w5_worker_f_<stem>.py)
+    # are listed the same way (audit-w5-f, 2026-11-15): the modules
+    # below had no map entry before, so each gets one (the files the
+    # W5 proof driver ran for it, plus its W5 kill-test file).
+    # atomic_io has no dedicated test file and no test imports it
+    # directly; the entry covers every call site (see the module
+    # docstring), as the W5 proof driver did.
+    "textforensics.atomic_io": [
+        "tests/test_audit_w5_worker_d.py",
+        "tests/test_model_card.py",
+        "tests/test_drift.py",
+        "tests/test_detector_health.py",
+        "tests/test_probe_corpus.py",
+        "tests/test_result_codec.py",
+        "tests/test_probe_runs.py",
+        "tests/test_audit_w5_worker_f_atomic_io.py",
+    ],
+    # bundle_consistency: the W5 Worker A tests live in
+    # test_audit_w5_worker_a.py; the W5 kill tests live in
+    # test_audit_w5_worker_f_bundle_consistency.py.
+    "textforensics.bundle_consistency": [
+        "tests/test_audit_w5_worker_a.py",
+        "tests/test_bundle_consistency.py",
+        "tests/test_bundle_consistency_properties.py",
+        "tests/test_audit_w5_worker_f_bundle_consistency.py",
+    ],
+    # diagnostics: the W5 Worker C tests live in
+    # test_w5_worker_c_if17.py; the W5 kill tests live in
+    # test_audit_w5_worker_f_diagnostics.py.
+    "textforensics.diagnostics": [
+        "tests/test_diagnostics.py",
+        "tests/test_w5_worker_c_if17.py",
+        "tests/test_audit_w5_worker_f_diagnostics.py",
+    ],
+    # mcp_server: the MCP tests live in test_mcp.py; the consent/stop
+    # tests in test_w1_consent_stop.py; the emergency-stop tests in
+    # test_emergency_stop.py; the W5 Worker C tests in
+    # test_w5_worker_c_if16.py; the W5 kill tests in
+    # test_audit_w5_worker_f_mcp_server.py.
+    "textforensics.mcp_server": [
+        "tests/test_emergency_stop.py",
+        "tests/test_mcp.py",
+        "tests/test_w1_consent_stop.py",
+        "tests/test_w5_worker_c_if16.py",
+        "tests/test_audit_w5_worker_f_mcp_server.py",
+    ],
+    # ollama: the W5 Worker B tests live in
+    # test_audit_w5_worker_b_ollama.py; the transport tests in
+    # test_w1_ollama_transport.py; the case-file tests in
+    # test_casefile_v4.py; the W5 kill tests in
+    # test_audit_w5_worker_f_ollama.py.
+    "textforensics.ollama": [
+        "tests/test_audit_w5_worker_b_ollama.py",
+        "tests/test_casefile_v4.py",
+        "tests/test_ollama.py",
+        "tests/test_w1_ollama_transport.py",
+        "tests/test_audit_w5_worker_f_ollama.py",
+    ],
+    # probe_corpus: the W5 Worker D tests live in
+    # test_audit_w5_worker_d.py; the W5 kill tests live in
+    # test_audit_w5_worker_f_probe_corpus.py.
+    "textforensics.probe_corpus": [
+        "tests/test_audit_w5_worker_d.py",
+        "tests/test_probe_corpus.py",
+        "tests/test_audit_w5_worker_f_probe_corpus.py",
+    ],
+    # rich_output: the W5 Worker C tests live in
+    # test_w5_worker_c_if18.py; the W5 kill tests live in
+    # test_audit_w5_worker_f_rich_output.py.
+    "textforensics.rich_output": [
+        "tests/test_rich_output.py",
+        "tests/test_w5_worker_c_if18.py",
+        "tests/test_audit_w5_worker_f_rich_output.py",
     ],
 }
 
