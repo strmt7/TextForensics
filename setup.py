@@ -248,16 +248,6 @@ def _write_sdist_provenance(source_root: Path, provenance: dict) -> Path:
         json.dumps(provenance, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    # Pin the record's mtime to SOURCE_DATE_EPOCH when set, so the
-    # sdist tar entry for it is reproducible (see make_distribution).
-    epoch = os.environ.get("SOURCE_DATE_EPOCH")
-    if epoch:
-        try:
-            epoch_int = int(epoch)
-        except ValueError:
-            epoch_int = 0
-        if epoch_int > 0:
-            os.utime(output_path, (epoch_int, epoch_int))
     return output_path
 
 
@@ -280,32 +270,48 @@ class SdistWithProvenance(sdist):
               f"commit={provenance['source_commit']})")
         super().run()
 
-    def make_distribution(self) -> None:
-        """Create the sdist archive with deterministic member mtimes.
+    def make_release_tree(self, base_dir, files) -> None:
+        """Build the release tree with deterministic mtimes.
 
         setuptools does not honor SOURCE_DATE_EPOCH for sdist tar
-        entries: files generated during the build (egg-info/*,
-        PKG-INFO, setup.cfg, the provenance record) carry "now"
-        mtimes, so two builds seconds apart produce different sdists
-        even though every member's content is identical. When
-        SOURCE_DATE_EPOCH is set, pin every file-list entry's mtime to
-        it before the release tree is tarred. This normalizes the
-        build's inputs (the standard reproducible-build practice), it
-        does not doctor the artifact afterwards.
+        entries: files generated during the build carry "now" mtimes,
+        so two builds seconds apart produce different sdists even
+        though every member's content is identical. Two such files —
+        PKG-INFO and setup.cfg — are written INTO the release tree by
+        setuptools itself (not part of the file list), and the tree's
+        directories also carry "now" mtimes, so normalizing the file
+        list alone is not enough. When SOURCE_DATE_EPOCH is set, pin
+        every entry under the release tree (files and directories) to
+        it before the tree is tarred. This normalizes the build's
+        inputs (the standard reproducible-build practice); it does
+        not doctor the artifact afterwards, and it touches only the
+        release-tree copies, never the source tree.
         """
+        super().make_release_tree(base_dir, files)
         epoch = os.environ.get("SOURCE_DATE_EPOCH")
-        if epoch:
-            try:
-                epoch_int = int(epoch)
-            except ValueError:
-                epoch_int = 0
-            if epoch_int > 0:
-                for rel_path in self.filelist.files:
-                    try:
-                        os.utime(rel_path, (epoch_int, epoch_int))
-                    except OSError:
-                        pass
-        super().make_distribution()
+        if not epoch:
+            return
+        try:
+            epoch_int = int(epoch)
+        except ValueError:
+            return
+        if epoch_int <= 0:
+            return
+        for dirpath, dirnames, filenames in os.walk(base_dir):
+            for name in filenames:
+                try:
+                    os.utime(os.path.join(dirpath, name), (epoch_int, epoch_int))
+                except OSError:
+                    pass
+            for name in dirnames:
+                try:
+                    os.utime(os.path.join(dirpath, name), (epoch_int, epoch_int))
+                except OSError:
+                    pass
+        try:
+            os.utime(base_dir, (epoch_int, epoch_int))
+        except OSError:
+            pass
 
 
 class BuildPyWithBuildInfo(build_py):

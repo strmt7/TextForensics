@@ -208,19 +208,26 @@ def compare_wheels(first: Path, second: Path) -> list[str]:
     return diffs
 
 
-def _sdist_members(path: Path) -> dict[str, tuple[int, str, int]]:
-    """Map member name -> (size, sha256 of content, mtime)."""
-    members: dict[str, tuple[int, str, int]] = {}
+def _sdist_members(path: Path) -> dict[str, tuple[str, int, str, int]]:
+    """Map member name -> (type, size, sha256 of content, mtime).
+
+    Every member is compared, including directories: a directory
+    mtime difference changes the tar bytes just as a file mtime does,
+    and a file-only comparison would hide it.
+    """
+    members: dict[str, tuple[str, int, str, int]] = {}
     with tarfile.open(path, "r:gz") as archive:
         for member in archive.getmembers():
-            if not member.isfile():
-                continue
-            data = archive.extractfile(member).read()
-            members[member.name] = (
-                member.size,
-                hashlib.sha256(data).hexdigest(),
-                member.mtime,
-            )
+            if member.isfile():
+                data = archive.extractfile(member).read()
+                members[member.name] = (
+                    "file",
+                    member.size,
+                    hashlib.sha256(data).hexdigest(),
+                    member.mtime,
+                )
+            else:
+                members[member.name] = (member.type, member.size, "", member.mtime)
     return members
 
 
@@ -235,11 +242,19 @@ def compare_sdists(first: Path, second: Path) -> list[str]:
         elif name not in b:
             diffs.append(f"member {name!r} present only in {first.name}")
         elif a[name] != b[name]:
-            diffs.append(
-                f"member {name!r} differs: "
-                f"{first.name} (size={a[name][0]}, sha256={a[name][1][:12]}..., mtime={a[name][2]}) vs "
-                f"{second.name} (size={b[name][0]}, sha256={b[name][1][:12]}..., mtime={b[name][2]})"
-            )
+            kind = a[name][0]
+            if kind == "file":
+                diffs.append(
+                    f"member {name!r} differs: "
+                    f"{first.name} (size={a[name][1]}, sha256={a[name][2][:12]}..., mtime={a[name][3]}) vs "
+                    f"{second.name} (size={b[name][1]}, sha256={b[name][2][:12]}..., mtime={b[name][3]})"
+                )
+            else:
+                diffs.append(
+                    f"member {name!r} ({kind}) differs: "
+                    f"{first.name} (mtime={a[name][3]}) vs "
+                    f"{second.name} (mtime={b[name][3]})"
+                )
     return diffs
 
 
