@@ -29,6 +29,7 @@ import contextlib
 import ipaddress
 import json
 import logging
+import math
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
@@ -202,6 +203,34 @@ async def _iter_capped_lines(
             yield line
     finally:
         _close_response(response)
+
+
+async def _iter_stream_json(
+    response: aiohttp.ClientResponse, *, max_bytes: int
+) -> AsyncIterator[dict[str, Any]]:
+    """Yield parsed JSON objects from a streaming response.
+
+    The shared line parser for all streaming operations (IF-15): blank
+    keep-alive lines are skipped, malformed or non-object lines raise a
+    redacted :class:`OllamaError` (the offending line is never echoed —
+    it may contain prompt text), and a transport timeout surfacing
+    during iteration becomes :class:`OllamaTimeoutError`, matching the
+    non-streaming path. The response is closed by the shared capped
+    reader when iteration ends, errors, or is abandoned.
+    """
+    try:
+        async for line in _iter_capped_lines(response, max_bytes=max_bytes):
+            if not line.strip():
+                continue
+            try:
+                data = json.loads(line)
+            except (json.JSONDecodeError, ValueError) as exc:
+                raise OllamaError("Ollama streaming response contained a malformed line") from exc
+            if not isinstance(data, dict):
+                raise OllamaError("Ollama streaming response contained a malformed line")
+            yield data
+    except TimeoutError as exc:
+        raise OllamaTimeoutError("Ollama streaming response timed out") from exc
 
 
 def _validate_redirect_destination(url: str, *, allow_remote_host: bool) -> None:
@@ -491,9 +520,14 @@ class EmbeddingRequest:
     keep_alive: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        data = {"model": self.model, "input": self.input}
-        if self.truncate:
-            data["truncate"] = True
+        # `truncate` is always serialized explicitly (IF-13): omitting
+        # it lets the service default (truncate=true) contradict an
+        # explicit `truncate=False`, which refuses truncation.
+        data: dict[str, Any] = {
+            "model": self.model,
+            "input": self.input,
+            "truncate": self.truncate,
+        }
         if self.options:
             data["options"] = self.options
         if self.keep_alive:
@@ -520,6 +554,44 @@ class EmbeddingResponse:
             load_duration=data.get("load_duration"),
             prompt_eval_count=data.get("prompt_eval_count"),
         )
+
+
+def _validate_embeddings_response(data: Any, *, expected_count: int) -> list[list[float]]:
+    """Validate an ``/api/embed`` response body (IF-13).
+
+    A successful HTTP status is not enough: an empty, wrong-count,
+    ragged, or non-finite ``embeddings`` payload must never be accepted
+    as valid vectors. The raised error names only the defect class —
+    no response content is echoed.
+    """
+    if not isinstance(data, dict):
+        raise OllamaError("Ollama embeddings response is invalid: not an object")
+    embeddings = data.get("embeddings")
+    if not isinstance(embeddings, list) or not embeddings:
+        raise OllamaError("Ollama embeddings response is invalid: no embeddings returned")
+    if len(embeddings) != expected_count:
+        raise OllamaError(
+            "Ollama embeddings response is invalid: "
+            f"expected {expected_count} embedding(s), got {len(embeddings)}"
+        )
+    dimensions: int | None = None
+    validated: list[list[float]] = []
+    for vector in embeddings:
+        if not isinstance(vector, list) or not vector:
+            raise OllamaError("Ollama embeddings response is invalid: empty or non-list vector")
+        if dimensions is None:
+            dimensions = len(vector)
+        elif len(vector) != dimensions:
+            raise OllamaError("Ollama embeddings response is invalid: ragged vector dimensions")
+        values: list[float] = []
+        for value in vector:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise OllamaError("Ollama embeddings response is invalid: non-numeric vector value")
+            if not math.isfinite(value):
+                raise OllamaError("Ollama embeddings response is invalid: non-finite vector value")
+            values.append(float(value))
+        validated.append(values)
+    return validated
 
 
 class OllamaClient:
@@ -752,10 +824,24 @@ class OllamaClient:
         *,
         stream: bool = False,
     ) -> GenerationResponse | AsyncIterator[GenerationResponse]:
-        """Generate text using the model."""
+        """Generate text using the model.
+
+        The wire ``stream`` flag always follows the method argument
+        (IF-15): a request built with ``stream=True`` that is called
+        without streaming must not ask the server to stream (the
+        single-JSON parse would fail on NDJSON), and a ``stream=True``
+        call must not leave the body at the request default
+        ``stream:false``.
+        """
         data = request.to_dict()
+        data["stream"] = stream
 
         if stream:
+            # Ensure the session before iteration begins (IF-15): a
+            # fresh client with no `async with` must not fail on the
+            # first streamed item. The request itself still starts on
+            # first iteration, so error classification surfaces there.
+            await self._ensure_session()
             return self._generate_stream(request.model, data)
         else:
             response = await self._request("POST", "api/generate", data)
@@ -771,21 +857,16 @@ class OllamaClient:
 
         Routed through :meth:`_request` (``stream=True``) so streaming
         gets the same redirect validation, error classification and
-        capped reader as ordinary requests (IF-02/IF-09); the response
+        capped reader as ordinary requests (IF-02/IF-09); lines are
+        parsed by the shared :func:`_iter_stream_json` (blank lines
+        skipped, malformed lines a redacted error), and the response
         is closed deterministically when iteration ends, errors, or is
-        abandoned. NOTE (W5 / IF-15): the ``stream`` argument of
-        :meth:`generate` is deliberately NOT reconciled with the wire
-        body here — that reconciliation, and the fresh-client
-        session-setup contract, belong to W5.
+        abandoned (IF-15).
         """
         response = await self._request("POST", "api/generate", data, stream=True)
         try:
-            async for line in _iter_capped_lines(
-                response, max_bytes=self.config.max_response_bytes
-            ):
-                if line:
-                    data = json.loads(line)
-                    yield GenerationResponse.from_dict(data)
+            async for item in _iter_stream_json(response, max_bytes=self.config.max_response_bytes):
+                yield GenerationResponse.from_dict(item)
         finally:
             _close_response(response)
 
@@ -807,6 +888,8 @@ class OllamaClient:
             data["options"] = options
 
         if stream:
+            # Session ensured before iteration, as in generate() (IF-15).
+            await self._ensure_session()
             return self._chat_stream(model, data)
         else:
             response = await self._request("POST", "api/chat", data)
@@ -816,27 +899,50 @@ class OllamaClient:
         """Stream chat responses through the shared request lifecycle.
 
         Same redirect / error / capped-reader protections as
-        :meth:`_generate_stream` (IF-02/IF-09); response closed
-        deterministically on end, error, or abandonment. The IF-15
-        stream-flag reconciliation is W5-owned (see
-        :meth:`_generate_stream`).
+        :meth:`_generate_stream` (IF-02/IF-09), with lines parsed by
+        the shared :func:`_iter_stream_json` (IF-15); response closed
+        deterministically on end, error, or abandonment.
         """
         response = await self._request("POST", "api/chat", data, stream=True)
         try:
-            async for line in _iter_capped_lines(
-                response, max_bytes=self.config.max_response_bytes
-            ):
-                if line:
-                    yield json.loads(line)
+            async for item in _iter_stream_json(response, max_bytes=self.config.max_response_bytes):
+                yield item
         finally:
             _close_response(response)
 
     async def embeddings(self, request: EmbeddingRequest) -> EmbeddingResponse:
-        """Generate embeddings for input text."""
-        data = request.to_dict()
-        response = await self._request("POST", "api/embeddings", request.to_dict())
+        """Generate embeddings for input text.
+
+        Targets the ``/api/embed`` contract (IF-13, verified against
+        https://docs.ollama.com/api/embed): request ``input`` (string
+        or list), explicit ``truncate``; response ``embeddings``. The
+        legacy ``/api/embeddings`` endpoint takes ``prompt`` and
+        returns a single ``embedding`` and is deliberately not used —
+        no legacy adapter is shipped. The response is validated
+        (count, dimensions, finite values) before it is accepted.
+        """
+        inputs = request.input
+        if isinstance(inputs, list):
+            if not inputs:
+                raise ValueError("Embedding input must not be empty")
+            if not all(isinstance(item, str) for item in inputs):
+                raise ValueError("Embedding input must be a string or a list of strings")
+            expected_count = len(inputs)
+        elif isinstance(inputs, str):
+            expected_count = 1
+        else:
+            raise ValueError("Embedding input must be a string or a list of strings")
+        response = await self._request("POST", "api/embed", request.to_dict())
         data = await response.json()
-        return EmbeddingResponse.from_dict(data)
+        validated = _validate_embeddings_response(data, expected_count=expected_count)
+        parsed = EmbeddingResponse.from_dict(data)
+        return EmbeddingResponse(
+            model=parsed.model,
+            embeddings=validated,
+            total_duration=parsed.total_duration,
+            load_duration=parsed.load_duration,
+            prompt_eval_count=parsed.prompt_eval_count,
+        )
 
     async def check_health(self) -> bool:
         """Check if Ollama server is reachable."""
