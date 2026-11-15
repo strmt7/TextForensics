@@ -1,5 +1,14 @@
 [build-system]
-# Pinned versions for reproducible builds
+# Build-backend ranges (the BROAD LIBRARY role): any consumer building
+# from source gets a compatible backend. The EXACT release build inputs
+# are pinned separately in requirements-tools-hashed.txt (generated from
+# requirements-tools-pinned.txt by scripts/generate_tools_lock.py) and
+# in requirements-hashed.txt: build 1.6.1, setuptools 84.2.1,
+# wheel 0.48.0 — one profile, shared by both lockfiles (ENG-10, W6).
+# The pinned versions must always lie inside these ranges (enforced by
+# tests/test_audit_w6_b_build_pins.py). Every workflow that builds a
+# distribution installs a hash-pinned lockfile first, so a build never
+# resolves ambient backend versions.
 requires = ["setuptools>=75,<85", "wheel>=0.45"]
 build-backend = "setuptools.build_meta"
 

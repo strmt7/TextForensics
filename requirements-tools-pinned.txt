@@ -1,0 +1,41 @@
+# requirements-tools-pinned.txt — DIRECT PINS for the tools lockfile
+#
+# Source for requirements-tools-hashed.txt (regenerate with:
+#   python3 scripts/generate_tools_lock.py
+# which resolves these pins against requirements-pinned.txt as a
+# constraints file, then hash-pins every resolved package via the PyPI
+# JSON API).
+#
+# ENG-10 (W6): the build toolchain pins below are the EXACT release
+# build profile, aligned with the main lockfile (build 1.6.1,
+# setuptools 84.2.1, wheel 0.48.0). They previously pinned deliberately
+# older versions (build 1.2.2, setuptools 79.0.1, wheel 0.45.1) while
+# the release/CI jobs built with the main lockfile's newer versions, so
+# the reproducibility proof did not cover the release build inputs.
+# The older profile was reversed because the newer profile is proven
+# byte-identical by scripts/check_reproducibility.py, and setuptools
+# 79.0.1 carries known findings (PYSEC-2026-3447, GHSA-xmj3-9gf7-h52w)
+# that the widened pyproject cap (<85) was meant to clear. One version
+# per package across the repo: shared packages resolve to the
+# requirements-pinned.txt version via constraints.
+#
+# Direct pins (tools NOT in requirements-pinned.txt, plus the build
+# toolchain). Transitive dependencies are resolved by the generator and
+# pinned with hashes in requirements-tools-hashed.txt — they must be
+# there, because pip under --require-hashes refuses any unpinned
+# transitive (e.g. memory-profiler -> psutil, build -> packaging).
+#
+# Notes carried from the original tools lockfile (2026-11-14):
+# - sphinx is 8.2.3 (latest 8.x), NOT 9.2.0 — 9.x requires Python
+#   >=3.13 but the docs job runs 3.12.
+# - sphinx-linkcheck is NOT listed: it does not exist on PyPI (404);
+#   linkcheck is a built-in Sphinx builder, not a package.
+
+memory-profiler==0.61.0
+cyclonedx-bom==8.0.1
+myst-parser==5.2.0
+sphinx==8.2.3
+sphinx-rtd-theme==3.1.0
+build==1.6.1
+setuptools==84.2.1
+wheel==0.48.0
