@@ -300,8 +300,8 @@ def test_drift_snapshot_compare_cli_end_to_end(tmp_path):
 def _write_probe_fixture(tmp_path: Path):
     import hashlib
 
-    from textforensics.probe_corpus import ProbeCorpusManifest, item_id
     from tests.test_probe_runs_e2e import _build_corpus
+    from textforensics.probe_corpus import ProbeCorpusManifest, item_id
 
     manifest, texts, holdback = _build_corpus()
     # The e2e fixture uses synthetic item_ids ("human-native-000");
@@ -315,9 +315,7 @@ def _write_probe_fixture(tmp_path: Path):
         item["item_id"] = new_id
     texts = {remap[k]: v for k, v in texts.items()}
     holdback = {remap[k]: v for k, v in holdback.items()}
-    manifest["items_sha256"] = ProbeCorpusManifest.from_dict(
-        manifest
-    ).compute_items_sha256()
+    manifest["items_sha256"] = ProbeCorpusManifest.from_dict(manifest).compute_items_sha256()
     manifest_path = tmp_path / "manifest.json"
     texts_path = tmp_path / "corpus.jsonl"
     holdback_path = tmp_path / "holdback.jsonl"
