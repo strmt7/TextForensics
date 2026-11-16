@@ -91,6 +91,62 @@ was found in any occurrence. No file was edited except
 `docs/live-host-api/fullsuite2.log` (minimized in place, above); the
 two suite JSONs were left byte-identical.
 
+## W10 successors (audit W10, worker D, 2026-11-17)
+
+The W10 fresh tree scan found three W8 registry-bound run artifacts
+carrying `actual-personal-path` values (the executing account's home
+directory, recorded in `cache_file` / `detail` fields). They are
+digest-bound claims evidence (U7(b): the claims gate re-hashes the
+originals against `docs/evidence/registry.json`), so the originals
+stay byte-identical and the minimized successors below carry the same
+evidence values except for the minimized fields. Same rules as the W7
+successors: a successor is **not** the original, its digest is **not**
+the registry digest, and it must never be registered or cited as the
+original. The W10 scan method and full classification are in the W10
+worker-D part-report
+(`hidden_files/audit-w10-d-report.md`); the candidate dossier is
+`docs/release/candidate-dossier.md`.
+
+| Successor | Source record | Source commit | Source sha256 | Successor sha256 | What was minimized |
+| --- | --- | --- | --- | --- | --- |
+| `EV-20261116-ood-short-refusal.json` | `docs/evidence/runs/EV-20261116-ood-short-refusal.json` (`EV-20261116-ood-short-refusal`) | `a00c1d41ffe9d027c7938995f099ea9ca0f5e24a` | `a46dc56fe6d46061fdd7541d44697376e82aad75eaac18708e18520bf83e03ae` | `8d837ebf404cc21be32cb7997a737d86cd8c6858610264e0f0f87b09c16ed80e` | `results.short_text.slices[].cache_file` (lines 1644, 1902, 2160, 2418, 2676, 2934): the executing account's home prefix replaced with the host-neutral `$HOME`; the `.cache/textforensics/datasets/...` remainder is unchanged |
+| `EV-20261116-reproduction-detectrl-x.json` | `docs/evidence/runs/EV-20261116-reproduction-detectrl-x.json` (`EV-20261116-reproduction-detectrl-x`) | `be249783d1dd064e936b779ccd72ce824181b389` | `33b9baaee70988efe4e720eec050274425ec258be97d51aa89e7059bc224a78f` | `194dc0c83e27883a4f815a7a78567c526914c0acaee3604546a3e13dcbee7337` | `results.identity_checks[].detail` (lines 96, 126, 156): the deleted W8-B worker-worktree absolute prefix replaced with the repo-relative `docs/evidence/manifests/EV-20261116-detectrl_x-*.json` |
+| `EV-20261116-reproduction-registry.json` | `docs/evidence/runs/EV-20261116-reproduction-registry.json` (`EV-20261116-reproduction-registry`) | `263507114a3f9895e0ad7019f779cf3127818e66` | `3e1d2b6012f3f3f7c7a3f8b01bef06185b45b3e8770a48c8952c99e8fa30ce4b` | `1cff89fb3efb8a78c6208e9c0e4bc77241e1005c4a12b1b378c9bfd629a122fe` | `results.slices[].cache_file` (lines 24, 88, 152, 216, 280, 344, 408, 472, 536): same `$HOME` minimization as the out-of-domain artifact |
+
+Each successor was built by textual line replacement only (no JSON
+round-trip), so a diff against its original shows only the listed
+lines changed (6 / 3 / 9 lines). Both original and successor validate
+against `run-artifact.schema.json`, and the two JSONs differ in no
+other field (verified field-by-field). The successors keep the
+original JSON key set. They are **not** in
+`docs/evidence/registry.json` and must not be added to it.
+
+### W10 live-reference dispositions (explicit)
+
+| Reference | Disposition |
+| --- | --- |
+| `docs/CLAIMS.yaml` claims citing the three W8 records | **Stay on the originals.** Digest-bound evidence (U7(b)). |
+| `docs/evidence/registry.json` records for the three W8 records | **Stay on the originals.** Same reason. |
+| `scripts/reproduce_w8a_mage.py`, `scripts/reproduce_w8a_raid.py`, `scripts/reproduce_w8b_beemo.py`, `scripts/reproduce_w8c_ghostwriter.py`, `scripts/reproduce_w8c_opai.py` | **Minimized in place** (W10): the hardcoded worker-checkout absolute paths were replaced with `REPO_ROOT`-relative paths (the artifacts live at the same repo-relative paths on every checkout; the W8-B worktree is deleted). These scripts are not registry artifacts, are cited by no claim, and are not shipped in the wheel/sdist. Verified after the edit: all five compile and `--help` runs clean. |
+| New human references to these runs | **Cite the successor in this directory**, never the original, and never cite the successor as the registered evidence record. |
+
+### W10 fresh-scan note
+
+The W10 scan re-scanned the current tree, the built wheel (86
+members) and sdist (335 members), the container build context, and
+`docs/evidence/`. Besides the three W8 artifacts above and the five
+reproduce scripts (both resolved above), it found only the known
+W0/W7 items: the two digest-bound suite JSONs (unchanged, successors
+above), the two host-neutral fixtures, the public GitHub handle in
+repo URLs, reserved-domain example addresses, and the canonical
+public noreply identity. No credentials, keys, or real user text were
+found anywhere. The wheel contains zero home-path occurrences. The
+image itself could not be built on the scan VM (no Docker daemon);
+the build context was scanned instead, and the image's only inputs
+are the scanned context files plus the hash-pinned container
+lockfile. Removing old material from public Git history remains a
+separate owner-authorized operation; this audit authorizes no rewrite.
+
 ## Out of scope (W10 half)
 
 Scanning the candidate source archive, wheel/sdist, image contents

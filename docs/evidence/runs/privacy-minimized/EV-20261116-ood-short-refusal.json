@@ -1,0 +1,4049 @@
+{
+  "schema": "textforensics.run-artifact/v1",
+  "evidence_record_id": "EV-20261116-ood-short-refusal",
+  "kind": "command",
+  "command": "python scripts/build_w8e_ood_short_refusal_run_artifact.py",
+  "environment": {
+    "platform": "Linux",
+    "python": "3.12.3",
+    "extras": "aiohappyeyeballs==2.7.1\naiohttp==3.14.5\naiosignal==1.4.0\nannotated-doc==0.0.5\nannotated-types==0.8.0\nanybadge==1.16.0\nanyio==4.16.0\nattrs==26.1.0\nbandit==1.9.4\nboolean.py==5.0\nbuild==1.6.1\nCacheControl==0.14.4\ncertifi==2026.10.23\ncffi==2.1.1\ncfgv==3.5.0\ncharset-normalizer==3.5.2\nclick==8.5.0\ncosmic_ray==8.7.0\ncoverage==7.17.2\ncryptography==50.0.2\ncyclonedx-python-lib==11.12.0\ndecorator==5.3.1\ndefusedxml==0.7.1\ndistlib==0.4.4\ndocutils==0.23\nexit-codes==1.3.0\nfastapi==0.162.0\nfilelock==4.2.9\nfrozenlist==1.8.0\ngitdb==4.0.12\nGitPython==3.2.1\nh11==0.16.0\nhttpcore==1.0.9\nhttpcore2==2.16.0\nhttpx==0.28.1\nhttpx2==2.16.0\nhypothesis==6.170.15\nid==1.6.1\nidentify==2.6.20\nidna==3.20\niniconfig==2.3.1\njaraco.classes==3.4.0\njaraco.context==6.1.2\njaraco.functools==4.6.0\njeepney==0.9.0\nJinja2==3.1.6\njsonschema==4.26.0\njsonschema-specifications==2025.9.1\nkeyring==25.7.0\nlicense-expression==30.4.4\nmarkdown-it-py==4.2.0\nMarkupSafe==3.0.4\nmcp==2.3.0\nmcp-types==2.3.0\nmdurl==0.1.2\nmore-itertools==11.2.1\nmsgpack==1.2.4\nmultidict==7.2.1\nnh3==0.3.7\nnodeenv==1.12.0\nopentelemetry-api==1.45.2\nopentelemetry-exporter-prometheus==0.66b2\nopentelemetry-sdk==1.45.2\nopentelemetry-semantic-conventions==0.66b2\npackageurl-python==0.17.6\npackaging==26.3\nparso==0.8.7\npip-requirements-parser==32.0.1\npip_api==0.0.35\npip_audit==2.10.1\nplatformdirs==4.14.5\npluggy==1.7.0\npre-commit==3.8.0\nprometheus_client==0.26.0\npropcache==0.5.4\npsutil==7.2.2\npy-cpuinfo==9.0.0\npy-cpuinfo2==10.1.1\npy-serializable==2.1.0\npy-spy==0.4.3\npycparser==3.12\npydantic==2.14.3\npydantic_core==2.50.4\nPygments==2.21.0\nPyJWT==2.15.1\npyparsing==3.3.3\npyproject_hooks==1.3.3\npytest==9.2.0\npytest-asyncio==1.4.1.post1\npytest-benchmark==5.3.1\npytest-cov==5.0.0\npytest-timeout==2.4.0\npython-discovery==1.9.4\npython-multipart==0.0.33\nPyYAML==6.0.3\nreadme_renderer==46.0\nreferencing==0.37.0\nrequests==2.34.2\nrequests-toolbelt==1.0.0\nrfc3986==2.0.0\nrich==15.0.0\nrpds-py==2026.9.1\nruff==0.17.4\nSecretStorage==3.5.0\nsetuptools==84.2.1\nshellingham==1.5.4\nsmmap==5.0.3\nsortedcontainers==2.4.0\nSQLAlchemy==2.1.8\nsse-starlette==3.6.0\nstarlette==1.10.0\nstevedore==5.9.1\n-e git+https://github.com/strmt7/TextForensics.git@17b89511fb29fe2f3d0452918037132394d90184#egg=textforensics\ntoml==0.10.2\ntomli==2.5.0\ntomli_w==1.2.0\ntruststore==0.10.5\ntwine==6.2.0\ntyper==0.28.0\ntyping-inspection==0.4.5\ntyping_extensions==4.16.0\nurllib3==2.8.0\nuvicorn==0.54.0\nvirtualenv==21.15.5\nwebsockets==12.0\nyarl==1.25.1\nyattag==1.16.1"
+  },
+  "code_version": "17b89511fb29fe2f3d0452918037132394d90184",
+  "run_date": "2026-11-16",
+  "results": {
+    "detector": "textforensics/builtin-heuristic",
+    "detector_family": "stylometric-heuristic",
+    "detector_version": "0.1.0",
+    "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+    "method": "Deterministic builtin-heuristic detector at its native operating point over (a) 66 original human-authored out-of-domain texts in 11 slices, (b) 30 seeded synthetic formulaic-template texts (stress probe only, not LLM output, no TPR claim), (c) cached rows of the six document caches truncated to 5/10/20/40/60/80/120/200 words plus full length (deterministic source_id-sorted sample, max 200 per class per slice), and (d) a refusal matrix across engine/detector/execute_detector/config/API/CLI/bundle layers. Rates are Wilson 95% CIs (z=1.96). AUROC is Mann-Whitney U with 0.5 for ties; AUPRC is step average precision. Both are computed from scratch in this script (no sklearn) and self-tested on known cases.",
+    "ood_corpus_sha256": "118b4641f1af9d8e05341eed62e780c4376d0723c700caab940ff22dcd3d63fc",
+    "ood": {
+      "slices": [
+        {
+          "slice_id": "it-prose",
+          "n": 6,
+          "label": "human (original, authored for this probe)",
+          "k_ai_like": 0,
+          "k_human_like": 6,
+          "k_abstain": 0,
+          "fpr_native_wilson": {
+            "k": 0,
+            "n": 6,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.390343,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+          },
+          "abstention_rate": 0.0,
+          "mean_score": 0.292417,
+          "min_score": 0.2601,
+          "max_score": 0.309,
+          "items": [
+            {
+              "item_id": "it-prose-1",
+              "text_sha256": "f127e2e944bebf64ee976c57f391eed1eb63d327d9f96f55ca2d2a0f8c0e2dbf",
+              "whitespace_words": 138,
+              "detector_word_count": 138,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.3031,
+              "verdict": "human_like",
+              "reliability": 0.4296,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "it-prose-2",
+              "text_sha256": "e352a24ce5c1f8e23805df0401e3eaca93fa8fe7d31ecc4f5fa183bb055ede4c",
+              "whitespace_words": 143,
+              "detector_word_count": 143,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.298,
+              "verdict": "human_like",
+              "reliability": 0.4451,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "it-prose-3",
+              "text_sha256": "316aee3455a7b3609843232a99720feaeab9149f3479e52385ecc8110a2e079a",
+              "whitespace_words": 137,
+              "detector_word_count": 137,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.3039,
+              "verdict": "human_like",
+              "reliability": 0.4376,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "it-prose-4",
+              "text_sha256": "22b505e88c018fc3291c9861685f41e7fe8ea3e259467f6047e1a2a26df27d57",
+              "whitespace_words": 136,
+              "detector_word_count": 136,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2804,
+              "verdict": "human_like",
+              "reliability": 0.4363,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "it-prose-5",
+              "text_sha256": "199f203997b4c4b4e6356154b9a57a5b414143fdf8d7d59da9b2577807bb6844",
+              "whitespace_words": 124,
+              "detector_word_count": 124,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.309,
+              "verdict": "human_like",
+              "reliability": 0.3904,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "it-prose-6",
+              "text_sha256": "18a549bed9a8e58a25266270c123c7878c965b71a93b4910c8897497df5aef5e",
+              "whitespace_words": 131,
+              "detector_word_count": 131,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2601,
+              "verdict": "human_like",
+              "reliability": 0.4323,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            }
+          ]
+        },
+        {
+          "slice_id": "ja-prose",
+          "n": 6,
+          "label": "human (original, authored for this probe)",
+          "k_ai_like": 0,
+          "k_human_like": 0,
+          "k_abstain": 6,
+          "fpr_native_wilson": {
+            "k": 0,
+            "n": 6,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.390343,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+          },
+          "abstention_rate": 1.0,
+          "mean_score": 0.3426,
+          "min_score": 0.3239,
+          "max_score": 0.3563,
+          "items": [
+            {
+              "item_id": "ja-prose-1",
+              "text_sha256": "de19557e73d817d0c2ee1196b1dbac14c107a0f668b0b3bd0f68f9b34050701f",
+              "whitespace_words": 1,
+              "detector_word_count": 19,
+              "engine_verdict": "insufficient_evidence",
+              "score": 0.3314,
+              "verdict": "abstain",
+              "reliability": 0.0591,
+              "warnings": [
+                "Short text: detector-style signals are especially unreliable below the built-in baseline's 80-word minimum.",
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "ja-prose-2",
+              "text_sha256": "1dfd35ed75883f42888458f675a6763a35d6bd6bb5afba08c8a258b1e5c0df77",
+              "whitespace_words": 1,
+              "detector_word_count": 16,
+              "engine_verdict": "insufficient_evidence",
+              "score": 0.3563,
+              "verdict": "abstain",
+              "reliability": 0.0498,
+              "warnings": [
+                "Short text: detector-style signals are especially unreliable below the built-in baseline's 80-word minimum.",
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "ja-prose-3",
+              "text_sha256": "c7aa4b81389b54457c44cbbd776a37f33007cd0ee87c4d9f4c131c7012cf6130",
+              "whitespace_words": 1,
+              "detector_word_count": 20,
+              "engine_verdict": "insufficient_evidence",
+              "score": 0.3239,
+              "verdict": "abstain",
+              "reliability": 0.0623,
+              "warnings": [
+                "Short text: detector-style signals are especially unreliable below the built-in baseline's 80-word minimum.",
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "ja-prose-4",
+              "text_sha256": "82796c09ff675422970b1b32fcac9483cd31e54ad7287f7a4a2c1ef6d5c8f118",
+              "whitespace_words": 1,
+              "detector_word_count": 16,
+              "engine_verdict": "insufficient_evidence",
+              "score": 0.3563,
+              "verdict": "abstain",
+              "reliability": 0.0498,
+              "warnings": [
+                "Short text: detector-style signals are especially unreliable below the built-in baseline's 80-word minimum.",
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "ja-prose-5",
+              "text_sha256": "9c29b0816962a64434c12d00387c1818150054f964c22523762b8d0aa073df39",
+              "whitespace_words": 1,
+              "detector_word_count": 16,
+              "engine_verdict": "insufficient_evidence",
+              "score": 0.3563,
+              "verdict": "abstain",
+              "reliability": 0.0498,
+              "warnings": [
+                "Short text: detector-style signals are especially unreliable below the built-in baseline's 80-word minimum.",
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "ja-prose-6",
+              "text_sha256": "71123421e34427bb05f96efdcdaa803859380ba02d96228259cce60645baf893",
+              "whitespace_words": 1,
+              "detector_word_count": 19,
+              "engine_verdict": "insufficient_evidence",
+              "score": 0.3314,
+              "verdict": "abstain",
+              "reliability": 0.0591,
+              "warnings": [
+                "Short text: detector-style signals are especially unreliable below the built-in baseline's 80-word minimum.",
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            }
+          ]
+        },
+        {
+          "slice_id": "code",
+          "n": 6,
+          "label": "human (original, authored for this probe)",
+          "k_ai_like": 0,
+          "k_human_like": 4,
+          "k_abstain": 2,
+          "fpr_native_wilson": {
+            "k": 0,
+            "n": 6,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.390343,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+          },
+          "abstention_rate": 0.333333,
+          "mean_score": 0.2236,
+          "min_score": 0.0546,
+          "max_score": 0.3496,
+          "items": [
+            {
+              "item_id": "code-1",
+              "text_sha256": "6d33eb91958e5fe51b527f3b93df5cc165fa6ddbe87d7b95db0c6dd2e922f701",
+              "whitespace_words": 100,
+              "detector_word_count": 113,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.237,
+              "verdict": "human_like",
+              "reliability": 0.3638,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "code-2",
+              "text_sha256": "dc9f1c0905dbc992aa07238a6eeb07542709c5633d91f98d998efbb1d6e88781",
+              "whitespace_words": 83,
+              "detector_word_count": 103,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.1261,
+              "verdict": "human_like",
+              "reliability": 0.3473,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "code-3",
+              "text_sha256": "b8710bed828e221ffa2d9462ddda294638f78dc590ae6b93cf4112b531b75da1",
+              "whitespace_words": 111,
+              "detector_word_count": 139,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2678,
+              "verdict": "human_like",
+              "reliability": 0.487,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "code-4",
+              "text_sha256": "06817d788b3c2e8daa2147e8511d6a5eb6ec145cb294c892b2126245d2452f78",
+              "whitespace_words": 94,
+              "detector_word_count": 90,
+              "engine_verdict": "indeterminate",
+              "score": 0.3496,
+              "verdict": "abstain",
+              "reliability": 0.2903,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "code-5",
+              "text_sha256": "9c948e8ed2a9e0305270914b095021c72db42c9f411d13ab857cc6c0211d1b17",
+              "whitespace_words": 92,
+              "detector_word_count": 119,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.0546,
+              "verdict": "human_like",
+              "reliability": 0.3688,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "code-6",
+              "text_sha256": "55df03acd4c3836c1ee6a7d85e21a4f1b902a63165f1dbba231af7af11af5c32",
+              "whitespace_words": 90,
+              "detector_word_count": 83,
+              "engine_verdict": "insufficient_evidence",
+              "score": 0.3065,
+              "verdict": "abstain",
+              "reliability": 0.2736,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            }
+          ]
+        },
+        {
+          "slice_id": "recipe",
+          "n": 6,
+          "label": "human (original, authored for this probe)",
+          "k_ai_like": 0,
+          "k_human_like": 5,
+          "k_abstain": 1,
+          "fpr_native_wilson": {
+            "k": 0,
+            "n": 6,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.390343,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+          },
+          "abstention_rate": 0.166667,
+          "mean_score": 0.295467,
+          "min_score": 0.2799,
+          "max_score": 0.3261,
+          "items": [
+            {
+              "item_id": "recipe-1",
+              "text_sha256": "363d0d1b59e12115d7bda5eb612218a80af1a2b5769078777df80b1a53770401",
+              "whitespace_words": 174,
+              "detector_word_count": 174,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2981,
+              "verdict": "human_like",
+              "reliability": 0.5603,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "recipe-2",
+              "text_sha256": "ef65c3c9471451350c35529637c2d4dba07fb5a1c70d8aa1bd6731dc9baf4f25",
+              "whitespace_words": 143,
+              "detector_word_count": 144,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.287,
+              "verdict": "human_like",
+              "reliability": 0.4651,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "recipe-3",
+              "text_sha256": "d044bae542c65ee5d04ac641415b3c6fe33b99688e0476c74c46b70d27f8f991",
+              "whitespace_words": 138,
+              "detector_word_count": 138,
+              "engine_verdict": "indeterminate",
+              "score": 0.3261,
+              "verdict": "abstain",
+              "reliability": 0.4296,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "recipe-4",
+              "text_sha256": "41475ad1f9bcfb5939e3064f4ba6adc40d3ad8bb9c38bb2358991139a3195356",
+              "whitespace_words": 151,
+              "detector_word_count": 152,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2872,
+              "verdict": "human_like",
+              "reliability": 0.4961,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "recipe-5",
+              "text_sha256": "deeade8e899e7c5af48664937df2de2e4e26b33620215b1544ea00ed07f4a425",
+              "whitespace_words": 150,
+              "detector_word_count": 151,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2945,
+              "verdict": "human_like",
+              "reliability": 0.4896,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "recipe-6",
+              "text_sha256": "ef545d717b85addcd3518f9153862c44b84303691fdbbd626b4f319afb8e4826",
+              "whitespace_words": 137,
+              "detector_word_count": 137,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2799,
+              "verdict": "human_like",
+              "reliability": 0.4536,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            }
+          ]
+        },
+        {
+          "slice_id": "contract",
+          "n": 6,
+          "label": "human (original, authored for this probe)",
+          "k_ai_like": 0,
+          "k_human_like": 5,
+          "k_abstain": 1,
+          "fpr_native_wilson": {
+            "k": 0,
+            "n": 6,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.390343,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+          },
+          "abstention_rate": 0.166667,
+          "mean_score": 0.273833,
+          "min_score": 0.2257,
+          "max_score": 0.3282,
+          "items": [
+            {
+              "item_id": "contract-1",
+              "text_sha256": "0624234386bd6365fc6b33280a0e9d6639c928f944646bffd6ac38196caba3a7",
+              "whitespace_words": 151,
+              "detector_word_count": 151,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2461,
+              "verdict": "human_like",
+              "reliability": 0.5017,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "contract-2",
+              "text_sha256": "b8621803f784a69e3eae61d77645096b9dc591f7ec2a2cb876e0f06ff4143c59",
+              "whitespace_words": 153,
+              "detector_word_count": 153,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2257,
+              "verdict": "human_like",
+              "reliability": 0.5185,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "contract-3",
+              "text_sha256": "f4c569199fc9bcdbcc2be8c04a78bef615cef8099e558a94a59a5c87879c7958",
+              "whitespace_words": 141,
+              "detector_word_count": 141,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.318,
+              "verdict": "human_like",
+              "reliability": 0.4166,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "contract-4",
+              "text_sha256": "b294fad2d790ef6dc65f8beb7e0a6f0ab59c33a7d25e31bf7c0a1aac71f689be",
+              "whitespace_words": 149,
+              "detector_word_count": 149,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2274,
+              "verdict": "human_like",
+              "reliability": 0.5039,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "contract-5",
+              "text_sha256": "8a182adbeb9a14c5d0fbff2180e59328085726dd7a324df78a657fca23eadfbc",
+              "whitespace_words": 142,
+              "detector_word_count": 145,
+              "engine_verdict": "indeterminate",
+              "score": 0.3282,
+              "verdict": "abstain",
+              "reliability": 0.4322,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "contract-6",
+              "text_sha256": "a46cd173ba5347d750463bff70d510136f66a16c74abcec5ff1c52943af2322d",
+              "whitespace_words": 144,
+              "detector_word_count": 144,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2976,
+              "verdict": "human_like",
+              "reliability": 0.4557,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            }
+          ]
+        },
+        {
+          "slice_id": "sports",
+          "n": 6,
+          "label": "human (original, authored for this probe)",
+          "k_ai_like": 0,
+          "k_human_like": 5,
+          "k_abstain": 1,
+          "fpr_native_wilson": {
+            "k": 0,
+            "n": 6,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.390343,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+          },
+          "abstention_rate": 0.166667,
+          "mean_score": 0.254533,
+          "min_score": 0.155,
+          "max_score": 0.3252,
+          "items": [
+            {
+              "item_id": "sports-1",
+              "text_sha256": "c4cb675c29138c04498bbd70f6c3a28ed63ca4a3ae0b0390c545915a32216e01",
+              "whitespace_words": 141,
+              "detector_word_count": 144,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2077,
+              "verdict": "human_like",
+              "reliability": 0.5023,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "sports-2",
+              "text_sha256": "f684837943f1e14391c577e30e4313ade2775353a9ac9b9fb6a587a986a4b6b6",
+              "whitespace_words": 138,
+              "detector_word_count": 138,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2695,
+              "verdict": "human_like",
+              "reliability": 0.4777,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "sports-3",
+              "text_sha256": "9409cd2ead969f58df97967203df117cffdf0960d40ba557b8303ce6014e8b6c",
+              "whitespace_words": 134,
+              "detector_word_count": 135,
+              "engine_verdict": "indeterminate",
+              "score": 0.3252,
+              "verdict": "abstain",
+              "reliability": 0.4226,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "sports-4",
+              "text_sha256": "56666eb63998460ff1527cd5ac3021b2e5082258185d52cef140228b6dd28059",
+              "whitespace_words": 135,
+              "detector_word_count": 136,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2636,
+              "verdict": "human_like",
+              "reliability": 0.4532,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "sports-5",
+              "text_sha256": "9e56aebd1e87c0e7e6972d7c0363782579963c2feaefbcd88c4ba290f4392455",
+              "whitespace_words": 130,
+              "detector_word_count": 133,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.155,
+              "verdict": "human_like",
+              "reliability": 0.4886,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "sports-6",
+              "text_sha256": "b6c461ee594f1076d8b67dee7fac0102fdd5cdfc916e292f8c8b1e37d3a0687c",
+              "whitespace_words": 126,
+              "detector_word_count": 127,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.3062,
+              "verdict": "human_like",
+              "reliability": 0.3996,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            }
+          ]
+        },
+        {
+          "slice_id": "interview",
+          "n": 6,
+          "label": "human (original, authored for this probe)",
+          "k_ai_like": 0,
+          "k_human_like": 5,
+          "k_abstain": 1,
+          "fpr_native_wilson": {
+            "k": 0,
+            "n": 6,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.390343,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+          },
+          "abstention_rate": 0.166667,
+          "mean_score": 0.243967,
+          "min_score": 0.1581,
+          "max_score": 0.3273,
+          "items": [
+            {
+              "item_id": "interview-1",
+              "text_sha256": "04d6614b1b75750d942191292016189f5adb2b5c6c6814fdc68f407aa0627f68",
+              "whitespace_words": 139,
+              "detector_word_count": 139,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.229,
+              "verdict": "human_like",
+              "reliability": 0.4999,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "interview-2",
+              "text_sha256": "ce1c36b619e828cdcb814c8546d69c5ad3b3fdf286c590304bf0aaae5bc052fa",
+              "whitespace_words": 145,
+              "detector_word_count": 145,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2547,
+              "verdict": "human_like",
+              "reliability": 0.502,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "interview-3",
+              "text_sha256": "172530c9fd84addb1dffa135ae4ac02fe0567d981a34fc1d65cd308db3bee56f",
+              "whitespace_words": 153,
+              "detector_word_count": 154,
+              "engine_verdict": "indeterminate",
+              "score": 0.3273,
+              "verdict": "abstain",
+              "reliability": 0.4911,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "interview-4",
+              "text_sha256": "4cdb5e263115c7a0050b7eb7fe5bab3d751200d99027650034ebbeb71124532a",
+              "whitespace_words": 133,
+              "detector_word_count": 133,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.183,
+              "verdict": "human_like",
+              "reliability": 0.484,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "interview-5",
+              "text_sha256": "8632ea6c1cabd912c87705d5cc1354c306ebcdd7b7a71edc9f3d06c6cf034159",
+              "whitespace_words": 140,
+              "detector_word_count": 140,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.3117,
+              "verdict": "human_like",
+              "reliability": 0.4657,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "interview-6",
+              "text_sha256": "cb4bec2f912f53ddd77dd0a732f95482d84e32212427f1be6b5f5ad0486e1666",
+              "whitespace_words": 157,
+              "detector_word_count": 157,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.1581,
+              "verdict": "human_like",
+              "reliability": 0.5761,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            }
+          ]
+        },
+        {
+          "slice_id": "math",
+          "n": 6,
+          "label": "human (original, authored for this probe)",
+          "k_ai_like": 0,
+          "k_human_like": 2,
+          "k_abstain": 4,
+          "fpr_native_wilson": {
+            "k": 0,
+            "n": 6,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.390343,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+          },
+          "abstention_rate": 0.666667,
+          "mean_score": 0.336967,
+          "min_score": 0.2945,
+          "max_score": 0.3871,
+          "items": [
+            {
+              "item_id": "math-1",
+              "text_sha256": "71733c1e4d4e2c38f9aa461b75df8dc54c0f3d13a596c89af99efe1703c08874",
+              "whitespace_words": 160,
+              "detector_word_count": 160,
+              "engine_verdict": "indeterminate",
+              "score": 0.3871,
+              "verdict": "abstain",
+              "reliability": 0.5393,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "math-2",
+              "text_sha256": "02d8a673e89293aa0a562b89cec5da355d5c5bf071966a343ed54a41b6cfdfa3",
+              "whitespace_words": 150,
+              "detector_word_count": 151,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2945,
+              "verdict": "human_like",
+              "reliability": 0.5594,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "math-3",
+              "text_sha256": "032fd98ea480a9e60cd40643dcbaedfe8eeda22f82811083b94bd5b733ae22f1",
+              "whitespace_words": 154,
+              "detector_word_count": 155,
+              "engine_verdict": "indeterminate",
+              "score": 0.3382,
+              "verdict": "abstain",
+              "reliability": 0.5629,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "math-4",
+              "text_sha256": "75fb800172c316d1fdb1c00b7e67d4c4f2841bb885ea4ad99c5bf911d1437626",
+              "whitespace_words": 143,
+              "detector_word_count": 143,
+              "engine_verdict": "indeterminate",
+              "score": 0.3202,
+              "verdict": "abstain",
+              "reliability": 0.502,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "math-5",
+              "text_sha256": "7e3cddb46a7d2d03f997e3d8675655c8fc52012bb64c6465b1f9dc30f1a2097d",
+              "whitespace_words": 156,
+              "detector_word_count": 156,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.3003,
+              "verdict": "human_like",
+              "reliability": 0.5314,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "math-6",
+              "text_sha256": "d7a7136ee8fb9cac9c3589907624b392a3098e730038a0aa1c858bcc067e9455",
+              "whitespace_words": 144,
+              "detector_word_count": 145,
+              "engine_verdict": "indeterminate",
+              "score": 0.3815,
+              "verdict": "abstain",
+              "reliability": 0.4548,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            }
+          ]
+        },
+        {
+          "slice_id": "support-chat",
+          "n": 6,
+          "label": "human (original, authored for this probe)",
+          "k_ai_like": 0,
+          "k_human_like": 6,
+          "k_abstain": 0,
+          "fpr_native_wilson": {
+            "k": 0,
+            "n": 6,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.390343,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+          },
+          "abstention_rate": 0.0,
+          "mean_score": 0.220467,
+          "min_score": 0.1675,
+          "max_score": 0.2653,
+          "items": [
+            {
+              "item_id": "support-chat-1",
+              "text_sha256": "a90a6978a24fac4331a4d0c5ea2c33fdfcd446ec60b1cd0a6dcb2503c20c71ca",
+              "whitespace_words": 147,
+              "detector_word_count": 147,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2459,
+              "verdict": "human_like",
+              "reliability": 0.5126,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "support-chat-2",
+              "text_sha256": "006c3d2effb6fd9de853450e46c8939c4a291320303a736c18a2ee2551b6b9e7",
+              "whitespace_words": 142,
+              "detector_word_count": 145,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2138,
+              "verdict": "human_like",
+              "reliability": 0.5162,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "support-chat-3",
+              "text_sha256": "9f9bba6e3e74b7735709c79203f432f8820db697cd295e1caa83295c8e47eb4b",
+              "whitespace_words": 128,
+              "detector_word_count": 128,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.1853,
+              "verdict": "human_like",
+              "reliability": 0.4658,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "support-chat-4",
+              "text_sha256": "fb602738f8a73c06c0a10a50f62d8ff6c7884cf0626ca6167651abe8c49c26df",
+              "whitespace_words": 131,
+              "detector_word_count": 137,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.245,
+              "verdict": "human_like",
+              "reliability": 0.4895,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "support-chat-5",
+              "text_sha256": "57bb445d6685ffef6b663dd7ab1e1e2813e47bf64a8950f390253e2f90c38cc6",
+              "whitespace_words": 147,
+              "detector_word_count": 148,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.1675,
+              "verdict": "human_like",
+              "reliability": 0.5405,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "support-chat-6",
+              "text_sha256": "e0cd34281f79f2c097814f29c1a7b6a37175c7a5936d37d1230477378e6dc40a",
+              "whitespace_words": 135,
+              "detector_word_count": 136,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2653,
+              "verdict": "human_like",
+              "reliability": 0.4731,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            }
+          ]
+        },
+        {
+          "slice_id": "lyrics",
+          "n": 6,
+          "label": "human (original, authored for this probe)",
+          "k_ai_like": 0,
+          "k_human_like": 6,
+          "k_abstain": 0,
+          "fpr_native_wilson": {
+            "k": 0,
+            "n": 6,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.390343,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+          },
+          "abstention_rate": 0.0,
+          "mean_score": 0.206567,
+          "min_score": 0.1887,
+          "max_score": 0.2459,
+          "items": [
+            {
+              "item_id": "lyrics-1",
+              "text_sha256": "f63de06742ce59d321f51edd5ac1dcf150305ffabf1056a75dbfb0cbfcc14212",
+              "whitespace_words": 138,
+              "detector_word_count": 138,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.1921,
+              "verdict": "human_like",
+              "reliability": 0.5146,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "lyrics-2",
+              "text_sha256": "87dce8aaa6f997c01e85f8514505c005a775f67dbcce9ec010f9cd6f3a07173e",
+              "whitespace_words": 136,
+              "detector_word_count": 136,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2086,
+              "verdict": "human_like",
+              "reliability": 0.5146,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "lyrics-3",
+              "text_sha256": "a6d7d544991494a03c8a682012e7a1397f3e3e73accc3c9dd1b3d538761802b8",
+              "whitespace_words": 130,
+              "detector_word_count": 130,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2005,
+              "verdict": "human_like",
+              "reliability": 0.4711,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "lyrics-4",
+              "text_sha256": "428b9875f3ea1bd53bcb500a79d8a7419820c69379f9095da435b0da2e762b00",
+              "whitespace_words": 141,
+              "detector_word_count": 141,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2459,
+              "verdict": "human_like",
+              "reliability": 0.5305,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "lyrics-5",
+              "text_sha256": "6012fcf4602ffa73bba0affaaa37df99239615337a3b8927156563edd6b71ab6",
+              "whitespace_words": 131,
+              "detector_word_count": 132,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.1887,
+              "verdict": "human_like",
+              "reliability": 0.4794,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "lyrics-6",
+              "text_sha256": "698e0bba7187398e4678050a015a3e303dba99748bbfbcb0a0769868f01e4625",
+              "whitespace_words": 138,
+              "detector_word_count": 138,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2036,
+              "verdict": "human_like",
+              "reliability": 0.4982,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            }
+          ]
+        },
+        {
+          "slice_id": "archaic",
+          "n": 6,
+          "label": "human (original, authored for this probe)",
+          "k_ai_like": 0,
+          "k_human_like": 4,
+          "k_abstain": 2,
+          "fpr_native_wilson": {
+            "k": 0,
+            "n": 6,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.390343,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+          },
+          "abstention_rate": 0.333333,
+          "mean_score": 0.298233,
+          "min_score": 0.2428,
+          "max_score": 0.3572,
+          "items": [
+            {
+              "item_id": "archaic-1",
+              "text_sha256": "e8882813ad19d3a4df6a096222d05422f63a09acf96b1dceca1e060fa41dab52",
+              "whitespace_words": 134,
+              "detector_word_count": 134,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2969,
+              "verdict": "human_like",
+              "reliability": 0.4225,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "archaic-2",
+              "text_sha256": "2c6a78d2019389b8d3d5506e507b2d8b847206476bce3f40e4bdfe61b424fc9a",
+              "whitespace_words": 125,
+              "detector_word_count": 125,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2428,
+              "verdict": "human_like",
+              "reliability": 0.4221,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "archaic-3",
+              "text_sha256": "fc6389c45ba84126bc92924c33909258716819875f2e5f515b5834eba0c1c9d1",
+              "whitespace_words": 130,
+              "detector_word_count": 130,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2556,
+              "verdict": "human_like",
+              "reliability": 0.4635,
+              "warnings": [
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "archaic-4",
+              "text_sha256": "a50b6fc4288b34f897438eb06b158f0b6a002aa423da126fb1749a779be9b9f5",
+              "whitespace_words": 132,
+              "detector_word_count": 132,
+              "engine_verdict": "indeterminate",
+              "score": 0.3572,
+              "verdict": "abstain",
+              "reliability": 0.4244,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "archaic-5",
+              "text_sha256": "41bd625cfb730a1465cde6f9de3923b53e43a39bc5f865daa6b98fe934f12133",
+              "whitespace_words": 130,
+              "detector_word_count": 130,
+              "engine_verdict": "human_like_patterns",
+              "score": 0.2808,
+              "verdict": "human_like",
+              "reliability": 0.4101,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            },
+            {
+              "item_id": "archaic-6",
+              "text_sha256": "955f2a33c5e106cd756451753fb4720518654554cc4cd83b9a17fb3337836d16",
+              "whitespace_words": 123,
+              "detector_word_count": 123,
+              "engine_verdict": "indeterminate",
+              "score": 0.3561,
+              "verdict": "abstain",
+              "reliability": 0.3666,
+              "warnings": [
+                "High analyzer disagreement: treat the aggregate score as weak evidence.",
+                "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+                "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+                "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+              ]
+            }
+          ]
+        }
+      ],
+      "pooled": {
+        "k_ai_like": 0,
+        "n": 66,
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 66,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.055004,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "k_abstain": 18,
+        "abstention_rate": 0.272727
+      }
+    },
+    "synthetic_template_probe": {
+      "n": 30,
+      "seed": 20261116,
+      "label": "SYNTHETIC formulaic template text (seeded RNG stitching of fixed sentences). NOT LLM output. Stress probe only; no TPR claim is made or implied.",
+      "k_ai_like": 4,
+      "k_human_like": 0,
+      "k_abstain": 26,
+      "rate_ai_like": {
+        "k": 4,
+        "n": 30,
+        "value": 0.133333,
+        "ci_lower": 0.053096,
+        "ci_upper": 0.296817,
+        "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+      },
+      "abstention_rate": 0.866667,
+      "mean_score": 0.58194,
+      "min_score": 0.4157,
+      "max_score": 0.7679,
+      "items": [
+        {
+          "item_id": "template-1",
+          "text_sha256": "d18030e7805ec1292325b2b637b8b8dbf334b33824b2fe337559239b69e50aab",
+          "whitespace_words": 144,
+          "detector_word_count": 148,
+          "engine_verdict": "indeterminate",
+          "score": 0.5144,
+          "verdict": "abstain",
+          "reliability": 0.5099
+        },
+        {
+          "item_id": "template-2",
+          "text_sha256": "a0f8871eb5ca81707f97ae151097522c05a621b548de6d29da73f43521c3a872",
+          "whitespace_words": 143,
+          "detector_word_count": 143,
+          "engine_verdict": "indeterminate",
+          "score": 0.6768,
+          "verdict": "abstain",
+          "reliability": 0.4855
+        },
+        {
+          "item_id": "template-3",
+          "text_sha256": "07c5059c249b17985581c04149d1a74747cf56a8603a19ad4168335aa2e91ec4",
+          "whitespace_words": 144,
+          "detector_word_count": 145,
+          "engine_verdict": "indeterminate",
+          "score": 0.5211,
+          "verdict": "abstain",
+          "reliability": 0.5
+        },
+        {
+          "item_id": "template-4",
+          "text_sha256": "c740b184d222f4825d7f6dbf311500df202a1afb7b207d76bb9b9c1cda9d4347",
+          "whitespace_words": 143,
+          "detector_word_count": 144,
+          "engine_verdict": "indeterminate",
+          "score": 0.6125,
+          "verdict": "abstain",
+          "reliability": 0.4917
+        },
+        {
+          "item_id": "template-5",
+          "text_sha256": "3218e1781a44d9159c2e6c2901f0765ece9eb0cc34a208bf8f3e38bce65a1460",
+          "whitespace_words": 141,
+          "detector_word_count": 142,
+          "engine_verdict": "indeterminate",
+          "score": 0.4636,
+          "verdict": "abstain",
+          "reliability": 0.4809
+        },
+        {
+          "item_id": "template-6",
+          "text_sha256": "6402f5858a1e6d1bc018fbdc5407f2f87f313b4f05a15af8c1695c044ae67d2c",
+          "whitespace_words": 144,
+          "detector_word_count": 145,
+          "engine_verdict": "indeterminate",
+          "score": 0.5211,
+          "verdict": "abstain",
+          "reliability": 0.5
+        },
+        {
+          "item_id": "template-7",
+          "text_sha256": "10b11eeafab81c3cff3e6929fb155c7c01c7cdcc7ee0a23a160f600f729a7505",
+          "whitespace_words": 147,
+          "detector_word_count": 148,
+          "engine_verdict": "indeterminate",
+          "score": 0.6714,
+          "verdict": "abstain",
+          "reliability": 0.4816
+        },
+        {
+          "item_id": "template-8",
+          "text_sha256": "053990c6f1b272c3e0dbb1edd137e94e3ae617206c95f2a7017d6f2d1d320376",
+          "whitespace_words": 142,
+          "detector_word_count": 146,
+          "engine_verdict": "indeterminate",
+          "score": 0.5188,
+          "verdict": "abstain",
+          "reliability": 0.5033
+        },
+        {
+          "item_id": "template-9",
+          "text_sha256": "a00f952ec9dde3aa11e0a2f814a974ae6cc610ce5f10f8b3582caf1333a0541a",
+          "whitespace_words": 143,
+          "detector_word_count": 144,
+          "engine_verdict": "indeterminate",
+          "score": 0.6511,
+          "verdict": "abstain",
+          "reliability": 0.4682
+        },
+        {
+          "item_id": "template-10",
+          "text_sha256": "7bd06a020708ecce225bd8b558af14603f0d09cb06b51eb0a87a38c5b501d30c",
+          "whitespace_words": 145,
+          "detector_word_count": 146,
+          "engine_verdict": "indeterminate",
+          "score": 0.5188,
+          "verdict": "abstain",
+          "reliability": 0.5033
+        },
+        {
+          "item_id": "template-11",
+          "text_sha256": "6b1dc9ff2abca65f8711939de83bd68e31509aa074a554764bdf24227777e98b",
+          "whitespace_words": 144,
+          "detector_word_count": 146,
+          "engine_verdict": "indeterminate",
+          "score": 0.5652,
+          "verdict": "abstain",
+          "reliability": 0.4898
+        },
+        {
+          "item_id": "template-12",
+          "text_sha256": "2ff36e594d023cea1269d84185c213466b3798543643a1d64c88aca054df4a1e",
+          "whitespace_words": 147,
+          "detector_word_count": 148,
+          "engine_verdict": "machine_like_patterns",
+          "score": 0.7309,
+          "verdict": "ai_like",
+          "reliability": 0.4674
+        },
+        {
+          "item_id": "template-13",
+          "text_sha256": "afc69b9a1304babe5a06667cb20ff8428378d2593536fa2b4abbb6f803f98465",
+          "whitespace_words": 147,
+          "detector_word_count": 148,
+          "engine_verdict": "indeterminate",
+          "score": 0.5589,
+          "verdict": "abstain",
+          "reliability": 0.499
+        },
+        {
+          "item_id": "template-14",
+          "text_sha256": "bc3065e7b7763797715aaf87dc65e2231745003a541c7abd2984b9958a836253",
+          "whitespace_words": 130,
+          "detector_word_count": 131,
+          "engine_verdict": "indeterminate",
+          "score": 0.5716,
+          "verdict": "abstain",
+          "reliability": 0.4408
+        },
+        {
+          "item_id": "template-15",
+          "text_sha256": "aeead0dca33d605d24250e39e4e5f01e9a81b78e1867afec8e38406ce34e5416",
+          "whitespace_words": 144,
+          "detector_word_count": 145,
+          "engine_verdict": "indeterminate",
+          "score": 0.6112,
+          "verdict": "abstain",
+          "reliability": 0.478
+        },
+        {
+          "item_id": "template-16",
+          "text_sha256": "4aa7be169acc3958434ad645f53410e52fcc1d2970853f158e1231abea36e1a9",
+          "whitespace_words": 146,
+          "detector_word_count": 150,
+          "engine_verdict": "machine_like_patterns",
+          "score": 0.686,
+          "verdict": "ai_like",
+          "reliability": 0.5032
+        },
+        {
+          "item_id": "template-17",
+          "text_sha256": "4119fc4a9796a5254a0d12b38c154a86ba4f3066d1c3a72e63abc553fbcddaf2",
+          "whitespace_words": 147,
+          "detector_word_count": 152,
+          "engine_verdict": "indeterminate",
+          "score": 0.5059,
+          "verdict": "abstain",
+          "reliability": 0.5229
+        },
+        {
+          "item_id": "template-18",
+          "text_sha256": "1156138c10f0c1a65b336e1870873291b76a2484a2db6c7ff9e8b478a5c7932b",
+          "whitespace_words": 143,
+          "detector_word_count": 148,
+          "engine_verdict": "indeterminate",
+          "score": 0.5853,
+          "verdict": "abstain",
+          "reliability": 0.4778
+        },
+        {
+          "item_id": "template-19",
+          "text_sha256": "eb4316fbefc4fa1ebd74e7efeb1f277fa61b8942e86fe743f53bf8ed4d5973e2",
+          "whitespace_words": 144,
+          "detector_word_count": 145,
+          "engine_verdict": "indeterminate",
+          "score": 0.5626,
+          "verdict": "abstain",
+          "reliability": 0.4888
+        },
+        {
+          "item_id": "template-20",
+          "text_sha256": "783ebf5262bbddc7ac9c1ac1930d947f825f2ddfedb464355fc94c9aaf305926",
+          "whitespace_words": 142,
+          "detector_word_count": 147,
+          "engine_verdict": "indeterminate",
+          "score": 0.6219,
+          "verdict": "abstain",
+          "reliability": 0.4946
+        },
+        {
+          "item_id": "template-21",
+          "text_sha256": "65dafa8dd8ea9814569b2cdbc424201496566f7690702e5ae685b78daa05b843",
+          "whitespace_words": 141,
+          "detector_word_count": 141,
+          "engine_verdict": "indeterminate",
+          "score": 0.6137,
+          "verdict": "abstain",
+          "reliability": 0.4784
+        },
+        {
+          "item_id": "template-22",
+          "text_sha256": "a4e5df6d7ce5e9a27ed36d4218978b4d6132258f8d06d74498372cad12e2b39f",
+          "whitespace_words": 138,
+          "detector_word_count": 140,
+          "engine_verdict": "indeterminate",
+          "score": 0.4157,
+          "verdict": "abstain",
+          "reliability": 0.4603
+        },
+        {
+          "item_id": "template-23",
+          "text_sha256": "469a6f2334f09479ce5a91db5a14c3d3d0c88bfb4a1dc2fcb928d459a8ef27f5",
+          "whitespace_words": 133,
+          "detector_word_count": 138,
+          "engine_verdict": "machine_like_patterns",
+          "score": 0.7679,
+          "verdict": "ai_like",
+          "reliability": 0.4526
+        },
+        {
+          "item_id": "template-24",
+          "text_sha256": "12821702675586cd4a2d8ab0e06014942d60228291cf0d2915a20f47aa2f7c15",
+          "whitespace_words": 144,
+          "detector_word_count": 145,
+          "engine_verdict": "machine_like_patterns",
+          "score": 0.6864,
+          "verdict": "ai_like",
+          "reliability": 0.483
+        },
+        {
+          "item_id": "template-25",
+          "text_sha256": "bbde0d98aa5b3c3e2a32a6f3623523b458803a6c1a7cb83e3ddde853e1dea010",
+          "whitespace_words": 138,
+          "detector_word_count": 138,
+          "engine_verdict": "indeterminate",
+          "score": 0.6207,
+          "verdict": "abstain",
+          "reliability": 0.4693
+        },
+        {
+          "item_id": "template-26",
+          "text_sha256": "e0c182faf3e8f18ff327ebc1034404d77abecedda606cf3ccc8b1b6fff1f71b0",
+          "whitespace_words": 143,
+          "detector_word_count": 147,
+          "engine_verdict": "indeterminate",
+          "score": 0.5975,
+          "verdict": "abstain",
+          "reliability": 0.4945
+        },
+        {
+          "item_id": "template-27",
+          "text_sha256": "2a333b732c37a7a4aa5fed70e85e598d876feb87ed322c5997adeeb178185455",
+          "whitespace_words": 144,
+          "detector_word_count": 146,
+          "engine_verdict": "indeterminate",
+          "score": 0.6069,
+          "verdict": "abstain",
+          "reliability": 0.4782
+        },
+        {
+          "item_id": "template-28",
+          "text_sha256": "52e660170b6be8698e7f818e17367cf4130080ed5c342519e0676712d669a374",
+          "whitespace_words": 144,
+          "detector_word_count": 148,
+          "engine_verdict": "indeterminate",
+          "score": 0.4519,
+          "verdict": "abstain",
+          "reliability": 0.4996
+        },
+        {
+          "item_id": "template-29",
+          "text_sha256": "5161ff33c523ac4705eb2d61772bd142fa2fab99ee65699c494088b45ad0165f",
+          "whitespace_words": 137,
+          "detector_word_count": 138,
+          "engine_verdict": "indeterminate",
+          "score": 0.4345,
+          "verdict": "abstain",
+          "reliability": 0.4604
+        },
+        {
+          "item_id": "template-30",
+          "text_sha256": "d97010d60a1b0981a931b54da337419377ea82b1628b94ba486193421882da59",
+          "whitespace_words": 145,
+          "detector_word_count": 149,
+          "engine_verdict": "indeterminate",
+          "score": 0.5939,
+          "verdict": "abstain",
+          "reliability": 0.5011
+        }
+      ]
+    },
+    "ood_determinism": {
+      "items_checked": 66,
+      "mismatches": []
+    },
+    "short_text": {
+      "slices": [
+        {
+          "dataset": "raid",
+          "config": "raid",
+          "split": "train",
+          "cache_file": "$HOME/.cache/textforensics/datasets/raid/raid/train.jsonl",
+          "cache_file_sha256": "f689a30963024b2dc1fa159f2888e1d2ba36e68263d467ab7f73db5d9e780c00",
+          "cache_rows_total": 3000,
+          "cache_rows_labelled": 3000,
+          "sample_n_human": 92,
+          "sample_n_ai": 200,
+          "sample_rule": "deterministic: rows sorted by source_id, first 200 per class",
+          "truncation": "first-N whitespace words; 'full' is the untruncated row text",
+          "budgets": [
+            {
+              "budget_words": 5,
+              "n_human": 92,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 92,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.040083,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 292,
+              "abstention_rate": 1.0,
+              "auroc": 0.519973,
+              "auprc": 0.518143,
+              "mean_score_human": 0.424233,
+              "mean_score_ai": 0.424594
+            },
+            {
+              "budget_words": 10,
+              "n_human": 92,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 92,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.040083,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 292,
+              "abstention_rate": 1.0,
+              "auroc": 0.504293,
+              "auprc": 0.552225,
+              "mean_score_human": 0.410597,
+              "mean_score_ai": 0.412938
+            },
+            {
+              "budget_words": 20,
+              "n_human": 92,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 92,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.040083,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 292,
+              "abstention_rate": 1.0,
+              "auroc": 0.53519,
+              "auprc": 0.671302,
+              "mean_score_human": 0.307734,
+              "mean_score_ai": 0.319995
+            },
+            {
+              "budget_words": 40,
+              "n_human": 92,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 92,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.040083,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 292,
+              "abstention_rate": 1.0,
+              "auroc": 0.516549,
+              "auprc": 0.689969,
+              "mean_score_human": 0.296924,
+              "mean_score_ai": 0.298864
+            },
+            {
+              "budget_words": 60,
+              "n_human": 92,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 92,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.040083,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 292,
+              "abstention_rate": 1.0,
+              "auroc": 0.50356,
+              "auprc": 0.704631,
+              "mean_score_human": 0.300372,
+              "mean_score_ai": 0.302401
+            },
+            {
+              "budget_words": 80,
+              "n_human": 92,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 92,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.040083,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 224,
+              "abstention_rate": 0.767123,
+              "auroc": 0.545326,
+              "auprc": 0.703466,
+              "mean_score_human": 0.294154,
+              "mean_score_ai": 0.311535
+            },
+            {
+              "budget_words": 120,
+              "n_human": 92,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 92,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.040083,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 1,
+                "n": 200,
+                "value": 0.005,
+                "ci_lower": 0.000883,
+                "ci_upper": 0.027774,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 118,
+              "abstention_rate": 0.40411,
+              "auroc": 0.586495,
+              "auprc": 0.748176,
+              "mean_score_human": 0.281512,
+              "mean_score_ai": 0.319688
+            },
+            {
+              "budget_words": 200,
+              "n_human": 92,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 92,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.040083,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 138,
+              "abstention_rate": 0.472603,
+              "auroc": 0.613832,
+              "auprc": 0.773827,
+              "mean_score_human": 0.283799,
+              "mean_score_ai": 0.335669
+            },
+            {
+              "budget_words": "full",
+              "n_human": 92,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 92,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.040083,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 5,
+                "n": 200,
+                "value": 0.025,
+                "ci_lower": 0.010725,
+                "ci_upper": 0.057179,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 137,
+              "abstention_rate": 0.469178,
+              "auroc": 0.621114,
+              "auprc": 0.79322,
+              "mean_score_human": 0.284125,
+              "mean_score_ai": 0.345286
+            }
+          ]
+        },
+        {
+          "dataset": "mage",
+          "config": "default",
+          "split": "train",
+          "cache_file": "$HOME/.cache/textforensics/datasets/mage/default/train.jsonl",
+          "cache_file_sha256": "8969989f35f6affbfc07d1b6846e9acdb481790b964563289342aa075d06eba3",
+          "cache_rows_total": 400,
+          "cache_rows_labelled": 400,
+          "sample_n_human": 117,
+          "sample_n_ai": 200,
+          "sample_rule": "deterministic: rows sorted by source_id, first 200 per class",
+          "truncation": "first-N whitespace words; 'full' is the untruncated row text",
+          "budgets": [
+            {
+              "budget_words": 5,
+              "n_human": 117,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 117,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.03179,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 317,
+              "abstention_rate": 1.0,
+              "auroc": 0.500406,
+              "auprc": 0.449426,
+              "mean_score_human": 0.427826,
+              "mean_score_ai": 0.430958
+            },
+            {
+              "budget_words": 10,
+              "n_human": 117,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 117,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.03179,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 317,
+              "abstention_rate": 1.0,
+              "auroc": 0.484765,
+              "auprc": 0.514334,
+              "mean_score_human": 0.399962,
+              "mean_score_ai": 0.399037
+            },
+            {
+              "budget_words": 20,
+              "n_human": 117,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 117,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.03179,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 317,
+              "abstention_rate": 1.0,
+              "auroc": 0.488761,
+              "auprc": 0.585856,
+              "mean_score_human": 0.335123,
+              "mean_score_ai": 0.331237
+            },
+            {
+              "budget_words": 40,
+              "n_human": 117,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 117,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.03179,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 317,
+              "abstention_rate": 1.0,
+              "auroc": 0.538269,
+              "auprc": 0.656193,
+              "mean_score_human": 0.281038,
+              "mean_score_ai": 0.293459
+            },
+            {
+              "budget_words": 60,
+              "n_human": 117,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 117,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.03179,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 317,
+              "abstention_rate": 1.0,
+              "auroc": 0.513419,
+              "auprc": 0.653727,
+              "mean_score_human": 0.270239,
+              "mean_score_ai": 0.276002
+            },
+            {
+              "budget_words": 80,
+              "n_human": 117,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 117,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.03179,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 231,
+              "abstention_rate": 0.728707,
+              "auroc": 0.519872,
+              "auprc": 0.673496,
+              "mean_score_human": 0.265304,
+              "mean_score_ai": 0.275481
+            },
+            {
+              "budget_words": 120,
+              "n_human": 117,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 117,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.03179,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 163,
+              "abstention_rate": 0.514196,
+              "auroc": 0.51015,
+              "auprc": 0.681189,
+              "mean_score_human": 0.260459,
+              "mean_score_ai": 0.27117
+            },
+            {
+              "budget_words": 200,
+              "n_human": 117,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 117,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.03179,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 167,
+              "abstention_rate": 0.526814,
+              "auroc": 0.545107,
+              "auprc": 0.708315,
+              "mean_score_human": 0.250315,
+              "mean_score_ai": 0.274643
+            },
+            {
+              "budget_words": "full",
+              "n_human": 117,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 117,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.03179,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 2,
+                "n": 200,
+                "value": 0.01,
+                "ci_lower": 0.002747,
+                "ci_upper": 0.035722,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 172,
+              "abstention_rate": 0.542587,
+              "auroc": 0.56156,
+              "auprc": 0.743329,
+              "mean_score_human": 0.253295,
+              "mean_score_ai": 0.295855
+            }
+          ]
+        },
+        {
+          "dataset": "beemo",
+          "config": "default",
+          "split": "train",
+          "cache_file": "$HOME/.cache/textforensics/datasets/beemo/default/train.jsonl",
+          "cache_file_sha256": "3a59e55516e9be22dce16270d1edace92b9b20bfda7b8600ee89d8f380dec8d2",
+          "cache_rows_total": 900,
+          "cache_rows_labelled": 900,
+          "sample_n_human": 200,
+          "sample_n_ai": 200,
+          "sample_rule": "deterministic: rows sorted by source_id, first 200 per class",
+          "truncation": "first-N whitespace words; 'full' is the untruncated row text",
+          "budgets": [
+            {
+              "budget_words": 5,
+              "n_human": 200,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 400,
+              "abstention_rate": 1.0,
+              "auroc": 0.459288,
+              "auprc": 0.322457,
+              "mean_score_human": 0.419116,
+              "mean_score_ai": 0.403149
+            },
+            {
+              "budget_words": 10,
+              "n_human": 200,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 400,
+              "abstention_rate": 1.0,
+              "auroc": 0.452025,
+              "auprc": 0.384753,
+              "mean_score_human": 0.399574,
+              "mean_score_ai": 0.377525
+            },
+            {
+              "budget_words": 20,
+              "n_human": 200,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 400,
+              "abstention_rate": 1.0,
+              "auroc": 0.435175,
+              "auprc": 0.442173,
+              "mean_score_human": 0.323635,
+              "mean_score_ai": 0.299755
+            },
+            {
+              "budget_words": 40,
+              "n_human": 200,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 400,
+              "abstention_rate": 1.0,
+              "auroc": 0.420162,
+              "auprc": 0.439321,
+              "mean_score_human": 0.302899,
+              "mean_score_ai": 0.274498
+            },
+            {
+              "budget_words": 60,
+              "n_human": 200,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 400,
+              "abstention_rate": 1.0,
+              "auroc": 0.4675,
+              "auprc": 0.468571,
+              "mean_score_human": 0.297496,
+              "mean_score_ai": 0.282743
+            },
+            {
+              "budget_words": 80,
+              "n_human": 200,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 324,
+              "abstention_rate": 0.81,
+              "auroc": 0.46295,
+              "auprc": 0.479733,
+              "mean_score_human": 0.295854,
+              "mean_score_ai": 0.28071
+            },
+            {
+              "budget_words": 120,
+              "n_human": 200,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 257,
+              "abstention_rate": 0.6425,
+              "auroc": 0.453713,
+              "auprc": 0.474425,
+              "mean_score_human": 0.296312,
+              "mean_score_ai": 0.278313
+            },
+            {
+              "budget_words": 200,
+              "n_human": 200,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 256,
+              "abstention_rate": 0.64,
+              "auroc": 0.466487,
+              "auprc": 0.481698,
+              "mean_score_human": 0.29541,
+              "mean_score_ai": 0.280822
+            },
+            {
+              "budget_words": "full",
+              "n_human": 200,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 237,
+              "abstention_rate": 0.5925,
+              "auroc": 0.429163,
+              "auprc": 0.466826,
+              "mean_score_human": 0.285944,
+              "mean_score_ai": 0.257247
+            }
+          ]
+        },
+        {
+          "dataset": "detectrl_x",
+          "config": "binary",
+          "split": "train",
+          "cache_file": "$HOME/.cache/textforensics/datasets/detectrl_x/binary/train.jsonl",
+          "cache_file_sha256": "08f23dc371211fba9beae6d4e3c26b250d18ad817de7f3f86ea6425b7cac8349",
+          "cache_rows_total": 800,
+          "cache_rows_labelled": 800,
+          "sample_n_human": 200,
+          "sample_n_ai": 200,
+          "sample_rule": "deterministic: rows sorted by source_id, first 200 per class",
+          "truncation": "first-N whitespace words; 'full' is the untruncated row text",
+          "budgets": [
+            {
+              "budget_words": 5,
+              "n_human": 200,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 385,
+              "abstention_rate": 0.9625,
+              "auroc": 0.445362,
+              "auprc": 0.352249,
+              "mean_score_human": 0.413616,
+              "mean_score_ai": 0.376526
+            },
+            {
+              "budget_words": 10,
+              "n_human": 200,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 379,
+              "abstention_rate": 0.9475,
+              "auroc": 0.479513,
+              "auprc": 0.44065,
+              "mean_score_human": 0.382214,
+              "mean_score_ai": 0.362416
+            },
+            {
+              "budget_words": 20,
+              "n_human": 200,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 362,
+              "abstention_rate": 0.905,
+              "auroc": 0.516988,
+              "auprc": 0.489235,
+              "mean_score_human": 0.28624,
+              "mean_score_ai": 0.289069
+            },
+            {
+              "budget_words": 40,
+              "n_human": 200,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 346,
+              "abstention_rate": 0.865,
+              "auroc": 0.509888,
+              "auprc": 0.519217,
+              "mean_score_human": 0.213645,
+              "mean_score_ai": 0.219818
+            },
+            {
+              "budget_words": 60,
+              "n_human": 200,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 338,
+              "abstention_rate": 0.845,
+              "auroc": 0.6034,
+              "auprc": 0.587133,
+              "mean_score_human": 0.190525,
+              "mean_score_ai": 0.214996
+            },
+            {
+              "budget_words": 80,
+              "n_human": 200,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 240,
+              "abstention_rate": 0.6,
+              "auroc": 0.64195,
+              "auprc": 0.62781,
+              "mean_score_human": 0.176863,
+              "mean_score_ai": 0.212678
+            },
+            {
+              "budget_words": 120,
+              "n_human": 200,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 43,
+              "abstention_rate": 0.1075,
+              "auroc": 0.658925,
+              "auprc": 0.622554,
+              "mean_score_human": 0.16543,
+              "mean_score_ai": 0.200831
+            },
+            {
+              "budget_words": 200,
+              "n_human": 200,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 44,
+              "abstention_rate": 0.11,
+              "auroc": 0.6662,
+              "auprc": 0.626243,
+              "mean_score_human": 0.158992,
+              "mean_score_ai": 0.195612
+            },
+            {
+              "budget_words": "full",
+              "n_human": 200,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 67,
+              "abstention_rate": 0.1675,
+              "auroc": 0.642737,
+              "auprc": 0.625886,
+              "mean_score_human": 0.174222,
+              "mean_score_ai": 0.215637
+            }
+          ]
+        },
+        {
+          "dataset": "ghostwriter",
+          "config": "default",
+          "split": "train",
+          "cache_file": "$HOME/.cache/textforensics/datasets/ghostwriter/default/train.jsonl",
+          "cache_file_sha256": "12d2ab690b8952d34cb8814231b332f96dbc565de6f2daf4af50d3a60df184c8",
+          "cache_rows_total": 500,
+          "cache_rows_labelled": 347,
+          "sample_n_human": 137,
+          "sample_n_ai": 200,
+          "sample_rule": "deterministic: rows sorted by source_id, first 200 per class",
+          "truncation": "first-N whitespace words; 'full' is the untruncated row text",
+          "budgets": [
+            {
+              "budget_words": 5,
+              "n_human": 137,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 137,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.027276,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 337,
+              "abstention_rate": 1.0,
+              "auroc": 0.533759,
+              "auprc": 0.452792,
+              "mean_score_human": 0.40862,
+              "mean_score_ai": 0.428375
+            },
+            {
+              "budget_words": 10,
+              "n_human": 137,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 137,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.027276,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 337,
+              "abstention_rate": 1.0,
+              "auroc": 0.50969,
+              "auprc": 0.487077,
+              "mean_score_human": 0.398673,
+              "mean_score_ai": 0.409882
+            },
+            {
+              "budget_words": 20,
+              "n_human": 137,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 137,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.027276,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 337,
+              "abstention_rate": 1.0,
+              "auroc": 0.51792,
+              "auprc": 0.565048,
+              "mean_score_human": 0.306728,
+              "mean_score_ai": 0.310901
+            },
+            {
+              "budget_words": 40,
+              "n_human": 137,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 137,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.027276,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 337,
+              "abstention_rate": 1.0,
+              "auroc": 0.500839,
+              "auprc": 0.60997,
+              "mean_score_human": 0.256216,
+              "mean_score_ai": 0.260937
+            },
+            {
+              "budget_words": 60,
+              "n_human": 137,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 137,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.027276,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 336,
+              "abstention_rate": 0.997033,
+              "auroc": 0.526369,
+              "auprc": 0.634839,
+              "mean_score_human": 0.243884,
+              "mean_score_ai": 0.254953
+            },
+            {
+              "budget_words": 80,
+              "n_human": 137,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 137,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.027276,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 184,
+              "abstention_rate": 0.545994,
+              "auroc": 0.595219,
+              "auprc": 0.675675,
+              "mean_score_human": 0.228712,
+              "mean_score_ai": 0.257808
+            },
+            {
+              "budget_words": 120,
+              "n_human": 137,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 137,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.027276,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 87,
+              "abstention_rate": 0.25816,
+              "auroc": 0.559799,
+              "auprc": 0.622252,
+              "mean_score_human": 0.237655,
+              "mean_score_ai": 0.250634
+            },
+            {
+              "budget_words": 200,
+              "n_human": 137,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 137,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.027276,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 89,
+              "abstention_rate": 0.264095,
+              "auroc": 0.560566,
+              "auprc": 0.6111,
+              "mean_score_human": 0.238477,
+              "mean_score_ai": 0.249712
+            },
+            {
+              "budget_words": "full",
+              "n_human": 137,
+              "n_ai": 200,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 137,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.027276,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 200,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.018846,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 156,
+              "abstention_rate": 0.462908,
+              "auroc": 0.431697,
+              "auprc": 0.517983,
+              "mean_score_human": 0.319936,
+              "mean_score_ai": 0.286235
+            }
+          ]
+        },
+        {
+          "dataset": "opai_bench",
+          "config": "default",
+          "split": "train",
+          "cache_file": "$HOME/.cache/textforensics/datasets/opai_bench/default/train.jsonl",
+          "cache_file_sha256": "72bcfe9f0948afa036f6707da5f366c989ce2f455592764b56c7bfea08e2a2ae",
+          "cache_rows_total": 500,
+          "cache_rows_labelled": 111,
+          "sample_n_human": 56,
+          "sample_n_ai": 55,
+          "sample_rule": "deterministic: rows sorted by source_id, first 200 per class",
+          "truncation": "first-N whitespace words; 'full' is the untruncated row text",
+          "budgets": [
+            {
+              "budget_words": 5,
+              "n_human": 56,
+              "n_ai": 55,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 56,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.064196,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 55,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.065287,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 111,
+              "abstention_rate": 1.0,
+              "auroc": 0.526461,
+              "auprc": 0.33633,
+              "mean_score_human": 0.42783,
+              "mean_score_ai": 0.433351
+            },
+            {
+              "budget_words": 10,
+              "n_human": 56,
+              "n_ai": 55,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 56,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.064196,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 55,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.065287,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 111,
+              "abstention_rate": 1.0,
+              "auroc": 0.490747,
+              "auprc": 0.355058,
+              "mean_score_human": 0.407527,
+              "mean_score_ai": 0.412058
+            },
+            {
+              "budget_words": 20,
+              "n_human": 56,
+              "n_ai": 55,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 56,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.064196,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 55,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.065287,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 111,
+              "abstention_rate": 1.0,
+              "auroc": 0.442045,
+              "auprc": 0.449818,
+              "mean_score_human": 0.309038,
+              "mean_score_ai": 0.298898
+            },
+            {
+              "budget_words": 40,
+              "n_human": 56,
+              "n_ai": 55,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 56,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.064196,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 55,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.065287,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 111,
+              "abstention_rate": 1.0,
+              "auroc": 0.448701,
+              "auprc": 0.46549,
+              "mean_score_human": 0.277646,
+              "mean_score_ai": 0.257984
+            },
+            {
+              "budget_words": 60,
+              "n_human": 56,
+              "n_ai": 55,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 56,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.064196,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 55,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.065287,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 111,
+              "abstention_rate": 1.0,
+              "auroc": 0.458929,
+              "auprc": 0.467969,
+              "mean_score_human": 0.28268,
+              "mean_score_ai": 0.266544
+            },
+            {
+              "budget_words": 80,
+              "n_human": 56,
+              "n_ai": 55,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 56,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.064196,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 55,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.065287,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 76,
+              "abstention_rate": 0.684685,
+              "auroc": 0.501948,
+              "auprc": 0.492437,
+              "mean_score_human": 0.281821,
+              "mean_score_ai": 0.279307
+            },
+            {
+              "budget_words": 120,
+              "n_human": 56,
+              "n_ai": 55,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 56,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.064196,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 55,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.065287,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 35,
+              "abstention_rate": 0.315315,
+              "auroc": 0.514286,
+              "auprc": 0.476938,
+              "mean_score_human": 0.277454,
+              "mean_score_ai": 0.271818
+            },
+            {
+              "budget_words": 200,
+              "n_human": 56,
+              "n_ai": 55,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 56,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.064196,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 55,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.065287,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 26,
+              "abstention_rate": 0.234234,
+              "auroc": 0.475649,
+              "auprc": 0.459988,
+              "mean_score_human": 0.277346,
+              "mean_score_ai": 0.26878
+            },
+            {
+              "budget_words": "full",
+              "n_human": 56,
+              "n_ai": 55,
+              "fpr_native_wilson": {
+                "k": 0,
+                "n": 56,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.064196,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "tpr_native_wilson": {
+                "k": 0,
+                "n": 55,
+                "value": 0.0,
+                "ci_lower": 0.0,
+                "ci_upper": 0.065287,
+                "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+              },
+              "abstentions": 55,
+              "abstention_rate": 0.495495,
+              "auroc": 0.396104,
+              "auprc": 0.418155,
+              "mean_score_human": 0.33342,
+              "mean_score_ai": 0.295096
+            }
+          ]
+        }
+      ]
+    },
+    "refusals": {
+      "cases": [
+        {
+          "layer": "engine:analyze_text",
+          "case": "empty_string",
+          "outcome": "raised",
+          "exception_type": "ValueError",
+          "exception_message": "Text must not be empty."
+        },
+        {
+          "layer": "engine:analyze_text",
+          "case": "whitespace_only",
+          "outcome": "raised",
+          "exception_type": "ValueError",
+          "exception_message": "Text must not be empty."
+        },
+        {
+          "layer": "engine:analyze_text",
+          "case": "none",
+          "outcome": "raised",
+          "exception_type": "ValueError",
+          "exception_message": "Text must not be empty."
+        },
+        {
+          "layer": "engine:analyze_text",
+          "case": "int",
+          "outcome": "raised",
+          "exception_type": "ValueError",
+          "exception_message": "Text must not be empty."
+        },
+        {
+          "layer": "engine:analyze_text",
+          "case": "bytes",
+          "outcome": "raised",
+          "exception_type": "ValueError",
+          "exception_message": "Text must not be empty."
+        },
+        {
+          "layer": "engine:analyze_text",
+          "case": "list",
+          "outcome": "raised",
+          "exception_type": "ValueError",
+          "exception_message": "Text must not be empty."
+        },
+        {
+          "layer": "detector:detect",
+          "case": "empty_string",
+          "outcome": "raised",
+          "exception_type": "ValueError",
+          "exception_message": "Text must not be empty."
+        },
+        {
+          "layer": "detector:detect",
+          "case": "whitespace_only",
+          "outcome": "raised",
+          "exception_type": "ValueError",
+          "exception_message": "Text must not be empty."
+        },
+        {
+          "layer": "detector:detect",
+          "case": "none",
+          "outcome": "raised",
+          "exception_type": "ValueError",
+          "exception_message": "Text must not be empty."
+        },
+        {
+          "layer": "detector:detect",
+          "case": "int",
+          "outcome": "raised",
+          "exception_type": "ValueError",
+          "exception_message": "Text must not be empty."
+        },
+        {
+          "layer": "detector:detect",
+          "case": "two_words",
+          "outcome": "returned",
+          "value": {
+            "schema": "textforensics.detector-result/v2",
+            "detector_id": "textforensics/builtin-heuristic",
+            "detector_version": "0.1.0",
+            "detector_family": "stylometric-heuristic",
+            "execution": "local",
+            "score": 0.4318,
+            "score_semantics": "higher_means_more_machine_like; uncalibrated pattern score",
+            "verdict": "abstain",
+            "threshold": null,
+            "calibrated_ai_probability": null,
+            "calibration_id": null,
+            "reliability": 0.0187,
+            "supported_languages": [
+              "en"
+            ],
+            "min_words": 80,
+            "evidence": [
+              {
+                "analyzer": "structural_uniformity",
+                "score": 0.77,
+                "reliability": 0.0833
+              },
+              {
+                "analyzer": "formulaic_language",
+                "score": 0.0,
+                "reliability": 0.0333
+              },
+              {
+                "analyzer": "lexical_profile",
+                "score": 0.3,
+                "reliability": 0.015
+              }
+            ],
+            "warnings": [
+              "Short text: detector-style signals are especially unreliable below the built-in baseline's 80-word minimum.",
+              "High analyzer disagreement: treat the aggregate score as weak evidence.",
+              "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+              "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+              "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+            ],
+            "native_score_direction": "higher_means_ai",
+            "score_range": [
+              0.0,
+              1.0
+            ],
+            "supported_length": {
+              "min_words": 80,
+              "max_words": null
+            },
+            "supported_domains": [],
+            "supported_editing_regimes": [],
+            "supported_generators": [],
+            "calibration": null,
+            "runtime": {
+              "mode": "local",
+              "provider": "textforensics",
+              "provider_version": "0.1.0",
+              "model_id": "builtin-stylometric-heuristic",
+              "device": "cpu"
+            },
+            "evidence_schema": "textforensics.detector-evidence/v1",
+            "protocol_version": "TFDP/2",
+            "normalized_from": null
+          }
+        },
+        {
+          "layer": "detector:detect",
+          "case": "eighty_words_exact",
+          "outcome": "returned",
+          "value": {
+            "schema": "textforensics.detector-result/v2",
+            "detector_id": "textforensics/builtin-heuristic",
+            "detector_version": "0.1.0",
+            "detector_family": "stylometric-heuristic",
+            "execution": "local",
+            "score": 0.5156,
+            "score_semantics": "higher_means_more_machine_like; uncalibrated pattern score",
+            "verdict": "abstain",
+            "threshold": null,
+            "calibrated_ai_probability": null,
+            "calibration_id": null,
+            "reliability": 0.2497,
+            "supported_languages": [
+              "en"
+            ],
+            "min_words": 80,
+            "evidence": [
+              {
+                "analyzer": "structural_uniformity",
+                "score": 0.77,
+                "reliability": 0.0833
+              },
+              {
+                "analyzer": "formulaic_language",
+                "score": 0.25,
+                "reliability": 0.4444
+              },
+              {
+                "analyzer": "lexical_profile",
+                "score": 1.0,
+                "reliability": 0.2
+              }
+            ],
+            "warnings": [
+              "High analyzer disagreement: treat the aggregate score as weak evidence.",
+              "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+              "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+              "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+            ],
+            "native_score_direction": "higher_means_ai",
+            "score_range": [
+              0.0,
+              1.0
+            ],
+            "supported_length": {
+              "min_words": 80,
+              "max_words": null
+            },
+            "supported_domains": [],
+            "supported_editing_regimes": [],
+            "supported_generators": [],
+            "calibration": null,
+            "runtime": {
+              "mode": "local",
+              "provider": "textforensics",
+              "provider_version": "0.1.0",
+              "model_id": "builtin-stylometric-heuristic",
+              "device": "cpu"
+            },
+            "evidence_schema": "textforensics.detector-evidence/v1",
+            "protocol_version": "TFDP/2",
+            "normalized_from": null
+          }
+        },
+        {
+          "layer": "execute_detector",
+          "case": "empty_string",
+          "outcome": "returned",
+          "prediction": null,
+          "failure": {
+            "detector_id": "textforensics/builtin-heuristic",
+            "detector_version": "0.1.0",
+            "detector_family": "stylometric-heuristic",
+            "error_type": "ValueError",
+            "message": "Detector execution failed. Raw exception text is intentionally omitted to avoid leaking submitted content."
+          }
+        },
+        {
+          "layer": "execute_detector",
+          "case": "short_text",
+          "outcome": "returned",
+          "prediction": {
+            "schema": "textforensics.detector-result/v2",
+            "detector_id": "textforensics/builtin-heuristic",
+            "detector_version": "0.1.0",
+            "detector_family": "stylometric-heuristic",
+            "execution": "local",
+            "score": 0.4318,
+            "score_semantics": "higher_means_more_machine_like; uncalibrated pattern score",
+            "verdict": "abstain",
+            "threshold": null,
+            "calibrated_ai_probability": null,
+            "calibration_id": null,
+            "reliability": 0.0187,
+            "supported_languages": [
+              "en"
+            ],
+            "min_words": 80,
+            "evidence": [
+              {
+                "analyzer": "structural_uniformity",
+                "score": 0.77,
+                "reliability": 0.0833
+              },
+              {
+                "analyzer": "formulaic_language",
+                "score": 0.0,
+                "reliability": 0.0333
+              },
+              {
+                "analyzer": "lexical_profile",
+                "score": 0.3,
+                "reliability": 0.015
+              }
+            ],
+            "warnings": [
+              "Short text: detector-style signals are especially unreliable below the built-in baseline's 80-word minimum.",
+              "High analyzer disagreement: treat the aggregate score as weak evidence.",
+              "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+              "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+              "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+            ],
+            "native_score_direction": "higher_means_ai",
+            "score_range": [
+              0.0,
+              1.0
+            ],
+            "supported_length": {
+              "min_words": 80,
+              "max_words": null
+            },
+            "supported_domains": [],
+            "supported_editing_regimes": [],
+            "supported_generators": [],
+            "calibration": null,
+            "runtime": {
+              "mode": "local",
+              "provider": "textforensics",
+              "provider_version": "0.1.0",
+              "model_id": "builtin-stylometric-heuristic",
+              "device": "cpu"
+            },
+            "evidence_schema": "textforensics.detector-evidence/v1",
+            "protocol_version": "TFDP/2",
+            "normalized_from": null
+          },
+          "failure": null
+        },
+        {
+          "layer": "config:validate_text_input",
+          "case": "empty_string",
+          "outcome": "raised",
+          "exception_type": "ValueError",
+          "exception_message": "Text must be a non-empty string."
+        },
+        {
+          "layer": "config:validate_text_input",
+          "case": "none",
+          "outcome": "raised",
+          "exception_type": "ValueError",
+          "exception_message": "Text must be a non-empty string."
+        },
+        {
+          "layer": "config:validate_text_input",
+          "case": "oversize",
+          "outcome": "raised",
+          "exception_type": "ValueError",
+          "exception_message": "Text exceeds the configured input limit of 2000000 bytes."
+        },
+        {
+          "layer": "config:validate_text_input",
+          "case": "at_limit",
+          "outcome": "returned",
+          "value": "'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      ],
+      "api_cases": [
+        {
+          "layer": "api:/v1/analyze",
+          "case": "empty_string",
+          "http_status": 422,
+          "body": {
+            "detail": "Invalid text input."
+          }
+        },
+        {
+          "layer": "api:/v1/analyze",
+          "case": "whitespace_only",
+          "http_status": 422,
+          "body": {
+            "detail": "Invalid text input."
+          }
+        },
+        {
+          "layer": "api:/v1/analyze",
+          "case": "missing_text_field",
+          "http_status": 422,
+          "body": {
+            "detail": [
+              {
+                "loc": [
+                  "body",
+                  "text"
+                ],
+                "msg": "Field required",
+                "type": "missing"
+              }
+            ],
+            "error_code": "invalid_request"
+          }
+        },
+        {
+          "layer": "api:/v1/analyze",
+          "case": "short_text",
+          "http_status": 200,
+          "body": {
+            "score": 0.4318,
+            "verdict": "insufficient_evidence",
+            "confidence": 0.0187,
+            "disagreement": 0.6338,
+            "robustness_stability": 1.0,
+            "word_count": 6,
+            "analyzers": [
+              {
+                "name": "structural_uniformity",
+                "score": 0.77,
+                "reliability": 0.08333333333333333,
+                "evidence": [
+                  {
+                    "feature": "sentence_length_cv",
+                    "value": 0.0,
+                    "contribution": 0.52,
+                    "explanation": "Very uniform sentence lengths can be a weak machine-like signal."
+                  },
+                  {
+                    "feature": "paragraph_length_cv",
+                    "value": 0.0,
+                    "contribution": 0.25,
+                    "explanation": "Uniform paragraph sizes can indicate templated prose."
+                  },
+                  {
+                    "feature": "repeated_sentence_start_ratio",
+                    "value": 0.0,
+                    "contribution": 0.0,
+                    "explanation": "Repeated sentence openings can indicate formulaic structure."
+                  }
+                ]
+              },
+              {
+                "name": "formulaic_language",
+                "score": 0.0,
+                "reliability": 0.03333333333333333,
+                "evidence": [
+                  {
+                    "feature": "transition_density",
+                    "value": 0.0,
+                    "contribution": 0.0,
+                    "explanation": "Dense explicit transitions can make prose read formulaically."
+                  },
+                  {
+                    "feature": "cliche_density",
+                    "value": 0.0,
+                    "contribution": 0.0,
+                    "explanation": "Common AI-associated stock phrases are present."
+                  },
+                  {
+                    "feature": "repeated_trigram_ratio",
+                    "value": 0.0,
+                    "contribution": 0.0,
+                    "explanation": "Repeated three-word sequences can indicate templated phrasing."
+                  }
+                ]
+              },
+              {
+                "name": "lexical_profile",
+                "score": 0.3,
+                "reliability": 0.015,
+                "evidence": [
+                  {
+                    "feature": "type_token_ratio",
+                    "value": 1.0,
+                    "contribution": 0.0,
+                    "explanation": "Lower lexical variety can be a weak signal, but depends strongly on genre."
+                  },
+                  {
+                    "feature": "hapax_ratio",
+                    "value": 1.0,
+                    "contribution": 0.0,
+                    "explanation": "A low share of one-off words can indicate repetitive vocabulary."
+                  },
+                  {
+                    "feature": "punctuation_variety",
+                    "value": 1,
+                    "contribution": 0.3,
+                    "explanation": "Low punctuation variety can accompany syntactically uniform prose."
+                  }
+                ]
+              }
+            ],
+            "features": {
+              "word_count": 6,
+              "sentence_count": 1,
+              "paragraph_count": 1,
+              "mean_sentence_length": 6,
+              "sentence_length_cv": 0.0,
+              "paragraph_length_cv": 0.0,
+              "type_token_ratio": 1.0,
+              "hapax_ratio": 1.0,
+              "word_entropy": 2.584962500721156,
+              "transition_density": 0.0,
+              "cliche_density": 0.0,
+              "contraction_density": 0.0,
+              "punctuation_variety": 1,
+              "repeated_trigram_ratio": 0.0,
+              "repeated_sentence_start_ratio": 0.0,
+              "question_rate": 0.0,
+              "semicolon_rate": 0.0,
+              "parenthetical_rate": 0.0
+            },
+            "warnings": [
+              "Short text: detector-style signals are especially unreliable below the built-in baseline's 80-word minimum.",
+              "High analyzer disagreement: treat the aggregate score as weak evidence.",
+              "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+              "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected."
+            ],
+            "confidence_semantics": "Uncalibrated heuristic diagnostic reliability for the built-in baseline; not an authorship probability or validated confidence.",
+            "diagnostic_reliability": 0.0187
+          }
+        },
+        {
+          "layer": "api:/v1/report",
+          "case": "empty_string",
+          "http_status": 422,
+          "body": {
+            "detail": "Invalid text input."
+          }
+        }
+      ],
+      "cli_cases": [
+        {
+          "layer": "cli:scan",
+          "case": "empty_text",
+          "exit_code": 3,
+          "stderr": "error: Text must be a non-empty string.",
+          "stdout_is_json": false,
+          "stdout_verdict": null,
+          "stdout_head": ""
+        },
+        {
+          "layer": "cli:scan",
+          "case": "short_text",
+          "exit_code": 0,
+          "stderr": "",
+          "stdout_is_json": true,
+          "stdout_verdict": "insufficient_evidence",
+          "stdout_head": "{\n  \"score\": 0.4318,\n  \"verdict\": \"insufficient_evidence\",\n  \"confidence\": 0.0187,\n  \"disagreement\": 0.6338,\n  \"robustness_stability\": 1.0,\n  \"word_count\": 6,\n  \"analyzers\": [\n    {\n      \"name\": \"structural_uniformity\",\n      \"score\": 0.77,\n      \"reliability\": 0.08333333333333333,\n      \"evidence\""
+        },
+        {
+          "layer": "cli:scan",
+          "case": "binary_file",
+          "exit_code": 3,
+          "stderr": "error: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte",
+          "stdout_is_json": false,
+          "stdout_verdict": null,
+          "stdout_head": ""
+        }
+      ],
+      "bundle_case": {
+        "layer": "bundle:build_forensic_bundle",
+        "case": "short_text",
+        "outcome": "returned",
+        "detector_results": [
+          {
+            "schema": "textforensics.detector-result/v2",
+            "detector_id": "textforensics/builtin-heuristic",
+            "detector_version": "0.1.0",
+            "detector_family": "stylometric-heuristic",
+            "execution": "local",
+            "score": 0.4191,
+            "score_semantics": "higher_means_more_machine_like; uncalibrated pattern score",
+            "verdict": "abstain",
+            "threshold": null,
+            "calibrated_ai_probability": null,
+            "calibration_id": null,
+            "reliability": 0.0311,
+            "supported_languages": [
+              "en"
+            ],
+            "min_words": 80,
+            "evidence": [
+              {
+                "analyzer": "structural_uniformity",
+                "score": 0.77,
+                "reliability": 0.0833
+              },
+              {
+                "analyzer": "formulaic_language",
+                "score": 0.0,
+                "reliability": 0.0556
+              },
+              {
+                "analyzer": "lexical_profile",
+                "score": 0.3,
+                "reliability": 0.025
+              }
+            ],
+            "warnings": [
+              "Short text: detector-style signals are especially unreliable below the built-in baseline's 80-word minimum.",
+              "High analyzer disagreement: treat the aggregate score as weak evidence.",
+              "Diagnostic reliability is an uncalibrated alpha heuristic, not an authorship probability or validated confidence.",
+              "This is a text-pattern assessment, not proof of authorship. False positives and false negatives are expected.",
+              "The reliability value is an uncalibrated heuristic diagnostic for the built-in baseline."
+            ],
+            "native_score_direction": "higher_means_ai",
+            "score_range": [
+              0.0,
+              1.0
+            ],
+            "supported_length": {
+              "min_words": 80,
+              "max_words": null
+            },
+            "supported_domains": [],
+            "supported_editing_regimes": [],
+            "supported_generators": [],
+            "calibration": null,
+            "runtime": {
+              "mode": "local",
+              "provider": "textforensics",
+              "provider_version": "0.1.0",
+              "model_id": "builtin-stylometric-heuristic",
+              "device": "cpu"
+            },
+            "evidence_schema": "textforensics.detector-evidence/v1",
+            "protocol_version": "TFDP/2",
+            "normalized_from": null,
+            "determinism": "deterministic",
+            "determinism_reason": null
+          }
+        ],
+        "detector_failures": [],
+        "consensus_verdict": "abstain",
+        "completeness": null,
+        "trust_map_state": {
+          "schema": "textforensics.trust-map/v2",
+          "overall": "insufficient",
+          "dimensions": [
+            {
+              "dimension": "language",
+              "state": "partial",
+              "reason": "Detector metadata lists the input language, but no validation slice is registered.",
+              "evidence_refs": [],
+              "observed": {
+                "detector_states": {
+                  "textforensics/builtin-heuristic": "partial"
+                },
+                "detector_observed": {
+                  "textforensics/builtin-heuristic": {
+                    "input_language": "en",
+                    "supported_languages": [
+                      "en"
+                    ],
+                    "metadata_only": true
+                  }
+                }
+              },
+              "limitations": [
+                "Capability metadata is not held-out validation evidence."
+              ],
+              "detectors": {
+                "textforensics/builtin-heuristic": "partial"
+              }
+            },
+            {
+              "dimension": "text_length",
+              "state": "out_of_scope",
+              "reason": "Input is below the detector's declared minimum word count.",
+              "evidence_refs": [],
+              "observed": {
+                "detector_states": {
+                  "textforensics/builtin-heuristic": "out_of_scope"
+                },
+                "detector_observed": {
+                  "textforensics/builtin-heuristic": {
+                    "word_count": 10,
+                    "min_words": 80,
+                    "max_words": null
+                  }
+                }
+              },
+              "limitations": [
+                "Declared minimum length is capability metadata, not held-out performance."
+              ],
+              "detectors": {
+                "textforensics/builtin-heuristic": "out_of_scope"
+              }
+            },
+            {
+              "dimension": "domain_genre",
+              "state": "unknown",
+              "reason": "No validation evidence covers this domain.",
+              "evidence_refs": [],
+              "observed": {
+                "detector_states": {
+                  "textforensics/builtin-heuristic": "unknown"
+                }
+              },
+              "limitations": [],
+              "detectors": {
+                "textforensics/builtin-heuristic": "unknown"
+              }
+            },
+            {
+              "dimension": "editing_revision",
+              "state": "unknown",
+              "reason": "No validation evidence covers this editing regime.",
+              "evidence_refs": [],
+              "observed": {
+                "detector_states": {
+                  "textforensics/builtin-heuristic": "unknown"
+                }
+              },
+              "limitations": [],
+              "detectors": {
+                "textforensics/builtin-heuristic": "unknown"
+              }
+            },
+            {
+              "dimension": "generator_scope",
+              "state": "unknown",
+              "reason": "No validation evidence declares generator scope.",
+              "evidence_refs": [],
+              "observed": {
+                "detector_states": {
+                  "textforensics/builtin-heuristic": "unknown"
+                }
+              },
+              "limitations": [],
+              "detectors": {
+                "textforensics/builtin-heuristic": "unknown"
+              }
+            },
+            {
+              "dimension": "human_population",
+              "state": "unknown",
+              "reason": "No validation evidence declares human-population coverage.",
+              "evidence_refs": [],
+              "observed": {
+                "detector_states": {
+                  "textforensics/builtin-heuristic": "unknown"
+                }
+              },
+              "limitations": [],
+              "detectors": {
+                "textforensics/builtin-heuristic": "unknown"
+              }
+            },
+            {
+              "dimension": "human_false_positive_evidence",
+              "state": "unknown",
+              "reason": "No held-out human false-positive evidence is registered.",
+              "evidence_refs": [],
+              "observed": {
+                "detector_states": {
+                  "textforensics/builtin-heuristic": "unknown"
+                }
+              },
+              "limitations": [],
+              "detectors": {
+                "textforensics/builtin-heuristic": "unknown"
+              }
+            },
+            {
+              "dimension": "temporal_version_stability",
+              "state": "unknown",
+              "reason": "No longitudinal drift evidence is registered.",
+              "evidence_refs": [],
+              "observed": {
+                "detector_states": {
+                  "textforensics/builtin-heuristic": "unknown"
+                }
+              },
+              "limitations": [],
+              "detectors": {
+                "textforensics/builtin-heuristic": "unknown"
+              }
+            },
+            {
+              "dimension": "detector_diversity",
+              "state": "partial",
+              "reason": "Detector-family diversity is limited, or one or more configured detectors failed.",
+              "evidence_refs": [],
+              "observed": {
+                "families": [
+                  "stylometric-heuristic"
+                ],
+                "independent_family_count": 1,
+                "detector_failures": 0
+              },
+              "limitations": [
+                "Family labels are methodological metadata; empirical error correlation has not been measured here."
+              ],
+              "detectors": {}
+            },
+            {
+              "dimension": "benign_stability",
+              "state": "unknown",
+              "reason": "No usable benign-transformation stability evidence is available.",
+              "evidence_refs": [],
+              "observed": {
+                "completeness": [
+                  {
+                    "selected": 4,
+                    "attempted": 4,
+                    "succeeded": 0,
+                    "abstained": 4,
+                    "failed": 0,
+                    "is_complete": true,
+                    "support_eligible": false,
+                    "detector_id": "textforensics/builtin-heuristic"
+                  }
+                ]
+              },
+              "limitations": [
+                "Representation probes are not semantic rewrites and do not establish paraphrase robustness."
+              ],
+              "detectors": {}
+            }
+          ],
+          "limitations": [
+            "Trust Map states describe evidence coverage, not probability of authorship.",
+            "A supported state requires registered, held-out, evidence-grade validation slices; detector metadata alone can only produce partial coverage.",
+            "Text-only detection cannot prove authorship.",
+            "No validation evidence registry was supplied."
+          ],
+          "input_conditions": {
+            "schema": "textforensics.input-conditions/v1",
+            "language": "en",
+            "language_confidence": "high",
+            "script": "latin",
+            "word_count": 10,
+            "char_count": 51,
+            "length_band": "very_short",
+            "domain_genre": "email",
+            "domain_confidence": "medium",
+            "editing_regime": "unknown",
+            "generator": null,
+            "human_population": "unknown",
+            "declared": {
+              "source": "none",
+              "fields": [],
+              "values": {}
+            },
+            "cues": {
+              "language": {
+                "stopword_hits": {
+                  "en": 4,
+                  "nl": 2,
+                  "pt": 1
+                },
+                "best_language": "en",
+                "best_hits": 4,
+                "second_hits": 2
+              },
+              "domain": {
+                "domain_hits": {
+                  "email": 2
+                },
+                "best_domain": "email",
+                "best_hits": 2,
+                "second_hits": 0
+              }
+            },
+            "extraction_version": "1"
+          },
+          "evidence_registry": {
+            "registry_id": null,
+            "record_count": 0,
+            "verified": false,
+            "verification_status": "not_checked"
+          },
+          "coverage": {
+            "supported": 0,
+            "partial": 2,
+            "unknown": 7,
+            "out_of_scope": 1
+          }
+        }
+      }
+    }
+  },
+  "drops": [
+    {
+      "item": "OOD AI-side (TPR) measurement",
+      "reason": "no local LLM generator is available in this environment (no ollama, no API keys) and PAN 2025 is an explicit gap; genuine out-of-domain AI text could not be obtained, so no OOD TPR is claimed. The synthetic-template probe is a formulaic-prose stress test only, not a TPR measurement."
+    },
+    {
+      "item": "German/French/Spanish as out-of-domain languages",
+      "reason": "DetectRL-X covers de/fr/es (and GhostWriter covers de); those languages are in-domain for at least one registry slice, so Italian and Japanese were used instead."
+    },
+    {
+      "item": "Python versions other than the run's own",
+      "reason": "measured on the local interpreter only; CI covers the matrix"
+    },
+    {
+      "item": "Threshold tuning on any probe set",
+      "reason": "the native operating point is used throughout; a negative result is reported as a negative result, never tuned around"
+    }
+  ],
+  "badge": "available",
+  "detector_version": "0.1.0",
+  "notes": "W8 worker E qualification probe. Out-of-domain and short-text results are measurements, not claims: per-slice n is small (n=6 per OOD slice), so Wilson uppers are wide and the pooled OOD number must not be read as a supported FPR claim. The lyrics slice is near-domain (RAID covers poetry) and is flagged as such. Japanese texts have no whitespace, so the detector's word counter sees 16-20 words per text (runs split by punctuation) instead of the ~140 whitespace words; the 6/6 abstention on that slice is a length-gate effect on a spaceless script, not a language judgement. The same whitespace-word artefact affects the short-text truncation: 49 of the 400 sampled DetectRL-X rows are Chinese with fewer than 20 whitespace words at full length, so truncating them to a 5/10/20-word budget keeps the full (long) text and they receive normal verdicts \u2014 that is why DetectRL-X abstention is 0.963/0.948/0.905 at the 5/10/20-word budgets instead of 1.000. A whitespace-word budget is not a length control for spaceless scripts; the DetectRL-X small-budget numbers must be read with that caveat. No threshold was tuned; no failing case was dropped."
+}

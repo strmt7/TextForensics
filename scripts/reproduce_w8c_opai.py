@@ -62,11 +62,21 @@ from textforensics.detectors import BuiltinHeuristicDetector  # noqa: E402
 RUN_DATE = "2026-11-16"
 ARTIFACT_ID = "EV-20261116-reproduction-opai-bench"
 RUN_ARTIFACT_SCHEMA = "textforensics.run-artifact/v1"
-C_MANIFEST = Path(
-    "/home/hatch/workspace/TextForensics-rewrite/docs/evidence/manifests/EV-20261116-dataset-opai-bench-partitions.json"
+# Host-neutral: the worker checkout the paths used to name is gone;
+# the artifacts live at these repo-relative paths on every checkout.
+C_MANIFEST = (
+    REPO_ROOT
+    / "docs"
+    / "evidence"
+    / "manifests"
+    / "EV-20261116-dataset-opai-bench-partitions.json"
 )
-C_ARTIFACT = Path(
-    "/home/hatch/workspace/TextForensics-rewrite/docs/evidence/runs/EV-20261116-dataset-opai-bench.json"
+C_ARTIFACT = (
+    REPO_ROOT
+    / "docs"
+    / "evidence"
+    / "runs"
+    / "EV-20261116-dataset-opai-bench.json"
 )
 CACHE_ROOT = Path.home() / ".cache" / "textforensics" / "datasets" / "opai_bench" / "default"
 BOOTSTRAP_SEED = 20261116

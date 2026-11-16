@@ -75,7 +75,9 @@ from textforensics.detectors import BuiltinHeuristicDetector  # noqa: E402
 RUN_DATE = "2026-11-16"
 ARTIFACT_ID = "EV-20261116-reproduction-raid"
 RUN_ARTIFACT_SCHEMA = "textforensics.run-artifact/v1"
-A_DIR = Path("/home/hatch/workspace/TextForensics-rewrite")
+# Host-neutral: the worker checkout the path used to name is gone;
+# the artifacts live at the same repo-relative paths on every checkout.
+A_DIR = REPO_ROOT
 CACHE_ROOT = Path.home() / ".cache" / "textforensics" / "datasets"
 BOOTSTRAP_SEED = 20261116
 BOOTSTRAP_RESAMPLES = 1000

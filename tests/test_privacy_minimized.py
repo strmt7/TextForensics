@@ -16,6 +16,11 @@ Guards the W7 half of the privacy disposition gate
 - the two fixture occurrences are already host-neutral (no real home
   path recorded in them).
 
+W10 Worker D extends the same guards to the three W8 registry-bound
+run artifacts (minimized `cache_file` / `detail` fields) and to the
+five W8 reproduce scripts (minimized in place to `REPO_ROOT`-relative
+paths; see the README's W10 section).
+
 The tests never assert on, print, or otherwise reproduce the
 personal path values themselves: comparisons use only the successor
 values, digests, and the boolean "real home path absent" property.
@@ -39,6 +44,45 @@ LOG = REPO_ROOT / "docs" / "live-host-api" / "fullsuite2.log"
 README = MINIMIZED / "README.md"
 
 SUITE_NAMES = ("EV-20261106-suite.json", "EV-20261107-suite.json")
+
+# W10: the three W8 registry-bound run artifacts, and the exact JSON
+# paths whose values were minimized (field path -> minimized form).
+W8_NAMES = (
+    "EV-20261116-ood-short-refusal.json",
+    "EV-20261116-reproduction-detectrl-x.json",
+    "EV-20261116-reproduction-registry.json",
+)
+
+REPRODUCE_SCRIPTS = (
+    "reproduce_w8a_mage.py",
+    "reproduce_w8a_raid.py",
+    "reproduce_w8b_beemo.py",
+    "reproduce_w8c_ghostwriter.py",
+    "reproduce_w8c_opai.py",
+)
+
+
+def _diff_paths(original, successor, path=""):
+    """JSON paths whose values differ between the two documents."""
+    if type(original) is not type(successor):
+        return [path]
+    if isinstance(original, dict):
+        assert list(original.keys()) == list(successor.keys()), path
+        out = []
+        for key in original:
+            out += _diff_paths(
+                original[key],
+                successor[key],
+                f"{path}.{key}" if path else key,
+            )
+        return out
+    if isinstance(original, list):
+        assert len(original) == len(successor), path
+        out = []
+        for i, (a, b) in enumerate(zip(original, successor)):
+            out += _diff_paths(a, b, f"{path}[{i}]")
+        return out
+    return [path] if original != successor else []
 
 
 def _sha256(path: Path) -> str:
@@ -79,11 +123,63 @@ def test_originals_still_match_registry_digests():
         (REPO_ROOT / "docs" / "evidence" / "registry.json").read_text(encoding="utf-8")
     )
     by_id = {r["evidence_record_id"]: r for r in registry["records"]}
-    for name in SUITE_NAMES:
+    for name in SUITE_NAMES + W8_NAMES:
         record_id = name[: -len(".json")]
         record = by_id[record_id]
         assert record["run_artifact"] == f"docs/evidence/runs/{name}"
         assert _sha256(RUNS / name) == record["run_artifact_sha256"], name
+
+
+def test_w8_successors_match_originals_except_path_fields():
+    home = str(Path.home())
+    for name in W8_NAMES:
+        original = json.loads((RUNS / name).read_text(encoding="utf-8"))
+        successor = json.loads((MINIMIZED / name).read_text(encoding="utf-8"))
+        assert list(original.keys()) == list(successor.keys()), name
+        differing = _diff_paths(original, successor)
+        assert differing, f"{name}: successor is byte-identical, nothing minimized"
+        for path in differing:
+            assert path.endswith(("cache_file", "detail")), f"{name}:{path}"
+        # Every differing value is the host-neutral form of the original:
+        # cache_file keeps the `.cache/...` tail under `$HOME`; detail
+        # keeps the `docs/evidence/...` tail repo-relative. The check
+        # derives the expected value from the original at runtime, so
+        # this file never records the personal path itself.
+        for path in differing:
+            keys = re.findall(r"[^.\[\]]+|\[\d+\]", path)
+            orig_value = original
+            succ_value = successor
+            for key in keys:
+                if key.startswith("["):
+                    orig_value = orig_value[int(key[1:-1])]
+                    succ_value = succ_value[int(key[1:-1])]
+                else:
+                    orig_value = orig_value[key]
+                    succ_value = succ_value[key]
+            if path.endswith("cache_file"):
+                assert succ_value == orig_value.replace(
+                    home + "/.cache/", "$HOME/.cache/"
+                ), f"{name}:{path}"
+            else:  # detail: repo-relative tail of the original path
+                tail = orig_value.split("docs/evidence/", 1)[1]
+                assert succ_value == f"docs/evidence/{tail}", f"{name}:{path}"
+            assert "/home/" not in succ_value, f"{name}:{path}"
+            assert home not in succ_value, f"{name}:{path}"
+
+
+def test_w8_successors_contain_no_home_path():
+    for name in W8_NAMES:
+        assert "/home/" not in (MINIMIZED / name).read_text(encoding="utf-8")
+
+
+def test_reproduce_scripts_contain_no_home_path():
+    # The five W8 reproduce scripts were minimized in place (W10):
+    # their worker-checkout absolute paths are now REPO_ROOT-relative,
+    # so no script records the executing account's home directory.
+    for name in REPRODUCE_SCRIPTS:
+        text = (REPO_ROOT / "scripts" / name).read_text(encoding="utf-8")
+        assert "/home/" not in text, name
+        assert "REPO_ROOT = Path(__file__).parent.parent" in text, name
 
 
 def test_readme_records_lineage():
@@ -92,6 +188,11 @@ def test_readme_records_lineage():
     assert source_commit in text, "README must record the source commit"
     assert source_sha in text, "README must record the log source sha256"
     for name in SUITE_NAMES:
+        assert name in text
+        assert _sha256(RUNS / name) in text, f"missing source digest for {name}"
+        assert _sha256(MINIMIZED / name) in text, f"missing successor digest for {name}"
+    # W10 successors: the README must record their digests too.
+    for name in W8_NAMES:
         assert name in text
         assert _sha256(RUNS / name) in text, f"missing source digest for {name}"
         assert _sha256(MINIMIZED / name) in text, f"missing successor digest for {name}"
