@@ -208,3 +208,90 @@ claims decision for the Phase 5 release gate, not for U1 — and the
 native-verdict zeros above must not be read as release-gate FPR
 evidence on their own (see "Reading the native-verdict zeros
 honestly"). U1 deliberately makes no change to `docs/CLAIMS.yaml`.
+
+## W8 qualification (2026-11-16, worker D)
+
+Two new `supported` records were appended by worker D (registry 9 →
+11 records; the nine existing records are untouched, byte-identical).
+Both were predeclared before any W8 result existed
+(`docs/evidence/w8-predeclared-claims.md`, SHA-256
+`c7a37097a51d8f33be886ce024952ef7d33cc69984c5815fee6b75d299c389c1`)
+and both meet all 8 support conditions of predeclaration §7.1,
+including a disjoint final holdout (0 shared content hashes vs all
+prior samples, verified by worker A and independently reproduced by
+worker E). `next_revalidation_due` is 2027-02-14 for both (run date +
+90 days). Same detector (`textforensics/builtin-heuristic` 0.1.0).
+CI method: bootstrap, 1000 resamples, seed 20261116 for AUROC and
+TPR@FPR; **Wilson 95% CIs for native FPR/TPR** (the predeclaration's
+honest interval — the degenerate bootstrap [0.0, 0.0] is rejected for
+zero counts). Native FPR/TPR are at the detector's native categorical
+operating point, as before. Abstention is a point value in these
+records (no CI).
+
+| record | n_human / n_ai | AUROC [95% CI] | TPR@1% FPR [95% CI] | TPR@5% FPR [95% CI] | native FPR [Wilson 95% CI] | native TPR [Wilson 95% CI] | abstention |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `evr-20261116-raid-builtin-heuristic` | 121 / 3878 | 0.5926 [0.5494, 0.6324] | 0.0508 [0.0439, 0.1471] | 0.1418 [0.0464, 0.2523] | 0.0000 [0.0000, 0.0308] | 0.0199 [0.0159, 0.0247] | 0.5059 |
+| `evr-20261116-mage-builtin-heuristic` | 299 / 301 | 0.5276 [0.4840, 0.5739] | 0.0498 [0.0193, 0.0967] | 0.1296 [0.0816, 0.1769] | 0.0000 [0.0000, 0.0127] | 0.0033 [0.0006, 0.0186] | 0.55 |
+
+Length (whitespace word count, labelled rows): RAID min 1 / median
+226 / max 1427 (3999 evaluated rows); MAGE min 6 / median 124 /
+max 1923 (600 evaluated rows).
+
+- RAID (`evr-20261116-raid-builtin-heuristic`, supersedes
+  `evr-20261108-raid-builtin-heuristic`): fresh strided final-test
+  sample (n = 4000 fetched, phase shift +1; 3999 rows evaluated
+  after 1 leakage exclusion — a human row sharing a validation
+  human source document, excluded by identity, never by score).
+  This bound is WIDER than the superseded record's (0.0308, n = 121
+  vs 0.0220, n = 171) — the price of a fresh disjoint holdout, not
+  a worse measurement. Per-domain small-n (max 40 human rows);
+  `extra` split + non-English not evaluated; source-document overlap
+  disclosed (partition by evaluated text, not by source document).
+- MAGE (`evr-20261116-mage-builtin-heuristic`, supersedes
+  `evr-20261106-mage-builtin-heuristic`): the dataset's own held-out
+  test split, never sampled before. The pooled figure mixes 10
+  in-distribution testbeds with 4 OOD testbeds (cnn, dialogsum,
+  imdb, pubmed; 38 rows, 6.3%) — a mixture, not a pure
+  in-distribution claim. 24 OOD rows carry no `_human`/`_machine_`
+  marker (labels rest on the native label field alone); paraphrase
+  OOD files not sampled; per-testbed small-n (max 33 human rows).
+  The 2026-11-06 CC BY 4.0 badge conflict was NOT reproduced on
+  2026-11-16 re-verification (HF frontmatter apache-2.0, no licence
+  badge, no LICENSE file in the HF file list); the GitHub repo lives
+  under `yafuly/MAGE`, not `yaful/MAGE`.
+
+### Not upgraded in W8 (and why)
+
+- **Beemo, OpAI-Bench, GhostWriter:** pooled numeric gates pass and
+  worker E reproduces AGREE, but their final-test sets overlap prior
+  U1 samples by content hash (Beemo 180/3933 rows; OpAI-Bench
+  271/1283; GhostWriter 262/1263), failing predeclared §7.1.4
+  literally. No new records. A §7.1.4 amendment proposal (frozen,
+  pre-registered partition qualifies even with U1 overlap, if
+  measured and disclosed) is with the coordinator/parent for
+  decision; D made no amendment unilaterally.
+- **DetectRL-X:** no W8 artifact exists (worker B's run was killed
+  by a VM/runtime restart); stays `partial`.
+- **GhostWriter note:** `evr-20261107-ghostwriter` n_ai = 210
+  includes 2 duplicate texts (pooled evaluation counts each text
+  once). Threshold UNCHANGED (top human 0.6740).
+
+### Report-card lead: STILL unknown after W8
+
+The lead stays `unknown` for two independent reasons: (1) finer
+required slices fail — worst is MAGE testbed:dialogsum, 0/3, Wilson
+upper 0.5615 (all finer slices have k_fp = 0; the worst is by
+small-n Wilson bound, not observed false positives); (2) the
+Beemo/OpAI-Bench/GhostWriter holdouts are not disjoint from prior
+samples (§7.1.4). The pooled-only counterfactual would flip (worst
+pooled slice RAID, 0.0308) — D does not flip on that basis: the
+predeclaration requires the worst REQUIRED slice. The W8 worst-slice
+aggregation artifact (`EV-20261116-human-fpr.json`) is held pending
+integration of worker B's Beemo artifact; until it lands, the lead
+is governed by the pre-W8 aggregation (`EV-20261110-human-fpr`,
+worst 0.064196, n = 56).
+
+### PAN 2025: explicit gap
+
+PAN 2025 is an explicit gap: not obtained, not attempted, no record
+exists for it here.

@@ -734,9 +734,9 @@ class TestAppendMode:
 
 
 class TestSeededRegistry:
-    def test_committed_registry_loads_with_nine_records_and_no_mixset(self):
+    def test_committed_registry_loads_with_eleven_records_and_no_mixset(self):
         registry = ValidationRegistry.load(REPO_ROOT / "docs" / "validation" / "registry.json")
-        assert len(registry.records) == 9
+        assert len(registry.records) == 11
         assert [record.record_id for record in registry.records] == [
             "evr-20261106-beemo-builtin-heuristic",
             "evr-20261106-mage-builtin-heuristic",
@@ -756,11 +756,23 @@ class TestSeededRegistry:
             # `supported` record — n=1996 kept, 218 human / 223 AI,
             # Wilson 95% FPR upper 0.0173, all 8 support conditions met.
             "evr-20261110-opai-bench-builtin-heuristic",
+            # MAGE test-split record (W8): the third `supported`
+            # record — n=600, 299 human / 301 AI, Wilson 95% FPR
+            # upper 0.0127, all 8 support conditions met; supersedes
+            # evr-20261106-mage-builtin-heuristic.
+            "evr-20261116-mage-builtin-heuristic",
+            # RAID final-test record (W8): the fourth `supported`
+            # record — n=3999 kept, 121 human / 3878 AI, Wilson 95%
+            # FPR upper 0.0308, all 8 support conditions met;
+            # supersedes evr-20261108-raid-builtin-heuristic.
+            "evr-20261116-raid-builtin-heuristic",
         ]
         for record in registry.records:
             if record.record_id in {
                 "evr-20261108-raid-builtin-heuristic",
                 "evr-20261110-opai-bench-builtin-heuristic",
+                "evr-20261116-mage-builtin-heuristic",
+                "evr-20261116-raid-builtin-heuristic",
             }:
                 assert record.status == "supported"
                 assert effective_status(record, detector_version="0.1.0") == "supported"

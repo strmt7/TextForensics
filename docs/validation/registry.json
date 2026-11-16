@@ -1,6 +1,6 @@
 {
   "schema": "textforensics.validation-registry/v1",
-  "registry_id": "6c65c24b614d5673d88e2e003039419ed4d8596c612d93c4501d90743d0cf9e7",
+  "registry_id": "0845b36b8cc16f81e249da579f885fb6b279194937218c779941e492b802d3b9",
   "created_at_utc": "2026-11-06T23:24:11.755599+00:00",
   "records": [
     {
@@ -1654,6 +1654,416 @@
         "demoted_by": null
       },
       "signature": "a125c2e9cd783348e584a0c67c1d42f39120754cc425ee8c0dd783785294b53b"
+    },
+    {
+      "schema": "textforensics.evidence-record/v1",
+      "record_id": "evr-20261116-mage-builtin-heuristic",
+      "detector_id": "builtin-heuristic",
+      "detector_version": "0.1.0",
+      "detector_family": "ai_text_heuristic",
+      "calibration_id": "cal-20261106-fixed-thresholds",
+      "status": "supported",
+      "supersedes": "evr-20261106-mage-builtin-heuristic",
+      "regime": {
+        "language": "en",
+        "script": "Latn",
+        "language_variety": null,
+        "length_bucket": {
+          "min_words": 80,
+          "max_words": null,
+          "floor_words": 80,
+          "measured_min_words": 6,
+          "measured_median_words": 124,
+          "measured_max_words": 1923
+        },
+        "domain": [
+          "cmv",
+          "cnn",
+          "dialogsum",
+          "eli5",
+          "hswag",
+          "imdb",
+          "pubmed",
+          "roct",
+          "sci_gen",
+          "squad",
+          "tldr",
+          "wp",
+          "xsum",
+          "yelp"
+        ],
+        "genre": "multi-testbed benchmark sample (default/test split, incl. 4 OOD testbeds)",
+        "generator": {
+          "families": [
+            "13B",
+            "30B",
+            "65B",
+            "7B",
+            "GLM130B",
+            "bloom_7b",
+            "flan_t5_base",
+            "flan_t5_large",
+            "flan_t5_small",
+            "flan_t5_xl",
+            "flan_t5_xxl",
+            "gpt-3.5-trubo",
+            "gpt4",
+            "gpt4_para",
+            "gpt_j",
+            "gpt_neox",
+            "opt_1.3b",
+            "opt_125m",
+            "opt_13b",
+            "opt_2.7b",
+            "opt_30b",
+            "opt_350m",
+            "opt_6.7b",
+            "opt_iml_30b",
+            "opt_iml_max_1.3b",
+            "t0_11b",
+            "t0_3b",
+            "text-davinci-002",
+            "text-davinci-003"
+          ],
+          "vintage": "2023 and earlier (generators in the MAGE release; Li et al. 2023)",
+          "current_as_of": "2026-11-16"
+        },
+        "editing_regime": "raw",
+        "human_population": {
+          "populations": [
+            "general human authors"
+          ],
+          "determined_how": "Dataset documentation (MAGE paper, Li et al. 2023): human texts drawn from 14 source testbeds (CMV, ELI5, SQuAD, XSum, WP, ROCStories, HellaSwag, TL;DR, SciGen, Yelp + OOD CNN, DialogSum, IMDb, PubMed); no per-author demographics recorded"
+        },
+        "attack_slice": null
+      },
+      "data": {
+        "dataset_name": "MAGE",
+        "dataset_version": "yaful/MAGE snapshot 2026-11-16 (no versioned release)",
+        "file_sha256": "c0e4750a9b99e19ccd94b97190693e9404f22fbe29f1ad1e8328385cdb7eb20f",
+        "row_hash_method": "sha256 of normalised text (source_id for MAGE is the first 16 hex of the text SHA-256)",
+        "split": "test",
+        "split_role": "test",
+        "n_human": 299,
+        "n_ai": 301,
+        "licence": "Apache-2.0",
+        "licence_reference": "https://huggingface.co/datasets/yaful/MAGE",
+        "contamination_flag": "no",
+        "near_duplicate_rate": 0.0,
+        "near_duplicate_method": "MAGE source_id is the first 16 hex of the text SHA-256, so content-hash disjointness (0 shared samples vs validation) is source disjointness; 0 exact duplicates in the final-test cache"
+      },
+      "run": {
+        "run_id": "EV-20261116-dataset-mage",
+        "run_artifact": "docs/evidence/runs/EV-20261116-dataset-mage.json",
+        "run_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "run_date": "2026-11-16",
+        "runner": "Audit W8 worker A (scripts/qualify_w8_raid_mage.py)",
+        "code_version": "756ea4110525f91edff3ab9dfece6972d69e8833",
+        "dependency_lock_sha": null,
+        "hardware": "x86_64 (Linux 7.0.0-44-generic)",
+        "runtime": "CPython 3.12.3 on linux",
+        "seeds": {
+          "bootstrap_seed": 20261116
+        },
+        "command": "python scripts/qualify_w8_raid_mage.py",
+        "drops_manifest": [
+          {
+            "item": "full-corpus evaluation",
+            "reason": "sample only: validation n=400 + final-test n=600 normalised rows from 60743 split rows"
+          },
+          {
+            "item": "Python 3.11, 3.13, 3.14, 3.15",
+            "reason": "measured on the local interpreter only; CI covers the matrix"
+          },
+          {
+            "item": "train/test threshold selection",
+            "reason": "no threshold was fitted on any sample; AUROC/TPR@FPR are threshold-free and the native verdict has no threshold"
+          },
+          {
+            "item": "train/dev/selection/fit partitions",
+            "reason": "empty by design — nothing is fitted, calibrated or selected"
+          },
+          {
+            "item": "per-generator-combo slices (283 distinct src values, n=1 each)",
+            "reason": "too thin to report individually; generators are reported grouped by family (OPT, Flan-T5, GPT-3.5-turbo, davinci, LLaMA, BLOOM, GPT-J, GPT-NeoX, T0, GLM-130B) and by task (continuation/specified/topical)"
+          },
+          {
+            "item": "MAGE paraphrase testbeds (test_ood_set_gpt_para.csv)",
+            "reason": "separate OOD-paraphrase files in the HF repo; not sampled in this wave"
+          }
+        ],
+        "reporting_rules": "Labelled rows only; abstentions counted separately from AUROC/TPR (abstained rows still contribute their score); no score threshold fitted — AUROC and TPR@FPR are threshold-free; native FPR/TPR at the detector's native categorical verdict; bootstrap 95% CIs, 1000 resamples, seed 20261116; native FPR/TPR Wilson 95% CIs"
+      },
+      "metrics": [
+        {
+          "slice_id": "mage-builtin-heuristic",
+          "n_human": 299,
+          "n_ai": 301,
+          "auroc": {
+            "value": 0.5276,
+            "n": 600,
+            "ci_lower": 0.484,
+            "ci_upper": 0.5739,
+            "method": "bootstrap, 1000 resamples, seed 20261116"
+          },
+          "tpr_at_fpr_0_01": {
+            "value": 0.0498,
+            "n": 301,
+            "ci_lower": 0.0193,
+            "ci_upper": 0.0967,
+            "method": "bootstrap, 1000 resamples, seed 20261116"
+          },
+          "tpr_at_fpr_0_05": {
+            "value": 0.1296,
+            "n": 301,
+            "ci_lower": 0.0816,
+            "ci_upper": 0.1769,
+            "method": "bootstrap, 1000 resamples, seed 20261116"
+          },
+          "fpr_native": {
+            "value": 0.0,
+            "n": 299,
+            "ci_lower": 0.0,
+            "ci_upper": 0.012685179314862951,
+            "method": "Wilson 95% CI, z=1.96, textforensics.probe_metrics.wilson_ci; native categorical verdict, no fitted threshold",
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold"
+          },
+          "coverage": 0.45,
+          "abstention_rate": 0.55,
+          "worst_slice": true,
+          "tpr_native": {
+            "value": 0.0033,
+            "n": 301,
+            "ci_lower": 0.0005866861492277459,
+            "ci_upper": 0.01857605279453846,
+            "method": "Wilson 95% CI, z=1.96, textforensics.probe_metrics.wilson_ci; native categorical verdict, no fitted threshold"
+          }
+        }
+      ],
+      "limits": {
+        "known_failure_modes": [
+          "heuristic is near chance on this slice (AUROC 0.5276, 95% CI [0.4840, 0.5739] includes 0.5: no demonstrated ranking ability above chance on the test split)",
+          "the detector is effectively blind (abstains) on whole generator families: T0 coverage 0.0 (18/18 abstain), Flan-T5 0.0465, LLaMA 0.1026",
+          "per-testbed AUROC ranges 0.2891 (roct, below chance — the regime inverts the baseline) to 0.7552 (cmv): the pooled 0.5276 pools away real heterogeneity",
+          "generator attribution for bare size labels (7B/13B/30B/65B) is limited to the dataset's src string — the model family is not named in the cached sample"
+        ],
+        "limitations": [
+          "This record is evidence about the builtin-heuristic detector at version 0.1.0 only. It does not support claims about any other detector.",
+          "AUROC was measured by pooling all labelled rows of the slice; individual human and machine subpopulations (by testbed, generator) are not separately claimed.",
+          "The detector may have been tuned, deliberately or accidentally, on earlier samples from this dataset. A fresh sample, disjoint by content hash from all prior samples, is therefore required for a supported record; this sample satisfies that condition (0 shared samples with validation or U1 samples, verified).",
+          "All TPR and AUROC values in this record were computed from the same 600-row sample as the FPR value; no external benchmark was imported.",
+          "This record does not support any claim about English text outside the MAGE testbeds.",
+          "No per-testbed slice meets n>=100 (max 33 human rows); per-testbed metrics are reported separately only in the run artifact.",
+          "The pooled final-test mixes 10 in-distribution testbeds with 4 OOD testbeds (cnn, dialogsum, imdb, pubmed; 38 rows, 6.3%); ex-OOD pooled metrics are in the run artifact's report and do not drive the pooled result, but the pooled figure is a mixture, not a pure in-distribution claim.",
+          "24 of 600 final-test rows (the *_gpt4, *_gpt4_para, *_human_para OOD rows) carry no *_human/*_machine_ marker, so the mapper's polarity cross-check cannot apply to them — their labels rest on the native label field alone; the dataset labels GPT-4-paraphrased human text (*_human_para, native 0) as machine.",
+          "MAGE paraphrase OOD files (test_ood_set_gpt_para.csv) were not sampled in this wave.",
+          "This sample supersedes the U1 400-row sample (evr-20261106-mage-builtin-heuristic); the samples are disjoint by content hash (0 shared samples, verified) and the new sample uses the dataset's own held-out test split, never sampled before.",
+          "Fresh strided final-test sample (n=600 from default/test, unshifted; 600 rows evaluated, 0 exclusions).",
+          "Native false-positive rate is 0.0 on this sample (0 of 299 human rows verdict ai_like at the native operating point; Wilson 95% CI [0.0000, 0.0127]).",
+          "Native true-positive rate is 0.0033 (1/301) and abstention is 0.55: zero false positives at this operating point come with near-zero detection power and 55% abstention.",
+          "The 2026-11-06 CC BY 4.0 badge conflict was NOT reproduced on 2026-11-16 re-verification (HF frontmatter apache-2.0, no licence badge present, no LICENSE file in the HF file list); the GitHub repo lives under yafuly/MAGE, not yaful/MAGE (the old note's GitHub path was a typo); both readings are permissive, so local evaluation is permitted under either.",
+          "This record has no reviewer assessment, so a future reviewed assessment could change the status."
+        ],
+        "next_revalidation_due": "2027-02-14",
+        "appeal_note": "A reviewed assessment and per-testbed reporting would change this record",
+        "reviewer": null,
+        "review_date": null,
+        "demoted_by": null
+      },
+      "signature": "b6971e49b5278de8e1eea21fc463b55e683ea4c3185325b8048ea2764a962b9f"
+    },
+    {
+      "schema": "textforensics.evidence-record/v1",
+      "record_id": "evr-20261116-raid-builtin-heuristic",
+      "detector_id": "builtin-heuristic",
+      "detector_version": "0.1.0",
+      "detector_family": "ai_text_heuristic",
+      "calibration_id": "cal-20261106-fixed-thresholds",
+      "status": "supported",
+      "supersedes": "evr-20261108-raid-builtin-heuristic",
+      "regime": {
+        "language": "en",
+        "script": "Latn",
+        "language_variety": null,
+        "length_bucket": {
+          "min_words": 80,
+          "max_words": null,
+          "floor_words": 80,
+          "measured_min_words": 1,
+          "measured_median_words": 226,
+          "measured_max_words": 1427
+        },
+        "domain": [
+          "abstracts",
+          "books",
+          "news",
+          "poetry"
+        ],
+        "genre": "multi-domain benchmark sample (abstracts, books, news, poetry)",
+        "generator": {
+          "families": [
+            "chatgpt",
+            "cohere",
+            "cohere-chat",
+            "gpt2",
+            "gpt3",
+            "gpt4",
+            "llama-chat",
+            "mistral",
+            "mistral-chat",
+            "mpt",
+            "mpt-chat"
+          ],
+          "vintage": "2022-2023 (generators in the RAID release; Dugan et al. 2024)",
+          "current_as_of": "2026-11-16"
+        },
+        "editing_regime": "raw",
+        "human_population": {
+          "populations": [
+            "general human authors"
+          ],
+          "determined_how": "Dataset documentation (RAID paper, Dugan et al. 2024): human texts are abstracts, books, news and poetry drawn from their source corpora; no per-author demographics recorded"
+        },
+        "attack_slice": null
+      },
+      "data": {
+        "dataset_name": "RAID",
+        "dataset_version": "liamdugan/raid snapshot 2026-11-16 (no versioned release)",
+        "file_sha256": "82e63be8c95e157dcb9d41ebecd71025f20d74d6e323bd11399238f8897c7ac1",
+        "row_hash_method": "sha256 of normalised text (source_id for RAID is the first 16 hex of the text SHA-256)",
+        "split": "train",
+        "split_role": "test",
+        "n_human": 121,
+        "n_ai": 3878,
+        "licence": "MIT",
+        "licence_reference": "https://huggingface.co/datasets/liamdugan/raid",
+        "contamination_flag": "no",
+        "near_duplicate_rate": 0.0,
+        "near_duplicate_method": "word-8-gram Jaccard over all 5070 cross-partition row pairs sharing a meta.source_id; max 0.1647, 0 pairs > 0.5, exclusion threshold 0.8"
+      },
+      "run": {
+        "run_id": "EV-20261116-dataset-raid",
+        "run_artifact": "docs/evidence/runs/EV-20261116-dataset-raid.json",
+        "run_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "run_date": "2026-11-16",
+        "runner": "Audit W8 worker A (scripts/qualify_w8_raid_mage.py)",
+        "code_version": "756ea4110525f91edff3ab9dfece6972d69e8833",
+        "dependency_lock_sha": null,
+        "hardware": "x86_64 (Linux 7.0.0-44-generic)",
+        "runtime": "CPython 3.12.3 on linux",
+        "seeds": {
+          "bootstrap_seed": 20261116
+        },
+        "command": "python scripts/qualify_w8_raid_mage.py",
+        "drops_manifest": [
+          {
+            "item": "full-corpus evaluation",
+            "reason": "sample only: validation n=6000 + final-test n=3999 normalised rows from 2270000 split rows"
+          },
+          {
+            "item": "Python 3.11, 3.13, 3.14, 3.15",
+            "reason": "measured on the local interpreter only; CI covers the matrix"
+          },
+          {
+            "item": "train/test threshold selection",
+            "reason": "no threshold was fitted on any sample; AUROC/TPR@FPR are threshold-free and the native verdict has no threshold"
+          },
+          {
+            "item": "train/dev/selection/fit partitions",
+            "reason": "empty by design — nothing is fitted, calibrated or selected"
+          },
+          {
+            "item": "raid_test/test (50 rows)",
+            "reason": "unlabelled in the CSV distribution (label None on every row): coverage/abstention probe and disjointness target only, never scored as a class"
+          },
+          {
+            "item": "RAID extra split (2,039,100 rows) and non-train domains",
+            "reason": "not evaluated in this wave: the served train split holds 4 domains (abstracts/books/news/poetry); other domains and non-English (Czech/German) material live in extra/test and are an explicit coverage gap"
+          },
+          {
+            "item": "1 leakage-excluded final-test rows",
+            "reason": "human-source overlap / near-duplicate vs validation (see exclusions)"
+          }
+        ],
+        "reporting_rules": "Labelled rows only; abstentions counted separately from AUROC/TPR (abstained rows still contribute their score); no score threshold fitted — AUROC and TPR@FPR are threshold-free; native FPR/TPR at the detector's native categorical verdict; bootstrap 95% CIs, 1000 resamples, seed 20261116; native FPR/TPR Wilson 95% CIs"
+      },
+      "metrics": [
+        {
+          "slice_id": "raid-builtin-heuristic",
+          "n_human": 121,
+          "n_ai": 3878,
+          "auroc": {
+            "value": 0.5926,
+            "n": 3999,
+            "ci_lower": 0.5494,
+            "ci_upper": 0.6324,
+            "method": "bootstrap, 1000 resamples, seed 20261116"
+          },
+          "tpr_at_fpr_0_01": {
+            "value": 0.0508,
+            "n": 3878,
+            "ci_lower": 0.0439,
+            "ci_upper": 0.1471,
+            "method": "bootstrap, 1000 resamples, seed 20261116"
+          },
+          "tpr_at_fpr_0_05": {
+            "value": 0.1418,
+            "n": 3878,
+            "ci_lower": 0.0464,
+            "ci_upper": 0.2523,
+            "method": "bootstrap, 1000 resamples, seed 20261116"
+          },
+          "fpr_native": {
+            "value": 0.0,
+            "n": 121,
+            "ci_lower": 0.0,
+            "ci_upper": 0.03077179401737882,
+            "method": "Wilson 95% CI, z=1.96, textforensics.probe_metrics.wilson_ci; native categorical verdict, no fitted threshold",
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold"
+          },
+          "coverage": 0.4941,
+          "abstention_rate": 0.5059,
+          "worst_slice": true,
+          "tpr_native": {
+            "value": 0.0199,
+            "n": 3878,
+            "ci_lower": 0.01591653717570598,
+            "ci_upper": 0.02474498801378141,
+            "method": "Wilson 95% CI, z=1.96, textforensics.probe_metrics.wilson_ci; native categorical verdict, no fitted threshold"
+          }
+        }
+      ],
+      "limits": {
+        "known_failure_modes": [
+          "heuristic score distributions for human and machine text overlap heavily (AUROC 0.5926 on this sample)",
+          "at the native operating point the detector catches only greedy-decoded generations (TPR 0.0398 greedy vs 0.0 sampling); sampling-decoded text is never flagged",
+          "zero_width_space attack rows all abstain (coverage 0.0 on 327 rows): the detector cannot score zero-width-space text at all",
+          "adversarial attack variants are pooled into this slice and reported separately only in the run artifact"
+        ],
+        "limitations": [
+          "This record is evidence about the builtin-heuristic detector at version 0.1.0 only. It does not support claims about any other detector.",
+          "AUROC was measured by pooling all labelled rows of the slice; individual human and machine subpopulations (by domain, generator, decoding, attack) are not separately claimed.",
+          "The detector may have been tuned, deliberately or accidentally, on earlier samples from this dataset. A fresh sample, disjoint by content hash from all prior samples, is therefore required for a supported record; this sample satisfies that condition (0 shared samples with validation or U1 samples, verified).",
+          "All TPR and AUROC values in this record were computed from the same 3999-row sample as the FPR value; no external benchmark was imported.",
+          "This record does not support any claim about English text outside the RAID domains (abstracts, books, news, poetry).",
+          "No per-domain slice meets n>=100 (max 40 human rows); per-domain metrics are reported separately only in the run artifact.",
+          "The served raid/train split holds only 4 domains (abstracts, books, news, poetry); other RAID domains and non-English (Czech/German) material live in the extra/test splits and were not evaluated.",
+          "Same-source generations across partitions are inherent to RAID's design (one source document yields the human original plus many generations sharing meta.source_id); the partition is by evaluated text (content hash + near-duplicate Jaccard, max 0.1647, 0 pairs > 0.5), with source-document overlap disclosed — not by source document.",
+          "1 final-test human row was excluded for sharing a validation human source document (source_id 38752115-d62f-4e08-80df-0f5975315fbe; the identical human text would have been evaluated twice); the exclusion is by identity, never by score.",
+          "This sample supersedes the Phase 5 6000-row sample (evr-20261108-raid-builtin-heuristic); the two samples are disjoint by content hash (0 shared samples, verified).",
+          "Fresh strided final-test sample (n=4000 fetched, phase shift +1, disjoint by row index from the U1 3000-grid and the phase-shifted 6000-grid; 3999 rows evaluated after 1 leakage exclusion; human density 0.0302).",
+          "Native false-positive rate is 0.0 on this sample (0 of 121 human rows verdict ai_like at the native operating point; Wilson 95% CI [0.0000, 0.0308]).",
+          "This record's Wilson upper (0.0308) is wider than the superseded record's (0.0220) because n_human is smaller (121 vs 171) — the price of a fresh disjoint holdout, not a worse measurement.",
+          "Native true-positive rate is 0.0199 and abstention is 0.5059: zero false positives at this operating point come with near-zero detection power and ~50% abstention.",
+          "This record has no reviewer assessment, so a future reviewed assessment could change the status."
+        ],
+        "next_revalidation_due": "2027-02-14",
+        "appeal_note": "A reviewed assessment and per-domain/per-attack reporting would change this record",
+        "reviewer": null,
+        "review_date": null,
+        "demoted_by": null
+      },
+      "signature": "45c73314b8d8d901f261aefc858edce45b78ee74e66911c104ea8b4ee84bd7af"
     }
   ]
 }
