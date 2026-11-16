@@ -1,0 +1,2804 @@
+{
+  "badge": "available",
+  "code_version": "89d5b7c25694b915efac3c012cd4c8425a726773",
+  "command": "python scripts/measure_w8_b.py --only detectrl_x",
+  "drops": [
+    {
+      "item": "full-corpus evaluation (249,600 normalised rows)",
+      "reason": "expanded stratified sample only: 12,000 source rows (8,000 train + 4,000 test) -> 24,000 normalised rows; a full-file run at ~54 rows/s plus a 250k-row near-duplicate graph is out of scope for this wave"
+    },
+    {
+      "item": "15 of 16 Binary files + all Ternary files",
+      "reason": "single-file slice only: Binary/binary_general_open.json; the README states the train split is identical across all strategy files, so the general file is the representative slice; Ternary files are out of scope for this measurement"
+    },
+    {
+      "item": "HF viewer / default dataset load",
+      "reason": "broken (DatasetGenerationCastError: perturbation files add a perturbation_info column); per-file load only"
+    },
+    {
+      "item": "Python 3.11, 3.13, 3.14, 3.15",
+      "reason": "measured on the local interpreter only; CI covers the matrix"
+    },
+    {
+      "item": "train/test threshold selection and calibration",
+      "reason": "no threshold was fitted and no calibration was performed; AUROC/TPR@FPR/AUPRC are threshold-free ROC properties and the native FPR/TPR use the detector's fixed operating point"
+    },
+    {
+      "item": "commercial use and redistribution of rows",
+      "reason": "three-way licence conflict; strictest reading (non-commercial academic research only) governs; local cache only, aggregate metrics only, no redistribution"
+    },
+    {
+      "item": "0 source rows refused by the mapper",
+      "reason": "each is listed in results.drops_from_mapping with its file index and cause"
+    }
+  ],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261116-dataset-detectrl-x",
+  "kind": "command",
+  "notes": "W8 qualification run (Worker B). Native operating point only; no threshold, calibration or selection decision was made, so the frozen final-test set influenced no decision. This artifact is evidence only: it does not change docs/validation/registry.json and does not change the report-card lead. No dataset text is stored in this artifact or in the partition manifests \u2014 only SHA-256 hashes, counts and aggregate metrics.",
+  "results": {
+    "by_domain_final_test": {
+      "Academic": {
+        "abstention_rate": 0.1344,
+        "abstentions": 118,
+        "auprc": 0.7423,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.7077,
+        "coverage": 0.8656,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.008675
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.4184,
+        "n": 878,
+        "n_ai": 439,
+        "n_human": 439,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.4184,
+          "mean": 0.1597,
+          "median": 0.1456,
+          "min": 0.0217
+        },
+        "score_machine": {
+          "max": 0.5568,
+          "mean": 0.2308,
+          "median": 0.2371,
+          "min": 0.0217
+        },
+        "tpr_at_fpr_0_01": 0.0866,
+        "tpr_at_fpr_0_05": 0.3098,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.008675
+        ]
+      },
+      "News": {
+        "abstention_rate": 0.2063,
+        "abstentions": 163,
+        "auprc": 0.5182,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.5469,
+        "coverage": 0.7937,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.009632
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.5015,
+        "n": 790,
+        "n_ai": 395,
+        "n_human": 395,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5015,
+          "mean": 0.2055,
+          "median": 0.1918,
+          "min": 0.0217
+        },
+        "score_machine": {
+          "max": 0.4697,
+          "mean": 0.2162,
+          "median": 0.2144,
+          "min": 0.0257
+        },
+        "tpr_at_fpr_0_01": 0.0051,
+        "tpr_at_fpr_0_05": 0.0304,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.009632
+        ]
+      },
+      "Novel": {
+        "abstention_rate": 0.0809,
+        "abstentions": 62,
+        "auprc": 0.4948,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.4969,
+        "coverage": 0.9191,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.009931
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.505,
+        "n": 766,
+        "n_ai": 383,
+        "n_human": 383,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.505,
+          "mean": 0.1762,
+          "median": 0.1698,
+          "min": 0.0217
+        },
+        "score_machine": {
+          "max": 0.4502,
+          "mean": 0.1772,
+          "median": 0.1689,
+          "min": 0.0312
+        },
+        "tpr_at_fpr_0_01": 0.0052,
+        "tpr_at_fpr_0_05": 0.0653,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.009931
+        ]
+      },
+      "SEO": {
+        "abstention_rate": 0.1888,
+        "abstentions": 145,
+        "auprc": 0.6051,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.6281,
+        "coverage": 0.8112,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.009905
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.4997,
+        "n": 768,
+        "n_ai": 384,
+        "n_human": 384,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.4997,
+          "mean": 0.1741,
+          "median": 0.1592,
+          "min": 0.0233
+        },
+        "score_machine": {
+          "max": 0.4382,
+          "mean": 0.2099,
+          "median": 0.2169,
+          "min": 0.035
+        },
+        "tpr_at_fpr_0_01": 0.0,
+        "tpr_at_fpr_0_05": 0.0911,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.009905
+        ]
+      },
+      "Webtext": {
+        "abstention_rate": 0.1757,
+        "abstentions": 136,
+        "auprc": 0.5134,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.5338,
+        "coverage": 0.8243,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.009829
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.4875,
+        "n": 774,
+        "n_ai": 387,
+        "n_human": 387,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.4875,
+          "mean": 0.2046,
+          "median": 0.1899,
+          "min": 0.035
+        },
+        "score_machine": {
+          "max": 0.4244,
+          "mean": 0.2098,
+          "median": 0.2127,
+          "min": 0.0248
+        },
+        "tpr_at_fpr_0_01": 0.0,
+        "tpr_at_fpr_0_05": 0.0207,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.009829
+        ]
+      },
+      "Wiki": {
+        "abstention_rate": 0.1808,
+        "abstentions": 149,
+        "auprc": 0.6597,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.6402,
+        "coverage": 0.8192,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.009238
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.4142,
+        "n": 824,
+        "n_ai": 412,
+        "n_human": 412,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.4142,
+          "mean": 0.1763,
+          "median": 0.166,
+          "min": 0.0217
+        },
+        "score_machine": {
+          "max": 0.6041,
+          "mean": 0.2251,
+          "median": 0.2328,
+          "min": 0.0217
+        },
+        "tpr_at_fpr_0_01": 0.0534,
+        "tpr_at_fpr_0_05": 0.1699,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.009238
+        ]
+      }
+    },
+    "by_domain_pooled": {
+      "Academic": {
+        "abstention_rate": 0.1393,
+        "abstentions": 557,
+        "auprc": 0.725,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.7,
+        "bootstrap_95": {
+          "auprc": [
+            0.7035,
+            0.7459
+          ],
+          "auroc": [
+            0.6838,
+            0.7158
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0544,
+            0.1401
+          ],
+          "tpr_at_fpr_0_05": [
+            0.2477,
+            0.3261
+          ]
+        },
+        "coverage": 0.8607,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.001918
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.5036,
+        "n": 3998,
+        "n_ai": 1999,
+        "n_human": 1999,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5036,
+          "mean": 0.1615,
+          "median": 0.1489,
+          "min": 0.0217
+        },
+        "score_machine": {
+          "max": 0.5568,
+          "mean": 0.228,
+          "median": 0.2257,
+          "min": 0.0217
+        },
+        "tpr_at_fpr_0_01": 0.0895,
+        "tpr_at_fpr_0_05": 0.2806,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.001918
+        ]
+      },
+      "News": {
+        "abstention_rate": 0.1885,
+        "abstentions": 754,
+        "auprc": 0.5141,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.5507,
+        "bootstrap_95": {
+          "auprc": [
+            0.4939,
+            0.5357
+          ],
+          "auroc": [
+            0.5317,
+            0.568
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0,
+            0.002
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0053,
+            0.0234
+          ]
+        },
+        "coverage": 0.8115,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.001917
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.5831,
+        "n": 4000,
+        "n_ai": 2000,
+        "n_human": 2000,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5831,
+          "mean": 0.2056,
+          "median": 0.1883,
+          "min": 0.0217
+        },
+        "score_machine": {
+          "max": 0.4697,
+          "mean": 0.215,
+          "median": 0.2174,
+          "min": 0.0257
+        },
+        "tpr_at_fpr_0_01": 0.0,
+        "tpr_at_fpr_0_05": 0.013,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.001917
+        ]
+      },
+      "Novel": {
+        "abstention_rate": 0.0847,
+        "abstentions": 339,
+        "auprc": 0.4913,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.5106,
+        "bootstrap_95": {
+          "auprc": [
+            0.4716,
+            0.5131
+          ],
+          "auroc": [
+            0.4932,
+            0.5279
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0024,
+            0.0099
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0293,
+            0.0522
+          ]
+        },
+        "coverage": 0.9153,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.001916
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.533,
+        "n": 4002,
+        "n_ai": 2001,
+        "n_human": 2001,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.533,
+          "mean": 0.1779,
+          "median": 0.1751,
+          "min": 0.0217
+        },
+        "score_machine": {
+          "max": 0.5805,
+          "mean": 0.1807,
+          "median": 0.1727,
+          "min": 0.0217
+        },
+        "tpr_at_fpr_0_01": 0.0065,
+        "tpr_at_fpr_0_05": 0.0415,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.001916
+        ]
+      },
+      "SEO": {
+        "abstention_rate": 0.1807,
+        "abstentions": 723,
+        "auprc": 0.5973,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.6242,
+        "bootstrap_95": {
+          "auprc": [
+            0.5731,
+            0.6204
+          ],
+          "auroc": [
+            0.6064,
+            0.6406
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0,
+            0.0073
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0445,
+            0.0982
+          ]
+        },
+        "coverage": 0.8193,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.001917
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.5252,
+        "n": 4000,
+        "n_ai": 2000,
+        "n_human": 2000,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5252,
+          "mean": 0.1752,
+          "median": 0.1576,
+          "min": 0.0233
+        },
+        "score_machine": {
+          "max": 0.4973,
+          "mean": 0.2108,
+          "median": 0.2195,
+          "min": 0.0232
+        },
+        "tpr_at_fpr_0_01": 0.0035,
+        "tpr_at_fpr_0_05": 0.0705,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.001917
+        ]
+      },
+      "Webtext": {
+        "abstention_rate": 0.1784,
+        "abstentions": 714,
+        "auprc": 0.507,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.5322,
+        "bootstrap_95": {
+          "auprc": [
+            0.4884,
+            0.5289
+          ],
+          "auroc": [
+            0.5156,
+            0.5505
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0,
+            0.004
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0121,
+            0.0404
+          ]
+        },
+        "coverage": 0.8216,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.001916
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.5955,
+        "n": 4002,
+        "n_ai": 2001,
+        "n_human": 2001,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5955,
+          "mean": 0.2048,
+          "median": 0.1923,
+          "min": 0.0217
+        },
+        "score_machine": {
+          "max": 0.4764,
+          "mean": 0.2099,
+          "median": 0.2091,
+          "min": 0.0217
+        },
+        "tpr_at_fpr_0_01": 0.0015,
+        "tpr_at_fpr_0_05": 0.022,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.001916
+        ]
+      },
+      "Wiki": {
+        "abstention_rate": 0.1838,
+        "abstentions": 735,
+        "auprc": 0.6366,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.6355,
+        "bootstrap_95": {
+          "auprc": [
+            0.6114,
+            0.6622
+          ],
+          "auroc": [
+            0.6173,
+            0.653
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0173,
+            0.0414
+          ],
+          "tpr_at_fpr_0_05": [
+            0.1055,
+            0.1615
+          ]
+        },
+        "coverage": 0.8162,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.001918
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.5861,
+        "n": 3998,
+        "n_ai": 1999,
+        "n_human": 1999,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5861,
+          "mean": 0.1815,
+          "median": 0.1708,
+          "min": 0.0217
+        },
+        "score_machine": {
+          "max": 0.6041,
+          "mean": 0.2259,
+          "median": 0.2371,
+          "min": 0.0217
+        },
+        "tpr_at_fpr_0_01": 0.026,
+        "tpr_at_fpr_0_05": 0.1311,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.001918
+        ]
+      }
+    },
+    "by_generator_pooled": {
+      "deepseek-v3": {
+        "abstention_rate": 0.1164,
+        "abstentions": 700,
+        "auprc": 0.4778,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.4958,
+        "bootstrap_95": {
+          "auprc": [
+            0.4616,
+            0.4934
+          ],
+          "auroc": [
+            0.4814,
+            0.5104
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0,
+            0.0017
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0069,
+            0.0189
+          ]
+        },
+        "coverage": 0.8836,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.001275
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.5831,
+        "n": 6016,
+        "n_ai": 3008,
+        "n_human": 3008,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5831,
+          "mean": 0.1833,
+          "median": 0.1681,
+          "min": 0.0217
+        },
+        "score_machine": {
+          "max": 0.5805,
+          "mean": 0.1764,
+          "median": 0.1738,
+          "min": 0.0217
+        },
+        "tpr_at_fpr_0_01": 0.0007,
+        "tpr_at_fpr_0_05": 0.013,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.001275
+        ]
+      },
+      "gemini-2.5-flash": {
+        "abstention_rate": 0.1272,
+        "abstentions": 761,
+        "auprc": 0.5537,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.5908,
+        "bootstrap_95": {
+          "auprc": [
+            0.536,
+            0.5724
+          ],
+          "auroc": [
+            0.576,
+            0.6051
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.001,
+            0.0071
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0267,
+            0.0497
+          ]
+        },
+        "coverage": 0.8728,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.001283
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.5398,
+        "n": 5982,
+        "n_ai": 2991,
+        "n_human": 2991,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5398,
+          "mean": 0.1853,
+          "median": 0.1715,
+          "min": 0.0217
+        },
+        "score_machine": {
+          "max": 0.6041,
+          "mean": 0.2076,
+          "median": 0.2125,
+          "min": 0.0217
+        },
+        "tpr_at_fpr_0_01": 0.004,
+        "tpr_at_fpr_0_05": 0.0398,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.001283
+        ]
+      },
+      "gpt-4o": {
+        "abstention_rate": 0.1575,
+        "abstentions": 947,
+        "auprc": 0.5707,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.6056,
+        "bootstrap_95": {
+          "auprc": [
+            0.5532,
+            0.59
+          ],
+          "auroc": [
+            0.5915,
+            0.62
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0,
+            0.0057
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0357,
+            0.063
+          ]
+        },
+        "coverage": 0.8425,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.001276
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.5955,
+        "n": 6012,
+        "n_ai": 3006,
+        "n_human": 3006,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5955,
+          "mean": 0.1854,
+          "median": 0.172,
+          "min": 0.0217
+        },
+        "score_machine": {
+          "max": 0.4664,
+          "mean": 0.213,
+          "median": 0.2135,
+          "min": 0.0217
+        },
+        "tpr_at_fpr_0_01": 0.0017,
+        "tpr_at_fpr_0_05": 0.0479,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.001276
+        ]
+      },
+      "qwen-max": {
+        "abstention_rate": 0.2361,
+        "abstentions": 1414,
+        "auprc": 0.6885,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.6932,
+        "bootstrap_95": {
+          "auprc": [
+            0.6704,
+            0.7072
+          ],
+          "auroc": [
+            0.6797,
+            0.7057
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.012,
+            0.0393
+          ],
+          "tpr_at_fpr_0_05": [
+            0.1718,
+            0.2445
+          ]
+        },
+        "coverage": 0.7639,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.001281
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.533,
+        "n": 5990,
+        "n_ai": 2995,
+        "n_human": 2995,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.533,
+          "mean": 0.1837,
+          "median": 0.1705,
+          "min": 0.0217
+        },
+        "score_machine": {
+          "max": 0.5568,
+          "mean": 0.25,
+          "median": 0.2623,
+          "min": 0.0217
+        },
+        "tpr_at_fpr_0_01": 0.0234,
+        "tpr_at_fpr_0_05": 0.2073,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.001281
+        ]
+      }
+    },
+    "by_lang_final_test": {
+      "arabic": {
+        "abstention_rate": 0.0233,
+        "abstentions": 14,
+        "auprc": 0.4158,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.4086,
+        "bootstrap_95": {
+          "auprc": [
+            0.3756,
+            0.46
+          ],
+          "auroc": [
+            0.3619,
+            0.4557
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0,
+            0.0
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0,
+            0.0068
+          ]
+        },
+        "coverage": 0.9767,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.012643
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.491,
+        "n": 600,
+        "n_ai": 300,
+        "n_human": 300,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.491,
+          "mean": 0.1654,
+          "median": 0.1492,
+          "min": 0.0509
+        },
+        "score_machine": {
+          "max": 0.2822,
+          "mean": 0.1377,
+          "median": 0.1374,
+          "min": 0.035
+        },
+        "tpr_at_fpr_0_01": 0.0,
+        "tpr_at_fpr_0_05": 0.0,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.012643
+        ]
+      },
+      "chinese": {
+        "abstention_rate": 0.485,
+        "abstentions": 291,
+        "auprc": 0.6238,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.6813,
+        "bootstrap_95": {
+          "auprc": [
+            0.5679,
+            0.6872
+          ],
+          "auroc": [
+            0.638,
+            0.7226
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0,
+            0.0719
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0616,
+            0.1604
+          ]
+        },
+        "coverage": 0.515,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.012643
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.4997,
+        "n": 600,
+        "n_ai": 300,
+        "n_human": 300,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.4997,
+          "mean": 0.1515,
+          "median": 0.15,
+          "min": 0.0274
+        },
+        "score_machine": {
+          "max": 0.3603,
+          "mean": 0.1856,
+          "median": 0.1752,
+          "min": 0.089
+        },
+        "tpr_at_fpr_0_01": 0.0033,
+        "tpr_at_fpr_0_05": 0.1133,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.012643
+        ]
+      },
+      "english": {
+        "abstention_rate": 0.2,
+        "abstentions": 120,
+        "auprc": 0.5862,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.6152,
+        "bootstrap_95": {
+          "auprc": [
+            0.5279,
+            0.6475
+          ],
+          "auroc": [
+            0.5695,
+            0.6573
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0066,
+            0.0435
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0185,
+            0.1118
+          ]
+        },
+        "coverage": 0.8,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.012643
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.4495,
+        "n": 600,
+        "n_ai": 300,
+        "n_human": 300,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.4495,
+          "mean": 0.2281,
+          "median": 0.2221,
+          "min": 0.0559
+        },
+        "score_machine": {
+          "max": 0.4838,
+          "mean": 0.2611,
+          "median": 0.2599,
+          "min": 0.0516
+        },
+        "tpr_at_fpr_0_01": 0.0267,
+        "tpr_at_fpr_0_05": 0.05,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.012643
+        ]
+      },
+      "french": {
+        "abstention_rate": 0.1117,
+        "abstentions": 67,
+        "auprc": 0.6612,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.687,
+        "bootstrap_95": {
+          "auprc": [
+            0.606,
+            0.7242
+          ],
+          "auroc": [
+            0.6441,
+            0.7306
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0,
+            0.0984
+          ],
+          "tpr_at_fpr_0_05": [
+            0.098,
+            0.2308
+          ]
+        },
+        "coverage": 0.8883,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.012643
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.4875,
+        "n": 600,
+        "n_ai": 300,
+        "n_human": 300,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.4875,
+          "mean": 0.2002,
+          "median": 0.1922,
+          "min": 0.0909
+        },
+        "score_machine": {
+          "max": 0.4444,
+          "mean": 0.2474,
+          "median": 0.2477,
+          "min": 0.0909
+        },
+        "tpr_at_fpr_0_01": 0.01,
+        "tpr_at_fpr_0_05": 0.15,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.012643
+        ]
+      },
+      "german": {
+        "abstention_rate": 0.0717,
+        "abstentions": 43,
+        "auprc": 0.7395,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.7683,
+        "bootstrap_95": {
+          "auprc": [
+            0.6839,
+            0.7936
+          ],
+          "auroc": [
+            0.7304,
+            0.8036
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0032,
+            0.1069
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0976,
+            0.32
+          ]
+        },
+        "coverage": 0.9283,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.012643
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.3756,
+        "n": 600,
+        "n_ai": 300,
+        "n_human": 300,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.3756,
+          "mean": 0.1788,
+          "median": 0.1692,
+          "min": 0.09
+        },
+        "score_machine": {
+          "max": 0.6041,
+          "mean": 0.2432,
+          "median": 0.2445,
+          "min": 0.0909
+        },
+        "tpr_at_fpr_0_01": 0.0367,
+        "tpr_at_fpr_0_05": 0.2433,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.012643
+        ]
+      },
+      "portuguese": {
+        "abstention_rate": 0.165,
+        "abstentions": 99,
+        "auprc": 0.6386,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.679,
+        "bootstrap_95": {
+          "auprc": [
+            0.5836,
+            0.7047
+          ],
+          "auroc": [
+            0.636,
+            0.722
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0034,
+            0.051
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0418,
+            0.1456
+          ]
+        },
+        "coverage": 0.835,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.012643
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.455,
+        "n": 600,
+        "n_ai": 300,
+        "n_human": 300,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.455,
+          "mean": 0.2125,
+          "median": 0.1984,
+          "min": 0.0585
+        },
+        "score_machine": {
+          "max": 0.5568,
+          "mean": 0.2625,
+          "median": 0.2667,
+          "min": 0.0909
+        },
+        "tpr_at_fpr_0_01": 0.0233,
+        "tpr_at_fpr_0_05": 0.08,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.012643
+        ]
+      },
+      "russian": {
+        "abstention_rate": 0.005,
+        "abstentions": 3,
+        "auprc": 0.4368,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.4291,
+        "bootstrap_95": {
+          "auprc": [
+            0.3912,
+            0.4891
+          ],
+          "auroc": [
+            0.3825,
+            0.475
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0,
+            0.0
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0,
+            0.0168
+          ]
+        },
+        "coverage": 0.995,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.012643
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.4717,
+        "n": 600,
+        "n_ai": 300,
+        "n_human": 300,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.4717,
+          "mean": 0.0961,
+          "median": 0.0869,
+          "min": 0.0217
+        },
+        "score_machine": {
+          "max": 0.2177,
+          "mean": 0.079,
+          "median": 0.0692,
+          "min": 0.0217
+        },
+        "tpr_at_fpr_0_01": 0.0,
+        "tpr_at_fpr_0_05": 0.0067,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.012643
+        ]
+      },
+      "spanish": {
+        "abstention_rate": 0.2267,
+        "abstentions": 136,
+        "auprc": 0.6486,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.6895,
+        "bootstrap_95": {
+          "auprc": [
+            0.5892,
+            0.7122
+          ],
+          "auroc": [
+            0.644,
+            0.7304
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0,
+            0.0723
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0573,
+            0.2192
+          ]
+        },
+        "coverage": 0.7733,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.012643
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.505,
+        "n": 600,
+        "n_ai": 300,
+        "n_human": 300,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.505,
+          "mean": 0.2257,
+          "median": 0.2254,
+          "min": 0.0701
+        },
+        "score_machine": {
+          "max": 0.4731,
+          "mean": 0.2806,
+          "median": 0.2844,
+          "min": 0.0909
+        },
+        "tpr_at_fpr_0_01": 0.0267,
+        "tpr_at_fpr_0_05": 0.12,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.012643
+        ]
+      }
+    },
+    "by_lang_pooled": {
+      "arabic": {
+        "abstention_rate": 0.0193,
+        "abstentions": 58,
+        "auprc": 0.4297,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.4433,
+        "bootstrap_95": {
+          "auprc": [
+            0.4117,
+            0.45
+          ],
+          "auroc": [
+            0.4219,
+            0.4657
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0,
+            0.002
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0,
+            0.0033
+          ]
+        },
+        "coverage": 0.9807,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.002553
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.491,
+        "n": 3002,
+        "n_ai": 1501,
+        "n_human": 1501,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.491,
+          "mean": 0.162,
+          "median": 0.1464,
+          "min": 0.0359
+        },
+        "score_machine": {
+          "max": 0.5805,
+          "mean": 0.1412,
+          "median": 0.1408,
+          "min": 0.0239
+        },
+        "tpr_at_fpr_0_01": 0.0007,
+        "tpr_at_fpr_0_05": 0.0007,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.002553
+        ]
+      },
+      "chinese": {
+        "abstention_rate": 0.4803,
+        "abstentions": 1440,
+        "auprc": 0.6238,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.6849,
+        "bootstrap_95": {
+          "auprc": [
+            0.5988,
+            0.6511
+          ],
+          "auroc": [
+            0.666,
+            0.7032
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0,
+            0.0119
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0736,
+            0.1309
+          ]
+        },
+        "coverage": 0.5197,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.002556
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.4997,
+        "n": 2998,
+        "n_ai": 1499,
+        "n_human": 1499,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.4997,
+          "mean": 0.1514,
+          "median": 0.1489,
+          "min": 0.0217
+        },
+        "score_machine": {
+          "max": 0.4238,
+          "mean": 0.1851,
+          "median": 0.1752,
+          "min": 0.0375
+        },
+        "tpr_at_fpr_0_01": 0.0027,
+        "tpr_at_fpr_0_05": 0.1067,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.002556
+        ]
+      },
+      "english": {
+        "abstention_rate": 0.2273,
+        "abstentions": 682,
+        "auprc": 0.5519,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.6003,
+        "bootstrap_95": {
+          "auprc": [
+            0.5277,
+            0.5789
+          ],
+          "auroc": [
+            0.581,
+            0.6207
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0,
+            0.0027
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0224,
+            0.0499
+          ]
+        },
+        "coverage": 0.7727,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.002555
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.5861,
+        "n": 3000,
+        "n_ai": 1500,
+        "n_human": 1500,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5861,
+          "mean": 0.2392,
+          "median": 0.2303,
+          "min": 0.0382
+        },
+        "score_machine": {
+          "max": 0.5221,
+          "mean": 0.2662,
+          "median": 0.267,
+          "min": 0.0516
+        },
+        "tpr_at_fpr_0_01": 0.0007,
+        "tpr_at_fpr_0_05": 0.0327,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.002555
+        ]
+      },
+      "french": {
+        "abstention_rate": 0.1159,
+        "abstentions": 348,
+        "auprc": 0.638,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.6802,
+        "bootstrap_95": {
+          "auprc": [
+            0.6122,
+            0.6679
+          ],
+          "auroc": [
+            0.6613,
+            0.7004
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0026,
+            0.024
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0759,
+            0.1337
+          ]
+        },
+        "coverage": 0.8841,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.002553
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.4925,
+        "n": 3002,
+        "n_ai": 1501,
+        "n_human": 1501,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.4925,
+          "mean": 0.2022,
+          "median": 0.1896,
+          "min": 0.0542
+        },
+        "score_machine": {
+          "max": 0.5523,
+          "mean": 0.2463,
+          "median": 0.2474,
+          "min": 0.0569
+        },
+        "tpr_at_fpr_0_01": 0.0133,
+        "tpr_at_fpr_0_05": 0.1006,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.002553
+        ]
+      },
+      "german": {
+        "abstention_rate": 0.0697,
+        "abstentions": 209,
+        "auprc": 0.6832,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.7376,
+        "bootstrap_95": {
+          "auprc": [
+            0.656,
+            0.7106
+          ],
+          "auroc": [
+            0.7184,
+            0.7561
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0013,
+            0.0192
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0943,
+            0.1622
+          ]
+        },
+        "coverage": 0.9303,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.002556
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.4949,
+        "n": 2998,
+        "n_ai": 1499,
+        "n_human": 1499,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.4949,
+          "mean": 0.1844,
+          "median": 0.1741,
+          "min": 0.069
+        },
+        "score_machine": {
+          "max": 0.6041,
+          "mean": 0.2396,
+          "median": 0.2409,
+          "min": 0.0909
+        },
+        "tpr_at_fpr_0_01": 0.0067,
+        "tpr_at_fpr_0_05": 0.1301,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.002556
+        ]
+      },
+      "portuguese": {
+        "abstention_rate": 0.1513,
+        "abstentions": 454,
+        "auprc": 0.609,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.6598,
+        "bootstrap_95": {
+          "auprc": [
+            0.5823,
+            0.6381
+          ],
+          "auroc": [
+            0.6401,
+            0.6794
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0039,
+            0.0208
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0423,
+            0.0968
+          ]
+        },
+        "coverage": 0.8487,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.002555
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.5197,
+        "n": 3000,
+        "n_ai": 1500,
+        "n_human": 1500,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5197,
+          "mean": 0.217,
+          "median": 0.2056,
+          "min": 0.0481
+        },
+        "score_machine": {
+          "max": 0.5568,
+          "mean": 0.2583,
+          "median": 0.2601,
+          "min": 0.075
+        },
+        "tpr_at_fpr_0_01": 0.0087,
+        "tpr_at_fpr_0_05": 0.0667,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.002555
+        ]
+      },
+      "russian": {
+        "abstention_rate": 0.004,
+        "abstentions": 12,
+        "auprc": 0.4405,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.431,
+        "bootstrap_95": {
+          "auprc": [
+            0.4182,
+            0.4623
+          ],
+          "auroc": [
+            0.4098,
+            0.4511
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0,
+            0.002
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0013,
+            0.0113
+          ]
+        },
+        "coverage": 0.996,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.002553
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.533,
+        "n": 3002,
+        "n_ai": 1501,
+        "n_human": 1501,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.533,
+          "mean": 0.0975,
+          "median": 0.0875,
+          "min": 0.0217
+        },
+        "score_machine": {
+          "max": 0.3145,
+          "mean": 0.081,
+          "median": 0.0718,
+          "min": 0.0217
+        },
+        "tpr_at_fpr_0_01": 0.0007,
+        "tpr_at_fpr_0_05": 0.006,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.002553
+        ]
+      },
+      "spanish": {
+        "abstention_rate": 0.2065,
+        "abstentions": 619,
+        "auprc": 0.6381,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.6965,
+        "bootstrap_95": {
+          "auprc": [
+            0.6135,
+            0.6673
+          ],
+          "auroc": [
+            0.6788,
+            0.7152
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.002,
+            0.0284
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0602,
+            0.1166
+          ]
+        },
+        "coverage": 0.7935,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.002556
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.5955,
+        "n": 2998,
+        "n_ai": 1499,
+        "n_human": 1499,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5955,
+          "mean": 0.2218,
+          "median": 0.2148,
+          "min": 0.0625
+        },
+        "score_machine": {
+          "max": 0.4764,
+          "mean": 0.2762,
+          "median": 0.2811,
+          "min": 0.0638
+        },
+        "tpr_at_fpr_0_01": 0.0133,
+        "tpr_at_fpr_0_05": 0.0821,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.002556
+        ]
+      }
+    },
+    "by_split_pooled": {
+      "test": {
+        "abstention_rate": 0.1861,
+        "abstentions": 1489,
+        "auprc": 0.5899,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.6121,
+        "bootstrap_95": {
+          "auprc": [
+            0.5732,
+            0.6064
+          ],
+          "auroc": [
+            0.5999,
+            0.6244
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0038,
+            0.0129
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0609,
+            0.0935
+          ]
+        },
+        "coverage": 0.8139,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.000959
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.5861,
+        "n": 8000,
+        "n_ai": 4000,
+        "n_human": 4000,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5861,
+          "mean": 0.1844,
+          "median": 0.1739,
+          "min": 0.0217
+        },
+        "score_machine": {
+          "max": 0.5259,
+          "mean": 0.2153,
+          "median": 0.2183,
+          "min": 0.0217
+        },
+        "tpr_at_fpr_0_01": 0.0088,
+        "tpr_at_fpr_0_05": 0.078,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.000959
+        ]
+      },
+      "train": {
+        "abstention_rate": 0.1458,
+        "abstentions": 2333,
+        "auprc": 0.5681,
+        "auprc_baseline_prevalence": 0.5,
+        "auroc": 0.5886,
+        "bootstrap_95": {
+          "auprc": [
+            0.5574,
+            0.5797
+          ],
+          "auroc": [
+            0.5797,
+            0.5968
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0032,
+            0.0102
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0636,
+            0.0854
+          ]
+        },
+        "coverage": 0.8542,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.00048
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.5955,
+        "n": 16000,
+        "n_ai": 8000,
+        "n_human": 8000,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5955,
+          "mean": 0.1844,
+          "median": 0.1691,
+          "min": 0.0217
+        },
+        "score_machine": {
+          "max": 0.6041,
+          "mean": 0.2099,
+          "median": 0.2031,
+          "min": 0.0217
+        },
+        "tpr_at_fpr_0_01": 0.0063,
+        "tpr_at_fpr_0_05": 0.0724,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.00048
+        ]
+      }
+    },
+    "dataset": "detectrl_x",
+    "dependency_lock": {
+      "requirements-hashed.txt": "258c7244c999f3b7e345b2e1c00a7a297cabcbd348dc23dc9a0ad8b4992a0745",
+      "requirements-pinned.txt": "1c80c465cd5d43d38414aed0a14639e70dc7c9aaa2cb7d07228491f4c56cf9e0"
+    },
+    "detector": "textforensics/builtin-heuristic",
+    "detector_family": "stylometric-heuristic",
+    "detector_version": "0.1.0",
+    "determinism_spot_check": {
+      "mismatches": 0,
+      "rows_rechecked": 20
+    },
+    "drops_from_mapping": [],
+    "final_test": {
+      "abstention_rate": 0.161,
+      "abstentions": 773,
+      "auprc": 0.588,
+      "auprc_baseline_prevalence": 0.5,
+      "auroc": 0.5994,
+      "bootstrap_95": {
+        "auprc": [
+          0.5681,
+          0.609
+        ],
+        "auroc": [
+          0.5833,
+          0.6151
+        ],
+        "resamples": [
+          1000,
+          0
+        ],
+        "tpr_at_fpr_0_01": [
+          0.006,
+          0.0201
+        ],
+        "tpr_at_fpr_0_05": [
+          0.0686,
+          0.1136
+        ]
+      },
+      "cluster_bootstrap_95": {
+        "auroc": [
+          0.5871,
+          0.6113
+        ],
+        "fpr_native": [
+          0.0,
+          0.0
+        ],
+        "resamples_kept": 1000,
+        "resamples_skipped": 0,
+        "tpr_native": [
+          0.0,
+          0.0
+        ]
+      },
+      "coverage": 0.839,
+      "fpr_native": 0.0,
+      "fpr_native_wilson_95": [
+        0.0,
+        0.001598
+      ],
+      "k_fp_native": 0,
+      "k_tp_native": 0,
+      "max_human_score": 0.505,
+      "n": 4800,
+      "n_ai": 2400,
+      "n_human": 2400,
+      "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+      "score_human": {
+        "max": 0.505,
+        "mean": 0.1823,
+        "median": 0.1689,
+        "min": 0.0217
+      },
+      "score_machine": {
+        "max": 0.6041,
+        "mean": 0.2121,
+        "median": 0.2075,
+        "min": 0.0217
+      },
+      "tpr_at_fpr_0_01": 0.0112,
+      "tpr_at_fpr_0_05": 0.0917,
+      "tpr_native": 0.0,
+      "tpr_native_wilson_95": [
+        0.0,
+        0.001598
+      ]
+    },
+    "hf_id": "WUJUNCHAO/DetectRL-X",
+    "inspection": {
+      "cells_expected_per_split": "192 (8 langs x 4 models x 6 domains)",
+      "cells_sampled": {
+        "arabic/deepseek-v3/Academic/test": 21,
+        "arabic/deepseek-v3/Academic/train": 43,
+        "arabic/deepseek-v3/News/test": 21,
+        "arabic/deepseek-v3/News/train": 42,
+        "arabic/deepseek-v3/Novel/test": 21,
+        "arabic/deepseek-v3/Novel/train": 42,
+        "arabic/deepseek-v3/SEO/test": 21,
+        "arabic/deepseek-v3/SEO/train": 41,
+        "arabic/deepseek-v3/Webtext/test": 21,
+        "arabic/deepseek-v3/Webtext/train": 42,
+        "arabic/deepseek-v3/Wiki/test": 21,
+        "arabic/deepseek-v3/Wiki/train": 42,
+        "arabic/gemini-2.5-flash/Academic/test": 20,
+        "arabic/gemini-2.5-flash/Academic/train": 40,
+        "arabic/gemini-2.5-flash/News/test": 21,
+        "arabic/gemini-2.5-flash/News/train": 42,
+        "arabic/gemini-2.5-flash/Novel/test": 20,
+        "arabic/gemini-2.5-flash/Novel/train": 41,
+        "arabic/gemini-2.5-flash/SEO/test": 21,
+        "arabic/gemini-2.5-flash/SEO/train": 42,
+        "arabic/gemini-2.5-flash/Webtext/test": 21,
+        "arabic/gemini-2.5-flash/Webtext/train": 42,
+        "arabic/gemini-2.5-flash/Wiki/test": 20,
+        "arabic/gemini-2.5-flash/Wiki/train": 41,
+        "arabic/gpt-4o/Academic/test": 21,
+        "arabic/gpt-4o/Academic/train": 42,
+        "arabic/gpt-4o/News/test": 21,
+        "arabic/gpt-4o/News/train": 41,
+        "arabic/gpt-4o/Novel/test": 21,
+        "arabic/gpt-4o/Novel/train": 42,
+        "arabic/gpt-4o/SEO/test": 21,
+        "arabic/gpt-4o/SEO/train": 42,
+        "arabic/gpt-4o/Webtext/test": 21,
+        "arabic/gpt-4o/Webtext/train": 41,
+        "arabic/gpt-4o/Wiki/test": 21,
+        "arabic/gpt-4o/Wiki/train": 42,
+        "arabic/qwen-max/Academic/test": 21,
+        "arabic/qwen-max/Academic/train": 42,
+        "arabic/qwen-max/News/test": 21,
+        "arabic/qwen-max/News/train": 42,
+        "arabic/qwen-max/Novel/test": 21,
+        "arabic/qwen-max/Novel/train": 42,
+        "arabic/qwen-max/SEO/test": 20,
+        "arabic/qwen-max/SEO/train": 41,
+        "arabic/qwen-max/Webtext/test": 21,
+        "arabic/qwen-max/Webtext/train": 42,
+        "arabic/qwen-max/Wiki/test": 21,
+        "arabic/qwen-max/Wiki/train": 42,
+        "chinese/deepseek-v3/Academic/test": 21,
+        "chinese/deepseek-v3/Academic/train": 42,
+        "chinese/deepseek-v3/News/test": 21,
+        "chinese/deepseek-v3/News/train": 41,
+        "chinese/deepseek-v3/Novel/test": 21,
+        "chinese/deepseek-v3/Novel/train": 42,
+        "chinese/deepseek-v3/SEO/test": 21,
+        "chinese/deepseek-v3/SEO/train": 42,
+        "chinese/deepseek-v3/Webtext/test": 21,
+        "chinese/deepseek-v3/Webtext/train": 41,
+        "chinese/deepseek-v3/Wiki/test": 21,
+        "chinese/deepseek-v3/Wiki/train": 42,
+        "chinese/gemini-2.5-flash/Academic/test": 20,
+        "chinese/gemini-2.5-flash/Academic/train": 42,
+        "chinese/gemini-2.5-flash/News/test": 21,
+        "chinese/gemini-2.5-flash/News/train": 42,
+        "chinese/gemini-2.5-flash/Novel/test": 21,
+        "chinese/gemini-2.5-flash/Novel/train": 42,
+        "chinese/gemini-2.5-flash/SEO/test": 20,
+        "chinese/gemini-2.5-flash/SEO/train": 41,
+        "chinese/gemini-2.5-flash/Webtext/test": 21,
+        "chinese/gemini-2.5-flash/Webtext/train": 42,
+        "chinese/gemini-2.5-flash/Wiki/test": 21,
+        "chinese/gemini-2.5-flash/Wiki/train": 42,
+        "chinese/gpt-4o/Academic/test": 21,
+        "chinese/gpt-4o/Academic/train": 41,
+        "chinese/gpt-4o/News/test": 21,
+        "chinese/gpt-4o/News/train": 42,
+        "chinese/gpt-4o/Novel/test": 21,
+        "chinese/gpt-4o/Novel/train": 41,
+        "chinese/gpt-4o/SEO/test": 21,
+        "chinese/gpt-4o/SEO/train": 42,
+        "chinese/gpt-4o/Webtext/test": 21,
+        "chinese/gpt-4o/Webtext/train": 42,
+        "chinese/gpt-4o/Wiki/test": 21,
+        "chinese/gpt-4o/Wiki/train": 41,
+        "chinese/qwen-max/Academic/test": 21,
+        "chinese/qwen-max/Academic/train": 41,
+        "chinese/qwen-max/News/test": 20,
+        "chinese/qwen-max/News/train": 41,
+        "chinese/qwen-max/Novel/test": 21,
+        "chinese/qwen-max/Novel/train": 42,
+        "chinese/qwen-max/SEO/test": 21,
+        "chinese/qwen-max/SEO/train": 42,
+        "chinese/qwen-max/Webtext/test": 20,
+        "chinese/qwen-max/Webtext/train": 41,
+        "chinese/qwen-max/Wiki/test": 21,
+        "chinese/qwen-max/Wiki/train": 42,
+        "english/deepseek-v3/Academic/test": 22,
+        "english/deepseek-v3/Academic/train": 42,
+        "english/deepseek-v3/News/test": 21,
+        "english/deepseek-v3/News/train": 42,
+        "english/deepseek-v3/Novel/test": 21,
+        "english/deepseek-v3/Novel/train": 41,
+        "english/deepseek-v3/SEO/test": 21,
+        "english/deepseek-v3/SEO/train": 42,
+        "english/deepseek-v3/Webtext/test": 21,
+        "english/deepseek-v3/Webtext/train": 42,
+        "english/deepseek-v3/Wiki/test": 21,
+        "english/deepseek-v3/Wiki/train": 41,
+        "english/gemini-2.5-flash/Academic/test": 20,
+        "english/gemini-2.5-flash/Academic/train": 41,
+        "english/gemini-2.5-flash/News/test": 20,
+        "english/gemini-2.5-flash/News/train": 41,
+        "english/gemini-2.5-flash/Novel/test": 21,
+        "english/gemini-2.5-flash/Novel/train": 42,
+        "english/gemini-2.5-flash/SEO/test": 21,
+        "english/gemini-2.5-flash/SEO/train": 42,
+        "english/gemini-2.5-flash/Webtext/test": 20,
+        "english/gemini-2.5-flash/Webtext/train": 41,
+        "english/gemini-2.5-flash/Wiki/test": 21,
+        "english/gemini-2.5-flash/Wiki/train": 42,
+        "english/gpt-4o/Academic/test": 21,
+        "english/gpt-4o/Academic/train": 42,
+        "english/gpt-4o/News/test": 21,
+        "english/gpt-4o/News/train": 42,
+        "english/gpt-4o/Novel/test": 21,
+        "english/gpt-4o/Novel/train": 42,
+        "english/gpt-4o/SEO/test": 21,
+        "english/gpt-4o/SEO/train": 41,
+        "english/gpt-4o/Webtext/test": 21,
+        "english/gpt-4o/Webtext/train": 42,
+        "english/gpt-4o/Wiki/test": 21,
+        "english/gpt-4o/Wiki/train": 42,
+        "english/qwen-max/Academic/test": 21,
+        "english/qwen-max/Academic/train": 42,
+        "english/qwen-max/News/test": 21,
+        "english/qwen-max/News/train": 42,
+        "english/qwen-max/Novel/test": 20,
+        "english/qwen-max/Novel/train": 41,
+        "english/qwen-max/SEO/test": 21,
+        "english/qwen-max/SEO/train": 42,
+        "english/qwen-max/Webtext/test": 21,
+        "english/qwen-max/Webtext/train": 42,
+        "english/qwen-max/Wiki/test": 20,
+        "english/qwen-max/Wiki/train": 41,
+        "french/deepseek-v3/Academic/test": 20,
+        "french/deepseek-v3/Academic/train": 41,
+        "french/deepseek-v3/News/test": 21,
+        "french/deepseek-v3/News/train": 42,
+        "french/deepseek-v3/Novel/test": 21,
+        "french/deepseek-v3/Novel/train": 42,
+        "french/deepseek-v3/SEO/test": 21,
+        "french/deepseek-v3/SEO/train": 41,
+        "french/deepseek-v3/Webtext/test": 21,
+        "french/deepseek-v3/Webtext/train": 42,
+        "french/deepseek-v3/Wiki/test": 21,
+        "french/deepseek-v3/Wiki/train": 42,
+        "french/gemini-2.5-flash/Academic/test": 21,
+        "french/gemini-2.5-flash/Academic/train": 42,
+        "french/gemini-2.5-flash/News/test": 21,
+        "french/gemini-2.5-flash/News/train": 42,
+        "french/gemini-2.5-flash/Novel/test": 20,
+        "french/gemini-2.5-flash/Novel/train": 41,
+        "french/gemini-2.5-flash/SEO/test": 21,
+        "french/gemini-2.5-flash/SEO/train": 42,
+        "french/gemini-2.5-flash/Webtext/test": 21,
+        "french/gemini-2.5-flash/Webtext/train": 42,
+        "french/gemini-2.5-flash/Wiki/test": 20,
+        "french/gemini-2.5-flash/Wiki/train": 41,
+        "french/gpt-4o/Academic/test": 21,
+        "french/gpt-4o/Academic/train": 42,
+        "french/gpt-4o/News/test": 21,
+        "french/gpt-4o/News/train": 41,
+        "french/gpt-4o/Novel/test": 21,
+        "french/gpt-4o/Novel/train": 42,
+        "french/gpt-4o/SEO/test": 21,
+        "french/gpt-4o/SEO/train": 42,
+        "french/gpt-4o/Webtext/test": 21,
+        "french/gpt-4o/Webtext/train": 41,
+        "french/gpt-4o/Wiki/test": 21,
+        "french/gpt-4o/Wiki/train": 42,
+        "french/qwen-max/Academic/test": 21,
+        "french/qwen-max/Academic/train": 42,
+        "french/qwen-max/News/test": 21,
+        "french/qwen-max/News/train": 42,
+        "french/qwen-max/Novel/test": 21,
+        "french/qwen-max/Novel/train": 42,
+        "french/qwen-max/SEO/test": 20,
+        "french/qwen-max/SEO/train": 41,
+        "french/qwen-max/Webtext/test": 21,
+        "french/qwen-max/Webtext/train": 42,
+        "french/qwen-max/Wiki/test": 21,
+        "french/qwen-max/Wiki/train": 42,
+        "german/deepseek-v3/Academic/test": 21,
+        "german/deepseek-v3/Academic/train": 42,
+        "german/deepseek-v3/News/test": 21,
+        "german/deepseek-v3/News/train": 41,
+        "german/deepseek-v3/Novel/test": 21,
+        "german/deepseek-v3/Novel/train": 42,
+        "german/deepseek-v3/SEO/test": 21,
+        "german/deepseek-v3/SEO/train": 42,
+        "german/deepseek-v3/Webtext/test": 21,
+        "german/deepseek-v3/Webtext/train": 41,
+        "german/deepseek-v3/Wiki/test": 21,
+        "german/deepseek-v3/Wiki/train": 42,
+        "german/gemini-2.5-flash/Academic/test": 21,
+        "german/gemini-2.5-flash/Academic/train": 42,
+        "german/gemini-2.5-flash/News/test": 21,
+        "german/gemini-2.5-flash/News/train": 42,
+        "german/gemini-2.5-flash/Novel/test": 21,
+        "german/gemini-2.5-flash/Novel/train": 42,
+        "german/gemini-2.5-flash/SEO/test": 20,
+        "german/gemini-2.5-flash/SEO/train": 41,
+        "german/gemini-2.5-flash/Webtext/test": 21,
+        "german/gemini-2.5-flash/Webtext/train": 42,
+        "german/gemini-2.5-flash/Wiki/test": 21,
+        "german/gemini-2.5-flash/Wiki/train": 42,
+        "german/gpt-4o/Academic/test": 20,
+        "german/gpt-4o/Academic/train": 41,
+        "german/gpt-4o/News/test": 21,
+        "german/gpt-4o/News/train": 42,
+        "german/gpt-4o/Novel/test": 21,
+        "german/gpt-4o/Novel/train": 41,
+        "german/gpt-4o/SEO/test": 21,
+        "german/gpt-4o/SEO/train": 42,
+        "german/gpt-4o/Webtext/test": 21,
+        "german/gpt-4o/Webtext/train": 42,
+        "german/gpt-4o/Wiki/test": 21,
+        "german/gpt-4o/Wiki/train": 41,
+        "german/qwen-max/Academic/test": 21,
+        "german/qwen-max/Academic/train": 41,
+        "german/qwen-max/News/test": 20,
+        "german/qwen-max/News/train": 41,
+        "german/qwen-max/Novel/test": 21,
+        "german/qwen-max/Novel/train": 42,
+        "german/qwen-max/SEO/test": 21,
+        "german/qwen-max/SEO/train": 42,
+        "german/qwen-max/Webtext/test": 20,
+        "german/qwen-max/Webtext/train": 41,
+        "german/qwen-max/Wiki/test": 21,
+        "german/qwen-max/Wiki/train": 42,
+        "portuguese/deepseek-v3/Academic/test": 21,
+        "portuguese/deepseek-v3/Academic/train": 42,
+        "portuguese/deepseek-v3/News/test": 21,
+        "portuguese/deepseek-v3/News/train": 42,
+        "portuguese/deepseek-v3/Novel/test": 21,
+        "portuguese/deepseek-v3/Novel/train": 41,
+        "portuguese/deepseek-v3/SEO/test": 21,
+        "portuguese/deepseek-v3/SEO/train": 42,
+        "portuguese/deepseek-v3/Webtext/test": 21,
+        "portuguese/deepseek-v3/Webtext/train": 42,
+        "portuguese/deepseek-v3/Wiki/test": 21,
+        "portuguese/deepseek-v3/Wiki/train": 41,
+        "portuguese/gemini-2.5-flash/Academic/test": 21,
+        "portuguese/gemini-2.5-flash/Academic/train": 41,
+        "portuguese/gemini-2.5-flash/News/test": 20,
+        "portuguese/gemini-2.5-flash/News/train": 41,
+        "portuguese/gemini-2.5-flash/Novel/test": 21,
+        "portuguese/gemini-2.5-flash/Novel/train": 42,
+        "portuguese/gemini-2.5-flash/SEO/test": 21,
+        "portuguese/gemini-2.5-flash/SEO/train": 42,
+        "portuguese/gemini-2.5-flash/Webtext/test": 20,
+        "portuguese/gemini-2.5-flash/Webtext/train": 41,
+        "portuguese/gemini-2.5-flash/Wiki/test": 21,
+        "portuguese/gemini-2.5-flash/Wiki/train": 42,
+        "portuguese/gpt-4o/Academic/test": 21,
+        "portuguese/gpt-4o/Academic/train": 42,
+        "portuguese/gpt-4o/News/test": 21,
+        "portuguese/gpt-4o/News/train": 42,
+        "portuguese/gpt-4o/Novel/test": 21,
+        "portuguese/gpt-4o/Novel/train": 42,
+        "portuguese/gpt-4o/SEO/test": 21,
+        "portuguese/gpt-4o/SEO/train": 41,
+        "portuguese/gpt-4o/Webtext/test": 21,
+        "portuguese/gpt-4o/Webtext/train": 42,
+        "portuguese/gpt-4o/Wiki/test": 21,
+        "portuguese/gpt-4o/Wiki/train": 42,
+        "portuguese/qwen-max/Academic/test": 21,
+        "portuguese/qwen-max/Academic/train": 42,
+        "portuguese/qwen-max/News/test": 21,
+        "portuguese/qwen-max/News/train": 42,
+        "portuguese/qwen-max/Novel/test": 20,
+        "portuguese/qwen-max/Novel/train": 41,
+        "portuguese/qwen-max/SEO/test": 21,
+        "portuguese/qwen-max/SEO/train": 42,
+        "portuguese/qwen-max/Webtext/test": 21,
+        "portuguese/qwen-max/Webtext/train": 42,
+        "portuguese/qwen-max/Wiki/test": 20,
+        "portuguese/qwen-max/Wiki/train": 41,
+        "russian/deepseek-v3/Academic/test": 20,
+        "russian/deepseek-v3/Academic/train": 41,
+        "russian/deepseek-v3/News/test": 21,
+        "russian/deepseek-v3/News/train": 42,
+        "russian/deepseek-v3/Novel/test": 21,
+        "russian/deepseek-v3/Novel/train": 42,
+        "russian/deepseek-v3/SEO/test": 21,
+        "russian/deepseek-v3/SEO/train": 41,
+        "russian/deepseek-v3/Webtext/test": 21,
+        "russian/deepseek-v3/Webtext/train": 42,
+        "russian/deepseek-v3/Wiki/test": 21,
+        "russian/deepseek-v3/Wiki/train": 42,
+        "russian/gemini-2.5-flash/Academic/test": 21,
+        "russian/gemini-2.5-flash/Academic/train": 42,
+        "russian/gemini-2.5-flash/News/test": 21,
+        "russian/gemini-2.5-flash/News/train": 42,
+        "russian/gemini-2.5-flash/Novel/test": 20,
+        "russian/gemini-2.5-flash/Novel/train": 41,
+        "russian/gemini-2.5-flash/SEO/test": 21,
+        "russian/gemini-2.5-flash/SEO/train": 42,
+        "russian/gemini-2.5-flash/Webtext/test": 21,
+        "russian/gemini-2.5-flash/Webtext/train": 42,
+        "russian/gemini-2.5-flash/Wiki/test": 20,
+        "russian/gemini-2.5-flash/Wiki/train": 41,
+        "russian/gpt-4o/Academic/test": 21,
+        "russian/gpt-4o/Academic/train": 42,
+        "russian/gpt-4o/News/test": 21,
+        "russian/gpt-4o/News/train": 41,
+        "russian/gpt-4o/Novel/test": 21,
+        "russian/gpt-4o/Novel/train": 42,
+        "russian/gpt-4o/SEO/test": 21,
+        "russian/gpt-4o/SEO/train": 42,
+        "russian/gpt-4o/Webtext/test": 21,
+        "russian/gpt-4o/Webtext/train": 41,
+        "russian/gpt-4o/Wiki/test": 21,
+        "russian/gpt-4o/Wiki/train": 42,
+        "russian/qwen-max/Academic/test": 21,
+        "russian/qwen-max/Academic/train": 42,
+        "russian/qwen-max/News/test": 21,
+        "russian/qwen-max/News/train": 42,
+        "russian/qwen-max/Novel/test": 21,
+        "russian/qwen-max/Novel/train": 42,
+        "russian/qwen-max/SEO/test": 20,
+        "russian/qwen-max/SEO/train": 41,
+        "russian/qwen-max/Webtext/test": 21,
+        "russian/qwen-max/Webtext/train": 42,
+        "russian/qwen-max/Wiki/test": 21,
+        "russian/qwen-max/Wiki/train": 42,
+        "spanish/deepseek-v3/Academic/test": 21,
+        "spanish/deepseek-v3/Academic/train": 42,
+        "spanish/deepseek-v3/News/test": 21,
+        "spanish/deepseek-v3/News/train": 41,
+        "spanish/deepseek-v3/Novel/test": 21,
+        "spanish/deepseek-v3/Novel/train": 42,
+        "spanish/deepseek-v3/SEO/test": 21,
+        "spanish/deepseek-v3/SEO/train": 41,
+        "spanish/deepseek-v3/Webtext/test": 21,
+        "spanish/deepseek-v3/Webtext/train": 42,
+        "spanish/deepseek-v3/Wiki/test": 21,
+        "spanish/deepseek-v3/Wiki/train": 41,
+        "spanish/gemini-2.5-flash/Academic/test": 20,
+        "spanish/gemini-2.5-flash/Academic/train": 42,
+        "spanish/gemini-2.5-flash/News/test": 21,
+        "spanish/gemini-2.5-flash/News/train": 42,
+        "spanish/gemini-2.5-flash/Novel/test": 21,
+        "spanish/gemini-2.5-flash/Novel/train": 42,
+        "spanish/gemini-2.5-flash/SEO/test": 21,
+        "spanish/gemini-2.5-flash/SEO/train": 43,
+        "spanish/gemini-2.5-flash/Webtext/test": 20,
+        "spanish/gemini-2.5-flash/Webtext/train": 41,
+        "spanish/gemini-2.5-flash/Wiki/test": 21,
+        "spanish/gemini-2.5-flash/Wiki/train": 42,
+        "spanish/gpt-4o/Academic/test": 21,
+        "spanish/gpt-4o/Academic/train": 41,
+        "spanish/gpt-4o/News/test": 21,
+        "spanish/gpt-4o/News/train": 42,
+        "spanish/gpt-4o/Novel/test": 21,
+        "spanish/gpt-4o/Novel/train": 41,
+        "spanish/gpt-4o/SEO/test": 21,
+        "spanish/gpt-4o/SEO/train": 41,
+        "spanish/gpt-4o/Webtext/test": 21,
+        "spanish/gpt-4o/Webtext/train": 42,
+        "spanish/gpt-4o/Wiki/test": 21,
+        "spanish/gpt-4o/Wiki/train": 42,
+        "spanish/qwen-max/Academic/test": 21,
+        "spanish/qwen-max/Academic/train": 41,
+        "spanish/qwen-max/News/test": 20,
+        "spanish/qwen-max/News/train": 41,
+        "spanish/qwen-max/Novel/test": 21,
+        "spanish/qwen-max/Novel/train": 42,
+        "spanish/qwen-max/SEO/test": 21,
+        "spanish/qwen-max/SEO/train": 42,
+        "spanish/qwen-max/Webtext/test": 21,
+        "spanish/qwen-max/Webtext/train": 42,
+        "spanish/qwen-max/Wiki/test": 20,
+        "spanish/qwen-max/Wiki/train": 41
+      },
+      "distinct_human_texts_sampled": {
+        "shared_train_test": 0,
+        "test": 4000,
+        "train": 7999
+      },
+      "domains": {
+        "Academic": 1999,
+        "News": 2000,
+        "Novel": 2001,
+        "SEO": 2000,
+        "Webtext": 2001,
+        "Wiki": 1999
+      },
+      "field_sets_observed": {
+        "domain,human_written_text,lang,llm_generated_text,model,split": 12000
+      },
+      "file_counts_verified": {
+        "test": 48000,
+        "total": 124800,
+        "train": 76800
+      },
+      "langs": {
+        "arabic": 1501,
+        "chinese": 1499,
+        "english": 1500,
+        "french": 1501,
+        "german": 1499,
+        "portuguese": 1500,
+        "russian": 1501,
+        "spanish": 1499
+      },
+      "models": {
+        "deepseek-v3": 3008,
+        "gemini-2.5-flash": 2991,
+        "gpt-4o": 3006,
+        "qwen-max": 2995
+      },
+      "representative_records_inspected": [
+        "detectrl-x:Binary/binary_general_open.json:0:human",
+        "detectrl-x:Binary/binary_general_open.json:0:llm",
+        "detectrl-x:Binary/binary_general_open.json:400:human",
+        "detectrl-x:Binary/binary_general_open.json:13044:llm",
+        "detectrl-x:Binary/binary_general_open.json:3900:human"
+      ],
+      "sampled_source_rows": {
+        "test": 4000,
+        "train": 8000
+      },
+      "sampling": "strided (sample_offsets over 76800 train + 48000 test rows); deterministic, no randomness",
+      "source_file": "Binary/binary_general_open.json",
+      "source_file_bytes": 878631989,
+      "source_file_sha256": "815be1667a5e7404d9e513ab339c214c713bd7ac4eb46f375fa0a26bf2dfc15f",
+      "word_counts_by_label": {
+        "0": {
+          "max": 4642,
+          "median": 324,
+          "min": 1
+        },
+        "1": {
+          "max": 4334,
+          "median": 317,
+          "min": 1
+        }
+      },
+      "word_counts_by_lang": {
+        "arabic": {
+          "max": 4642,
+          "median": 286,
+          "min": 22
+        },
+        "chinese": {
+          "max": 815,
+          "median": 16,
+          "min": 1
+        },
+        "english": {
+          "max": 2932,
+          "median": 306,
+          "min": 111
+        },
+        "french": {
+          "max": 3368,
+          "median": 430,
+          "min": 160
+        },
+        "german": {
+          "max": 3242,
+          "median": 370,
+          "min": 147
+        },
+        "portuguese": {
+          "max": 4334,
+          "median": 411,
+          "min": 131
+        },
+        "russian": {
+          "max": 3278,
+          "median": 329,
+          "min": 100
+        },
+        "spanish": {
+          "max": 3050,
+          "median": 333,
+          "min": 167
+        }
+      }
+    },
+    "licence": "Three-way conflict \u2014 GitHub README: Apache License 2.0 with use strictly restricted to non-commercial academic research purposes; Hugging Face card/API: MIT; ACL 2026 paper: use strictly restricted to noncommercial academic research purposes. The strictest reading (non-commercial academic research only) governs.",
+    "licence_reverified": {
+      "date": "2026-11-16",
+      "sources": [
+        "GitHub README (ATH-MaaS/Marco-LLM, DetectRL-X) \u00a7License: 'This dataset is licensed under the Apache License 2.0. Usage is strictly restricted to non-commercial academic research purposes.' (https://github.com/AIDC-AI/Marco-LLM/tree/main/DetectRL-X; repo org renamed AIDC-AI -> ATH-MaaS since the U1 record)",
+        "HF card: 'This dataset is released under the MIT License.' (https://huggingface.co/datasets/WUJUNCHAO/DetectRL-X)",
+        "ACL 2026 paper Ethical Considerations: use strictly restricted to noncommercial academic research purposes (as recorded in the U1 registry note, verified 2026-11-07; the governing restriction is unchanged by the re-verification)"
+      ],
+      "verdict": "three-way conflict unchanged; strictest reading (non-commercial academic research only) governs, and this use satisfies all three readings (non-commercial research evaluation, local cache only, aggregate metrics only, no redistribution)"
+    },
+    "n_mapping_drops": 0,
+    "near_duplicates": {
+      "component_size_histogram": {
+        "10": 3,
+        "12": 2,
+        "14": 1,
+        "16": 1,
+        "2": 11876,
+        "34": 1,
+        "4": 20,
+        "6": 3,
+        "8": 4
+      },
+      "exact_duplicate_pairs_jaccard_1_0_across_groups": 0,
+      "exact_duplicate_pairs_jaccard_1_0_within_group": 1,
+      "method": "union-find over shared human-text identity plus word-8-shingle Jaccard >= 0.8 (exact verification; crc32 index proposes candidates only). Cross-language near-dup pairs are covered by the same global index; the shared-human-text check additionally catches train/test overlap of the underlying human texts.",
+      "n_components": 11911,
+      "near_dup_pairs_across_groups": 260,
+      "near_dup_pairs_jaccard_ge_0_8_total": 261,
+      "near_dup_pairs_sample": [
+        {
+          "jaccard": 0.871,
+          "row_a": "detectrl-x:Binary/binary_general_open.json:5283:human",
+          "row_b": "detectrl-x:Binary/binary_general_open.json:5292:human",
+          "same_group": false
+        },
+        {
+          "jaccard": 0.8129,
+          "row_a": "detectrl-x:Binary/binary_general_open.json:5264:human",
+          "row_b": "detectrl-x:Binary/binary_general_open.json:5302:human",
+          "same_group": false
+        },
+        {
+          "jaccard": 0.8031,
+          "row_a": "detectrl-x:Binary/binary_general_open.json:5244:human",
+          "row_b": "detectrl-x:Binary/binary_general_open.json:5331:human",
+          "same_group": false
+        },
+        {
+          "jaccard": 0.8088,
+          "row_a": "detectrl-x:Binary/binary_general_open.json:5292:human",
+          "row_b": "detectrl-x:Binary/binary_general_open.json:5331:human",
+          "same_group": false
+        },
+        {
+          "jaccard": 0.8063,
+          "row_a": "detectrl-x:Binary/binary_general_open.json:5244:human",
+          "row_b": "detectrl-x:Binary/binary_general_open.json:5340:human",
+          "same_group": false
+        }
+      ],
+      "near_dup_pairs_within_group": 1,
+      "shared_human_texts_train_test_sampled": 0
+    },
+    "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+    "partition": {
+      "counts": {
+        "final-test": {
+          "n": 4800,
+          "n_ai": 2400,
+          "n_components": 2381,
+          "n_human": 2400
+        },
+        "fit": {
+          "n": 14400,
+          "n_ai": 7200,
+          "n_components": 7137,
+          "n_human": 7200
+        },
+        "validation": {
+          "n": 4800,
+          "n_ai": 2400,
+          "n_components": 2393,
+          "n_human": 2400
+        }
+      },
+      "fractions": {
+        "final-test": 0.2,
+        "fit": 0.6,
+        "validation": 0.2
+      },
+      "manifests": {
+        "final-test": {
+          "path": "docs/evidence/manifests/EV-20261116-detectrl_x-final-test.json",
+          "sha256": "562aaca0e598bfd3b4e6a83ffc449989300fce55e5a1c516950a48fe4fa1aad1"
+        },
+        "fit": {
+          "path": "docs/evidence/manifests/EV-20261116-detectrl_x-fit.json",
+          "sha256": "693674f5a85926779bb3e76a7be41dac81f7018b4433bd024b0f01e031ad1979"
+        },
+        "validation": {
+          "path": "docs/evidence/manifests/EV-20261116-detectrl_x-validation.json",
+          "sha256": "d23d96556aebed19f5bbcb1c3d50cd98ad4b5c8938364586d28a0910867efcfe"
+        }
+      },
+      "method": "whole components, stratified by language, deterministic hash order, greedy 60/20/20 by row count; partition uses text identity only, frozen before evaluation",
+      "verification": {
+        "complete": true,
+        "partitions": [
+          "final-test",
+          "fit",
+          "validation"
+        ],
+        "rows_assigned": 24000,
+        "rows_total": 24000,
+        "shared_components_across_partitions": 0,
+        "shared_exact_texts_across_partitions": 0
+      }
+    },
+    "pooled": {
+      "abstention_rate": 0.1593,
+      "abstentions": 3822,
+      "auprc": 0.5749,
+      "auprc_baseline_prevalence": 0.5,
+      "auroc": 0.5961,
+      "bootstrap_95": {
+        "auprc": [
+          0.5652,
+          0.5843
+        ],
+        "auroc": [
+          0.5884,
+          0.603
+        ],
+        "resamples": [
+          1000,
+          0
+        ],
+        "tpr_at_fpr_0_01": [
+          0.004,
+          0.0098
+        ],
+        "tpr_at_fpr_0_05": [
+          0.0645,
+          0.0833
+        ]
+      },
+      "coverage": 0.8407,
+      "fpr_native": 0.0,
+      "fpr_native_wilson_95": [
+        0.0,
+        0.00032
+      ],
+      "k_fp_native": 0,
+      "k_tp_native": 0,
+      "max_human_score": 0.5955,
+      "n": 24000,
+      "n_ai": 12000,
+      "n_human": 12000,
+      "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+      "score_human": {
+        "max": 0.5955,
+        "mean": 0.1844,
+        "median": 0.1706,
+        "min": 0.0217
+      },
+      "score_machine": {
+        "max": 0.6041,
+        "mean": 0.2117,
+        "median": 0.2087,
+        "min": 0.0217
+      },
+      "tpr_at_fpr_0_01": 0.0071,
+      "tpr_at_fpr_0_05": 0.0743,
+      "tpr_native": 0.0,
+      "tpr_native_wilson_95": [
+        0.0,
+        0.00032
+      ]
+    },
+    "provenance": {
+      "cache": {
+        "source_file": "Binary/binary_general_open.json",
+        "source_file_bytes": 878631989,
+        "source_file_sha256": "815be1667a5e7404d9e513ab339c214c713bd7ac4eb46f375fa0a26bf2dfc15f",
+        "test": {
+          "file": "test-w8.jsonl",
+          "file_sha256": "4ea678902ee741720189df26fa78d4cc78acbb1da7c4ec504ea0c6de9fa3538f",
+          "path": "detectrl_x/binary/test-w8.jsonl (XDG datasets cache)",
+          "rows": 8000
+        },
+        "train": {
+          "file": "train-w8.jsonl",
+          "file_sha256": "8e9b9144de8019062c16e2156b777ded2f5594a7e2c1fca579b765cb1de826c1",
+          "path": "detectrl_x/binary/train-w8.jsonl (XDG datasets cache)",
+          "rows": 16000
+        }
+      },
+      "sampled_source_rows": {
+        "test": 4000,
+        "train": 8000
+      },
+      "seed_sample_superseded": "EV-20261107-dataset-detectrl-x (800 normalised rows from a 400-row strided train sample) is superseded by this 24,000-row expanded sample",
+      "source_file": "Binary/binary_general_open.json",
+      "source_file_bytes": 878631989,
+      "source_file_sha256": "815be1667a5e7404d9e513ab339c214c713bd7ac4eb46f375fa0a26bf2dfc15f",
+      "split_rows_verified": {
+        "test": 48000,
+        "total": 124800,
+        "train": 76800
+      }
+    },
+    "worst_slice_context": {
+      "detectrl_x_final_test_n_human": 2400,
+      "detectrl_x_pooled_n_human": 12000,
+      "note": "The n=56 worst-slice human FPR (Wilson upper 0.064196, EV-20261110-human-fpr) is the OpAI-Bench document slice (evr-20261106-opai-bench-builtin-heuristic), NOT DetectRL-X. It is already closed: Phase 5 expanded OpAI-Bench to n_human=218 (evr-20261110-opai-bench-builtin-heuristic, supported, Wilson upper 0.0173). DetectRL-X pooled human n here is far above the 100-row minimum."
+    }
+  },
+  "run_date": "2026-11-16",
+  "schema": "textforensics.run-artifact/v1"
+}
