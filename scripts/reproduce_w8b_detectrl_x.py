@@ -76,7 +76,6 @@ from textforensics.datasets import (  # noqa: E402
     DatasetFetchError,
     canonical_text_sha256,
     download_detectrl_x,
-    get_spec,
     map_row,
     sample_detectrl_x_rows,
     sample_offsets,
