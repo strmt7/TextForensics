@@ -249,6 +249,7 @@ def build_components(rows: list[dict]) -> tuple[list[list[int]], list[dict]]:
                         "row_a": rows[j]["source_id"],
                         "row_b": rows[i]["source_id"],
                         "jaccard": round(exact, 4),
+                        "same_group": rows[j]["group_key"] == rows[i]["group_key"],
                     }
                 )
                 uf.union(i, j)
@@ -787,7 +788,8 @@ def run_beemo() -> dict:
     print(
         f"[beemo] {len(components)} components "
         f"(singletons {comp_sizes[1]}, largest {max(comp_sizes)}); "
-        f"cross-prompt near-dup pairs (J>=0.8): {len(near_dup_pairs)}"
+        f"near-dup pairs (J>=0.8): {len(near_dup_pairs)} total, "
+        f"{sum(1 for p in near_dup_pairs if not p['same_group'])} across prompts"
     )
     for members in components:
         cid = _component_id(rows, members)
@@ -871,11 +873,16 @@ def run_beemo() -> dict:
             ),
             "n_components": len(components),
             "component_size_histogram": {str(k): v for k, v in sorted(comp_sizes.items())},
-            "cross_prompt_near_dup_pairs": len(near_dup_pairs),
-            "near_dup_pairs_sample": near_dup_pairs[:5],
-            "exact_duplicate_texts_across_groups": sum(
-                1 for p in near_dup_pairs if p["jaccard"] == 1.0
+            "near_dup_pairs_jaccard_ge_0_8_total": len(near_dup_pairs),
+            "near_dup_pairs_within_group": sum(1 for p in near_dup_pairs if p["same_group"]),
+            "near_dup_pairs_across_groups": sum(1 for p in near_dup_pairs if not p["same_group"]),
+            "exact_duplicate_pairs_jaccard_1_0_within_group": sum(
+                1 for p in near_dup_pairs if p["jaccard"] == 1.0 and p["same_group"]
             ),
+            "exact_duplicate_pairs_jaccard_1_0_across_groups": sum(
+                1 for p in near_dup_pairs if p["jaccard"] == 1.0 and not p["same_group"]
+            ),
+            "near_dup_pairs_sample": near_dup_pairs[:5],
         },
         "partition": {
             "method": (
@@ -1266,7 +1273,15 @@ def run_detectrl_x() -> dict:
             ),
             "n_components": len(components),
             "component_size_histogram": {str(k): v for k, v in sorted(comp_sizes.items())},
-            "near_dup_pairs_jaccard_ge_0_8": len(near_dup_pairs),
+            "near_dup_pairs_jaccard_ge_0_8_total": len(near_dup_pairs),
+            "near_dup_pairs_within_group": sum(1 for p in near_dup_pairs if p["same_group"]),
+            "near_dup_pairs_across_groups": sum(1 for p in near_dup_pairs if not p["same_group"]),
+            "exact_duplicate_pairs_jaccard_1_0_within_group": sum(
+                1 for p in near_dup_pairs if p["jaccard"] == 1.0 and p["same_group"]
+            ),
+            "exact_duplicate_pairs_jaccard_1_0_across_groups": sum(
+                1 for p in near_dup_pairs if p["jaccard"] == 1.0 and not p["same_group"]
+            ),
             "near_dup_pairs_sample": near_dup_pairs[:5],
             "shared_human_texts_train_test_sampled": len(shared_human_texts),
         },
