@@ -79,7 +79,7 @@ def _diff_paths(original, successor, path=""):
     if isinstance(original, list):
         assert len(original) == len(successor), path
         out = []
-        for i, (a, b) in enumerate(zip(original, successor)):
+        for i, (a, b) in enumerate(zip(original, successor, strict=True)):
             out += _diff_paths(a, b, f"{path}[{i}]")
         return out
     return [path] if original != successor else []
@@ -157,9 +157,9 @@ def test_w8_successors_match_originals_except_path_fields():
                     orig_value = orig_value[key]
                     succ_value = succ_value[key]
             if path.endswith("cache_file"):
-                assert succ_value == orig_value.replace(
-                    home + "/.cache/", "$HOME/.cache/"
-                ), f"{name}:{path}"
+                assert succ_value == orig_value.replace(home + "/.cache/", "$HOME/.cache/"), (
+                    f"{name}:{path}"
+                )
             else:  # detail: repo-relative tail of the original path
                 tail = orig_value.split("docs/evidence/", 1)[1]
                 assert succ_value == f"docs/evidence/{tail}", f"{name}:{path}"

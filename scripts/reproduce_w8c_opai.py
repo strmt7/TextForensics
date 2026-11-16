@@ -65,19 +65,9 @@ RUN_ARTIFACT_SCHEMA = "textforensics.run-artifact/v1"
 # Host-neutral: the worker checkout the paths used to name is gone;
 # the artifacts live at these repo-relative paths on every checkout.
 C_MANIFEST = (
-    REPO_ROOT
-    / "docs"
-    / "evidence"
-    / "manifests"
-    / "EV-20261116-dataset-opai-bench-partitions.json"
+    REPO_ROOT / "docs" / "evidence" / "manifests" / "EV-20261116-dataset-opai-bench-partitions.json"
 )
-C_ARTIFACT = (
-    REPO_ROOT
-    / "docs"
-    / "evidence"
-    / "runs"
-    / "EV-20261116-dataset-opai-bench.json"
-)
+C_ARTIFACT = REPO_ROOT / "docs" / "evidence" / "runs" / "EV-20261116-dataset-opai-bench.json"
 CACHE_ROOT = Path.home() / ".cache" / "textforensics" / "datasets" / "opai_bench" / "default"
 BOOTSTRAP_SEED = 20261116
 BOOTSTRAP_RESAMPLES = 1000

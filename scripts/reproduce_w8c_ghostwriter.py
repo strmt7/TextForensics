@@ -80,13 +80,7 @@ C_MANIFEST = (
     / "manifests"
     / "EV-20261116-dataset-ghostwriter-partitions.json"
 )
-C_ARTIFACT = (
-    REPO_ROOT
-    / "docs"
-    / "evidence"
-    / "runs"
-    / "EV-20261116-dataset-ghostwriter.json"
-)
+C_ARTIFACT = REPO_ROOT / "docs" / "evidence" / "runs" / "EV-20261116-dataset-ghostwriter.json"
 CACHE_ROOT = Path.home() / ".cache" / "textforensics" / "datasets" / "ghostwriter" / "default"
 BOOTSTRAP_SEED = 20261116
 BOOTSTRAP_RESAMPLES = 1000

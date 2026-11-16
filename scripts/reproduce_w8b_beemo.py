@@ -63,13 +63,7 @@ from textforensics.detectors import BuiltinHeuristicDetector  # noqa: E402
 RUN_DATE = "2026-11-16"
 ARTIFACT_ID = "EV-20261116-reproduction-beemo"
 RUN_ARTIFACT_SCHEMA = "textforensics.run-artifact/v1"
-B_ARTIFACT = (
-    REPO_ROOT
-    / "docs"
-    / "evidence"
-    / "runs"
-    / "EV-20261116-dataset-beemo.json"
-)
+B_ARTIFACT = REPO_ROOT / "docs" / "evidence" / "runs" / "EV-20261116-dataset-beemo.json"
 # Host-neutral: the W8-B worker worktree the paths used to name is
 # deleted; the artifacts live at these repo-relative paths on every
 # checkout.
