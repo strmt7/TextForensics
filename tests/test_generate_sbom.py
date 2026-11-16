@@ -378,9 +378,7 @@ def test_specifier_violation_fails_generation(tmp_path, monkeypatch):
         sbom,
         "live_distributions",
         lambda: {
-            "aaa": sbom.Distribution(
-                "aaa", "1.0.0", ["bbb"], requirements=["bbb>=3"]
-            ),
+            "aaa": sbom.Distribution("aaa", "1.0.0", ["bbb"], requirements=["bbb>=3"]),
             "bbb": sbom.Distribution("bbb", "2.0.0", []),
             "ccc": sbom.Distribution("ccc", "3.0.0", []),
             "ddd": sbom.Distribution("ddd", "4.0.0", []),
@@ -395,9 +393,7 @@ def test_marker_false_requirement_excluded_from_roots(tmp_path, monkeypatch):
     platform is not a root of the closure (atheris on 3.11/3.15)."""
     freeze = _fake_repo(tmp_path)
     (tmp_path / "requirements-pinned.txt").write_text(
-        "-e .[dev,api]\n"
-        "ddd>=4,<5\n"
-        'win-only==1.0.0; sys_platform == "win32"\n',
+        '-e .[dev,api]\nddd>=4,<5\nwin-only==1.0.0; sys_platform == "win32"\n',
         encoding="utf-8",
     )
     monkeypatch.setattr(

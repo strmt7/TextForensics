@@ -438,9 +438,7 @@ def parse_pip_audit_coverage(data: dict) -> CoverageSummary:
                 )
             )
         else:
-            packages.append(
-                PackageCoverage(name=name, version=version, state="unresolved")
-            )
+            packages.append(PackageCoverage(name=name, version=version, state="unresolved"))
     summary = CoverageSummary(packages=packages)
     summary.assert_reconciles()
     return summary
@@ -687,9 +685,7 @@ def evaluate(
     if coverage_gate.expired:
         print("EXPIRED skip entries (skip still present past review_by):")
         for package, entry in coverage_gate.expired:
-            print(
-                f"  - {package.name} {package.version} (review_by {entry.review_by})"
-            )
+            print(f"  - {package.name} {package.version} (review_by {entry.review_by})")
     if classification.new:
         print(f"NEW findings ({len(classification.new)}):")
         for finding in classification.new:
@@ -697,10 +693,7 @@ def evaluate(
 
     if report_path is not None:
         report_path.write_text(
-            json.dumps(
-                build_report(audits, classification, coverage_gate, today), indent=2
-            )
-            + "\n",
+            json.dumps(build_report(audits, classification, coverage_gate, today), indent=2) + "\n",
             encoding="utf-8",
         )
         print(f"report written to {report_path}")
@@ -776,9 +769,7 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 data = json.loads(args.from_json.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError) as exc:
-                raise GateError(
-                    f"could not read pip-audit JSON {args.from_json}: {exc}"
-                ) from exc
+                raise GateError(f"could not read pip-audit JSON {args.from_json}: {exc}") from exc
             if not isinstance(data, dict):
                 raise GateError(f"pip-audit JSON {args.from_json} is not an object")
             findings, raw = parse_pip_audit_json(data)
@@ -797,9 +788,7 @@ def main(argv: list[str] | None = None) -> int:
                 if not args.requirements.is_file():
                     raise GateError(f"requirements file not found: {args.requirements}")
                 audits.append(
-                    run_pip_audit(
-                        args.requirements, f"pinned requirements ({args.requirements})"
-                    )
+                    run_pip_audit(args.requirements, f"pinned requirements ({args.requirements})")
                 )
     except GateError as exc:
         print(f"pip-audit gate ERROR: {exc}", file=sys.stderr)

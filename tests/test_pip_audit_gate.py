@@ -343,8 +343,7 @@ def _audit_json_with_skip():
                 "name": "textforensics",
                 "version": "0.2.0",
                 "skip_reason": (
-                    "Dependency not found on PyPI and could not be audited: "
-                    "textforensics (0.2.0)"
+                    "Dependency not found on PyPI and could not be audited: textforensics (0.2.0)"
                 ),
             },
         ],
@@ -395,9 +394,7 @@ def test_coverage_malformed_entries_fail_closed(gate):
             {"dependencies": [{"name": "pip", "version": "24.0", "vulns": [{"aliases": []}]}]}
         )
     with pytest.raises(gate.GateError):
-        gate.parse_pip_audit_json(
-            {"dependencies": [{"name": "", "version": "24.0", "vulns": []}]}
-        )
+        gate.parse_pip_audit_json({"dependencies": [{"name": "", "version": "24.0", "vulns": []}]})
 
 
 def test_unexpected_skip_fails_the_gate(gate, tmp_path, monkeypatch):
@@ -422,9 +419,7 @@ def test_recorded_skip_passes_and_is_reported(gate, tmp_path, monkeypatch):
     """ENG-11: a skip recorded as [[skip]] in the baseline passes, is
     listed as expected, and appears in the report's coverage block."""
     baseline_path = tmp_path / "baseline.toml"
-    baseline_path.write_text(
-        _baseline_toml_with_skip([PIP_ENTRY], [SKIP_ENTRY]), encoding="utf-8"
-    )
+    baseline_path.write_text(_baseline_toml_with_skip([PIP_ENTRY], [SKIP_ENTRY]), encoding="utf-8")
     report_path = tmp_path / "report.json"
 
     def _audit_with_skip(requirements, source):
@@ -540,9 +535,7 @@ def test_from_json_mode_validates_coverage(gate, tmp_path):
     coverage (used by the deep-verification job, which runs pip-audit
     directly): unexpected skips fail, a clean file passes."""
     baseline_path = tmp_path / "baseline.toml"
-    baseline_path.write_text(
-        _baseline_toml_with_skip([PIP_ENTRY], [SKIP_ENTRY]), encoding="utf-8"
-    )
+    baseline_path.write_text(_baseline_toml_with_skip([PIP_ENTRY], [SKIP_ENTRY]), encoding="utf-8")
     audit_path = tmp_path / "audit.json"
     audit_path.write_text(json.dumps(_audit_json_with_skip()), encoding="utf-8")
     assert gate.main(["--baseline", str(baseline_path), "--from-json", str(audit_path)]) == 0

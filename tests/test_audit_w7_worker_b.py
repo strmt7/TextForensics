@@ -24,7 +24,6 @@ import sys
 from pathlib import Path
 from unittest import mock
 
-import pytest
 import yaml
 
 SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
@@ -108,9 +107,7 @@ def test_no_unlisted_or_true():
                 for allowed_file, marker in ALLOWED_OR_TRUE
             ):
                 continue
-            offenders.append(
-                f"{filename}:{job_name}[{index}] {step.get('name')}: {line.strip()}"
-            )
+            offenders.append(f"{filename}:{job_name}[{index}] {step.get('name')}: {line.strip()}")
     assert offenders == [], f"unlisted '|| true': {offenders}"
 
 
@@ -176,6 +173,7 @@ def test_summary_jobs_fail_when_a_required_job_fails():
 # ---------------------------------------------------------------------------
 # Uploaded artifacts must be produced by the job (no warn-only ghosts)
 # ---------------------------------------------------------------------------
+
 
 def _produced_files(job):
     """File names a job's run steps plausibly produce (redirects,
@@ -421,9 +419,7 @@ def _claims_tmp_root(tmp_path, claims_yaml):
     )
     schema_dir = root / "src" / "textforensics" / "schemas"
     schema_dir.mkdir(parents=True)
-    for schema_file in (
-        REPO_ROOT / "src" / "textforensics" / "schemas"
-    ).glob("*.json"):
+    for schema_file in (REPO_ROOT / "src" / "textforensics" / "schemas").glob("*.json"):
         shutil.copyfile(schema_file, schema_dir / schema_file.name)
     return check_claims, root
 
@@ -469,7 +465,11 @@ def test_instant_exit_zero_with_long_duration_is_an_error(tmp_path, monkeypatch)
     with mock.patch.object(run_fuzz.subprocess, "run", return_value=fake):
         result = run_fuzz.run_atheris_target(target, 300, False)
     assert result["error"] is not None
-    assert "0.0s" in str(result["error"]) or "did no fuzzing" in str(result["error"]).lower() or "exited" in str(result["error"])
+    assert (
+        "0.0s" in str(result["error"])
+        or "did no fuzzing" in str(result["error"]).lower()
+        or "exited" in str(result["error"])
+    )
 
 
 def test_short_clean_run_stays_clean(tmp_path, monkeypatch):

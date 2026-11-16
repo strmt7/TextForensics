@@ -356,10 +356,7 @@ def requirement_applies(
     if requirement.marker is None:
         return True
     candidates = set(requested_extras) | {""}
-    return any(
-        requirement.marker.evaluate({**environment, "extra": extra})
-        for extra in candidates
-    )
+    return any(requirement.marker.evaluate({**environment, "extra": extra}) for extra in candidates)
 
 
 def load_pyproject(path: Path) -> dict:
