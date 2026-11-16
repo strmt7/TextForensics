@@ -22,6 +22,7 @@ import importlib.util
 import re
 import sys
 from pathlib import Path
+from types import ModuleType
 from unittest import mock
 
 import yaml
@@ -460,6 +461,10 @@ def test_instant_exit_zero_with_long_duration_is_an_error(tmp_path, monkeypatch)
     run_fuzz = _load_run_fuzz()
     monkeypatch.setattr(run_fuzz, "ARTIFACTS_DIR", tmp_path / "artifacts")
     monkeypatch.setattr(run_fuzz, "CORPUS_DIR", tmp_path / "corpus")
+    # The child is mocked; stub the optional import so the W9-D
+    # missing-atheris guard does not fire before the mocked child runs
+    # (atheris is not installed in the canonical venv).
+    monkeypatch.setitem(sys.modules, "atheris", ModuleType("atheris"))
     target = run_fuzz.FUZZ_TARGETS["text_parsing"]
     fake = _FakeProc(returncode=0, stdout="fake atheris ok\n")
     with mock.patch.object(run_fuzz.subprocess, "run", return_value=fake):
@@ -478,6 +483,9 @@ def test_short_clean_run_stays_clean(tmp_path, monkeypatch):
     run_fuzz = _load_run_fuzz()
     monkeypatch.setattr(run_fuzz, "ARTIFACTS_DIR", tmp_path / "artifacts")
     monkeypatch.setattr(run_fuzz, "CORPUS_DIR", tmp_path / "corpus")
+    # See test_instant_exit_zero_with_long_duration_is_an_error: the
+    # child is mocked, so stub atheris for the W9-D guard.
+    monkeypatch.setitem(sys.modules, "atheris", ModuleType("atheris"))
     target = run_fuzz.FUZZ_TARGETS["text_parsing"]
     fake = _FakeProc(returncode=0, stdout="fake atheris ok\n")
     with mock.patch.object(run_fuzz.subprocess, "run", return_value=fake):
