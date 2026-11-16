@@ -217,7 +217,9 @@ class Rehearsal:
         self.env = dict(os.environ)
         self.env["PATH"] = str(self.bin_dir) + os.pathsep + self.env.get("PATH", "")
 
-    def _run(self, argv: list[str], cwd: Path, env_extra: dict | None = None) -> subprocess.CompletedProcess:
+    def _run(
+        self, argv: list[str], cwd: Path, env_extra: dict | None = None
+    ) -> subprocess.CompletedProcess:
         env = dict(self.env)
         if env_extra is not None:
             env.update(env_extra)
@@ -228,8 +230,15 @@ class Rehearsal:
         return subprocess.run(argv, cwd=str(cwd), env=env, capture_output=True, text=True)
 
     def upload_demo(
-        self, demo_id: str, name: str, fixture: dict, source_sha: str, tag: str,
-        version: str, confirmation: str | None, repo: Path,
+        self,
+        demo_id: str,
+        name: str,
+        fixture: dict,
+        source_sha: str,
+        tag: str,
+        version: str,
+        confirmation: str | None,
+        repo: Path,
     ) -> dict:
         argv = [
             sys.executable,
@@ -274,9 +283,7 @@ class Rehearsal:
     def _record(
         self, demo_id: str, name: str, proc: subprocess.CompletedProcess, expect_nonzero: bool
     ) -> dict:
-        remote_writes = [
-            c for c in self.demo_commands if tuple(c[:3]) in REMOTE_WRITE_PREFIXES
-        ]
+        remote_writes = [c for c in self.demo_commands if tuple(c[:3]) in REMOTE_WRITE_PREFIXES]
         passed = (proc.returncode != 0) if expect_nonzero else (proc.returncode == 0)
         result = {
             "id": demo_id,
@@ -297,7 +304,9 @@ def run_rehearsal(workdir: Path) -> dict:
     repo = workdir / "fixture-repo"
     repo.mkdir(parents=True, exist_ok=True)
     subprocess.run(["git", "init", "-q"], cwd=str(repo), check=True)
-    subprocess.run(["git", "config", "user.email", "rehearsal@example.invalid"], cwd=str(repo), check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "rehearsal@example.invalid"], cwd=str(repo), check=True
+    )
     subprocess.run(["git", "config", "user.name", "W10 rehearsal"], cwd=str(repo), check=True)
     (repo / "README").write_text("rehearsal fixture\n", encoding="utf-8")
     subprocess.run(["git", "add", "."], cwd=str(repo), check=True)
@@ -358,12 +367,16 @@ def run_rehearsal(workdir: Path) -> dict:
     # (a) asset removed from the manifest.
     fx_a = build_fixture(workdir / "demo-a")
     fx_a["wheel"].unlink()
-    rh.upload_demo("a", "asset removed from manifest", fx_a, source_sha, TAG, VERSION, "RELEASE", repo)
+    rh.upload_demo(
+        "a", "asset removed from manifest", fx_a, source_sha, TAG, VERSION, "RELEASE", repo
+    )
 
     # (b) asset tampered (digest mismatch).
     fx_b = build_fixture(workdir / "demo-b")
     fx_b["wheel"].write_bytes(b"tampered-wheel-bytes")
-    rh.upload_demo("b", "asset tampered (digest mismatch)", fx_b, source_sha, TAG, VERSION, "RELEASE", repo)
+    rh.upload_demo(
+        "b", "asset tampered (digest mismatch)", fx_b, source_sha, TAG, VERSION, "RELEASE", repo
+    )
 
     # (c) mismatched source SHA.
     fx_c = build_fixture(workdir / "demo-c")
@@ -403,11 +416,7 @@ def run_rehearsal(workdir: Path) -> dict:
     rh.gate_demo("i", "stale check (promotion gate, wrong SHA)", runs_i, workdir)
 
     remote_writes = [c for c in rh.demo_commands if tuple(c[:3]) in REMOTE_WRITE_PREFIXES]
-    overall = (
-        all(r["passed"] for r in rh.results)
-        and control["passed"]
-        and not remote_writes
-    )
+    overall = all(r["passed"] for r in rh.results) and control["passed"] and not remote_writes
     return {
         "control": control,
         "demos": [r for r in rh.results if r["id"] != "control"],
@@ -444,7 +453,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"workdir kept at: {workdir}")
     for r in report["results"]:
         status = "PASS" if r["passed"] else "FAIL"
-        print(f"[{status}] {r['id']}: {r['name']} -> exit {r['exit_code']} (expected {r['expected']})")
+        print(
+            f"[{status}] {r['id']}: {r['name']} -> exit {r['exit_code']} (expected {r['expected']})"
+        )
     print(f"remote-write commands issued by demos: {len(report['remote_write_commands'])}")
     print(f"overall: {'PASS' if report['overall_pass'] else 'FAIL'}")
     if args.json:

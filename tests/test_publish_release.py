@@ -788,6 +788,7 @@ def test_no_publication_mode_invokes_zero_remote_writes(
 
     recorder.assert_no_remote_writes()
 
+
 # --- W10: upload --dry-run (TESTED no-publication mode) ----------------------
 #
 # The rehearsal must route the EXACT confirmation through the same code
@@ -852,9 +853,7 @@ def test_upload_dry_run_fails_when_asset_tampered(pub, valid_dist, recorder, mon
     recorder.assert_no_remote_writes()
 
 
-def test_upload_dry_run_fails_when_source_sha_mismatched(
-    pub, valid_dist, recorder, monkeypatch
-):
+def test_upload_dry_run_fails_when_source_sha_mismatched(pub, valid_dist, recorder, monkeypatch):
     """W10 demo (c): a --source-sha that is not the commit the tag
     resolves to fails the dry run before any remote write."""
     args = pub.build_parser().parse_args(
@@ -899,9 +898,7 @@ def test_upload_dry_run_fails_when_tag_mismatched(pub, valid_dist, recorder, mon
     recorder.assert_no_remote_writes()
 
 
-def test_upload_dry_run_fails_when_version_mismatched(
-    pub, valid_dist, recorder, monkeypatch
-):
+def test_upload_dry_run_fails_when_version_mismatched(pub, valid_dist, recorder, monkeypatch):
     """W10 demo (e): a --version that does not match the asset names in
     the manifest fails the dry run before any remote write."""
     args = pub.build_parser().parse_args(
@@ -933,9 +930,7 @@ def test_upload_dry_run_fails_when_version_mismatched(
     recorder.assert_no_remote_writes()
 
 
-def test_upload_dry_run_fails_when_confirmation_missing(
-    pub, valid_dist, recorder, monkeypatch
-):
+def test_upload_dry_run_fails_when_confirmation_missing(pub, valid_dist, recorder, monkeypatch):
     """W10 demo (f): the dry run routes the EXACT confirmation step, so
     a missing confirmation fails it exactly as it fails a real upload."""
     rc = _run_upload_dry_run(pub, valid_dist, monkeypatch, confirmation=None)
@@ -943,9 +938,7 @@ def test_upload_dry_run_fails_when_confirmation_missing(
     recorder.assert_no_remote_writes()
 
 
-def test_upload_dry_run_fails_when_signature_check_fails(
-    pub, valid_dist, recorder, monkeypatch
-):
+def test_upload_dry_run_fails_when_signature_check_fails(pub, valid_dist, recorder, monkeypatch):
     """W10 demo (g, upload level): a failed check -- here cosign
     rejecting a signature -- fails the dry run before any remote write.
     (The promotion-gate classes of failed / skipped / stale checks are
