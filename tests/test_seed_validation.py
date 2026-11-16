@@ -734,9 +734,9 @@ class TestAppendMode:
 
 
 class TestSeededRegistry:
-    def test_committed_registry_loads_with_eleven_records_and_no_mixset(self):
+    def test_committed_registry_loads_with_fifteen_records_and_no_mixset(self):
         registry = ValidationRegistry.load(REPO_ROOT / "docs" / "validation" / "registry.json")
-        assert len(registry.records) == 11
+        assert len(registry.records) == 15
         assert [record.record_id for record in registry.records] == [
             "evr-20261106-beemo-builtin-heuristic",
             "evr-20261106-mage-builtin-heuristic",
@@ -756,11 +756,40 @@ class TestSeededRegistry:
             # `supported` record — n=1996 kept, 218 human / 223 AI,
             # Wilson 95% FPR upper 0.0173, all 8 support conditions met.
             "evr-20261110-opai-bench-builtin-heuristic",
+            # Beemo final-test record (W8 follow-up): the fifth
+            # `supported` record — n=3933, 874 human / 3059 AI,
+            # Wilson 95% FPR upper 0.004376, all 8 support conditions
+            # met under the approved §7.1.4 amendment (U1 overlap
+            # 180/3933 measured and disclosed); supersedes
+            # evr-20261106-beemo-builtin-heuristic.
+            "evr-20261116-beemo-builtin-heuristic",
+            # DetectRL-X final-test record (W8 follow-up): the sixth
+            # `supported` record — n=4800, 2400 human / 2400 AI,
+            # Wilson 95% FPR upper 0.001598, all 8 support conditions
+            # met under the approved §7.1.4 amendment (U1 overlap
+            # 152/4800 measured and disclosed); supersedes
+            # evr-20261107-detectrl-x-builtin-heuristic.
+            "evr-20261116-detectrl-x-builtin-heuristic",
+            # GhostWriter final-test record (W8 follow-up): the
+            # seventh `supported` record — n=861 labelled, 354 human
+            # / 507 AI, Wilson 95% FPR upper 0.0107, all 8 support
+            # conditions met under the approved §7.1.4 amendment
+            # (U1 overlap 262/1263 measured and disclosed);
+            # supersedes evr-20261107-ghostwriter-builtin-heuristic.
+            "evr-20261116-ghostwriter-builtin-heuristic",
             # MAGE test-split record (W8): the third `supported`
             # record — n=600, 299 human / 301 AI, Wilson 95% FPR
             # upper 0.0127, all 8 support conditions met; supersedes
             # evr-20261106-mage-builtin-heuristic.
             "evr-20261116-mage-builtin-heuristic",
+            # OpAI-Bench final-test record (W8 follow-up): the eighth
+            # `supported` record — n=293 labelled, 146 human / 147
+            # AI, Wilson 95% FPR upper 0.0256, all 8 support
+            # conditions met under the approved §7.1.4 amendment
+            # (U1 overlap 271/1283 measured and disclosed);
+            # supersedes evr-20261110-opai-bench-builtin-heuristic
+            # (chain 20261106 -> 20261110 -> 20261116).
+            "evr-20261116-opai-bench-builtin-heuristic",
             # RAID final-test record (W8): the fourth `supported`
             # record — n=3999 kept, 121 human / 3878 AI, Wilson 95%
             # FPR upper 0.0308, all 8 support conditions met;
@@ -771,7 +800,11 @@ class TestSeededRegistry:
             if record.record_id in {
                 "evr-20261108-raid-builtin-heuristic",
                 "evr-20261110-opai-bench-builtin-heuristic",
+                "evr-20261116-beemo-builtin-heuristic",
+                "evr-20261116-detectrl-x-builtin-heuristic",
+                "evr-20261116-ghostwriter-builtin-heuristic",
                 "evr-20261116-mage-builtin-heuristic",
+                "evr-20261116-opai-bench-builtin-heuristic",
                 "evr-20261116-raid-builtin-heuristic",
             }:
                 assert record.status == "supported"

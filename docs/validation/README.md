@@ -262,6 +262,11 @@ max 1923 (600 evaluated rows).
 
 ### Not upgraded in W8 (and why)
 
+> Superseded by the follow-up below: the amendment was approved,
+> worker B's DetectRL-X artifact landed and was reproduced AGREE,
+> and all four corpora now have `supported` records. This section
+> records worker D's position at hand-back, before those events.
+
 - **Beemo, OpAI-Bench, GhostWriter:** pooled numeric gates pass and
   worker E reproduces AGREE, but their final-test sets overlap prior
   U1 samples by content hash (Beemo 180/3933 rows; OpAI-Bench
@@ -276,20 +281,97 @@ max 1923 (600 evaluated rows).
   includes 2 duplicate texts (pooled evaluation counts each text
   once). Threshold UNCHANGED (top human 0.6740).
 
+### W8 follow-up: amendment approved, aggregation built, four more records (worker F)
+
+The §7.1.4 amendment proposed above was APPROVED by the coordinator
+(`hidden_files/audit-w8-s714-amendment-decision.md`, 2026-11-16): a
+frozen, pre-registered partition whose final evaluation was
+inaccessible to tuning qualifies even with U1 content-hash overlap,
+provided the overlap is measured and disclosed, no row was selected
+or excluded by score, and the pooled slice meets n≥100 and Wilson
+upper ≤0.05. Four more `supported` records were appended by worker F
+(registry 11 → 15 records; the eleven existing records are untouched,
+byte-identical). Same detector (0.1.0), same CI method (bootstrap,
+1000 resamples, seed 20261116 for AUROC and TPR@FPR; Wilson 95% CIs
+for native FPR/TPR). `next_revalidation_due` is 2027-02-14 for all
+four (run date + 90 days).
+
+| record | n_human / n_ai | AUROC [95% CI] | TPR@1% FPR [95% CI] | TPR@5% FPR [95% CI] | native FPR [Wilson 95% CI] | native TPR [Wilson 95% CI] | abstention |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `evr-20261116-beemo-builtin-heuristic` | 874 / 3059 | 0.4027 [0.3825, 0.4245] | 0.0065 [0.0026, 0.0107] | 0.0366 [0.022, 0.0492] | 0.0000 [0.0000, 0.0044] | 0.0000 [0.0000, 0.0013] | 0.4831 |
+| `evr-20261116-detectrl-x-builtin-heuristic` | 2400 / 2400 | 0.5994 [0.5833, 0.6151] | 0.0112 [0.006, 0.0201] | 0.0917 [0.0686, 0.1136] | 0.0000 [0.0000, 0.0016] | 0.0000 [0.0000, 0.0016] | 0.161 |
+| `evr-20261116-ghostwriter-builtin-heuristic` | 354 / 507 | 0.4468 [0.4074, 0.4882] | 0.0 [0.0, 0.0] | 0.0059 [0.0, 0.024] | 0.0000 [0.0000, 0.0107] | 0.0000 [0.0000, 0.0075] | 0.4553 |
+| `evr-20261116-opai-bench-builtin-heuristic` | 146 / 147 | 0.412 [0.3482, 0.4746] | 0.0068 [0.0, 0.0204] | 0.0136 [0.0, 0.0329] | 0.0000 [0.0000, 0.0256] | 0.0000 [0.0000, 0.0255] | 0.4403 |
+
+Length (whitespace word count, final-test labelled rows): Beemo min 1
+/ median 95 / max 1076 (3933 rows); DetectRL-X min 1 / median 323 /
+max 4642 (4800 rows); GhostWriter min 1 / median 450 / max 21771
+(861 labelled rows); OpAI-Bench min 140 / median 372 / max 1291
+(293 labelled rows).
+
+- Beemo (`evr-20261116-beemo-builtin-heuristic`, supersedes
+  `evr-20261106-beemo-builtin-heuristic`): full train split (2187
+  prompts × 9 variants; 19,683 normalised rows). U1 overlap
+  180/3933 final-test rows (40 human / 140 AI), re-verified exactly
+  against worker D's count. AUROC below chance (0.4027); native TPR
+  0/3059. Closed QA final-test is n_human=82 and cannot be expanded
+  (full split already used). Identical texts appear under multiple
+  kinds with different labels (25 text hashes in 2–3 final-test
+  entries each).
+- DetectRL-X (`evr-20261116-detectrl-x-builtin-heuristic`, supersedes
+  `evr-20261107-detectrl-x-builtin-heuristic`): expanded stratified
+  sample of `Binary/binary_general_open.json` (12,000 source rows →
+  24,000 normalised rows). U1 overlap 152/4800 final-test rows
+  (76 human / 76 AI) — newly measured in the follow-up (worker D
+  never measured it; the DetectRL-X artifact was not integrated
+  then). Ranking below chance for arabic (0.4086) and russian
+  (0.4291); native TPR 0/2400. Single-file slice only; whitespace
+  words do not control length for chinese rows.
+- GhostWriter (`evr-20261116-ghostwriter-builtin-heuristic`,
+  supersedes `evr-20261107-ghostwriter-builtin-heuristic`): pooled,
+  document-grouped, partitioned final-test (n=861 labelled). U1
+  overlap 262/1263 final-test rows (180 labelled: 62 human / 118
+  AI), re-verified exactly against worker D's count. Heterogeneity
+  is the story (bundestag AUROC 0.8732 vs student essays 0.2059);
+  gutenberg human FPR unmeasured on final-test (0 human rows).
+  Threshold UNCHANGED (top human 0.6740 is the known U1 row;
+  zero-FPR survives −0.02 on fresh rows alone). The superseded
+  record's n_ai=210 includes 2 duplicate AI texts; this run counts
+  each text once.
+- OpAI-Bench (`evr-20261116-opai-bench-builtin-heuristic`, supersedes
+  `evr-20261110-opai-bench-builtin-heuristic`, chain 20261106 →
+  20261110 → 20261116): pooled, document-grouped, partitioned
+  final-test (n=293 labelled). U1 overlap 271/1283 final-test rows
+  (66 labelled: 36 human / 30 AI), re-verified exactly against
+  worker D's count. This resolves the n=56 bottleneck. The Wilson
+  upper is wider than the superseded record's (0.0256 vs 0.0173) —
+  the price of a real holdout. AUROC below chance (0.412); coverage
+  uneven (news 0.8235 vs reports 0.1892).
+
+The worst-slice aggregation artifact
+(`docs/evidence/runs/EV-20261116-human-fpr.json`, built by
+`scripts/build_w8_human_fpr_run_artifact.py`) now exists and is
+pinned in the evidence registry: 90 document slices with n_human > 0
+across the 6 corpora (28 pass the FPR bar) plus 43 unmeasured slices
+(n_human = 0). It supersedes `EV-20261110-human-fpr` as the
+governing worst-slice aggregation.
+
 ### Report-card lead: STILL unknown after W8
 
-The lead stays `unknown` for two independent reasons: (1) finer
-required slices fail — worst is MAGE testbed:dialogsum, 0/3, Wilson
-upper 0.5615 (all finer slices have k_fp = 0; the worst is by
-small-n Wilson bound, not observed false positives); (2) the
-Beemo/OpAI-Bench/GhostWriter holdouts are not disjoint from prior
-samples (§7.1.4). The pooled-only counterfactual would flip (worst
-pooled slice RAID, 0.0308) — D does not flip on that basis: the
-predeclaration requires the worst REQUIRED slice. The W8 worst-slice
-aggregation artifact (`EV-20261116-human-fpr.json`) is held pending
-integration of worker B's Beemo artifact; until it lands, the lead
-is governed by the pre-W8 aggregation (`EV-20261110-human-fpr`,
-worst 0.064196, n = 56).
+The lead stays `unknown`. The finer-required-slices reason alone
+suffices: worst is MAGE testbed:dialogsum, 0/3, Wilson upper 0.5615
+(all finer slices have k_fp = 0; the worst is by small-n Wilson
+bound, not observed false positives). The pooled-only counterfactual
+would flip (worst pooled slice RAID, 0.0308) — D does not flip on
+that basis: the predeclaration requires the worst REQUIRED slice.
+Worker D's second blocking reason (the Beemo/OpAI-Bench/GhostWriter
+holdouts are not disjoint from prior samples, §7.1.4) is closed for
+the records by the approved amendment above; it no longer blocks
+anything, and the lead decision is unchanged either way. The lead is
+now governed by the W8 aggregation (`EV-20261116-human-fpr`,
+worst 0.5615, MAGE testbed:dialogsum, n = 3); the pre-W8
+aggregation (`EV-20261110-human-fpr`, worst 0.064196, n = 56)
+remains pinned in the evidence registry as unqualified evidence.
 
 ### PAN 2025: explicit gap
 
