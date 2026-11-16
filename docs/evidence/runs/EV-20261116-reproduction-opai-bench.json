@@ -1,0 +1,3039 @@
+{
+  "schema": "textforensics.run-artifact/v1",
+  "evidence_record_id": "EV-20261116-reproduction-opai-bench",
+  "kind": "command",
+  "command": "python scripts/reproduce_w8c_opai.py",
+  "environment": {
+    "platform": "Linux",
+    "python": "3.12.3",
+    "extras": "aiohappyeyeballs==2.7.1\naiohttp==3.14.5\naiosignal==1.4.0\nannotated-doc==0.0.5\nannotated-types==0.8.0\nanybadge==1.16.0\nanyio==4.16.0\nattrs==26.1.0\nbandit==1.9.4\nboolean.py==5.0\nbuild==1.6.1\nCacheControl==0.14.4\ncertifi==2026.10.23\ncffi==2.1.1\ncfgv==3.5.0\ncharset-normalizer==3.5.2\nclick==8.5.0\ncosmic_ray==8.7.0\ncoverage==7.17.2\ncryptography==50.0.2\ncyclonedx-python-lib==11.12.0\ndecorator==5.3.1\ndefusedxml==0.7.1\ndistlib==0.4.4\ndocutils==0.23\nexit-codes==1.3.0\nfastapi==0.162.0\nfilelock==4.2.9\nfrozenlist==1.8.0\ngitdb==4.0.12\nGitPython==3.2.1\nh11==0.16.0\nhttpcore==1.0.9\nhttpcore2==2.16.0\nhttpx==0.28.1\nhttpx2==2.16.0\nhypothesis==6.170.15\nid==1.6.1\nidentify==2.6.20\nidna==3.20\niniconfig==2.3.1\njaraco.classes==3.4.0\njaraco.context==6.1.2\njaraco.functools==4.6.0\njeepney==0.9.0\nJinja2==3.1.6\njsonschema==4.26.0\njsonschema-specifications==2025.9.1\nkeyring==25.7.0\nlicense-expression==30.4.4\nmarkdown-it-py==4.2.0\nMarkupSafe==3.0.4\nmcp==2.3.0\nmcp-types==2.3.0\nmdurl==0.1.2\nmore-itertools==11.2.1\nmsgpack==1.2.4\nmultidict==7.2.1\nnh3==0.3.7\nnodeenv==1.12.0\nopentelemetry-api==1.45.2\nopentelemetry-exporter-prometheus==0.66b2\nopentelemetry-sdk==1.45.2\nopentelemetry-semantic-conventions==0.66b2\npackageurl-python==0.17.6\npackaging==26.3\nparso==0.8.7\npip-requirements-parser==32.0.1\npip_api==0.0.35\npip_audit==2.10.1\nplatformdirs==4.14.5\npluggy==1.7.0\npre-commit==3.8.0\nprometheus_client==0.26.0\npropcache==0.5.4\npsutil==7.2.2\npy-cpuinfo==9.0.0\npy-cpuinfo2==10.1.1\npy-serializable==2.1.0\npy-spy==0.4.3\npycparser==3.12\npydantic==2.14.3\npydantic_core==2.50.4\nPygments==2.21.0\nPyJWT==2.15.1\npyparsing==3.3.3\npyproject_hooks==1.3.3\npytest==9.2.0\npytest-asyncio==1.4.1.post1\npytest-benchmark==5.3.1\npytest-cov==5.0.0\npytest-timeout==2.4.0\npython-discovery==1.9.4\npython-multipart==0.0.33\nPyYAML==6.0.3\nreadme_renderer==46.0\nreferencing==0.37.0\nrequests==2.34.2\nrequests-toolbelt==1.0.0\nrfc3986==2.0.0\nrich==15.0.0\nrpds-py==2026.9.1\nruff==0.17.4\nSecretStorage==3.5.0\nsetuptools==84.2.1\nshellingham==1.5.4\nsmmap==5.0.3\nsortedcontainers==2.4.0\nSQLAlchemy==2.1.8\nsse-starlette==3.6.0\nstarlette==1.10.0\nstevedore==5.9.1\n-e git+https://github.com/strmt7/TextForensics.git@17b89511fb29fe2f3d0452918037132394d90184#egg=textforensics\ntoml==0.10.2\ntomli==2.5.0\ntomli_w==1.2.0\ntruststore==0.10.5\ntwine==6.2.0\ntyper==0.28.0\ntyping-inspection==0.4.5\ntyping_extensions==4.16.0\nurllib3==2.8.0\nuvicorn==0.54.0\nvirtualenv==21.15.5\nwebsockets==12.0\nyarl==1.25.1\nyattag==1.16.1"
+  },
+  "code_version": "d1b0b3eae2e01addfec5d51e59d0da42d9eacf6a",
+  "run_date": "2026-11-16",
+  "results": {
+    "reproduces": "EV-20261116-dataset-opai-bench",
+    "reproduces_artifact_sha256": "5f64d9ec496decb3a04dc9918cf4197e5949a70fe49eff6d3ebb15d4d6ee929a",
+    "reproduces_manifest": "EV-20261116-dataset-opai-bench-partitions.json",
+    "reproduces_manifest_sha256": "9a6cf8edc1895b29750552b8f640997e6efca020fe5c9d3adbff6e124cf15d8d",
+    "detector": "textforensics/builtin-heuristic",
+    "detector_family": "stylometric-heuristic",
+    "detector_version": "0.1.0",
+    "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+    "method": "Independent reproduction: cache files read directly as JSONL; partition re-derived row by row from sha256(group_key) mod 10; detector re-run on the 293 final-test labelled rows; Wilson/AUROC (pairwise Mann-Whitney)/AUPRC/TPR@FPR/cluster-bootstrap recomputed from scratch with independent implementations in this script. No tuning on the final holdout.",
+    "identity_checks": [
+      {
+        "check": "cache sha256 train.jsonl",
+        "passed": true,
+        "detail": "72bcfe9f0948... vs manifest 72bcfe9f0948..."
+      },
+      {
+        "check": "cache row count train.jsonl",
+        "passed": true,
+        "detail": "500 vs 500"
+      },
+      {
+        "check": "cache sha256 train-2000.jsonl",
+        "passed": true,
+        "detail": "d013ce6f42aa... vs manifest d013ce6f42aa..."
+      },
+      {
+        "check": "cache row count train-2000.jsonl",
+        "passed": true,
+        "detail": "1996 vs 1996"
+      },
+      {
+        "check": "manifest rows all resolve to a cache row",
+        "passed": true,
+        "detail": "2496 manifest rows"
+      },
+      {
+        "check": "manifest label matches cache/rule for all rows",
+        "passed": true,
+        "detail": "0 mismatches / 2496 rows"
+      },
+      {
+        "check": "manifest content_hash matches cache/rule for all rows",
+        "passed": true,
+        "detail": "0 mismatches / 2496 rows"
+      },
+      {
+        "check": "manifest group_key matches cache/rule for all rows",
+        "passed": true,
+        "detail": "0 mismatches / 2496 rows"
+      },
+      {
+        "check": "manifest slice matches cache/rule for all rows",
+        "passed": true,
+        "detail": "0 mismatches / 2496 rows"
+      },
+      {
+        "check": "manifest partition matches cache/rule for all rows",
+        "passed": true,
+        "detail": "0 mismatches / 2496 rows"
+      },
+      {
+        "check": "manifest cache_file matches cache/rule for all rows",
+        "passed": true,
+        "detail": "0 mismatches / 2496 rows"
+      },
+      {
+        "check": "partition counts match manifest counts",
+        "passed": true,
+        "detail": "{\"dev\": {\"n_ai\": 50, \"n_human\": 58, \"n_unlabelled\": 372, \"rows\": 480}, \"final-test\": {\"n_ai\": 147, \"n_human\": 146, \"n_unlabelled\": 990, \"rows\": 1283}, \"fit\": {\"n_ai\": 81, \"n_human\": 70, \"n_unlabelled\": 582, \"rows\": 733}}"
+      },
+      {
+        "check": "no document group spans two partitions",
+        "passed": true,
+        "detail": "2216 groups, 0 spanning"
+      },
+      {
+        "check": "89 document groups occur in both pooled samples (as stated)",
+        "passed": true,
+        "detail": "intersection=89, union=2216"
+      },
+      {
+        "check": "pooled samples content-disjoint (U1 vs train-2000)",
+        "passed": true,
+        "detail": "0 shared hashes"
+      },
+      {
+        "check": "final-test disjoint from dev split by content hash",
+        "passed": true,
+        "detail": "0 shared hashes"
+      },
+      {
+        "check": "U1 registry counts reproduce (56 human / 55 AI / 55 abstentions)",
+        "passed": true,
+        "detail": "{\"n_human\": 56, \"n_ai\": 55, \"abstentions\": 55}"
+      },
+      {
+        "check": "final-test labelled count is 293 (146 human / 147 AI)",
+        "passed": true,
+        "detail": "n=293"
+      }
+    ],
+    "u1_registry_reproduction": {
+      "n_human": 56,
+      "n_ai": 55,
+      "abstentions": 55
+    },
+    "partition_counts": {
+      "fit": {
+        "rows": 733,
+        "n_human": 70,
+        "n_ai": 81,
+        "n_unlabelled": 582
+      },
+      "final-test": {
+        "rows": 1283,
+        "n_human": 146,
+        "n_ai": 147,
+        "n_unlabelled": 990
+      },
+      "dev": {
+        "rows": 480,
+        "n_human": 58,
+        "n_ai": 50,
+        "n_unlabelled": 372
+      }
+    },
+    "group_count": 2216,
+    "groups_in_both_pooled_samples": 89,
+    "groups_spanning_partitions": {},
+    "evaluation": {
+      "slices": {
+        "abstracts": {
+          "slice_id": "opai-bench-abstracts",
+          "n_human": 38,
+          "n_ai": 37,
+          "n_human_groups": 38,
+          "n_ai_groups": 37,
+          "fpr_native": {
+            "k": 0,
+            "n": 38,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0918
+          },
+          "tpr_native": {
+            "k": 0,
+            "n": 37,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0941
+          },
+          "coverage": 0.6,
+          "abstention_rate": 0.4,
+          "abstentions": 30,
+          "score_by_label": {
+            "human": {
+              "n": 38,
+              "mean": 0.3046,
+              "median": 0.2954,
+              "min": 0.1831,
+              "max": 0.4415
+            },
+            "machine": {
+              "n": 37,
+              "mean": 0.3102,
+              "median": 0.3116,
+              "min": 0.2085,
+              "max": 0.3898
+            }
+          },
+          "auroc": {
+            "value": 0.5381,
+            "ci_lower": 0.415,
+            "ci_upper": 0.6541,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "auprc": {
+            "value": 0.5015,
+            "ci_lower": 0.3927,
+            "ci_upper": 0.6391,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "tpr_at_1pct_fpr": {
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "tpr_at_5pct_fpr": {
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.1304,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          }
+        },
+        "essays": {
+          "slice_id": "opai-bench-essays",
+          "n_human": 37,
+          "n_ai": 39,
+          "n_human_groups": 37,
+          "n_ai_groups": 35,
+          "fpr_native": {
+            "k": 0,
+            "n": 37,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0941
+          },
+          "tpr_native": {
+            "k": 0,
+            "n": 39,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0897
+          },
+          "coverage": 0.6447,
+          "abstention_rate": 0.3553,
+          "abstentions": 27,
+          "score_by_label": {
+            "human": {
+              "n": 37,
+              "mean": 0.3294,
+              "median": 0.3246,
+              "min": 0.1618,
+              "max": 0.625
+            },
+            "machine": {
+              "n": 39,
+              "mean": 0.2594,
+              "median": 0.2709,
+              "min": 0.0817,
+              "max": 0.4277
+            }
+          },
+          "auroc": {
+            "value": 0.2897,
+            "ci_lower": 0.167,
+            "ci_upper": 0.4261,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "auprc": {
+            "value": 0.3909,
+            "ci_lower": 0.2941,
+            "ci_upper": 0.5137,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "tpr_at_1pct_fpr": {
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "tpr_at_5pct_fpr": {
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          }
+        },
+        "generator-gemini-2.5-flash": {
+          "slice_id": "opai-bench-generator-gemini-2.5-flash",
+          "n_human": 146,
+          "n_ai": 75,
+          "n_human_groups": 146,
+          "n_ai_groups": 75,
+          "fpr_native": {
+            "k": 0,
+            "n": 146,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0256
+          },
+          "tpr_native": {
+            "k": 0,
+            "n": 75,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0487
+          },
+          "coverage": 0.552,
+          "abstention_rate": 0.448,
+          "abstentions": 99,
+          "score_by_label": {
+            "human": {
+              "n": 146,
+              "mean": 0.3206,
+              "median": 0.3181,
+              "min": 0.132,
+              "max": 0.625
+            },
+            "machine": {
+              "n": 75,
+              "mean": 0.2881,
+              "median": 0.2891,
+              "min": 0.1247,
+              "max": 0.5431
+            }
+          },
+          "auroc": {
+            "value": 0.3968,
+            "ci_lower": 0.319,
+            "ci_upper": 0.4737,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "auprc": {
+            "value": 0.2802,
+            "ci_lower": 0.22,
+            "ci_upper": 0.3525,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "tpr_at_1pct_fpr": {
+            "value": 0.0133,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0411,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "tpr_at_5pct_fpr": {
+            "value": 0.0133,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0465,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          }
+        },
+        "generator-gpt-5.4": {
+          "slice_id": "opai-bench-generator-gpt-5.4",
+          "n_human": 146,
+          "n_ai": 32,
+          "n_human_groups": 146,
+          "n_ai_groups": 32,
+          "fpr_native": {
+            "k": 0,
+            "n": 146,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0256
+          },
+          "tpr_native": {
+            "k": 0,
+            "n": 32,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.1072
+          },
+          "coverage": 0.5056,
+          "abstention_rate": 0.4944,
+          "abstentions": 88,
+          "score_by_label": {
+            "human": {
+              "n": 146,
+              "mean": 0.3206,
+              "median": 0.3181,
+              "min": 0.132,
+              "max": 0.625
+            },
+            "machine": {
+              "n": 32,
+              "mean": 0.312,
+              "median": 0.3134,
+              "min": 0.1645,
+              "max": 0.4686
+            }
+          },
+          "auroc": {
+            "value": 0.4723,
+            "ci_lower": 0.372,
+            "ci_upper": 0.5679,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "auprc": {
+            "value": 0.1643,
+            "ci_lower": 0.1113,
+            "ci_upper": 0.23,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "tpr_at_1pct_fpr": {
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "tpr_at_5pct_fpr": {
+            "value": 0.0312,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0952,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          }
+        },
+        "generator-gpt-5.4-nano": {
+          "slice_id": "opai-bench-generator-gpt-5.4-nano",
+          "n_human": 146,
+          "n_ai": 40,
+          "n_human_groups": 146,
+          "n_ai_groups": 40,
+          "fpr_native": {
+            "k": 0,
+            "n": 146,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0256
+          },
+          "tpr_native": {
+            "k": 0,
+            "n": 40,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0876
+          },
+          "coverage": 0.5269,
+          "abstention_rate": 0.4731,
+          "abstentions": 88,
+          "score_by_label": {
+            "human": {
+              "n": 146,
+              "mean": 0.3206,
+              "median": 0.3181,
+              "min": 0.132,
+              "max": 0.625
+            },
+            "machine": {
+              "n": 40,
+              "mean": 0.2809,
+              "median": 0.3035,
+              "min": 0.0817,
+              "max": 0.4439
+            }
+          },
+          "auroc": {
+            "value": 0.3922,
+            "ci_lower": 0.2995,
+            "ci_upper": 0.49,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "auprc": {
+            "value": 0.1718,
+            "ci_lower": 0.1238,
+            "ci_upper": 0.2304,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "tpr_at_1pct_fpr": {
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "tpr_at_5pct_fpr": {
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0217,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          }
+        },
+        "news": {
+          "slice_id": "opai-bench-news",
+          "n_human": 34,
+          "n_ai": 34,
+          "n_human_groups": 34,
+          "n_ai_groups": 34,
+          "fpr_native": {
+            "k": 0,
+            "n": 34,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.1015
+          },
+          "tpr_native": {
+            "k": 0,
+            "n": 34,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.1015
+          },
+          "coverage": 0.8235,
+          "abstention_rate": 0.1765,
+          "abstentions": 12,
+          "score_by_label": {
+            "human": {
+              "n": 34,
+              "mean": 0.2578,
+              "median": 0.2465,
+              "min": 0.132,
+              "max": 0.4445
+            },
+            "machine": {
+              "n": 34,
+              "mean": 0.2388,
+              "median": 0.2379,
+              "min": 0.0983,
+              "max": 0.3646
+            }
+          },
+          "auroc": {
+            "value": 0.4252,
+            "ci_lower": 0.2922,
+            "ci_upper": 0.5619,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "auprc": {
+            "value": 0.4597,
+            "ci_lower": 0.3326,
+            "ci_upper": 0.6096,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "tpr_at_1pct_fpr": {
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0588,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "tpr_at_5pct_fpr": {
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.15,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          }
+        },
+        "pooled": {
+          "slice_id": "opai-bench-pooled",
+          "n_human": 146,
+          "n_ai": 147,
+          "n_human_groups": 146,
+          "n_ai_groups": 142,
+          "fpr_native": {
+            "k": 0,
+            "n": 146,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0256
+          },
+          "tpr_native": {
+            "k": 0,
+            "n": 147,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0255
+          },
+          "coverage": 0.5597,
+          "abstention_rate": 0.4403,
+          "abstentions": 129,
+          "score_by_label": {
+            "human": {
+              "n": 146,
+              "mean": 0.3206,
+              "median": 0.3181,
+              "min": 0.132,
+              "max": 0.625
+            },
+            "machine": {
+              "n": 147,
+              "mean": 0.2913,
+              "median": 0.2961,
+              "min": 0.0817,
+              "max": 0.5431
+            }
+          },
+          "auroc": {
+            "value": 0.412,
+            "ci_lower": 0.3482,
+            "ci_upper": 0.4746,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "auprc": {
+            "value": 0.4294,
+            "ci_lower": 0.3695,
+            "ci_upper": 0.4959,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "tpr_at_1pct_fpr": {
+            "value": 0.0068,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0204,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "tpr_at_5pct_fpr": {
+            "value": 0.0136,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0329,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          }
+        },
+        "reports": {
+          "slice_id": "opai-bench-reports",
+          "n_human": 37,
+          "n_ai": 37,
+          "n_human_groups": 37,
+          "n_ai_groups": 36,
+          "fpr_native": {
+            "k": 0,
+            "n": 37,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0941
+          },
+          "tpr_native": {
+            "k": 0,
+            "n": 37,
+            "value": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0941
+          },
+          "coverage": 0.1892,
+          "abstention_rate": 0.8108,
+          "abstentions": 60,
+          "score_by_label": {
+            "human": {
+              "n": 37,
+              "mean": 0.3859,
+              "median": 0.3967,
+              "min": 0.2207,
+              "max": 0.5037
+            },
+            "machine": {
+              "n": 37,
+              "mean": 0.3545,
+              "median": 0.3545,
+              "min": 0.205,
+              "max": 0.5431
+            }
+          },
+          "auroc": {
+            "value": 0.3397,
+            "ci_lower": 0.2166,
+            "ci_upper": 0.462,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "auprc": {
+            "value": 0.4282,
+            "ci_lower": 0.3095,
+            "ci_upper": 0.5585,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "tpr_at_1pct_fpr": {
+            "value": 0.027,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0909,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          },
+          "tpr_at_5pct_fpr": {
+            "value": 0.027,
+            "ci_lower": 0.0,
+            "ci_upper": 0.1111,
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0
+          }
+        }
+      },
+      "worst_slice": {
+        "slice_id": "news",
+        "fpr_wilson_upper": 0.1015,
+        "n_human": 34
+      },
+      "n_final_test_labelled": 293
+    },
+    "comparison": [
+      {
+        "field": "evaluation.n_final_test_labelled",
+        "reproduction": 293,
+        "worker_c": 293,
+        "agree": true
+      },
+      {
+        "field": "evaluation.worst_slice",
+        "reproduction": {
+          "slice_id": "news",
+          "fpr_wilson_upper": 0.1015,
+          "n_human": 34
+        },
+        "worker_c": {
+          "fpr_wilson_upper": 0.1015,
+          "n_human": 34,
+          "slice_id": "news"
+        },
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.slice_id",
+        "reproduction": "opai-bench-abstracts",
+        "worker_c": "opai-bench-abstracts",
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.n_human",
+        "reproduction": 38,
+        "worker_c": 38,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.n_ai",
+        "reproduction": 37,
+        "worker_c": 37,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.n_human_groups",
+        "reproduction": 38,
+        "worker_c": 38,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.n_ai_groups",
+        "reproduction": 37,
+        "worker_c": 37,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.coverage",
+        "reproduction": 0.6,
+        "worker_c": 0.6,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.abstention_rate",
+        "reproduction": 0.4,
+        "worker_c": 0.4,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.abstentions",
+        "reproduction": 30,
+        "worker_c": 30,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.fpr_native.k",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.fpr_native.n",
+        "reproduction": 38,
+        "worker_c": 38,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.fpr_native.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.fpr_native.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.fpr_native.ci_upper",
+        "reproduction": 0.0918,
+        "worker_c": 0.0918,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.tpr_native.k",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.tpr_native.n",
+        "reproduction": 37,
+        "worker_c": 37,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.tpr_native.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.tpr_native.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.tpr_native.ci_upper",
+        "reproduction": 0.0941,
+        "worker_c": 0.0941,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.score_by_label.human.n",
+        "reproduction": 38,
+        "worker_c": 38,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.score_by_label.human.mean",
+        "reproduction": 0.3046,
+        "worker_c": 0.3046,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.score_by_label.human.median",
+        "reproduction": 0.2954,
+        "worker_c": 0.2954,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.score_by_label.human.min",
+        "reproduction": 0.1831,
+        "worker_c": 0.1831,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.score_by_label.human.max",
+        "reproduction": 0.4415,
+        "worker_c": 0.4415,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.score_by_label.machine.n",
+        "reproduction": 37,
+        "worker_c": 37,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.score_by_label.machine.mean",
+        "reproduction": 0.3102,
+        "worker_c": 0.3102,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.score_by_label.machine.median",
+        "reproduction": 0.3116,
+        "worker_c": 0.3116,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.score_by_label.machine.min",
+        "reproduction": 0.2085,
+        "worker_c": 0.2085,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.score_by_label.machine.max",
+        "reproduction": 0.3898,
+        "worker_c": 0.3898,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.auroc.value",
+        "reproduction": 0.5381,
+        "worker_c": 0.5381,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.auroc.ci_lower",
+        "reproduction": 0.415,
+        "worker_c": 0.415,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.auroc.ci_upper",
+        "reproduction": 0.6541,
+        "worker_c": 0.6541,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.auroc.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.auroc.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.auprc.value",
+        "reproduction": 0.5015,
+        "worker_c": 0.5015,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.auprc.ci_lower",
+        "reproduction": 0.3927,
+        "worker_c": 0.3927,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.auprc.ci_upper",
+        "reproduction": 0.6391,
+        "worker_c": 0.6391,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.auprc.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.auprc.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.tpr_at_1pct_fpr.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.tpr_at_1pct_fpr.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.tpr_at_1pct_fpr.ci_upper",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.tpr_at_1pct_fpr.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.tpr_at_1pct_fpr.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.tpr_at_5pct_fpr.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.tpr_at_5pct_fpr.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.tpr_at_5pct_fpr.ci_upper",
+        "reproduction": 0.1304,
+        "worker_c": 0.1304,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.tpr_at_5pct_fpr.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.abstracts.tpr_at_5pct_fpr.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.slice_id",
+        "reproduction": "opai-bench-essays",
+        "worker_c": "opai-bench-essays",
+        "agree": true
+      },
+      {
+        "field": "slices.essays.n_human",
+        "reproduction": 37,
+        "worker_c": 37,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.n_ai",
+        "reproduction": 39,
+        "worker_c": 39,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.n_human_groups",
+        "reproduction": 37,
+        "worker_c": 37,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.n_ai_groups",
+        "reproduction": 35,
+        "worker_c": 35,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.coverage",
+        "reproduction": 0.6447,
+        "worker_c": 0.6447,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.abstention_rate",
+        "reproduction": 0.3553,
+        "worker_c": 0.3553,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.abstentions",
+        "reproduction": 27,
+        "worker_c": 27,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.fpr_native.k",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.fpr_native.n",
+        "reproduction": 37,
+        "worker_c": 37,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.fpr_native.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.fpr_native.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.fpr_native.ci_upper",
+        "reproduction": 0.0941,
+        "worker_c": 0.0941,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.tpr_native.k",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.tpr_native.n",
+        "reproduction": 39,
+        "worker_c": 39,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.tpr_native.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.tpr_native.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.tpr_native.ci_upper",
+        "reproduction": 0.0897,
+        "worker_c": 0.0897,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.score_by_label.human.n",
+        "reproduction": 37,
+        "worker_c": 37,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.score_by_label.human.mean",
+        "reproduction": 0.3294,
+        "worker_c": 0.3294,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.score_by_label.human.median",
+        "reproduction": 0.3246,
+        "worker_c": 0.3246,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.score_by_label.human.min",
+        "reproduction": 0.1618,
+        "worker_c": 0.1618,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.score_by_label.human.max",
+        "reproduction": 0.625,
+        "worker_c": 0.625,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.score_by_label.machine.n",
+        "reproduction": 39,
+        "worker_c": 39,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.score_by_label.machine.mean",
+        "reproduction": 0.2594,
+        "worker_c": 0.2594,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.score_by_label.machine.median",
+        "reproduction": 0.2709,
+        "worker_c": 0.2709,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.score_by_label.machine.min",
+        "reproduction": 0.0817,
+        "worker_c": 0.0817,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.score_by_label.machine.max",
+        "reproduction": 0.4277,
+        "worker_c": 0.4277,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.auroc.value",
+        "reproduction": 0.2897,
+        "worker_c": 0.2897,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.auroc.ci_lower",
+        "reproduction": 0.167,
+        "worker_c": 0.167,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.auroc.ci_upper",
+        "reproduction": 0.4261,
+        "worker_c": 0.4261,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.auroc.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.auroc.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.auprc.value",
+        "reproduction": 0.3909,
+        "worker_c": 0.3909,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.auprc.ci_lower",
+        "reproduction": 0.2941,
+        "worker_c": 0.2941,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.auprc.ci_upper",
+        "reproduction": 0.5137,
+        "worker_c": 0.5137,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.auprc.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.auprc.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.tpr_at_1pct_fpr.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.tpr_at_1pct_fpr.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.tpr_at_1pct_fpr.ci_upper",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.tpr_at_1pct_fpr.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.tpr_at_1pct_fpr.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.tpr_at_5pct_fpr.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.tpr_at_5pct_fpr.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.tpr_at_5pct_fpr.ci_upper",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.tpr_at_5pct_fpr.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.essays.tpr_at_5pct_fpr.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.slice_id",
+        "reproduction": "opai-bench-generator-gemini-2.5-flash",
+        "worker_c": "opai-bench-generator-gemini-2.5-flash",
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.n_human",
+        "reproduction": 146,
+        "worker_c": 146,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.n_ai",
+        "reproduction": 75,
+        "worker_c": 75,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.n_human_groups",
+        "reproduction": 146,
+        "worker_c": 146,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.n_ai_groups",
+        "reproduction": 75,
+        "worker_c": 75,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.coverage",
+        "reproduction": 0.552,
+        "worker_c": 0.552,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.abstention_rate",
+        "reproduction": 0.448,
+        "worker_c": 0.448,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.abstentions",
+        "reproduction": 99,
+        "worker_c": 99,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.fpr_native.k",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.fpr_native.n",
+        "reproduction": 146,
+        "worker_c": 146,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.fpr_native.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.fpr_native.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.fpr_native.ci_upper",
+        "reproduction": 0.0256,
+        "worker_c": 0.0256,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.tpr_native.k",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.tpr_native.n",
+        "reproduction": 75,
+        "worker_c": 75,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.tpr_native.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.tpr_native.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.tpr_native.ci_upper",
+        "reproduction": 0.0487,
+        "worker_c": 0.0487,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.score_by_label.human.n",
+        "reproduction": 146,
+        "worker_c": 146,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.score_by_label.human.mean",
+        "reproduction": 0.3206,
+        "worker_c": 0.3206,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.score_by_label.human.median",
+        "reproduction": 0.3181,
+        "worker_c": 0.3181,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.score_by_label.human.min",
+        "reproduction": 0.132,
+        "worker_c": 0.132,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.score_by_label.human.max",
+        "reproduction": 0.625,
+        "worker_c": 0.625,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.score_by_label.machine.n",
+        "reproduction": 75,
+        "worker_c": 75,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.score_by_label.machine.mean",
+        "reproduction": 0.2881,
+        "worker_c": 0.2881,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.score_by_label.machine.median",
+        "reproduction": 0.2891,
+        "worker_c": 0.2891,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.score_by_label.machine.min",
+        "reproduction": 0.1247,
+        "worker_c": 0.1247,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.score_by_label.machine.max",
+        "reproduction": 0.5431,
+        "worker_c": 0.5431,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.auroc.value",
+        "reproduction": 0.3968,
+        "worker_c": 0.3968,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.auroc.ci_lower",
+        "reproduction": 0.319,
+        "worker_c": 0.319,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.auroc.ci_upper",
+        "reproduction": 0.4737,
+        "worker_c": 0.4737,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.auroc.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.auroc.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.auprc.value",
+        "reproduction": 0.2802,
+        "worker_c": 0.2802,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.auprc.ci_lower",
+        "reproduction": 0.22,
+        "worker_c": 0.22,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.auprc.ci_upper",
+        "reproduction": 0.3525,
+        "worker_c": 0.3525,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.auprc.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.auprc.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.tpr_at_1pct_fpr.value",
+        "reproduction": 0.0133,
+        "worker_c": 0.0133,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.tpr_at_1pct_fpr.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.tpr_at_1pct_fpr.ci_upper",
+        "reproduction": 0.0411,
+        "worker_c": 0.0411,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.tpr_at_1pct_fpr.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.tpr_at_1pct_fpr.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.tpr_at_5pct_fpr.value",
+        "reproduction": 0.0133,
+        "worker_c": 0.0133,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.tpr_at_5pct_fpr.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.tpr_at_5pct_fpr.ci_upper",
+        "reproduction": 0.0465,
+        "worker_c": 0.0465,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.tpr_at_5pct_fpr.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gemini-2.5-flash.tpr_at_5pct_fpr.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.slice_id",
+        "reproduction": "opai-bench-generator-gpt-5.4",
+        "worker_c": "opai-bench-generator-gpt-5.4",
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.n_human",
+        "reproduction": 146,
+        "worker_c": 146,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.n_ai",
+        "reproduction": 32,
+        "worker_c": 32,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.n_human_groups",
+        "reproduction": 146,
+        "worker_c": 146,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.n_ai_groups",
+        "reproduction": 32,
+        "worker_c": 32,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.coverage",
+        "reproduction": 0.5056,
+        "worker_c": 0.5056,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.abstention_rate",
+        "reproduction": 0.4944,
+        "worker_c": 0.4944,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.abstentions",
+        "reproduction": 88,
+        "worker_c": 88,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.fpr_native.k",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.fpr_native.n",
+        "reproduction": 146,
+        "worker_c": 146,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.fpr_native.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.fpr_native.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.fpr_native.ci_upper",
+        "reproduction": 0.0256,
+        "worker_c": 0.0256,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.tpr_native.k",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.tpr_native.n",
+        "reproduction": 32,
+        "worker_c": 32,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.tpr_native.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.tpr_native.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.tpr_native.ci_upper",
+        "reproduction": 0.1072,
+        "worker_c": 0.1072,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.score_by_label.human.n",
+        "reproduction": 146,
+        "worker_c": 146,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.score_by_label.human.mean",
+        "reproduction": 0.3206,
+        "worker_c": 0.3206,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.score_by_label.human.median",
+        "reproduction": 0.3181,
+        "worker_c": 0.3181,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.score_by_label.human.min",
+        "reproduction": 0.132,
+        "worker_c": 0.132,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.score_by_label.human.max",
+        "reproduction": 0.625,
+        "worker_c": 0.625,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.score_by_label.machine.n",
+        "reproduction": 32,
+        "worker_c": 32,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.score_by_label.machine.mean",
+        "reproduction": 0.312,
+        "worker_c": 0.312,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.score_by_label.machine.median",
+        "reproduction": 0.3134,
+        "worker_c": 0.3134,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.score_by_label.machine.min",
+        "reproduction": 0.1645,
+        "worker_c": 0.1645,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.score_by_label.machine.max",
+        "reproduction": 0.4686,
+        "worker_c": 0.4686,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.auroc.value",
+        "reproduction": 0.4723,
+        "worker_c": 0.4723,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.auroc.ci_lower",
+        "reproduction": 0.372,
+        "worker_c": 0.372,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.auroc.ci_upper",
+        "reproduction": 0.5679,
+        "worker_c": 0.5679,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.auroc.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.auroc.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.auprc.value",
+        "reproduction": 0.1643,
+        "worker_c": 0.1643,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.auprc.ci_lower",
+        "reproduction": 0.1113,
+        "worker_c": 0.1113,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.auprc.ci_upper",
+        "reproduction": 0.23,
+        "worker_c": 0.23,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.auprc.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.auprc.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.tpr_at_1pct_fpr.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.tpr_at_1pct_fpr.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.tpr_at_1pct_fpr.ci_upper",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.tpr_at_1pct_fpr.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.tpr_at_1pct_fpr.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.tpr_at_5pct_fpr.value",
+        "reproduction": 0.0312,
+        "worker_c": 0.0312,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.tpr_at_5pct_fpr.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.tpr_at_5pct_fpr.ci_upper",
+        "reproduction": 0.0952,
+        "worker_c": 0.0952,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.tpr_at_5pct_fpr.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4.tpr_at_5pct_fpr.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.slice_id",
+        "reproduction": "opai-bench-generator-gpt-5.4-nano",
+        "worker_c": "opai-bench-generator-gpt-5.4-nano",
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.n_human",
+        "reproduction": 146,
+        "worker_c": 146,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.n_ai",
+        "reproduction": 40,
+        "worker_c": 40,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.n_human_groups",
+        "reproduction": 146,
+        "worker_c": 146,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.n_ai_groups",
+        "reproduction": 40,
+        "worker_c": 40,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.coverage",
+        "reproduction": 0.5269,
+        "worker_c": 0.5269,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.abstention_rate",
+        "reproduction": 0.4731,
+        "worker_c": 0.4731,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.abstentions",
+        "reproduction": 88,
+        "worker_c": 88,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.fpr_native.k",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.fpr_native.n",
+        "reproduction": 146,
+        "worker_c": 146,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.fpr_native.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.fpr_native.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.fpr_native.ci_upper",
+        "reproduction": 0.0256,
+        "worker_c": 0.0256,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.tpr_native.k",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.tpr_native.n",
+        "reproduction": 40,
+        "worker_c": 40,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.tpr_native.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.tpr_native.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.tpr_native.ci_upper",
+        "reproduction": 0.0876,
+        "worker_c": 0.0876,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.score_by_label.human.n",
+        "reproduction": 146,
+        "worker_c": 146,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.score_by_label.human.mean",
+        "reproduction": 0.3206,
+        "worker_c": 0.3206,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.score_by_label.human.median",
+        "reproduction": 0.3181,
+        "worker_c": 0.3181,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.score_by_label.human.min",
+        "reproduction": 0.132,
+        "worker_c": 0.132,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.score_by_label.human.max",
+        "reproduction": 0.625,
+        "worker_c": 0.625,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.score_by_label.machine.n",
+        "reproduction": 40,
+        "worker_c": 40,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.score_by_label.machine.mean",
+        "reproduction": 0.2809,
+        "worker_c": 0.2809,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.score_by_label.machine.median",
+        "reproduction": 0.3035,
+        "worker_c": 0.3035,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.score_by_label.machine.min",
+        "reproduction": 0.0817,
+        "worker_c": 0.0817,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.score_by_label.machine.max",
+        "reproduction": 0.4439,
+        "worker_c": 0.4439,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.auroc.value",
+        "reproduction": 0.3922,
+        "worker_c": 0.3922,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.auroc.ci_lower",
+        "reproduction": 0.2995,
+        "worker_c": 0.2995,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.auroc.ci_upper",
+        "reproduction": 0.49,
+        "worker_c": 0.49,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.auroc.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.auroc.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.auprc.value",
+        "reproduction": 0.1718,
+        "worker_c": 0.1718,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.auprc.ci_lower",
+        "reproduction": 0.1238,
+        "worker_c": 0.1238,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.auprc.ci_upper",
+        "reproduction": 0.2304,
+        "worker_c": 0.2304,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.auprc.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.auprc.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.tpr_at_1pct_fpr.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.tpr_at_1pct_fpr.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.tpr_at_1pct_fpr.ci_upper",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.tpr_at_1pct_fpr.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.tpr_at_1pct_fpr.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.tpr_at_5pct_fpr.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.tpr_at_5pct_fpr.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.tpr_at_5pct_fpr.ci_upper",
+        "reproduction": 0.0217,
+        "worker_c": 0.0217,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.tpr_at_5pct_fpr.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.generator-gpt-5.4-nano.tpr_at_5pct_fpr.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.news.slice_id",
+        "reproduction": "opai-bench-news",
+        "worker_c": "opai-bench-news",
+        "agree": true
+      },
+      {
+        "field": "slices.news.n_human",
+        "reproduction": 34,
+        "worker_c": 34,
+        "agree": true
+      },
+      {
+        "field": "slices.news.n_ai",
+        "reproduction": 34,
+        "worker_c": 34,
+        "agree": true
+      },
+      {
+        "field": "slices.news.n_human_groups",
+        "reproduction": 34,
+        "worker_c": 34,
+        "agree": true
+      },
+      {
+        "field": "slices.news.n_ai_groups",
+        "reproduction": 34,
+        "worker_c": 34,
+        "agree": true
+      },
+      {
+        "field": "slices.news.coverage",
+        "reproduction": 0.8235,
+        "worker_c": 0.8235,
+        "agree": true
+      },
+      {
+        "field": "slices.news.abstention_rate",
+        "reproduction": 0.1765,
+        "worker_c": 0.1765,
+        "agree": true
+      },
+      {
+        "field": "slices.news.abstentions",
+        "reproduction": 12,
+        "worker_c": 12,
+        "agree": true
+      },
+      {
+        "field": "slices.news.fpr_native.k",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.news.fpr_native.n",
+        "reproduction": 34,
+        "worker_c": 34,
+        "agree": true
+      },
+      {
+        "field": "slices.news.fpr_native.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.news.fpr_native.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.news.fpr_native.ci_upper",
+        "reproduction": 0.1015,
+        "worker_c": 0.1015,
+        "agree": true
+      },
+      {
+        "field": "slices.news.tpr_native.k",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.news.tpr_native.n",
+        "reproduction": 34,
+        "worker_c": 34,
+        "agree": true
+      },
+      {
+        "field": "slices.news.tpr_native.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.news.tpr_native.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.news.tpr_native.ci_upper",
+        "reproduction": 0.1015,
+        "worker_c": 0.1015,
+        "agree": true
+      },
+      {
+        "field": "slices.news.score_by_label.human.n",
+        "reproduction": 34,
+        "worker_c": 34,
+        "agree": true
+      },
+      {
+        "field": "slices.news.score_by_label.human.mean",
+        "reproduction": 0.2578,
+        "worker_c": 0.2578,
+        "agree": true
+      },
+      {
+        "field": "slices.news.score_by_label.human.median",
+        "reproduction": 0.2465,
+        "worker_c": 0.2465,
+        "agree": true
+      },
+      {
+        "field": "slices.news.score_by_label.human.min",
+        "reproduction": 0.132,
+        "worker_c": 0.132,
+        "agree": true
+      },
+      {
+        "field": "slices.news.score_by_label.human.max",
+        "reproduction": 0.4445,
+        "worker_c": 0.4445,
+        "agree": true
+      },
+      {
+        "field": "slices.news.score_by_label.machine.n",
+        "reproduction": 34,
+        "worker_c": 34,
+        "agree": true
+      },
+      {
+        "field": "slices.news.score_by_label.machine.mean",
+        "reproduction": 0.2388,
+        "worker_c": 0.2388,
+        "agree": true
+      },
+      {
+        "field": "slices.news.score_by_label.machine.median",
+        "reproduction": 0.2379,
+        "worker_c": 0.2379,
+        "agree": true
+      },
+      {
+        "field": "slices.news.score_by_label.machine.min",
+        "reproduction": 0.0983,
+        "worker_c": 0.0983,
+        "agree": true
+      },
+      {
+        "field": "slices.news.score_by_label.machine.max",
+        "reproduction": 0.3646,
+        "worker_c": 0.3646,
+        "agree": true
+      },
+      {
+        "field": "slices.news.auroc.value",
+        "reproduction": 0.4252,
+        "worker_c": 0.4252,
+        "agree": true
+      },
+      {
+        "field": "slices.news.auroc.ci_lower",
+        "reproduction": 0.2922,
+        "worker_c": 0.2922,
+        "agree": true
+      },
+      {
+        "field": "slices.news.auroc.ci_upper",
+        "reproduction": 0.5619,
+        "worker_c": 0.5619,
+        "agree": true
+      },
+      {
+        "field": "slices.news.auroc.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.news.auroc.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.news.auprc.value",
+        "reproduction": 0.4597,
+        "worker_c": 0.4597,
+        "agree": true
+      },
+      {
+        "field": "slices.news.auprc.ci_lower",
+        "reproduction": 0.3326,
+        "worker_c": 0.3326,
+        "agree": true
+      },
+      {
+        "field": "slices.news.auprc.ci_upper",
+        "reproduction": 0.6096,
+        "worker_c": 0.6096,
+        "agree": true
+      },
+      {
+        "field": "slices.news.auprc.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.news.auprc.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.news.tpr_at_1pct_fpr.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.news.tpr_at_1pct_fpr.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.news.tpr_at_1pct_fpr.ci_upper",
+        "reproduction": 0.0588,
+        "worker_c": 0.0588,
+        "agree": true
+      },
+      {
+        "field": "slices.news.tpr_at_1pct_fpr.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.news.tpr_at_1pct_fpr.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.news.tpr_at_5pct_fpr.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.news.tpr_at_5pct_fpr.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.news.tpr_at_5pct_fpr.ci_upper",
+        "reproduction": 0.15,
+        "worker_c": 0.15,
+        "agree": true
+      },
+      {
+        "field": "slices.news.tpr_at_5pct_fpr.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.news.tpr_at_5pct_fpr.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.slice_id",
+        "reproduction": "opai-bench-pooled",
+        "worker_c": "opai-bench-pooled",
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.n_human",
+        "reproduction": 146,
+        "worker_c": 146,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.n_ai",
+        "reproduction": 147,
+        "worker_c": 147,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.n_human_groups",
+        "reproduction": 146,
+        "worker_c": 146,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.n_ai_groups",
+        "reproduction": 142,
+        "worker_c": 142,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.coverage",
+        "reproduction": 0.5597,
+        "worker_c": 0.5597,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.abstention_rate",
+        "reproduction": 0.4403,
+        "worker_c": 0.4403,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.abstentions",
+        "reproduction": 129,
+        "worker_c": 129,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.fpr_native.k",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.fpr_native.n",
+        "reproduction": 146,
+        "worker_c": 146,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.fpr_native.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.fpr_native.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.fpr_native.ci_upper",
+        "reproduction": 0.0256,
+        "worker_c": 0.0256,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.tpr_native.k",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.tpr_native.n",
+        "reproduction": 147,
+        "worker_c": 147,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.tpr_native.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.tpr_native.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.tpr_native.ci_upper",
+        "reproduction": 0.0255,
+        "worker_c": 0.0255,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.score_by_label.human.n",
+        "reproduction": 146,
+        "worker_c": 146,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.score_by_label.human.mean",
+        "reproduction": 0.3206,
+        "worker_c": 0.3206,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.score_by_label.human.median",
+        "reproduction": 0.3181,
+        "worker_c": 0.3181,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.score_by_label.human.min",
+        "reproduction": 0.132,
+        "worker_c": 0.132,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.score_by_label.human.max",
+        "reproduction": 0.625,
+        "worker_c": 0.625,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.score_by_label.machine.n",
+        "reproduction": 147,
+        "worker_c": 147,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.score_by_label.machine.mean",
+        "reproduction": 0.2913,
+        "worker_c": 0.2913,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.score_by_label.machine.median",
+        "reproduction": 0.2961,
+        "worker_c": 0.2961,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.score_by_label.machine.min",
+        "reproduction": 0.0817,
+        "worker_c": 0.0817,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.score_by_label.machine.max",
+        "reproduction": 0.5431,
+        "worker_c": 0.5431,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.auroc.value",
+        "reproduction": 0.412,
+        "worker_c": 0.412,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.auroc.ci_lower",
+        "reproduction": 0.3482,
+        "worker_c": 0.3482,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.auroc.ci_upper",
+        "reproduction": 0.4746,
+        "worker_c": 0.4746,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.auroc.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.auroc.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.auprc.value",
+        "reproduction": 0.4294,
+        "worker_c": 0.4294,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.auprc.ci_lower",
+        "reproduction": 0.3695,
+        "worker_c": 0.3695,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.auprc.ci_upper",
+        "reproduction": 0.4959,
+        "worker_c": 0.4959,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.auprc.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.auprc.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.tpr_at_1pct_fpr.value",
+        "reproduction": 0.0068,
+        "worker_c": 0.0068,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.tpr_at_1pct_fpr.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.tpr_at_1pct_fpr.ci_upper",
+        "reproduction": 0.0204,
+        "worker_c": 0.0204,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.tpr_at_1pct_fpr.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.tpr_at_1pct_fpr.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.tpr_at_5pct_fpr.value",
+        "reproduction": 0.0136,
+        "worker_c": 0.0136,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.tpr_at_5pct_fpr.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.tpr_at_5pct_fpr.ci_upper",
+        "reproduction": 0.0329,
+        "worker_c": 0.0329,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.tpr_at_5pct_fpr.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.pooled.tpr_at_5pct_fpr.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.slice_id",
+        "reproduction": "opai-bench-reports",
+        "worker_c": "opai-bench-reports",
+        "agree": true
+      },
+      {
+        "field": "slices.reports.n_human",
+        "reproduction": 37,
+        "worker_c": 37,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.n_ai",
+        "reproduction": 37,
+        "worker_c": 37,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.n_human_groups",
+        "reproduction": 37,
+        "worker_c": 37,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.n_ai_groups",
+        "reproduction": 36,
+        "worker_c": 36,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.coverage",
+        "reproduction": 0.1892,
+        "worker_c": 0.1892,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.abstention_rate",
+        "reproduction": 0.8108,
+        "worker_c": 0.8108,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.abstentions",
+        "reproduction": 60,
+        "worker_c": 60,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.fpr_native.k",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.fpr_native.n",
+        "reproduction": 37,
+        "worker_c": 37,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.fpr_native.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.fpr_native.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.fpr_native.ci_upper",
+        "reproduction": 0.0941,
+        "worker_c": 0.0941,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.tpr_native.k",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.tpr_native.n",
+        "reproduction": 37,
+        "worker_c": 37,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.tpr_native.value",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.tpr_native.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.tpr_native.ci_upper",
+        "reproduction": 0.0941,
+        "worker_c": 0.0941,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.score_by_label.human.n",
+        "reproduction": 37,
+        "worker_c": 37,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.score_by_label.human.mean",
+        "reproduction": 0.3859,
+        "worker_c": 0.3859,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.score_by_label.human.median",
+        "reproduction": 0.3967,
+        "worker_c": 0.3967,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.score_by_label.human.min",
+        "reproduction": 0.2207,
+        "worker_c": 0.2207,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.score_by_label.human.max",
+        "reproduction": 0.5037,
+        "worker_c": 0.5037,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.score_by_label.machine.n",
+        "reproduction": 37,
+        "worker_c": 37,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.score_by_label.machine.mean",
+        "reproduction": 0.3545,
+        "worker_c": 0.3545,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.score_by_label.machine.median",
+        "reproduction": 0.3545,
+        "worker_c": 0.3545,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.score_by_label.machine.min",
+        "reproduction": 0.205,
+        "worker_c": 0.205,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.score_by_label.machine.max",
+        "reproduction": 0.5431,
+        "worker_c": 0.5431,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.auroc.value",
+        "reproduction": 0.3397,
+        "worker_c": 0.3397,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.auroc.ci_lower",
+        "reproduction": 0.2166,
+        "worker_c": 0.2166,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.auroc.ci_upper",
+        "reproduction": 0.462,
+        "worker_c": 0.462,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.auroc.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.auroc.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.auprc.value",
+        "reproduction": 0.4282,
+        "worker_c": 0.4282,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.auprc.ci_lower",
+        "reproduction": 0.3095,
+        "worker_c": 0.3095,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.auprc.ci_upper",
+        "reproduction": 0.5585,
+        "worker_c": 0.5585,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.auprc.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.auprc.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.tpr_at_1pct_fpr.value",
+        "reproduction": 0.027,
+        "worker_c": 0.027,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.tpr_at_1pct_fpr.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.tpr_at_1pct_fpr.ci_upper",
+        "reproduction": 0.0909,
+        "worker_c": 0.0909,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.tpr_at_1pct_fpr.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.tpr_at_1pct_fpr.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.tpr_at_5pct_fpr.value",
+        "reproduction": 0.027,
+        "worker_c": 0.027,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.tpr_at_5pct_fpr.ci_lower",
+        "reproduction": 0.0,
+        "worker_c": 0.0,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.tpr_at_5pct_fpr.ci_upper",
+        "reproduction": 0.1111,
+        "worker_c": 0.1111,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.tpr_at_5pct_fpr.resamples",
+        "reproduction": 1000,
+        "worker_c": 1000,
+        "agree": true
+      },
+      {
+        "field": "slices.reports.tpr_at_5pct_fpr.resamples_skipped_no_class",
+        "reproduction": 0,
+        "worker_c": 0,
+        "agree": true
+      }
+    ],
+    "discrepancies": [],
+    "verdict": "AGREE"
+  },
+  "drops": [
+    {
+      "item": "Worker C fit/dev partitions",
+      "reason": "reproduction scores the final-test holdout only; fit/dev rows are verified for identity and partition correctness but not scored"
+    },
+    {
+      "item": "Partial (mixed-origin) rows",
+      "reason": "rows with 0 < ai_sentence_ratio < 1 carry no binary label; excluded from binary metrics, as in Worker C's artifact"
+    }
+  ],
+  "badge": "available",
+  "detector_version": "0.1.0",
+  "notes": "Independent reproduction of Worker C's OpAI-Bench partitioned evaluation. Every compared field either agrees exactly or is listed in 'discrepancies'. Reproduction verdict: AGREE. Pooled final-test holdout as re-measured here: human FPR 0/146 (Wilson 95% upper 0.0256) and native TPR 0/147. A below-chance ranking result is reported as measured, not tuned around."
+}
