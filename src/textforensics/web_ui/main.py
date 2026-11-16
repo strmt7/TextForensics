@@ -15,12 +15,24 @@ from contextlib import suppress
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
-from starlette.websockets import WebSocketState
+try:
+    from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+    from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.templating import Jinja2Templates
+    from pydantic import BaseModel
+    from starlette.websockets import WebSocketState
+except ImportError:  # pragma: no cover - optional dependency
+    # The [api] extra is absent. The module must stay importable so
+    # that the `textforensics-web` console script can fail with one
+    # clean install hint (see main()) instead of a raw
+    # ModuleNotFoundError traceback at import time; create_web_app()
+    # raises the install hint instead (mirrors api.py).
+    FastAPI = HTTPException = Request = WebSocket = WebSocketDisconnect = None  # type: ignore[assignment, misc]
+    HTMLResponse = JSONResponse = StreamingResponse = None  # type: ignore[assignment, misc]
+    StaticFiles = Jinja2Templates = None  # type: ignore[assignment, misc]
+    BaseModel = None  # type: ignore[assignment, misc]
+    WebSocketState = None  # type: ignore[assignment, misc]
 
 from .._build_info import get_version
 from ..config import (
@@ -389,6 +401,11 @@ class SessionManager:
         session = self._sessions.get(session_id)
         if session is None:
             return 0
+        # Local import: the starlette name is resolved here so this
+        # method does not depend on the module-level optional import
+        # (which is None when the [api] extra is absent).
+        from starlette.websockets import WebSocketState
+
         dead: list[str] = []
         sent = 0
         for ws_key, conn in list(session["connections"].items()):
@@ -461,37 +478,48 @@ class SessionManager:
         return self._evict_expired()
 
 
-class TextRequest(BaseModel):
-    text: str
+if BaseModel is not None:
+
+    class TextRequest(BaseModel):
+        text: str
+
+    class AnalyzeResponse(BaseModel):
+        success: bool
+        data: dict[str, Any] | None = None
+        error: str | None = None
+
+    class ExportRequest(BaseModel):
+        data: dict[str, Any]
+        format: str = "json"  # json | csv | html
+
+    class CompareRequest(BaseModel):
+        a: dict[str, Any]
+        b: dict[str, Any]
+
+    class HistoryQueryRequest(BaseModel):
+        limit: int = 50
+        offset: int = 0
+        verdict: str | None = None
+        family: str | None = None
+        min_score: float | None = None
+        max_score: float | None = None
+
+else:  # pragma: no cover - optional dependency
+    # The [api] extra is absent: keep the names importable (as None)
+    # so the module stays importable; create_web_app() refuses to run.
+    TextRequest = AnalyzeResponse = ExportRequest = None  # type: ignore[assignment]
+    CompareRequest = HistoryQueryRequest = None  # type: ignore[assignment]
 
 
-class AnalyzeResponse(BaseModel):
-    success: bool
-    data: dict[str, Any] | None = None
-    error: str | None = None
-
-
-class ExportRequest(BaseModel):
-    data: dict[str, Any]
-    format: str = "json"  # json | csv | html
-
-
-class CompareRequest(BaseModel):
-    a: dict[str, Any]
-    b: dict[str, Any]
-
-
-class HistoryQueryRequest(BaseModel):
-    limit: int = 50
-    offset: int = 0
-    verdict: str | None = None
-    family: str | None = None
-    min_score: float | None = None
-    max_score: float | None = None
+def _require_web() -> None:
+    """Raise the install hint unless the [api] extra is present."""
+    if FastAPI is None or BaseModel is None:
+        raise RuntimeError("Install web UI support with: pip install 'textforensics[api]'")
 
 
 def create_web_app(settings: Settings | None = None) -> FastAPI:
     """Create the FastAPI web application with WebSocket support."""
+    _require_web()
     active_settings = settings or Settings.from_env()
 
     app = FastAPI(
@@ -1272,8 +1300,8 @@ with suppress(RuntimeError, ValueError):
 
 
 def serve_web(
-    host: str = "127.0.0.1",
-    port: int = 8765,
+    host: str | None = None,
+    port: int | None = None,
     *,
     allow_remote: bool = False,
     access_log: bool = True,
@@ -1281,14 +1309,19 @@ def serve_web(
     max_input_bytes: int | None = None,
     open_browser: bool = False,
 ) -> None:
-    """Serve the web UI application."""
-    settings = Settings.from_env()
+    """Serve the web UI application.
+
+    ``host``/``port`` default to the environment (``TEXTFORENSICS_HOST`` /
+    ``TEXTFORENSICS_PORT`` via :meth:`Settings.from_env`, falling back to
+    127.0.0.1:8765); an explicit argument overrides the environment.
+    """
+    env_settings = Settings.from_env()
     settings = Settings(
-        host=host,
-        port=port,
+        host=host if host is not None else env_settings.host,
+        port=port if port is not None else env_settings.port,
         max_input_bytes=max_input_bytes
         if max_input_bytes is not None
-        else settings.max_input_bytes,
+        else env_settings.max_input_bytes,
         allow_remote=allow_remote,
         access_log=access_log,
         log_level=log_level,
@@ -1598,7 +1631,17 @@ def _build_comparison(data_a: dict[str, Any], data_b: dict[str, Any]) -> dict[st
 
 
 def main() -> None:
-    serve_web()
+    # The [api] extra is absent: serve_web() raises the install hint as
+    # a RuntimeError. Convert it to SystemExit (the MCP pattern) so the
+    # `textforensics-web` console script prints one clean line on stderr
+    # with exit 1 instead of a traceback. Any other RuntimeError is a
+    # real failure and still propagates.
+    try:
+        serve_web()
+    except RuntimeError as exc:
+        if str(exc).startswith("Install web UI support"):
+            raise SystemExit(str(exc)) from None
+        raise
 
 
 if __name__ == "__main__":

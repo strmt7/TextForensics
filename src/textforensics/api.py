@@ -264,7 +264,17 @@ def serve_api(settings: Settings | None = None) -> None:
 
 
 def main() -> None:  # pragma: no cover - integration entry point
-    serve_api()
+    # The [api] extra is absent: serve_api() raises the install hint as
+    # a RuntimeError. Convert it to SystemExit (the MCP pattern) so the
+    # `textforensics-api` console script prints one clean line on stderr
+    # with exit 1 instead of a chained traceback. Any other RuntimeError
+    # is a real failure and still propagates.
+    try:
+        serve_api()
+    except RuntimeError as exc:
+        if str(exc).startswith("Install API support"):
+            raise SystemExit(str(exc)) from None
+        raise
 
 
 if __name__ == "__main__":
