@@ -177,8 +177,8 @@ FROZEN = {
         "n_ai": 283,
         "prior_run": "EV-20261106-dataset-mage",
         "prior_auroc": 0.5567,
-        "prior_tpr_at_1pct": None,
-        "prior_tpr_at_5pct": None,
+        "prior_tpr_at_1pct": 0.106,
+        "prior_tpr_at_5pct": 0.1661,
     },
 }
 # Extra disjointness targets (already cached, verified, never re-fetched).
