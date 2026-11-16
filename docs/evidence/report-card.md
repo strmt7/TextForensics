@@ -96,4 +96,4 @@ The following Wilson-upper-bound / FPR evidence exists in registry run artifacts
 | EV-20261108-pip-audit | dependency-audit | 2026-11-08 | — | available | `537fbdaa4fc6...` |
 | EV-20261110-dataset-opai-bench | command | 2026-11-10 | — | available | `7849f829ac38...` |
 | EV-20261110-human-fpr | command | 2026-11-10 | 0.1.0 | available | `ceaa44f7da1c...` |
-| EV-20261115-reproducibility | determinism | 2026-11-15 | — | functional | `26441e2f655c...` |
+| EV-20261115-reproducibility | determinism | 2026-11-15 | — | functional | `9a590077f0da...` |

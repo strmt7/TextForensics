@@ -442,7 +442,7 @@ claims:
     last_verified: "2026-11-15"
     notes: "W6 ENG-03 fix (2026-11-15): scripts/check_reproducibility.py builds twice from independent clean git-archive copies with SOURCE_DATE_EPOCH=1704067200 and compares wheel and sdist bytes FATALLY (exit 1 on any diff, with member-level diffs); the reproducibility workflow's build job runs it as its gating step. setuptools 84.2.1 does not honor SOURCE_DATE_EPOCH for sdist entries, so setup.py pins release-tree mtimes and the gzip header mtime when the epoch is set. Verified 2026-11-15: two clean builds byte-identical (wheel sha256 1f72e0c9…, sdist sha256 36c8cc81…); the executable check re-runs on every claims-gate invocation. Build profile: build 1.6.1, setuptools 84.2.1, wheel 0.48.0 from requirements-tools-hashed.txt."
     evidence_record_id: "EV-20261115-reproducibility"
-    run_artifact_sha256: "26441e2f655c5ba1175f1e09d514513c01ee257b81b92923a373d7fbc5f87fef"
+    run_artifact_sha256: "9a590077f0dae82f065babebd1af24fee4ea61ed625dfd42d4944b0b6a0b5895"
     values:
       source_date_epoch: 1704067200
 
