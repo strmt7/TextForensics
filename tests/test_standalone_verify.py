@@ -566,6 +566,11 @@ class StandaloneKeygenJsonTests(unittest.TestCase):
         cases = {
             "no public_key_b64": {k: v for k, v in good.items() if k != "public_key_b64"},
             "wrong algorithm": {**good, "algorithm": "rsa"},
+            # "rsa" sorts AFTER "ed25519", so it kills the Eq mutant but
+            # not the Gt mutant (``algorithm > "ed25519"`` is True for
+            # "rsa", same as ``!=``). "aes" sorts BEFORE, so only the
+            # strict ``!=`` refuses it — this kills the Gt mutant.
+            "wrong algorithm sorting before ed25519": {**good, "algorithm": "aes"},
             "invalid base64": {**good, "public_key_b64": "!!!not-base64!!!"},
             "non-canonical base64": {
                 **good,
@@ -576,7 +581,24 @@ class StandaloneKeygenJsonTests(unittest.TestCase):
                 "public_key_b64": base64.b64encode(b"x" * 16).decode("ascii"),
                 "keyid": hashlib.sha256(b"x" * 16).hexdigest(),
             },
+            # 16 bytes is SHORTER than 32, so it kills the Eq mutant but
+            # not the Lt mutant (``len(key) < 32`` is True for 16, same
+            # as ``!=``). A 64-byte key is LONGER: only the strict
+            # ``!=`` refuses it — this kills the Lt mutant.
+            "key too long": {
+                **good,
+                "public_key_b64": base64.b64encode(b"x" * 64).decode("ascii"),
+                "keyid": hashlib.sha256(b"x" * 64).hexdigest(),
+            },
             "keyid mismatch": {**good, "keyid": "0" * 64},
+            # "0"*64 sorts BEFORE the true hash (unless the hash were
+            # itself all zeroes), so ``keyid < sha`` is True for it,
+            # same as ``!=`` — it kills the Eq mutant but not the Lt
+            # mutant. "f"*64 is the lexicographically largest 64-char
+            # hex string, so ``keyid < sha`` is False for it while
+            # ``!=`` is True — only the strict ``!=`` refuses it. This
+            # kills the Lt mutant.
+            "keyid mismatch sorting after true hash": {**good, "keyid": "f" * 64},
             "private sealing-key file": {
                 **good,
                 "schema": "textforensics.sealing-key/v1",

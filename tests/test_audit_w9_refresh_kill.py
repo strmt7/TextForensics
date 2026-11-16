@@ -13,6 +13,11 @@ existing test observes:
 - ``_require_web()`` with only one of FastAPI / BaseModel missing: the
   guard must raise unless BOTH names are present, so a mutant that
   lets a half-present extra through fails here.
+- the ``HistoryQueryRequest`` pagination defaults (``limit: int = 50``,
+  ``offset: int = 0``): the A-fix re-indented the model definitions
+  when it added the None-sentinel guard, which re-anchored the
+  NumberReplacer live mutants on those defaults. No existing test
+  observes the defaults, so they are pinned here.
 """
 
 import pytest
@@ -63,3 +68,24 @@ def test_require_web_raises_when_only_basemodel_missing(monkeypatch):
     monkeypatch.setattr(web_main, "BaseModel", None)
     with pytest.raises(RuntimeError, match="Install web UI support"):
         web_main.create_web_app()
+
+
+def test_history_query_request_defaults_pin_pagination_defaults():
+    """HistoryQueryRequest defaults to limit 50, offset 0.
+
+    The A-fix re-indented the request-model definitions when it added
+    the None-sentinel import guard, which re-anchored the
+    NumberReplacer live mutants on the pagination defaults. No
+    existing test observes them (``test_web_ui.py`` always passes
+    explicit values), so the defaults are pinned here: a mutant
+    changing ``50`` to ``49``/``51`` or ``0`` to ``1``/``-1`` fails.
+    """
+    from textforensics.web_ui.main import HistoryQueryRequest
+
+    request = HistoryQueryRequest()
+    assert request.limit == 50
+    assert request.offset == 0
+    assert request.verdict is None
+    assert request.family is None
+    assert request.min_score is None
+    assert request.max_score is None
