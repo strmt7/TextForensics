@@ -1,0 +1,125 @@
+{
+  "assets": [
+    {
+      "derivation": "python -m build --no-isolation --outdir <dist> with SOURCE_DATE_EPOCH=1704067200 and PYTHONHASHSEED=0 inside a clean `git archive HEAD` export, run twice by scripts/check_reproducibility.py using a throwaway venv with the pinned tools from requirements-tools-hashed.txt.",
+      "filename": "textforensics-0.2.0-py3-none-any.whl",
+      "kind": "wheel",
+      "path": "dist/textforensics-0.2.0-py3-none-any.whl",
+      "role": "Built wheel (py3-none-any) \u2014 the installable candidate package; contains all 14 packaged schemas and the AGPL-3.0-or-later licence at textforensics-0.2.0.dist-info/licenses/LICENSE.",
+      "sha256": "50500001a6af60a8726adaaff4514cf12be35fe70669bac8e3f689fef657a005",
+      "size_bytes": 712063,
+      "verification": "Rebuild via candidate.build_commands[0]; byte-compare sha256. Also: python -m twine check <wheel> (PASSED) and wheel member check for 14 schemas + licenses/LICENSE."
+    },
+    {
+      "derivation": "python -m build --no-isolation --outdir <dist> with SOURCE_DATE_EPOCH=1704067200 and PYTHONHASHSEED=0 inside a clean `git archive HEAD` export, run twice by scripts/check_reproducibility.py using a throwaway venv with the pinned tools from requirements-tools-hashed.txt.",
+      "filename": "textforensics-0.2.0.tar.gz",
+      "kind": "sdist",
+      "path": "dist/textforensics-0.2.0.tar.gz",
+      "role": "Source distribution \u2014 337 members; carries the full source tree including the 14 packaged schemas, the embedded _sdist_provenance.json (source_commit 'unknown' by the export build), and LICENSE.",
+      "sha256": "01aa07996c992e61d8bcec1a429003f72099d78d72f66ebba35ea4f5408fcd41",
+      "size_bytes": 1694926,
+      "verification": "Rebuild via candidate.build_commands[0]; byte-compare sha256. Also: python -m twine check <sdist> (PASSED); sdist member list contains zero docs/ members."
+    },
+    {
+      "derivation": "git archive 2c72b5a8165131a6f3d3a266181665ce34abc224 --prefix=textforensics-0.2.0/",
+      "filename": "textforensics-0.2.0-source-2c72b5a.tar",
+      "kind": "source-archive",
+      "path": "dist/textforensics-0.2.0-source-2c72b5a.tar",
+      "role": "Immutable source artifact \u2014 `git archive` export of candidate.source_sha with prefix textforensics-0.2.0/; the exact tree the wheel and sdist were built from.",
+      "sha256": "23a277dc50f7a77cd416112696c84c3ec3f3b663a5fe838fdb9bbcc8d2ee7eb9",
+      "size_bytes": 50247680,
+      "verification": "git archive <source_sha> --prefix=textforensics-0.2.0/ and byte-compare sha256 (run twice, byte-identical)."
+    },
+    {
+      "filename": "LICENSE",
+      "kind": "license",
+      "path": "LICENSE",
+      "role": "Project licence (AGPL-3.0-or-later); shipped in the wheel at textforensics-0.2.0.dist-info/licenses/LICENSE and in the sdist at textforensics-0.2.0/LICENSE.",
+      "sha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef",
+      "size_bytes": 34523,
+      "spdx_license_id": "AGPL-3.0-or-later",
+      "verification": "sha256sum LICENSE at candidate.source_sha; also present in the built wheel and sdist member lists."
+    },
+    {
+      "filename": "THIRD-PARTY-NOTICES.txt",
+      "kind": "license-notice",
+      "path": "src/textforensics/web_ui/static/THIRD-PARTY-NOTICES.txt",
+      "role": "Third-party licence notices for the vendored Chart.js bundle shipped with the web UI; packaged in the wheel at textforensics/web_ui/static/THIRD-PARTY-NOTICES.txt and in the sdist.",
+      "sha256": "46051ba7840d76843258b72afab2f3c883a621c3bf61c2cd760a8e6886859e5a",
+      "size_bytes": 3470,
+      "verification": "sha256sum at candidate.source_sha; also present in the built wheel and sdist member lists."
+    },
+    {
+      "filename": "textforensics.cdx.json",
+      "kind": "sbom",
+      "path": "sbom/textforensics.cdx.json",
+      "role": "CycloneDX 1.6 SBOM of the candidate (122 components); deterministic UUIDv5 serialNumber derived from the content digest.",
+      "sbom_components": 122,
+      "sbom_serial_number": "urn:uuid:6151c546-a74a-557e-b1e7-cd03237dd0a9",
+      "sha256": "53dcd764427ee066ebea77d8d76a8bb5248c2f4416ecee9b2be47b2302d857bb",
+      "size_bytes": 52869,
+      "verification": "python scripts/generate_sbom.py --check in the full requirements-pinned.txt closure (must exit 0: SBOM fresh for this source tree); sha256sum at candidate.source_sha. Note: the check exits 1 in a partial venv missing atheris/wheel \u2014 that is an environment limitation, not an SBOM defect."
+    }
+  ],
+  "candidate": {
+    "build_commands": [
+      "TMPDIR=/home/hatch/workspace/.tmp /home/hatch/workspace/TextForensics-rewrite/.venv/bin/python scripts/check_reproducibility.py --source /home/hatch/workspace/TextForensics-w10-a --outdir /home/hatch/workspace/goals/textforensics-complete-revamp/hidden_files/audit-w10-a/build --sde 1704067200",
+      "git archive 2c72b5a8165131a6f3d3a266181665ce34abc224 --prefix=textforensics-0.2.0/ -o /home/hatch/workspace/goals/textforensics-complete-revamp/hidden_files/audit-w10-a/source/textforensics-0.2.0-source-2c72b5a.tar",
+      "git archive 2c72b5a8165131a6f3d3a266181665ce34abc224 --prefix=textforensics-0.2.0/ -o /home/hatch/workspace/goals/textforensics-complete-revamp/hidden_files/audit-w10-a/source/textforensics-0.2.0-source-2c72b5a.b.tar"
+    ],
+    "build_profile": {
+      "build": "1.6.1",
+      "setuptools": "84.2.1",
+      "tools_lockfile": "requirements-tools-hashed.txt",
+      "tools_lockfile_sha256": "227cc8c8f65f08d83dd1a58515dfa3628783972e005392f4e73a8bf18a1f3cf8",
+      "wheel": "0.48.0"
+    },
+    "name": "textforensics",
+    "notes": [
+      "Candidate built from audit-w10-a @ 2c72b5a8165131a6f3d3a266181665ce34abc224 (14th packaged schema + registry + tests; no decision-logic code changed). The manifest itself is committed in the immediately following commit; the sdist carries 337 members and zero docs/ members, so the manifest commit cannot change the recorded digests.",
+      "Embedded build provenance in the wheel (textforensics/_build_info.json) records source_commit 'unknown' with provenance_status 'unknown': the ENG-03 build exports the source via `git archive`, which carries no .git directory, so setup.py cannot resolve a live commit and fails closed by design. The binding between these artifacts and source_sha 2c72b5a8165131a6f3d3a266181665ce34abc224 is this manifest plus the retained reproducibility report; a rebuild from that SHA re-derives every digest.",
+      "No release, tag, container image, or publication was created. No detector-bypass feature. Scope TextForensics only.",
+      "Retained build outputs (both builds, reproducibility report.json, both source-archive runs) live in the W10-A hand-back bundle under goals/textforensics-complete-revamp/hidden_files/audit-w10-a/; they are not committed to the repository (derived artifacts)."
+    ],
+    "source_branch": "audit-w10-a",
+    "source_date_epoch": 1704067200,
+    "source_sha": "2c72b5a8165131a6f3d3a266181665ce34abc224",
+    "version": "0.2.0"
+  },
+  "reproducibility": {
+    "builds": 2,
+    "identical": true,
+    "sdist": {
+      "build_a_sha256": "01aa07996c992e61d8bcec1a429003f72099d78d72f66ebba35ea4f5408fcd41",
+      "build_b_sha256": "01aa07996c992e61d8bcec1a429003f72099d78d72f66ebba35ea4f5408fcd41"
+    },
+    "source_archive": {
+      "build_a_sha256": "23a277dc50f7a77cd416112696c84c3ec3f3b663a5fe838fdb9bbcc8d2ee7eb9",
+      "build_b_sha256": "23a277dc50f7a77cd416112696c84c3ec3f3b663a5fe838fdb9bbcc8d2ee7eb9",
+      "identical": true,
+      "method": "git archive <source_sha> --prefix=textforensics-0.2.0/ (run twice)"
+    },
+    "wheel": {
+      "build_a_sha256": "50500001a6af60a8726adaaff4514cf12be35fe70669bac8e3f689fef657a005",
+      "build_b_sha256": "50500001a6af60a8726adaaff4514cf12be35fe70669bac8e3f689fef657a005"
+    }
+  },
+  "schema": "textforensics.candidate-manifest/v1",
+  "verification": {
+    "commands": [
+      "git archive 2c72b5a8165131a6f3d3a266181665ce34abc224 --prefix=textforensics-0.2.0/ | sha256sum   # must equal 23a277dc50f7a77cd416112696c84c3ec3f3b663a5fe838fdb9bbcc8d2ee7eb9",
+      "python scripts/check_reproducibility.py --source <clean-checkout-of-2c72b5a8165131a6f3d3a266181665ce34abc224> --outdir <outdir> --sde 1704067200   # must print PASS with wheel sha256 50500001a6af60a8726adaaff4514cf12be35fe70669bac8e3f689fef657a005 and sdist sha256 01aa07996c992e61d8bcec1a429003f72099d78d72f66ebba35ea4f5408fcd41",
+      "python -m twine check <outdir>/build-a/*.whl <outdir>/build-a/*.tar.gz   # must PASS",
+      "python scripts/validate_schemas.py   # must print OK for all 14 schemas",
+      "python scripts/generate_sbom.py --check   # in the full requirements-pinned.txt closure; must exit 0",
+      "sha256sum LICENSE sbom/textforensics.cdx.json src/textforensics/web_ui/static/THIRD-PARTY-NOTICES.txt   # must match the manifest asset digests",
+      "python -m pytest tests/test_audit_w10_a_candidate_manifest.py tests/test_schema.py -q   # manifest-file tests must pass (no skips)"
+    ],
+    "notes": [
+      "A second verifier needs only this manifest and the source SHA: check out 2c72b5a8165131a6f3d3a266181665ce34abc224, run the commands above, and every digest must match. The only network use is the hash-pinned build-tool install inside check_reproducibility.py (requirements-tools-hashed.txt).",
+      "Retained build outputs for cross-checking live in goals/textforensics-complete-revamp/hidden_files/audit-w10-a/build/ (build-a, build-b, report.json) and .../source/ (both source-archive runs).",
+      "The manifest-file tests in tests/test_audit_w10_a_candidate_manifest.py validate this file against its schema, check the in-repo asset digests against disk, and check the reproducibility record against the asset digests.",
+      "Not claimed here: signatures/attestations and signer identity (no signing key is provisioned for this rehearsal \u2014 an owner decision at the publishing boundary); the container image (separate W10 work); CI verdicts on this branch (CI never ran on staging \u2014 the coordinator's W10 dossier records them)."
+    ]
+  }
+}

@@ -60,6 +60,7 @@ DECLARED_TRUST_MAP_STATES_V2: frozenset[str] = frozenset(TRUST_STATES)
 DECLARED_TRUST_MAP_STATES_V3: frozenset[str] = frozenset(TRUST_STATES_V3)
 
 _SCHEMA_NAMES = {
+    "candidate-manifest": "candidate-manifest.schema.json",
     "case-file": "case-file.schema.json",
     "detector-result": "detector-result.schema.json",
     "enterprise-policy": "enterprise-policy.schema.json",
@@ -223,6 +224,11 @@ def validate_case_file(case: dict[str, Any]) -> list[str]:
         List of validation error messages (empty if valid).
     """
     return _validate_named(case, "case-file")
+
+
+def validate_candidate_manifest(manifest: dict[str, Any]) -> list[str]:
+    """Validate a W10 release-candidate manifest against its schema."""
+    return _validate_named(manifest, "candidate-manifest")
 
 
 def validate_trust_map(trust_map: dict[str, Any]) -> list[str]:
@@ -525,6 +531,7 @@ __all__ = [
     "supported_versions",
     "validate",
     "validate_bundle_trust_map_pair",
+    "validate_candidate_manifest",
     "validate_case_file",
     "validate_detector_result",
     "validate_evidence_manifest",

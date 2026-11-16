@@ -603,6 +603,112 @@ def _valid_payloads() -> dict[str, dict]:
             "regime": {"language": "en", "domain": "synthetic", "validation_slice_covered": False},
             "limitations": ["synthetic"],
         },
+        "candidate-manifest": {
+            "schema": "textforensics.candidate-manifest/v1",
+            "candidate": {
+                "name": "textforensics",
+                "version": "0.2.0",
+                "source_branch": "synthetic-branch",
+                "source_sha": "a" * 40,
+                "source_date_epoch": 1704067200,
+                "build_profile": {
+                    "build": "1.6.1",
+                    "setuptools": "84.2.1",
+                    "wheel": "0.48.0",
+                    "tools_lockfile": "requirements-tools-hashed.txt",
+                    "tools_lockfile_sha256": "c" * 64,
+                },
+                "build_commands": ["python scripts/check_reproducibility.py --source ."],
+                "notes": ["synthetic"],
+            },
+            "assets": [
+                {
+                    "kind": "wheel",
+                    "filename": "textforensics-0.2.0-py3-none-any.whl",
+                    "path": "dist/textforensics-0.2.0-py3-none-any.whl",
+                    "sha256": "d" * 64,
+                    "size_bytes": 1,
+                    "role": "synthetic wheel",
+                    "verification": "synthetic",
+                    "derivation": "python -m build --wheel",
+                },
+                {
+                    "kind": "sdist",
+                    "filename": "textforensics-0.2.0.tar.gz",
+                    "path": "dist/textforensics-0.2.0.tar.gz",
+                    "sha256": "e" * 64,
+                    "size_bytes": 1,
+                    "role": "synthetic sdist",
+                    "verification": "synthetic",
+                    "derivation": "python -m build --sdist",
+                },
+                {
+                    "kind": "source-archive",
+                    "filename": "textforensics-0.2.0-source.tar",
+                    "path": "dist/textforensics-0.2.0-source.tar",
+                    "sha256": "f" * 64,
+                    "size_bytes": 1,
+                    "role": "synthetic source archive",
+                    "verification": "synthetic",
+                    "derivation": "git archive HEAD",
+                },
+                {
+                    "kind": "license",
+                    "filename": "LICENSE",
+                    "path": "LICENSE",
+                    "sha256": "0" * 64,
+                    "size_bytes": 1,
+                    "role": "synthetic licence",
+                    "verification": "synthetic",
+                    "spdx_license_id": "AGPL-3.0-or-later",
+                },
+                {
+                    "kind": "license-notice",
+                    "filename": "THIRD-PARTY-NOTICES.txt",
+                    "path": "src/textforensics/web_ui/static/THIRD-PARTY-NOTICES.txt",
+                    "sha256": "1" * 64,
+                    "size_bytes": 1,
+                    "role": "synthetic notices",
+                    "verification": "synthetic",
+                },
+                {
+                    "kind": "sbom",
+                    "filename": "textforensics.cdx.json",
+                    "path": "sbom/textforensics.cdx.json",
+                    "sha256": "2" * 64,
+                    "size_bytes": 1,
+                    "role": "synthetic SBOM",
+                    "verification": "synthetic",
+                    "sbom_serial_number": "urn:uuid:"
+                    + "3" * 8
+                    + "-"
+                    + "3" * 4
+                    + "-"
+                    + "3" * 4
+                    + "-"
+                    + "3" * 4
+                    + "-"
+                    + "3" * 12,
+                    "sbom_components": 122,
+                },
+            ],
+            "reproducibility": {
+                "builds": 2,
+                "identical": True,
+                "wheel": {"build_a_sha256": "4" * 64, "build_b_sha256": "4" * 64},
+                "sdist": {"build_a_sha256": "5" * 64, "build_b_sha256": "5" * 64},
+                "source_archive": {
+                    "method": "git archive HEAD",
+                    "build_a_sha256": "6" * 64,
+                    "build_b_sha256": "6" * 64,
+                    "identical": True,
+                },
+            },
+            "verification": {
+                "commands": ["python scripts/validate_schemas.py"],
+                "notes": ["synthetic"],
+            },
+        },
     }
 
 
