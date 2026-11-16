@@ -174,6 +174,81 @@
       "evidence_record_id": "EV-20261115-reproducibility",
       "run_artifact": "docs/evidence/runs/EV-20261115-reproducibility.json",
       "run_artifact_sha256": "9a590077f0dae82f065babebd1af24fee4ea61ed625dfd42d4944b0b6a0b5895"
+    },
+    {
+      "evidence_record_id": "EV-20261116-dataset-beemo",
+      "run_artifact": "docs/evidence/runs/EV-20261116-dataset-beemo.json",
+      "run_artifact_sha256": "4a0f291ac5f14086583cdb4d89c3448c5e9fab3f9a00c0291fada7ad30e70849"
+    },
+    {
+      "evidence_record_id": "EV-20261116-dataset-detectrl-x",
+      "run_artifact": "docs/evidence/runs/EV-20261116-dataset-detectrl-x.json",
+      "run_artifact_sha256": "02d7a2757322504a4ae32400a07678e3a064da3bbd91886c3c641d08f0677f9c"
+    },
+    {
+      "evidence_record_id": "EV-20261116-dataset-ghostwriter",
+      "run_artifact": "docs/evidence/runs/EV-20261116-dataset-ghostwriter.json",
+      "run_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f"
+    },
+    {
+      "evidence_record_id": "EV-20261116-dataset-mage",
+      "run_artifact": "docs/evidence/runs/EV-20261116-dataset-mage.json",
+      "run_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4"
+    },
+    {
+      "evidence_record_id": "EV-20261116-dataset-opai-bench",
+      "run_artifact": "docs/evidence/runs/EV-20261116-dataset-opai-bench.json",
+      "run_artifact_sha256": "3cefa40f00282bb10184d8576b90058085533a449efb118b87f04be416c71969"
+    },
+    {
+      "evidence_record_id": "EV-20261116-dataset-raid",
+      "run_artifact": "docs/evidence/runs/EV-20261116-dataset-raid.json",
+      "run_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7"
+    },
+    {
+      "evidence_record_id": "EV-20261116-human-fpr",
+      "run_artifact": "docs/evidence/runs/EV-20261116-human-fpr.json",
+      "run_artifact_sha256": "046c7a902bb805c577c0ae193a0f27ceba9104de6cb25ce9144a478e614a3f7d"
+    },
+    {
+      "evidence_record_id": "EV-20261116-ood-short-refusal",
+      "run_artifact": "docs/evidence/runs/EV-20261116-ood-short-refusal.json",
+      "run_artifact_sha256": "a46dc56fe6d46061fdd7541d44697376e82aad75eaac18708e18520bf83e03ae"
+    },
+    {
+      "evidence_record_id": "EV-20261116-reproduction-beemo",
+      "run_artifact": "docs/evidence/runs/EV-20261116-reproduction-beemo.json",
+      "run_artifact_sha256": "4d95f10ba53d5921bee7d8a79296d14e9f1319d5b85b0ed9a0c0741891f0e895"
+    },
+    {
+      "evidence_record_id": "EV-20261116-reproduction-detectrl-x",
+      "run_artifact": "docs/evidence/runs/EV-20261116-reproduction-detectrl-x.json",
+      "run_artifact_sha256": "33b9baaee70988efe4e720eec050274425ec258be97d51aa89e7059bc224a78f"
+    },
+    {
+      "evidence_record_id": "EV-20261116-reproduction-ghostwriter",
+      "run_artifact": "docs/evidence/runs/EV-20261116-reproduction-ghostwriter.json",
+      "run_artifact_sha256": "fea0b11211a599d00306a25fc5fa0152d3e34bf488ee5b4bc999cec4911c2998"
+    },
+    {
+      "evidence_record_id": "EV-20261116-reproduction-mage",
+      "run_artifact": "docs/evidence/runs/EV-20261116-reproduction-mage.json",
+      "run_artifact_sha256": "5d3dfef09e2e8ec4fb64dc46ca93261009645961588d63dc2a6ca9f1687149fc"
+    },
+    {
+      "evidence_record_id": "EV-20261116-reproduction-opai-bench",
+      "run_artifact": "docs/evidence/runs/EV-20261116-reproduction-opai-bench.json",
+      "run_artifact_sha256": "9848a25d6660714cd3c85815a6dc9d1f17d52bc6e5f1a87888373fd5f480d57d"
+    },
+    {
+      "evidence_record_id": "EV-20261116-reproduction-raid",
+      "run_artifact": "docs/evidence/runs/EV-20261116-reproduction-raid.json",
+      "run_artifact_sha256": "55315f998d821e3f697aa3b1b731ae539fd86bf089afe521310820e29ab2f717"
+    },
+    {
+      "evidence_record_id": "EV-20261116-reproduction-registry",
+      "run_artifact": "docs/evidence/runs/EV-20261116-reproduction-registry.json",
+      "run_artifact_sha256": "3e1d2b6012f3f3f7c7a3f8b01bef06185b45b3e8770a48c8952c99e8fa30ce4b"
     }
   ],
   "schema": "textforensics.evidence-registry/v1"
