@@ -3,6 +3,13 @@
 > W0 — publication behind an explicit candidate-promotion boundary
 > (ENG-04, ENG-05, ENG-06, ENG-14). Status: implemented on branch
 > `audit-w0-d`; no release, tag, or image has been published from this work.
+>
+> W7 (branch `audit-w7-a`) hardens the boundary further: signatures are
+> verified with cosign (not just present), SBOM payloads are validated
+> as SBOMs, the upload is verified by reading the published release
+> back, the release tag is created inside the boundary, and the
+> canonical verification command's required set is executable. No
+> release, tag, or image has been published from this work either.
 
 ## Rule
 
@@ -123,7 +130,9 @@ installed-web smoke test covers ENG-01 at the release path directly.
    `textforensics-<version>-source.tar.gz`; release notes; `SHA256SUMS`;
    **both SBOM payloads** `textforensics-sbom.cdx.json` and
    `textforensics-sbom.spdx.json` **plus** each payload's `.sig`/`.bundle`;
-   notes `.sig`/`.bundle`/`.sha256`; at least one provenance bundle
+   notes `.sig`/`.bundle`/`.sha256`; the wheel, sdist and source tarball
+   each carry their own `.sig`/`.bundle` (the release workflow signs
+   every file in `dist/`); at least one provenance bundle
    (`*.intoto.jsonl`). Absence of any mandatory item fails. The final
    attached asset list includes the SBOM JSON payloads (the old glob
    selection never selected `dist/*.json`).
@@ -131,9 +140,43 @@ installed-web smoke test covers ENG-01 at the release path directly.
    artifact (except itself) and every digest must match the file content;
    the notes digest is additionally verified against
    `release-notes.md.sha256`. A tampered payload fails.
-4. **Tag binding:** the tag must resolve to exactly the artifact's source
+4. **SBOM structure (W7):** each SBOM payload must parse as JSON and
+   carry its format marker (`bomFormat: CycloneDX` / `spdxVersion:
+   SPDX-*`). Checksums prove integrity, not that a payload is an SBOM.
+5. **Signatures (W7):** every detached signature is verified with
+   `cosign verify-blob --bundle … --signature … --certificate-identity
+   <expected> --certificate-oidc-issuer <expected>` against the expected
+   signer identity/issuer (`--expected-identity` /
+   `--expected-issuer`, required). Existence of `.sig`/`.bundle` files
+   is NOT verification: a forged or garbage signature, a malformed
+   bundle, a missing cosign binary, or a missing identity all refuse
+   the upload. Cosign itself checks the bundle's payload digest, the
+   certificate chain, and Rekor inclusion. The workflow passes its own
+   keyless identity
+   (`https://github.com/<owner>/<repo>/.github/workflows/release.yml@<ref>`)
+   and the GitHub Actions OIDC issuer.
+6. **Tag binding:** the tag must resolve to exactly the artifact's source
    commit (`--source-sha`, default `git rev-parse HEAD`). Tag existence
    alone is not enough.
+7. **Tag creation (W7):** a new version has no tag yet, and step 6
+   requires one — so the tag is created inside the boundary by the
+   `create-tag` subcommand (release-workflow step, after every gate in
+   the job has passed), at exactly the candidate SHA, pushed, and then
+   verified on the remote with `git ls-remote`. A tag that already
+   resolves to a different commit is never moved. `--dry-run` plans the
+   tag creation without any remote write (W10 rehearsal). There is no
+   other place a release tag is created.
+8. **Read-back (W7):** after `gh release create` succeeds, the upload
+   is verified by reading the published release back: `gh release view`
+   must list every attached asset (with matching sizes), and `gh release
+   download` must return bytes whose SHA-256 matches the local file for
+   every asset. A `gh release create` exit code of 0 alone is never
+   proof the artifacts arrived intact; a read-back failure is reported
+   as a failed upload. A failing `gh release create` is a clean
+   refusal (return code 1, no traceback). The standalone `verify-upload`
+   subcommand re-runs checks 2–6 plus read-back as a separate,
+   read-only process; the release workflow runs it as its own step
+   after upload.
 
 **Ordering (ENG-06):** define the complete payload set → generate
 SBOMs/provenance → sign everything → generate `SHA256SUMS` LAST, covering
@@ -148,7 +191,8 @@ an authenticity signature and is never called a "checksum signature".
 refuses preview-marked notes). Signing/TSA trust identity is a HUMAN-ONLY
 decision (open — see below); no signer identity or credential is invented
 here. This workflow uses the repository's existing keyless Sigstore
-identity.
+identity, and the upload/verify-upload steps verify against exactly
+that identity (see step 5).
 
 ## What is NOT decided here (human-only decisions)
 
@@ -169,6 +213,29 @@ identity.
 5. **Final release authorization**: the owner, not any agent, decides
    whether and when to authorize a release.
 
+## ENG-04 hardening (W7)
+
+- **Canonical verification can now pass.** `scripts/verify_release.py`
+  used to mark six CI-only gates (secrets-scan, workflow-lint, codeql,
+  container, sigstore-verification, repo-provenance-sbom) as required
+  AND statically `unavailable`, so it could never exit 0 and the
+  release job's verification step could never pass. Those gates are now
+  required=False locally (they have no local equivalent) and remain
+  required at the publishing boundary: the exact-SHA promotion gate
+  (`scripts/promotion_gate.py`, acceptance-gate job) requires their CI
+  check-runs for the candidate SHA. Every required gate in
+  `verify_release.py` is now an executable (subprocess/special) gate.
+- **Check-run pagination.** `scripts/promotion_gate.py` used to read
+  only the first page (per_page=100) of check-runs; required results on
+  later pages were missed. It now reads every page.
+- **Zero-work provenance step.** The release workflow's "Collect
+  provenance bundles" step used to pass with an empty `provenance/`
+  directory when the attestation action produced no bundle-path. It
+  now fails unless at least one bundle was collected.
+- **No soft-fails in `release.yml`.** No step uses `continue-on-error`
+  or `|| true`; all six action pins were re-validated against their
+  upstream repositories (W7).
+
 ## Known-red / open items from this wave
 
 > W7 update: the two ENG-01 items below were CLOSED in W6 (web
@@ -182,13 +249,11 @@ identity.
   required because a release whose advertised web console cannot start
   must not publish; the failure correctly blocks publication.
 - **Container candidate acceptance web-resources probe is KNOWN-RED for
-  the same ENG-01 reason** (same `create_web_app()` assertion inside the
+  the ENG-01 reason** (same `create_web_app()` assertion inside the
   image). Health / non-root / read-only acceptance is expected green (the
-  container serves the API today).
-- **`scripts/verify_release.py` does not exist yet on this branch**
-  (Worker B, W0, owns it). The release job fails closed if it is absent;
-  once it lands, the release path and the local command agree by
-  construction.
+  container serves the API today). (The release workflow's own
+  installed-web smoke is NOT known-red: ENG-01 was fixed in W6, main
+  7d2112c.)
 - **No release, tag, or image was published by this work.** All
   publication-path tests use mocked subprocess/network and disposable
   directories and assert zero remote-writing invocations.
@@ -207,4 +272,18 @@ identity.
   every publishing entry point in no-publication mode with mocked
   subprocess/network and asserts ZERO remote-writing invocations
   (`gh release create`, `twine upload`, `docker push`, tag creation,
-  registry writes).
+  registry writes). W7 adds: signature verification (cosign absent /
+  identity missing / cosign rejection / wheel signature missing all
+  refuse before any remote write); SBOM payload structure (invalid JSON
+  / wrong format marker); planted `gh release create` failure (clean
+  return code 1, no traceback); read-back digest mismatch and missing
+  published asset (both fail the upload after create); the standalone
+  `verify-upload` subcommand (accepts a complete published release,
+  rejects a tampered one, zero remote writes); and `create-tag`
+  (creates + pushes a missing tag at exactly the candidate SHA, refuses
+  a tag pointing elsewhere, `--dry-run` writes nothing).
+- `tests/test_promotion_gate.py` — W7 adds pagination: check-runs on a
+  second page are read and evaluated.
+- `tests/test_verify_release.py` — W7 adds: no required gate is
+  statically unavailable, and the six CI-only gates remain visible,
+  non-required, with `promotion_gate` named as their enforcement point.

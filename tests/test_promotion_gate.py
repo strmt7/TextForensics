@@ -183,6 +183,30 @@ def test_fetch_check_runs_uses_read_only_gh_api(gate):
     assert runs[0]["conclusion"] == "success"
 
 
+def test_fetch_check_runs_paginates_beyond_first_page(gate):
+    """ENG-04 reproduction: fetch_check_runs used to read only the first
+    page (per_page=100). A required check recorded on a later page was
+    missed and reported unavailable. Every page must be read."""
+    first_page = [_run(f"CI / Unrelated Job {i:03d}") for i in range(100)]
+    second_page = [_run("CI / Claims-to-evidence gate (U7)")]
+
+    def fake_runner(cmd, **kwargs):
+        class Result:
+            pass
+
+        result = Result()
+        if "page=2" in cmd[2]:
+            result.stdout = json.dumps({"check_runs": second_page})
+        else:
+            result.stdout = json.dumps({"check_runs": first_page})
+        return result
+
+    runs = gate.fetch_check_runs("strmt7", "TextForensics", SHA, runner=fake_runner)
+    assert len(runs) == 101
+    names = [r["name"] for r in runs]
+    assert "CI / Claims-to-evidence gate (U7)" in names
+
+
 def test_fetch_check_runs_failure_is_not_a_pass(gate):
     def failing_runner(cmd, **kwargs):
         raise RuntimeError("gh unavailable")

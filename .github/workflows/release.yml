@@ -32,6 +32,22 @@ name: Release
 # push: dispatch them for the candidate SHA before promoting; until their
 # check-runs exist for that SHA the gate reports `unavailable` and blocks.
 #
+# ENG-04/05/06 (W7) — fail-closed publishing boundary, enforced in
+# scripts/publish_release.py and re-checked here as separate steps:
+# - the release tag is created ONLY by the `create-tag` step below, at
+#   exactly the candidate SHA, AFTER every gate in this job has passed;
+#   `upload` still requires the tag to already resolve to that SHA, so
+#   no tag is ever created by an undocumented manual step;
+# - `upload` verifies every detached signature with cosign verify-blob
+#   against this workflow's keyless identity (below) and the GitHub
+#   Actions OIDC issuer, verifies SBOM payload structure, and only then
+#   runs `gh release create`; a failing create is a clean refusal;
+# - the `verify-upload` step afterwards reads the published release
+#   back (asset list + per-asset download) and compares digests: a
+#   zero exit code from `gh release create` alone is never proof the
+#   artifacts arrived intact. No step in this job uses
+#   `continue-on-error` or `|| true` to hide a failure.
+#
 # Requires an explicit "RELEASE" confirmation input so the pipeline can never
 # be triggered by accident (no automatic tag/push triggers).
 #
@@ -175,9 +191,8 @@ jobs:
       # console. Reinstall the wheel itself (--no-deps: API deps are
       # already installed from .[dev,all]) and construct the web app from
       # the installed files, not from the checkout.
-      # KNOWN-RED until W6 fixes ENG-01 (web templates/static are not
-      # packaged): this step is expected to fail until then, and that
-      # failure correctly blocks publication.
+      # ENG-01 was fixed in W6 (main 7d2112c: web templates/static are
+      # packaged); failure here blocks publication.
       - name: Installed-web smoke (wheel, outside the checkout)
         run: |
           python -m pip install --force-reinstall --no-deps dist/*.whl
@@ -239,14 +254,24 @@ jobs:
             dist/*.tar.gz
           upload-to-store: true
 
+      # ENG-04: zero provenance bundles is a failure, not a success:
+      # the step used to pass with an empty provenance/ directory when
+      # the attestation action produced no bundle-path.
       - name: Collect provenance bundles
         run: |
+          set -euo pipefail
           mkdir -p provenance
           i=0
           for b in ${{ steps.provenance.outputs.bundle-path }}; do
             cp "$b" "provenance/provenance-bundle-${i}.intoto.jsonl"
             i=$((i + 1))
           done
+          count=$(ls provenance/*.intoto.jsonl 2>/dev/null | wc -l)
+          if [ "$count" -eq 0 ]; then
+            echo "::error::No provenance bundles were produced (bundle-path was empty); promotion is blocked."
+            exit 1
+          fi
+          echo "Collected ${count} provenance bundle(s)."
           ls -la provenance/
 
       # Keyless signing: cosign obtains a short-lived certificate from Sigstore
@@ -291,9 +316,26 @@ jobs:
             dist/textforensics-sbom.spdx.json.sig
           if-no-files-found: error
 
-      # ENG-05: upload fails closed (exact RELEASE_CONFIRMATION, typed
-      # mandatory manifest, per-asset digest validation, tag -> commit
-      # binding) before any `gh release create` is launched.
+      # ENG-05: the release tag is created here, inside the boundary,
+      # AFTER every gate in this job has passed (acceptance-gate job,
+      # full pytest, claims, pip-audit, locked SBOM, canonical
+      # verification, installed-web smoke, signing, checksums). The tag
+      # points at exactly the candidate SHA; `upload` below still
+      # requires the tag to resolve to that SHA. A tag that already
+      # resolves elsewhere is never moved.
+      - name: Create release tag at candidate SHA
+        run: |
+          python scripts/publish_release.py create-tag \
+            --tag "${{ steps.meta.outputs.tag }}" \
+            --source-sha "${{ github.sha }}"
+
+      # ENG-05/ENG-06: upload fails closed (exact RELEASE_CONFIRMATION,
+      # typed mandatory manifest, per-asset digest validation, SBOM
+      # structure, cosign signature verification against this workflow's
+      # keyless identity, tag -> commit binding) before any
+      # `gh release create` is launched; afterwards the published
+      # release is read back and its digests compared (see the
+      # verify-upload step below). A failing create is a clean refusal.
       - name: Create GitHub Release and upload artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -305,7 +347,28 @@ jobs:
             --provenance-dir provenance \
             --tag "${{ steps.meta.outputs.tag }}" \
             --version "${{ steps.meta.outputs.version }}" \
-            --source-sha "${{ github.sha }}"
+            --source-sha "${{ github.sha }}" \
+            --expected-identity "https://github.com/${{ github.repository }}/.github/workflows/release.yml@${{ github.ref }}" \
+            --expected-issuer "https://token.actions.githubusercontent.com"
+
+      # ENG-05/ENG-06: independent read-back verification of what was
+      # actually published (separate process, re-reads the release):
+      # asset list + per-asset download + digest comparison + signature
+      # re-verification. A `gh release create` exit code of 0 alone is
+      # never proof the artifacts arrived intact.
+      - name: Verify published release attachments (independent read-back)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/publish_release.py verify-upload \
+            --notes release-notes.md \
+            --dist-dir dist \
+            --provenance-dir provenance \
+            --tag "${{ steps.meta.outputs.tag }}" \
+            --version "${{ steps.meta.outputs.version }}" \
+            --source-sha "${{ github.sha }}" \
+            --expected-identity "https://github.com/${{ github.repository }}/.github/workflows/release.yml@${{ github.ref }}" \
+            --expected-issuer "https://token.actions.githubusercontent.com"
 
       - name: Release summary
         run: |

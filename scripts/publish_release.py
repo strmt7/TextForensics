@@ -15,10 +15,30 @@ Subcommands used by .github/workflows/release.yml:
               their cosign signatures, checksums and provenance bundles.
               Fails closed unless: RELEASE_CONFIRMATION is exactly
               ``RELEASE``; every mandatory asset in the typed manifest is
-              present and valid (names, versions, digests); the tag resolves
-              to the artifact's source commit; and the notes were signed in
+              present and valid (names, versions, digests); the SBOM
+              payloads are structurally valid SBOMs; every detached
+              signature verifies with cosign verify-blob against the
+              expected signer identity/issuer; the tag resolves to the
+              artifact's source commit; and the notes were signed in
               publication mode. No remote-writing command is launched until
-              every check passes.
+              every check passes. After `gh release create` succeeds, the
+              upload is verified by reading the published release back
+              (asset list + per-asset download) and comparing digests; a
+              read-back failure is reported as a failed upload, never as
+              a success.
+  verify-upload
+              Read-only re-verification of an already-published release:
+              rebuilds the manifest, re-verifies checksums, SBOM structure,
+              signatures and tag binding, then reads the published assets
+              back and compares digests. Performs no remote writes.
+  create-tag  Create the release tag at exactly the candidate source SHA
+              and push it, then verify it on the remote. A tag that already
+              resolves to a different commit is never moved. `--dry-run`
+              plans the tag creation without any remote write (W10
+              rehearsal). This is the ONLY place a release tag is created:
+              `upload` still requires the tag to already resolve to the
+              source SHA, so a tag can never be created by an undocumented
+              manual step outside the boundary.
 
 The script only shells out to git / cosign / gh; it performs no direct
 network access of its own. Raw release content never leaves the machine
@@ -29,10 +49,12 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import tomllib
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -79,12 +101,86 @@ def run_git(*args: str) -> str:
     return result.stdout.strip()
 
 
+def find_cosign() -> str | None:
+    """Return the cosign binary path, or None if cosign is not installed."""
+    return shutil.which("cosign")
+
+
 def run_cosign(*args: str) -> bool:
-    """Run cosign if it is installed. Returns True on success."""
-    if shutil.which("cosign") is None:
+    """Run cosign if it is installed. Returns True on success.
+
+    Raises subprocess.CalledProcessError if cosign is present but the
+    command fails; callers that must fail closed without a traceback
+    catch it.
+    """
+    if find_cosign() is None:
         return False
     subprocess.run(["cosign", *args], check=True)
     return True
+
+
+def verify_cosign_blob(
+    payload: Path,
+    sig: Path,
+    bundle: Path,
+    identity: str,
+    issuer: str,
+) -> tuple[bool, str]:
+    """Independently verify one detached keyless signature with cosign.
+
+    Runs ``cosign verify-blob --bundle <bundle> --signature <sig>
+    --certificate-identity <identity> --certificate-oidc-issuer
+    <issuer> <payload>``. Cosign has refused keyless verification
+    without an expected identity/issuer since 2.0: a signature from
+    any other signer is a rejection, not a pass. Returns (True, "") on
+    success, else (False, reason). Cosign itself checks the bundle's
+    payload digest against the file, the certificate chain against the
+    Sigstore root, and Rekor inclusion.
+    """
+    if find_cosign() is None:
+        return False, (
+            "cosign is not available; cannot verify the signature of "
+            f"{payload.name} in publication mode"
+        )
+    result = subprocess.run(
+        [
+            "cosign",
+            "verify-blob",
+            "--bundle",
+            str(bundle),
+            "--signature",
+            str(sig),
+            "--certificate-identity",
+            identity,
+            "--certificate-oidc-issuer",
+            issuer,
+            str(payload),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip().splitlines()
+        reason = detail[-1] if detail else "verification failed"
+        return False, f"cosign verify-blob rejected {payload.name}: {reason}"
+    return True, ""
+
+
+def validate_bundle_structure(bundle: Path) -> str | None:
+    """Structural pre-check: a Sigstore bundle must be JSON carrying
+    verificationMaterial and a dsseEnvelope or messageSignature. This
+    catches garbage/stale bundle files before cosign is invoked; the
+    cryptographic binding itself is cosign's job (verify_cosign_blob).
+    Returns an error string, or None if the structure is plausible."""
+    try:
+        data = json.loads(bundle.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return f"signature bundle {bundle.name} is not valid JSON: {exc}"
+    if not isinstance(data, dict) or "verificationMaterial" not in data:
+        return f"signature bundle {bundle.name} has no verificationMaterial (not a Sigstore bundle)"
+    if "dsseEnvelope" not in data and "messageSignature" not in data:
+        return f"signature bundle {bundle.name} has neither dsseEnvelope nor messageSignature"
+    return None
 
 
 def latest_tag() -> str | None:
@@ -153,11 +249,26 @@ def compute_sha256(path: Path) -> str:
 class AssetManifest:
     """Every asset that MUST accompany a release, with its verification
     material. Nothing here is optional: absence of any item fails the
-    upload before any remote-writing command is launched."""
+    upload before any remote-writing command is launched.
+
+    Every dist payload (wheel, sdist, source tarball, both SBOMs) and
+    the release notes carry a detached cosign signature + bundle: the
+    release workflow signs every file in dist/ before checksums are
+    generated. Existence alone is never enough — see
+    :func:`verify_signatures`, which verifies each signature with
+    ``cosign verify-blob`` against the expected signer identity.
+    Provenance bundles are DSSE attestations themselves (signed by the
+    attestation action); they carry no separate .sig file."""
 
     wheel: Path
+    wheel_sig: Path
+    wheel_bundle: Path
     sdist: Path
+    sdist_sig: Path
+    sdist_bundle: Path
     source_tarball: Path
+    source_sig: Path
+    source_bundle: Path
     notes: Path
     notes_checksum: Path
     notes_sig: Path
@@ -189,10 +300,27 @@ class AssetManifest:
             self.notes_checksum,
             self.notes_sig,
             self.notes_bundle,
+            self.wheel_sig,
+            self.wheel_bundle,
+            self.sdist_sig,
+            self.sdist_bundle,
+            self.source_sig,
+            self.source_bundle,
             self.sbom_cdx_sig,
             self.sbom_cdx_bundle,
             self.sbom_spdx_sig,
             self.sbom_spdx_bundle,
+        ]
+
+    def signed_pairs(self) -> list[tuple[Path, Path, Path]]:
+        """(payload, signature, bundle) triples to verify with cosign."""
+        return [
+            (self.wheel, self.wheel_sig, self.wheel_bundle),
+            (self.sdist, self.sdist_sig, self.sdist_bundle),
+            (self.source_tarball, self.source_sig, self.source_bundle),
+            (self.sbom_cdx, self.sbom_cdx_sig, self.sbom_cdx_bundle),
+            (self.sbom_spdx, self.sbom_spdx_sig, self.sbom_spdx_bundle),
+            (self.notes, self.notes_sig, self.notes_bundle),
         ]
 
     def all_assets(self) -> list[Path]:
@@ -248,8 +376,16 @@ def build_asset_manifest(
 
     manifest = AssetManifest(
         wheel=wheel,
+        wheel_sig=_require(dist_dir / f"{expected_wheel}.sig", "wheel signature"),
+        wheel_bundle=_require(dist_dir / f"{expected_wheel}.bundle", "wheel signature bundle"),
         sdist=sdist,
+        sdist_sig=_require(dist_dir / f"{expected_sdist}.sig", "sdist signature"),
+        sdist_bundle=_require(dist_dir / f"{expected_sdist}.bundle", "sdist signature bundle"),
         source_tarball=source,
+        source_sig=_require(dist_dir / f"{expected_source}.sig", "source tarball signature"),
+        source_bundle=_require(
+            dist_dir / f"{expected_source}.bundle", "source tarball signature bundle"
+        ),
         notes=notes,
         notes_checksum=_require(
             notes.with_suffix(notes.suffix + ".sha256"), "release-notes checksum"
@@ -363,6 +499,177 @@ def verify_tag_binding(tag: str, source_sha: str) -> bool:
     return True
 
 
+def validate_sbom_payloads(manifest: AssetManifest) -> list[str]:
+    """Structural validation of the SBOM payloads (ENG-06).
+
+    Checksums prove integrity, not that a payload is an SBOM: a payload
+    must parse as JSON and carry its format marker (CycloneDX
+    ``bomFormat`` / SPDX ``spdxVersion``). A payload that fails this
+    check is refused even when its SHA256SUMS entry matches.
+    """
+    errors: list[str] = []
+    for path, fmt, key, want in (
+        (manifest.sbom_cdx, "CycloneDX", "bomFormat", "CycloneDX"),
+        (manifest.sbom_spdx, "SPDX", "spdxVersion", "SPDX-"),
+    ):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            errors.append(f"SBOM payload {path.name} is not valid JSON: {exc}")
+            continue
+        if not isinstance(data, dict):
+            errors.append(f"SBOM payload {path.name} is not a JSON object")
+            continue
+        value = data.get(key)
+        if fmt == "CycloneDX":
+            if value != want:
+                errors.append(f"SBOM payload {path.name} has bomFormat {value!r}, not {want!r}")
+        elif not isinstance(value, str) or not value.startswith(want):
+            errors.append(
+                f"SBOM payload {path.name} has spdxVersion {value!r}, not an {want!r} version"
+            )
+    return errors
+
+
+def verify_signatures(
+    manifest: AssetManifest,
+    identity: str | None,
+    issuer: str | None,
+) -> tuple[bool, list[str]]:
+    """Verify every detached signature in the manifest (ENG-06).
+
+    Both the expected signer identity and the OIDC issuer are required:
+    keyless cosign verification without them is refused by cosign since
+    2.0, and verifying against "any signer" would accept a signature
+    from a compromised pipeline. A missing identity/issuer, a missing
+    cosign binary, a malformed bundle, or any rejected signature fails
+    the whole verification. Returns (ok, errors).
+    """
+    if not identity or not issuer:
+        return False, [
+            "signer identity is not configured: --expected-identity and "
+            "--expected-issuer are both required to verify signatures "
+            "(the signing identity is a human decision; see "
+            "docs/verification/promotion-boundary.md). Refusing to "
+            "verify against any signer."
+        ]
+    errors: list[str] = []
+    for payload, sig, bundle in manifest.signed_pairs():
+        structural = validate_bundle_structure(bundle)
+        if structural is not None:
+            errors.append(structural)
+            continue
+        ok, detail = verify_cosign_blob(payload, sig, bundle, identity, issuer)
+        if not ok:
+            errors.append(detail)
+    return (not errors), errors
+
+
+def verify_uploaded_assets(
+    tag: str,
+    manifest: AssetManifest,
+) -> tuple[bool, list[str]]:
+    """Read-back verification of a published release (ENG-05).
+
+    Lists the published release's assets with ``gh release view`` and
+    downloads every attached asset with ``gh release download``, then
+    compares each downloaded file's SHA-256 (and the API-reported size)
+    against the local file. A ``gh release create`` exit code of 0 is
+    NOT proof the artifacts arrived intact: a missing asset, a size
+    mismatch, or a digest mismatch fails the upload. Read-only: no
+    remote writes are performed here. Returns (ok, errors).
+    """
+    errors: list[str] = []
+    view = subprocess.run(
+        ["gh", "release", "view", tag, "--json", "assets"],
+        capture_output=True,
+        text=True,
+    )
+    if view.returncode != 0:
+        return False, [
+            f"could not list published release {tag}: "
+            f"{(view.stderr or '').strip() or 'gh release view failed'}"
+        ]
+    try:
+        published = {asset["name"]: asset for asset in json.loads(view.stdout).get("assets", [])}
+    except (json.JSONDecodeError, AttributeError, TypeError) as exc:
+        return False, [f"could not parse `gh release view` output for {tag}: {exc}"]
+    local_by_name = {asset.name: asset for asset in manifest.all_assets()}
+    for name in sorted(local_by_name):
+        if name not in published:
+            errors.append(f"published release {tag} is missing attached asset {name}")
+            continue
+        size = published[name].get("size")
+        if size is not None and size != local_by_name[name].stat().st_size:
+            errors.append(
+                f"published asset {name} has size {size}, "
+                f"local file has size {local_by_name[name].stat().st_size}"
+            )
+    if errors:
+        return False, errors
+    with tempfile.TemporaryDirectory(prefix="release-readback-") as tmp:
+        tmpdir = Path(tmp)
+        for name in sorted(local_by_name):
+            local = local_by_name[name]
+            download = subprocess.run(
+                [
+                    "gh",
+                    "release",
+                    "download",
+                    tag,
+                    "--dir",
+                    str(tmpdir),
+                    "--pattern",
+                    name,
+                ],
+                capture_output=True,
+                text=True,
+            )
+            if download.returncode != 0:
+                errors.append(
+                    f"could not download published asset {name} for read-back: "
+                    f"{(download.stderr or '').strip() or 'gh release download failed'}"
+                )
+                continue
+            downloaded = tmpdir / name
+            if not downloaded.exists():
+                errors.append(f"read-back download of {name} produced no file")
+                continue
+            if compute_sha256(downloaded) != compute_sha256(local):
+                errors.append(
+                    f"read-back digest mismatch for {name}: the published "
+                    "bytes differ from the local file"
+                )
+    return (not errors), errors
+
+
+def _prepare_verified_manifest(
+    dist_dir: Path,
+    notes: Path,
+    provenance_dir: Path | None,
+    version: str,
+    identity: str | None,
+    issuer: str | None,
+) -> tuple[AssetManifest | None, list[str]]:
+    """Shared pre-publication verification (upload + verify-upload):
+    typed manifest, checksums, SBOM structure, signatures. Returns
+    (manifest, errors); manifest is None when any check fails. Prints
+    nothing: callers report the errors."""
+    try:
+        manifest = build_asset_manifest(dist_dir, notes, provenance_dir, version)
+    except ManifestError as exc:
+        return None, [str(exc)]
+    errors: list[str] = []
+    if not verify_checksums(manifest):
+        errors.append("checksum verification failed")
+    errors.extend(validate_sbom_payloads(manifest))
+    ok, sig_errors = verify_signatures(manifest, identity, issuer)
+    errors.extend(sig_errors)
+    if errors:
+        return None, errors
+    return manifest, []
+
+
 # ---------------------------------------------------------------------------
 # Subcommands
 # ---------------------------------------------------------------------------
@@ -463,15 +770,23 @@ def cmd_sign_notes(args: argparse.Namespace) -> int:
 
     # Publication mode: cryptographic signing is mandatory. A checksum is
     # not an authenticity signature, and must never be called one.
-    signed = run_cosign(
-        "sign-blob",
-        "--yes",
-        str(notes),
-        "--bundle",
-        str(notes) + ".bundle",
-        "--output-signature",
-        str(notes) + ".sig",
-    )
+    try:
+        signed = run_cosign(
+            "sign-blob",
+            "--yes",
+            str(notes),
+            "--bundle",
+            str(notes) + ".bundle",
+            "--output-signature",
+            str(notes) + ".sig",
+        )
+    except subprocess.CalledProcessError as exc:
+        print(
+            f"ERROR: cosign sign-blob failed (exit {exc.returncode}); "
+            "release notes are not signed.",
+            file=sys.stderr,
+        )
+        return 1
     if not signed:
         print(
             "ERROR: cosign is not available; cannot sign release notes in "
@@ -503,19 +818,23 @@ def cmd_upload(args: argparse.Namespace) -> int:
     notes = Path(args.notes)
     prov_dir = Path(args.provenance_dir) if args.provenance_dir else None
 
-    # (1) Typed mandatory asset manifest: presence + names + versions.
-    try:
-        manifest = build_asset_manifest(dist_dir, notes, prov_dir, version)
-    except ManifestError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+    # (1-4) Typed mandatory asset manifest, checksums, SBOM structure,
+    # signatures (cosign verify-blob against the expected signer
+    # identity/issuer). All before any remote-writing command.
+    manifest, errors = _prepare_verified_manifest(
+        dist_dir,
+        notes,
+        prov_dir,
+        version,
+        args.expected_identity,
+        args.expected_issuer,
+    )
+    if manifest is None:
+        for error in errors:
+            print(f"ERROR: {error}", file=sys.stderr)
         return 1
 
-    # (2) Checksums must cover every attached asset and match content.
-    if not verify_checksums(manifest):
-        print("ERROR: checksum verification failed", file=sys.stderr)
-        return 1
-
-    # (3) Tag must resolve to the artifact's source commit.
+    # (5) Tag must resolve to the artifact's source commit.
     source_sha = args.source_sha or run_git("rev-parse", "HEAD")
     if not verify_tag_binding(tag, source_sha):
         return 1
@@ -539,12 +858,161 @@ def cmd_upload(args: argparse.Namespace) -> int:
     print(f"Creating release {tag} ({title}) with {len(assets)} asset(s):")
     for asset in assets:
         print(f"  - {asset}")
-    subprocess.run(cmd, check=True)
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as exc:
+        print(
+            f"ERROR: `gh release create` failed (exit {exc.returncode}); "
+            "the release was NOT published.",
+            file=sys.stderr,
+        )
+        return 1
+
+    # (6) A zero exit code is not proof the artifacts arrived intact:
+    # read the published release back and compare digests. A read-back
+    # failure is a failed upload, never a success.
+    ok, readback_errors = verify_uploaded_assets(tag, manifest)
+    if not ok:
+        for error in readback_errors:
+            print(f"ERROR: {error}", file=sys.stderr)
+        print(
+            f"ERROR: read-back verification of published release {tag} "
+            "failed; the release is NOT verified as published. Inspect "
+            f"the release {tag} before retrying or deleting it.",
+            file=sys.stderr,
+        )
+        return 1
 
     print(
-        "Release published. Provenance attestations are also available in the "
-        "repository attestation store (`gh attestation verify`)."
+        f"Release {tag} published and read-back verified "
+        f"({len(assets)} assets, digests match). Provenance attestations "
+        "are also available in the repository attestation store "
+        "(`gh attestation verify`)."
     )
+    return 0
+
+
+def cmd_verify_upload(args: argparse.Namespace) -> int:
+    """Read-only re-verification of an already-published release.
+
+    Rebuilds the manifest and re-verifies checksums, SBOM structure,
+    signatures and tag binding, then reads the published assets back
+    and compares digests. Performs no remote writes (only `gh release
+    view` / `gh release download` reads). Exit 0: the published
+    release matches the local asset set; exit 1: any mismatch.
+    """
+    version = args.version or read_version()
+    tag = args.tag or f"v{version}"
+    dist_dir = Path(args.dist_dir)
+    notes = Path(args.notes)
+    prov_dir = Path(args.provenance_dir) if args.provenance_dir else None
+
+    manifest, errors = _prepare_verified_manifest(
+        dist_dir,
+        notes,
+        prov_dir,
+        version,
+        args.expected_identity,
+        args.expected_issuer,
+    )
+    if manifest is None:
+        for error in errors:
+            print(f"ERROR: {error}", file=sys.stderr)
+        return 1
+
+    source_sha = args.source_sha or run_git("rev-parse", "HEAD")
+    if not verify_tag_binding(tag, source_sha):
+        return 1
+
+    ok, readback_errors = verify_uploaded_assets(tag, manifest)
+    if not ok:
+        for error in readback_errors:
+            print(f"ERROR: {error}", file=sys.stderr)
+        print(
+            f"ERROR: read-back verification of published release {tag} failed.",
+            file=sys.stderr,
+        )
+        return 1
+    print(
+        f"Published release {tag} verified: {len(manifest.all_assets())} "
+        "assets present with matching digests and verified signatures."
+    )
+    return 0
+
+
+def cmd_create_tag(args: argparse.Namespace) -> int:
+    """Create the release tag at exactly the candidate source SHA and
+    push it, then verify it on the remote.
+
+    This is the ONLY place a release tag is created: `upload` requires
+    the tag to already resolve to the source SHA, so without this step
+    a new version could never publish — and a tag must never be created
+    by an undocumented manual step outside the boundary. A tag that
+    already resolves to a different commit is never moved. `--dry-run`
+    validates the preconditions and prints the plan without any remote
+    write (W10 rehearsal).
+    """
+    tag = args.tag
+    source_sha = args.source_sha or run_git("rev-parse", "HEAD")
+    remote = args.remote
+    resolved = tag_commit(tag)
+    if resolved is not None and resolved != source_sha:
+        print(
+            f"ERROR: tag {tag} already resolves to {resolved}, not the "
+            f"artifact source commit {source_sha}; refusing to move a tag.",
+            file=sys.stderr,
+        )
+        return 1
+    if args.dry_run:
+        if resolved == source_sha:
+            print(
+                f"DRY-RUN: tag {tag} already resolves to {source_sha}; would push it to {remote}."
+            )
+        else:
+            print(f"DRY-RUN: would create tag {tag} at {source_sha} and push it to {remote}.")
+        return 0
+    if resolved is None:
+        try:
+            subprocess.run(
+                ["git", "tag", tag, source_sha],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            print(
+                f"ERROR: could not create tag {tag} at {source_sha}: "
+                f"{(exc.stderr or '').strip() or exc}",
+                file=sys.stderr,
+            )
+            return 1
+    try:
+        subprocess.run(
+            ["git", "push", remote, tag],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        print(
+            f"ERROR: could not push tag {tag} to {remote}: {(exc.stderr or '').strip() or exc}",
+            file=sys.stderr,
+        )
+        return 1
+    result = subprocess.run(
+        ["git", "ls-remote", remote, tag],
+        capture_output=True,
+        text=True,
+    )
+    remote_sha = result.stdout.split()[0] if result.stdout.split() else None
+    if result.returncode != 0 or remote_sha != source_sha:
+        print(
+            f"ERROR: remote {remote} tag {tag} resolves to {remote_sha}, "
+            f"not {source_sha}; the pushed tag is NOT verified.",
+            file=sys.stderr,
+        )
+        return 1
+    print(f"Tag {tag} created at {source_sha} and pushed to {remote} (verified).")
     return 0
 
 
@@ -591,7 +1059,63 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Source commit the tag must resolve to (default: git HEAD).",
     )
+    p_upload.add_argument(
+        "--expected-identity",
+        default=None,
+        help="Expected keyless signer identity for cosign verify-blob "
+        "(required; e.g. the release workflow identity).",
+    )
+    p_upload.add_argument(
+        "--expected-issuer",
+        default=None,
+        help="Expected OIDC issuer for cosign verify-blob (required; "
+        "https://token.actions.githubusercontent.com in CI).",
+    )
     p_upload.set_defaults(func=cmd_upload)
+
+    p_verify = sub.add_parser(
+        "verify-upload",
+        help="Read-only re-verification of an already-published release",
+    )
+    p_verify.add_argument("--notes", default="release-notes.md")
+    p_verify.add_argument("--dist-dir", default="dist")
+    p_verify.add_argument("--provenance-dir", default=None)
+    p_verify.add_argument("--tag", default=None)
+    p_verify.add_argument("--version", default=None)
+    p_verify.add_argument(
+        "--source-sha",
+        default=None,
+        help="Source commit the tag must resolve to (default: git HEAD).",
+    )
+    p_verify.add_argument(
+        "--expected-identity",
+        default=None,
+        help="Expected keyless signer identity for cosign verify-blob (required).",
+    )
+    p_verify.add_argument(
+        "--expected-issuer",
+        default=None,
+        help="Expected OIDC issuer for cosign verify-blob (required).",
+    )
+    p_verify.set_defaults(func=cmd_verify_upload)
+
+    p_tag = sub.add_parser(
+        "create-tag",
+        help="Create the release tag at the candidate SHA and push it",
+    )
+    p_tag.add_argument("--tag", required=True, help="Tag to create (e.g. v1.2.3).")
+    p_tag.add_argument(
+        "--source-sha",
+        default=None,
+        help="Source commit the tag must resolve to (default: git HEAD).",
+    )
+    p_tag.add_argument("--remote", default="origin", help="Git remote (default: origin).")
+    p_tag.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate the preconditions and print the plan without any remote write.",
+    )
+    p_tag.set_defaults(func=cmd_create_tag)
 
     return parser
 

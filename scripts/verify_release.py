@@ -28,6 +28,16 @@ directory whose path is recorded in the report.
 
 Status vocabulary (exact strings, no others): ``pass``, ``fail``,
 ``skipped``, ``unavailable``, ``not_applicable``, ``zero_work``.
+
+CI-only gates (no local equivalent: CodeQL, actionlint, gitleaks,
+container push, Sigstore verification of release artifacts, Syft SBOM)
+are recorded as ``unavailable`` and are NOT required locally: a required
+gate that can never execute would make exit 0 unreachable and the
+release job's verification step unpassable. They remain required at the
+publishing boundary itself — the exact-SHA promotion gate
+(``scripts/promotion_gate.py``, acceptance-gate job in
+``.github/workflows/release.yml``) requires their CI check-runs for the
+candidate SHA before any release job runs.
 """
 
 import argparse
@@ -1374,8 +1384,12 @@ GATE_DEFS = [
         "secrets",
         "unavailable",
         "requires the gitleaks binary / gitleaks GitHub Action; gitleaks "
-        "is not installed in the canonical venv",
-        required=True,
+        "is not installed in the canonical venv. Enforced at the exact "
+        "candidate SHA by scripts/promotion_gate.py (acceptance-gate job "
+        "in the release workflow), which requires the CI check-run; the "
+        "local command records it as unavailable without blocking a "
+        "local pass",
+        required=False,
     ),
     static_gate(
         "supply-chain-sbom",
@@ -1598,8 +1612,11 @@ GATE_DEFS = [
         "unavailable",
         "requires the actionlint binary; actionlint is not installed in "
         "the canonical venv (the workflow runs `actionlint -color "
-        "-shellcheck='')`",
-        required=True,
+        "-shellcheck=''`). Enforced at the exact candidate SHA by "
+        "scripts/promotion_gate.py (acceptance-gate job in the release "
+        "workflow), which requires the CI check-run; the local command "
+        "records it as unavailable without blocking a local pass",
+        required=False,
     ),
     static_gate(
         "codeql",
@@ -1607,8 +1624,11 @@ GATE_DEFS = [
         "analyze",
         "unavailable",
         "requires the GitHub CodeQL action and security-events API; no "
-        "local equivalent is installed",
-        required=True,
+        "local equivalent is installed. Enforced at the exact candidate "
+        "SHA by scripts/promotion_gate.py (acceptance-gate job in the "
+        "release workflow), which requires the CI check-run; the local "
+        "command records it as unavailable without blocking a local pass",
+        required=False,
     ),
     static_gate(
         "container",
@@ -1616,8 +1636,12 @@ GATE_DEFS = [
         "build-and-push",
         "unavailable",
         "requires building and pushing a multi-arch image to ghcr.io; "
-        "local verification must not push images",
-        required=True,
+        "local verification must not push images. Enforced at the exact "
+        "candidate SHA by scripts/promotion_gate.py (acceptance-gate job "
+        "in the release workflow), which requires the CI check-run; the "
+        "local command records it as unavailable without blocking a "
+        "local pass",
+        required=False,
     ),
     static_gate(
         "sigstore-verification",
@@ -1626,8 +1650,11 @@ GATE_DEFS = [
         "unavailable",
         "the CI job now performs real cosign/attestation verification "
         "(ENG-07 fixed in W0), but no signed release artifacts exist "
-        "for this HEAD to verify",
-        required=True,
+        "for this HEAD to verify. Enforced at the exact candidate SHA "
+        "by scripts/promotion_gate.py (acceptance-gate job in the "
+        "release workflow), which requires the CI check-run; the local "
+        "command records it as unavailable without blocking a local pass",
+        required=False,
     ),
     static_gate(
         "repo-provenance-sbom",
@@ -1635,8 +1662,12 @@ GATE_DEFS = [
         "provenance",
         "unavailable",
         "requires anchore/sbom-action (Syft); the checked-in SBOM "
-        "freshness is covered by the sbom-check gate",
-        required=True,
+        "freshness is covered by the sbom-check gate. Enforced at the "
+        "exact candidate SHA by scripts/promotion_gate.py "
+        "(acceptance-gate job in the release workflow), which requires "
+        "the CI check-run; the local command records it as unavailable "
+        "without blocking a local pass",
+        required=False,
     ),
     # -- Reproducibility (reproducibility.yml, push-gated) ----------------
     special_gate(

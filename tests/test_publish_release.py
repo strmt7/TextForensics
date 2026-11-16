@@ -16,6 +16,8 @@ NO-PUBLICATION TEST (W0 acceptance): see
 
 import hashlib
 import importlib.util
+import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -31,6 +33,20 @@ REMOTE_WRITE_PREFIXES = (
     ("git", "tag"),
     ("git", "push"),
 )
+
+# Signer identity the (mocked) cosign signatures assert, matching the
+# release workflow's keyless GitHub Actions identity.
+EXPECTED_IDENTITY = (
+    "https://github.com/strmt7/TextForensics/.github/workflows/release.yml@refs/heads/main"
+)
+EXPECTED_ISSUER = "https://token.actions.githubusercontent.com"
+
+# Read-back registry: basename -> bytes of the asset as published on the
+# release. Populated by the valid_dist fixture; tests mutate it to plant
+# read-back defects (tampered bytes, removed asset). The mocked `gh
+# release view` lists exactly these names; the mocked `gh release
+# download` writes exactly these bytes.
+READBACK_REGISTRY: dict[str, bytes] = {}
 
 
 def _load_module():
@@ -53,21 +69,51 @@ TAG = "v9.9.9"
 SOURCE_SHA = "c" * 40
 
 
+class _Result:
+    def __init__(self, returncode=0, stdout="", stderr=""):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
 class RemoteCallRecorder:
-    """Records every subprocess.run call; reports remote-writing ones."""
+    """Records every subprocess.run call; reports remote-writing ones.
+
+    It also answers the read-only `gh release view` / `gh release
+    download` calls from READBACK_REGISTRY, so upload read-back
+    verification can be exercised without any network access. Planted
+    failures: set ``fail_cosign_verify`` to make cosign reject every
+    signature, or ``fail_gh_create`` to make `gh release create` fail.
+    """
 
     def __init__(self):
         self.calls = []
+        self.fail_cosign_verify = False
+        self.fail_gh_create = False
 
     def __call__(self, cmd, **kwargs):
         self.calls.append(list(cmd))
+        cmd = [str(c) for c in cmd]
 
-        class Result:
-            returncode = 0
-            stdout = ""
-            stderr = ""
-
-        return Result()
+        if cmd[:2] == ["cosign", "verify-blob"] and self.fail_cosign_verify:
+            return _Result(1, "", "signature verification failed")
+        if tuple(cmd[:3]) == ("gh", "release", "create") and self.fail_gh_create:
+            raise subprocess.CalledProcessError(1, cmd)
+        if cmd[:3] == ["gh", "release", "view"]:
+            assets = [{"name": name, "size": len(data)} for name, data in READBACK_REGISTRY.items()]
+            return _Result(0, json.dumps({"assets": assets}), "")
+        if cmd[:3] == ["gh", "release", "download"]:
+            dest = Path(cmd[cmd.index("--dir") + 1])
+            names = [cmd[i + 1] for i, part in enumerate(cmd) if part == "--pattern"]
+            for name in names:
+                if name not in READBACK_REGISTRY:
+                    return _Result(1, "", f"asset not found: {name}")
+                dest.mkdir(parents=True, exist_ok=True)
+                (dest / name).write_bytes(READBACK_REGISTRY[name])
+            return _Result(0, "", "")
+        if cmd[:2] == ["git", "ls-remote"]:
+            return _Result(0, f"{SOURCE_SHA}\trefs/tags/{TAG}\n", "")
+        return _Result()
 
     def remote_writes(self):
         return [
@@ -115,14 +161,37 @@ def valid_dist(tmp_path, monkeypatch):
     wheel = _write(dist / f"textforensics-{VERSION}-py3-none-any.whl", b"wheel-bytes")
     sdist = _write(dist / f"textforensics-{VERSION}.tar.gz", b"sdist-bytes")
     source = _write(dist / f"textforensics-{VERSION}-source.tar.gz", b"source-bytes")
+    wheel_sig = _write(dist / f"textforensics-{VERSION}-py3-none-any.whl.sig", b"sig")
+    wheel_bundle = _write(
+        dist / f"textforensics-{VERSION}-py3-none-any.whl.bundle",
+        b'{"verificationMaterial": {}, "dsseEnvelope": {}}',
+    )
+    sdist_sig = _write(dist / f"textforensics-{VERSION}.tar.gz.sig", b"sig")
+    sdist_bundle = _write(
+        dist / f"textforensics-{VERSION}.tar.gz.bundle",
+        b'{"verificationMaterial": {}, "dsseEnvelope": {}}',
+    )
+    source_sig = _write(dist / f"textforensics-{VERSION}-source.tar.gz.sig", b"sig")
+    source_bundle = _write(
+        dist / f"textforensics-{VERSION}-source.tar.gz.bundle",
+        b'{"verificationMaterial": {}, "dsseEnvelope": {}}',
+    )
     cdx = _write(dist / "textforensics-sbom.cdx.json", b'{"bomFormat":"CycloneDX"}')
     spdx = _write(dist / "textforensics-sbom.spdx.json", b'{"spdxVersion":"SPDX-2.3"}')
     cdx_sig = _write(dist / "textforensics-sbom.cdx.json.sig", b"sig")
-    cdx_bundle = _write(dist / "textforensics-sbom.cdx.json.bundle", b"bundle")
+    cdx_bundle = _write(
+        dist / "textforensics-sbom.cdx.json.bundle",
+        b'{"verificationMaterial": {}, "dsseEnvelope": {}}',
+    )
     spdx_sig = _write(dist / "textforensics-sbom.spdx.json.sig", b"sig")
-    spdx_bundle = _write(dist / "textforensics-sbom.spdx.json.bundle", b"bundle")
+    spdx_bundle = _write(
+        dist / "textforensics-sbom.spdx.json.bundle",
+        b'{"verificationMaterial": {}, "dsseEnvelope": {}}',
+    )
     notes_sig = _write(tmp_path / "release-notes.md.sig", b"sig")
-    notes_bundle = _write(tmp_path / "release-notes.md.bundle", b"bundle")
+    notes_bundle = _write(
+        tmp_path / "release-notes.md.bundle", b'{"verificationMaterial": {}, "dsseEnvelope": {}}'
+    )
     notes_sum = tmp_path / "release-notes.md.sha256"
     notes_sum.write_text(f"{_sha256(notes)}  release-notes.md\n", encoding="utf-8")
     bundle0 = _write(prov / "provenance-bundle-0.intoto.jsonl", b"provenance")
@@ -130,6 +199,12 @@ def valid_dist(tmp_path, monkeypatch):
         wheel,
         sdist,
         source,
+        wheel_sig,
+        wheel_bundle,
+        sdist_sig,
+        sdist_bundle,
+        source_sig,
+        source_bundle,
         cdx,
         spdx,
         cdx_sig,
@@ -141,7 +216,13 @@ def valid_dist(tmp_path, monkeypatch):
         notes_bundle,
         bundle0,
     ]
-    _write_checksums(dist, payload_assets)
+    sums = _write_checksums(dist, payload_assets)
+    # The published release carries exactly these assets (plus the notes
+    # checksum file and SHA256SUMS, which are attached as well).
+    READBACK_REGISTRY.clear()
+    READBACK_REGISTRY.update({a.name: a.read_bytes() for a in payload_assets})
+    READBACK_REGISTRY[notes_sum.name] = notes_sum.read_bytes()
+    READBACK_REGISTRY["SHA256SUMS"] = sums.read_bytes()
     # Tag v9.9.9 resolves to the artifact source commit.
     monkeypatch.setattr(
         sys.modules["publish_release"],
@@ -161,7 +242,7 @@ def valid_dist(tmp_path, monkeypatch):
     }
 
 
-def _upload_args(fx, extra=None):
+def _upload_args(fx, extra=None, identity=True):
     args = [
         "upload",
         "--notes",
@@ -177,16 +258,55 @@ def _upload_args(fx, extra=None):
         "--source-sha",
         SOURCE_SHA,
     ]
+    if identity:
+        args += [
+            "--expected-identity",
+            EXPECTED_IDENTITY,
+            "--expected-issuer",
+            EXPECTED_ISSUER,
+        ]
     return args + (extra or [])
 
 
-def _run_upload(pub, fx, monkeypatch, confirmation="RELEASE"):
+def _run_upload(pub, fx, monkeypatch, confirmation="RELEASE", identity=True, cosign=True):
     if confirmation is None:
         monkeypatch.delenv("RELEASE_CONFIRMATION", raising=False)
     else:
         monkeypatch.setenv("RELEASE_CONFIRMATION", confirmation)
-    args = pub.build_parser().parse_args(_upload_args(fx))
+    # Cosign is present and its verify-blob calls succeed (the recorder
+    # returns 0), so tests reach the check they target; tests that plant
+    # a signature failure pass cosign=False or set fail_cosign_verify.
+    monkeypatch.setattr(pub, "find_cosign", lambda: "/usr/bin/cosign" if cosign else None)
+    args = pub.build_parser().parse_args(_upload_args(fx, identity=identity))
     return pub.cmd_upload(args)
+
+
+def _verify_upload_args(fx, extra=None):
+    return [
+        "verify-upload",
+        "--notes",
+        str(fx["notes"]),
+        "--dist-dir",
+        str(fx["dist"]),
+        "--provenance-dir",
+        str(fx["prov"]),
+        "--tag",
+        TAG,
+        "--version",
+        VERSION,
+        "--source-sha",
+        SOURCE_SHA,
+        "--expected-identity",
+        EXPECTED_IDENTITY,
+        "--expected-issuer",
+        EXPECTED_ISSUER,
+    ] + (extra or [])
+
+
+def _run_verify_upload(pub, fx, monkeypatch):
+    monkeypatch.setattr(pub, "find_cosign", lambda: "/usr/bin/cosign")
+    args = pub.build_parser().parse_args(_verify_upload_args(fx))
+    return pub.cmd_verify_upload(args)
 
 
 # --- ENG-05: confirmation ---------------------------------------------------
@@ -355,6 +475,160 @@ def test_upload_fails_when_tag_resolves_to_other_commit(pub, valid_dist, recorde
     recorder.assert_no_remote_writes()
 
 
+# --- ENG-06: signatures are verified, not just present ---------------------
+
+
+def test_upload_fails_when_cosign_absent(pub, valid_dist, recorder, monkeypatch):
+    """ENG-06 reproduction: .sig/.bundle files used to be accepted on
+    existence alone. Without cosign there is no signature verification,
+    so publication mode must refuse before any remote write."""
+    rc = _run_upload(pub, valid_dist, monkeypatch, cosign=False)
+    assert rc != 0
+    recorder.assert_no_remote_writes()
+
+
+def test_upload_fails_when_signer_identity_missing(pub, valid_dist, recorder, monkeypatch, capsys):
+    """Keyless cosign verification requires the expected signer identity
+    and OIDC issuer (cosign has refused keyless verification without
+    them since 2.0). Without them the upload must refuse, not verify
+    against any signer."""
+    rc = _run_upload(pub, valid_dist, monkeypatch, identity=False)
+    assert rc != 0
+    assert "identity" in capsys.readouterr().err.lower()
+    recorder.assert_no_remote_writes()
+
+
+def test_upload_fails_when_cosign_rejects_signature(pub, valid_dist, recorder, monkeypatch):
+    """A forged/empty/garbage .sig file must fail: the signature is
+    verified with cosign verify-blob, and a rejection blocks the upload
+    before `gh release create` is launched."""
+    recorder.fail_cosign_verify = True
+    rc = _run_upload(pub, valid_dist, monkeypatch)
+    assert rc != 0
+    recorder.assert_no_remote_writes()
+    assert not any(c[:3] == ["gh", "release", "create"] for c in recorder.calls)
+
+
+def test_upload_fails_when_wheel_signature_missing(pub, valid_dist, recorder, monkeypatch):
+    (valid_dist["dist"] / f"textforensics-{VERSION}-py3-none-any.whl.sig").unlink()
+    rc = _run_upload(pub, valid_dist, monkeypatch)
+    assert rc != 0
+    recorder.assert_no_remote_writes()
+
+
+def test_upload_fails_when_sbom_payload_is_not_valid_json(pub, valid_dist, recorder, monkeypatch):
+    """An SBOM payload that is not parseable JSON must fail even when its
+    SHA256SUMS entry matches the (tampered) content: checksums prove
+    integrity, not that the payload is an SBOM."""
+    valid_dist["cdx"].write_bytes(b"not json at all")
+    _write_checksums(valid_dist["dist"], valid_dist["assets"])
+    rc = _run_upload(pub, valid_dist, monkeypatch)
+    assert rc != 0
+    recorder.assert_no_remote_writes()
+
+
+def test_upload_fails_when_sbom_payload_has_wrong_format(pub, valid_dist, recorder, monkeypatch):
+    valid_dist["spdx"].write_bytes(b'{"bomFormat":"CycloneDX"}')
+    _write_checksums(valid_dist["dist"], valid_dist["assets"])
+    rc = _run_upload(pub, valid_dist, monkeypatch)
+    assert rc != 0
+    recorder.assert_no_remote_writes()
+
+
+# --- ENG-05: planted upload failures + read-back verification --------------
+
+
+def test_upload_fails_cleanly_when_gh_release_create_fails(
+    pub, valid_dist, recorder, monkeypatch, capsys
+):
+    """A failing `gh release create` must yield a clean refusal (return
+    code 1, no traceback) and must never be reported as a success."""
+    recorder.fail_gh_create = True
+    rc = _run_upload(pub, valid_dist, monkeypatch)
+    assert rc == 1
+    assert "Traceback" not in capsys.readouterr().err
+    assert len(recorder.remote_writes()) == 1  # the attempt was made, and failed
+
+
+def test_upload_fails_when_readback_digest_mismatches(
+    pub, valid_dist, recorder, monkeypatch, capsys
+):
+    """ENG-05: upload success is verified by reading the published
+    artifact back and comparing digests. A published asset whose bytes
+    differ from the local file must fail the upload, not be reported
+    as published."""
+    READBACK_REGISTRY[f"textforensics-{VERSION}-py3-none-any.whl"] = b"tampered"
+    rc = _run_upload(pub, valid_dist, monkeypatch)
+    assert rc != 0
+    assert "read-back" in capsys.readouterr().err.lower()
+    assert len(recorder.remote_writes()) == 1
+
+
+def test_upload_fails_when_readback_asset_missing(pub, valid_dist, recorder, monkeypatch):
+    """A published release that is missing an attached asset fails
+    read-back verification even though `gh release create` exited 0."""
+    del READBACK_REGISTRY["textforensics-sbom.spdx.json"]
+    rc = _run_upload(pub, valid_dist, monkeypatch)
+    assert rc != 0
+    assert len(recorder.remote_writes()) == 1
+
+
+def test_verify_upload_subcommand_verifies_published_release(
+    pub, valid_dist, recorder, monkeypatch
+):
+    """The standalone read-back verifier accepts a complete published
+    release and rejects a tampered one, performing zero remote writes
+    in both cases (view/download are reads)."""
+    assert _run_verify_upload(pub, valid_dist, monkeypatch) == 0
+    recorder.assert_no_remote_writes()
+    READBACK_REGISTRY[f"textforensics-{VERSION}.tar.gz"] = b"tampered"
+    assert _run_verify_upload(pub, valid_dist, monkeypatch) != 0
+    recorder.assert_no_remote_writes()
+
+
+# --- ENG-05: release tag creation belongs inside the boundary --------------
+
+
+def _fake_run_git_tag_missing(*args):
+    if "--verify" in args:
+        raise subprocess.CalledProcessError(1, ["git", *args])
+    return SOURCE_SHA
+
+
+def test_create_tag_creates_and_pushes_missing_tag(pub, valid_dist, recorder, monkeypatch):
+    """A new version has no tag yet, and `upload` requires the tag to
+    resolve to the source SHA. The tag must therefore be created inside
+    the boundary (after all gates), at exactly the candidate SHA, and
+    verified on the remote — not by an undocumented manual step."""
+    monkeypatch.setattr(pub, "run_git", _fake_run_git_tag_missing)
+    args = pub.build_parser().parse_args(["create-tag", "--tag", TAG, "--source-sha", SOURCE_SHA])
+    assert pub.cmd_create_tag(args) == 0
+    assert ["git", "tag", TAG, SOURCE_SHA] in recorder.calls
+    assert ["git", "push", "origin", TAG] in recorder.calls
+
+
+def test_create_tag_refuses_tag_pointing_elsewhere(pub, valid_dist, recorder, monkeypatch):
+    """A tag that already resolves to a different commit must never be
+    moved or reused: creation refuses and pushes nothing."""
+    monkeypatch.setattr(pub, "run_git", lambda *args: "d" * 40)
+    args = pub.build_parser().parse_args(["create-tag", "--tag", TAG, "--source-sha", SOURCE_SHA])
+    assert pub.cmd_create_tag(args) != 0
+    assert not any(c[:2] == ["git", "push"] for c in recorder.calls)
+    assert not any(c[:2] == ["git", "tag"] for c in recorder.calls)
+
+
+def test_create_tag_dry_run_writes_nothing(pub, valid_dist, recorder, monkeypatch):
+    """--dry-run plans the tag creation (W10 rehearsal) without any
+    remote write, including when the tag does not exist yet."""
+    monkeypatch.setattr(pub, "run_git", _fake_run_git_tag_missing)
+    args = pub.build_parser().parse_args(
+        ["create-tag", "--tag", TAG, "--source-sha", SOURCE_SHA, "--dry-run"]
+    )
+    assert pub.cmd_create_tag(args) == 0
+    assert not any(c[:2] == ["git", "push"] for c in recorder.calls)
+    assert not any(c[:2] == ["git", "tag"] for c in recorder.calls)
+
+
 def test_manifest_asset_list_includes_sbom_payloads(pub, valid_dist):
     manifest = pub.build_asset_manifest(
         dist_dir=valid_dist["dist"],
@@ -473,6 +747,20 @@ def test_no_publication_mode_invokes_zero_remote_writes(
     assert pub.main(["version"]) == 0
     args = pub.build_parser().parse_args(["changelog", "--output", str(tmp_path / "cl.md")])
     assert pub.cmd_changelog(args) == 0
+
+    # 5. create-tag --dry-run plans the tag without writing it.
+    # (Restore the fixture's tag mock: step 4 replaced run_git with "".)
+    monkeypatch.setattr(pub, "run_git", lambda *a: SOURCE_SHA)
+    args = pub.build_parser().parse_args(
+        ["create-tag", "--tag", TAG, "--source-sha", SOURCE_SHA, "--dry-run"]
+    )
+    assert pub.cmd_create_tag(args) == 0
+
+    # 6. verify-upload is a read-only verifier: it checks the published
+    # release (mocked reads) and performs zero remote writes.
+    monkeypatch.setattr(pub, "find_cosign", lambda: "/usr/bin/cosign")
+    args = pub.build_parser().parse_args(_verify_upload_args(valid_dist))
+    assert pub.cmd_verify_upload(args) == 0
 
     # 5. Promotion gate fetch path (read-only gh api) performs no writes.
     spec = importlib.util.spec_from_file_location(

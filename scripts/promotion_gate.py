@@ -190,30 +190,41 @@ def fetch_check_runs(
     ever issued; no remote-writing ``gh`` subcommand is used here.
     """
     run = runner or subprocess.run
-    endpoint = f"repos/{owner}/{repo}/commits/{sha}/check-runs?per_page=100"
-    try:
-        result = run(
-            ["gh", "api", endpoint],
-            check=True,
-            capture_output=True,
-            text=True,
+    base = f"repos/{owner}/{repo}/commits/{sha}/check-runs?per_page=100"
+    # Paginate: a SHA with more than 100 check-runs must not lose required
+    # results recorded on later pages. The first page keeps the exact URL
+    # used before (no &page=1); later pages append &page=N. A short page
+    # (< 100 runs) ends the listing.
+    runs: list[dict] = []
+    page = 1
+    while True:
+        endpoint = base if page == 1 else f"{base}&page={page}"
+        try:
+            result = run(
+                ["gh", "api", endpoint],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except Exception as exc:  # subprocess / gh failure: gate unevaluated
+            raise PromotionGateError(f"could not fetch check-runs for {sha}: {exc}") from exc
+        try:
+            payload = json.loads(result.stdout)
+        except (json.JSONDecodeError, AttributeError) as exc:
+            raise PromotionGateError(f"could not parse check-runs for {sha}: {exc}") from exc
+        page_runs = payload.get("check_runs", [])
+        runs.extend(
+            {
+                "name": r.get("name"),
+                "status": r.get("status"),
+                "conclusion": r.get("conclusion"),
+                "head_sha": r.get("head_sha"),
+            }
+            for r in page_runs
         )
-    except Exception as exc:  # subprocess / gh failure: gate unevaluated
-        raise PromotionGateError(f"could not fetch check-runs for {sha}: {exc}") from exc
-    try:
-        payload = json.loads(result.stdout)
-    except (json.JSONDecodeError, AttributeError) as exc:
-        raise PromotionGateError(f"could not parse check-runs for {sha}: {exc}") from exc
-    runs = payload.get("check_runs", [])
-    return [
-        {
-            "name": r.get("name"),
-            "status": r.get("status"),
-            "conclusion": r.get("conclusion"),
-            "head_sha": r.get("head_sha"),
-        }
-        for r in runs
-    ]
+        if len(page_runs) < 100:
+            return runs
+        page += 1
 
 
 def build_parser() -> argparse.ArgumentParser:

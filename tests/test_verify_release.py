@@ -84,6 +84,40 @@ def make_repo(path: Path, dirty: bool = False) -> None:
 class TestVerifyReleaseContract(unittest.TestCase):
     """Contract tests for the frozen W0 verification-command behaviour."""
 
+    def test_no_required_gate_is_statically_unavailable(self):
+        """ENG-04 reproduction: six required gates used to be static
+        `unavailable` (secrets-scan, workflow-lint, codeql, container,
+        sigstore-verification, repo-provenance-sbom), so the canonical
+        verification command could never exit 0 and the release job's
+        verification step could never pass. Every required gate must be
+        an executable gate (subprocess or special)."""
+        bad = [
+            gate["name"]
+            for gate in vr.GATE_DEFS
+            if gate["required"] and gate.get("kind") not in ("subprocess", "special")
+        ]
+        self.assertEqual(bad, [], f"required gates that can never pass: {bad}")
+
+    def test_ci_only_gates_remain_visible_but_non_required(self):
+        """The six CI-only gates stay in GATE_DEFS as unavailable and
+        non-required, with their enforcement point named: the exact-SHA
+        promotion gate (scripts/promotion_gate.py, acceptance-gate job)
+        requires their CI check-runs before any release job runs."""
+        ci_only = {
+            "secrets-scan",
+            "workflow-lint",
+            "codeql",
+            "container",
+            "sigstore-verification",
+            "repo-provenance-sbom",
+        }
+        by_name = {gate["name"]: gate for gate in vr.GATE_DEFS}
+        self.assertTrue(ci_only <= set(by_name), ci_only - set(by_name))
+        for name in sorted(ci_only):
+            gate = by_name[name]
+            self.assertFalse(gate["required"], f"{name} must not block a local pass")
+            self.assertIn("promotion_gate", gate.get("reason", ""))
+
     def test_passing_gate_exit_0(self):
         """A synthetic passing gate yields exit 0 with executed_work > 0."""
         ctx = clean_ctx()
