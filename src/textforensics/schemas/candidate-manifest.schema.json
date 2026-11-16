@@ -1,0 +1,322 @@
+{
+  "$id": "textforensics.candidate-manifest/v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Typed manifest for one exact TextForensics release candidate (W10): every candidate asset with its SHA-256 digest and size, the immutable source SHA it was built from, the exact build commands and build profile, the two-build byte-identity proof, and the verification material a second verifier needs to re-derive every digest from the source SHA alone. The manifest file itself is committed in a later commit (candidate.manifest_commit) than the source it describes (candidate.source_sha): the manifest is not packaged into the wheel or sdist, so the digests it records are unaffected by the commit that adds it. A reader with only this manifest and the source SHA re-derives every digest by running the recorded build commands from a clean checkout of candidate.source_sha.",
+  "properties": {
+    "assets": {
+      "description": "Every candidate asset. Exactly six kinds are required: wheel, sdist, source-archive, license, license-notice, sbom (one entry per kind). Built assets (wheel, sdist, source-archive) are re-derived from candidate.source_sha; in-repo assets (license, license-notice, sbom) are verified against the recorded digests at the recorded paths.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "derivation": {
+            "description": "Exact command (or command sequence) that re-derives this asset from candidate.source_sha. Empty for in-repo assets, which are verified by digest, not rebuilt.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "filename": {
+            "description": "File name of the asset (no directory).",
+            "minLength": 1,
+            "type": "string"
+          },
+          "kind": {
+            "description": "Asset kind. Exactly one entry per kind is required.",
+            "enum": [
+              "license",
+              "license-notice",
+              "sbom",
+              "sdist",
+              "source-archive",
+              "wheel"
+            ],
+            "type": "string"
+          },
+          "path": {
+            "description": "Repo-relative path for in-repo assets; conventional dist location (dist/<filename>) for built assets, which live outside the source tree.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "role": {
+            "description": "What this asset is and why it belongs to the candidate.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "sbom_components": {
+            "description": "SBOM assets only: number of components in the CycloneDX payload.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sbom_serial_number": {
+            "description": "SBOM assets only: the CycloneDX serialNumber (deterministic UUIDv5 derived from the content digest).",
+            "pattern": "^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "sha256": {
+            "description": "SHA-256 hex digest of the exact asset bytes.",
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "size_bytes": {
+            "description": "Size of the asset in bytes.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "spdx_license_id": {
+            "description": "License assets only: SPDX identifier of the licence the file carries.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "verification": {
+            "description": "How this asset is verified independently (command or digest comparison).",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "filename",
+          "kind",
+          "role",
+          "sha256",
+          "size_bytes",
+          "verification"
+        ],
+        "type": "object"
+      },
+      "minItems": 6,
+      "type": "array"
+    },
+    "candidate": {
+      "additionalProperties": false,
+      "description": "Provenance of the candidate: the immutable source it was built from, the exact build profile and commands.",
+      "properties": {
+        "build_commands": {
+          "description": "Exact build commands, in order, that produced the candidate assets from candidate.source_sha. A second verifier runs these verbatim (with the recorded source SHA checked out) and must obtain the recorded digests.",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "build_profile": {
+          "additionalProperties": false,
+          "description": "The pinned build-tool profile (ENG-10) used for both builds.",
+          "properties": {
+            "build": {
+              "description": "Pinned `build` version from requirements-tools-hashed.txt.",
+              "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+              "type": "string"
+            },
+            "setuptools": {
+              "description": "Pinned `setuptools` version from requirements-tools-hashed.txt.",
+              "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+              "type": "string"
+            },
+            "tools_lockfile": {
+              "const": "requirements-tools-hashed.txt",
+              "description": "The hash-pinned lockfile the build profile was installed from.",
+              "type": "string"
+            },
+            "tools_lockfile_sha256": {
+              "description": "SHA-256 of requirements-tools-hashed.txt at candidate.source_sha.",
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "wheel": {
+              "description": "Pinned `wheel` version from requirements-tools-hashed.txt.",
+              "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "build",
+            "setuptools",
+            "tools_lockfile",
+            "tools_lockfile_sha256",
+            "wheel"
+          ],
+          "type": "object"
+        },
+        "manifest_commit": {
+          "description": "Full commit SHA of the commit that contains this manifest file. It is the commit AFTER candidate.source_sha: the manifest records a build of source_sha, and is itself committed on top of it (the manifest is not packaged, so the digests are unaffected).",
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "name": {
+          "const": "textforensics",
+          "type": "string"
+        },
+        "notes": {
+          "description": "Free-form provenance notes (what was built, what was deliberately not published, known limitations of the candidate).",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "source_branch": {
+          "description": "Branch the candidate was built from.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "source_date_epoch": {
+          "const": 1704067200,
+          "description": "SOURCE_DATE_EPOCH for both builds (ENG-03 deterministic build).",
+          "type": "integer"
+        },
+        "source_sha": {
+          "description": "Full commit SHA of the exact source head the candidate was built from (the head `git archive HEAD` was exported from).",
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "version": {
+          "description": "Package version of the candidate.",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "build_commands",
+        "build_profile",
+        "manifest_commit",
+        "name",
+        "notes",
+        "source_branch",
+        "source_date_epoch",
+        "source_sha",
+        "version"
+      ],
+      "type": "object"
+    },
+    "reproducibility": {
+      "additionalProperties": false,
+      "description": "The ENG-03 two-clean-builds proof: both builds from the same source SHA must be byte-identical.",
+      "properties": {
+        "builds": {
+          "const": 2,
+          "description": "Number of independent clean builds compared.",
+          "type": "integer"
+        },
+        "identical": {
+          "const": true,
+          "description": "True only when both builds are byte-identical for wheel and sdist.",
+          "type": "boolean"
+        },
+        "sdist": {
+          "additionalProperties": false,
+          "properties": {
+            "build_a_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "build_b_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "build_a_sha256",
+            "build_b_sha256"
+          ],
+          "type": "object"
+        },
+        "source_archive": {
+          "additionalProperties": false,
+          "description": "The source artifact itself is re-derived twice from candidate.source_sha and must be byte-identical.",
+          "properties": {
+            "build_a_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "build_b_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "identical": {
+              "const": true,
+              "type": "boolean"
+            },
+            "method": {
+              "description": "How the source artifact was produced.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "build_a_sha256",
+            "build_b_sha256",
+            "identical",
+            "method"
+          ],
+          "type": "object"
+        },
+        "wheel": {
+          "additionalProperties": false,
+          "properties": {
+            "build_a_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "build_b_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "build_a_sha256",
+            "build_b_sha256"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "builds",
+        "identical",
+        "sdist",
+        "source_archive",
+        "wheel"
+      ],
+      "type": "object"
+    },
+    "schema": {
+      "const": "textforensics.candidate-manifest/v1"
+    },
+    "verification": {
+      "additionalProperties": false,
+      "description": "How a second verifier checks the whole candidate independently.",
+      "properties": {
+        "commands": {
+          "description": "Exact verification commands, in order. Every command must pass for the candidate to stand; a failure rejects the candidate.",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "notes": {
+          "description": "Verification notes (what was checked, where the retained build outputs live, what is deliberately not claimed).",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "commands",
+        "notes"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "assets",
+    "candidate",
+    "reproducibility",
+    "schema",
+    "verification"
+  ],
+  "title": "TextForensics Release Candidate Manifest",
+  "type": "object"
+}

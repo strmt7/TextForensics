@@ -399,7 +399,7 @@ class Core10ReproofTests(unittest.TestCase):
             ).glob("*.json")
         )
         listed = [f"{name}.schema.json" for name in list_schemas()]
-        self.assertEqual(len(shipped), 13)
+        self.assertEqual(len(shipped), 14)
         self.assertEqual(sorted(listed), shipped)
         for name in list_schemas():
             self.assertIsInstance(load_schema(name), dict)

@@ -6,7 +6,7 @@ Written red-first against main ``3952384`` (W4 merged).
   can supply a calibration dataset, compute its fingerprint, prove
   disjointness, and produce a verified held-out run (or fail closed).
 - Item 2: ``schema validate --type`` — the ``--type`` choices align with
-  the 13-name packaged schema registry.
+  the 14-name packaged schema registry.
 - Item 3: nontransactional state exports — observatory / model-card /
   codec / probe-corpus exports commit atomically, and a failed probe-run
   manifest save never leaves a demotion/clearing citing a missing run.
@@ -210,7 +210,7 @@ class TestBenchmarkCalibrationDataset:
 
 
 # ---------------------------------------------------------------------------
-# Item 2 — schema validate --type covers the 13-name registry
+# Item 2 — schema validate --type covers the 14-name registry
 # ---------------------------------------------------------------------------
 
 
@@ -246,7 +246,7 @@ class TestSchemaValidateAllNames:
             ],
         }
         assert set(payloads) == set(list_schemas())
-        assert len(list_schemas()) == 13
+        assert len(list_schemas()) == 14
         for name in sorted(payloads):
             target = tmp_path / f"{name}.json"
             target.write_text(json.dumps(payloads[name]), encoding="utf-8")
