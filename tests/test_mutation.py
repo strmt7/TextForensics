@@ -4487,7 +4487,7 @@ class EquivalentBaselineTests(unittest.TestCase):
     def test_occurrence_disambiguates_same_position_mutants(self):
         """Two entries at one position differ only by occurrence — and match only their own mutant.
 
-        L1707:21 in verify_bundle_bytes carries occurrences 510 (`2` ->
+        L1712:21 in verify_bundle_bytes carries occurrences 510 (`2` ->
         `3`, unobservable-value) and 511 (`2` -> `1`, unobservable-value)
         — the report dict's initial exit_code, overwritten on every path
         before return. A survivor with an occurrence that matches neither
@@ -4499,14 +4499,16 @@ class EquivalentBaselineTests(unittest.TestCase):
         re-derived the exit_code position 1365 -> 1686 and renumbered
         the occurrences 486/487 -> 510/511 — so the test moved again;
         the W3 F4 refresh re-derived the exit_code position 1686 -> 1707
-        with occurrences unchanged — so the test moved again.)
+        with occurrences unchanged — so the test moved again; the W9
+        refresh re-derived the exit_code position 1707 -> 1712 with
+        occurrences unchanged — so the test moved again.)
         """
         runtime = {
             e["occurrence"]: e
             for e in self.baseline["entries"]
             if e["kind"] == "unobservable-value"
             and e["module"] == "textforensics._standalone_verify"
-            and tuple(e["start_pos"]) == (1707, 21)
+            and tuple(e["start_pos"]) == (1712, 21)
         }
         entry_510 = runtime[510]
         entry_511 = runtime[511]
@@ -4519,8 +4521,8 @@ class EquivalentBaselineTests(unittest.TestCase):
             self._record(
                 operator="core/NumberReplacer",
                 occurrence=99,
-                start_pos=(1707, 21),
-                end_pos=(1707, 22),
+                start_pos=(1712, 21),
+                end_pos=(1712, 22),
                 outcome="survived",
                 module_path=str(
                     self.project_root / "src" / "textforensics" / "_standalone_verify.py"
