@@ -167,8 +167,7 @@ def test_web_ui_import_succeeds_without_fastapi_and_create_web_app_raises_hint()
     assert proc.returncode == 0, proc.stderr
     assert "sentinels: True True" in proc.stdout
     assert (
-        "RUNTIMEERROR: Install web UI support with: pip install 'textforensics[api]'"
-        in proc.stdout
+        "RUNTIMEERROR: Install web UI support with: pip install 'textforensics[api]'" in proc.stdout
     )
 
 
@@ -184,7 +183,9 @@ def test_web_ui_main_converts_install_hint_to_system_exit_without_uvicorn(monkey
     monkeypatch.setitem(sys.modules, "uvicorn", None)
     with pytest.raises(SystemExit) as excinfo:
         web_main.main()
-    assert str(excinfo.value.code) == "Install web UI support with: pip install 'textforensics[api]'"
+    assert (
+        str(excinfo.value.code) == "Install web UI support with: pip install 'textforensics[api]'"
+    )
     assert capsys.readouterr().err == ""
 
 
