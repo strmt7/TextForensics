@@ -2458,28 +2458,21 @@ def _load_public_key(value):
             if "public_key_b64" in parsed:
                 algorithm = parsed.get("algorithm")
                 if algorithm is not None and algorithm != "ed25519":
-                    raise ValueError(
-                        "public key file has unsupported algorithm: "
-                        f"{algorithm!r}"
-                    )
+                    raise ValueError(f"public key file has unsupported algorithm: {algorithm!r}")
                 encoded = parsed["public_key_b64"]
                 if not isinstance(encoded, str):
                     raise ValueError("public key file public_key_b64 is not a string")
                 try:
                     key = _b64decode_strict(encoded)
                 except ValueError as exc:
-                    raise ValueError(
-                        "public key file has an invalid public_key_b64"
-                    ) from exc
+                    raise ValueError("public key file has an invalid public_key_b64") from exc
                 if len(key) != 32:
                     raise ValueError("public key file does not hold a 32-byte key")
                 keyid = parsed.get("keyid")
                 if keyid is not None and keyid != _sha256(key):
                     raise ValueError("public key file keyid does not match the key")
                 return key
-            raise ValueError(
-                "public key file is a JSON object without a public_key_b64 field"
-            )
+            raise ValueError("public key file is a JSON object without a public_key_b64 field")
         text = raw.decode("ascii", "ignore").strip()
         data = bytes.fromhex(text)
         if len(data) == 32:

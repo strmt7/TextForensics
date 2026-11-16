@@ -525,16 +525,13 @@ class StandaloneKeygenJsonTests(unittest.TestCase):
             bundle_path.write_bytes(bundle)
             out = io.StringIO()
             with contextlib.redirect_stdout(out):
-                exit_code = self.mod.main(
-                    ["--public-key", str(path), str(bundle_path)]
-                )
+                exit_code = self.mod.main(["--public-key", str(path), str(bundle_path)])
             self.assertEqual(exit_code, 0, out.getvalue())
             self.assertIn('"signature": "verified"', out.getvalue())
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
     def test_existing_key_forms_still_load(self):
-        import base64
 
         from textforensics.sealing import public_key_from_seed
 
