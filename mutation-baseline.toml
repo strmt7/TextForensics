@@ -39,6 +39,19 @@
 # baseline. 0 unexplained. See
 # hidden_files/audit-w6-f-report.md and
 # hidden_files/audit-w6-f-equiv-reasons-*.json.
+# F2 RE-PROOF ENTRIES (audit W7, 2026-11-16): 73
+# entries appended after the W7 mutation proof (Worker F, CC-18):
+# the 2-module cosmic-ray proof (dsse + ed25519) left survivors;
+# the kill-test-killed ones were proven by the Worker-F kill
+# tests in tests/test_audit_w7_worker_f_*.py (hand re-proved
+# mutant by mutant, 0 gaps in every module's final re-prove log)
+# and the remaining 73 are proven equivalent with recorded
+# reasons (44 postponed-evaluation annotations + 29
+# runtime equivalents: domain-equivalent / unobservable-value /
+# unreachable-condition). Incompetent mutants stay out of the
+# baseline. 0 unexplained. See
+# hidden_files/audit-w7-f-report.md and
+# hidden_files/audit-w7-f-equiv-reasons-*.json.
 # POSITION REFRESH (2026-11-07, wave-2 docstring record in trust.py):
 # adding the wave-2 baseline note to trust.py's module docstring moved
 # every line below it down by 11, so every entry's start_pos/end_pos
@@ -85852,3 +85865,914 @@ function = "write_sealed_bundle"
 kind = "arg"
 annotation = "str | Path | None"
 reason = "Postponed-evaluation annotation (arg of write_sealed_bundle): the `|` in `str | Path | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+# --- F2 re-proof entries (audit W7, 2026-11-16) ------------------
+# 73 entries (arg=11, domain-equivalent=18, return=33, unobservable-value=11). Each entry survived the
+# module's cosmic-ray proof and (for runtime entries) the hand
+# re-proof, and carries a source-verified equivalence reason;
+# every other survivor was killed by the Worker-F kill tests
+# (audit-w7-f-reprove-*-results.json, 0 gaps).
+[[equivalent]]
+id = "textforensics.dsse:core/NumberReplacer:5"
+module = "textforensics.dsse"
+operator = "core/NumberReplacer"
+occurrence = 5
+start_pos = [136, 33]
+end_pos = [136, 34]
+function = "verify_envelope"
+kind = "domain-equivalent"
+source_text = "0"
+source_fingerprint = "553e58531be891dcbdfb267b79c30497e30006167b1bbea6b6b3954466ef9e01"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent in verify_envelope: `signatures[0]` -> `signatures[-1]`. Line 134 requires len(signatures) == 1 before this line is reached, so on the only reachable domain the list has exactly one element and index 0 and index -1 select the same entry; the `0` is interchangeable with -1."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_Add:0"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 0
+start_pos = [57, 43]
+end_pos = [57, 44]
+function = "_b64decode_strict"
+kind = "return"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (return of _b64decode_strict): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_Add:1"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 1
+start_pos = [96, 31]
+end_pos = [96, 32]
+function = "verify_envelope"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of verify_envelope): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_BitAnd:0"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 0
+start_pos = [57, 43]
+end_pos = [57, 44]
+function = "_b64decode_strict"
+kind = "return"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (return of _b64decode_strict): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_BitAnd:1"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 1
+start_pos = [96, 31]
+end_pos = [96, 32]
+function = "verify_envelope"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of verify_envelope): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_BitXor:0"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 0
+start_pos = [57, 43]
+end_pos = [57, 44]
+function = "_b64decode_strict"
+kind = "return"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (return of _b64decode_strict): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_BitXor:1"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 1
+start_pos = [96, 31]
+end_pos = [96, 32]
+function = "verify_envelope"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of verify_envelope): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_Div:0"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 0
+start_pos = [57, 43]
+end_pos = [57, 44]
+function = "_b64decode_strict"
+kind = "return"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (return of _b64decode_strict): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_Div:1"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 1
+start_pos = [96, 31]
+end_pos = [96, 32]
+function = "verify_envelope"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of verify_envelope): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_FloorDiv:0"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 0
+start_pos = [57, 43]
+end_pos = [57, 44]
+function = "_b64decode_strict"
+kind = "return"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (return of _b64decode_strict): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_FloorDiv:1"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 1
+start_pos = [96, 31]
+end_pos = [96, 32]
+function = "verify_envelope"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of verify_envelope): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_LShift:0"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 0
+start_pos = [57, 43]
+end_pos = [57, 44]
+function = "_b64decode_strict"
+kind = "return"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (return of _b64decode_strict): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_LShift:1"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 1
+start_pos = [96, 31]
+end_pos = [96, 32]
+function = "verify_envelope"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of verify_envelope): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_Mod:0"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 0
+start_pos = [57, 43]
+end_pos = [57, 44]
+function = "_b64decode_strict"
+kind = "return"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (return of _b64decode_strict): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_Mod:1"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 1
+start_pos = [96, 31]
+end_pos = [96, 32]
+function = "verify_envelope"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of verify_envelope): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_Mul:0"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 0
+start_pos = [57, 43]
+end_pos = [57, 44]
+function = "_b64decode_strict"
+kind = "return"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (return of _b64decode_strict): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_Mul:1"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 1
+start_pos = [96, 31]
+end_pos = [96, 32]
+function = "verify_envelope"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of verify_envelope): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_Pow:0"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 0
+start_pos = [57, 43]
+end_pos = [57, 44]
+function = "_b64decode_strict"
+kind = "return"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (return of _b64decode_strict): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_Pow:1"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 1
+start_pos = [96, 31]
+end_pos = [96, 32]
+function = "verify_envelope"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of verify_envelope): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_RShift:0"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 0
+start_pos = [57, 43]
+end_pos = [57, 44]
+function = "_b64decode_strict"
+kind = "return"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (return of _b64decode_strict): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_RShift:1"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 1
+start_pos = [96, 31]
+end_pos = [96, 32]
+function = "verify_envelope"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of verify_envelope): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_Sub:0"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 0
+start_pos = [57, 43]
+end_pos = [57, 44]
+function = "_b64decode_strict"
+kind = "return"
+annotation = "bytes | None"
+reason = "Postponed-evaluation annotation (return of _b64decode_strict): the `|` in `bytes | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceBinaryOperator_BitOr_Sub:1"
+module = "textforensics.dsse"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 1
+start_pos = [96, 31]
+end_pos = [96, 32]
+function = "verify_envelope"
+kind = "arg"
+annotation = "str | None"
+reason = "Postponed-evaluation annotation (arg of verify_envelope): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.dsse:core/ReplaceTrueWithFalse:0"
+module = "textforensics.dsse"
+operator = "core/ReplaceTrueWithFalse"
+occurrence = 0
+start_pos = [62, 67]
+end_pos = [62, 71]
+function = "_b64decode_strict"
+kind = "unobservable-value"
+source_text = "True"
+source_fingerprint = "f0bb700a6534adee8250fd439fc87df739c441cb8d45be5b582274164733ce95"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable value in _b64decode_strict: `validate=True` -> `validate=False` in base64.b64decode never changes the return value. If the input contains any non-alphabet character, validate=False discards it and decodes the rest, but the re-encoded bytes contain only [A-Za-z0-9+/=] and can never equal the input, so _b64decode_strict returns None either way; if the input contains only alphabet characters the two modes decode identically (including padding errors). The `True` flag's effect is therefore masked by the downstream canonicality re-encode check."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/NumberReplacer:44"
+module = "textforensics.ed25519"
+operator = "core/NumberReplacer"
+occurrence = 44
+start_pos = [54, 22]
+end_pos = [54, 23]
+function = "_x_recover"
+kind = "domain-equivalent"
+source_text = "3"
+source_fingerprint = "f87c7f28f3aa8c773b05b30fd180abbd37c725d3eb7796a19eaa7e40a2eae40d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent in _x_recover: `(_Q + 3) // 8` -> `(_Q + 4) // 8`. _Q = 2^255 - 19 is 5 mod 8, so (_Q + 3) // 8 = 2^252 - 2 and (_Q + 4) // 8 = 2^252 - 2 — the floor division absorbs the +1, so the exponent is identical and the `3` is interchangeable with 4."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/NumberReplacer:73"
+module = "textforensics.ed25519"
+operator = "core/NumberReplacer"
+occurrence = 73
+start_pos = [85, 27]
+end_pos = [85, 28]
+function = "_scalar_mult"
+kind = "unobservable-value"
+source_text = "2"
+source_fingerprint = "f270e25c7879252a3eded00bbff377a3d3a8973853ecc25d55359c3a16359074"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable value in _scalar_mult: `bin(scalar)[2:]` -> `bin(scalar)[ 1:]`. The mutant iterates one extra character first — 'b' — which is not '1', so no point is added, and the doubling in that iteration applies to the identity point (0, 1), which doubling fixes; the extra iteration is a no-op for every scalar, so the `2` is interchangeable with 1."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/NumberReplacer:89"
+module = "textforensics.ed25519"
+operator = "core/NumberReplacer"
+occurrence = 89
+start_pos = [106, 11]
+end_pos = [106, 12]
+function = "_decode_point"
+kind = "domain-equivalent"
+source_text = "1"
+source_fingerprint = "b68638345c5d28f28fd2d5b198f549e33504e6e476c77ee8930b85a4da2126cc"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent in _decode_point: `x & 1` -> `x & 0`. x & 0 is 0 always; x & 1 is 0 always too, because _x_recover always returns an even x, so the `1` is interchangeable with 0."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitAnd_Mod:2"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitAnd_Mod"
+occurrence = 2
+start_pos = [106, 9]
+end_pos = [106, 10]
+function = "_decode_point"
+kind = "domain-equivalent"
+source_text = "&"
+source_fingerprint = "b68638345c5d28f28fd2d5b198f549e33504e6e476c77ee8930b85a4da2126cc"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent in _decode_point: `x & 1` -> `x % 1`. x % 1 is 0 for every integer, and x & 1 is 0 on the reachable domain because _x_recover always returns an even x, so the `&` agrees with `%`."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_Add:0"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 0
+start_pos = [94, 16]
+end_pos = [94, 17]
+function = "_encode_point"
+kind = "domain-equivalent"
+source_text = "|"
+source_fingerprint = "df0dfb6a08b0e79e3aef31ceef209bd492fc600936771cd77c4f980ebd48fb5a"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent in _encode_point: `y | ((x & 1) << 255)` -> `y + ((x & 1) << 255)`. Every curve point has y < _Q < 2^255, so bit 255 of y is 0 and the `|` agrees with `+` (no overlapping set bits)."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_Add:1"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 1
+start_pos = [98, 53]
+end_pos = [98, 54]
+function = "_decode_point"
+kind = "return"
+annotation = "tuple[int, int] | None"
+reason = "Postponed-evaluation annotation (return of _decode_point): the `|` in `tuple[int, int] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_Add:2"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 2
+start_pos = [118, 42]
+end_pos = [118, 43]
+function = "_decode_scalar"
+kind = "return"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (return of _decode_scalar): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_BitAnd:1"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 1
+start_pos = [98, 53]
+end_pos = [98, 54]
+function = "_decode_point"
+kind = "return"
+annotation = "tuple[int, int] | None"
+reason = "Postponed-evaluation annotation (return of _decode_point): the `|` in `tuple[int, int] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_BitAnd:2"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 2
+start_pos = [118, 42]
+end_pos = [118, 43]
+function = "_decode_scalar"
+kind = "return"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (return of _decode_scalar): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_BitXor:0"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 0
+start_pos = [94, 16]
+end_pos = [94, 17]
+function = "_encode_point"
+kind = "domain-equivalent"
+source_text = "|"
+source_fingerprint = "df0dfb6a08b0e79e3aef31ceef209bd492fc600936771cd77c4f980ebd48fb5a"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent in _encode_point: `y | ((x & 1) << 255)` -> `y ^ ((x & 1) << 255)`. Every curve point has y < _Q < 2^255, so bit 255 of y is 0 and the `|` agrees with `^` (no overlapping set bits)."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_BitXor:1"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 1
+start_pos = [98, 53]
+end_pos = [98, 54]
+function = "_decode_point"
+kind = "return"
+annotation = "tuple[int, int] | None"
+reason = "Postponed-evaluation annotation (return of _decode_point): the `|` in `tuple[int, int] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_BitXor:2"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 2
+start_pos = [118, 42]
+end_pos = [118, 43]
+function = "_decode_scalar"
+kind = "return"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (return of _decode_scalar): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_Div:1"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 1
+start_pos = [98, 53]
+end_pos = [98, 54]
+function = "_decode_point"
+kind = "return"
+annotation = "tuple[int, int] | None"
+reason = "Postponed-evaluation annotation (return of _decode_point): the `|` in `tuple[int, int] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_Div:2"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 2
+start_pos = [118, 42]
+end_pos = [118, 43]
+function = "_decode_scalar"
+kind = "return"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (return of _decode_scalar): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_FloorDiv:1"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 1
+start_pos = [98, 53]
+end_pos = [98, 54]
+function = "_decode_point"
+kind = "return"
+annotation = "tuple[int, int] | None"
+reason = "Postponed-evaluation annotation (return of _decode_point): the `|` in `tuple[int, int] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_FloorDiv:2"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 2
+start_pos = [118, 42]
+end_pos = [118, 43]
+function = "_decode_scalar"
+kind = "return"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (return of _decode_scalar): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_LShift:1"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 1
+start_pos = [98, 53]
+end_pos = [98, 54]
+function = "_decode_point"
+kind = "return"
+annotation = "tuple[int, int] | None"
+reason = "Postponed-evaluation annotation (return of _decode_point): the `|` in `tuple[int, int] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_LShift:2"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 2
+start_pos = [118, 42]
+end_pos = [118, 43]
+function = "_decode_scalar"
+kind = "return"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (return of _decode_scalar): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_Mod:1"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 1
+start_pos = [98, 53]
+end_pos = [98, 54]
+function = "_decode_point"
+kind = "return"
+annotation = "tuple[int, int] | None"
+reason = "Postponed-evaluation annotation (return of _decode_point): the `|` in `tuple[int, int] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_Mod:2"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 2
+start_pos = [118, 42]
+end_pos = [118, 43]
+function = "_decode_scalar"
+kind = "return"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (return of _decode_scalar): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_Mul:1"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 1
+start_pos = [98, 53]
+end_pos = [98, 54]
+function = "_decode_point"
+kind = "return"
+annotation = "tuple[int, int] | None"
+reason = "Postponed-evaluation annotation (return of _decode_point): the `|` in `tuple[int, int] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_Mul:2"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 2
+start_pos = [118, 42]
+end_pos = [118, 43]
+function = "_decode_scalar"
+kind = "return"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (return of _decode_scalar): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_Pow:1"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 1
+start_pos = [98, 53]
+end_pos = [98, 54]
+function = "_decode_point"
+kind = "return"
+annotation = "tuple[int, int] | None"
+reason = "Postponed-evaluation annotation (return of _decode_point): the `|` in `tuple[int, int] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_Pow:2"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 2
+start_pos = [118, 42]
+end_pos = [118, 43]
+function = "_decode_scalar"
+kind = "return"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (return of _decode_scalar): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_RShift:1"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 1
+start_pos = [98, 53]
+end_pos = [98, 54]
+function = "_decode_point"
+kind = "return"
+annotation = "tuple[int, int] | None"
+reason = "Postponed-evaluation annotation (return of _decode_point): the `|` in `tuple[int, int] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_RShift:2"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 2
+start_pos = [118, 42]
+end_pos = [118, 43]
+function = "_decode_scalar"
+kind = "return"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (return of _decode_scalar): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_Sub:1"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 1
+start_pos = [98, 53]
+end_pos = [98, 54]
+function = "_decode_point"
+kind = "return"
+annotation = "tuple[int, int] | None"
+reason = "Postponed-evaluation annotation (return of _decode_point): the `|` in `tuple[int, int] | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_BitOr_Sub:2"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 2
+start_pos = [118, 42]
+end_pos = [118, 43]
+function = "_decode_scalar"
+kind = "return"
+annotation = "int | None"
+reason = "Postponed-evaluation annotation (return of _decode_scalar): the `|` in `int | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_Mod_Add:1"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_Mod_Add"
+occurrence = 1
+start_pos = [53, 55]
+end_pos = [53, 56]
+function = "_x_recover"
+kind = "unobservable-value"
+source_text = "%"
+source_fingerprint = "f87c7f28f3aa8c773b05b30fd180abbd37c725d3eb7796a19eaa7e40a2eae40d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable value in _x_recover: `... % _Q` -> `... + _Q` in the xx computation. xx is used only inside mod-_Q contexts afterwards (pow(xx, (_Q + 3) // 8, _Q) and (x * x - xx) % _Q), and xx + _Q is congruent to xx mod _Q, so every downstream value is identical; the `%` operator's exact form never changes an observable outcome."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_Mod_Add:9"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_Mod_Add"
+occurrence = 9
+start_pos = [154, 64]
+end_pos = [154, 65]
+function = "sign"
+kind = "domain-equivalent"
+source_text = "%"
+source_fingerprint = "eeae16dbdfc1ff295e57d74e6b58c84eabf6004e64fb189015f2ff1da9d30b36"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent in sign: `nonce = ... % _L` -> `... + _L`. The nonce is consumed only as a scalar multiple of the base point (_scalar_mult), where scalars are equivalent mod _L (the group order): hash + _L is congruent to hash mod _L, so the commitment is identical; the `%` is interchangeable with `+`."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_Mod_Add:10"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_Mod_Add"
+occurrence = 10
+start_pos = [156, 85]
+end_pos = [156, 86]
+function = "sign"
+kind = "unobservable-value"
+source_text = "%"
+source_fingerprint = "eeae16dbdfc1ff295e57d74e6b58c84eabf6004e64fb189015f2ff1da9d30b36"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable value in sign: `challenge = ... % _L` -> `... + _L`. The challenge is consumed only inside `(nonce + challenge * secret_scalar) % _L`, where adding _L is absorbed by the outer modulus, and nowhere else; the `%` operator's exact form never changes the signature."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_Mod_Add:12"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_Mod_Add"
+occurrence = 12
+start_pos = [191, 12]
+end_pos = [191, 13]
+function = "verify"
+kind = "domain-equivalent"
+source_text = "%"
+source_fingerprint = "2f539f2354ed0a6af15b7723dcae3da6fdce569b0af008eaf5c609f39407b877"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent in verify: `challenge = ... % _L` -> `... + _L`. The challenge is consumed only as a scalar multiple of a curve point (_scalar_mult), where scalars are equivalent mod _L (the group order): hash + _L is congruent to hash mod _L, so the verify equation is unchanged; the `%` is interchangeable with `+`."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_Mod_Sub:1"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_Mod_Sub"
+occurrence = 1
+start_pos = [53, 55]
+end_pos = [53, 56]
+function = "_x_recover"
+kind = "unobservable-value"
+source_text = "%"
+source_fingerprint = "f87c7f28f3aa8c773b05b30fd180abbd37c725d3eb7796a19eaa7e40a2eae40d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable value in _x_recover: `... % _Q` -> `... - _Q` in the xx computation. xx is used only inside mod-_Q contexts afterwards (pow(xx, (_Q + 3) // 8, _Q) and (x * x - xx) % _Q), and xx - _Q is congruent to xx mod _Q, so every downstream value is identical; the `%` operator's exact form never changes an observable outcome."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_Mod_Sub:9"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_Mod_Sub"
+occurrence = 9
+start_pos = [154, 64]
+end_pos = [154, 65]
+function = "sign"
+kind = "domain-equivalent"
+source_text = "%"
+source_fingerprint = "eeae16dbdfc1ff295e57d74e6b58c84eabf6004e64fb189015f2ff1da9d30b36"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent in sign: `nonce = ... % _L` -> `... - _L`. The nonce is consumed only as a scalar multiple of the base point (_scalar_mult), where scalars are equivalent mod _L (the group order): hash - _L is congruent to hash mod _L, so the commitment is identical. Caveat, recorded honestly: if the SHA-512 output were below _L the mutant's nonce would be negative — a 2^-260 event per signing that no feasible input produces, so on the reachable domain the mutant is a no-op."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_Mod_Sub:10"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_Mod_Sub"
+occurrence = 10
+start_pos = [156, 85]
+end_pos = [156, 86]
+function = "sign"
+kind = "unobservable-value"
+source_text = "%"
+source_fingerprint = "eeae16dbdfc1ff295e57d74e6b58c84eabf6004e64fb189015f2ff1da9d30b36"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable value in sign: `challenge = ... % _L` -> `... - _L`. The challenge is consumed only inside `(nonce + challenge * secret_scalar) % _L`, where subtracting _L is absorbed by the outer modulus even for a negative challenge, and nowhere else; the `%` operator's exact form never changes the signature."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceBinaryOperator_Mod_Sub:12"
+module = "textforensics.ed25519"
+operator = "core/ReplaceBinaryOperator_Mod_Sub"
+occurrence = 12
+start_pos = [191, 12]
+end_pos = [191, 13]
+function = "verify"
+kind = "domain-equivalent"
+source_text = "%"
+source_fingerprint = "2f539f2354ed0a6af15b7723dcae3da6fdce569b0af008eaf5c609f39407b877"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent in verify: `challenge = ... % _L` -> `... - _L`. The challenge is consumed only as a scalar multiple of a curve point (_scalar_mult), where scalars are equivalent mod _L: hash - _L is congruent to hash mod _L, so the verify equation is unchanged. Caveat, recorded honestly: if the SHA-512 output were below _L the mutant's challenge would be negative — a 2^-260 event per verify that no feasible input produces, so on the reachable domain the mutant is a no-op."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceComparisonOperator_Eq_GtE:0"
+module = "textforensics.ed25519"
+operator = "core/ReplaceComparisonOperator_Eq_GtE"
+occurrence = 0
+start_pos = [87, 15]
+end_pos = [87, 17]
+function = "_scalar_mult"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "f270e25c7879252a3eded00bbff377a3d3a8973853ecc25d55359c3a16359074"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent in _scalar_mult: `if bit == \"1\":` -> `>=`. bit ranges over bin(scalar)[2:], i.e. exactly {'0', '1'}; '0' >= '1' is False and '1' >= '1' is True, so `>=` agrees with `==` on the whole reachable domain."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceComparisonOperator_Eq_LtE:1"
+module = "textforensics.ed25519"
+operator = "core/ReplaceComparisonOperator_Eq_LtE"
+occurrence = 1
+start_pos = [115, 58]
+end_pos = [115, 60]
+function = "_y_on_curve"
+kind = "domain-equivalent"
+source_text = "=="
+source_fingerprint = "3334968e60a1d6c41d7e998c39308dc421c982786724c814d6320fbf97e7b0bf"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent in _y_on_curve: `(...) % _Q == 0` -> `<= 0`. Python's `%` yields a value in [0, _Q), so `<= 0` agrees with `== 0` on the whole reachable domain."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceComparisonOperator_Is_Eq:0"
+module = "textforensics.ed25519"
+operator = "core/ReplaceComparisonOperator_Is_Eq"
+occurrence = 0
+start_pos = [108, 27]
+end_pos = [108, 29]
+function = "_decode_point"
+kind = "domain-equivalent"
+source_text = "is"
+source_fingerprint = "b68638345c5d28f28fd2d5b198f549e33504e6e476c77ee8930b85a4da2126cc"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent in _decode_point: `(_y_on_curve(x, y)) is False` -> `== False`. _y_on_curve always returns a bool, and for bools `==` coincides with `is`, so the `is` agrees with `==`."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceComparisonOperator_Is_LtE:0"
+module = "textforensics.ed25519"
+operator = "core/ReplaceComparisonOperator_Is_LtE"
+occurrence = 0
+start_pos = [108, 27]
+end_pos = [108, 29]
+function = "_decode_point"
+kind = "domain-equivalent"
+source_text = "is"
+source_fingerprint = "b68638345c5d28f28fd2d5b198f549e33504e6e476c77ee8930b85a4da2126cc"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent in _decode_point: `(_y_on_curve(x, y)) is False` -> `<= False`. _y_on_curve always returns a bool; False <= False is True and True <= False is False, so `<=` agrees with `is` for bools."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceComparisonOperator_NotEq_Gt:0"
+module = "textforensics.ed25519"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 0
+start_pos = [55, 25]
+end_pos = [55, 27]
+function = "_x_recover"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "f87c7f28f3aa8c773b05b30fd180abbd37c725d3eb7796a19eaa7e40a2eae40d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent in _x_recover: `if (x * x - xx) % _Q != 0:` -> `> 0`. Python's `%` yields a value in [0, _Q), so `> 0` agrees with `!= 0` on the whole reachable domain; the `!=` is interchangeable with `>`."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceComparisonOperator_NotEq_Gt:1"
+module = "textforensics.ed25519"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 1
+start_pos = [57, 13]
+end_pos = [57, 15]
+function = "_x_recover"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "f87c7f28f3aa8c773b05b30fd180abbd37c725d3eb7796a19eaa7e40a2eae40d"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent in _x_recover: `if x % 2 != 0:` -> `> 0`. x % 2 is 0 or 1, so `> 0` agrees with `!= 0` on the whole reachable domain."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceComparisonOperator_NotEq_Gt:7"
+module = "textforensics.ed25519"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 7
+start_pos = [175, 27]
+end_pos = [175, 29]
+function = "verify"
+kind = "unobservable-value"
+source_text = "!="
+source_fingerprint = "2f539f2354ed0a6af15b7723dcae3da6fdce569b0af008eaf5c609f39407b877"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable value in verify: `len(public_key) != 32` -> `> 32`. A 31-byte public key proceeds to _decode_point, which returns None for a non-32-byte input, so verify still returns False; the `!=` never changes the return value."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceComparisonOperator_NotEq_Gt:8"
+module = "textforensics.ed25519"
+operator = "core/ReplaceComparisonOperator_NotEq_Gt"
+occurrence = 8
+start_pos = [175, 51]
+end_pos = [175, 53]
+function = "verify"
+kind = "unobservable-value"
+source_text = "!="
+source_fingerprint = "2f539f2354ed0a6af15b7723dcae3da6fdce569b0af008eaf5c609f39407b877"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable value in verify: `len(signature) != 64` -> `> 64`. A 63-byte signature proceeds to _decode_scalar, which returns None for the 31-byte S half, so verify still returns False; the `!=` never changes the return value."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceComparisonOperator_NotEq_IsNot:0"
+module = "textforensics.ed25519"
+operator = "core/ReplaceComparisonOperator_NotEq_IsNot"
+occurrence = 0
+start_pos = [106, 13]
+end_pos = [106, 15]
+function = "_decode_point"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "b68638345c5d28f28fd2d5b198f549e33504e6e476c77ee8930b85a4da2126cc"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent in _decode_point: `x & 1 != (encoded[31] >> 7)` -> `is not`. Both operands are plain ints in {0, 1} (a bit-AND and a shift), and CPython returns the cached small-int singletons for 0 and 1 from both operations, so identity coincides with equality on this domain and `!=` agrees with `is not`."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceComparisonOperator_NotEq_Lt:3"
+module = "textforensics.ed25519"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 3
+start_pos = [106, 13]
+end_pos = [106, 15]
+function = "_decode_point"
+kind = "domain-equivalent"
+source_text = "!="
+source_fingerprint = "b68638345c5d28f28fd2d5b198f549e33504e6e476c77ee8930b85a4da2126cc"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent in _decode_point: `x & 1 != (encoded[31] >> 7)` -> `<`. Both sides are single bits; the mutant differs from `!=` only when x is odd and the encoded top bit is 0 — but _x_recover always returns an even x (its final `if x % 2 != 0: x = _Q - x` step, _Q odd), so x & 1 is 0 on the whole reachable domain and `<` agrees with `!=`."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceComparisonOperator_NotEq_Lt:7"
+module = "textforensics.ed25519"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 7
+start_pos = [175, 27]
+end_pos = [175, 29]
+function = "verify"
+kind = "unobservable-value"
+source_text = "!="
+source_fingerprint = "2f539f2354ed0a6af15b7723dcae3da6fdce569b0af008eaf5c609f39407b877"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable value in verify: `len(public_key) != 32` -> `< 32`. A 33-byte public key proceeds to _decode_point, which returns None for a non-32-byte input, so verify still returns False; the `!=` never changes the return value."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceComparisonOperator_NotEq_Lt:8"
+module = "textforensics.ed25519"
+operator = "core/ReplaceComparisonOperator_NotEq_Lt"
+occurrence = 8
+start_pos = [175, 51]
+end_pos = [175, 53]
+function = "verify"
+kind = "unobservable-value"
+source_text = "!="
+source_fingerprint = "2f539f2354ed0a6af15b7723dcae3da6fdce569b0af008eaf5c609f39407b877"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable value in verify: `len(signature) != 64` -> `< 64`. A 65-byte signature proceeds to _decode_scalar, which returns None for the 33-byte S half, so verify still returns False; the `!=` never changes the return value."
+
+[[equivalent]]
+id = "textforensics.ed25519:core/ReplaceOrWithAnd:4"
+module = "textforensics.ed25519"
+operator = "core/ReplaceOrWithAnd"
+occurrence = 4
+start_pos = [175, 33]
+end_pos = [175, 35]
+function = "verify"
+kind = "unobservable-value"
+source_text = "or"
+source_fingerprint = "2f539f2354ed0a6af15b7723dcae3da6fdce569b0af008eaf5c609f39407b877"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Unobservable value in verify: `if len(public_key) != 32 or len(signature) != 64:` -> `and`. The guards are redundant with the downstream None checks: a non-32-byte public key makes _decode_point return None and a non-64-byte signature makes _decode_scalar return None, so verify returns False for exactly the same inputs whether one length is bad or both; the `or` never changes the return value."

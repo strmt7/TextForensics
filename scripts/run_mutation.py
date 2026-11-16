@@ -1059,6 +1059,25 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
         "tests/test_w5_worker_c_if17.py",
         "tests/test_audit_w6_worker_f__build_info.py",
     ],
+    # The W7 kill-test files (tests/test_audit_w7_worker_f_<stem>.py)
+    # are listed the same way (audit-w7-f, 2026-11-16): dsse and
+    # ed25519 had no map entry before, so each gets one — its W7 kill
+    # file ONLY. There is no tests/test_dsse.py or
+    # tests/test_ed25519.py, and the natural shared file
+    # tests/test_sealing.py takes ~31 s unmutated and covers only 83%
+    # (dsse) / 88% (ed25519) of the statements, which would push the
+    # per-mutant command over the 60 s timeout under load; the W7 kill
+    # files cover 100% of the statements in both modules. dsse: 10
+    # tests killing 5 of the 7 dsse runtime survivors (the other 2 are
+    # runtime-equivalent entries). ed25519: 13 tests killing 4 of the
+    # 31 ed25519 runtime survivors (the other 27 are
+    # runtime-equivalent entries).
+    "textforensics.dsse": [
+        "tests/test_audit_w7_worker_f_dsse.py",
+    ],
+    "textforensics.ed25519": [
+        "tests/test_audit_w7_worker_f_ed25519.py",
+    ],
 }
 
 

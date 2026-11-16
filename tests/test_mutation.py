@@ -446,6 +446,19 @@ class CosmicRayIntegrationTests(unittest.TestCase):
             "tests/test_w5_worker_c_if17.py "
             "tests/test_audit_w6_worker_f__build_info.py -x -q",
         )
+        # The W7 kill-test files are part of the per-mutant command for
+        # the modules they cover (audit-w7-f): dsse and ed25519 each
+        # get a new map entry (their W7 kill-test file only).
+        dsse = self.runner.test_command_for(["textforensics.dsse"], self.project_root)
+        self.assertEqual(
+            dsse,
+            "python -m pytest tests/test_audit_w7_worker_f_dsse.py -x -q",
+        )
+        ed25519 = self.runner.test_command_for(["textforensics.ed25519"], self.project_root)
+        self.assertEqual(
+            ed25519,
+            "python -m pytest tests/test_audit_w7_worker_f_ed25519.py -x -q",
+        )
         # web_ui.main is deliberately NOT in _MODULE_TEST_FILES: the W5
         # proof driver's command for it needs node-level scoping which
         # the map cannot express, so it still falls back to the full
@@ -863,8 +876,8 @@ class EquivalentBaselineTests(unittest.TestCase):
     survivor (exit 2) and on any stale entry (exit 1).
     """
 
-    #: The 1314 distinct start positions of the 6937 baseline entries,
-    #: grouped by module (1319 grouped lines; 4 positions are shared
+    #: The 1337 distinct start positions of the 7010 baseline entries,
+    #: grouped by module (1342 grouped lines; 5 positions are shared
     #: across modules and collapse in the set). Re-derived from the
     #: resolved baseline; the W1 refresh (956 entries re-derived on
     #: audit-w1 head 0da6013) moved 137 of the 278 pre-W1 positions,
@@ -901,7 +914,11 @@ class EquivalentBaselineTests(unittest.TestCase):
     #: W4 justification was the same wrong identity argument as occ 6;
     #: the mutant is now killed by
     #: tests/test_audit_w6_worker_f_datasets.py. This took it to 1314
-    #: positions over 44 modules.
+    #: positions over 44 modules. The W7 F re-proof append (73 entries
+    #: across the 2 CC-18 modules dsse + ed25519, hand re-proved
+    #: mutant by mutant with 0 gaps and 0 unexplained) took it to
+    #: 1337 positions over 46 modules
+    #: (dsse and ed25519 are new).
     EXPECTED_POSITIONS = {
         # textforensics._build_info (32 positions).
         (71, 33),
@@ -1384,7 +1401,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         (412, 12),
         (430, 46),
         (483, 90),
-        # textforensics.datasets (19 positions).
+        # textforensics.datasets (18 positions).
         (1559, 41),
         (1561, 37),
         (1566, 20),
@@ -1461,6 +1478,32 @@ class EquivalentBaselineTests(unittest.TestCase):
         (683, 30),
         (684, 51),
         (685, 50),
+        # textforensics.dsse (4 positions).
+        (57, 43),
+        (62, 67),
+        (96, 31),
+        (136, 33),
+        # textforensics.ed25519 (20 positions).
+        (53, 55),
+        (54, 22),
+        (55, 25),
+        (57, 13),
+        (85, 27),
+        (87, 15),
+        (94, 16),
+        (98, 53),
+        (106, 9),
+        (106, 11),
+        (106, 13),
+        (108, 27),
+        (115, 58),
+        (118, 42),
+        (154, 64),
+        (156, 85),
+        (175, 27),
+        (175, 33),
+        (175, 51),
+        (191, 12),
         # textforensics.emergency_stop (4 positions).
         (60, 30),
         (79, 14),
@@ -2330,8 +2373,8 @@ class EquivalentBaselineTests(unittest.TestCase):
         finally:
             Path(temp_path).unlink(missing_ok=True)
 
-    def test_baseline_file_loads_with_6937_entries(self):
-        """The baseline has exactly the 6937 verified equivalent mutants.
+    def test_baseline_file_loads_with_7010_entries(self):
+        """The baseline has exactly the 7010 verified equivalent mutants.
 
         69 annotation BitOr mutants + 4 unreachable-condition
         NumberReplacer mutants for trust (see the baseline file's header
@@ -2501,6 +2544,10 @@ class EquivalentBaselineTests(unittest.TestCase):
         identity argument as the write_sample_cache occ 6 entry, and
         the mutant is killed by
         tests/test_audit_w6_worker_f_datasets.py.
+        The W7 F re-proof append added 73 (6937 -> 7010): 44
+        postponed-evaluation annotations + 29 runtime equivalents
+        across the 2 CC-18 modules (dsse + ed25519), hand
+        re-proved mutant by mutant with 0 gaps and 0 unexplained.
         (The refresh also exposed 2 _metrics guard entries whose old
         position was re-occupied by a different-occurrence live mutant;
         their positions were corrected to the live (105, 32) sites —
@@ -2510,8 +2557,8 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(self.baseline["source_run"], "42393966895")
         self.assertEqual(self.baseline["source_commit"], "153b5ab")
         entries = self.baseline["entries"]
-        self.assertEqual(len(entries), 6937)
-        self.assertEqual(len({e["id"] for e in entries}), 6937, "entry ids must be unique")
+        self.assertEqual(len(entries), 7010)
+        self.assertEqual(len({e["id"] for e in entries}), 7010, "entry ids must be unique")
         keys = {
             (
                 e["module"],
@@ -2522,7 +2569,7 @@ class EquivalentBaselineTests(unittest.TestCase):
             )
             for e in entries
         }
-        self.assertEqual(len(keys), 6937, "match keys must be unique")
+        self.assertEqual(len(keys), 7010, "match keys must be unique")
         from collections import Counter
 
         self.assertEqual(
@@ -2530,7 +2577,7 @@ class EquivalentBaselineTests(unittest.TestCase):
             {
                 "core/AddNot": 13,
                 "core/ExceptionReplacer": 24,
-                "core/NumberReplacer": 233,
+                "core/NumberReplacer": 237,
                 "core/ReplaceAndWithOr": 14,
                 "core/ReplaceBinaryOperator_Add_BitOr": 14,
                 "core/ReplaceBinaryOperator_Add_BitXor": 4,
@@ -2538,17 +2585,18 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "core/ReplaceBinaryOperator_Add_LShift": 12,
                 "core/ReplaceBinaryOperator_Add_Mul": 1,
                 "core/ReplaceBinaryOperator_Add_Pow": 1,
-                "core/ReplaceBinaryOperator_BitOr_Add": 532,
-                "core/ReplaceBinaryOperator_BitOr_BitAnd": 535,
-                "core/ReplaceBinaryOperator_BitOr_BitXor": 541,
-                "core/ReplaceBinaryOperator_BitOr_Div": 535,
-                "core/ReplaceBinaryOperator_BitOr_FloorDiv": 538,
-                "core/ReplaceBinaryOperator_BitOr_LShift": 533,
-                "core/ReplaceBinaryOperator_BitOr_Mod": 534,
-                "core/ReplaceBinaryOperator_BitOr_Mul": 534,
-                "core/ReplaceBinaryOperator_BitOr_Pow": 534,
-                "core/ReplaceBinaryOperator_BitOr_RShift": 535,
-                "core/ReplaceBinaryOperator_BitOr_Sub": 535,
+                "core/ReplaceBinaryOperator_BitAnd_Mod": 1,
+                "core/ReplaceBinaryOperator_BitOr_Add": 537,
+                "core/ReplaceBinaryOperator_BitOr_BitAnd": 539,
+                "core/ReplaceBinaryOperator_BitOr_BitXor": 546,
+                "core/ReplaceBinaryOperator_BitOr_Div": 539,
+                "core/ReplaceBinaryOperator_BitOr_FloorDiv": 542,
+                "core/ReplaceBinaryOperator_BitOr_LShift": 537,
+                "core/ReplaceBinaryOperator_BitOr_Mod": 538,
+                "core/ReplaceBinaryOperator_BitOr_Mul": 538,
+                "core/ReplaceBinaryOperator_BitOr_Pow": 538,
+                "core/ReplaceBinaryOperator_BitOr_RShift": 539,
+                "core/ReplaceBinaryOperator_BitOr_Sub": 539,
                 "core/ReplaceBinaryOperator_Div_Add": 1,
                 "core/ReplaceBinaryOperator_Div_BitAnd": 1,
                 "core/ReplaceBinaryOperator_Div_BitOr": 1,
@@ -2570,6 +2618,8 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "core/ReplaceBinaryOperator_FloorDiv_Pow": 1,
                 "core/ReplaceBinaryOperator_FloorDiv_RShift": 1,
                 "core/ReplaceBinaryOperator_FloorDiv_Sub": 1,
+                "core/ReplaceBinaryOperator_Mod_Add": 4,
+                "core/ReplaceBinaryOperator_Mod_Sub": 4,
                 "core/ReplaceBinaryOperator_Mul_Add": 2,
                 "core/ReplaceBinaryOperator_Mul_BitAnd": 2,
                 "core/ReplaceBinaryOperator_Mul_BitOr": 2,
@@ -2593,11 +2643,11 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "core/ReplaceBinaryOperator_Sub_RShift": 3,
                 "core/ReplaceBreakWithContinue": 4,
                 "core/ReplaceComparisonOperator_Eq_Gt": 2,
-                "core/ReplaceComparisonOperator_Eq_GtE": 114,
+                "core/ReplaceComparisonOperator_Eq_GtE": 115,
                 "core/ReplaceComparisonOperator_Eq_Is": 32,
                 "core/ReplaceComparisonOperator_Eq_IsNot": 5,
                 "core/ReplaceComparisonOperator_Eq_Lt": 8,
-                "core/ReplaceComparisonOperator_Eq_LtE": 135,
+                "core/ReplaceComparisonOperator_Eq_LtE": 136,
                 "core/ReplaceComparisonOperator_Eq_NotEq": 1,
                 "core/ReplaceComparisonOperator_GtE_Eq": 8,
                 "core/ReplaceComparisonOperator_GtE_Gt": 8,
@@ -2611,8 +2661,9 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "core/ReplaceComparisonOperator_Gt_NotEq": 27,
                 "core/ReplaceComparisonOperator_IsNot_Is": 2,
                 "core/ReplaceComparisonOperator_IsNot_NotEq": 1,
-                "core/ReplaceComparisonOperator_Is_Eq": 5,
+                "core/ReplaceComparisonOperator_Is_Eq": 6,
                 "core/ReplaceComparisonOperator_Is_IsNot": 1,
+                "core/ReplaceComparisonOperator_Is_LtE": 1,
                 "core/ReplaceComparisonOperator_LtE_Eq": 4,
                 "core/ReplaceComparisonOperator_LtE_Lt": 3,
                 "core/ReplaceComparisonOperator_Lt_Eq": 1,
@@ -2622,16 +2673,16 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "core/ReplaceComparisonOperator_Lt_LtE": 4,
                 "core/ReplaceComparisonOperator_Lt_NotEq": 11,
                 "core/ReplaceComparisonOperator_NotEq_Eq": 2,
-                "core/ReplaceComparisonOperator_NotEq_Gt": 29,
+                "core/ReplaceComparisonOperator_NotEq_Gt": 33,
                 "core/ReplaceComparisonOperator_NotEq_GtE": 2,
                 "core/ReplaceComparisonOperator_NotEq_Is": 1,
-                "core/ReplaceComparisonOperator_NotEq_IsNot": 16,
-                "core/ReplaceComparisonOperator_NotEq_Lt": 30,
+                "core/ReplaceComparisonOperator_NotEq_IsNot": 17,
+                "core/ReplaceComparisonOperator_NotEq_Lt": 33,
                 "core/ReplaceComparisonOperator_NotEq_LtE": 4,
                 "core/ReplaceContinueWithBreak": 11,
                 "core/ReplaceFalseWithTrue": 25,
-                "core/ReplaceOrWithAnd": 13,
-                "core/ReplaceTrueWithFalse": 30,
+                "core/ReplaceOrWithAnd": 14,
+                "core/ReplaceTrueWithFalse": 31,
                 "core/ReplaceUnaryOperator_Delete_Not": 2,
                 "core/ReplaceUnaryOperator_Delete_USub": 3,
                 "core/ReplaceUnaryOperator_USub_Invert": 2,
@@ -2661,6 +2712,8 @@ class EquivalentBaselineTests(unittest.TestCase):
                     "textforensics.detection_cache",
                     "textforensics.detectors",
                     "textforensics.diagnostics",
+                    "textforensics.dsse",
+                    "textforensics.ed25519",
                     "textforensics.emergency_stop",
                     "textforensics.engine",
                     "textforensics.evidence",
@@ -2709,11 +2762,11 @@ class EquivalentBaselineTests(unittest.TestCase):
                 self.assertEqual(len(entry["source_fingerprint"]), 64)
 
     def test_runtime_entries(self):
-        """The 1067 runtime entries carry their equivalence proofs."""
+        """The 1096 runtime entries carry their equivalence proofs."""
         runtime = [
             e for e in self.baseline["entries"] if e["kind"] in self.runner.BASELINE_RUNTIME_KINDS
         ]
-        self.assertEqual(len(runtime), 1067)
+        self.assertEqual(len(runtime), 1096)
         unreachable = [e for e in runtime if e["kind"] == "unreachable-condition"]
         self.assertEqual(len(unreachable), 23)
         by_id = {e["id"]: e for e in runtime}
@@ -2753,7 +2806,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         )
         self.assertEqual(by_id["textforensics.trust:core/NumberReplacer:45"]["source_text"], "0")
         unobservable = [e for e in runtime if e["kind"] == "unobservable-value"]
-        self.assertEqual(len(unobservable), 243)
+        self.assertEqual(len(unobservable), 254)
         self.assertEqual(
             {e["occurrence"] for e in unobservable},
             {
@@ -2809,6 +2862,7 @@ class EquivalentBaselineTests(unittest.TestCase):
                 63,
                 64,
                 65,
+                73,
                 80,
                 81,
                 83,
@@ -2886,7 +2940,10 @@ class EquivalentBaselineTests(unittest.TestCase):
             "(20 _build_info, 3 benchmark sort_keys re-proven as "
             "unobservable, 1 casefile allow_nan, 1 ledger "
             "save_to_file, 1 detectors TYPE_CHECKING — occ 99 is "
-            "the only new occurrence))",
+            "the only new occurrence); the W7 F re-proof append added 11 "
+            "unobservable-value entries (1 dsse _b64decode_strict "
+            "validate flag, 2 _x_recover %, 1 _scalar_mult [2:], 2 "
+            "sign challenge %, 5 verify length-guard/or))",
         )
         self.assertEqual(
             {e["function"] for e in unobservable},
@@ -2901,6 +2958,7 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "ResultCodec.decode",
                 "_ChunkedReader.read",
                 "_analyze_text_internal",
+                "_b64decode_strict",
                 "_coerce_label",
                 "_compare_scores",
                 "_compute_content_hash",
@@ -2917,9 +2975,11 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "_replay_trust_map_v3",
                 "_restrict_to_owner_windows",
                 "_run",
+                "_scalar_mult",
                 "_slice_metrics",
                 "_validate_entry_dict",
                 "_verify_timestamp_token",
+                "_x_recover",
                 "build_agreement_matrix",
                 "build_forensic_bundle",
                 "check_bundle_consistency",
@@ -2936,6 +2996,8 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "replay_case_file",
                 "save_run",
                 "save_sealing_key",
+                "sign",
+                "verify",
                 "verify_bundle_bytes",
                 "verify_case_file_combined",
                 "verify_sealed_bundle",
@@ -2948,6 +3010,7 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "!=",
                 '"benchmark" in line.lower() and "schema" in line.lower()',
                 '"calibration" in line.lower() and "schema" in line.lower()',
+                "%",
                 "*",
                 "+",
                 "-",
@@ -3155,14 +3218,14 @@ class EquivalentBaselineTests(unittest.TestCase):
         # _standalone_verify 95, adversarial 19, analyzers 4,
         # atomic_io 3, benchmark 34, bundle 12, bundle_consistency
         # 4, calibration 83, casefile 27, cli 3, consensus 11,
-        # datasets 11, detection_cache 15, detectors 4, engine 1,
-        # evidence 45, execution_policy 10, explain 11, ledger 6,
-        # mixed_origin 6, model_card 5, observatory 36, policy 26,
-        # probe_metrics 64, probe_runs 43, report 2, result_codec
-        # 3, retry 20, rich_output 6, schema 4, sealed_bundle 18,
-        # sealing 7, semantic 66, timestamp 7, trust 19,
-        # validation 22, verify 27, watermarking 10, web_ui.main
-        # 2, workspace_integrity 2.
+        # datasets 10, detection_cache 15, detectors 4, dsse 1,
+        # ed25519 17, engine 1, evidence 45, execution_policy 10,
+        # explain 11, ledger 6, mixed_origin 6, model_card 5,
+        # observatory 36, policy 26, probe_metrics 64, probe_runs
+        # 43, report 2, result_codec 3, retry 20, rich_output 6,
+        # schema 4, sealed_bundle 18, sealing 7, semantic 66,
+        # timestamp 7, trust 19, validation 22, verify 27,
+        # watermarking 10, web_ui.main 2, workspace_integrity 2.
         # (W3: _standalone_verify 43 -> 95 and verify 25 -> 27
         # after the F2 refresh dropped 29/3 domain entries there
         # and the W3 appends added 81/5; casefile and result_codec
@@ -3187,8 +3250,10 @@ class EquivalentBaselineTests(unittest.TestCase):
         # (Parent: the read_sample_cache NotEq_IsNot twin (occ 7) was
         # dropped after the W6 hand-back — same wrong W4 justification
         # as occ 6; the mutant is now killed. Datasets 11 -> 10.)
+        # (W7: the F re-proof append added dsse 1 and ed25519 17
+        # (new modules): 795 -> 813.)
         domain = [e for e in runtime if e["kind"] == "domain-equivalent"]
-        self.assertEqual(len(domain), 795)
+        self.assertEqual(len(domain), 813)
         self.assertEqual(
             {e["module"] for e in domain},
             {
@@ -3207,6 +3272,8 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "textforensics.datasets",
                 "textforensics.detection_cache",
                 "textforensics.detectors",
+                "textforensics.dsse",
+                "textforensics.ed25519",
                 "textforensics.engine",
                 "textforensics.evidence",
                 "textforensics.execution_policy",
@@ -4023,10 +4090,10 @@ class EquivalentBaselineTests(unittest.TestCase):
             "baseline_entries",
         ):
             self.assertIn(key, summary, f"summary is missing {key}")
-        self.assertEqual(summary["baseline_entries"], 6937)
+        self.assertEqual(summary["baseline_entries"], 7010)
         self.assertEqual(summary["equivalent"], 2)
-        # The other 6935 entries matched no live survivor in this run.
-        self.assertEqual(summary["equivalent_dormant"], 6935)
+        # The other 7008 entries matched no live survivor in this run.
+        self.assertEqual(summary["equivalent_dormant"], 7008)
         self.assertEqual(summary["equivalent_superseded"], 0)
         self.assertEqual(summary["stale_baseline_entries"], [])
         # Raw counts are never relabelled: the survivors stay in `surviving`.
@@ -4045,7 +4112,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(summary["equivalent_mutants"], [entries[0]["id"]])
         self.assertEqual(summary["equivalent_superseded"], 1)
         self.assertEqual(summary["equivalent_superseded_ids"], [entries[1]["id"]])
-        self.assertEqual(summary["equivalent_dormant"], 6935)
+        self.assertEqual(summary["equivalent_dormant"], 7008)
         self.assertEqual(summary["unexplained_surviving"], 0)
         result = self._check_summary(summary)
         self.assertEqual(result.returncode, 0, result.stdout)
@@ -4147,8 +4214,8 @@ class EquivalentBaselineTests(unittest.TestCase):
         Regression test for the Core 3.11 CI stall (test 2562 exceeded
         10 minutes on CPython 3.11.18): ``validate_baseline_entry``
         used to re-read, re-parse and re-walk the module for every one
-        of the 6937 entries. The per-module context cache must parse
-        each of the 44 modules once, and a second full classify must
+        of the 7010 entries. The per-module context cache must parse
+        each of the 46 modules once, and a second full classify must
         parse nothing. (The cache cap in scripts/run_mutation.py is
         64: at the W3 cap of 32 the 37-module W4 baseline evicted
         policy and parsed it twice.)
@@ -4165,14 +4232,14 @@ class EquivalentBaselineTests(unittest.TestCase):
         try:
             runner.ast.parse = counting_parse
             summary = runner.classify_baseline([], self.baseline, self.project_root)
-            self.assertEqual(summary["baseline_entries"], 6937)
+            self.assertEqual(summary["baseline_entries"], 7010)
             self.assertEqual(len(summary["stale_baseline_entries"]), 0)
-            self.assertEqual(calls["n"], 44, "one parse per distinct module")
+            self.assertEqual(calls["n"], 46, "one parse per distinct module")
             # A second full classify hits the cache: no further parses,
             # and the result is identical.
             summary2 = runner.classify_baseline([], self.baseline, self.project_root)
             self.assertEqual(summary2, summary)
-            self.assertEqual(calls["n"], 44, "second classify must parse nothing")
+            self.assertEqual(calls["n"], 46, "second classify must parse nothing")
         finally:
             runner.ast.parse = real_parse
             runner._clear_module_context_cache()
@@ -4252,7 +4319,7 @@ class EquivalentBaselineTests(unittest.TestCase):
     def test_domain_equivalent_mutants_accepted(self):
         """Survivors matching re-validated domain-equivalent entries are accepted (exit 0)."""
         runtime = [e for e in self.baseline["entries"] if e["kind"] == "domain-equivalent"]
-        self.assertEqual(len(runtime), 795)
+        self.assertEqual(len(runtime), 813)
         self.assertEqual(
             {e["module"] for e in runtime},
             {
@@ -4271,6 +4338,8 @@ class EquivalentBaselineTests(unittest.TestCase):
                 "textforensics.datasets",
                 "textforensics.detection_cache",
                 "textforensics.detectors",
+                "textforensics.dsse",
+                "textforensics.ed25519",
                 "textforensics.engine",
                 "textforensics.evidence",
                 "textforensics.execution_policy",
@@ -4301,9 +4370,9 @@ class EquivalentBaselineTests(unittest.TestCase):
         )
         records = [self._record_for_entry(e, "survived") for e in runtime]
         summary = self.runner.parse_results(records, self.baseline, self.project_root)
-        self.assertEqual(summary["total"], 795)
-        self.assertEqual(summary["surviving"], 795)
-        self.assertEqual(summary["equivalent"], 795)
+        self.assertEqual(summary["total"], 813)
+        self.assertEqual(summary["surviving"], 813)
+        self.assertEqual(summary["equivalent"], 813)
         self.assertEqual(summary["unexplained_surviving"], 0)
         self.assertEqual(summary["equivalent_mutants"], [e["id"] for e in runtime])
         result = self._check_summary(summary)
@@ -4313,7 +4382,7 @@ class EquivalentBaselineTests(unittest.TestCase):
     def test_unobservable_value_mutants_accepted(self):
         """Survivors matching re-validated unobservable-value entries are accepted (exit 0)."""
         runtime = [e for e in self.baseline["entries"] if e["kind"] == "unobservable-value"]
-        self.assertEqual(len(runtime), 243)
+        self.assertEqual(len(runtime), 254)
         module_paths = {
             "textforensics.policy": str(self.project_root / "src" / "textforensics" / "policy.py"),
             "textforensics.benchmark": str(
@@ -4375,6 +4444,10 @@ class EquivalentBaselineTests(unittest.TestCase):
             "textforensics.bundle_consistency": str(
                 self.project_root / "src" / "textforensics" / "bundle_consistency.py"
             ),
+            "textforensics.dsse": str(self.project_root / "src" / "textforensics" / "dsse.py"),
+            "textforensics.ed25519": str(
+                self.project_root / "src" / "textforensics" / "ed25519.py"
+            ),
         }
         records = [
             self._record(
@@ -4388,9 +4461,9 @@ class EquivalentBaselineTests(unittest.TestCase):
             for e in runtime
         ]
         summary = self.runner.parse_results(records, self.baseline, self.project_root)
-        self.assertEqual(summary["total"], 243)
-        self.assertEqual(summary["surviving"], 243)
-        self.assertEqual(summary["equivalent"], 243)
+        self.assertEqual(summary["total"], 254)
+        self.assertEqual(summary["surviving"], 254)
+        self.assertEqual(summary["equivalent"], 254)
         self.assertEqual(summary["unexplained_surviving"], 0)
         self.assertEqual(summary["equivalent_mutants"], [e["id"] for e in runtime])
         result = self._check_summary(summary)
