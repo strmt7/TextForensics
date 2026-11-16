@@ -36,7 +36,14 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
-import aiohttp
+try:
+    import aiohttp
+except ImportError:  # pragma: no cover - optional dependency
+    # The [ollama] extra is absent. The module must stay importable so
+    # the Ollama adapter fails with the install hint at first use
+    # (fail fast in OllamaClient._ensure_session) instead of a bare
+    # ModuleNotFoundError at import time.
+    aiohttp = None  # type: ignore[assignment]
 
 from .execution_policy import diagnostic_record, new_request_id, public_error_body
 
@@ -627,6 +634,14 @@ class OllamaClient:
 
     async def _ensure_session(self) -> None:
         """Ensure aiohttp session exists."""
+        if aiohttp is None:
+            # Fail fast without the [ollama] extra (W9-D): no HTTP
+            # session can exist without aiohttp. The hint names the
+            # extra instead of surfacing a bare ModuleNotFoundError.
+            raise RuntimeError(
+                "aiohttp is required for the Ollama adapter. "
+                "Install with: pip install 'textforensics[ollama]'"
+            )
         if self._session is None or self._session.closed:
             timeout = aiohttp.ClientTimeout(
                 total=self.config.timeout_seconds,

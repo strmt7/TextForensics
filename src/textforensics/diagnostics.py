@@ -38,7 +38,14 @@ from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import psutil
+try:
+    import psutil
+except ImportError:  # pragma: no cover - optional dependency
+    # The [diagnostics] extra is absent. The module must stay importable
+    # so callers get the install hint at first use (fail fast in
+    # DiagnosticsEngine.__init__) instead of a bare ModuleNotFoundError
+    # at import time.
+    psutil = None  # type: ignore[assignment]
 
 from ._build_info import get_version
 
@@ -431,6 +438,15 @@ class DiagnosticsEngine:
         database_check: Callable[[], tuple[bool, str]] | None = None,
         storage_check: Callable[[], tuple[bool, str]] | None = None,
     ):
+        # Fail fast without the [diagnostics] extra (W9-D): every
+        # default readiness check needs psutil, so an engine without it
+        # cannot fulfil its contract. The hint names the extra instead
+        # of surfacing a bare ModuleNotFoundError.
+        if psutil is None:
+            raise RuntimeError(
+                "psutil is required for diagnostics. "
+                "Install with: pip install 'textforensics[diagnostics]'"
+            )
         self.engine = engine
         self.storage_paths = storage_paths or [Path.cwd()]
         self._database_check = database_check

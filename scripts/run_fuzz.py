@@ -118,6 +118,20 @@ def _crash_files(crashes_dir: Path) -> list[Path]:
     ]
 
 
+def _require_atheris() -> str | None:
+    """Return the install hint when atheris is unavailable, else None.
+
+    Failure contract (W9-D): direct fuzzing without the [fuzzing] extra
+    must name the extra instead of reporting a bare child-exit status
+    with the child's ModuleNotFoundError swallowed.
+    """
+    try:
+        import atheris  # noqa: F401
+    except ImportError:
+        return "atheris is required for fuzzing. Install with: pip install 'textforensics[fuzzing]'"
+    return None
+
+
 def run_atheris_target(target: FuzzTarget, duration_seconds: int, regression: bool) -> dict:
     """Run a single fuzz target via atheris in a subprocess.
 
@@ -127,6 +141,17 @@ def run_atheris_target(target: FuzzTarget, duration_seconds: int, regression: bo
 
     Returns a dict with summary info.
     """
+    missing = _require_atheris()
+    if missing is not None:
+        return {
+            "target": target.name,
+            "crashes": 0,
+            "hangs": 0,
+            "timed_out": False,
+            "error": missing,
+            "elapsed": 0.0,
+        }
+
     crashes_dir, corpus_out, _ = ensure_dirs(target)
 
     cmd = [
@@ -363,6 +388,15 @@ def main() -> int:
     args = parser.parse_args()
 
     ARTIFACTS_DIR = args.artifacts_dir
+
+    # Fail fast without atheris (W9-D): direct fuzzing cannot run at all
+    # without the [fuzzing] extra, so refuse before generating a corpus
+    # or spawning a child that would fail with a bare ModuleNotFoundError.
+    if args.method == "direct":
+        missing = _require_atheris()
+        if missing is not None:
+            print(f"run_fuzz: {missing}")
+            return 1
 
     # ENG-07: a failed corpus generation (no seed corpus at all) fails
     # the run instead of fuzzing unseeded and reading as a clean run.

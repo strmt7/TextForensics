@@ -9,6 +9,7 @@ crashes/hangs, no error" with exit 0.
 import importlib.util
 import sys
 from pathlib import Path
+from types import ModuleType
 from unittest import mock
 
 import pytest
@@ -41,6 +42,11 @@ def isolated_run_fuzz(run_fuzz, tmp_path, monkeypatch):
     """Point artifact/corpus dirs at tmp so no repo state is touched."""
     monkeypatch.setattr(run_fuzz, "ARTIFACTS_DIR", tmp_path / "artifacts")
     monkeypatch.setattr(run_fuzz, "CORPUS_DIR", tmp_path / "corpus")
+    # The child-exit tests simulate the atheris subprocess (subprocess.run
+    # is mocked); stub the optional import so the W9-D missing-atheris
+    # guard does not fire before the mocked child runs. atheris is not
+    # installed in the canonical venv.
+    monkeypatch.setitem(sys.modules, "atheris", ModuleType("atheris"))
     return run_fuzz
 
 

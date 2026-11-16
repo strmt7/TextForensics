@@ -203,6 +203,10 @@ jobs:
       # installed web resources. Loopback-only port publishing, as in
       # compose.yaml / docs/INSTALLATION.md; the API has no authentication
       # and must never be published on a network interface.
+      # HEALTHCHECK contract (W9-D): the image config must carry the
+      # documented healthcheck with the exact parameters from
+      # Dockerfile:75, and the daemon must report the running container
+      # healthy in-container (not just reachable over the published port).
       - name: Running-image acceptance
         run: |
           set -euo pipefail
@@ -222,8 +226,30 @@ jobs:
           USER_ID=$(docker inspect -f '{{ .Config.User }}' "$IMAGE")
           echo "image USER: ${USER_ID}"
           test -n "$USER_ID" && test "$USER_ID" != "root" && test "$USER_ID" != "0"
+          # Strong form (W9-D): the image USER must be exactly the
+          # dedicated user, and the runtime UID must be non-zero.
+          test "$USER_ID" = "textforensics:textforensics"
+          test "$(docker run --rm --read-only --entrypoint id "$IMAGE" -u)" != "0"
           # Read-only execution: the container above ran with --read-only.
           docker inspect -f '{{ .HostConfig.ReadonlyRootfs }}' tf-acceptance | grep -qx true
+          # HEALTHCHECK config (W9-D): exact parameters from
+          # Dockerfile:75 — durations are nanoseconds in image config.
+          test "$(docker inspect -f '{{ .Config.Healthcheck.Interval }}' "$IMAGE")" = "30000000000"
+          test "$(docker inspect -f '{{ .Config.Healthcheck.Timeout }}' "$IMAGE")" = "3000000000"
+          test "$(docker inspect -f '{{ .Config.Healthcheck.StartPeriod }}' "$IMAGE")" = "5000000000"
+          test "$(docker inspect -f '{{ .Config.Healthcheck.Retries }}' "$IMAGE")" = "3"
+          docker inspect -f '{{ .Config.Healthcheck.Test }}' "$IMAGE" | grep -q "healthz"
+          # HEALTHCHECK in-container (W9-D): poll until the daemon
+          # reports the container healthy. First probe fires after the
+          # 5s start-period, then every 30s; 40 x 3s bounds the wait.
+          for i in $(seq 1 40); do
+            if [ "$(docker inspect -f '{{ .State.Health.Status }}' tf-acceptance)" = "healthy" ]; then
+              echo "container HEALTHCHECK reports healthy"
+              break
+            fi
+            sleep 3
+          done
+          test "$(docker inspect -f '{{ .State.Health.Status }}' tf-acceptance)" = "healthy"
           # Installed web resources present (ENG-01, fixed in W6):
           # the web console must construct from the installed files.
           docker run --rm --entrypoint python "$IMAGE" \
@@ -247,7 +273,7 @@ jobs:
           echo "- **Digest:** \`${{ steps.load.outputs.imageid }}\` (loaded candidate image ID; the multi-arch build publishes no digest with push: false)" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Published:** no (candidate build only; promotion requires explicit dispatch + acceptance gate)" >> "$GITHUB_STEP_SUMMARY"
           echo "- **SBOM:** CycloneDX JSON for the loaded candidate image (image ID above), uploaded as artifact" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Acceptance:** health endpoint, non-root, read-only, installed web resources" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Acceptance:** health endpoint, in-container HEALTHCHECK (config + healthy status), non-root (image USER + runtime UID), read-only, installed web resources" >> "$GITHUB_STEP_SUMMARY"
 
   # Promotion: ONLY via explicit workflow_dispatch with confirmation
   # PROMOTE, ONLY after the acceptance gate passed for the candidate SHA.
@@ -362,7 +388,28 @@ jobs:
           USER_ID=$(docker inspect -f '{{ .Config.User }}' "$IMAGE")
           echo "image USER: ${USER_ID}"
           test -n "$USER_ID" && test "$USER_ID" != "root" && test "$USER_ID" != "0"
+          # Strong form (W9-D): the image USER must be exactly the
+          # dedicated user, and the runtime UID must be non-zero.
+          test "$USER_ID" = "textforensics:textforensics"
+          test "$(docker run --rm --read-only --entrypoint id "$IMAGE" -u)" != "0"
           docker inspect -f '{{ .HostConfig.ReadonlyRootfs }}' tf-promote-acceptance | grep -qx true
+          # HEALTHCHECK config (W9-D): exact parameters from
+          # Dockerfile:75 — durations are nanoseconds in image config.
+          test "$(docker inspect -f '{{ .Config.Healthcheck.Interval }}' "$IMAGE")" = "30000000000"
+          test "$(docker inspect -f '{{ .Config.Healthcheck.Timeout }}' "$IMAGE")" = "3000000000"
+          test "$(docker inspect -f '{{ .Config.Healthcheck.StartPeriod }}' "$IMAGE")" = "5000000000"
+          test "$(docker inspect -f '{{ .Config.Healthcheck.Retries }}' "$IMAGE")" = "3"
+          docker inspect -f '{{ .Config.Healthcheck.Test }}' "$IMAGE" | grep -q "healthz"
+          # HEALTHCHECK in-container (W9-D): poll until the daemon
+          # reports the container healthy.
+          for i in $(seq 1 40); do
+            if [ "$(docker inspect -f '{{ .State.Health.Status }}' tf-promote-acceptance)" = "healthy" ]; then
+              echo "container HEALTHCHECK reports healthy"
+              break
+            fi
+            sleep 3
+          done
+          test "$(docker inspect -f '{{ .State.Health.Status }}' tf-promote-acceptance)" = "healthy"
           docker run --rm --entrypoint python "$IMAGE" \
             -c "from textforensics.web_ui.main import create_web_app; create_web_app(); print('installed web app constructs OK')"
 
