@@ -757,10 +757,16 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
         "tests/test_w1_consent_stop.py",
     ],
     # Detector-gating (execute_detector / run_all_detectors policy + stop)
-    # is covered by test_w1_consent_stop.py.
+    # is covered by test_w1_consent_stop.py; the W6 Worker E tests
+    # (CC-17 calibration binding) live in test_audit_w6_worker_e.py;
+    # the W6 kill tests live in test_audit_w6_worker_f_detectors.py
+    # (audit-w6-f, 2026-11-16: 16 tests killing 56 of the 57 detectors
+    # runtime survivors).
     "textforensics.detectors": [
         "tests/test_detectors.py",
         "tests/test_w1_consent_stop.py",
+        "tests/test_audit_w6_worker_e.py",
+        "tests/test_audit_w6_worker_f_detectors.py",
     ],
     # CORE-07 trust-gate tests live in test_w1_worker_d.py; the W2
     # Worker A trust tests live in test_audit_w2_worker_a.py; the W2
@@ -831,13 +837,16 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
     # Ledger tests live in test_audit_log.py (there is no
     # test_ledger.py); the W3 kill tests live in
     # test_audit_w3_worker_f_ledger.py; the W4 kill tests live in
-    # test_audit_w4_worker_f_ledger.py. test_audit_anchor.py is
-    # deliberately NOT listed: its 9 C08/C09 tests are red by design
-    # for W4 (see the comment above the map).
+    # test_audit_w4_worker_f_ledger.py; the W6 kill tests live in
+    # test_audit_w6_worker_f_ledger.py (audit-w6-f, 2026-11-16: 6 tests
+    # killing 8 of the 9 ledger runtime survivors).
+    # test_audit_anchor.py is deliberately NOT listed: its 9 C08/C09
+    # tests are red by design for W4 (see the comment above the map).
     "textforensics.ledger": [
         "tests/test_audit_log.py",
         "tests/test_audit_w3_worker_f_ledger.py",
         "tests/test_audit_w4_worker_f_ledger.py",
+        "tests/test_audit_w6_worker_f_ledger.py",
     ],
     # W3 Worker C tests live in test_audit_w3_worker_c.py alongside
     # the dedicated file; the W3 kill tests live in
@@ -849,19 +858,25 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
     ],
     # W3 Worker C tests live in test_audit_w3_worker_c.py alongside
     # the dedicated file; the W3 kill tests live in
-    # test_audit_w3_worker_f_bundle.py.
+    # test_audit_w3_worker_f_bundle.py; the W6 kill tests live in
+    # test_audit_w6_worker_f_bundle.py (audit-w6-f, 2026-11-16: 3 tests
+    # killing 4 of the 4 bundle runtime survivors).
     "textforensics.bundle": [
         "tests/test_bundle.py",
         "tests/test_audit_w3_worker_c.py",
         "tests/test_audit_w3_worker_f_bundle.py",
+        "tests/test_audit_w6_worker_f_bundle.py",
     ],
     # W3 Worker C tests live in test_audit_w3_worker_c.py alongside
     # the dedicated file; the W3 kill tests live in
-    # test_audit_w3_worker_f_sealed_bundle.py.
+    # test_audit_w3_worker_f_sealed_bundle.py; the W6 kill tests live in
+    # test_audit_w6_worker_f_sealed_bundle.py (audit-w6-f, 2026-11-16:
+    # 3 tests killing 5 of the 5 sealed_bundle runtime survivors).
     "textforensics.sealed_bundle": [
         "tests/test_sealed_bundle.py",
         "tests/test_audit_w3_worker_c.py",
         "tests/test_audit_w3_worker_f_sealed_bundle.py",
+        "tests/test_audit_w6_worker_f_sealed_bundle.py",
     ],
     # W3 Worker B tests live in test_audit_w3_worker_b.py alongside
     # the dedicated file; the W3 kill tests live in
@@ -912,12 +927,16 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
     # phase-1 datasets survivors). See the timeout note above the map.
     # The W4 kill tests live in test_audit_w4_worker_f_datasets.py
     # (audit-w4-f2, 2026-11-15: 29 tests killing 39 of the 41
-    # datasets runtime survivors).
+    # datasets runtime survivors). The W6 kill tests live in
+    # test_audit_w6_worker_f_datasets.py (audit-w6-f, 2026-11-16:
+    # 2 tests killing 3 of the 7 datasets runtime survivors; the
+    # other 4 are domain-equivalent _map_mage entries).
     "textforensics.datasets": [
         "tests/test_datasets.py",
         "tests/test_w1_worker_d.py",
         "tests/test_audit_w3_worker_f4_datasets.py",
         "tests/test_audit_w4_worker_f_datasets.py",
+        "tests/test_audit_w6_worker_f_datasets.py",
     ],
     # The W4 kill-test files (tests/test_audit_w4_worker_f_<stem>.py)
     # are listed the same way (audit-w4-f2, 2026-11-15) for the five
@@ -1022,6 +1041,23 @@ _MODULE_TEST_FILES: dict[str, list[str]] = {
         "tests/test_rich_output.py",
         "tests/test_w5_worker_c_if18.py",
         "tests/test_audit_w5_worker_f_rich_output.py",
+    ],
+    # The W6 kill-test file (tests/test_audit_w6_worker_f__build_info.py)
+    # is listed the same way (audit-w6-f, 2026-11-16): _build_info had
+    # no map entry before, so it gets one (the files the W6 proof
+    # driver ran for it, plus its W6 kill-test file). There is no
+    # dedicated test__build_info.py: the W6 Worker B build-identity
+    # tests live in test_audit_w6_b_build_identity.py; the version /
+    # schema tests live in test_schema_version.py, test_version_extra.py
+    # and test_w5_worker_c_if17.py. The W6 kill tests are 32 tests
+    # killing 90 of the 113 _build_info runtime survivors (the other
+    # 23 are runtime-equivalent entries).
+    "textforensics._build_info": [
+        "tests/test_audit_w6_b_build_identity.py",
+        "tests/test_schema_version.py",
+        "tests/test_version_extra.py",
+        "tests/test_w5_worker_c_if17.py",
+        "tests/test_audit_w6_worker_f__build_info.py",
     ],
 }
 
