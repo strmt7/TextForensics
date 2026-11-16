@@ -329,6 +329,13 @@ def _module_level_test_imports() -> dict[str, set[str]]:
     in_repo = {p.stem for p in tests_dir.glob("*.py")}
     in_repo |= {p.name for p in tests_dir.iterdir() if p.is_dir() and not p.name.startswith(".")}
     in_repo |= {"tests", "textforensics"}
+    # Scripts are in-repo too: a test that does sys.path.insert(0, scripts)
+    # and imports a scripts/ module at module level cannot break CI
+    # collection, because scripts/ ships in the checkout like tests/ does
+    # (e.g. tests/test_measure_w8_ghostwriter_opai.py imports
+    # measure_w8_ghostwriter_opai). The gate's purpose is third-party
+    # distributions, not checkout files.
+    in_repo |= {p.stem for p in (REPO_ROOT / "scripts").glob("*.py")}
     found: dict[str, set[str]] = {}
     for path in sorted(tests_dir.rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
