@@ -5,8 +5,16 @@ every optional surface must fail with a CLEAR, actionable install hint —
 never a bare ``ModuleNotFoundError`` traceback. The canonical venv HAS all
 extras, so each test blocks the optional import with a ``None`` entry in
 ``sys.modules`` (the established pattern from
-tests/test_audit_w5_worker_f_mcp_server.py) and reloads the module under
-test.
+tests/test_audit_w5_worker_f_mcp_server.py).
+
+Isolation rule (W9-D full-suite finding): tests that need a module
+imported WITHOUT its optional dependency run in a FRESH SUBPROCESS.
+An earlier version reloaded the module in-process with
+``importlib.reload``; reload redefines every class in the module, so
+``isinstance`` checks in other test modules holding the pre-reload
+class objects failed — 39 poisoned tests in the full suite
+(``test_w1_ollama_transport``, ``test_diagnostics``, …). The subprocess
+also reproduces the real core-only venv most faithfully.
 
 Reproduced 2026-11-16 in a fresh core-only venv
 (``textforensics==0.2.0``, no extras, ``pip list`` = pip +
@@ -27,37 +35,48 @@ textforensics only):
 
 from __future__ import annotations
 
-import asyncio
 import importlib
+import os
+import subprocess
 import sys
-from contextlib import contextmanager
 from pathlib import Path
 from unittest import mock
 
 import pytest
 
-SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
+REPO_ROOT = Path(__file__).parent.parent
+SRC_DIR = REPO_ROOT / "src"
+SCRIPTS_DIR = REPO_ROOT / "scripts"
 
 
-@contextmanager
-def _blocked_import(module_name: str, reload_name: str):
-    """Block ``module_name`` and reload ``reload_name`` without it.
+def _run_with_blocked_import(blocked: str, code: str) -> subprocess.CompletedProcess:
+    """Run ``code`` in a fresh interpreter with ``blocked`` unimportable.
 
-    Restores the real import and reloads the module back afterwards, so
-    other tests keep seeing the installed dependency.
+    PYTHONPATH puts this worktree's ``src`` first so the subprocess
+    tests this branch, not any installed copy. The test code must print
+    ``TF-FILE:`` via the ``import textforensics`` preamble, which the
+    helper asserts.
     """
-    target = sys.modules.get(reload_name)
-    old_blocked = sys.modules.get(module_name, ...)
-    sys.modules[module_name] = None
-    try:
-        importlib.reload(target)
-        yield target
-    finally:
-        if old_blocked is ...:
-            sys.modules.pop(module_name, None)
-        else:
-            sys.modules[module_name] = old_blocked
-        importlib.reload(target)
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(SRC_DIR) + os.pathsep + env.get("PYTHONPATH", "")
+    script = (
+        "import sys\n"
+        "import textforensics\n"
+        "print('TF-FILE:', textforensics.__file__)\n"
+        f"sys.modules[{blocked!r}] = None\n" + code
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env=env,
+    )
+    assert f"TF-FILE: {SRC_DIR}" in proc.stdout, (
+        "subprocess imported textforensics from elsewhere, not this worktree:\n"
+        f"stdout={proc.stdout!r}\nstderr={proc.stderr!r}"
+    )
+    return proc
 
 
 def _load_run_fuzz():
@@ -127,19 +146,11 @@ def test_cli_serve_prints_install_hint_without_uvicorn(monkeypatch, capsys):
 
 def test_web_ui_import_raises_actionable_error_without_fastapi():
     """Importing web_ui.main without fastapi must name the [api] extra."""
-    import textforensics.web_ui.main as web_main
-
-    # Block + reload must raise RuntimeError with the hint (not a bare
-    # ModuleNotFoundError); reload back afterwards.
-    sys.modules["fastapi"] = None
-    try:
-        with pytest.raises(
-            RuntimeError, match=r"Install web UI support with: pip install 'textforensics\[api\]'"
-        ):
-            importlib.reload(web_main)
-    finally:
-        sys.modules.pop("fastapi", None)
-        importlib.reload(web_main)
+    proc = _run_with_blocked_import("fastapi", "import textforensics.web_ui.main\n")
+    assert proc.returncode == 1
+    assert "Install web UI support with: pip install 'textforensics[api]'" in proc.stderr
+    last_line = proc.stderr.strip().splitlines()[-1]
+    assert last_line.startswith("RuntimeError: Install web UI support"), last_line
 
 
 def test_web_ui_main_prints_install_hint_without_uvicorn(monkeypatch, capsys):
@@ -163,21 +174,31 @@ def test_web_ui_main_prints_install_hint_without_uvicorn(monkeypatch, capsys):
 
 def test_diagnostics_import_succeeds_without_psutil():
     """diagnostics must stay importable without psutil (lazy guard)."""
-    import textforensics.diagnostics as diag
-
-    with _blocked_import("psutil", "textforensics.diagnostics"):
-        assert diag.psutil is None
+    proc = _run_with_blocked_import(
+        "psutil",
+        "import textforensics.diagnostics as d\nprint('psutil-is-none:', d.psutil is None)\n",
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "psutil-is-none: True" in proc.stdout
 
 
 def test_diagnostics_engine_fails_with_install_hint_without_psutil():
     """Creating the diagnostics engine without psutil names the extra."""
-    import textforensics.diagnostics as diag
-
-    with (
-        _blocked_import("psutil", "textforensics.diagnostics"),
-        pytest.raises(RuntimeError, match=r"pip install 'textforensics\[diagnostics\]'"),
-    ):
-        diag.create_diagnostics_engine()
+    proc = _run_with_blocked_import(
+        "psutil",
+        "from textforensics.diagnostics import create_diagnostics_engine\n"
+        "try:\n"
+        "    create_diagnostics_engine()\n"
+        "except RuntimeError as exc:\n"
+        "    print('RUNTIMEERROR:', exc)\n"
+        "else:\n"
+        "    print('NO-ERROR')\n",
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert (
+        "RUNTIMEERROR: psutil is required for diagnostics. "
+        "Install with: pip install 'textforensics[diagnostics]'" in proc.stdout
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -187,20 +208,32 @@ def test_diagnostics_engine_fails_with_install_hint_without_psutil():
 
 def test_ollama_import_succeeds_without_aiohttp():
     """ollama must stay importable without aiohttp (lazy guard)."""
-    import textforensics.ollama as ollama_mod
-
-    with _blocked_import("aiohttp", "textforensics.ollama"):
-        assert ollama_mod.aiohttp is None
+    proc = _run_with_blocked_import(
+        "aiohttp",
+        "import textforensics.ollama as m\nprint('aiohttp-is-none:', m.aiohttp is None)\n",
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "aiohttp-is-none: True" in proc.stdout
 
 
 def test_ollama_session_fails_with_install_hint_without_aiohttp():
     """First Ollama use without aiohttp must name the [ollama] extra."""
-    import textforensics.ollama as ollama_mod
-
-    with _blocked_import("aiohttp", "textforensics.ollama"):
-        client = ollama_mod.OllamaClient(ollama_mod.OllamaConfig())
-        with pytest.raises(RuntimeError, match=r"pip install 'textforensics\[ollama\]'"):
-            asyncio.run(client.__aenter__())
+    proc = _run_with_blocked_import(
+        "aiohttp",
+        "import asyncio\n"
+        "from textforensics.ollama import OllamaClient, OllamaConfig\n"
+        "try:\n"
+        "    asyncio.run(OllamaClient(OllamaConfig()).__aenter__())\n"
+        "except RuntimeError as exc:\n"
+        "    print('RUNTIMEERROR:', exc)\n"
+        "else:\n"
+        "    print('NO-ERROR')\n",
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert (
+        "RUNTIMEERROR: aiohttp is required for the Ollama adapter. "
+        "Install with: pip install 'textforensics[ollama]'" in proc.stdout
+    )
 
 
 # ---------------------------------------------------------------------------
