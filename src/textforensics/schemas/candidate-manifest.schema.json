@@ -2,7 +2,7 @@
   "$id": "textforensics.candidate-manifest/v1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Typed manifest for one exact TextForensics release candidate (W10): every candidate asset with its SHA-256 digest and size, the immutable source SHA it was built from, the exact build commands and build profile, the two-build byte-identity proof, and the verification material a second verifier needs to re-derive every digest from the source SHA alone. The manifest file itself is committed in a later commit (candidate.manifest_commit) than the source it describes (candidate.source_sha): the manifest is not packaged into the wheel or sdist, so the digests it records are unaffected by the commit that adds it. A reader with only this manifest and the source SHA re-derives every digest by running the recorded build commands from a clean checkout of candidate.source_sha.",
+  "description": "Typed manifest for one exact TextForensics release candidate (W10): every candidate asset with its SHA-256 digest and size, the immutable source SHA it was built from, the exact build commands and build profile, the two-build byte-identity proof, and the verification material a second verifier needs to re-derive every digest from the source SHA alone. The manifest file itself is committed in the commit immediately following the source it describes (candidate.source_sha), discoverable via `git log -- docs/release/candidate-manifest.json`: the manifest is not packaged into the wheel or sdist (the sdist carries no docs/ members), so the digests it records are unaffected by the commit that adds it. A reader with only this manifest and the source SHA re-derives every digest by running the recorded build commands from a clean checkout of candidate.source_sha.",
   "properties": {
     "assets": {
       "description": "Every candidate asset. Exactly six kinds are required: wheel, sdist, source-archive, license, license-notice, sbom (one entry per kind). Built assets (wheel, sdist, source-archive) are re-derived from candidate.source_sha; in-repo assets (license, license-notice, sbom) are verified against the recorded digests at the recorded paths.",
@@ -10,7 +10,7 @@
         "additionalProperties": false,
         "properties": {
           "derivation": {
-            "description": "Exact command (or command sequence) that re-derives this asset from candidate.source_sha. Empty for in-repo assets, which are verified by digest, not rebuilt.",
+            "description": "Exact command (or command sequence) that re-derives this asset from candidate.source_sha. Omitted for in-repo assets, which are verified by digest, not rebuilt.",
             "minLength": 1,
             "type": "string"
           },
@@ -137,11 +137,6 @@
           ],
           "type": "object"
         },
-        "manifest_commit": {
-          "description": "Full commit SHA of the commit that contains this manifest file. It is the commit AFTER candidate.source_sha: the manifest records a build of source_sha, and is itself committed on top of it (the manifest is not packaged, so the digests are unaffected).",
-          "pattern": "^[0-9a-f]{40}$",
-          "type": "string"
-        },
         "name": {
           "const": "textforensics",
           "type": "string"
@@ -178,7 +173,6 @@
       "required": [
         "build_commands",
         "build_profile",
-        "manifest_commit",
         "name",
         "notes",
         "source_branch",

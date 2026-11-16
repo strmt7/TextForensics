@@ -610,7 +610,6 @@ def _valid_payloads() -> dict[str, dict]:
                 "version": "0.2.0",
                 "source_branch": "synthetic-branch",
                 "source_sha": "a" * 40,
-                "manifest_commit": "b" * 40,
                 "source_date_epoch": 1704067200,
                 "build_profile": {
                     "build": "1.6.1",
@@ -680,8 +679,16 @@ def _valid_payloads() -> dict[str, dict]:
                     "size_bytes": 1,
                     "role": "synthetic SBOM",
                     "verification": "synthetic",
-                    "sbom_serial_number": "urn:uuid:" + "3" * 8 + "-" + "3" * 4 + "-" + "3" * 4
-                    + "-" + "3" * 4 + "-" + "3" * 12,
+                    "sbom_serial_number": "urn:uuid:"
+                    + "3" * 8
+                    + "-"
+                    + "3" * 4
+                    + "-"
+                    + "3" * 4
+                    + "-"
+                    + "3" * 4
+                    + "-"
+                    + "3" * 12,
                     "sbom_components": 122,
                 },
             ],

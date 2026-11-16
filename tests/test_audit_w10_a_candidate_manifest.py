@@ -45,9 +45,7 @@ class CandidateManifestSchemaTests(unittest.TestCase):
 
         schema = load_schema("candidate-manifest")
         self.assertEqual(schema["$id"], "textforensics.candidate-manifest/v1")
-        self.assertEqual(
-            schema["title"], "TextForensics Release Candidate Manifest"
-        )
+        self.assertEqual(schema["title"], "TextForensics Release Candidate Manifest")
         self.assertEqual(
             schema["properties"]["schema"]["const"],
             "textforensics.candidate-manifest/v1",
@@ -81,30 +79,22 @@ class CandidateManifestSchemaTests(unittest.TestCase):
 
         from textforensics.schema import validate_candidate_manifest
 
-        payload = json.loads(
-            json.dumps(_valid_payloads()["candidate-manifest"])
-        )
+        payload = json.loads(json.dumps(_valid_payloads()["candidate-manifest"]))
         payload["schema"] = "textforensics.candidate-manifest/v999"
         errors = validate_candidate_manifest(payload)
-        self.assertTrue(
-            any("unsupported schema version" in e for e in errors), errors
-        )
+        self.assertTrue(any("unsupported schema version" in e for e in errors), errors)
 
     def test_validate_rejects_bad_digest_and_missing_asset(self):
         from test_schema import _valid_payloads
 
         from textforensics.schema import validate_candidate_manifest
 
-        payload = json.loads(
-            json.dumps(_valid_payloads()["candidate-manifest"])
-        )
+        payload = json.loads(json.dumps(_valid_payloads()["candidate-manifest"]))
         payload["assets"][0]["sha256"] = "not-a-digest"
         errors = validate_candidate_manifest(payload)
         self.assertTrue(errors, "bad sha256 must be rejected")
 
-        payload = json.loads(
-            json.dumps(_valid_payloads()["candidate-manifest"])
-        )
+        payload = json.loads(json.dumps(_valid_payloads()["candidate-manifest"]))
         del payload["assets"][0]
         errors = validate_candidate_manifest(payload)
         self.assertTrue(errors, "fewer than six assets must be rejected")
@@ -114,17 +104,13 @@ class CandidateManifestSchemaTests(unittest.TestCase):
 
         from textforensics.schema import validate_candidate_manifest
 
-        payload = json.loads(
-            json.dumps(_valid_payloads()["candidate-manifest"])
-        )
+        payload = json.loads(json.dumps(_valid_payloads()["candidate-manifest"]))
         payload["reproducibility"]["identical"] = False
         errors = validate_candidate_manifest(payload)
         self.assertTrue(errors, "identical=false must be rejected")
 
 
-@unittest.skipUnless(
-    MANIFEST_PATH.exists(), "candidate manifest not committed yet"
-)
+@unittest.skipUnless(MANIFEST_PATH.exists(), "candidate manifest not committed yet")
 class CommittedCandidateManifestTests(unittest.TestCase):
     """The committed docs/release/candidate-manifest.json itself.
 
@@ -152,18 +138,10 @@ class CommittedCandidateManifestTests(unittest.TestCase):
         by_kind = {a["kind"]: a for a in self.manifest["assets"]}
         self.assertTrue(repro["identical"])
         self.assertEqual(repro["builds"], 2)
-        self.assertEqual(
-            repro["wheel"]["build_a_sha256"], by_kind["wheel"]["sha256"]
-        )
-        self.assertEqual(
-            repro["wheel"]["build_b_sha256"], by_kind["wheel"]["sha256"]
-        )
-        self.assertEqual(
-            repro["sdist"]["build_a_sha256"], by_kind["sdist"]["sha256"]
-        )
-        self.assertEqual(
-            repro["sdist"]["build_b_sha256"], by_kind["sdist"]["sha256"]
-        )
+        self.assertEqual(repro["wheel"]["build_a_sha256"], by_kind["wheel"]["sha256"])
+        self.assertEqual(repro["wheel"]["build_b_sha256"], by_kind["wheel"]["sha256"])
+        self.assertEqual(repro["sdist"]["build_a_sha256"], by_kind["sdist"]["sha256"])
+        self.assertEqual(repro["sdist"]["build_b_sha256"], by_kind["sdist"]["sha256"])
         self.assertEqual(
             repro["source_archive"]["build_a_sha256"],
             by_kind["source-archive"]["sha256"],
@@ -185,9 +163,7 @@ class CommittedCandidateManifestTests(unittest.TestCase):
             text=True,
             check=False,
         )
-        self.assertEqual(
-            result.returncode, 0, f"source_sha {source_sha} is not a commit"
-        )
+        self.assertEqual(result.returncode, 0, f"source_sha {source_sha} is not a commit")
 
     def test_in_repo_asset_digests_and_sizes_match_disk(self):
         for asset in self.manifest["assets"]:
@@ -195,19 +171,13 @@ class CommittedCandidateManifestTests(unittest.TestCase):
                 continue
             path = REPO_ROOT / asset["path"]
             self.assertTrue(path.is_file(), f"missing in-repo asset {path}")
-            self.assertEqual(
-                _sha256_file(path), asset["sha256"], f"digest mismatch: {path}"
-            )
-            self.assertEqual(
-                path.stat().st_size, asset["size_bytes"], f"size mismatch: {path}"
-            )
+            self.assertEqual(_sha256_file(path), asset["sha256"], f"digest mismatch: {path}")
+            self.assertEqual(path.stat().st_size, asset["size_bytes"], f"size mismatch: {path}")
 
     def test_sbom_asset_matches_committed_sbom_metadata(self):
         sbom_path = REPO_ROOT / "sbom" / "textforensics.cdx.json"
         sbom = json.loads(sbom_path.read_text(encoding="utf-8"))
-        asset = next(
-            a for a in self.manifest["assets"] if a["kind"] == "sbom"
-        )
+        asset = next(a for a in self.manifest["assets"] if a["kind"] == "sbom")
         self.assertEqual(asset["sbom_serial_number"], sbom["serialNumber"])
         self.assertEqual(asset["sbom_components"], len(sbom["components"]))
         self.assertEqual(asset["path"], "sbom/textforensics.cdx.json")
