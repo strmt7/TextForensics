@@ -434,7 +434,7 @@ claims:
     evidence_type: "doc"
     evidence_path: ".github/workflows/reproducibility.yml"
     doc_sha256: "da3342a3a1ba4416d4ada01b0da059b53eaef1573307710e6ed040bd071adeec"
-    doc_as_of_sha: "09057a7b4dbf2ac53a0c0f971b5a3ac74f14a533"
+    doc_as_of_sha: "bfb032b927d663705b964691f3ba64684499c5d8"
     doc_state: "implemented"
     executable_property: true
     executable_check: "python scripts/check_reproducibility.py"
