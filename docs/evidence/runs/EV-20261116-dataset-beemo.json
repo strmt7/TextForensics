@@ -1,0 +1,2223 @@
+{
+  "badge": "available",
+  "code_version": "895577cf2f821992eaaf79f8ea1243156a58e5e4",
+  "command": "python scripts/measure_w8_b.py --only beemo",
+  "drops": [
+    {
+      "item": "strided 100-row sample (EV-20261106-dataset-beemo)",
+      "reason": "superseded by this full-split run (2,187 raw rows)"
+    },
+    {
+      "item": "Python 3.11, 3.13, 3.14, 3.15",
+      "reason": "measured on the local interpreter only; CI covers the matrix"
+    },
+    {
+      "item": "train/test threshold selection and calibration",
+      "reason": "no threshold was fitted and no calibration was performed; AUROC/TPR@FPR/AUPRC are threshold-free ROC properties and the native FPR/TPR use the detector's fixed operating point"
+    },
+    {
+      "item": "split disjointness check against a second split",
+      "reason": "Beemo ships a single train split; there is no second split to check against"
+    },
+    {
+      "item": "commercial use and redistribution of rows",
+      "reason": "human_output is CC-BY-NC-4.0; this run is non-commercial research evaluation with aggregate metrics only and no row redistribution"
+    },
+    {
+      "item": "0 raw rows refused by the mapper",
+      "reason": "each is listed in results.drops_from_mapping with its row id and cause"
+    }
+  ],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261116-dataset-beemo",
+  "kind": "command",
+  "notes": "W8 qualification run (Worker B). Native operating point only; no threshold, calibration or selection decision was made, so the frozen final-test set influenced no decision. This artifact is evidence only: it does not change docs/validation/registry.json and does not change the report-card lead. No dataset text is stored in this artifact or in the partition manifests \u2014 only SHA-256 hashes, counts and aggregate metrics.",
+  "results": {
+    "by_category_final_test": {
+      "Closed QA": {
+        "abstention_rate": 0.8238,
+        "abstentions": 304,
+        "auprc": 0.7009,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.3417,
+        "bootstrap_95": {
+          "auprc": [
+            0.6427,
+            0.7614
+          ],
+          "auroc": [
+            0.2746,
+            0.4074
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0,
+            0.0307
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0036,
+            0.057
+          ]
+        },
+        "coverage": 0.1762,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.044752
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.5918,
+        "n": 369,
+        "n_ai": 287,
+        "n_human": 82,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5918,
+          "mean": 0.3542,
+          "median": 0.3609,
+          "min": 0.1285
+        },
+        "score_machine": {
+          "max": 0.6026,
+          "mean": 0.3009,
+          "median": 0.3062,
+          "min": 0.039
+        },
+        "tpr_at_fpr_0_01": 0.0035,
+        "tpr_at_fpr_0_05": 0.0314,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.013209
+        ]
+      },
+      "Generation": {
+        "abstention_rate": 0.3647,
+        "abstentions": 384,
+        "auprc": 0.7535,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.4418,
+        "bootstrap_95": {
+          "auprc": [
+            0.7206,
+            0.7904
+          ],
+          "auroc": [
+            0.4014,
+            0.481
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0,
+            0.019
+          ],
+          "tpr_at_fpr_0_05": [
+            0.01,
+            0.0803
+          ]
+        },
+        "coverage": 0.6353,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.016152
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.6497,
+        "n": 1053,
+        "n_ai": 819,
+        "n_human": 234,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.6497,
+          "mean": 0.2578,
+          "median": 0.2534,
+          "min": 0.0233
+        },
+        "score_machine": {
+          "max": 0.6043,
+          "mean": 0.2363,
+          "median": 0.2358,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": 0.0049,
+        "tpr_at_fpr_0_05": 0.0317,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.004669
+        ]
+      },
+      "Open QA": {
+        "abstention_rate": 0.5475,
+        "abstentions": 473,
+        "auprc": 0.7327,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.3988,
+        "bootstrap_95": {
+          "auprc": [
+            0.6945,
+            0.7725
+          ],
+          "auroc": [
+            0.356,
+            0.4406
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0,
+            0.0195
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0118,
+            0.0758
+          ]
+        },
+        "coverage": 0.4525,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.019616
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.6227,
+        "n": 864,
+        "n_ai": 672,
+        "n_human": 192,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.6227,
+          "mean": 0.3022,
+          "median": 0.3111,
+          "min": 0.0436
+        },
+        "score_machine": {
+          "max": 0.6279,
+          "mean": 0.2629,
+          "median": 0.2672,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": 0.003,
+        "tpr_at_fpr_0_05": 0.0238,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.005684
+        ]
+      },
+      "Rewrite": {
+        "abstention_rate": 0.3492,
+        "abstentions": 330,
+        "auprc": 0.7292,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.3995,
+        "bootstrap_95": {
+          "auprc": [
+            0.693,
+            0.7694
+          ],
+          "auroc": [
+            0.3525,
+            0.4418
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0,
+            0.0232
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0104,
+            0.0652
+          ]
+        },
+        "coverage": 0.6508,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.017965
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.6648,
+        "n": 945,
+        "n_ai": 735,
+        "n_human": 210,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.6648,
+          "mean": 0.2774,
+          "median": 0.2756,
+          "min": 0.0308
+        },
+        "score_machine": {
+          "max": 0.6652,
+          "mean": 0.2392,
+          "median": 0.2292,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": 0.0109,
+        "tpr_at_fpr_0_05": 0.0463,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.005199
+        ]
+      },
+      "Summarize": {
+        "abstention_rate": 0.5826,
+        "abstentions": 409,
+        "auprc": 0.7366,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.3693,
+        "bootstrap_95": {
+          "auprc": [
+            0.6954,
+            0.7807
+          ],
+          "auroc": [
+            0.3286,
+            0.418
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0018,
+            0.0355
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0166,
+            0.0916
+          ]
+        },
+        "coverage": 0.4174,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.024034
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.4852,
+        "n": 702,
+        "n_ai": 546,
+        "n_human": 156,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.4852,
+          "mean": 0.2875,
+          "median": 0.2893,
+          "min": 0.0608
+        },
+        "score_machine": {
+          "max": 0.5356,
+          "mean": 0.242,
+          "median": 0.2492,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": 0.0092,
+        "tpr_at_fpr_0_05": 0.033,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.006987
+        ]
+      }
+    },
+    "by_category_pooled": {
+      "Closed QA": {
+        "abstention_rate": 0.806,
+        "abstentions": 1487,
+        "auprc": 0.7065,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.3461,
+        "bootstrap_95": {
+          "auprc": [
+            0.6781,
+            0.737
+          ],
+          "auroc": [
+            0.3178,
+            0.3775
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0028,
+            0.0153
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0159,
+            0.0583
+          ]
+        },
+        "coverage": 0.194,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.009283
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.5918,
+        "n": 1845,
+        "n_ai": 1435,
+        "n_human": 410,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5918,
+          "mean": 0.3331,
+          "median": 0.3431,
+          "min": 0.0537
+        },
+        "score_machine": {
+          "max": 0.6207,
+          "mean": 0.2799,
+          "median": 0.2832,
+          "min": 0.0229
+        },
+        "tpr_at_fpr_0_01": 0.007,
+        "tpr_at_fpr_0_05": 0.0334,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.00267
+        ]
+      },
+      "Generation": {
+        "abstention_rate": 0.3347,
+        "abstentions": 1762,
+        "auprc": 0.7564,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.457,
+        "bootstrap_95": {
+          "auprc": [
+            0.7404,
+            0.7733
+          ],
+          "auroc": [
+            0.4394,
+            0.4751
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0058,
+            0.0171
+          ],
+          "tpr_at_fpr_0_05": [
+            0.029,
+            0.0471
+          ]
+        },
+        "coverage": 0.6653,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.003273
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.6637,
+        "n": 5265,
+        "n_ai": 4095,
+        "n_human": 1170,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.6637,
+          "mean": 0.2518,
+          "median": 0.2502,
+          "min": 0.004
+        },
+        "score_machine": {
+          "max": 0.6428,
+          "mean": 0.2357,
+          "median": 0.2344,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": 0.0098,
+        "tpr_at_fpr_0_05": 0.0381,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.000937
+        ]
+      },
+      "Open QA": {
+        "abstention_rate": 0.5634,
+        "abstentions": 2449,
+        "auprc": 0.7359,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.4047,
+        "bootstrap_95": {
+          "auprc": [
+            0.7172,
+            0.7539
+          ],
+          "auroc": [
+            0.3846,
+            0.4237
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0018,
+            0.012
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0266,
+            0.0571
+          ]
+        },
+        "coverage": 0.4366,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.003961
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.6476,
+        "n": 4347,
+        "n_ai": 3381,
+        "n_human": 966,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.6476,
+          "mean": 0.3026,
+          "median": 0.3086,
+          "min": 0.0188
+        },
+        "score_machine": {
+          "max": 0.657,
+          "mean": 0.2673,
+          "median": 0.2735,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": 0.0041,
+        "tpr_at_fpr_0_05": 0.0405,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.001135
+        ]
+      },
+      "Rewrite": {
+        "abstention_rate": 0.3511,
+        "abstentions": 1659,
+        "auprc": 0.7456,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.4362,
+        "bootstrap_95": {
+          "auprc": [
+            0.7297,
+            0.7624
+          ],
+          "auroc": [
+            0.4158,
+            0.4553
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0046,
+            0.0173
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0283,
+            0.0484
+          ]
+        },
+        "coverage": 0.6489,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.003645
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 3,
+        "max_human_score": 0.7361,
+        "n": 4725,
+        "n_ai": 3675,
+        "n_human": 1050,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.7361,
+          "mean": 0.263,
+          "median": 0.261,
+          "min": 0.0221
+        },
+        "score_machine": {
+          "max": 0.7361,
+          "mean": 0.2397,
+          "median": 0.2336,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": 0.0098,
+        "tpr_at_fpr_0_05": 0.0354,
+        "tpr_native": 0.0008,
+        "tpr_native_wilson_95": [
+          0.000278,
+          0.002398
+        ]
+      },
+      "Summarize": {
+        "abstention_rate": 0.5893,
+        "abstentions": 2063,
+        "auprc": 0.7209,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.36,
+        "bootstrap_95": {
+          "auprc": [
+            0.7005,
+            0.7413
+          ],
+          "auroc": [
+            0.3391,
+            0.3803
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0011,
+            0.0108
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0199,
+            0.0539
+          ]
+        },
+        "coverage": 0.4107,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.004914
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.5674,
+        "n": 3501,
+        "n_ai": 2723,
+        "n_human": 778,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5674,
+          "mean": 0.2951,
+          "median": 0.2966,
+          "min": 0.012
+        },
+        "score_machine": {
+          "max": 0.6393,
+          "mean": 0.2475,
+          "median": 0.2568,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": 0.0037,
+        "tpr_at_fpr_0_05": 0.0331,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.001409
+        ]
+      }
+    },
+    "by_generator_pooled": {
+      "HuggingFaceH4/zephyr-7b-beta": {
+        "abstention_rate": 0.4367,
+        "abstentions": 900,
+        "auprc": 0.7391,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.4303,
+        "bootstrap_95": {
+          "auprc": [
+            0.7143,
+            0.7643
+          ],
+          "auroc": [
+            0.3999,
+            0.4578
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0006,
+            0.0137
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0251,
+            0.055
+          ]
+        },
+        "coverage": 0.5633,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.008318
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 1,
+        "max_human_score": 0.7361,
+        "n": 2061,
+        "n_ai": 1603,
+        "n_human": 458,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.7361,
+          "mean": 0.2751,
+          "median": 0.272,
+          "min": 0.0172
+        },
+        "score_machine": {
+          "max": 0.7361,
+          "mean": 0.2503,
+          "median": 0.2476,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": 0.0062,
+        "tpr_at_fpr_0_05": 0.0381,
+        "tpr_native": 0.0006,
+        "tpr_native_wilson_95": [
+          0.00011,
+          0.003525
+        ]
+      },
+      "allenai/tulu-2-13b": {
+        "abstention_rate": 0.5355,
+        "abstentions": 1017,
+        "auprc": 0.7661,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.4734,
+        "bootstrap_95": {
+          "auprc": [
+            0.74,
+            0.7938
+          ],
+          "auroc": [
+            0.4422,
+            0.503
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0007,
+            0.0261
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0257,
+            0.0697
+          ]
+        },
+        "coverage": 0.4645,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.009021
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.6637,
+        "n": 1899,
+        "n_ai": 1477,
+        "n_human": 422,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.6637,
+          "mean": 0.278,
+          "median": 0.2764,
+          "min": 0.0322
+        },
+        "score_machine": {
+          "max": 0.657,
+          "mean": 0.2675,
+          "median": 0.274,
+          "min": 0.0099
+        },
+        "tpr_at_fpr_0_01": 0.0074,
+        "tpr_at_fpr_0_05": 0.0528,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.002594
+        ]
+      },
+      "allenai/tulu-2-7b": {
+        "abstention_rate": 0.5287,
+        "abstentions": 1023,
+        "auprc": 0.7652,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.4808,
+        "bootstrap_95": {
+          "auprc": [
+            0.7384,
+            0.7914
+          ],
+          "auroc": [
+            0.4487,
+            0.511
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0013,
+            0.0195
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0263,
+            0.0682
+          ]
+        },
+        "coverage": 0.4713,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.008855
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.6456,
+        "n": 1935,
+        "n_ai": 1505,
+        "n_human": 430,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.6456,
+          "mean": 0.2799,
+          "median": 0.2815,
+          "min": 0.012
+        },
+        "score_machine": {
+          "max": 0.6149,
+          "mean": 0.2733,
+          "median": 0.2795,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": 0.008,
+        "tpr_at_fpr_0_05": 0.0485,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.002546
+        ]
+      },
+      "google/gemma-2b-it": {
+        "abstention_rate": 0.549,
+        "abstentions": 1008,
+        "auprc": 0.7258,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.3795,
+        "bootstrap_95": {
+          "auprc": [
+            0.6973,
+            0.7519
+          ],
+          "auroc": [
+            0.3508,
+            0.4082
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0014,
+            0.0212
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0233,
+            0.0514
+          ]
+        },
+        "coverage": 0.451,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.009328
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 1,
+        "max_human_score": 0.5978,
+        "n": 1836,
+        "n_ai": 1428,
+        "n_human": 408,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5978,
+          "mean": 0.3002,
+          "median": 0.3002,
+          "min": 0.0272
+        },
+        "score_machine": {
+          "max": 0.7054,
+          "mean": 0.254,
+          "median": 0.2547,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": 0.0056,
+        "tpr_at_fpr_0_05": 0.0371,
+        "tpr_native": 0.0007,
+        "tpr_native_wilson_95": [
+          0.000124,
+          0.003956
+        ]
+      },
+      "google/gemma-7b-it": {
+        "abstention_rate": 0.5364,
+        "abstentions": 1009,
+        "auprc": 0.7211,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.3882,
+        "bootstrap_95": {
+          "auprc": [
+            0.6955,
+            0.7516
+          ],
+          "auroc": [
+            0.3588,
+            0.4174
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0027,
+            0.0145
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0115,
+            0.0473
+          ]
+        },
+        "coverage": 0.4636,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.009107
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.6497,
+        "n": 1881,
+        "n_ai": 1463,
+        "n_human": 418,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.6497,
+          "mean": 0.2884,
+          "median": 0.294,
+          "min": 0.0243
+        },
+        "score_machine": {
+          "max": 0.6207,
+          "mean": 0.2482,
+          "median": 0.2475,
+          "min": 0.0214
+        },
+        "tpr_at_fpr_0_01": 0.0089,
+        "tpr_at_fpr_0_05": 0.0239,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.002619
+        ]
+      },
+      "meta-llama/Llama-2-13b-chat-hf": {
+        "abstention_rate": 0.424,
+        "abstentions": 893,
+        "auprc": 0.7062,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.3469,
+        "bootstrap_95": {
+          "auprc": [
+            0.6802,
+            0.7329
+          ],
+          "auroc": [
+            0.3213,
+            0.3727
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0012,
+            0.0134
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0148,
+            0.0368
+          ]
+        },
+        "coverage": 0.576,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.008142
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.6356,
+        "n": 2106,
+        "n_ai": 1638,
+        "n_human": 468,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.6356,
+          "mean": 0.2757,
+          "median": 0.2775,
+          "min": 0.0193
+        },
+        "score_machine": {
+          "max": 0.6528,
+          "mean": 0.2187,
+          "median": 0.2097,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": 0.0031,
+        "tpr_at_fpr_0_05": 0.0263,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.00234
+        ]
+      },
+      "meta-llama/Llama-2-70b-chat-hf": {
+        "abstention_rate": 0.4484,
+        "abstentions": 904,
+        "auprc": 0.7402,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.4089,
+        "bootstrap_95": {
+          "auprc": [
+            0.7157,
+            0.7659
+          ],
+          "auroc": [
+            0.3808,
+            0.4377
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0064,
+            0.0227
+          ],
+          "tpr_at_fpr_0_05": [
+            0.027,
+            0.0636
+          ]
+        },
+        "coverage": 0.5516,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.008502
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 1,
+        "max_human_score": 0.5397,
+        "n": 2016,
+        "n_ai": 1568,
+        "n_human": 448,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5397,
+          "mean": 0.2794,
+          "median": 0.2898,
+          "min": 0.0233
+        },
+        "score_machine": {
+          "max": 0.6805,
+          "mean": 0.2471,
+          "median": 0.2501,
+          "min": 0.0102
+        },
+        "tpr_at_fpr_0_01": 0.0115,
+        "tpr_at_fpr_0_05": 0.0415,
+        "tpr_native": 0.0006,
+        "tpr_native_wilson_95": [
+          0.000113,
+          0.003604
+        ]
+      },
+      "meta-llama/Llama-2-7b-chat-hf": {
+        "abstention_rate": 0.3913,
+        "abstentions": 824,
+        "auprc": 0.7192,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.3698,
+        "bootstrap_95": {
+          "auprc": [
+            0.6936,
+            0.7449
+          ],
+          "auroc": [
+            0.3435,
+            0.3979
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0048,
+            0.022
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0225,
+            0.0427
+          ]
+        },
+        "coverage": 0.6087,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.008142
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.5331,
+        "n": 2106,
+        "n_ai": 1638,
+        "n_human": 468,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.5331,
+          "mean": 0.273,
+          "median": 0.2757,
+          "min": 0.0202
+        },
+        "score_machine": {
+          "max": 0.658,
+          "mean": 0.2264,
+          "median": 0.2253,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": 0.0092,
+        "tpr_at_fpr_0_05": 0.0305,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.00234
+        ]
+      },
+      "mistralai/Mistral-7B-Instruct-v0.1": {
+        "abstention_rate": 0.529,
+        "abstentions": 957,
+        "auprc": 0.756,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.4574,
+        "bootstrap_95": {
+          "auprc": [
+            0.7294,
+            0.7862
+          ],
+          "auroc": [
+            0.4257,
+            0.4892
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0014,
+            0.0207
+          ],
+          "tpr_at_fpr_0_05": [
+            0.0212,
+            0.066
+          ]
+        },
+        "coverage": 0.471,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.009466
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.6648,
+        "n": 1809,
+        "n_ai": 1407,
+        "n_human": 402,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.6648,
+          "mean": 0.2827,
+          "median": 0.2849,
+          "min": 0.0128
+        },
+        "score_machine": {
+          "max": 0.6652,
+          "mean": 0.2667,
+          "median": 0.268,
+          "min": 0.0077
+        },
+        "tpr_at_fpr_0_01": 0.005,
+        "tpr_at_fpr_0_05": 0.0462,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.002723
+        ]
+      },
+      "mistralai/Mixtral-8x7B-Instruct-v0.1": {
+        "abstention_rate": 0.4351,
+        "abstentions": 885,
+        "auprc": 0.7415,
+        "auprc_baseline_prevalence": 0.7778,
+        "auroc": 0.4204,
+        "bootstrap_95": {
+          "auprc": [
+            0.7181,
+            0.7704
+          ],
+          "auroc": [
+            0.3915,
+            0.4514
+          ],
+          "resamples": [
+            1000,
+            0
+          ],
+          "tpr_at_fpr_0_01": [
+            0.0,
+            0.015
+          ],
+          "tpr_at_fpr_0_05": [
+            0.022,
+            0.0568
+          ]
+        },
+        "coverage": 0.5649,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.008427
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.6559,
+        "n": 2034,
+        "n_ai": 1582,
+        "n_human": 452,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.6559,
+          "mean": 0.2809,
+          "median": 0.2884,
+          "min": 0.004
+        },
+        "score_machine": {
+          "max": 0.5899,
+          "mean": 0.2529,
+          "median": 0.2497,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": 0.0044,
+        "tpr_at_fpr_0_05": 0.0367,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.002422
+        ]
+      }
+    },
+    "by_kind_final_test": {
+      "gpt-4o_P1": {
+        "abstention_rate": 0.5378,
+        "abstentions": 235,
+        "auprc": null,
+        "auprc_baseline_prevalence": 1.0,
+        "auroc": null,
+        "coverage": 0.4622,
+        "fpr_native": null,
+        "fpr_native_wilson_95": null,
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": null,
+        "n": 437,
+        "n_ai": 437,
+        "n_human": 0,
+        "note": "bootstrap CIs omitted: a class has fewer than 10 rows in this slice",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": null,
+        "score_machine": {
+          "max": 0.6501,
+          "mean": 0.2702,
+          "median": 0.2745,
+          "min": 0.0229
+        },
+        "tpr_at_fpr_0_01": null,
+        "tpr_at_fpr_0_05": null,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.008714
+        ]
+      },
+      "gpt-4o_P2": {
+        "abstention_rate": 0.4668,
+        "abstentions": 204,
+        "auprc": null,
+        "auprc_baseline_prevalence": 1.0,
+        "auroc": null,
+        "coverage": 0.5332,
+        "fpr_native": null,
+        "fpr_native_wilson_95": null,
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": null,
+        "n": 437,
+        "n_ai": 437,
+        "n_human": 0,
+        "note": "bootstrap CIs omitted: a class has fewer than 10 rows in this slice",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": null,
+        "score_machine": {
+          "max": 0.6458,
+          "mean": 0.246,
+          "median": 0.25,
+          "min": 0.0044
+        },
+        "tpr_at_fpr_0_01": null,
+        "tpr_at_fpr_0_05": null,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.008714
+        ]
+      },
+      "gpt-4o_P3": {
+        "abstention_rate": 0.5263,
+        "abstentions": 230,
+        "auprc": null,
+        "auprc_baseline_prevalence": 1.0,
+        "auroc": null,
+        "coverage": 0.4737,
+        "fpr_native": null,
+        "fpr_native_wilson_95": null,
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": null,
+        "n": 437,
+        "n_ai": 437,
+        "n_human": 0,
+        "note": "bootstrap CIs omitted: a class has fewer than 10 rows in this slice",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": null,
+        "score_machine": {
+          "max": 0.6528,
+          "mean": 0.2605,
+          "median": 0.2628,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": null,
+        "tpr_at_fpr_0_05": null,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.008714
+        ]
+      },
+      "human": {
+        "abstention_rate": 0.6339,
+        "abstentions": 277,
+        "auprc": null,
+        "auprc_baseline_prevalence": 0.0,
+        "auroc": null,
+        "coverage": 0.3661,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.008714
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.6148,
+        "n": 437,
+        "n_ai": 0,
+        "n_human": 437,
+        "note": "bootstrap CIs omitted: a class has fewer than 10 rows in this slice",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.6148,
+          "mean": 0.291,
+          "median": 0.2912,
+          "min": 0.0233
+        },
+        "score_machine": null,
+        "tpr_at_fpr_0_01": null,
+        "tpr_at_fpr_0_05": null,
+        "tpr_native": null,
+        "tpr_native_wilson_95": null
+      },
+      "human_edits": {
+        "abstention_rate": 0.5286,
+        "abstentions": 231,
+        "auprc": null,
+        "auprc_baseline_prevalence": 0.0,
+        "auroc": null,
+        "coverage": 0.4714,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.008714
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.6648,
+        "n": 437,
+        "n_ai": 0,
+        "n_human": 437,
+        "note": "bootstrap CIs omitted: a class has fewer than 10 rows in this slice",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.6648,
+          "mean": 0.2823,
+          "median": 0.2876,
+          "min": 0.0308
+        },
+        "score_machine": null,
+        "tpr_at_fpr_0_01": null,
+        "tpr_at_fpr_0_05": null,
+        "tpr_native": null,
+        "tpr_native_wilson_95": null
+      },
+      "llama-3.1-70b_P1": {
+        "abstention_rate": 0.4851,
+        "abstentions": 212,
+        "auprc": null,
+        "auprc_baseline_prevalence": 1.0,
+        "auroc": null,
+        "coverage": 0.5149,
+        "fpr_native": null,
+        "fpr_native_wilson_95": null,
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": null,
+        "n": 437,
+        "n_ai": 437,
+        "n_human": 0,
+        "note": "bootstrap CIs omitted: a class has fewer than 10 rows in this slice",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": null,
+        "score_machine": {
+          "max": 0.6652,
+          "mean": 0.2559,
+          "median": 0.2588,
+          "min": 0.0142
+        },
+        "tpr_at_fpr_0_01": null,
+        "tpr_at_fpr_0_05": null,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.008714
+        ]
+      },
+      "llama-3.1-70b_P2": {
+        "abstention_rate": 0.1922,
+        "abstentions": 84,
+        "auprc": null,
+        "auprc_baseline_prevalence": 1.0,
+        "auroc": null,
+        "coverage": 0.8078,
+        "fpr_native": null,
+        "fpr_native_wilson_95": null,
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": null,
+        "n": 437,
+        "n_ai": 437,
+        "n_human": 0,
+        "note": "bootstrap CIs omitted: a class has fewer than 10 rows in this slice",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": null,
+        "score_machine": {
+          "max": 0.4854,
+          "mean": 0.1908,
+          "median": 0.1827,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": null,
+        "tpr_at_fpr_0_05": null,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.008714
+        ]
+      },
+      "llama-3.1-70b_P3": {
+        "abstention_rate": 0.4462,
+        "abstentions": 195,
+        "auprc": null,
+        "auprc_baseline_prevalence": 1.0,
+        "auroc": null,
+        "coverage": 0.5538,
+        "fpr_native": null,
+        "fpr_native_wilson_95": null,
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": null,
+        "n": 437,
+        "n_ai": 437,
+        "n_human": 0,
+        "note": "bootstrap CIs omitted: a class has fewer than 10 rows in this slice",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": null,
+        "score_machine": {
+          "max": 0.641,
+          "mean": 0.2458,
+          "median": 0.2516,
+          "min": 0.0216
+        },
+        "tpr_at_fpr_0_01": null,
+        "tpr_at_fpr_0_05": null,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.008714
+        ]
+      },
+      "model_output": {
+        "abstention_rate": 0.5309,
+        "abstentions": 232,
+        "auprc": null,
+        "auprc_baseline_prevalence": 1.0,
+        "auroc": null,
+        "coverage": 0.4691,
+        "fpr_native": null,
+        "fpr_native_wilson_95": null,
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": null,
+        "n": 437,
+        "n_ai": 437,
+        "n_human": 0,
+        "note": "bootstrap CIs omitted: a class has fewer than 10 rows in this slice",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": null,
+        "score_machine": {
+          "max": 0.6501,
+          "mean": 0.2804,
+          "median": 0.2845,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": null,
+        "tpr_at_fpr_0_05": null,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.008714
+        ]
+      }
+    },
+    "by_kind_pooled": {
+      "gpt-4o_P1": {
+        "abstention_rate": 0.5373,
+        "abstentions": 1175,
+        "auprc": null,
+        "auprc_baseline_prevalence": 1.0,
+        "auroc": null,
+        "coverage": 0.4627,
+        "fpr_native": null,
+        "fpr_native_wilson_95": null,
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": null,
+        "n": 2187,
+        "n_ai": 2187,
+        "n_human": 0,
+        "note": "bootstrap CIs omitted: a class has fewer than 10 rows in this slice",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": null,
+        "score_machine": {
+          "max": 0.6648,
+          "mean": 0.2669,
+          "median": 0.2727,
+          "min": 0.0081
+        },
+        "tpr_at_fpr_0_01": null,
+        "tpr_at_fpr_0_05": null,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.001753
+        ]
+      },
+      "gpt-4o_P2": {
+        "abstention_rate": 0.4586,
+        "abstentions": 1003,
+        "auprc": null,
+        "auprc_baseline_prevalence": 1.0,
+        "auroc": null,
+        "coverage": 0.5414,
+        "fpr_native": null,
+        "fpr_native_wilson_95": null,
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": null,
+        "n": 2187,
+        "n_ai": 2187,
+        "n_human": 0,
+        "note": "bootstrap CIs omitted: a class has fewer than 10 rows in this slice",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": null,
+        "score_machine": {
+          "max": 0.6458,
+          "mean": 0.2414,
+          "median": 0.2445,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": null,
+        "tpr_at_fpr_0_05": null,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.001753
+        ]
+      },
+      "gpt-4o_P3": {
+        "abstention_rate": 0.5139,
+        "abstentions": 1124,
+        "auprc": null,
+        "auprc_baseline_prevalence": 1.0,
+        "auroc": null,
+        "coverage": 0.4861,
+        "fpr_native": null,
+        "fpr_native_wilson_95": null,
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": null,
+        "n": 2187,
+        "n_ai": 2187,
+        "n_human": 0,
+        "note": "bootstrap CIs omitted: a class has fewer than 10 rows in this slice",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": null,
+        "score_machine": {
+          "max": 0.7361,
+          "mean": 0.2596,
+          "median": 0.2637,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": null,
+        "tpr_at_fpr_0_05": null,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.001753
+        ]
+      },
+      "human": {
+        "abstention_rate": 0.6173,
+        "abstentions": 1350,
+        "auprc": null,
+        "auprc_baseline_prevalence": 0.0,
+        "auroc": null,
+        "coverage": 0.3827,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.001753
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.7361,
+        "n": 2187,
+        "n_ai": 0,
+        "n_human": 2187,
+        "note": "bootstrap CIs omitted: a class has fewer than 10 rows in this slice",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.7361,
+          "mean": 0.281,
+          "median": 0.2858,
+          "min": 0.012
+        },
+        "score_machine": null,
+        "tpr_at_fpr_0_01": null,
+        "tpr_at_fpr_0_05": null,
+        "tpr_native": null,
+        "tpr_native_wilson_95": null
+      },
+      "human_edits": {
+        "abstention_rate": 0.5551,
+        "abstentions": 1214,
+        "auprc": null,
+        "auprc_baseline_prevalence": 0.0,
+        "auroc": null,
+        "coverage": 0.4449,
+        "fpr_native": 0.0,
+        "fpr_native_wilson_95": [
+          0.0,
+          0.001753
+        ],
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": 0.6648,
+        "n": 2187,
+        "n_ai": 0,
+        "n_human": 2187,
+        "note": "bootstrap CIs omitted: a class has fewer than 10 rows in this slice",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": {
+          "max": 0.6648,
+          "mean": 0.281,
+          "median": 0.2847,
+          "min": 0.004
+        },
+        "score_machine": null,
+        "tpr_at_fpr_0_01": null,
+        "tpr_at_fpr_0_05": null,
+        "tpr_native": null,
+        "tpr_native_wilson_95": null
+      },
+      "llama-3.1-70b_P1": {
+        "abstention_rate": 0.4618,
+        "abstentions": 1010,
+        "auprc": null,
+        "auprc_baseline_prevalence": 1.0,
+        "auroc": null,
+        "coverage": 0.5382,
+        "fpr_native": null,
+        "fpr_native_wilson_95": null,
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": null,
+        "n": 2187,
+        "n_ai": 2187,
+        "n_human": 0,
+        "note": "bootstrap CIs omitted: a class has fewer than 10 rows in this slice",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": null,
+        "score_machine": {
+          "max": 0.6652,
+          "mean": 0.255,
+          "median": 0.2592,
+          "min": 0.011
+        },
+        "tpr_at_fpr_0_01": null,
+        "tpr_at_fpr_0_05": null,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.001753
+        ]
+      },
+      "llama-3.1-70b_P2": {
+        "abstention_rate": 0.1911,
+        "abstentions": 418,
+        "auprc": null,
+        "auprc_baseline_prevalence": 1.0,
+        "auroc": null,
+        "coverage": 0.8089,
+        "fpr_native": null,
+        "fpr_native_wilson_95": null,
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": null,
+        "n": 2187,
+        "n_ai": 2187,
+        "n_human": 0,
+        "note": "bootstrap CIs omitted: a class has fewer than 10 rows in this slice",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": null,
+        "score_machine": {
+          "max": 0.5505,
+          "mean": 0.1961,
+          "median": 0.1897,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": null,
+        "tpr_at_fpr_0_05": null,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.001753
+        ]
+      },
+      "llama-3.1-70b_P3": {
+        "abstention_rate": 0.4454,
+        "abstentions": 974,
+        "auprc": null,
+        "auprc_baseline_prevalence": 1.0,
+        "auroc": null,
+        "coverage": 0.5546,
+        "fpr_native": null,
+        "fpr_native_wilson_95": null,
+        "k_fp_native": 0,
+        "k_tp_native": 0,
+        "max_human_score": null,
+        "n": 2187,
+        "n_ai": 2187,
+        "n_human": 0,
+        "note": "bootstrap CIs omitted: a class has fewer than 10 rows in this slice",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": null,
+        "score_machine": {
+          "max": 0.641,
+          "mean": 0.2507,
+          "median": 0.2528,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": null,
+        "tpr_at_fpr_0_05": null,
+        "tpr_native": 0.0,
+        "tpr_native_wilson_95": [
+          0.0,
+          0.001753
+        ]
+      },
+      "model_output": {
+        "abstention_rate": 0.5267,
+        "abstentions": 1152,
+        "auprc": null,
+        "auprc_baseline_prevalence": 1.0,
+        "auroc": null,
+        "coverage": 0.4733,
+        "fpr_native": null,
+        "fpr_native_wilson_95": null,
+        "k_fp_native": 0,
+        "k_tp_native": 3,
+        "max_human_score": null,
+        "n": 2187,
+        "n_ai": 2187,
+        "n_human": 0,
+        "note": "bootstrap CIs omitted: a class has fewer than 10 rows in this slice",
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "score_human": null,
+        "score_machine": {
+          "max": 0.7054,
+          "mean": 0.2794,
+          "median": 0.2827,
+          "min": 0.0
+        },
+        "tpr_at_fpr_0_01": null,
+        "tpr_at_fpr_0_05": null,
+        "tpr_native": 0.0014,
+        "tpr_native_wilson_95": [
+          0.000467,
+          0.004026
+        ]
+      }
+    },
+    "dataset": "beemo",
+    "dependency_lock": {
+      "requirements-hashed.txt": "258c7244c999f3b7e345b2e1c00a7a297cabcbd348dc23dc9a0ad8b4992a0745",
+      "requirements-pinned.txt": "1c80c465cd5d43d38414aed0a14639e70dc7c9aaa2cb7d07228491f4c56cf9e0"
+    },
+    "detector": "textforensics/builtin-heuristic",
+    "detector_family": "stylometric-heuristic",
+    "detector_version": "0.1.0",
+    "determinism_spot_check": {
+      "mismatches": 0,
+      "rows_rechecked": 20
+    },
+    "drops_from_mapping": [],
+    "final_test": {
+      "abstention_rate": 0.4831,
+      "abstentions": 1900,
+      "auprc": 0.7331,
+      "auprc_baseline_prevalence": 0.7778,
+      "auroc": 0.4027,
+      "bootstrap_95": {
+        "auprc": [
+          0.7147,
+          0.7528
+        ],
+        "auroc": [
+          0.3825,
+          0.4245
+        ],
+        "resamples": [
+          1000,
+          0
+        ],
+        "tpr_at_fpr_0_01": [
+          0.0026,
+          0.0107
+        ],
+        "tpr_at_fpr_0_05": [
+          0.022,
+          0.0492
+        ]
+      },
+      "cluster_bootstrap_95": {
+        "auroc": [
+          0.3821,
+          0.4214
+        ],
+        "fpr_native": [
+          0.0,
+          0.0
+        ],
+        "resamples_kept": 1000,
+        "resamples_skipped": 0,
+        "tpr_native": [
+          0.0,
+          0.0
+        ]
+      },
+      "coverage": 0.5169,
+      "fpr_native": 0.0,
+      "fpr_native_wilson_95": [
+        0.0,
+        0.004376
+      ],
+      "k_fp_native": 0,
+      "k_tp_native": 0,
+      "max_human_score": 0.6648,
+      "n": 3933,
+      "n_ai": 3059,
+      "n_human": 874,
+      "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+      "score_human": {
+        "max": 0.6648,
+        "mean": 0.2866,
+        "median": 0.2885,
+        "min": 0.0233
+      },
+      "score_machine": {
+        "max": 0.6652,
+        "mean": 0.2499,
+        "median": 0.2509,
+        "min": 0.0
+      },
+      "tpr_at_fpr_0_01": 0.0065,
+      "tpr_at_fpr_0_05": 0.0366,
+      "tpr_native": 0.0,
+      "tpr_native_wilson_95": [
+        0.0,
+        0.001254
+      ]
+    },
+    "hf_id": "toloka/beemo",
+    "inspection": {
+      "actual_variants_per_raw_row": 9.0,
+      "categories": {
+        "Closed QA": 205,
+        "Generation": 585,
+        "Open QA": 483,
+        "Rewrite": 525,
+        "Summarize": 389
+      },
+      "empty_human_edits_fields": 0,
+      "expected_variants_per_raw_row": 9,
+      "generators": {
+        "HuggingFaceH4/zephyr-7b-beta": 229,
+        "allenai/tulu-2-13b": 211,
+        "allenai/tulu-2-7b": 215,
+        "google/gemma-2b-it": 204,
+        "google/gemma-7b-it": 209,
+        "meta-llama/Llama-2-13b-chat-hf": 234,
+        "meta-llama/Llama-2-70b-chat-hf": 224,
+        "meta-llama/Llama-2-7b-chat-hf": 234,
+        "mistralai/Mistral-7B-Instruct-v0.1": 201,
+        "mistralai/Mixtral-8x7B-Instruct-v0.1": 226
+      },
+      "kinds": {
+        "gpt-4o_P1": 2187,
+        "gpt-4o_P2": 2187,
+        "gpt-4o_P3": 2187,
+        "human": 2187,
+        "human_edits": 2187,
+        "llama-3.1-70b_P1": 2187,
+        "llama-3.1-70b_P2": 2187,
+        "llama-3.1-70b_P3": 2187,
+        "model_output": 2187
+      },
+      "prompt_ids_expected": 2187,
+      "prompt_ids_unique": 2187,
+      "raw_row_ids_unique": 2187,
+      "raw_rows_expected": 2187,
+      "raw_rows_fetched": 2187,
+      "representative_records_inspected": [
+        "beemo-0:human",
+        "beemo-0:model_output",
+        "beemo-0:human_edits",
+        "beemo-144:human",
+        "beemo-1476:human"
+      ],
+      "word_counts_by_kind": {
+        "gpt-4o_P1": {
+          "max": 118,
+          "median": 89,
+          "min": 1
+        },
+        "gpt-4o_P2": {
+          "max": 118,
+          "median": 92,
+          "min": 4
+        },
+        "gpt-4o_P3": {
+          "max": 119,
+          "median": 92,
+          "min": 5
+        },
+        "human": {
+          "max": 1076,
+          "median": 82,
+          "min": 1
+        },
+        "human_edits": {
+          "max": 854,
+          "median": 112,
+          "min": 1
+        },
+        "llama-3.1-70b_P1": {
+          "max": 118,
+          "median": 94,
+          "min": 4
+        },
+        "llama-3.1-70b_P2": {
+          "max": 115,
+          "median": 98,
+          "min": 11
+        },
+        "llama-3.1-70b_P3": {
+          "max": 116,
+          "median": 95,
+          "min": 5
+        },
+        "model_output": {
+          "max": 790,
+          "median": 141,
+          "min": 2
+        }
+      }
+    },
+    "licence": "MIT (card) with field-level carve-outs: prompts + human_output from No Robots are CC-BY-NC-4.0; model_output and LLM-edited versions follow the underlying LLM licences",
+    "licence_reverified": {
+      "date": "2026-11-16",
+      "sources": [
+        "https://huggingface.co/datasets/toloka/beemo (card: License MIT; Licensing Information: prompts + human_output CC-BY-NC-4.0, model_output/LLM-edited follow underlying LLM licences, human_edits MIT unless underlying LLM terms say otherwise)",
+        "No Robots source licence CC-BY-NC-4.0 (https://huggingface.co/datasets/HuggingFaceH4/no_robots)"
+      ],
+      "verdict": "permitted for this use (non-commercial research evaluation, local cache only, aggregate metrics only, no redistribution)"
+    },
+    "n_mapping_drops": 0,
+    "near_duplicates": {
+      "component_size_histogram": {
+        "9": 2187
+      },
+      "exact_duplicate_pairs_jaccard_1_0_across_groups": 0,
+      "exact_duplicate_pairs_jaccard_1_0_within_group": 218,
+      "method": "union-find over shared prompt_id plus word-8-shingle Jaccard >= 0.8 (exact verification; crc32 index proposes candidates only)",
+      "n_components": 2187,
+      "near_dup_pairs_across_groups": 0,
+      "near_dup_pairs_jaccard_ge_0_8_total": 311,
+      "near_dup_pairs_sample": [
+        {
+          "jaccard": 0.9268,
+          "row_a": "beemo-0:model_output",
+          "row_b": "beemo-0:llama-3.1-70b_P1",
+          "same_group": true
+        },
+        {
+          "jaccard": 1.0,
+          "row_a": "beemo-0:model_output",
+          "row_b": "beemo-0:gpt-4o_P3",
+          "same_group": true
+        },
+        {
+          "jaccard": 0.9268,
+          "row_a": "beemo-0:llama-3.1-70b_P1",
+          "row_b": "beemo-0:gpt-4o_P3",
+          "same_group": true
+        },
+        {
+          "jaccard": 1.0,
+          "row_a": "beemo-1:gpt-4o_P1",
+          "row_b": "beemo-1:gpt-4o_P3",
+          "same_group": true
+        },
+        {
+          "jaccard": 1.0,
+          "row_a": "beemo-3:gpt-4o_P1",
+          "row_b": "beemo-3:gpt-4o_P3",
+          "same_group": true
+        }
+      ],
+      "near_dup_pairs_within_group": 311
+    },
+    "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+    "partition": {
+      "counts": {
+        "final-test": {
+          "n": 3933,
+          "n_ai": 3059,
+          "n_components": 437,
+          "n_human": 874
+        },
+        "fit": {
+          "n": 11808,
+          "n_ai": 9184,
+          "n_components": 1312,
+          "n_human": 2624
+        },
+        "validation": {
+          "n": 3942,
+          "n_ai": 3066,
+          "n_components": 438,
+          "n_human": 876
+        }
+      },
+      "fractions": {
+        "final-test": 0.2,
+        "fit": 0.6,
+        "validation": 0.2
+      },
+      "manifests": {
+        "final-test": {
+          "path": "docs/evidence/manifests/EV-20261116-beemo-final-test.json",
+          "sha256": "6f97238aaf01b1438436e1b833f994127ebf22076daf3419df55b911a88dec59"
+        },
+        "fit": {
+          "path": "docs/evidence/manifests/EV-20261116-beemo-fit.json",
+          "sha256": "ef4ca13716f6681242d50ffa7f74a95fd2bf6dab26403e04d4e7e7ce263560d9"
+        },
+        "validation": {
+          "path": "docs/evidence/manifests/EV-20261116-beemo-validation.json",
+          "sha256": "65ff1c67bce4c269b3958579025c9e38527015def0cb8dfecbc34a9951aff541"
+        }
+      },
+      "method": "whole components, stratified by category, deterministic hash order, greedy 60/20/20 by row count; partition uses text identity only, frozen before evaluation",
+      "verification": {
+        "complete": true,
+        "partitions": [
+          "final-test",
+          "fit",
+          "validation"
+        ],
+        "rows_assigned": 19683,
+        "rows_total": 19683,
+        "shared_components_across_partitions": 0,
+        "shared_exact_texts_across_partitions": 0
+      }
+    },
+    "pooled": {
+      "abstention_rate": 0.4786,
+      "abstentions": 9420,
+      "auprc": 0.7375,
+      "auprc_baseline_prevalence": 0.7778,
+      "auroc": 0.4144,
+      "bootstrap_95": {
+        "auprc": [
+          0.7289,
+          0.7455
+        ],
+        "auroc": [
+          0.405,
+          0.4227
+        ],
+        "resamples": [
+          1000,
+          0
+        ],
+        "tpr_at_fpr_0_01": [
+          0.0057,
+          0.0102
+        ],
+        "tpr_at_fpr_0_05": [
+          0.0324,
+          0.0439
+        ]
+      },
+      "coverage": 0.5214,
+      "fpr_native": 0.0,
+      "fpr_native_wilson_95": [
+        0.0,
+        0.000878
+      ],
+      "k_fp_native": 0,
+      "k_tp_native": 3,
+      "max_human_score": 0.7361,
+      "n": 19683,
+      "n_ai": 15309,
+      "n_human": 4374,
+      "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+      "score_human": {
+        "max": 0.7361,
+        "mean": 0.281,
+        "median": 0.2853,
+        "min": 0.004
+      },
+      "score_machine": {
+        "max": 0.7361,
+        "mean": 0.2499,
+        "median": 0.2508,
+        "min": 0.0
+      },
+      "tpr_at_fpr_0_01": 0.0072,
+      "tpr_at_fpr_0_05": 0.0383,
+      "tpr_native": 0.0002,
+      "tpr_native_wilson_95": [
+        6.7e-05,
+        0.000576
+      ]
+    },
+    "provenance": {
+      "cache": {
+        "file": "train-full.jsonl",
+        "file_sha256": "818d9c1a067cbb1a2085c29dcc118bf3449691d22c5a0c7142889d54c3d65919",
+        "path": "beemo/default/train-full.jsonl (XDG datasets cache)",
+        "rows": 19683,
+        "source": "https://datasets-server.huggingface.co (toloka/beemo, default/train)",
+        "source_split_rows": 2187
+      },
+      "fetch_date": "2026-11-16",
+      "raw_source": "https://datasets-server.huggingface.co",
+      "seed_sample_superseded": "EV-20261106-dataset-beemo (900 normalised rows from a 100-row strided sample) is superseded by this full-split run",
+      "source_split": "default/train (2,187 rows, full split \u2014 no sampling)"
+    },
+    "worst_slice_context": {
+      "beemo_final_test_n_human": 874,
+      "beemo_pooled_n_human": 4374,
+      "note": "The n=56 worst-slice human FPR (Wilson upper 0.064196, EV-20261110-human-fpr) is the OpAI-Bench document slice (evr-20261106-opai-bench-builtin-heuristic), NOT Beemo. It is already closed: Phase 5 expanded OpAI-Bench to n_human=218 (evr-20261110-opai-bench-builtin-heuristic, supported, Wilson upper 0.0173). Beemo's pooled human n here is far above the 100-row minimum."
+    }
+  },
+  "run_date": "2026-11-16",
+  "schema": "textforensics.run-artifact/v1"
+}
