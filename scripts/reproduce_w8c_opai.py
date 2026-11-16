@@ -2,7 +2,14 @@
 """reproduce_w8c_opai.py — W8 worker E (independent reproduction).
 
 Independently reproduces Worker C's OpAI-Bench partitioned evaluation
-(docs/evidence/runs/EV-20261116-dataset-opai-bench.json) from scratch:
+(docs/evidence/runs/EV-20261116-dataset-opai-bench.json) from scratch.
+
+Source: the INTEGRATED copies on audit-w7 in the main clone
+(~/workspace/TextForensics-rewrite, head 0495d96); Worker C's branch
+and worktree were deleted after integration. Earlier worktree versions
+of the artifact/manifest had different SHAs (the artifact was
+regenerated during integration, e.g. pre-commit formatting); this
+script verifies the integrated files, not the deleted worktree copies.
 
 - Reads the two pinned cache files DIRECTLY (json, no dataset-loader
   helpers, no import of Worker C's script, no import of
@@ -55,8 +62,8 @@ from textforensics.detectors import BuiltinHeuristicDetector  # noqa: E402
 RUN_DATE = "2026-11-16"
 ARTIFACT_ID = "EV-20261116-reproduction-opai-bench"
 RUN_ARTIFACT_SCHEMA = "textforensics.run-artifact/v1"
-C_MANIFEST = Path("/home/hatch/workspace/TextForensics-w8-c/docs/evidence/manifests/EV-20261116-dataset-opai-bench-partitions.json")
-C_ARTIFACT = Path("/home/hatch/workspace/TextForensics-w8-c/docs/evidence/runs/EV-20261116-dataset-opai-bench.json")
+C_MANIFEST = Path("/home/hatch/workspace/TextForensics-rewrite/docs/evidence/manifests/EV-20261116-dataset-opai-bench-partitions.json")
+C_ARTIFACT = Path("/home/hatch/workspace/TextForensics-rewrite/docs/evidence/runs/EV-20261116-dataset-opai-bench.json")
 CACHE_ROOT = Path.home() / ".cache" / "textforensics" / "datasets" / "opai_bench" / "default"
 BOOTSTRAP_SEED = 20261116
 BOOTSTRAP_RESAMPLES = 1000
@@ -344,6 +351,9 @@ def main(argv: list[str] | None = None) -> int:
             c["n_unlabelled"] += 1
     check("partition counts match manifest counts", counts == manifest["counts"],
           json.dumps(counts, sort_keys=True))
+    check("partition manifest sha matches artifact record",
+          manifest_sha == c_artifact["results"]["partition"]["manifest_sha256"],
+          f"{manifest_sha[:12]} vs {c_artifact['results']['partition']['manifest_sha256'][:12]}")
 
     # Group leakage: no document group spans two partitions.
     group_partitions: dict[str, set] = defaultdict(set)
@@ -425,10 +435,14 @@ def main(argv: list[str] | None = None) -> int:
             verdicts=[i["verdict"] for i in items],
             group_ids=[i["group"] for i in items],
         )
-    ranked = sorted(
-        ((m["fpr_native"]["ci_upper"], name) for name, m in recomputed.items() if m["n_human"] >= 10),
-        reverse=True,
-    )
+    # Worst slice: highest Wilson FPR upper among slices with n_human >= 10.
+    # Ties keep the first slice in sorted-grouping order (stable sort by
+    # the upper bound only, exactly as Worker C's summarize_slices does).
+    ranked = [
+        (m["fpr_native"]["ci_upper"], name) for name, m in recomputed.items()
+        if m["n_human"] >= 10
+    ]
+    ranked.sort(key=lambda t: t[0], reverse=True)
     worst = {"slice_id": ranked[0][1], "fpr_wilson_upper": ranked[0][0],
              "n_human": recomputed[ranked[0][1]]["n_human"]} if ranked else None
 

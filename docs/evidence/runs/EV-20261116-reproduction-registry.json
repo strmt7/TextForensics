@@ -1,0 +1,620 @@
+{
+  "schema": "textforensics.run-artifact/v1",
+  "evidence_record_id": "EV-20261116-reproduction-registry",
+  "kind": "command",
+  "command": "python scripts/reproduce_registry_baseline.py",
+  "environment": {
+    "platform": "Linux",
+    "python": "3.12.3",
+    "extras": "aiohappyeyeballs==2.7.1\naiohttp==3.14.5\naiosignal==1.4.0\nannotated-doc==0.0.5\nannotated-types==0.8.0\nanybadge==1.16.0\nanyio==4.16.0\nattrs==26.1.0\nbandit==1.9.4\nboolean.py==5.0\nbuild==1.6.1\nCacheControl==0.14.4\ncertifi==2026.10.23\ncffi==2.1.1\ncfgv==3.5.0\ncharset-normalizer==3.5.2\nclick==8.5.0\ncosmic_ray==8.7.0\ncoverage==7.17.2\ncryptography==50.0.2\ncyclonedx-python-lib==11.12.0\ndecorator==5.3.1\ndefusedxml==0.7.1\ndistlib==0.4.4\ndocutils==0.23\nexit-codes==1.3.0\nfastapi==0.162.0\nfilelock==4.2.9\nfrozenlist==1.8.0\ngitdb==4.0.12\nGitPython==3.2.1\nh11==0.16.0\nhttpcore==1.0.9\nhttpcore2==2.16.0\nhttpx==0.28.1\nhttpx2==2.16.0\nhypothesis==6.170.15\nid==1.6.1\nidentify==2.6.20\nidna==3.20\niniconfig==2.3.1\njaraco.classes==3.4.0\njaraco.context==6.1.2\njaraco.functools==4.6.0\njeepney==0.9.0\nJinja2==3.1.6\njsonschema==4.26.0\njsonschema-specifications==2025.9.1\nkeyring==25.7.0\nlicense-expression==30.4.4\nmarkdown-it-py==4.2.0\nMarkupSafe==3.0.4\nmcp==2.3.0\nmcp-types==2.3.0\nmdurl==0.1.2\nmore-itertools==11.2.1\nmsgpack==1.2.4\nmultidict==7.2.1\nnh3==0.3.7\nnodeenv==1.12.0\nopentelemetry-api==1.45.2\nopentelemetry-exporter-prometheus==0.66b2\nopentelemetry-sdk==1.45.2\nopentelemetry-semantic-conventions==0.66b2\npackageurl-python==0.17.6\npackaging==26.3\nparso==0.8.7\npip-requirements-parser==32.0.1\npip_api==0.0.35\npip_audit==2.10.1\nplatformdirs==4.14.5\npluggy==1.7.0\npre-commit==3.8.0\nprometheus_client==0.26.0\npropcache==0.5.4\npsutil==7.2.2\npy-cpuinfo==9.0.0\npy-cpuinfo2==10.1.1\npy-serializable==2.1.0\npy-spy==0.4.3\npycparser==3.12\npydantic==2.14.3\npydantic_core==2.50.4\nPygments==2.21.0\nPyJWT==2.15.1\npyparsing==3.3.3\npyproject_hooks==1.3.3\npytest==9.2.0\npytest-asyncio==1.4.1.post1\npytest-benchmark==5.3.1\npytest-cov==5.0.0\npytest-timeout==2.4.0\npython-discovery==1.9.4\npython-multipart==0.0.33\nPyYAML==6.0.3\nreadme_renderer==46.0\nreferencing==0.37.0\nrequests==2.34.2\nrequests-toolbelt==1.0.0\nrfc3986==2.0.0\nrich==15.0.0\nrpds-py==2026.9.1\nruff==0.17.4\nSecretStorage==3.5.0\nsetuptools==84.2.1\nshellingham==1.5.4\nsmmap==5.0.3\nsortedcontainers==2.4.0\nSQLAlchemy==2.1.8\nsse-starlette==3.6.0\nstarlette==1.10.0\nstevedore==5.9.1\n-e git+https://github.com/strmt7/TextForensics.git@17b89511fb29fe2f3d0452918037132394d90184#egg=textforensics\ntoml==0.10.2\ntomli==2.5.0\ntomli_w==1.2.0\ntruststore==0.10.5\ntwine==6.2.0\ntyper==0.28.0\ntyping-inspection==0.4.5\ntyping_extensions==4.16.0\nurllib3==2.8.0\nuvicorn==0.54.0\nvirtualenv==21.15.5\nwebsockets==12.0\nyarl==1.25.1\nyattag==1.16.1"
+  },
+  "code_version": "05d6e8c45851c666de05c018ac6cb111477215f8",
+  "run_date": "2026-11-16",
+  "results": {
+    "detector": "textforensics/builtin-heuristic",
+    "detector_family": "stylometric-heuristic",
+    "detector_version": "0.1.0",
+    "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+    "method": "Independent reproduction of the nine frozen pre-W8 registry records on the W8 code base: cache files located by SHA-256 and read directly as JSONL; detector re-run at its native operating point over every labelled row (document slices) and every labelled sentence (OpAI-Bench segment slice); FPR/TPR with Wilson 95% CIs, AUROC (pairwise Mann-Whitney, cross-checked against the rank form) and AUPRC (stepwise average precision over distinct score thresholds), all recomputed from scratch with implementations written here. FPR/TPR agreement is by exact k implied by the registry's 4-decimal values; AUROC agreement is to 4 decimals. The recomputed Wilson FPR upper is compared against Worker D's predeclaration \u00a71 values, NOT against the registry's stored CI: the registry's stored FPR CI for the RAID 20261106 record is a bootstrap CI (ci_upper 0.0, degenerate on an all-zero sample) and every stored TPR CI is bootstrap, so those stored CIs cannot be compared to a Wilson CI. The stored CIs are recorded verbatim per record alongside their method.",
+    "slices": [
+      {
+        "record_id": "evr-20261106-beemo-builtin-heuristic",
+        "dataset": "Beemo",
+        "slice_kind": "document",
+        "cache_file": "/home/hatch/.cache/textforensics/datasets/beemo/default/train.jsonl",
+        "cache_file_sha256": "3a59e55516e9be22dce16270d1edace92b9b20bfda7b8600ee89d8f380dec8d2",
+        "registry_file_sha256": "3a59e55516e9be22dce16270d1edace92b9b20bfda7b8600ee89d8f380dec8d2",
+        "cache_sha256_matches_registry": true,
+        "cache_rows_total": 900,
+        "n_human": 200,
+        "n_ai": 700,
+        "abstentions": 487,
+        "abstention_rate": 0.541111,
+        "max_human_score": 0.5899,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 200,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.018846,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 700,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.005458,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "auroc_recomputed": 0.397614,
+        "auprc_recomputed": 0.738073,
+        "registry_fpr_native": {
+          "value": 0.0,
+          "n": 200,
+          "ci_lower": 0.0,
+          "ci_upper": 0.018846,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "registry_tpr_native": {
+          "value": 0.0,
+          "n": 700,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106"
+        },
+        "registry_auroc": {
+          "value": 0.3976,
+          "n": 900,
+          "ci_lower": 0.356,
+          "ci_upper": 0.4405,
+          "method": "bootstrap, 1000 resamples, seed 20261106"
+        },
+        "reproduces_registry_fpr": true,
+        "reproduces_registry_tpr": true,
+        "registry_fpr_ci_method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+        "registry_tpr_ci_method": "bootstrap, 1000 resamples, seed 20261106",
+        "predeclared_wilson_fpr_upper": 0.018846,
+        "wilson_fpr_upper_matches_predeclaration": true,
+        "wilson_fpr_upper_difference_recomputed_minus_predeclared": 0.0,
+        "auroc_difference_recomputed_minus_registry": 1.4e-05,
+        "auroc_agrees_to_4dp": true
+      },
+      {
+        "record_id": "evr-20261106-mage-builtin-heuristic",
+        "dataset": "MAGE",
+        "slice_kind": "document",
+        "cache_file": "/home/hatch/.cache/textforensics/datasets/mage/default/train.jsonl",
+        "cache_file_sha256": "8969989f35f6affbfc07d1b6846e9acdb481790b964563289342aa075d06eba3",
+        "registry_file_sha256": "8969989f35f6affbfc07d1b6846e9acdb481790b964563289342aa075d06eba3",
+        "cache_sha256_matches_registry": true,
+        "cache_rows_total": 400,
+        "n_human": 117,
+        "n_ai": 283,
+        "abstentions": 217,
+        "abstention_rate": 0.5425,
+        "max_human_score": 0.526,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 117,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.03179,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 2,
+          "n": 283,
+          "value": 0.007067,
+          "ci_lower": 0.00194,
+          "ci_upper": 0.025398,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "auroc_recomputed": 0.556718,
+        "auprc_recomputed": 0.796047,
+        "registry_fpr_native": {
+          "value": 0.0,
+          "n": 117,
+          "ci_lower": 0.0,
+          "ci_upper": 0.03179,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "registry_tpr_native": {
+          "value": 0.0071,
+          "n": 283,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0177,
+          "method": "bootstrap, 1000 resamples, seed 20261106"
+        },
+        "registry_auroc": {
+          "value": 0.5567,
+          "n": 400,
+          "ci_lower": 0.4969,
+          "ci_upper": 0.6136,
+          "method": "bootstrap, 1000 resamples, seed 20261106"
+        },
+        "reproduces_registry_fpr": true,
+        "reproduces_registry_tpr": true,
+        "registry_fpr_ci_method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+        "registry_tpr_ci_method": "bootstrap, 1000 resamples, seed 20261106",
+        "predeclared_wilson_fpr_upper": 0.03179,
+        "wilson_fpr_upper_matches_predeclaration": true,
+        "wilson_fpr_upper_difference_recomputed_minus_predeclared": 0.0,
+        "auroc_difference_recomputed_minus_registry": 1.8e-05,
+        "auroc_agrees_to_4dp": true
+      },
+      {
+        "record_id": "evr-20261106-opai-bench-builtin-heuristic",
+        "dataset": "OpAI-Bench",
+        "slice_kind": "document",
+        "cache_file": "/home/hatch/.cache/textforensics/datasets/opai_bench/default/train.jsonl",
+        "cache_file_sha256": "72bcfe9f0948afa036f6707da5f366c989ce2f455592764b56c7bfea08e2a2ae",
+        "registry_file_sha256": "72bcfe9f0948afa036f6707da5f366c989ce2f455592764b56c7bfea08e2a2ae",
+        "cache_sha256_matches_registry": true,
+        "cache_rows_total": 500,
+        "n_human": 56,
+        "n_ai": 55,
+        "abstentions": 55,
+        "abstention_rate": 0.495495,
+        "max_human_score": 0.625,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 56,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.064196,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 55,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.065287,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "auroc_recomputed": 0.396104,
+        "auprc_recomputed": 0.418155,
+        "registry_fpr_native": {
+          "value": 0.0,
+          "n": 56,
+          "ci_lower": 0.0,
+          "ci_upper": 0.064196,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "registry_tpr_native": {
+          "value": 0.0,
+          "n": 55,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106"
+        },
+        "registry_auroc": {
+          "value": 0.3961,
+          "n": 111,
+          "ci_lower": 0.3003,
+          "ci_upper": 0.4984,
+          "method": "bootstrap, 1000 resamples, seed 20261106"
+        },
+        "reproduces_registry_fpr": true,
+        "reproduces_registry_tpr": true,
+        "registry_fpr_ci_method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+        "registry_tpr_ci_method": "bootstrap, 1000 resamples, seed 20261106",
+        "predeclared_wilson_fpr_upper": 0.064196,
+        "wilson_fpr_upper_matches_predeclaration": true,
+        "wilson_fpr_upper_difference_recomputed_minus_predeclared": 0.0,
+        "auroc_difference_recomputed_minus_registry": 4e-06,
+        "auroc_agrees_to_4dp": true
+      },
+      {
+        "record_id": "evr-20261106-raid-builtin-heuristic",
+        "dataset": "RAID",
+        "slice_kind": "document",
+        "cache_file": "/home/hatch/.cache/textforensics/datasets/raid/raid/train.jsonl",
+        "cache_file_sha256": "f689a30963024b2dc1fa159f2888e1d2ba36e68263d467ab7f73db5d9e780c00",
+        "registry_file_sha256": "f689a30963024b2dc1fa159f2888e1d2ba36e68263d467ab7f73db5d9e780c00",
+        "cache_sha256_matches_registry": true,
+        "cache_rows_total": 3000,
+        "n_human": 92,
+        "n_ai": 2908,
+        "abstentions": 1490,
+        "abstention_rate": 0.496667,
+        "max_human_score": 0.5805,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 92,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.040083,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 55,
+          "n": 2908,
+          "value": 0.018913,
+          "ci_lower": 0.01456,
+          "ci_upper": 0.024536,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "auroc_recomputed": 0.593675,
+        "auprc_recomputed": 0.97954,
+        "registry_fpr_native": {
+          "value": 0.0,
+          "n": 92,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106"
+        },
+        "registry_tpr_native": {
+          "value": 0.0189,
+          "n": 2908,
+          "ci_lower": 0.0141,
+          "ci_upper": 0.0241,
+          "method": "bootstrap, 1000 resamples, seed 20261106"
+        },
+        "registry_auroc": {
+          "value": 0.5937,
+          "n": 3000,
+          "ci_lower": 0.5468,
+          "ci_upper": 0.6442,
+          "method": "bootstrap, 1000 resamples, seed 20261106"
+        },
+        "reproduces_registry_fpr": true,
+        "reproduces_registry_tpr": true,
+        "registry_fpr_ci_method": "bootstrap, 1000 resamples, seed 20261106",
+        "registry_tpr_ci_method": "bootstrap, 1000 resamples, seed 20261106",
+        "predeclared_wilson_fpr_upper": 0.040083,
+        "wilson_fpr_upper_matches_predeclaration": true,
+        "wilson_fpr_upper_difference_recomputed_minus_predeclared": 0.0,
+        "auroc_difference_recomputed_minus_registry": -2.5e-05,
+        "auroc_agrees_to_4dp": true
+      },
+      {
+        "record_id": "evr-20261107-detectrl-x-builtin-heuristic",
+        "dataset": "DetectRL-X",
+        "slice_kind": "document",
+        "cache_file": "/home/hatch/.cache/textforensics/datasets/detectrl_x/binary/train.jsonl",
+        "cache_file_sha256": "08f23dc371211fba9beae6d4e3c26b250d18ad817de7f3f86ea6425b7cac8349",
+        "registry_file_sha256": "08f23dc371211fba9beae6d4e3c26b250d18ad817de7f3f86ea6425b7cac8349",
+        "cache_sha256_matches_registry": true,
+        "cache_rows_total": 800,
+        "n_human": 400,
+        "n_ai": 400,
+        "abstentions": 100,
+        "abstention_rate": 0.125,
+        "max_human_score": 0.4964,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 400,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.009513,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 400,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.009513,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "auroc_recomputed": 0.597213,
+        "auprc_recomputed": 0.574074,
+        "registry_fpr_native": {
+          "value": 0.0,
+          "n": 400,
+          "ci_lower": 0.0,
+          "ci_upper": 0.009513,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "registry_tpr_native": {
+          "value": 0.0,
+          "n": 400,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106"
+        },
+        "registry_auroc": {
+          "value": 0.5972,
+          "n": 800,
+          "ci_lower": 0.5567,
+          "ci_upper": 0.6384,
+          "method": "bootstrap, 1000 resamples, seed 20261106"
+        },
+        "reproduces_registry_fpr": true,
+        "reproduces_registry_tpr": true,
+        "registry_fpr_ci_method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+        "registry_tpr_ci_method": "bootstrap, 1000 resamples, seed 20261106",
+        "predeclared_wilson_fpr_upper": 0.009513,
+        "wilson_fpr_upper_matches_predeclaration": true,
+        "wilson_fpr_upper_difference_recomputed_minus_predeclared": 0.0,
+        "auroc_difference_recomputed_minus_registry": 1.3e-05,
+        "auroc_agrees_to_4dp": true
+      },
+      {
+        "record_id": "evr-20261107-ghostwriter-builtin-heuristic",
+        "dataset": "GhostWriter",
+        "slice_kind": "document",
+        "cache_file": "/home/hatch/.cache/textforensics/datasets/ghostwriter/default/train.jsonl",
+        "cache_file_sha256": "12d2ab690b8952d34cb8814231b332f96dbc565de6f2daf4af50d3a60df184c8",
+        "registry_file_sha256": "12d2ab690b8952d34cb8814231b332f96dbc565de6f2daf4af50d3a60df184c8",
+        "cache_sha256_matches_registry": true,
+        "cache_rows_total": 500,
+        "n_human": 137,
+        "n_ai": 210,
+        "abstentions": 162,
+        "abstention_rate": 0.466859,
+        "max_human_score": 0.674,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 137,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.027276,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 210,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.017965,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "auroc_recomputed": 0.435958,
+        "auprc_recomputed": 0.531414,
+        "registry_fpr_native": {
+          "value": 0.0,
+          "n": 137,
+          "ci_lower": 0.0,
+          "ci_upper": 0.027276,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "registry_tpr_native": {
+          "value": 0.0,
+          "n": 210,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106"
+        },
+        "registry_auroc": {
+          "value": 0.436,
+          "n": 347,
+          "ci_lower": 0.3647,
+          "ci_upper": 0.5036,
+          "method": "bootstrap, 1000 resamples, seed 20261106"
+        },
+        "reproduces_registry_fpr": true,
+        "reproduces_registry_tpr": true,
+        "registry_fpr_ci_method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+        "registry_tpr_ci_method": "bootstrap, 1000 resamples, seed 20261106",
+        "predeclared_wilson_fpr_upper": 0.027276,
+        "wilson_fpr_upper_matches_predeclaration": true,
+        "wilson_fpr_upper_difference_recomputed_minus_predeclared": 0.0,
+        "auroc_difference_recomputed_minus_registry": -4.2e-05,
+        "auroc_agrees_to_4dp": true
+      },
+      {
+        "record_id": "evr-20261107-opai-bench-builtin-heuristic",
+        "dataset": "OpAI-Bench (segment-level)",
+        "slice_kind": "segment",
+        "cache_file": "/home/hatch/.cache/textforensics/datasets/opai_bench/default/train-segments.jsonl",
+        "cache_file_sha256": "67f83757e0f446aee0d6be47075035465e6dc8b817ad2c7cab8236c81fe6ba35",
+        "registry_file_sha256": "67f83757e0f446aee0d6be47075035465e6dc8b817ad2c7cab8236c81fe6ba35",
+        "cache_sha256_matches_registry": true,
+        "cache_rows_total": 500,
+        "n_human": 4785,
+        "n_ai": 5268,
+        "abstentions": 5579,
+        "abstention_rate": 0.554959,
+        "max_human_score": 0.663,
+        "operating_point": "segment verdict (analyze_text include_robustness=False + mixed_origin.segment_verdict, 0.68/0.32); segments under 20 words abstain",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 4785,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.000802,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 5268,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.000729,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "auroc_recomputed": 0.477164,
+        "auprc_recomputed": 0.508905,
+        "registry_fpr_native": {
+          "value": 0.0,
+          "n": 4785,
+          "ci_lower": 0.0,
+          "ci_upper": 0.000802,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "registry_tpr_native": {
+          "value": 0.0,
+          "n": 5268,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261106"
+        },
+        "registry_auroc": {
+          "value": 0.4772,
+          "n": 10053,
+          "ci_lower": 0.4665,
+          "ci_upper": 0.4879,
+          "method": "bootstrap, 1000 resamples, seed 20261106"
+        },
+        "reproduces_registry_fpr": true,
+        "reproduces_registry_tpr": true,
+        "registry_fpr_ci_method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+        "registry_tpr_ci_method": "bootstrap, 1000 resamples, seed 20261106",
+        "predeclared_wilson_fpr_upper": 0.000802,
+        "wilson_fpr_upper_matches_predeclaration": true,
+        "wilson_fpr_upper_difference_recomputed_minus_predeclared": 0.0,
+        "auroc_difference_recomputed_minus_registry": -3.6e-05,
+        "auroc_agrees_to_4dp": true
+      },
+      {
+        "record_id": "evr-20261108-raid-builtin-heuristic",
+        "dataset": "RAID",
+        "slice_kind": "document",
+        "cache_file": "/home/hatch/.cache/textforensics/datasets/raid/raid/train-6000.jsonl",
+        "cache_file_sha256": "59cf57c4db6778dad065cc78c4b4f92c54544d57652aa30606c307c3f81d44d3",
+        "registry_file_sha256": "59cf57c4db6778dad065cc78c4b4f92c54544d57652aa30606c307c3f81d44d3",
+        "cache_sha256_matches_registry": true,
+        "cache_rows_total": 6000,
+        "n_human": 171,
+        "n_ai": 5829,
+        "abstentions": 3023,
+        "abstention_rate": 0.503833,
+        "max_human_score": 0.6159,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 171,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.021972,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 128,
+          "n": 5829,
+          "value": 0.021959,
+          "ci_lower": 0.0185,
+          "ci_upper": 0.026048,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "auroc_recomputed": 0.595751,
+        "auprc_recomputed": 0.981743,
+        "registry_fpr_native": {
+          "value": 0.0,
+          "n": 171,
+          "ci_lower": 0.0,
+          "ci_upper": 0.021972,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "registry_tpr_native": {
+          "value": 0.022,
+          "n": 5829,
+          "ci_lower": 0.0184,
+          "ci_upper": 0.0257,
+          "method": "bootstrap, 1000 resamples, seed 20261108"
+        },
+        "registry_auroc": {
+          "value": 0.5958,
+          "n": 6000,
+          "ci_lower": 0.5621,
+          "ci_upper": 0.6314,
+          "method": "bootstrap, 1000 resamples, seed 20261108"
+        },
+        "reproduces_registry_fpr": true,
+        "reproduces_registry_tpr": true,
+        "registry_fpr_ci_method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+        "registry_tpr_ci_method": "bootstrap, 1000 resamples, seed 20261108",
+        "predeclared_wilson_fpr_upper": 0.021972,
+        "wilson_fpr_upper_matches_predeclaration": true,
+        "wilson_fpr_upper_difference_recomputed_minus_predeclared": 0.0,
+        "auroc_difference_recomputed_minus_registry": -4.9e-05,
+        "auroc_agrees_to_4dp": true
+      },
+      {
+        "record_id": "evr-20261110-opai-bench-builtin-heuristic",
+        "dataset": "OpAI-Bench",
+        "slice_kind": "document",
+        "cache_file": "/home/hatch/.cache/textforensics/datasets/opai_bench/default/train-2000.jsonl",
+        "cache_file_sha256": "d013ce6f42aa39768b9dee92c06f22dd6f63848c9bc04650bdccf468c11ee4cc",
+        "registry_file_sha256": "d013ce6f42aa39768b9dee92c06f22dd6f63848c9bc04650bdccf468c11ee4cc",
+        "cache_sha256_matches_registry": true,
+        "cache_rows_total": 1996,
+        "n_human": 218,
+        "n_ai": 223,
+        "abstentions": 192,
+        "abstention_rate": 0.435374,
+        "max_human_score": 0.532,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 218,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.017317,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 223,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.016935,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "auroc_recomputed": 0.423386,
+        "auprc_recomputed": 0.443737,
+        "registry_fpr_native": {
+          "value": 0.0,
+          "n": 218,
+          "ci_lower": 0.0,
+          "ci_upper": 0.017317,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "registry_tpr_native": {
+          "value": 0.0,
+          "n": 223,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0,
+          "method": "bootstrap, 1000 resamples, seed 20261110"
+        },
+        "registry_auroc": {
+          "value": 0.4234,
+          "n": 441,
+          "ci_lower": 0.3712,
+          "ci_upper": 0.4732,
+          "method": "bootstrap, 1000 resamples, seed 20261110"
+        },
+        "reproduces_registry_fpr": true,
+        "reproduces_registry_tpr": true,
+        "registry_fpr_ci_method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+        "registry_tpr_ci_method": "bootstrap, 1000 resamples, seed 20261110",
+        "predeclared_wilson_fpr_upper": 0.017317,
+        "wilson_fpr_upper_matches_predeclaration": true,
+        "wilson_fpr_upper_difference_recomputed_minus_predeclared": 0.0,
+        "auroc_difference_recomputed_minus_registry": -1.4e-05,
+        "auroc_agrees_to_4dp": true
+      }
+    ],
+    "counts": {
+      "slices": 9,
+      "fpr_reproduces": 9,
+      "tpr_reproduces": 9,
+      "auroc_agrees_to_4dp": 9,
+      "wilson_fpr_upper_matches_predeclaration": 9
+    },
+    "worst_document_slice_wilson_ci_upper": 0.064196,
+    "worst_slice_wilson_ci_upper": 0.064196
+  },
+  "drops": [
+    {
+      "item": "Unlabelled rows (OpAI-Bench mixed-origin rows, label None)",
+      "reason": "no binary label; excluded from binary FPR/TPR/AUROC/AUPRC, as in the registry records"
+    },
+    {
+      "item": "Python versions other than the run's own",
+      "reason": "measured on the local interpreter only; CI covers the matrix"
+    }
+  ],
+  "badge": "available",
+  "detector_version": "0.1.0",
+  "notes": "W8 worker E baseline leg. This reproduction checks the frozen pre-W8 numbers against the W8 code before any W8 final-holdout claim is built on them. It does not upgrade any record and does not change the report-card lead: the worst document-slice Wilson upper is recomputed here for the predeclaration's \u00a71 baseline only."
+}
