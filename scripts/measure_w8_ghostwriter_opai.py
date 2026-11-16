@@ -1219,6 +1219,55 @@ def run_opai(*, force: bool) -> dict:
     return results
 
 
+def sensitivity_attribution(human_scored: list[dict], cache_file_of: dict[str, str]) -> dict:
+    """Attribute the GhostWriter threshold sensitivity: is the top
+    human row a fresh row, or the known U1 row that happened to land
+    in final-test? (The frozen partition assigns by group hash; a U1
+    row can fall into final-test. Saying which it is matters: if the
+    single flipping row is the old U1 row, the -0.02 fragility is NOT
+    independent confirmation on fresh data.) Pure."""
+    if not human_scored:
+        raise ValueError("sensitivity_attribution needs at least one human row")
+    top_human = max(human_scored, key=lambda s: s["score"])
+    top_human_cache = cache_file_of[top_human["row"].source_id]
+    new_human = [
+        s for s in human_scored if cache_file_of[s["row"].source_id] != "train.jsonl"
+    ]
+    new_human_scores = [s["score"] for s in new_human]
+    new_max = round(max(new_human_scores), 4) if new_human_scores else None
+    new_k_at_066 = sum(
+        1
+        for s in new_human
+        if s["score"] >= 0.66 and s["reliability"] >= RELIABILITY_FLOOR
+    )
+    return {
+        "top_human_row": {
+            "score": round(float(top_human["score"]), 4),
+            "reliability": round(float(top_human["reliability"]), 4),
+            "domain": str(top_human["row"].meta.get("domain")),
+            "lang": str(top_human["row"].meta.get("lang")),
+            "source_id": top_human["row"].source_id,
+            "cache_file": top_human_cache,
+            "is_u1_row": top_human_cache == "train.jsonl",
+        },
+        "new_sample_human_rows_in_final_test": len(new_human),
+        "new_sample_max_human_score": new_max,
+        "new_sample_k_at_threshold_0_66": new_k_at_066,
+        "interpretation": (
+            f"The final-test top human score {round(float(top_human['score']), 4)} "
+            f"comes from cache file {top_human_cache} "
+            f"({'the U1 sample' if top_human_cache == 'train.jsonl' else 'the new sample'}). "
+            "If it is the U1 row, the -0.02 fragility (one row flips at "
+            "0.66) is NOT independent confirmation on fresh data — it "
+            "is that one known row. On fresh (train-2000) human rows "
+            f"alone the maximum is {new_max} and zero-FPR "
+            f"{'DOES' if new_k_at_066 == 0 else 'does NOT'} survive a "
+            f"-0.02 perturbation (k={new_k_at_066} at 0.66). Both facts "
+            "are reported; the threshold is UNCHANGED either way."
+        ),
+    }
+
+
 # ---------------------------------------------------------------------------
 # GhostWriter
 # ---------------------------------------------------------------------------
@@ -1337,6 +1386,7 @@ def run_ghostwriter(*, force: bool) -> dict:
         [s["score"] for s in human_scored],
         [s["reliability"] for s in human_scored],
     )
+    sensitivity_detail = sensitivity_attribution(human_scored, cache_file_of)
     results = {
         "dataset": "ghostwriter",
         "hf_id": spec.hf_id,
@@ -1410,17 +1460,16 @@ def run_ghostwriter(*, force: bool) -> dict:
         },
         "evaluation": evaluation,
         "threshold_sensitivity": sensitivity,
+        "threshold_sensitivity_detail": sensitivity_detail,
         "threshold_sensitivity_note": (
-            "The U1 GhostWriter finding reproduces in structure on the "
-            "new final-test slice: the top human score sits just below "
-            "the 0.68 native threshold (see max_human_score and the "
-            "sensitivity table). Zero-FPR at 0.68 does NOT survive a "
-            "-0.02 perturbation (one row flips at 0.66) — the threshold "
-            "is UNCHANGED; this is reported, not acted on. The "
-            "0.6740 top human score on the U1 137-row sample "
-            "(EV-20261110-ghostwriter-threshold-robustness.md) is a "
-            "different sample from this final-test slice; both are "
-            "reported as measured."
+            "Zero-FPR at the native 0.68 threshold does NOT survive a "
+            "-0.02 perturbation on the full final-test slice (one row "
+            "flips at 0.66; FPR 1/354) — but that one row is the known "
+            "U1 row (see threshold_sensitivity_detail), so the fragility "
+            "is not independent confirmation on fresh data: on fresh "
+            "train-2000 human rows alone the maximum is 0.6496 and "
+            "zero-FPR survives -0.02. The threshold is UNCHANGED; this "
+            "is reported, not acted on."
         ),
         "decisions_not_made": [
             "no threshold was fitted, tuned, or moved (native 0.68 stands)",

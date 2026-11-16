@@ -28,6 +28,7 @@ from measure_w8_ghostwriter_opai import (  # noqa: E402
     group_ghostwriter_rows,
     partition_counts,
     partition_of,
+    sensitivity_attribution,
     shingle_jaccard,
     word_shingles,
 )
@@ -125,6 +126,36 @@ def test_partition_counts_counts_labels_only():
     assert counts["fit"] == {"rows": 1, "n_human": 1, "n_ai": 0, "n_unlabelled": 0}
     assert counts["final-test"] == {"rows": 2, "n_human": 0, "n_ai": 1, "n_unlabelled": 1}
     assert counts["dev"] == {"rows": 0, "n_human": 0, "n_ai": 0, "n_unlabelled": 0}
+
+
+def _scored(source_id, score, reliability, domain="student_essays", lang="en-EN"):
+    row = SimpleNamespace(
+        source_id=source_id, meta={"domain": domain, "lang": lang}
+    )
+    return {"row": row, "score": score, "reliability": reliability}
+
+
+def test_sensitivity_attribution_flags_u1_top_row():
+    human = [
+        _scored("u1-row", 0.674, 0.7746),
+        _scored("new-row-1", 0.6496, 0.7895),
+        _scored("new-row-2", 0.6445, 0.8307),
+    ]
+    cache_of = {"u1-row": "train.jsonl", "new-row-1": "train-2000.jsonl", "new-row-2": "train-2000.jsonl"}
+    detail = sensitivity_attribution(human, cache_of)
+    assert detail["top_human_row"]["is_u1_row"] is True
+    assert detail["top_human_row"]["score"] == 0.674
+    assert detail["new_sample_human_rows_in_final_test"] == 2
+    assert detail["new_sample_max_human_score"] == 0.6496
+    assert detail["new_sample_k_at_threshold_0_66"] == 0
+
+
+def test_sensitivity_attribution_fresh_top_row():
+    human = [_scored("new-row-1", 0.66, 0.9), _scored("new-row-2", 0.5, 0.9)]
+    cache_of = {"new-row-1": "train-2000.jsonl", "new-row-2": "train-2000.jsonl"}
+    detail = sensitivity_attribution(human, cache_of)
+    assert detail["top_human_row"]["is_u1_row"] is False
+    assert detail["new_sample_k_at_threshold_0_66"] == 1
 
 
 def test_cluster_bootstrap_ci_contains_point_estimate():
