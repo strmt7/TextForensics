@@ -919,6 +919,11 @@ class EquivalentBaselineTests(unittest.TestCase):
     #: mutant by mutant with 0 gaps and 0 unexplained) took it to
     #: 1337 positions over 46 modules
     #: (dsse and ed25519 are new).
+    #: The W9 refresh (211 entries re-derived on the audit-w9-d
+    #: head cca2ba3, 0 dropped) moved 32 flat positions in 3
+    #: modules (web_ui.main, diagnostics, ollama); the flat
+    #: position count is unchanged at 1337 (32 removed, 32
+    #: added). No module is new.
     EXPECTED_POSITIONS = {
         # textforensics._build_info (32 positions).
         (71, 33),
@@ -1467,17 +1472,17 @@ class EquivalentBaselineTests(unittest.TestCase):
         (982, 16),
         (1138, 3),
         # textforensics.diagnostics (11 positions).
-        (205, 31),
-        (207, 33),
-        (246, 73),
-        (429, 23),
-        (430, 34),
-        (431, 55),
-        (432, 54),
-        (682, 19),
-        (683, 30),
-        (684, 51),
-        (685, 50),
+        (212, 31),
+        (214, 33),
+        (253, 73),
+        (436, 23),
+        (437, 34),
+        (438, 55),
+        (439, 54),
+        (698, 19),
+        (699, 30),
+        (700, 51),
+        (701, 50),
         # textforensics.dsse (4 positions).
         (57, 43),
         (62, 67),
@@ -1738,9 +1743,9 @@ class EquivalentBaselineTests(unittest.TestCase):
         (2505, 45),
         (2515, 44),
         # textforensics.ollama (3 positions).
-        (826, 28),
-        (879, 22),
-        (880, 14),
+        (841, 28),
+        (894, 22),
+        (895, 14),
         # textforensics.policy (60 positions).
         (120, 34),
         (120, 50),
@@ -2280,24 +2285,24 @@ class EquivalentBaselineTests(unittest.TestCase):
         (723, 39),
         (752, 17),
         # textforensics.web_ui.main (18 positions).
-        (187, 28),
-        (278, 45),
-        (302, 49),
-        (348, 45),
-        (380, 79),
-        (398, 43),
-        (413, 62),
-        (493, 38),
-        (544, 36),
-        (581, 21),
-        (582, 22),
-        (583, 21),
-        (584, 20),
-        (585, 25),
-        (586, 25),
-        (1163, 27),
-        (1164, 65),
-        (1165, 24),
+        (196, 28),
+        (287, 45),
+        (311, 49),
+        (357, 45),
+        (389, 79),
+        (407, 43),
+        (422, 62),
+        (502, 38),
+        (553, 36),
+        (590, 21),
+        (591, 22),
+        (592, 21),
+        (593, 20),
+        (594, 25),
+        (595, 25),
+        (1172, 27),
+        (1173, 65),
+        (1174, 24),
         # textforensics.workspace_integrity (9 positions).
         (162, 33),
         (238, 46),
