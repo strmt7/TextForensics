@@ -102,7 +102,11 @@ def _export_clean_copy(source_root: Path, dest: Path) -> None:
             f"git archive HEAD failed in {source_root}: {archive.stderr.decode(errors='replace')[-1000:]}"
         )
     with tarfile.open(fileobj=io.BytesIO(archive.stdout), mode="r|") as tar:
-        tar.extractall(dest)
+        # filter="data": the archive is our own `git archive HEAD` output,
+        # but extraction without a filter is flagged (CodeQL py/tarslip)
+        # and would be unsafe if the input ever stopped being trusted.
+        # Same form as scripts/verify_release.py.
+        tar.extractall(dest, filter="data")
 
 
 def _normalize_mtimes(root: Path, epoch: int) -> None:

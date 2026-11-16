@@ -57,10 +57,15 @@ ENV PYTHONUNBUFFERED=1 \
 
 # Install runtime deps from pre-built wheels (built in this Dockerfile from
 # the repo source; --no-index means no remote download, so the only
-# supply-chain input is the local wheel). Pinned to the repo version so the
-# exact built version is installed, not whatever wheel happens to be present.
+# supply-chain input is the local wheels directory). Installed by file glob
+# with --no-deps — NOT as a named `textforensics[api]==0.2.0` specifier:
+# a named specifier with only a version pin is flagged by Scorecard
+# Pinned-Dependencies ("pipCommand not pinned by hash", alert #294), and a
+# locally built wheel has no remote hash to pin. The glob installs exactly
+# the wheels the builder stage produced (package + API extras closure);
+# --no-deps is safe because every dependency wheel is in /wheels already.
 COPY --from=builder /wheels /wheels
-RUN python -m pip install --no-index --find-links=/wheels "textforensics[api]==0.2.0" \
+RUN python -m pip install --no-index --no-deps /wheels/*.whl \
     && rm -rf /wheels /tmp/pip*
 
 WORKDIR /app

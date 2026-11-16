@@ -20,6 +20,8 @@ Use GitHub's private security-advisory reporting for this repository when availa
 
 **Repository → Security → Advisories → Report a vulnerability**
 
+Direct link: <https://github.com/strmt7/TextForensics/security/advisories/new>
+
 Include:
 - affected version/commit;
 - deployment mode (CLI, browser UI, API, MCP, container, plugin);
@@ -245,7 +247,44 @@ CI-command changes, weaker Dependabot support for standalone
 constraints files); the freeze-based lock achieves the same
 determinism with the tools the repo already uses, and the
 direct/transitive distinction is preserved one level up, in
-`pyproject.toml` vs the lockfile. Hash pinning is likewise deferred.
+`pyproject.toml` vs the lockfile.
+
+### Decision (2026-11-14) — hash-pinned lockfiles for CI installs
+
+**Decision: hash-pin CI installs; `requirements-pinned.txt` stays
+hash-free.** Version (`==`) pinning alone does **not** satisfy
+Scorecard's Pinned-Dependencies check: a `==`-pinned install line is
+itself flagged, as proven by `reproducibility.yml:41` (alert 137).
+The "no hashes" accepted cost recorded above is therefore **reversed
+for CI workflow installs** (parent-accepted governance decision,
+2026-11-14): every workflow `pip install` now uses a hash-pinned
+lockfile with `--require-hashes`, and the package itself is installed
+with `--no-deps -e .[extras]` (which Scorecard does not flag).
+
+- `requirements-hashed.txt` (120 packages) is **derived from**
+  `requirements-pinned.txt` — the same 120 exact versions, plus every
+  downloadable file's sha256 hash for each version — so the SBOM
+  component list is unchanged.
+- `requirements-tools-hashed.txt` (8 packages) hash-pins the tools
+  that are not in the main lockfile (memory-profiler, cyclonedx-bom,
+  myst-parser, sphinx, sphinx-rtd-theme, plus the reproducibility
+  build toolchain build 1.2.2 / setuptools 79.0.1 / wheel 0.45.1 at
+  deliberately older versions than the main lockfile's
+  1.6.1/84.2.1/0.48.0).
+- **Regenerate the hashed lockfile after any
+  `requirements-pinned.txt` change** (generator
+  `~/workspace/gen_hashed_lock.py`:
+  `python3 ~/workspace/gen_hashed_lock.py < requirements-pinned.txt > requirements-hashed.txt`),
+  in the same commit; a stale hashed lockfile fails the install with a
+  hash mismatch rather than resolving silently. The same applies to
+  `requirements-tools-hashed.txt` after any tools-package change.
+- `requirements-pinned.txt` itself stays hash-free: it remains the
+  single human-reviewed version record (and the SBOM source); the
+  hashed files are mechanical derivations of it, not a second source
+  of version truth. The Dockerfile runtime install is the one
+  exception to `--require-hashes`: it installs locally built wheels
+  by file glob with `--no-deps` (no remote download, no hash to pin;
+  see `Dockerfile`).
 
 `typer` was removed from the lockfile in the same change: it is unused
 (no `import typer` in `src/`, `tests/` or `scripts/`; the Typer CLI
@@ -274,15 +313,21 @@ pinned file, yet its release staled the SBOM.
   taken as part of a routine pin update); edit the `==` line(s); if the
   new version falls outside the pyproject range, widen the range in
   `pyproject.toml` in the same commit; reinstall in a fresh venv,
-  re-freeze the transitive section, regenerate the SBOM in the same
-  commit, and run the claims gate, schemas gate, pre-commit, and
+  re-freeze the transitive section, regenerate the hashed lockfile(s)
+  from the updated pinned file (see above), regenerate the SBOM in the
+  same commit, and run the claims gate, schemas gate, pre-commit, and
   `tests/test_generate_sbom.py` before merging. The full procedure is
   documented in the lockfile header. This repo works main-only, so
   Dependabot PRs are applied as direct main commits, never merged.
-- **Known limits:** the lock carries versions, not hashes (see above);
-  it has no environment markers and was resolved on Python 3.12 —
-  safe because the file is installed only on 3.12/ubuntu (the
-  `pinned`, `sbom`, and `pip-audit-gate` jobs); if a job ever installs
-  it on another Python or OS, the lock must be re-resolved per
-  environment first. If a direct pin is removed, prune its orphaned
-  transitive lines by re-freezing (nothing auto-prunes).
+- **Known limits:** `requirements-pinned.txt` carries versions, not
+  hashes (see above); the hashes live in the derived hashed
+  lockfiles, which are what CI workflow installs actually verify
+  against (`--require-hashes`). The lockfiles have no environment
+  markers and were resolved on Python 3.12, and they list every
+  downloadable file (wheels + sdist) for each pinned version, so the
+  same files install across platforms and Python versions; the CI
+  matrix installs the hashed lockfile on Python 3.11–3.15 (Core job),
+  so a version requiring a newer Python fails that install loudly
+  rather than resolving silently. If a direct pin is removed, prune
+  its orphaned transitive lines by re-freezing (nothing auto-prunes),
+  and regenerate the hashed lockfile(s) in the same commit.

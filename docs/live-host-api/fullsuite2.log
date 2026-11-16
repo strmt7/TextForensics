@@ -1,3 +1,13 @@
+# PRIVACY-MINIMIZED SUCCESSOR - this file is NOT the original run log.
+# The original live-host run log was minimized in place on branch audit-w7-d:
+# 4 host-specific home-directory paths (traceback frames, lines 33, 35, 1472,
+# 1474 of the source file) were replaced with the repo-relative path
+# tests/test_datasets.py. No other line was changed.
+# Source (lineage): commit 7d2112cea0be3c90f9fbf0600bdab376e239a128, file
+# docs/live-host-api/fullsuite2.log, source sha256:
+# ce2b470562cc64659cbf69d0fe3b3174af83c8fc3ba14b08fe51f2a0eb40af86
+# The original bytes remain in git history at that commit; no history was
+# rewritten. See docs/evidence/runs/privacy-minimized/README.md.
 ........................................................................ [  2%]
 ........................................................................ [  4%]
 ........................................................................ [  6%]
@@ -30,9 +40,9 @@ Traceback (most recent call last):
     self.handle_one_request()
   File "/usr/lib/python3.12/http/server.py", line 424, in handle_one_request
     method()
-  File "/home/hatch/workspace/TextForensics-lh-api/tests/test_datasets.py", line 887, in do_GET
+  File "tests/test_datasets.py", line 887, in do_GET
     self._send(status, start, payload, payload)
-  File "/home/hatch/workspace/TextForensics-lh-api/tests/test_datasets.py", line 904, in _send
+  File "tests/test_datasets.py", line 904, in _send
     self.wfile.write(chunk)
   File "/usr/lib/python3.12/socketserver.py", line 840, in write
     self._sock.sendall(b)
@@ -1469,9 +1479,9 @@ Traceback (most recent call last):
     self.handle_one_request()
   File "/usr/lib/python3.12/http/server.py", line 424, in handle_one_request
     method()
-  File "/home/hatch/workspace/TextForensics-lh-api/tests/test_datasets.py", line 884, in do_GET
+  File "tests/test_datasets.py", line 884, in do_GET
     self._send(status, start, payload, payload[: type(self).drop_after])
-  File "/home/hatch/workspace/TextForensics-lh-api/tests/test_datasets.py", line 904, in _send
+  File "tests/test_datasets.py", line 904, in _send
     self.wfile.write(chunk)
   File "/usr/lib/python3.12/socketserver.py", line 840, in write
     self._sock.sendall(b)

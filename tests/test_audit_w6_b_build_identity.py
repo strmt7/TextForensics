@@ -435,7 +435,7 @@ class TestWheelFromSdistIdentity:
         unpack = tmp_path / "unpacked"
         unpack.mkdir()
         with tarfile.open(built_sdist, "r:gz") as archive:
-            archive.extractall(unpack)
+            archive.extractall(unpack, filter="data")
         source_dir = next(unpack.iterdir())
         assert not (source_dir / ".git").exists()
         wheel = _build_wheel_from_dir(source_dir, build_venv, tmp_path / "wheel-out")
@@ -476,7 +476,7 @@ class TestWheelFromSdistIdentity:
         unpack = other / "unpacked"
         unpack.mkdir()
         with tarfile.open(built_sdist, "r:gz") as archive:
-            archive.extractall(unpack)
+            archive.extractall(unpack, filter="data")
         source_dir = next(unpack.iterdir())
         wheel = _build_wheel_from_dir(source_dir, build_venv, tmp_path / "wheel-out")
         payload = _install_wheel_and_read_build_info(wheel, tmp_path)
@@ -492,7 +492,7 @@ class TestWheelFromSdistIdentity:
         unpack = tmp_path / "unpacked"
         unpack.mkdir()
         with tarfile.open(built_sdist, "r:gz") as archive:
-            archive.extractall(unpack)
+            archive.extractall(unpack, filter="data")
         source_dir = next(unpack.iterdir())
         prov = source_dir / "src" / "textforensics" / "_sdist_provenance.json"
         assert prov.exists()
@@ -512,7 +512,7 @@ class TestWheelFromSdistIdentity:
         unpack = tmp_path / "unpacked"
         unpack.mkdir()
         with tarfile.open(built_sdist, "r:gz") as archive:
-            archive.extractall(unpack)
+            archive.extractall(unpack, filter="data")
         source_dir = next(unpack.iterdir())
         wheel = _build_wheel_from_dir(source_dir, build_venv, tmp_path / "wheel-out")
         venv = tmp_path / "install-venv"
