@@ -39,7 +39,9 @@ def test_partition_rule_covers_all_buckets_deterministically():
     assert set(seen) == {"fit", "dev", "final-test"}
     assert partition_of("some-group") == partition_of("some-group")
     assert frozenset(range(10)) == FIT_BUCKETS | DEV_BUCKETS | FINAL_BUCKETS
-    assert not (FIT_BUCKETS & DEV_BUCKETS or FIT_BUCKETS & FINAL_BUCKETS or DEV_BUCKETS & FINAL_BUCKETS)
+    assert not (
+        FIT_BUCKETS & DEV_BUCKETS or FIT_BUCKETS & FINAL_BUCKETS or DEV_BUCKETS & FINAL_BUCKETS
+    )
 
 
 def test_average_precision_perfect_and_worst():
@@ -99,7 +101,11 @@ def test_group_ghostwriter_rows_near_duplicates_merge():
 
 
 def test_dedupe_by_content_keeps_first_and_records_drop():
-    rows = [_row("a", "same text " * 10, 1), _row("b", "same text " * 10, 1), _row("c", "other " * 10, 0)]
+    rows = [
+        _row("a", "same text " * 10, 1),
+        _row("b", "same text " * 10, 1),
+        _row("c", "other " * 10, 0),
+    ]
     kept, dropped = dedupe_by_content(rows, pool_label="test")
     assert [r.source_id for r in kept] == ["a", "c"]
     assert len(dropped) == 1
@@ -129,9 +135,7 @@ def test_partition_counts_counts_labels_only():
 
 
 def _scored(source_id, score, reliability, domain="student_essays", lang="en-EN"):
-    row = SimpleNamespace(
-        source_id=source_id, meta={"domain": domain, "lang": lang}
-    )
+    row = SimpleNamespace(source_id=source_id, meta={"domain": domain, "lang": lang})
     return {"row": row, "score": score, "reliability": reliability}
 
 
@@ -141,7 +145,11 @@ def test_sensitivity_attribution_flags_u1_top_row():
         _scored("new-row-1", 0.6496, 0.7895),
         _scored("new-row-2", 0.6445, 0.8307),
     ]
-    cache_of = {"u1-row": "train.jsonl", "new-row-1": "train-2000.jsonl", "new-row-2": "train-2000.jsonl"}
+    cache_of = {
+        "u1-row": "train.jsonl",
+        "new-row-1": "train-2000.jsonl",
+        "new-row-2": "train-2000.jsonl",
+    }
     detail = sensitivity_attribution(human, cache_of)
     assert detail["top_human_row"]["is_u1_row"] is True
     assert detail["top_human_row"]["score"] == 0.674

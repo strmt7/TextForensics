@@ -152,7 +152,7 @@ GW_PHASE_SHIFT = 83  # half the 2000-grid step (~166)
 GW_CONFIG = "default"
 GW_SPLIT = "train"
 GW_OLD_N_ROWS = 500
-GW_OLD_CACHE_SHA256 = "12d2ab690b8952d34cb8814231b332f96dbc565de6f2daf4af50d3a60df184c8"
+GW_OLD_CACHE_SHA256 = "12d2ab690b8952d34cb8814231b332f96dbc565de6f2daf4af50d3a60df184c8"  # pragma: allowlist secret  # public SHA-256 of the public GhostWriter U1 cache file, not a secret
 GW_NEW_FILENAME = "train-2000.jsonl"
 GW_RAW_CHECKPOINT_FILENAME = "train-2000.raw.jsonl"
 GW_FETCH_ROUNDS = 5
@@ -160,8 +160,8 @@ GW_FETCH_ROUND_PAUSE_S = 30
 DEFAULT_WORKERS = 4
 
 # --- OpAI-Bench pool (existing caches, re-verified) ---
-OPAI_U1_CACHE_SHA256 = "72bcfe9f0948afa036f6707da5f366c989ce2f455592764b56c7bfea08e2a2ae"
-OPAI_2000_CACHE_SHA256 = "d013ce6f42aa39768b9dee92c06f22dd6f63848c9bc04650bdccf468c11ee4cc"
+OPAI_U1_CACHE_SHA256 = "72bcfe9f0948afa036f6707da5f366c989ce2f455592764b56c7bfea08e2a2ae"  # pragma: allowlist secret  # public SHA-256 of the public OpAI-Bench U1 cache file, not a secret
+OPAI_2000_CACHE_SHA256 = "d013ce6f42aa39768b9dee92c06f22dd6f63848c9bc04650bdccf468c11ee4cc"  # pragma: allowlist secret  # public SHA-256 of the public OpAI-Bench train-2000 cache file, not a secret
 
 RUN_ID_GHOSTWRITER = "EV-20261116-dataset-ghostwriter"
 RUN_ID_OPAI = "EV-20261116-dataset-opai-bench"
@@ -223,12 +223,11 @@ LICENCE_VERIFICATION = {
 # Pure helpers (unit-tested in tests/test_measure_w8_ghostwriter_opai.py)
 # ---------------------------------------------------------------------------
 
+
 def content_hash(text: str) -> str:
     """Content hash of one normalised text (same construction as
     ``textforensics.benchmark._compute_sample_hashes``)."""
-    content = json.dumps(
-        {"text": text}, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-    )
+    content = json.dumps({"text": text}, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
@@ -417,6 +416,7 @@ def group_ghostwriter_rows(rows: list) -> dict[str, str]:
 # Shared helpers
 # ---------------------------------------------------------------------------
 
+
 def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -479,6 +479,7 @@ def _verify_cache_sha(path: Path, expected: str, label: str) -> None:
 # GhostWriter fetch (phase-shifted strided sample, checkpointed)
 # ---------------------------------------------------------------------------
 
+
 def ghostwriter_offsets(
     *, total: int = GW_SPLIT_TOTAL, n: int = GW_N_ROWS, phase_shift: int = GW_PHASE_SHIFT
 ) -> list[int]:
@@ -494,13 +495,14 @@ def _fetch_one_offset(offset: int, client, spec) -> dict:
             break
         except Exception as exc:  # noqa: BLE001 - retry, then re-raise below
             print(
-                f"[gw] offset {offset}: attempt round {round_no}/{GW_FETCH_ROUNDS} "
-                f"failed ({exc})",
+                f"[gw] offset {offset}: attempt round {round_no}/{GW_FETCH_ROUNDS} failed ({exc})",
                 flush=True,
             )
             if round_no == GW_FETCH_ROUNDS:
                 raise
-            time.sleep(GW_FETCH_ROUND_PAUSE_S * round_no + random.uniform(0, GW_FETCH_ROUND_PAUSE_S))
+            time.sleep(
+                GW_FETCH_ROUND_PAUSE_S * round_no + random.uniform(0, GW_FETCH_ROUND_PAUSE_S)
+            )
     if not page:
         raise ValueError(
             f"{spec.hf_id} {GW_CONFIG}/{GW_SPLIT}: server returned no row at offset {offset}"
@@ -615,19 +617,21 @@ def fetch_ghostwriter_sample(*, workers: int = DEFAULT_WORKERS) -> tuple[list, l
     # documents by content. Drop exactly those rows (by content hash
     # vs the U1 cache) before writing the cache. Exclusion is by
     # identity, never by detector score.
-    old_hashes = set(
-        fingerprint_dataset(old_cache, "ghostwriter", split="train").content_hashes
-    )
+    old_hashes = set(fingerprint_dataset(old_cache, "ghostwriter", split="train").content_hashes)
     kept, excluded = [], []
     seen: set[str] = set()
     for row, offset in zip(normalized, offsets, strict=True):
         digest = content_hash(row.text)
         if digest in old_hashes:
-            excluded.append({
-                "offset": offset, "content_hash": digest, "label": row.label,
-                "source_id": row.source_id,
-                "reason": "duplicates a U1 document by content hash",
-            })
+            excluded.append(
+                {
+                    "offset": offset,
+                    "content_hash": digest,
+                    "label": row.label,
+                    "source_id": row.source_id,
+                    "reason": "duplicates a U1 document by content hash",
+                }
+            )
             continue
         if digest in seen:
             # Same class as the U1 cache's own 2 internal duplicates:
@@ -635,16 +639,22 @@ def fetch_ghostwriter_sample(*, workers: int = DEFAULT_WORKERS) -> tuple[list, l
             # first in offset order) and record it — by identity,
             # never by detector score. Raising here would discard a
             # 2000-row fetch over a documented corpus property.
-            excluded.append({
-                "offset": offset, "content_hash": digest, "label": row.label,
-                "source_id": row.source_id,
-                "reason": "exact content duplicate of an earlier row in this sample; kept once",
-            })
+            excluded.append(
+                {
+                    "offset": offset,
+                    "content_hash": digest,
+                    "label": row.label,
+                    "source_id": row.source_id,
+                    "reason": "exact content duplicate of an earlier row in this sample; kept once",
+                }
+            )
             continue
         seen.add(digest)
         kept.append(row)
     if excluded:
-        print(f"[gw] !!! EXCLUDED {len(excluded)} rows duplicating U1/sample documents by content hash")
+        print(
+            f"[gw] !!! EXCLUDED {len(excluded)} rows duplicating U1/sample documents by content hash"
+        )
         for entry in excluded:
             print(f"[gw]   excluded offset {entry['offset']} label={entry['label']}")
 
@@ -673,7 +683,8 @@ def fetch_ghostwriter_sample(*, workers: int = DEFAULT_WORKERS) -> tuple[list, l
         excluded_path.write_text(
             json.dumps(
                 {"cache_file": GW_NEW_FILENAME, "excluded": excluded},
-                indent=2, sort_keys=True,
+                indent=2,
+                sort_keys=True,
             )
             + "\n",
             encoding="utf-8",
@@ -685,6 +696,7 @@ def fetch_ghostwriter_sample(*, workers: int = DEFAULT_WORKERS) -> tuple[list, l
 # ---------------------------------------------------------------------------
 # Evaluation
 # ---------------------------------------------------------------------------
+
 
 def reproduce_u1_checks() -> dict:
     """Re-run the detector over the raw U1 caches; counts must reproduce
@@ -700,9 +712,7 @@ def reproduce_u1_checks() -> dict:
         labelled = [r for r in rows if r.label is not None]
         n_human = sum(1 for r in labelled if int(r.label) == 0)
         n_ai = sum(1 for r in labelled if int(r.label) == 1)
-        abstentions = sum(
-            1 for r in labelled if detector.detect(r.text).verdict == "abstain"
-        )
+        abstentions = sum(1 for r in labelled if detector.detect(r.text).verdict == "abstain")
         got = {"n_human": n_human, "n_ai": n_ai, "abstentions": abstentions}
         if got != exp:
             raise ValueError(
@@ -715,8 +725,12 @@ def reproduce_u1_checks() -> dict:
 
 
 def slice_metrics(
-    *, slice_id: str, labels: list[int], scores: list[float],
-    verdicts: list[str], group_ids: list[str],
+    *,
+    slice_id: str,
+    labels: list[int],
+    scores: list[float],
+    verdicts: list[str],
+    group_ids: list[str],
 ) -> dict:
     """Per-slice metrics at the native operating point.
 
@@ -738,17 +752,22 @@ def slice_metrics(
         # reports the rate as null with the reason, never a fabricated 0.
         if n == 0:
             return {
-                "k": k, "n": 0, "value": None,
-                "ci_lower": None, "ci_upper": None,
+                "k": k,
+                "n": 0,
+                "value": None,
+                "ci_lower": None,
+                "ci_upper": None,
                 "method": WILSON_METHOD,
                 "not_computed": "no rows of this class in the slice",
                 "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
             }
         lo, hi = wilson_ci(k, n)
         return {
-            "k": k, "n": n,
+            "k": k,
+            "n": n,
             "value": round(k / n, 4),
-            "ci_lower": round(lo, 4), "ci_upper": round(hi, 4),
+            "ci_lower": round(lo, 4),
+            "ci_upper": round(hi, 4),
             "method": WILSON_METHOD,
             "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
         }
@@ -766,7 +785,9 @@ def slice_metrics(
         "abstentions": abstentions,
         "score_by_label": {
             "human": _score_summary([s for lab, s in zip(labels, scores, strict=True) if lab == 0]),
-            "machine": _score_summary([s for lab, s in zip(labels, scores, strict=True) if lab == 1]),
+            "machine": _score_summary(
+                [s for lab, s in zip(labels, scores, strict=True) if lab == 1]
+            ),
         },
     }
     if min(n_human, n_ai) >= 10:
@@ -796,26 +817,39 @@ def threshold_sensitivity(human_scores: list[float], human_reliabilities: list[f
             if s >= threshold and r >= RELIABILITY_FLOOR
         )
         if n == 0:
-            entries.append({
-                "threshold": threshold, "k": k, "n": 0,
-                "rate": None, "ci_lower": None, "ci_upper": None,
-                "method": WILSON_METHOD,
-                "not_computed": "no human rows in the slice",
-            })
+            entries.append(
+                {
+                    "threshold": threshold,
+                    "k": k,
+                    "n": 0,
+                    "rate": None,
+                    "ci_lower": None,
+                    "ci_upper": None,
+                    "method": WILSON_METHOD,
+                    "not_computed": "no human rows in the slice",
+                }
+            )
             continue
         lo, hi = wilson_ci(k, n)
-        entries.append({
-            "threshold": threshold, "k": k, "n": n,
-            "rate": round(k / n, 4) if n else 0.0,
-            "ci_lower": round(lo, 4), "ci_upper": round(hi, 4),
-            "method": WILSON_METHOD,
-        })
+        entries.append(
+            {
+                "threshold": threshold,
+                "k": k,
+                "n": n,
+                "rate": round(k / n, 4) if n else 0.0,
+                "ci_lower": round(lo, 4),
+                "ci_upper": round(hi, 4),
+                "method": WILSON_METHOD,
+            }
+        )
     return {
         "native_threshold": NATIVE_THRESHOLD,
         "reliability_floor": RELIABILITY_FLOOR,
         "max_human_score": round(max(human_scores), 4) if human_scores else None,
         "within_below_threshold": {
-            str(delta): sum(1 for s in human_scores if NATIVE_THRESHOLD - delta <= s < NATIVE_THRESHOLD)
+            str(delta): sum(
+                1 for s in human_scores if NATIVE_THRESHOLD - delta <= s < NATIVE_THRESHOLD
+            )
             for delta in (0.01, 0.02, 0.05)
         },
         "human_scores_at_or_above_threshold": sum(1 for s in human_scores if s >= NATIVE_THRESHOLD),
@@ -841,18 +875,22 @@ def score_final_test(rows_with_partitions, group_of) -> list[dict]:
         if partition != "final-test" or row.label is None:
             continue
         prediction = detector.detect(row.text)
-        scored.append({
-            "row": row,
-            "label": int(row.label),
-            "score": float(prediction.score),
-            "reliability": float(prediction.reliability),
-            "verdict": str(prediction.verdict),
-            "group": group_of[row.source_id],
-        })
+        scored.append(
+            {
+                "row": row,
+                "label": int(row.label),
+                "score": float(prediction.score),
+                "reliability": float(prediction.reliability),
+                "verdict": str(prediction.verdict),
+                "group": group_of[row.source_id],
+            }
+        )
     return scored
 
 
-def summarize_slices(scored: list[dict], groupings: dict[str, list[dict]], dataset_label: str) -> dict:
+def summarize_slices(
+    scored: list[dict], groupings: dict[str, list[dict]], dataset_label: str
+) -> dict:
     """Per-slice metrics for explicit (possibly overlapping) row
     groupings. ``groupings`` maps slice name -> scored rows."""
     results = {}
@@ -865,9 +903,7 @@ def summarize_slices(scored: list[dict], groupings: dict[str, list[dict]], datas
             group_ids=[i["group"] for i in items],
         )
     ranked = [
-        (m["fpr_native"]["ci_upper"], name, m)
-        for name, m in results.items()
-        if m["n_human"] >= 10
+        (m["fpr_native"]["ci_upper"], name, m) for name, m in results.items() if m["n_human"] >= 10
     ]
     ranked.sort(key=lambda t: t[0], reverse=True)
     worst = ranked[0] if ranked else (None, None, None)
@@ -891,13 +927,15 @@ def dedupe_by_content(rows: list, *, pool_label: str) -> tuple[list, list[dict]]
     for row in rows:
         digest = content_hash(row.text)
         if digest in seen:
-            dropped.append({
-                "source_id": row.source_id,
-                "content_hash": digest,
-                "label": row.label,
-                "duplicates_kept_source_id": seen[digest],
-                "reason": "exact content duplicate of an earlier pooled row; kept once so no text is double-counted",
-            })
+            dropped.append(
+                {
+                    "source_id": row.source_id,
+                    "content_hash": digest,
+                    "label": row.label,
+                    "duplicates_kept_source_id": seen[digest],
+                    "reason": "exact content duplicate of an earlier pooled row; kept once so no text is double-counted",
+                }
+            )
             continue
         seen[digest] = row.source_id
         kept.append(row)
@@ -940,30 +978,37 @@ def require_final_test_size(counts: dict, *, dataset_label: str) -> None:
             "shrinking the holdout"
         )
     if final["n_ai"] < 100:
-        raise ValueError(
-            f"{dataset_label}: final-test n_ai={final['n_ai']} is below 100"
-        )
+        raise ValueError(f"{dataset_label}: final-test n_ai={final['n_ai']} is below 100")
 
 
 def write_manifest(
-    *, dataset: str, run_id: str, group_key_description: str,
-    sources: list[dict], drops: list[dict], rows_with_partitions: list[tuple],
-    group_of: dict[str, str], slice_of, cache_file_of: dict[str, str],
+    *,
+    dataset: str,
+    run_id: str,
+    group_key_description: str,
+    sources: list[dict],
+    drops: list[dict],
+    rows_with_partitions: list[tuple],
+    group_of: dict[str, str],
+    slice_of,
+    cache_file_of: dict[str, str],
 ) -> tuple[Path, str]:
     """Freeze the partition manifest (no raw text) and return its
     path and SHA-256."""
     MANIFESTS_DIR.mkdir(parents=True, exist_ok=True)
     entries = []
     for row, partition in rows_with_partitions:
-        entries.append({
-            "source_id": row.source_id,
-            "content_hash": content_hash(row.text),
-            "group_key": group_of[row.source_id],
-            "partition": partition,
-            "label": row.label,
-            "slice": slice_of(row),
-            "cache_file": cache_file_of[row.source_id],
-        })
+        entries.append(
+            {
+                "source_id": row.source_id,
+                "content_hash": content_hash(row.text),
+                "group_key": group_of[row.source_id],
+                "partition": partition,
+                "label": row.label,
+                "slice": slice_of(row),
+                "cache_file": cache_file_of[row.source_id],
+            }
+        )
     manifest = {
         "schema": "textforensics.w8-partition-manifest/v1",
         "dataset": dataset,
@@ -1005,6 +1050,7 @@ def _content_disjoint_check(new_cache: Path, other_cache: Path, label: str, data
 # OpAI-Bench
 # ---------------------------------------------------------------------------
 
+
 def build_opai_pool() -> tuple[list, list[dict], list[dict], dict[str, str]]:
     """Pool the two existing, content-disjoint OpAI-Bench samples and
     group by document_hash_id. Returns (rows, sources, drops)."""
@@ -1026,10 +1072,18 @@ def build_opai_pool() -> tuple[list, list[dict], list[dict], dict[str, str]]:
     cache_file_of = {r.source_id: "train.jsonl" for r in u1}
     cache_file_of.update({r.source_id: "train-2000.jsonl" for r in c2000})
     sources = [
-        {"cache_file": "train.jsonl", "file_sha256": OPAI_U1_CACHE_SHA256, "rows": len(u1),
-         "label_counts": {str(k): sum(1 for r in u1 if r.label == k) for k in (0, 1, None)}},
-        {"cache_file": "train-2000.jsonl", "file_sha256": OPAI_2000_CACHE_SHA256, "rows": len(c2000),
-         "label_counts": {str(k): sum(1 for r in c2000 if r.label == k) for k in (0, 1, None)}},
+        {
+            "cache_file": "train.jsonl",
+            "file_sha256": OPAI_U1_CACHE_SHA256,
+            "rows": len(u1),
+            "label_counts": {str(k): sum(1 for r in u1 if r.label == k) for k in (0, 1, None)},
+        },
+        {
+            "cache_file": "train-2000.jsonl",
+            "file_sha256": OPAI_2000_CACHE_SHA256,
+            "rows": len(c2000),
+            "label_counts": {str(k): sum(1 for r in c2000 if r.label == k) for k in (0, 1, None)},
+        },
     ]
     print(
         f"[opai] pooled {len(kept)} rows "
@@ -1050,14 +1104,17 @@ def run_opai(*, force: bool) -> dict:
     require_final_test_size(counts, dataset_label="OpAI-Bench")
     print(f"[opai] partition counts: {json.dumps(counts)}")
     manifest_path, manifest_sha = write_manifest(
-        dataset="opai_bench", run_id=RUN_ID_OPAI,
+        dataset="opai_bench",
+        run_id=RUN_ID_OPAI,
         group_key_description=(
             "document_hash_id: all 9 versions (v0-v8) of one document "
             "share one group, so no version of a final-test document "
             "appears in fit/dev. 89 groups span the two pooled samples."
         ),
-        sources=sources, drops=drops,
-        rows_with_partitions=rows_with_partitions, group_of=group_of,
+        sources=sources,
+        drops=drops,
+        rows_with_partitions=rows_with_partitions,
+        group_of=group_of,
         slice_of=lambda r: str(r.meta.get("domain")),
         cache_file_of=cache_file_of,
     )
@@ -1081,9 +1138,13 @@ def run_opai(*, force: bool) -> dict:
     for item in scored:
         by_domain[str(item["row"].meta.get("domain"))].append(item)
     groupings: dict[str, list[dict]] = {"pooled": scored, **dict(by_domain)}
-    for generator in sorted({str(s["row"].meta.get("generator")) for s in scored if s["label"] == 1}):
+    for generator in sorted(
+        {str(s["row"].meta.get("generator")) for s in scored if s["label"] == 1}
+    ):
         groupings[f"generator-{generator}"] = human_rows + [
-            s for s in scored if s["label"] == 1 and str(s["row"].meta.get("generator")) == generator
+            s
+            for s in scored
+            if s["label"] == 1 and str(s["row"].meta.get("generator")) == generator
         ]
     evaluation = summarize_slices(scored, groupings, "opai-bench")
     final = counts["final-test"]
@@ -1196,20 +1257,30 @@ def run_opai(*, force: bool) -> dict:
         ],
     }
     drops_manifest = [
-        {"item": "full-corpus evaluation",
-         "reason": "partitioned pooled sample only (n=2496 normalised rows from 196029 split rows)"},
-        {"item": "Python 3.11, 3.13, 3.14, 3.15",
-         "reason": "measured on the local interpreter only; CI covers the matrix"},
-        {"item": "train/test threshold selection",
-         "reason": "no threshold was fitted on this sample; the operating point is the detector's native verdict"},
-        {"item": f"{sum(1 for r in rows if r.label is None)} partial (mixed-origin) rows",
-         "reason": "rows with 0 < ai_sentence_ratio < 1 carry no binary label; they are the U4 spine, not U1 evidence"},
+        {
+            "item": "full-corpus evaluation",
+            "reason": "partitioned pooled sample only (n=2496 normalised rows from 196029 split rows)",
+        },
+        {
+            "item": "Python 3.11, 3.13, 3.14, 3.15",
+            "reason": "measured on the local interpreter only; CI covers the matrix",
+        },
+        {
+            "item": "train/test threshold selection",
+            "reason": "no threshold was fitted on this sample; the operating point is the detector's native verdict",
+        },
+        {
+            "item": f"{sum(1 for r in rows if r.label is None)} partial (mixed-origin) rows",
+            "reason": "rows with 0 < ai_sentence_ratio < 1 carry no binary label; they are the U4 spine, not U1 evidence",
+        },
     ]
     if drops:
-        drops_manifest.append({
-            "item": f"{len(drops)} exact-duplicate rows",
-            "reason": "byte-identical texts appearing twice in the pooled sample; kept once so no text is double-counted (by identity, never by score)",
-        })
+        drops_manifest.append(
+            {
+                "item": f"{len(drops)} exact-duplicate rows",
+                "reason": "byte-identical texts appearing twice in the pooled sample; kept once so no text is double-counted (by identity, never by score)",
+            }
+        )
     record = _base_record(RUN_ID_OPAI, "command", "python scripts/measure_w8_ghostwriter_opai.py")
     record["results"] = results
     record["drops"] = drops_manifest
@@ -1230,15 +1301,11 @@ def sensitivity_attribution(human_scored: list[dict], cache_file_of: dict[str, s
         raise ValueError("sensitivity_attribution needs at least one human row")
     top_human = max(human_scored, key=lambda s: s["score"])
     top_human_cache = cache_file_of[top_human["row"].source_id]
-    new_human = [
-        s for s in human_scored if cache_file_of[s["row"].source_id] != "train.jsonl"
-    ]
+    new_human = [s for s in human_scored if cache_file_of[s["row"].source_id] != "train.jsonl"]
     new_human_scores = [s["score"] for s in new_human]
     new_max = round(max(new_human_scores), 4) if new_human_scores else None
     new_k_at_066 = sum(
-        1
-        for s in new_human
-        if s["score"] >= 0.66 and s["reliability"] >= RELIABILITY_FLOOR
+        1 for s in new_human if s["score"] >= 0.66 and s["reliability"] >= RELIABILITY_FLOOR
     )
     return {
         "top_human_row": {
@@ -1272,6 +1339,7 @@ def sensitivity_attribution(human_scored: list[dict], cache_file_of: dict[str, s
 # GhostWriter
 # ---------------------------------------------------------------------------
 
+
 def build_ghostwriter_pool() -> tuple[list, list[dict], list[dict], dict[str, str]]:
     """Pool the U1 500-row sample with the new 2000-row sample and
     group by exact content hash + shingle-Jaccard near-duplicates.
@@ -1300,22 +1368,32 @@ def build_ghostwriter_pool() -> tuple[list, list[dict], list[dict], dict[str, st
         # fetched row is counted exactly once.
         fetch_excluded = json.loads(excluded_path.read_text(encoding="utf-8"))["excluded"]
         for entry in fetch_excluded:
-            drops.append({
-                "source_id": entry.get("source_id"),
-                "content_hash": entry["content_hash"],
-                "label": entry["label"],
-                "offset": entry["offset"],
-                "origin": "fetch",
-                "reason": "fetch-time exclusion: " + entry.get("reason", ""),
-            })
+            drops.append(
+                {
+                    "source_id": entry.get("source_id"),
+                    "content_hash": entry["content_hash"],
+                    "label": entry["label"],
+                    "offset": entry["offset"],
+                    "origin": "fetch",
+                    "reason": "fetch-time exclusion: " + entry.get("reason", ""),
+                }
+            )
         print(f"[gw] accounted for {len(fetch_excluded)} fetch-time exclusion(s)")
     cache_file_of = {r.source_id: "train.jsonl" for r in u1}
     cache_file_of.update({r.source_id: GW_NEW_FILENAME for r in c2000})
     sources = [
-        {"cache_file": "train.jsonl", "file_sha256": GW_OLD_CACHE_SHA256, "rows": len(u1),
-         "label_counts": {str(k): sum(1 for r in u1 if r.label == k) for k in (0, 1, None)}},
-        {"cache_file": GW_NEW_FILENAME, "file_sha256": manifest2000["file_sha256"], "rows": len(c2000),
-         "label_counts": {str(k): sum(1 for r in c2000 if r.label == k) for k in (0, 1, None)}},
+        {
+            "cache_file": "train.jsonl",
+            "file_sha256": GW_OLD_CACHE_SHA256,
+            "rows": len(u1),
+            "label_counts": {str(k): sum(1 for r in u1 if r.label == k) for k in (0, 1, None)},
+        },
+        {
+            "cache_file": GW_NEW_FILENAME,
+            "file_sha256": manifest2000["file_sha256"],
+            "rows": len(c2000),
+            "label_counts": {str(k): sum(1 for r in c2000 if r.label == k) for k in (0, 1, None)},
+        },
     ]
     print(
         f"[gw] pooled {len(kept)} rows "
@@ -1339,7 +1417,8 @@ def run_ghostwriter(*, force: bool) -> dict:
     require_final_test_size(counts, dataset_label="GhostWriter")
     print(f"[gw] partition counts: {json.dumps(counts)}")
     manifest_path, manifest_sha = write_manifest(
-        dataset="ghostwriter", run_id=RUN_ID_GHOSTWRITER,
+        dataset="ghostwriter",
+        run_id=RUN_ID_GHOSTWRITER,
         group_key_description=(
             "near-duplicate group: exact content-hash groups merged "
             "with word-8-shingle Jaccard >= 0.8 groups (inverted-index "
@@ -1347,8 +1426,10 @@ def run_ghostwriter(*, force: bool) -> dict:
             "(human rows share dataset URLs), so it cannot group "
             "documents; content identity is the grouping key."
         ),
-        sources=sources, drops=drops,
-        rows_with_partitions=rows_with_partitions, group_of=group_of,
+        sources=sources,
+        drops=drops,
+        rows_with_partitions=rows_with_partitions,
+        group_of=group_of,
         slice_of=lambda r: str(r.meta.get("domain")),
         cache_file_of=cache_file_of,
     )
@@ -1374,7 +1455,8 @@ def run_ghostwriter(*, force: bool) -> dict:
         by_domain[str(item["row"].meta.get("domain"))].append(item)
         by_lang[str(item["row"].meta.get("lang"))].append(item)
     groupings: dict[str, list[dict]] = {
-        "pooled": scored, **{f"domain-{k}": v for k, v in by_domain.items()},
+        "pooled": scored,
+        **{f"domain-{k}": v for k, v in by_domain.items()},
         **{f"lang-{k}": v for k, v in by_lang.items()},
     }
     for agent in sorted({str(s["row"].meta.get("agent")) for s in scored if s["label"] == 1}):
@@ -1486,27 +1568,37 @@ def run_ghostwriter(*, force: bool) -> dict:
         ],
     }
     drops_manifest = [
-        {"item": "full-corpus evaluation",
-         "reason": "partitioned pooled sample only (n=2500 normalised rows from 332224 split rows)"},
-        {"item": "Python 3.11, 3.13, 3.14, 3.15",
-         "reason": "measured on the local interpreter only; CI covers the matrix"},
-        {"item": "train/test threshold selection",
-         "reason": "no threshold was fitted on this sample; the operating point is the detector's native verdict"},
-        {"item": f"{sum(1 for r in rows if r.label is None)} fusion (mixed-origin) rows",
-         "reason": "label 2 rows carry no binary label; they are the U4 spine, not U1 evidence"},
+        {
+            "item": "full-corpus evaluation",
+            "reason": "partitioned pooled sample only (n=2500 normalised rows from 332224 split rows)",
+        },
+        {
+            "item": "Python 3.11, 3.13, 3.14, 3.15",
+            "reason": "measured on the local interpreter only; CI covers the matrix",
+        },
+        {
+            "item": "train/test threshold selection",
+            "reason": "no threshold was fitted on this sample; the operating point is the detector's native verdict",
+        },
+        {
+            "item": f"{sum(1 for r in rows if r.label is None)} fusion (mixed-origin) rows",
+            "reason": "label 2 rows carry no binary label; they are the U4 spine, not U1 evidence",
+        },
     ]
     if drops:
-        drops_manifest.append({
-            "item": f"{len(drops)} exact-duplicate rows",
-            "reason": (
-                "byte-identical texts appearing twice in the pooled "
-                "sample (including the 2 duplicate AI fulltexts already "
-                "present in the U1 500-row cache, which the registry "
-                "record evr-20261107-ghostwriter counts as n_ai=210); "
-                "kept once so no text is double-counted (by identity, "
-                "never by score)"
-            ),
-        })
+        drops_manifest.append(
+            {
+                "item": f"{len(drops)} exact-duplicate rows",
+                "reason": (
+                    "byte-identical texts appearing twice in the pooled "
+                    "sample (including the 2 duplicate AI fulltexts already "
+                    "present in the U1 500-row cache, which the registry "
+                    "record evr-20261107-ghostwriter counts as n_ai=210); "
+                    "kept once so no text is double-counted (by identity, "
+                    "never by score)"
+                ),
+            }
+        )
     record = _base_record(
         RUN_ID_GHOSTWRITER, "command", "python scripts/measure_w8_ghostwriter_opai.py"
     )
@@ -1522,6 +1614,7 @@ def run_ghostwriter(*, force: bool) -> dict:
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -1535,7 +1628,9 @@ def main(argv: list[str] | None = None) -> int:
         help="replace existing run artifacts; re-fetch the GhostWriter sample",
     )
     parser.add_argument(
-        "--workers", type=int, default=DEFAULT_WORKERS,
+        "--workers",
+        type=int,
+        default=DEFAULT_WORKERS,
         help="parallel fetch workers (default 4)",
     )
     args = parser.parse_args(argv)
@@ -1547,7 +1642,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[gw] {GW_NEW_FILENAME} already exists; use --force to re-fetch")
             return 0
         if args.force and gw_new_cache.exists():
-            print("[gw] --force: removing existing train-2000 cache + checkpoint for a clean re-fetch")
+            print(
+                "[gw] --force: removing existing train-2000 cache + checkpoint for a clean re-fetch"
+            )
             gw_new_cache.unlink()
             (root / "ghostwriter" / "default" / "train-2000.manifest.json").unlink(missing_ok=True)
             (root / "ghostwriter" / "default" / GW_RAW_CHECKPOINT_FILENAME).unlink(missing_ok=True)
