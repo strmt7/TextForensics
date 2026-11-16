@@ -7,6 +7,7 @@ file (an independent implementation of the normalisation), which also
 cross-checks the real packer in ``sealed_bundle.py``.
 """
 
+import contextlib
 import hashlib
 import importlib.util
 import io
@@ -447,6 +448,154 @@ class StandaloneSignatureTests(unittest.TestCase):
         report = self.mod.verify_bundle_bytes(bundle, public_key=wrong_key)
         self.assertEqual(report["exit_code"], 1)
         self.assertEqual(report["signature"], "failed")
+
+
+class StandaloneKeygenJsonTests(unittest.TestCase):
+    """Regression (W9 B-F1): ``verify.py --public-key`` must accept the
+    keygen JSON public-key file written by ``case keygen --public-out``.
+
+    The standalone ``_load_public_key`` accepted only 64 hex chars (arg
+    or file) or a raw 32-byte file, so a third party handed the tool's
+    own ``sealing-pub.json`` hit exit 2 ("non-hexadecimal number found
+    in fromhex()").  The CLI's own ``case verify --public-key`` accepts
+    that JSON file — the standalone verifier must too.
+    """
+
+    def setUp(self):
+        self.mod = load_standalone()
+
+    def _keygen_json_file(self, tmp, seed):
+        """Write a ``public_key_info`` JSON file for *seed*; return
+        (path, public_key)."""
+        import base64
+
+        from textforensics.sealing import (
+            generate_sealing_key,
+            public_key_from_seed,
+            public_key_info,
+        )
+
+        key = generate_sealing_key("w9-bfix", "sealer")
+        # Bind the public half to the signing seed used for the bundle.
+        public_key = public_key_from_seed(seed)
+        info = public_key_info(key)
+        info["public_key_b64"] = base64.b64encode(public_key).decode("ascii")
+        info["keyid"] = hashlib.sha256(public_key).hexdigest()
+        path = Path(tmp) / "sealing-pub.json"
+        path.write_text(json.dumps(info, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        return path, public_key
+
+    def test_keygen_json_public_key_file_loads(self):
+        tmp = tempfile.mkdtemp(prefix="standalone-keygen-json-")
+        try:
+            path, public_key = self._keygen_json_file(tmp, bytes(range(32)))
+            self.assertEqual(self.mod._load_public_key(str(path)), public_key)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_keygen_json_public_key_verifies_signed_bundle(self):
+        seed = bytes(range(32))
+        # Build the signed bundle via the signature-test helper.
+        helper = StandaloneSignatureTests(methodName="test_signature_verifies_with_key")
+        helper.setUp()
+        bundle, public_key = helper._signed_bundle(seed)
+        tmp = tempfile.mkdtemp(prefix="standalone-keygen-json-")
+        try:
+            path, loaded = self._keygen_json_file(tmp, seed)
+            self.assertEqual(loaded, public_key)
+            # The key must come out of the JSON file through the
+            # standalone loader, not straight from the seed.
+            loaded_key = self.mod._load_public_key(str(path))
+            self.assertEqual(loaded_key, public_key)
+            report = self.mod.verify_bundle_bytes(bundle, public_key=loaded_key)
+            self.assertEqual(report["exit_code"], 0, json.dumps(report, indent=2))
+            self.assertEqual(report["signature"], "verified")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_keygen_json_public_key_verifies_via_main(self):
+        seed = bytes(range(32))
+        helper = StandaloneSignatureTests(methodName="test_signature_verifies_with_key")
+        helper.setUp()
+        bundle, public_key = helper._signed_bundle(seed)
+        tmp = Path(tempfile.mkdtemp(prefix="standalone-keygen-json-"))
+        try:
+            path, _ = self._keygen_json_file(tmp, seed)
+            bundle_path = tmp / "case.sealed.zip"
+            bundle_path.write_bytes(bundle)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                exit_code = self.mod.main(
+                    ["--public-key", str(path), str(bundle_path)]
+                )
+            self.assertEqual(exit_code, 0, out.getvalue())
+            self.assertIn('"signature": "verified"', out.getvalue())
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_existing_key_forms_still_load(self):
+        import base64
+
+        from textforensics.sealing import public_key_from_seed
+
+        seed = bytes(range(32))
+        public_key = public_key_from_seed(seed)
+        tmp = Path(tempfile.mkdtemp(prefix="standalone-keygen-json-"))
+        try:
+            hex_path = tmp / "pub.hex"
+            hex_path.write_text(public_key.hex(), encoding="utf-8")
+            raw_path = tmp / "pub.raw"
+            raw_path.write_bytes(public_key)
+            self.assertEqual(self.mod._load_public_key(public_key.hex()), public_key)
+            self.assertEqual(self.mod._load_public_key(str(hex_path)), public_key)
+            self.assertEqual(self.mod._load_public_key(str(raw_path)), public_key)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_malformed_keygen_json_refused(self):
+        import base64
+
+        from textforensics.sealing import public_key_from_seed
+
+        seed = bytes(range(32))
+        public_key = public_key_from_seed(seed)
+        good = {
+            "algorithm": "ed25519",
+            "identity": "w9-bfix",
+            "keyid": hashlib.sha256(public_key).hexdigest(),
+            "public_key_b64": base64.b64encode(public_key).decode("ascii"),
+            "role": "sealer",
+        }
+        cases = {
+            "no public_key_b64": {k: v for k, v in good.items() if k != "public_key_b64"},
+            "wrong algorithm": {**good, "algorithm": "rsa"},
+            "invalid base64": {**good, "public_key_b64": "!!!not-base64!!!"},
+            "non-canonical base64": {
+                **good,
+                "public_key_b64": base64.b64encode(public_key).decode("ascii").rstrip("="),
+            },
+            "wrong key length": {
+                **good,
+                "public_key_b64": base64.b64encode(b"x" * 16).decode("ascii"),
+                "keyid": hashlib.sha256(b"x" * 16).hexdigest(),
+            },
+            "keyid mismatch": {**good, "keyid": "0" * 64},
+            "private sealing-key file": {
+                **good,
+                "schema": "textforensics.sealing-key/v1",
+                "seed_b64": base64.b64encode(seed).decode("ascii"),
+            },
+        }
+        tmp = Path(tempfile.mkdtemp(prefix="standalone-keygen-json-"))
+        try:
+            for name, payload in cases.items():
+                with self.subTest(name=name):
+                    path = tmp / "bad.json"
+                    path.write_text(json.dumps(payload), encoding="utf-8")
+                    with self.assertRaises(ValueError, msg=name):
+                        self.mod._load_public_key(str(path))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 class StandaloneTimestampTests(unittest.TestCase):
