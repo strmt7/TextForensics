@@ -271,6 +271,20 @@ with `--no-deps -e .[extras]` (which Scorecard does not flag).
   build toolchain build 1.2.2 / setuptools 79.0.1 / wheel 0.45.1 at
   deliberately older versions than the main lockfile's
   1.6.1/84.2.1/0.48.0).
+- `requirements-container-hashed.txt` (17 packages) hash-pins the
+  Dockerfile builder-stage dependency closure for
+  `textforensics[api]` — the exact subset of
+  `requirements-pinned.txt` the container needs (fastapi, jinja2,
+  uvicorn, websockets + transitives), with every downloadable file's
+  sha256 for each version, so one file serves linux/amd64 and
+  linux/arm64 on the container's Python 3.15. It closes Scorecard
+  alert #294's remaining floating surface (the builder used to
+  resolve the api deps from PyPI with only the pyproject ranges).
+  Regenerate it in the same commit as any `requirements-pinned.txt`
+  change touching the api closure (procedure in its header);
+  `tests/test_dockerfile.py` enforces subset-equality with
+  `requirements-pinned.txt`, so a stale container lockfile fails the
+  suite instead of shipping a stale image.
 - **Regenerate the hashed lockfile after any
   `requirements-pinned.txt` change** (generator
   `~/workspace/gen_hashed_lock.py`:
@@ -284,7 +298,10 @@ with `--no-deps -e .[extras]` (which Scorecard does not flag).
   of version truth. The Dockerfile runtime install is the one
   exception to `--require-hashes`: it installs locally built wheels
   by file glob with `--no-deps` (no remote download, no hash to pin;
-  see `Dockerfile`).
+  see `Dockerfile`). The builder stage is not an exception: it builds
+  the dependency wheels from `requirements-container-hashed.txt` with
+  `--require-hashes`, and builds the local package wheel separately
+  with `--no-deps`.
 
 `typer` was removed from the lockfile in the same change: it is unused
 (no `import typer` in `src/`, `tests/` or `scripts/`; the Typer CLI

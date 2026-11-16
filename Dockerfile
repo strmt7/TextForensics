@@ -23,9 +23,25 @@ COPY src ./src
 # the sed turns a comma list into --trusted-host flags. pip's build-isolation
 # subprocess does not honour PIP_TRUSTED_HOST from the environment, so the
 # flags must be on the command line. Empty by default: no flags, TLS verified.)
+#
+# Dependency wheels are hash-pinned (Scorecard alert #294): the builder
+# used to resolve the `textforensics[api]` closure from PyPI with only the
+# pyproject version ranges, so a rebuild could silently pick up newer
+# releases. `requirements-container-hashed.txt` pins the exact 17-package
+# closure at the versions in `requirements-pinned.txt`, with a sha256 for
+# every downloadable file of each version; one file serves linux/amd64 and
+# linux/arm64 (and the container's Python 3.15). The local package wheel
+# is built separately with --no-deps, so no index access happens for
+# dependencies on that line (its build-isolation backend download is
+# pip-internal, not a Dockerfile pip command).
+COPY requirements-container-hashed.txt ./
 RUN python -m pip wheel \
     $(echo "$PIP_TRUSTED_HOST" | sed -e '/^$/d' -e 's/,/ --trusted-host /g' -e 's/^/--trusted-host /') \
-    --wheel-dir /wheels ".[api]"
+    --require-hashes -r requirements-container-hashed.txt \
+    --wheel-dir /wheels
+RUN python -m pip wheel \
+    $(echo "$PIP_TRUSTED_HOST" | sed -e '/^$/d' -e 's/,/ --trusted-host /g' -e 's/^/--trusted-host /') \
+    --wheel-dir /wheels --no-deps ".[api]"
 
 # ── Runtime stage ────────────────────────────────────────────────────────────
 
