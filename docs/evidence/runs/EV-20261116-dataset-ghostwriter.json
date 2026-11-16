@@ -1,0 +1,1512 @@
+{
+  "badge": "available",
+  "code_version": "0c047b2194f938d80fde755a9361d63880762e88",
+  "command": "python scripts/measure_w8_ghostwriter_opai.py",
+  "drops": [
+    {
+      "item": "full-corpus evaluation",
+      "reason": "partitioned pooled sample only (n=2500 normalised rows from 332224 split rows)"
+    },
+    {
+      "item": "Python 3.11, 3.13, 3.14, 3.15",
+      "reason": "measured on the local interpreter only; CI covers the matrix"
+    },
+    {
+      "item": "train/test threshold selection",
+      "reason": "no threshold was fitted on this sample; the operating point is the detector's native verdict"
+    },
+    {
+      "item": "808 fusion (mixed-origin) rows",
+      "reason": "label 2 rows carry no binary label; they are the U4 spine, not U1 evidence"
+    },
+    {
+      "item": "4 exact-duplicate rows",
+      "reason": "byte-identical texts appearing twice in the pooled sample (including the 2 duplicate AI fulltexts already present in the U1 500-row cache, which the registry record evr-20261107-ghostwriter counts as n_ai=210); kept once so no text is double-counted (by identity, never by score)"
+    }
+  ],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261116-dataset-ghostwriter",
+  "kind": "command",
+  "results": {
+    "dataset": "ghostwriter",
+    "decisions_not_made": [
+      "no threshold was fitted, tuned, or moved (native 0.68 stands)",
+      "no calibration was fitted",
+      "no row was dropped for how it scores",
+      "no registry or report-card change was made (Worker D owns those)"
+    ],
+    "detector": "textforensics/builtin-heuristic",
+    "detector_family": "stylometric-heuristic",
+    "detector_version": "0.1.0",
+    "environment_lock": {
+      "git_sha": "0c047b2194f938d80fde755a9361d63880762e88",
+      "platform": "linux",
+      "python": "3.12.3",
+      "requirements_pinned_sha256": "1c80c465cd5d43d38414aed0a14639e70dc7c9aaa2cb7d07228491f4c56cf9e0",
+      "seeds": {
+        "bootstrap_seed": 20261116,
+        "partition": "sha256(group_key) mod 10"
+      }
+    },
+    "evaluation": {
+      "n_final_test_labelled": 861,
+      "slices": {
+        "agent-deepseek-r1:1.5b": {
+          "abstention_rate": 0.5294,
+          "abstentions": 189,
+          "coverage": 0.4706,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0107,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 354,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 3,
+          "n_ai_groups": 3,
+          "n_human": 354,
+          "n_human_groups": 354,
+          "ranking_metrics": null,
+          "ranking_metrics_not_computed": "both classes need >= 10 rows; n_human=354, n_ai=3",
+          "score_by_label": {
+            "human": {
+              "max": 0.674,
+              "mean": 0.3174,
+              "median": 0.3104,
+              "min": 0.035,
+              "n": 354
+            },
+            "machine": {
+              "max": 0.3491,
+              "mean": 0.3432,
+              "median": 0.3452,
+              "min": 0.3352,
+              "n": 3
+            }
+          },
+          "slice_id": "ghostwriter-agent-deepseek-r1:1.5b",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.5615,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 3,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "agent-deepseek-r1:32b": {
+          "abstention_rate": 0.5266,
+          "abstentions": 188,
+          "coverage": 0.4734,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0107,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 354,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 3,
+          "n_ai_groups": 3,
+          "n_human": 354,
+          "n_human_groups": 354,
+          "ranking_metrics": null,
+          "ranking_metrics_not_computed": "both classes need >= 10 rows; n_human=354, n_ai=3",
+          "score_by_label": {
+            "human": {
+              "max": 0.674,
+              "mean": 0.3174,
+              "median": 0.3104,
+              "min": 0.035,
+              "n": 354
+            },
+            "machine": {
+              "max": 0.4371,
+              "mean": 0.3691,
+              "median": 0.3585,
+              "min": 0.3118,
+              "n": 3
+            }
+          },
+          "slice_id": "ghostwriter-agent-deepseek-r1:32b",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.5615,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 3,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "agent-gemma2:9b": {
+          "abstention_rate": 0.4463,
+          "abstentions": 270,
+          "auprc": {
+            "ci_lower": 0.3032,
+            "ci_upper": 0.3805,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.3387
+          },
+          "auroc": {
+            "ci_lower": 0.3654,
+            "ci_upper": 0.4596,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.4115
+          },
+          "coverage": 0.5537,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0107,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 354,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 251,
+          "n_ai_groups": 251,
+          "n_human": 354,
+          "n_human_groups": 354,
+          "score_by_label": {
+            "human": {
+              "max": 0.674,
+              "mean": 0.3174,
+              "median": 0.3104,
+              "min": 0.035,
+              "n": 354
+            },
+            "machine": {
+              "max": 0.5059,
+              "mean": 0.2771,
+              "median": 0.2683,
+              "min": 0.0509,
+              "n": 251
+            }
+          },
+          "slice_id": "ghostwriter-agent-gemma2:9b",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0082,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0151,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 251,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "agent-gpt-4-turbo": {
+          "abstention_rate": 0.5268,
+          "abstentions": 187,
+          "coverage": 0.4732,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0107,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 354,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 1,
+          "n_ai_groups": 1,
+          "n_human": 354,
+          "n_human_groups": 354,
+          "ranking_metrics": null,
+          "ranking_metrics_not_computed": "both classes need >= 10 rows; n_human=354, n_ai=1",
+          "score_by_label": {
+            "human": {
+              "max": 0.674,
+              "mean": 0.3174,
+              "median": 0.3104,
+              "min": 0.035,
+              "n": 354
+            },
+            "machine": {
+              "max": 0.3717,
+              "mean": 0.3717,
+              "median": 0.3717,
+              "min": 0.3717,
+              "n": 1
+            }
+          },
+          "slice_id": "ghostwriter-agent-gpt-4-turbo",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.7935,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 1,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "agent-gpt-4o-mini": {
+          "abstention_rate": 0.512,
+          "abstentions": 298,
+          "auprc": {
+            "ci_lower": 0.3206,
+            "ci_upper": 0.4106,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.3636
+          },
+          "auroc": {
+            "ci_lower": 0.4546,
+            "ci_upper": 0.5462,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.5
+          },
+          "coverage": 0.488,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0107,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 354,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 228,
+          "n_ai_groups": 228,
+          "n_human": 354,
+          "n_human_groups": 354,
+          "score_by_label": {
+            "human": {
+              "max": 0.674,
+              "mean": 0.3174,
+              "median": 0.3104,
+              "min": 0.035,
+              "n": 354
+            },
+            "machine": {
+              "max": 0.5705,
+              "mean": 0.3154,
+              "median": 0.3102,
+              "min": 0.1052,
+              "n": 228
+            }
+          },
+          "slice_id": "ghostwriter-agent-gpt-4o-mini",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0485,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0132
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0166,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 228,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "agent-nemotron": {
+          "abstention_rate": 0.5181,
+          "abstentions": 186,
+          "coverage": 0.4819,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0107,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 354,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 5,
+          "n_ai_groups": 5,
+          "n_human": 354,
+          "n_human_groups": 354,
+          "ranking_metrics": null,
+          "ranking_metrics_not_computed": "both classes need >= 10 rows; n_human=354, n_ai=5",
+          "score_by_label": {
+            "human": {
+              "max": 0.674,
+              "mean": 0.3174,
+              "median": 0.3104,
+              "min": 0.035,
+              "n": 354
+            },
+            "machine": {
+              "max": 0.2308,
+              "mean": 0.1502,
+              "median": 0.1619,
+              "min": 0.0883,
+              "n": 5
+            }
+          },
+          "slice_id": "ghostwriter-agent-nemotron",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.4345,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 5,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "agent-o3-mini": {
+          "abstention_rate": 0.5239,
+          "abstentions": 186,
+          "coverage": 0.4761,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0107,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 354,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 1,
+          "n_ai_groups": 1,
+          "n_human": 354,
+          "n_human_groups": 354,
+          "ranking_metrics": null,
+          "ranking_metrics_not_computed": "both classes need >= 10 rows; n_human=354, n_ai=1",
+          "score_by_label": {
+            "human": {
+              "max": 0.674,
+              "mean": 0.3174,
+              "median": 0.3104,
+              "min": 0.035,
+              "n": 354
+            },
+            "machine": {
+              "max": 0.1882,
+              "mean": 0.1882,
+              "median": 0.1882,
+              "min": 0.1882,
+              "n": 1
+            }
+          },
+          "slice_id": "ghostwriter-agent-o3-mini",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.7935,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 1,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "agent-phi3:3.8b": {
+          "abstention_rate": 0.5149,
+          "abstentions": 190,
+          "auprc": {
+            "ci_lower": 0.0163,
+            "ci_upper": 0.0433,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.028
+          },
+          "auroc": {
+            "ci_lower": 0.1872,
+            "ci_upper": 0.3784,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.2813
+          },
+          "coverage": 0.4851,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0107,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 354,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 15,
+          "n_ai_groups": 15,
+          "n_human": 354,
+          "n_human_groups": 354,
+          "score_by_label": {
+            "human": {
+              "max": 0.674,
+              "mean": 0.3174,
+              "median": 0.3104,
+              "min": 0.035,
+              "n": 354
+            },
+            "machine": {
+              "max": 0.3572,
+              "mean": 0.223,
+              "median": 0.2247,
+              "min": 0.1071,
+              "n": 15
+            }
+          },
+          "slice_id": "ghostwriter-agent-phi3:3.8b",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2039,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 15,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "domain-arxiv_papers": {
+          "abstention_rate": 0.8364,
+          "abstentions": 46,
+          "auprc": {
+            "ci_lower": 0.2922,
+            "ci_upper": 0.5643,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.4113
+          },
+          "auroc": {
+            "ci_lower": 0.0886,
+            "ci_upper": 0.3239,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.1976
+          },
+          "coverage": 0.1636,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.1287,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 26,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 29,
+          "n_ai_groups": 29,
+          "n_human": 26,
+          "n_human_groups": 26,
+          "score_by_label": {
+            "human": {
+              "max": 0.4744,
+              "mean": 0.4061,
+              "median": 0.4128,
+              "min": 0.3202,
+              "n": 26
+            },
+            "machine": {
+              "max": 0.4874,
+              "mean": 0.3435,
+              "median": 0.3444,
+              "min": 0.1861,
+              "n": 29
+            }
+          },
+          "slice_id": "ghostwriter-domain-arxiv_papers",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.1154,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0345
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.12,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0345
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.117,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 29,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "domain-blog_authorship_corpus": {
+          "abstention_rate": 0.513,
+          "abstentions": 59,
+          "auprc": {
+            "ci_lower": 0.4471,
+            "ci_upper": 0.6758,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.5518
+          },
+          "auroc": {
+            "ci_lower": 0.4126,
+            "ci_upper": 0.6194,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.5146
+          },
+          "coverage": 0.487,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.07,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 51,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 64,
+          "n_ai_groups": 64,
+          "n_human": 51,
+          "n_human_groups": 51,
+          "score_by_label": {
+            "human": {
+              "max": 0.5685,
+              "mean": 0.2481,
+              "median": 0.2322,
+              "min": 0.035,
+              "n": 51
+            },
+            "machine": {
+              "max": 0.5059,
+              "mean": 0.2469,
+              "median": 0.2326,
+              "min": 0.0509,
+              "n": 64
+            }
+          },
+          "slice_id": "ghostwriter-domain-blog_authorship_corpus",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0536,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0923,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0312
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0566,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 64,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "domain-bundestag": {
+          "abstention_rate": 0.2481,
+          "abstentions": 33,
+          "auprc": {
+            "ci_lower": 0.7887,
+            "ci_upper": 0.9447,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.8771
+          },
+          "auroc": {
+            "ci_lower": 0.8043,
+            "ci_upper": 0.9326,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.8732
+          },
+          "coverage": 0.7519,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0631,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 57,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 76,
+          "n_ai_groups": 76,
+          "n_human": 57,
+          "n_human_groups": 57,
+          "score_by_label": {
+            "human": {
+              "max": 0.4607,
+              "mean": 0.1918,
+              "median": 0.1759,
+              "min": 0.0909,
+              "n": 57
+            },
+            "machine": {
+              "max": 0.4948,
+              "mean": 0.2955,
+              "median": 0.2793,
+              "min": 0.1544,
+              "n": 76
+            }
+          },
+          "slice_id": "ghostwriter-domain-bundestag",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0128,
+            "ci_upper": 0.4268,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0526
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0465,
+            "ci_upper": 0.6184,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.3421
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0481,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 76,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "domain-cnn_news": {
+          "abstention_rate": 0.283,
+          "abstentions": 30,
+          "auprc": {
+            "ci_lower": 0.556,
+            "ci_upper": 0.8024,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.675
+          },
+          "auroc": {
+            "ci_lower": 0.5107,
+            "ci_upper": 0.73,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.6232
+          },
+          "coverage": 0.717,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0803,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 44,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 62,
+          "n_ai_groups": 62,
+          "n_human": 44,
+          "n_human_groups": 44,
+          "score_by_label": {
+            "human": {
+              "max": 0.448,
+              "mean": 0.2612,
+              "median": 0.2595,
+              "min": 0.1176,
+              "n": 44
+            },
+            "machine": {
+              "max": 0.5152,
+              "mean": 0.2958,
+              "median": 0.2838,
+              "min": 0.1025,
+              "n": 62
+            }
+          },
+          "slice_id": "ghostwriter-domain-cnn_news",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.125,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0323
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0152,
+            "ci_upper": 0.2121,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0645
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0583,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 62,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "domain-euro_court_cases": {
+          "abstention_rate": 0.717,
+          "abstentions": 38,
+          "auprc": {
+            "ci_lower": 0.2763,
+            "ci_upper": 0.5737,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.4026
+          },
+          "auroc": {
+            "ci_lower": 0.1296,
+            "ci_upper": 0.4238,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.2721
+          },
+          "coverage": 0.283,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.1287,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 26,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 27,
+          "n_ai_groups": 27,
+          "n_human": 26,
+          "n_human_groups": 26,
+          "score_by_label": {
+            "human": {
+              "max": 0.4927,
+              "mean": 0.3987,
+              "median": 0.4096,
+              "min": 0.2002,
+              "n": 26
+            },
+            "machine": {
+              "max": 0.4558,
+              "mean": 0.3307,
+              "median": 0.3236,
+              "min": 0.188,
+              "n": 27
+            }
+          },
+          "slice_id": "ghostwriter-domain-euro_court_cases",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.1071,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.1246,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 27,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "domain-gutenberg": {
+          "abstention_rate": 0.3478,
+          "abstentions": 8,
+          "coverage": 0.6522,
+          "fpr_native": {
+            "ci_lower": null,
+            "ci_upper": null,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 0,
+            "not_computed": "no rows of this class in the slice",
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": null
+          },
+          "n_ai": 23,
+          "n_ai_groups": 23,
+          "n_human": 0,
+          "n_human_groups": 0,
+          "ranking_metrics": null,
+          "ranking_metrics_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=23",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.4678,
+              "mean": 0.2741,
+              "median": 0.2661,
+              "min": 0.0944,
+              "n": 23
+            }
+          },
+          "slice_id": "ghostwriter-domain-gutenberg",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.1431,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 23,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "domain-house_of_commons": {
+          "abstention_rate": 0.6095,
+          "abstentions": 64,
+          "auprc": {
+            "ci_lower": 0.5608,
+            "ci_upper": 0.7919,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.6808
+          },
+          "auroc": {
+            "ci_lower": 0.4639,
+            "ci_upper": 0.6864,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.5721
+          },
+          "coverage": 0.3905,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0803,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 44,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 61,
+          "n_ai_groups": 61,
+          "n_human": 44,
+          "n_human_groups": 44,
+          "score_by_label": {
+            "human": {
+              "max": 0.4776,
+              "mean": 0.3229,
+              "median": 0.3246,
+              "min": 0.1625,
+              "n": 44
+            },
+            "machine": {
+              "max": 0.5705,
+              "mean": 0.3489,
+              "median": 0.352,
+              "min": 0.1742,
+              "n": 61
+            }
+          },
+          "slice_id": "ghostwriter-domain-house_of_commons",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0492,
+            "ci_upper": 0.2381,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.1148
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0714,
+            "ci_upper": 0.2623,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.1639
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0592,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 61,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "domain-student_essays": {
+          "abstention_rate": 0.4207,
+          "abstentions": 114,
+          "auprc": {
+            "ci_lower": 0.3888,
+            "ci_upper": 0.5074,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.4439
+          },
+          "auroc": {
+            "ci_lower": 0.1483,
+            "ci_upper": 0.2606,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.2059
+          },
+          "coverage": 0.5793,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.035,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 106,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 165,
+          "n_ai_groups": 165,
+          "n_human": 106,
+          "n_human_groups": 106,
+          "score_by_label": {
+            "human": {
+              "max": 0.674,
+              "mean": 0.3976,
+              "median": 0.3963,
+              "min": 0.1691,
+              "n": 106
+            },
+            "machine": {
+              "max": 0.5503,
+              "mean": 0.2738,
+              "median": 0.275,
+              "min": 0.1052,
+              "n": 165
+            }
+          },
+          "slice_id": "ghostwriter-domain-student_essays",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0228,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 165,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "lang-de-DE": {
+          "abstention_rate": 0.2519,
+          "abstentions": 34,
+          "auprc": {
+            "ci_lower": 0.7904,
+            "ci_upper": 0.948,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.8809
+          },
+          "auroc": {
+            "ci_lower": 0.8059,
+            "ci_upper": 0.9335,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.8748
+          },
+          "coverage": 0.7481,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0631,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 57,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 78,
+          "n_ai_groups": 78,
+          "n_human": 57,
+          "n_human_groups": 57,
+          "score_by_label": {
+            "human": {
+              "max": 0.4607,
+              "mean": 0.1918,
+              "median": 0.1759,
+              "min": 0.0909,
+              "n": 57
+            },
+            "machine": {
+              "max": 0.4948,
+              "mean": 0.297,
+              "median": 0.2793,
+              "min": 0.1544,
+              "n": 78
+            }
+          },
+          "slice_id": "ghostwriter-lang-de-DE",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0125,
+            "ci_upper": 0.4308,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0513
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.05,
+            "ci_upper": 0.6267,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.3462
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0469,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 78,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "lang-en-EN": {
+          "abstention_rate": 0.4931,
+          "abstentions": 358,
+          "auprc": {
+            "ci_lower": 0.4488,
+            "ci_upper": 0.5295,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.4906
+          },
+          "auroc": {
+            "ci_lower": 0.3309,
+            "ci_upper": 0.4165,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.3721
+          },
+          "coverage": 0.5069,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0128,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 297,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 429,
+          "n_ai_groups": 429,
+          "n_human": 297,
+          "n_human_groups": 297,
+          "score_by_label": {
+            "human": {
+              "max": 0.674,
+              "mean": 0.3415,
+              "median": 0.3503,
+              "min": 0.035,
+              "n": 297
+            },
+            "machine": {
+              "max": 0.5705,
+              "mean": 0.2916,
+              "median": 0.2853,
+              "min": 0.0509,
+              "n": 429
+            }
+          },
+          "slice_id": "ghostwriter-lang-en-EN",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.022,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0047
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0089,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 429,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "pooled": {
+          "abstention_rate": 0.4553,
+          "abstentions": 392,
+          "auprc": {
+            "ci_lower": 0.4822,
+            "ci_upper": 0.5604,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.5208
+          },
+          "auroc": {
+            "ci_lower": 0.4074,
+            "ci_upper": 0.4882,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.4468
+          },
+          "coverage": 0.5447,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0107,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 354,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 507,
+          "n_ai_groups": 507,
+          "n_human": 354,
+          "n_human_groups": 354,
+          "score_by_label": {
+            "human": {
+              "max": 0.674,
+              "mean": 0.3174,
+              "median": 0.3104,
+              "min": 0.035,
+              "n": 354
+            },
+            "machine": {
+              "max": 0.5705,
+              "mean": 0.2924,
+              "median": 0.2845,
+              "min": 0.0509,
+              "n": 507
+            }
+          },
+          "slice_id": "ghostwriter-pooled",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.024,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0059
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0075,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 507,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        }
+      },
+      "worst_slice": {
+        "fpr_wilson_upper": 0.1287,
+        "n_human": 26,
+        "slice_id": "domain-arxiv_papers"
+      }
+    },
+    "gaps": [
+      "fusion (mixed-origin) rows carry no binary label and are unmeasured here (U4 spine)",
+      "the binary slice is fulltext-only: chunk behaviour is unmeasured",
+      "the sample mixes English and German; per-language slices are reported separately, never pooled away",
+      "Wilson intervals treat rows as independent; rows within a near-duplicate group are correlated \u2014 group counts per slice are reported and AUROC/AUPRC CIs are cluster-bootstrapped over near-duplicate groups, but the FPR/TPR Wilson intervals do not adjust for clustering",
+      "chunk rows' parent fulltexts are not in any sampled cache, so chunk-to-parent linkage could not be verified in-sample (chunks are unlabelled and excluded from binary metrics regardless)"
+    ],
+    "hf_id": "TheItCrOw/GhostWriter",
+    "inclusion_drop_counts": {
+      "dropped_duplicate_rows": [
+        {
+          "content_hash": "3c0f212a3482b81ba130cc480f6b815406543cd5e3dd8353bfae3b68cfe86fa5",
+          "duplicates_kept_source_id": "f2c229c1-3a6d-4e96-8ec4-b2c40e14dc3f",
+          "label": 1,
+          "reason": "exact content duplicate of an earlier pooled row; kept once so no text is double-counted",
+          "source_id": "dfb65979-d664-439a-99a2-31ef89fd8f3c"
+        },
+        {
+          "content_hash": "61c18422f5fc2da518d35314ddb05511ac9717692f734470eaf31a4d3a4d50cd",
+          "duplicates_kept_source_id": "d2c96373-1176-4dcc-9271-65429c52bf86",
+          "label": 1,
+          "reason": "exact content duplicate of an earlier pooled row; kept once so no text is double-counted",
+          "source_id": "f0842e59-fefb-4fb1-b51e-1865003c9f37"
+        },
+        {
+          "content_hash": "c520c4d80c6eae7951db62776934e59e9e5377a4309c9152e515112f563b625a",
+          "label": 1,
+          "offset": 216028,
+          "origin": "fetch",
+          "reason": "fetch-time exclusion: exact content duplicate of an earlier row in this sample; kept once",
+          "source_id": "1886227c-6086-46a4-b124-c28c8c06204e"
+        },
+        {
+          "content_hash": "d70eb55b710c912d8cf6f124e860ec946a67408588d7ea0b1980a5b5dc0ba722",
+          "label": 1,
+          "offset": 325662,
+          "origin": "fetch",
+          "reason": "fetch-time exclusion: exact content duplicate of an earlier row in this sample; kept once",
+          "source_id": "78fc9af4-6dc7-42dd-bc12-ce01689d7deb"
+        }
+      ],
+      "exact_content_duplicates_dropped": 4,
+      "fusion_chunk_rows_excluded_from_binary_metrics": 808,
+      "fusion_rows_reason": "label 2 (fusion) rows carry no binary label; they are the U4 spine, not U1 evidence",
+      "label_counts_pooled": {
+        "ai": 979,
+        "fusion_unlabelled": 808,
+        "human": 709
+      },
+      "near_duplicate_groups": 2493,
+      "rows_after_content_dedup": 2496,
+      "rows_pooled": 2500
+    },
+    "licence": "Per-domain licences (no single dataset licence): cnn_news Apache-2.0; arxiv_papers arXiv.org non-exclusive licence to distribute; blog_authorship_corpus CC0 / free for non-commercial research; bundestag DL-DE-BY-2.0; house_of_commons Open Parliament Licence; euro_court_cases CC-BY-NC-SA 4.0; student_essays CC-BY-NC-SA 4.0; gutenberg CC0",
+    "licence_verification": {
+      "basis": "Per-domain table on the live card is unchanged from the 2026-11-07 verification. Use is non-commercial research evaluation, local cache only, no redistribution, no commercial use \u2014 inside the CC-BY-NC-SA 4.0 (euro_court_cases, student_essays) and non-commercial-research-only (blog_authorship_corpus) restrictions. The card says 'seven domains' in its description but the licence table and viewer show 8 \u2014 trust 8.",
+      "licence": "Per-domain licences (no single dataset licence): cnn_news Apache-2.0; arxiv_papers arXiv.org non-exclusive licence to distribute; blog_authorship_corpus CC0 / free for non-commercial research; bundestag DL-DE-BY-2.0; house_of_commons Open Parliament Licence; euro_court_cases CC-BY-NC-SA 4.0; student_essays CC-BY-NC-SA 4.0; gutenberg CC0",
+      "permits_this_use": true,
+      "reference": "https://huggingface.co/datasets/TheItCrOw/GhostWriter"
+    },
+    "licence_verified": "2026-11-16",
+    "licence_verified_how": "live Hugging Face dataset cards re-read 2026-11-16 (crawled 10:09 UTC): OpAI-Bench1/OpAI-Bench 'Licensing and Reuse' section; TheItCrOw/GhostWriter 'Licenses and Sources' table lines 340-368",
+    "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold; no threshold was fitted, no calibration was fitted \u2014 the operating point is fixed by the detector",
+    "partition": {
+      "counts": {
+        "dev": {
+          "n_ai": 183,
+          "n_human": 141,
+          "n_unlabelled": 179,
+          "rows": 503
+        },
+        "final-test": {
+          "n_ai": 507,
+          "n_human": 354,
+          "n_unlabelled": 402,
+          "rows": 1263
+        },
+        "fit": {
+          "n_ai": 289,
+          "n_human": 214,
+          "n_unlabelled": 227,
+          "rows": 730
+        }
+      },
+      "final_test_disjoint_from_validation_split": true,
+      "final_test_disjoint_from_validation_split_shared_hashes": 0,
+      "manifest_path": "docs/evidence/manifests/EV-20261116-dataset-ghostwriter-partitions.json",
+      "manifest_sha256": "5f173b69fbea68edcdd071a0851076e38a089f8dfd1784c25336ba2c8e214cf4",
+      "method": "group = near-duplicate group (exact content hash, merged at word-8-shingle Jaccard >= 0.8); bucket = int(sha256(group), 16) % 10; buckets 0-2 fit, 3-4 dev/selection, 5-9 final-test. No near-duplicate of a final-test row appears in fit/dev. Assignment uses row identity only, never a detector score. Fit/dev were never scored and no decision was fitted on them."
+    },
+    "provenance": {
+      "config": "default",
+      "dataset_version": "TheItCrOw/GhostWriter snapshot 2026-11-16 (no versioned release); pooled from the U1 500-row strided sample (2026-11-07) and a new phase-shifted 2000-row strided sample (2026-11-16, +83 offset shift)",
+      "label_provenance": "label 0 human / 1 AI / 2 fusion; only fulltext rows carry binary labels (label 2 rows are chunks and carry no binary label \u2014 the U4 spine, not U1 evidence)",
+      "normalization_provenance": "rows mapped by textforensics.datasets.map_row('ghostwriter') at fetch time; cached normalised JSONL verified by SHA-256",
+      "row_hash_method": "sha256 of normalised text (benchmark fingerprint)",
+      "sampling": "strided (both pooled samples); new sample offsets i*332224//2000+83, disjoint from the U1 offsets by row index and by content hash",
+      "sources": [
+        {
+          "cache_file": "train.jsonl",
+          "file_sha256": "12d2ab690b8952d34cb8814231b332f96dbc565de6f2daf4af50d3a60df184c8",
+          "label_counts": {
+            "0": 137,
+            "1": 210,
+            "None": 153
+          },
+          "rows": 500
+        },
+        {
+          "cache_file": "train-2000.jsonl",
+          "file_sha256": "a58edbae61062fb3b1032e030eb76ff9065f6828ec6d8fd80f21485b3bd3099f",
+          "label_counts": {
+            "0": 572,
+            "1": 771,
+            "None": 655
+          },
+          "rows": 1998
+        }
+      ],
+      "split": "train",
+      "split_rows_total": 332224
+    },
+    "threshold_sensitivity": {
+      "human_scores_at_or_above_threshold": 0,
+      "max_human_score": 0.674,
+      "native_threshold": 0.68,
+      "note": "Sensitivity analysis only. The native ai_like threshold 0.68 is UNCHANGED: these rows report what the human FPR would be at perturbed thresholds; they do not propose moving the threshold.",
+      "reliability_floor": 0.28,
+      "sensitivity": [
+        {
+          "ci_lower": 0.0005,
+          "ci_upper": 0.0158,
+          "k": 1,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+          "n": 354,
+          "rate": 0.0028,
+          "threshold": 0.66
+        },
+        {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0107,
+          "k": 0,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+          "n": 354,
+          "rate": 0.0,
+          "threshold": 0.68
+        },
+        {
+          "ci_lower": 0.0,
+          "ci_upper": 0.0107,
+          "k": 0,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+          "n": 354,
+          "rate": 0.0,
+          "threshold": 0.7
+        }
+      ],
+      "within_below_threshold": {
+        "0.01": 1,
+        "0.02": 1,
+        "0.05": 3
+      }
+    },
+    "threshold_sensitivity_detail": {
+      "interpretation": "The final-test top human score 0.674 comes from cache file train.jsonl (the U1 sample). If it is the U1 row, the -0.02 fragility (one row flips at 0.66) is NOT independent confirmation on fresh data \u2014 it is that one known row. On fresh (train-2000) human rows alone the maximum is 0.6496 and zero-FPR DOES survive a -0.02 perturbation (k=0 at 0.66). Both facts are reported; the threshold is UNCHANGED either way.",
+      "new_sample_human_rows_in_final_test": 292,
+      "new_sample_k_at_threshold_0_66": 0,
+      "new_sample_max_human_score": 0.6496,
+      "top_human_row": {
+        "cache_file": "train.jsonl",
+        "domain": "student_essays",
+        "is_u1_row": true,
+        "lang": "en-EN",
+        "reliability": 0.7746,
+        "score": 0.674,
+        "source_id": "693f5cc1-14ed-4201-9077-2e5d521066ed"
+      }
+    },
+    "threshold_sensitivity_note": "Zero-FPR at the native 0.68 threshold does NOT survive a -0.02 perturbation on the full final-test slice (one row flips at 0.66; FPR 1/354) \u2014 but that one row is the known U1 row (see threshold_sensitivity_detail), so the fragility is not independent confirmation on fresh data: on fresh train-2000 human rows alone the maximum is 0.6496 and zero-FPR survives -0.02. The threshold is UNCHANGED; this is reported, not acted on."
+  },
+  "run_date": "2026-11-16",
+  "schema": "textforensics.run-artifact/v1"
+}

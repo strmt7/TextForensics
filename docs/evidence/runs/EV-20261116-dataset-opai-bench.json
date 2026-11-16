@@ -1,0 +1,769 @@
+{
+  "badge": "available",
+  "code_version": "0c047b2194f938d80fde755a9361d63880762e88",
+  "command": "python scripts/measure_w8_ghostwriter_opai.py",
+  "drops": [
+    {
+      "item": "full-corpus evaluation",
+      "reason": "partitioned pooled sample only (n=2496 normalised rows from 196029 split rows)"
+    },
+    {
+      "item": "Python 3.11, 3.13, 3.14, 3.15",
+      "reason": "measured on the local interpreter only; CI covers the matrix"
+    },
+    {
+      "item": "train/test threshold selection",
+      "reason": "no threshold was fitted on this sample; the operating point is the detector's native verdict"
+    },
+    {
+      "item": "1944 partial (mixed-origin) rows",
+      "reason": "rows with 0 < ai_sentence_ratio < 1 carry no binary label; they are the U4 spine, not U1 evidence"
+    }
+  ],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261116-dataset-opai-bench",
+  "kind": "command",
+  "results": {
+    "dataset": "opai_bench",
+    "decisions_not_made": [
+      "no threshold was fitted or tuned (native operating point)",
+      "no calibration was fitted",
+      "no row was dropped for how it scores",
+      "no registry or report-card change was made (Worker D owns those)"
+    ],
+    "detector": "textforensics/builtin-heuristic",
+    "detector_family": "stylometric-heuristic",
+    "detector_version": "0.1.0",
+    "environment_lock": {
+      "git_sha": "0c047b2194f938d80fde755a9361d63880762e88",
+      "platform": "linux",
+      "python": "3.12.3",
+      "requirements_pinned_sha256": "1c80c465cd5d43d38414aed0a14639e70dc7c9aaa2cb7d07228491f4c56cf9e0",
+      "seeds": {
+        "bootstrap_seed": 20261116,
+        "partition": "sha256(group_key) mod 10"
+      }
+    },
+    "evaluation": {
+      "n_final_test_labelled": 293,
+      "slices": {
+        "abstracts": {
+          "abstention_rate": 0.4,
+          "abstentions": 30,
+          "auprc": {
+            "ci_lower": 0.3927,
+            "ci_upper": 0.6391,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.5015
+          },
+          "auroc": {
+            "ci_lower": 0.415,
+            "ci_upper": 0.6541,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.5381
+          },
+          "coverage": 0.6,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0918,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 38,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 37,
+          "n_ai_groups": 37,
+          "n_human": 38,
+          "n_human_groups": 38,
+          "score_by_label": {
+            "human": {
+              "max": 0.4415,
+              "mean": 0.3046,
+              "median": 0.2954,
+              "min": 0.1831,
+              "n": 38
+            },
+            "machine": {
+              "max": 0.3898,
+              "mean": 0.3102,
+              "median": 0.3116,
+              "min": 0.2085,
+              "n": 37
+            }
+          },
+          "slice_id": "opai-bench-abstracts",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.1304,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0941,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 37,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "essays": {
+          "abstention_rate": 0.3553,
+          "abstentions": 27,
+          "auprc": {
+            "ci_lower": 0.2941,
+            "ci_upper": 0.5137,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.3909
+          },
+          "auroc": {
+            "ci_lower": 0.167,
+            "ci_upper": 0.4261,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.2897
+          },
+          "coverage": 0.6447,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0941,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 37,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 39,
+          "n_ai_groups": 35,
+          "n_human": 37,
+          "n_human_groups": 37,
+          "score_by_label": {
+            "human": {
+              "max": 0.625,
+              "mean": 0.3294,
+              "median": 0.3246,
+              "min": 0.1618,
+              "n": 37
+            },
+            "machine": {
+              "max": 0.4277,
+              "mean": 0.2594,
+              "median": 0.2709,
+              "min": 0.0817,
+              "n": 39
+            }
+          },
+          "slice_id": "opai-bench-essays",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0897,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 39,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "generator-gemini-2.5-flash": {
+          "abstention_rate": 0.448,
+          "abstentions": 99,
+          "auprc": {
+            "ci_lower": 0.22,
+            "ci_upper": 0.3525,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.2802
+          },
+          "auroc": {
+            "ci_lower": 0.319,
+            "ci_upper": 0.4737,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.3968
+          },
+          "coverage": 0.552,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0256,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 146,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 75,
+          "n_ai_groups": 75,
+          "n_human": 146,
+          "n_human_groups": 146,
+          "score_by_label": {
+            "human": {
+              "max": 0.625,
+              "mean": 0.3206,
+              "median": 0.3181,
+              "min": 0.132,
+              "n": 146
+            },
+            "machine": {
+              "max": 0.5431,
+              "mean": 0.2881,
+              "median": 0.2891,
+              "min": 0.1247,
+              "n": 75
+            }
+          },
+          "slice_id": "opai-bench-generator-gemini-2.5-flash",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0411,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0133
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0465,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0133
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0487,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 75,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "generator-gpt-5.4": {
+          "abstention_rate": 0.4944,
+          "abstentions": 88,
+          "auprc": {
+            "ci_lower": 0.1113,
+            "ci_upper": 0.23,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.1643
+          },
+          "auroc": {
+            "ci_lower": 0.372,
+            "ci_upper": 0.5679,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.4723
+          },
+          "coverage": 0.5056,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0256,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 146,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 32,
+          "n_ai_groups": 32,
+          "n_human": 146,
+          "n_human_groups": 146,
+          "score_by_label": {
+            "human": {
+              "max": 0.625,
+              "mean": 0.3206,
+              "median": 0.3181,
+              "min": 0.132,
+              "n": 146
+            },
+            "machine": {
+              "max": 0.4686,
+              "mean": 0.312,
+              "median": 0.3134,
+              "min": 0.1645,
+              "n": 32
+            }
+          },
+          "slice_id": "opai-bench-generator-gpt-5.4",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0952,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0312
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.1072,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 32,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "generator-gpt-5.4-nano": {
+          "abstention_rate": 0.4731,
+          "abstentions": 88,
+          "auprc": {
+            "ci_lower": 0.1238,
+            "ci_upper": 0.2304,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.1718
+          },
+          "auroc": {
+            "ci_lower": 0.2995,
+            "ci_upper": 0.49,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.3922
+          },
+          "coverage": 0.5269,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0256,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 146,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 40,
+          "n_ai_groups": 40,
+          "n_human": 146,
+          "n_human_groups": 146,
+          "score_by_label": {
+            "human": {
+              "max": 0.625,
+              "mean": 0.3206,
+              "median": 0.3181,
+              "min": 0.132,
+              "n": 146
+            },
+            "machine": {
+              "max": 0.4439,
+              "mean": 0.2809,
+              "median": 0.3035,
+              "min": 0.0817,
+              "n": 40
+            }
+          },
+          "slice_id": "opai-bench-generator-gpt-5.4-nano",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0217,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0876,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 40,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "news": {
+          "abstention_rate": 0.1765,
+          "abstentions": 12,
+          "auprc": {
+            "ci_lower": 0.3326,
+            "ci_upper": 0.6096,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.4597
+          },
+          "auroc": {
+            "ci_lower": 0.2922,
+            "ci_upper": 0.5619,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.4252
+          },
+          "coverage": 0.8235,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.1015,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 34,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 34,
+          "n_ai_groups": 34,
+          "n_human": 34,
+          "n_human_groups": 34,
+          "score_by_label": {
+            "human": {
+              "max": 0.4445,
+              "mean": 0.2578,
+              "median": 0.2465,
+              "min": 0.132,
+              "n": 34
+            },
+            "machine": {
+              "max": 0.3646,
+              "mean": 0.2388,
+              "median": 0.2379,
+              "min": 0.0983,
+              "n": 34
+            }
+          },
+          "slice_id": "opai-bench-news",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0588,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.15,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.1015,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 34,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "pooled": {
+          "abstention_rate": 0.4403,
+          "abstentions": 129,
+          "auprc": {
+            "ci_lower": 0.3695,
+            "ci_upper": 0.4959,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.4294
+          },
+          "auroc": {
+            "ci_lower": 0.3482,
+            "ci_upper": 0.4746,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.412
+          },
+          "coverage": 0.5597,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0256,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 146,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 147,
+          "n_ai_groups": 142,
+          "n_human": 146,
+          "n_human_groups": 146,
+          "score_by_label": {
+            "human": {
+              "max": 0.625,
+              "mean": 0.3206,
+              "median": 0.3181,
+              "min": 0.132,
+              "n": 146
+            },
+            "machine": {
+              "max": 0.5431,
+              "mean": 0.2913,
+              "median": 0.2961,
+              "min": 0.0817,
+              "n": 147
+            }
+          },
+          "slice_id": "opai-bench-pooled",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0204,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0068
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0329,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.0136
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0255,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 147,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        },
+        "reports": {
+          "abstention_rate": 0.8108,
+          "abstentions": 60,
+          "auprc": {
+            "ci_lower": 0.3095,
+            "ci_upper": 0.5585,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.4282
+          },
+          "auroc": {
+            "ci_lower": 0.2166,
+            "ci_upper": 0.462,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.3397
+          },
+          "coverage": 0.1892,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0941,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 37,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          },
+          "n_ai": 37,
+          "n_ai_groups": 36,
+          "n_human": 37,
+          "n_human_groups": 37,
+          "score_by_label": {
+            "human": {
+              "max": 0.5037,
+              "mean": 0.3859,
+              "median": 0.3967,
+              "min": 0.2207,
+              "n": 37
+            },
+            "machine": {
+              "max": 0.5431,
+              "mean": 0.3545,
+              "median": 0.3545,
+              "min": 0.205,
+              "n": 37
+            }
+          },
+          "slice_id": "opai-bench-reports",
+          "tpr_at_1pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0909,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.027
+          },
+          "tpr_at_5pct_fpr": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.1111,
+            "method": "cluster bootstrap, 1000 resamples, seed 20261116 (resampling document/near-duplicate groups with replacement)",
+            "resamples": 1000,
+            "resamples_skipped_no_class": 0,
+            "value": 0.027
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0941,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 37,
+            "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+            "value": 0.0
+          }
+        }
+      },
+      "worst_slice": {
+        "fpr_wilson_upper": 0.1015,
+        "n_human": 34,
+        "slice_id": "news"
+      }
+    },
+    "gaps": [
+      "partial (mixed-origin) rows carry no binary label and are unmeasured here (U4 spine)",
+      "only the default/train split is evaluated; dev/test splits are not",
+      "Wilson intervals treat rows as independent; rows within a document group are correlated \u2014 group counts per slice are reported and AUROC/AUPRC CIs are cluster-bootstrapped over document groups, but the FPR/TPR Wilson intervals do not adjust for clustering",
+      "generators are 2026-era (gemini-2.5-flash, gpt-5.4, gpt-5.4-nano); Qwen3-8B is the held-out generator and is not in this sample"
+    ],
+    "hf_id": "OpAI-Bench1/OpAI-Bench",
+    "inclusion_drop_counts": {
+      "dropped_duplicate_rows": [],
+      "exact_content_duplicates_dropped": 0,
+      "label_counts_pooled": {
+        "ai": 278,
+        "human": 274,
+        "partial_unlabelled": 1944
+      },
+      "partial_mixed_origin_rows_excluded_from_binary_metrics": 1944,
+      "partial_rows_reason": "rows with 0 < ai_sentence_ratio < 1 carry no binary label; they are the U4 spine, not U1 evidence",
+      "rows_after_content_dedup": 2496,
+      "rows_pooled": 2496
+    },
+    "licence": "Apache-2.0",
+    "licence_verification": {
+      "basis": "Card states the dataset is released under Apache-2.0 and is intended for research and evaluation of AI-text detection systems \u2014 exactly this use.",
+      "licence": "Apache-2.0",
+      "permits_this_use": true,
+      "reference": "https://huggingface.co/datasets/OpAI-Bench1/OpAI-Bench"
+    },
+    "licence_verified": "2026-11-16",
+    "licence_verified_how": "live Hugging Face dataset cards re-read 2026-11-16 (crawled 10:09 UTC): OpAI-Bench1/OpAI-Bench 'Licensing and Reuse' section; TheItCrOw/GhostWriter 'Licenses and Sources' table lines 340-368",
+    "n56_slice_resolution": {
+      "final_test_fpr_wilson_upper": 0.0256,
+      "final_test_n_ai": 147,
+      "final_test_n_human": 146,
+      "identity": "the n=56 slice IS OpAI-Bench: the default/train U1 500-row strided sample, n_human=56, n_ai=55, Wilson 95% upper 0.064196 (EV-20261110-human-fpr)",
+      "resolution": "YES \u2014 licensed data existed to expand it, and it was expanded twice: first to n_human=218 in the train-2000 sample (supported record evr-20261110-opai-bench-builtin-heuristic, Wilson upper 0.0173), and now to a pooled, document-grouped, partitioned final-test slice with n_human=146 and n_ai=147. The final-test slice below is the held-out expansion: it was partitioned before evaluation and influenced no threshold, calibration, or selection decision.",
+      "slice": "evr-20261106-opai-bench-builtin-heuristic"
+    },
+    "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold; no threshold was fitted, no calibration was fitted \u2014 the operating point is fixed by the detector",
+    "partition": {
+      "counts": {
+        "dev": {
+          "n_ai": 50,
+          "n_human": 58,
+          "n_unlabelled": 372,
+          "rows": 480
+        },
+        "final-test": {
+          "n_ai": 147,
+          "n_human": 146,
+          "n_unlabelled": 990,
+          "rows": 1283
+        },
+        "fit": {
+          "n_ai": 81,
+          "n_human": 70,
+          "n_unlabelled": 582,
+          "rows": 733
+        }
+      },
+      "final_test_disjoint_from_dev_split": true,
+      "final_test_disjoint_from_dev_split_shared_hashes": 0,
+      "manifest_path": "docs/evidence/manifests/EV-20261116-dataset-opai-bench-partitions.json",
+      "manifest_sha256": "27f29737e308219bef51a93032e19edc6d2c21091e1304286d5df25fcae92d68",
+      "method": "group = document_hash_id; bucket = int(sha256(group), 16) % 10; buckets 0-2 fit, 3-4 dev/selection, 5-9 final-test. All 9 versions of a document land in one partition, so no near-duplicate of a final-test row appears in fit/dev. Assignment uses row identity only, never a detector score. Fit/dev were never scored and no decision was fitted on them."
+    },
+    "provenance": {
+      "config": "default",
+      "dataset_version": "OpAI-Bench1/OpAI-Bench snapshot 2026-11-16 (no versioned release); pooled from the U1 500-row strided sample (2026-11-06) and the phase-shifted 2000-row strided sample (2026-11-10)",
+      "label_provenance": "only v0 (ai_sentence_ratio 0.0, pure human) and v8 (ai_sentence_ratio 1.0, fully machine) rows carry binary labels; partial rows (0 < ai_sentence_ratio < 1) carry no binary label and are the U4 spine, not U1 evidence",
+      "normalization_provenance": "rows mapped by textforensics.datasets.map_row('opai_bench') at fetch time; cached normalised JSONL verified by SHA-256",
+      "row_hash_method": "sha256 of normalised text (benchmark fingerprint)",
+      "sampling": "strided (both pooled samples); see EV-20261110-dataset-opai-bench for the phase-shift method",
+      "sources": [
+        {
+          "cache_file": "train.jsonl",
+          "file_sha256": "72bcfe9f0948afa036f6707da5f366c989ce2f455592764b56c7bfea08e2a2ae",
+          "label_counts": {
+            "0": 56,
+            "1": 55,
+            "None": 389
+          },
+          "rows": 500
+        },
+        {
+          "cache_file": "train-2000.jsonl",
+          "file_sha256": "d013ce6f42aa39768b9dee92c06f22dd6f63848c9bc04650bdccf468c11ee4cc",
+          "label_counts": {
+            "0": 218,
+            "1": 223,
+            "None": 1555
+          },
+          "rows": 1996
+        }
+      ],
+      "split": "train",
+      "split_rows_total": 196029
+    }
+  },
+  "run_date": "2026-11-16",
+  "schema": "textforensics.run-artifact/v1"
+}
