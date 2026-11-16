@@ -112,18 +112,20 @@ class _FakeProc:
 # ---------------------------------------------------------------------------
 
 
-def test_api_main_prints_install_hint_without_uvicorn(monkeypatch, capsys):
-    """textforensics-api must print the install hint, not a traceback."""
+def test_api_main_converts_install_hint_to_system_exit_without_uvicorn(monkeypatch, capsys):
+    """textforensics-api must exit with the install hint, not a traceback.
+
+    A-fix contract (supersedes the W9-D print + exit 1): api.main()
+    converts the install-hint RuntimeError to SystemExit carrying the
+    hint text; any other RuntimeError still propagates.
+    """
     from textforensics import api
 
     monkeypatch.setitem(sys.modules, "uvicorn", None)
     with pytest.raises(SystemExit) as excinfo:
         api.main()
-    assert excinfo.value.code == 1
-    assert (
-        "error: Install API support with: pip install 'textforensics[api]'"
-        in capsys.readouterr().err
-    )
+    assert str(excinfo.value.code) == "Install API support with: pip install 'textforensics[api]'"
+    assert capsys.readouterr().err == ""
 
 
 def test_cli_serve_prints_install_hint_without_uvicorn(monkeypatch, capsys):
@@ -144,27 +146,46 @@ def test_cli_serve_prints_install_hint_without_uvicorn(monkeypatch, capsys):
 # ---------------------------------------------------------------------------
 
 
-def test_web_ui_import_raises_actionable_error_without_fastapi():
-    """Importing web_ui.main without fastapi must name the [api] extra."""
-    proc = _run_with_blocked_import("fastapi", "import textforensics.web_ui.main\n")
-    assert proc.returncode == 1
-    assert "Install web UI support with: pip install 'textforensics[api]'" in proc.stderr
-    last_line = proc.stderr.strip().splitlines()[-1]
-    assert last_line.startswith("RuntimeError: Install web UI support"), last_line
+def test_web_ui_import_succeeds_without_fastapi_and_create_web_app_raises_hint():
+    """web_ui.main stays importable without fastapi; create_web_app refuses.
+
+    A-fix contract (supersedes the W9-D import-time RuntimeError): the
+    import guard leaves the fastapi names as None sentinels so the module
+    stays importable; create_web_app() raises the install hint instead.
+    """
+    proc = _run_with_blocked_import(
+        "fastapi",
+        "import textforensics.web_ui.main as m\n"
+        "print('sentinels:', m.FastAPI is None, m.BaseModel is None)\n"
+        "try:\n"
+        "    m.create_web_app()\n"
+        "except RuntimeError as exc:\n"
+        "    print('RUNTIMEERROR:', exc)\n"
+        "else:\n"
+        "    print('NO-ERROR')\n",
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "sentinels: True True" in proc.stdout
+    assert (
+        "RUNTIMEERROR: Install web UI support with: pip install 'textforensics[api]'"
+        in proc.stdout
+    )
 
 
-def test_web_ui_main_prints_install_hint_without_uvicorn(monkeypatch, capsys):
-    """textforensics-web must print the install hint, not a traceback."""
+def test_web_ui_main_converts_install_hint_to_system_exit_without_uvicorn(monkeypatch, capsys):
+    """textforensics-web must exit with the install hint, not a traceback.
+
+    A-fix contract (supersedes the W9-D print + exit 1): web main()
+    converts the install-hint RuntimeError to SystemExit carrying the
+    hint text; any other RuntimeError still propagates.
+    """
     import textforensics.web_ui.main as web_main
 
     monkeypatch.setitem(sys.modules, "uvicorn", None)
     with pytest.raises(SystemExit) as excinfo:
         web_main.main()
-    assert excinfo.value.code == 1
-    assert (
-        "error: Install web UI support with: pip install 'textforensics[api]'"
-        in capsys.readouterr().err
-    )
+    assert str(excinfo.value.code) == "Install web UI support with: pip install 'textforensics[api]'"
+    assert capsys.readouterr().err == ""
 
 
 # ---------------------------------------------------------------------------
