@@ -527,8 +527,20 @@ def _group_slices(
 
 
 def _load_cache_jsonl(path: Path) -> list[dict]:
+    # NOTE (W8-B recovery, 2026-11-16): split on "\n", NOT .splitlines().
+    # The cache writer (write_sample_cache) joins lines with "\n" and
+    # dumps with ensure_ascii=False, so raw U+0085 (NEL) bytes inside
+    # source texts are legal file content — and .splitlines() splits on
+    # U+0085, cutting two JSON lines mid-string in each W8 cache
+    # (train-w8: 16,002 fragments for 16,000 rows; test-w8: 8,002 for
+    # 8,000) and crashing json.loads with "Unterminated string".
+    # Both caches are valid JSONL when split on "\n" (verified:
+    # 16,000 + 8,000 lines, 0 parse errors) and their SHAs match the
+    # manifests and B's artifact provenance. This is a reproducer
+    # defect, not a cache/artifact defect. Original (Worker E,
+    # cb6f6f0) used .splitlines().
     return [
-        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+        json.loads(line) for line in path.read_text(encoding="utf-8").split("\n") if line.strip()
     ]
 
 
@@ -603,7 +615,12 @@ def main(argv: list[str] | None = None) -> int:
 
     def deep_compare(path: str, mine, theirs) -> None:
         if isinstance(mine, dict) and isinstance(theirs, dict):
-            for k in sorted(set(mine) | set(theirs)):
+            # NOTE (W8-B recovery, 2026-11-16): sort by str(key) so a
+            # mixed-type key set (e.g. int keys vs JSON string keys)
+            # degrades to reported "<missing>" mismatches instead of
+            # crashing sorted() with TypeError. Original (Worker E,
+            # cb6f6f0) used bare sorted().
+            for k in sorted(set(mine) | set(theirs), key=str):
                 if k not in mine:
                     compare(f"{path}.{k}", "<missing>", theirs[k])
                 elif k not in theirs:
@@ -650,7 +667,6 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     # --- 2. Re-map every sampled row (drops collected, never hidden) ---
-    _spec = get_spec("detectrl_x")
     rows: list[dict] = []
     drops: list[dict] = []
     field_sets: Counter[str] = Counter()
@@ -782,7 +798,13 @@ def main(argv: list[str] | None = None) -> int:
             "shared_train_test": len(shared_human_texts),
         },
         "word_counts_by_label": {
-            label: {
+            # NOTE (W8-B recovery, 2026-11-16): str(label) — B's artifact
+            # is JSON, so its keys are the strings "0"/"1". Int keys
+            # here made deep_compare's sorted() union {0,1,"0","1"}
+            # raise TypeError ('<' not supported between 'str' and
+            # 'int') at the inspection comparison. Original (Worker E,
+            # cb6f6f0) used the bare int label.
+            str(label): {
                 "min": min(r["words"] for r in rows if r["label"] == label),
                 "median": int(statistics.median([r["words"] for r in rows if r["label"] == label])),
                 "max": max(r["words"] for r in rows if r["label"] == label),
@@ -854,12 +876,19 @@ def main(argv: list[str] | None = None) -> int:
     # Partition manifests: per-row cluster + partition, counts, SHAs.
     manifest_refs = {}
     for part in ("fit", "validation", "final-test"):
+        # NOTE (W8-B recovery, 2026-11-16): "detectrl_x" with an
+        # UNDERSCORE — that is the real manifest stem (see B's artifact
+        # partition.manifests paths and the files on disk). The original
+        # (Worker E, cb6f6f0) used a hyphen ("detectrl-x-"), which made
+        # the manifest-exists check FAIL and read_text raise
+        # FileNotFoundError even though the manifests exist and their
+        # SHAs match the artifact.
         mpath = (
             WORKER_B_ROOT
             / "docs"
             / "evidence"
             / "manifests"
-            / f"EV-20261116-detectrl-x-{part}.json"
+            / f"EV-20261116-detectrl_x-{part}.json"
         )
         check(f"manifest {part} exists", mpath.exists(), str(mpath))
         manifest = json.loads(mpath.read_text(encoding="utf-8"))
