@@ -1,0 +1,3611 @@
+{
+  "schema": "textforensics.run-artifact/v1",
+  "evidence_record_id": "EV-20261116-human-fpr",
+  "kind": "command",
+  "command": "python scripts/build_w8_human_fpr_run_artifact.py",
+  "environment": {
+    "platform": "Linux",
+    "python": "3.12.3"
+  },
+  "code_version": "ae36b8961bddef820dea378d94949d6226de30b4",
+  "run_date": "2026-11-16",
+  "results": {
+    "detector": "textforensics/builtin-heuristic",
+    "detector_family": "stylometric-heuristic",
+    "detector_version": "0.1.0",
+    "method": "Aggregation of the six W8 final-test measurements (EV-20261116-dataset-raid, -mage, -beemo, -detectrl-x, -ghostwriter, -opai-bench). Every per-slice value is quoted verbatim from its source run artifact (Wilson 95% uppers as recorded there) and independently re-verified: the Wilson 95% interval is recomputed with textforensics.probe_metrics.wilson_ci from the recorded (k, n) and must agree within 5e-4 (the source artifacts round Wilson uppers to 4 decimals in the A/C artifacts and to 6 decimals in the B artifacts). The detector was NOT re-run for this artifact; independent re-scoring is established by the reproduction artifacts (worker E AGREE on all five A/C corpora; worker B AGREE on DetectRL-X). Human FPR = P(verdict=ai_like | human); native TPR = P(verdict=ai_like | AI) at the same native operating point (builtin-heuristic native verdict via analyze_text; no score threshold). Intervals are Wilson 95% CIs (z=1.96). Slices with n_human = 0 are listed separately under unmeasured_slices with a null FPR and a stated reason; they are not measured slices. The pooled_documents_only value pools only the six disjoint pooled per-dataset slices (0/4194); finer slices overlap the pooled slices by construction and are never pooled.",
+    "slices": [
+      {
+        "dataset": "RAID",
+        "slice_id": "pooled",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 121,
+        "n_ai": 3878,
+        "abstentions": 2023,
+        "max_human_score": 0.5805,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 121,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0308,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 77,
+          "n": 3878,
+          "value": 0.0199,
+          "ci_lower": 0.0159,
+          "ci_upper": 0.0247,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        },
+        "record_id": "evr-20261116-raid-builtin-heuristic"
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "attack:alternative_spelling",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 10,
+        "n_ai": 319,
+        "abstentions": 164,
+        "max_human_score": 0.3712,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 10,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.2775,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 8,
+          "n": 319,
+          "value": 0.0251,
+          "ci_lower": 0.0128,
+          "ci_upper": 0.0487,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=10 is below the 100-row minimum for a supported slice",
+            "Wilson fpr_native ci_upper is 0.2775, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "attack:article_deletion",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 8,
+        "n_ai": 318,
+        "abstentions": 155,
+        "max_human_score": 0.4267,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 8,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.3244,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 11,
+          "n": 318,
+          "value": 0.0346,
+          "ci_lower": 0.0194,
+          "ci_upper": 0.0609,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=8 is below the 100-row minimum for a supported slice",
+            "Wilson fpr_native ci_upper is 0.3244, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "attack:homoglyph",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 8,
+        "n_ai": 322,
+        "abstentions": 62,
+        "max_human_score": 0.2499,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 8,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.3244,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 2,
+          "n": 322,
+          "value": 0.0062,
+          "ci_lower": 0.0017,
+          "ci_upper": 0.0224,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=8 is below the 100-row minimum for a supported slice",
+            "Wilson fpr_native ci_upper is 0.3244, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "attack:insert_paragraphs",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 12,
+        "n_ai": 317,
+        "abstentions": 124,
+        "max_human_score": 0.348,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 12,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.2425,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 2,
+          "n": 317,
+          "value": 0.0063,
+          "ci_lower": 0.0017,
+          "ci_upper": 0.0227,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=12 is below the 100-row minimum for a supported slice",
+            "Wilson fpr_native ci_upper is 0.2425, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "attack:none",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 13,
+        "n_ai": 357,
+        "abstentions": 185,
+        "max_human_score": 0.5205,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 13,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.2281,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 10,
+          "n": 357,
+          "value": 0.028,
+          "ci_lower": 0.0153,
+          "ci_upper": 0.0508,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=13 is below the 100-row minimum for a supported slice",
+            "Wilson fpr_native ci_upper is 0.2281, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "attack:number",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 10,
+        "n_ai": 320,
+        "abstentions": 167,
+        "max_human_score": 0.3345,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 10,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.2775,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 8,
+          "n": 320,
+          "value": 0.025,
+          "ci_lower": 0.0127,
+          "ci_upper": 0.0485,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=10 is below the 100-row minimum for a supported slice",
+            "Wilson fpr_native ci_upper is 0.2775, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "attack:paraphrase",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 11,
+        "n_ai": 318,
+        "abstentions": 183,
+        "max_human_score": 0.3857,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 11,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.2588,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 5,
+          "n": 318,
+          "value": 0.0157,
+          "ci_lower": 0.0067,
+          "ci_upper": 0.0363,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=11 is below the 100-row minimum for a supported slice",
+            "Wilson fpr_native ci_upper is 0.2588, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "attack:perplexity_misspelling",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 9,
+        "n_ai": 318,
+        "abstentions": 168,
+        "max_human_score": 0.3798,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 9,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.2992,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 7,
+          "n": 318,
+          "value": 0.022,
+          "ci_lower": 0.0107,
+          "ci_upper": 0.0447,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=9 is below the 100-row minimum for a supported slice",
+            "Wilson fpr_native ci_upper is 0.2992, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "attack:synonym",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 7,
+        "n_ai": 321,
+        "abstentions": 156,
+        "max_human_score": 0.4228,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 7,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.3543,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 9,
+          "n": 321,
+          "value": 0.028,
+          "ci_lower": 0.0148,
+          "ci_upper": 0.0524,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=7 is below the 100-row minimum for a supported slice",
+            "Wilson fpr_native ci_upper is 0.3543, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "attack:upper_lower",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 12,
+        "n_ai": 318,
+        "abstentions": 165,
+        "max_human_score": 0.4067,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 12,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.2425,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 3,
+          "n": 318,
+          "value": 0.0094,
+          "ci_lower": 0.0032,
+          "ci_upper": 0.0274,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=12 is below the 100-row minimum for a supported slice",
+            "Wilson fpr_native ci_upper is 0.2425, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "attack:whitespace",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 12,
+        "n_ai": 332,
+        "abstentions": 167,
+        "max_human_score": 0.3721,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 12,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.2425,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 12,
+          "n": 332,
+          "value": 0.0361,
+          "ci_lower": 0.0208,
+          "ci_upper": 0.0621,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=12 is below the 100-row minimum for a supported slice",
+            "Wilson fpr_native ci_upper is 0.2425, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "attack:zero_width_space",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 9,
+        "n_ai": 318,
+        "abstentions": 327,
+        "max_human_score": 0.5805,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 9,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.2992,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 318,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0119,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=9 is below the 100-row minimum for a supported slice",
+            "Wilson fpr_native ci_upper is 0.2992, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "decoding:None",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 121,
+        "n_ai": 0,
+        "abstentions": 36,
+        "max_human_score": 0.5805,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 121,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0308,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": null,
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_ai=0 is below the 100-row minimum (paired native TPR is thin)"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "domain:abstracts",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 38,
+        "n_ai": 1269,
+        "abstentions": 751,
+        "max_human_score": 0.5805,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 38,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0918,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 29,
+          "n": 1269,
+          "value": 0.0229,
+          "ci_lower": 0.016,
+          "ci_upper": 0.0326,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=38 is below the 100-row minimum for a supported slice",
+            "Wilson fpr_native ci_upper is 0.0918, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "domain:books",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 40,
+        "n_ai": 1278,
+        "abstentions": 639,
+        "max_human_score": 0.5805,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 40,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0876,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 17,
+          "n": 1278,
+          "value": 0.0133,
+          "ci_lower": 0.0083,
+          "ci_upper": 0.0212,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=40 is below the 100-row minimum for a supported slice",
+            "Wilson fpr_native ci_upper is 0.0876, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "domain:news",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 39,
+        "n_ai": 1278,
+        "abstentions": 608,
+        "max_human_score": 0.5805,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 39,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0897,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 27,
+          "n": 1278,
+          "value": 0.0211,
+          "ci_lower": 0.0146,
+          "ci_upper": 0.0306,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=39 is below the 100-row minimum for a supported slice",
+            "Wilson fpr_native ci_upper is 0.0897, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "domain:poetry",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 4,
+        "n_ai": 53,
+        "abstentions": 25,
+        "max_human_score": 0.2023,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 4,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.4899,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 4,
+          "n": 53,
+          "value": 0.0755,
+          "ci_lower": 0.0297,
+          "ci_upper": 0.1786,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=4 is below the 100-row minimum for a supported slice",
+            "n_ai=53 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.4899, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "length:200-499 words",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 62,
+        "n_ai": 2163,
+        "abstentions": 1152,
+        "max_human_score": 0.5805,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 62,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0583,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 76,
+          "n": 2163,
+          "value": 0.0351,
+          "ci_lower": 0.0282,
+          "ci_upper": 0.0438,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=62 is below the 100-row minimum for a supported slice",
+            "Wilson fpr_native ci_upper is 0.0583, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "length:500+ words",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 17,
+        "n_ai": 0,
+        "abstentions": 13,
+        "max_human_score": 0.5191,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 17,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1843,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": null,
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=17 is below the 100-row minimum for a supported slice",
+            "n_ai=0 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.1843, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "length:80-199 words",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 42,
+        "n_ai": 1526,
+        "abstentions": 674,
+        "max_human_score": 0.5805,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 42,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0838,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 1,
+          "n": 1526,
+          "value": 0.0007,
+          "ci_lower": 0.0001,
+          "ci_upper": 0.0037,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=42 is below the 100-row minimum for a supported slice",
+            "Wilson fpr_native ci_upper is 0.0838, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "model:human",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 121,
+        "n_ai": 0,
+        "abstentions": 36,
+        "max_human_score": 0.5805,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 121,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0308,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": null,
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_ai=0 is below the 100-row minimum (paired native TPR is thin)"
+          ]
+        }
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "pooled",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 299,
+        "n_ai": 301,
+        "abstentions": 330,
+        "max_human_score": 0.6243,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 299,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0127,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 1,
+          "n": 301,
+          "value": 0.0033,
+          "ci_lower": 0.0006,
+          "ci_upper": 0.0186,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        },
+        "record_id": "evr-20261116-mage-builtin-heuristic"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "length:200-499 words",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 65,
+        "n_ai": 81,
+        "abstentions": 51,
+        "max_human_score": 0.4852,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 65,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0558,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 81,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0453,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=65 is below the 100-row minimum for a supported slice",
+            "n_ai=81 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.0558, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "length:500+ words",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 28,
+        "n_ai": 35,
+        "abstentions": 25,
+        "max_human_score": 0.3712,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 28,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1206,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 35,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0989,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=28 is below the 100-row minimum for a supported slice",
+            "n_ai=35 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.1206, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "length:80-199 words",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 102,
+        "n_ai": 88,
+        "abstentions": 54,
+        "max_human_score": 0.5947,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 102,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0363,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 1,
+          "n": 88,
+          "value": 0.0114,
+          "ci_lower": 0.002,
+          "ci_upper": 0.0616,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_ai=88 is below the 100-row minimum (paired native TPR is thin)"
+          ]
+        }
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "length:<80 words (below detector floor)",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 104,
+        "n_ai": 97,
+        "abstentions": 200,
+        "max_human_score": 0.6243,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 104,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0356,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 97,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0381,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_ai=97 is below the 100-row minimum (paired native TPR is thin)"
+          ]
+        }
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:cmv",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 24,
+        "n_ai": 24,
+        "abstentions": 19,
+        "max_human_score": 0.3495,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 24,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.138,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 24,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.138,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=24 is below the 100-row minimum for a supported slice",
+            "n_ai=24 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.138, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:cnn",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 4,
+        "n_ai": 2,
+        "abstentions": 4,
+        "max_human_score": 0.4852,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 4,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.4899,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 2,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.6576,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=4 is below the 100-row minimum for a supported slice",
+            "n_ai=2 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.4899, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:dialogsum",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 3,
+        "n_ai": 2,
+        "abstentions": 0,
+        "max_human_score": 0.2585,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 3,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.5615,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 2,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.6576,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=3 is below the 100-row minimum for a supported slice",
+            "n_ai=2 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.5615, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:eli5",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 32,
+        "n_ai": 32,
+        "abstentions": 39,
+        "max_human_score": 0.4883,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 32,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1072,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 32,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1072,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=32 is below the 100-row minimum for a supported slice",
+            "n_ai=32 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.1072, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:hswag",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 33,
+        "n_ai": 30,
+        "abstentions": 54,
+        "max_human_score": 0.567,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 33,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1043,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 30,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1135,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=33 is below the 100-row minimum for a supported slice",
+            "n_ai=30 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.1043, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:imdb",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 4,
+        "n_ai": 2,
+        "abstentions": 1,
+        "max_human_score": 0.2525,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 4,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.4899,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 2,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.6576,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=4 is below the 100-row minimum for a supported slice",
+            "n_ai=2 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.4899, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:pubmed",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 3,
+        "n_ai": 2,
+        "abstentions": 2,
+        "max_human_score": 0.5947,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 3,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.5615,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 2,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.6576,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=3 is below the 100-row minimum for a supported slice",
+            "n_ai=2 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.5615, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:roct",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 32,
+        "n_ai": 32,
+        "abstentions": 52,
+        "max_human_score": 0.6243,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 32,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1072,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 32,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1072,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=32 is below the 100-row minimum for a supported slice",
+            "n_ai=32 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.1072, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:sci_gen",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 25,
+        "n_ai": 22,
+        "abstentions": 21,
+        "max_human_score": 0.3965,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 25,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1332,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 1,
+          "n": 22,
+          "value": 0.0455,
+          "ci_lower": 0.0081,
+          "ci_upper": 0.218,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=25 is below the 100-row minimum for a supported slice",
+            "n_ai=22 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.1332, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:squad",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 26,
+        "n_ai": 25,
+        "abstentions": 19,
+        "max_human_score": 0.4367,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 26,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1287,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 25,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1332,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=26 is below the 100-row minimum for a supported slice",
+            "n_ai=25 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.1287, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:tldr",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 25,
+        "n_ai": 24,
+        "abstentions": 35,
+        "max_human_score": 0.4051,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 25,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1332,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 24,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.138,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=25 is below the 100-row minimum for a supported slice",
+            "n_ai=24 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.1332, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:wp",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 30,
+        "n_ai": 31,
+        "abstentions": 20,
+        "max_human_score": 0.4064,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 30,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1135,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 31,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1103,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=30 is below the 100-row minimum for a supported slice",
+            "n_ai=31 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.1135, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:xsum",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 32,
+        "n_ai": 32,
+        "abstentions": 27,
+        "max_human_score": 0.4125,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 32,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1072,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 32,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1072,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=32 is below the 100-row minimum for a supported slice",
+            "n_ai=32 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.1072, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:yelp",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 26,
+        "n_ai": 25,
+        "abstentions": 26,
+        "max_human_score": 0.4949,
+        "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 26,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1287,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 25,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1332,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=26 is below the 100-row minimum for a supported slice",
+            "n_ai=25 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.1287, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "Beemo",
+        "slice_id": "pooled",
+        "source_artifact": "EV-20261116-dataset-beemo",
+        "source_artifact_sha256": "4a0f291ac5f14086583cdb4d89c3448c5e9fab3f9a00c0291fada7ad30e70849",
+        "slice_kind": "document",
+        "n_human": 874,
+        "n_ai": 3059,
+        "abstentions": 1900,
+        "max_human_score": 0.6648,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 874,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.004376,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 3059,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.001254,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        },
+        "record_id": "evr-20261116-beemo-builtin-heuristic"
+      },
+      {
+        "dataset": "Beemo",
+        "slice_id": "category:Closed QA",
+        "source_artifact": "EV-20261116-dataset-beemo",
+        "source_artifact_sha256": "4a0f291ac5f14086583cdb4d89c3448c5e9fab3f9a00c0291fada7ad30e70849",
+        "slice_kind": "document",
+        "n_human": 82,
+        "n_ai": 287,
+        "abstentions": 304,
+        "max_human_score": 0.5918,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 82,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.044752,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 287,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.013209,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=82 is below the 100-row minimum for a supported slice"
+          ]
+        }
+      },
+      {
+        "dataset": "Beemo",
+        "slice_id": "category:Generation",
+        "source_artifact": "EV-20261116-dataset-beemo",
+        "source_artifact_sha256": "4a0f291ac5f14086583cdb4d89c3448c5e9fab3f9a00c0291fada7ad30e70849",
+        "slice_kind": "document",
+        "n_human": 234,
+        "n_ai": 819,
+        "abstentions": 384,
+        "max_human_score": 0.6497,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 234,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.016152,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 819,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.004669,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "Beemo",
+        "slice_id": "category:Open QA",
+        "source_artifact": "EV-20261116-dataset-beemo",
+        "source_artifact_sha256": "4a0f291ac5f14086583cdb4d89c3448c5e9fab3f9a00c0291fada7ad30e70849",
+        "slice_kind": "document",
+        "n_human": 192,
+        "n_ai": 672,
+        "abstentions": 473,
+        "max_human_score": 0.6227,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 192,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.019616,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 672,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.005684,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "Beemo",
+        "slice_id": "category:Rewrite",
+        "source_artifact": "EV-20261116-dataset-beemo",
+        "source_artifact_sha256": "4a0f291ac5f14086583cdb4d89c3448c5e9fab3f9a00c0291fada7ad30e70849",
+        "slice_kind": "document",
+        "n_human": 210,
+        "n_ai": 735,
+        "abstentions": 330,
+        "max_human_score": 0.6648,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 210,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.017965,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 735,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.005199,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "Beemo",
+        "slice_id": "category:Summarize",
+        "source_artifact": "EV-20261116-dataset-beemo",
+        "source_artifact_sha256": "4a0f291ac5f14086583cdb4d89c3448c5e9fab3f9a00c0291fada7ad30e70849",
+        "slice_kind": "document",
+        "n_human": 156,
+        "n_ai": 546,
+        "abstentions": 409,
+        "max_human_score": 0.4852,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 156,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.024034,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 546,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.006987,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "Beemo",
+        "slice_id": "kind:human",
+        "source_artifact": "EV-20261116-dataset-beemo",
+        "source_artifact_sha256": "4a0f291ac5f14086583cdb4d89c3448c5e9fab3f9a00c0291fada7ad30e70849",
+        "slice_kind": "document",
+        "n_human": 437,
+        "n_ai": 0,
+        "abstentions": 277,
+        "max_human_score": 0.6148,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 437,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.008714,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": null,
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_ai=0 is below the 100-row minimum (paired native TPR is thin)"
+          ]
+        }
+      },
+      {
+        "dataset": "Beemo",
+        "slice_id": "kind:human_edits",
+        "source_artifact": "EV-20261116-dataset-beemo",
+        "source_artifact_sha256": "4a0f291ac5f14086583cdb4d89c3448c5e9fab3f9a00c0291fada7ad30e70849",
+        "slice_kind": "document",
+        "n_human": 437,
+        "n_ai": 0,
+        "abstentions": 231,
+        "max_human_score": 0.6648,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 437,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.008714,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": null,
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_ai=0 is below the 100-row minimum (paired native TPR is thin)"
+          ]
+        }
+      },
+      {
+        "dataset": "DetectRL-X",
+        "slice_id": "pooled",
+        "source_artifact": "EV-20261116-dataset-detectrl-x",
+        "source_artifact_sha256": "02d7a2757322504a4ae32400a07678e3a064da3bbd91886c3c641d08f0677f9c",
+        "slice_kind": "document",
+        "n_human": 2400,
+        "n_ai": 2400,
+        "abstentions": 773,
+        "max_human_score": 0.505,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 2400,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.001598,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 2400,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.001598,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        },
+        "record_id": "evr-20261116-detectrl-x-builtin-heuristic"
+      },
+      {
+        "dataset": "DetectRL-X",
+        "slice_id": "domain:Academic",
+        "source_artifact": "EV-20261116-dataset-detectrl-x",
+        "source_artifact_sha256": "02d7a2757322504a4ae32400a07678e3a064da3bbd91886c3c641d08f0677f9c",
+        "slice_kind": "document",
+        "n_human": 439,
+        "n_ai": 439,
+        "abstentions": 118,
+        "max_human_score": 0.4184,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 439,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.008675,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 439,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.008675,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "DetectRL-X",
+        "slice_id": "domain:News",
+        "source_artifact": "EV-20261116-dataset-detectrl-x",
+        "source_artifact_sha256": "02d7a2757322504a4ae32400a07678e3a064da3bbd91886c3c641d08f0677f9c",
+        "slice_kind": "document",
+        "n_human": 395,
+        "n_ai": 395,
+        "abstentions": 163,
+        "max_human_score": 0.5015,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 395,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.009632,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 395,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.009632,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "DetectRL-X",
+        "slice_id": "domain:Novel",
+        "source_artifact": "EV-20261116-dataset-detectrl-x",
+        "source_artifact_sha256": "02d7a2757322504a4ae32400a07678e3a064da3bbd91886c3c641d08f0677f9c",
+        "slice_kind": "document",
+        "n_human": 383,
+        "n_ai": 383,
+        "abstentions": 62,
+        "max_human_score": 0.505,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 383,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.009931,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 383,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.009931,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "DetectRL-X",
+        "slice_id": "domain:SEO",
+        "source_artifact": "EV-20261116-dataset-detectrl-x",
+        "source_artifact_sha256": "02d7a2757322504a4ae32400a07678e3a064da3bbd91886c3c641d08f0677f9c",
+        "slice_kind": "document",
+        "n_human": 384,
+        "n_ai": 384,
+        "abstentions": 145,
+        "max_human_score": 0.4997,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 384,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.009905,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 384,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.009905,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "DetectRL-X",
+        "slice_id": "domain:Webtext",
+        "source_artifact": "EV-20261116-dataset-detectrl-x",
+        "source_artifact_sha256": "02d7a2757322504a4ae32400a07678e3a064da3bbd91886c3c641d08f0677f9c",
+        "slice_kind": "document",
+        "n_human": 387,
+        "n_ai": 387,
+        "abstentions": 136,
+        "max_human_score": 0.4875,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 387,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.009829,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 387,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.009829,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "DetectRL-X",
+        "slice_id": "domain:Wiki",
+        "source_artifact": "EV-20261116-dataset-detectrl-x",
+        "source_artifact_sha256": "02d7a2757322504a4ae32400a07678e3a064da3bbd91886c3c641d08f0677f9c",
+        "slice_kind": "document",
+        "n_human": 412,
+        "n_ai": 412,
+        "abstentions": 149,
+        "max_human_score": 0.4142,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 412,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.009238,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 412,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.009238,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "DetectRL-X",
+        "slice_id": "language:arabic",
+        "source_artifact": "EV-20261116-dataset-detectrl-x",
+        "source_artifact_sha256": "02d7a2757322504a4ae32400a07678e3a064da3bbd91886c3c641d08f0677f9c",
+        "slice_kind": "document",
+        "n_human": 300,
+        "n_ai": 300,
+        "abstentions": 14,
+        "max_human_score": 0.491,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 300,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.012643,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 300,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.012643,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "DetectRL-X",
+        "slice_id": "language:chinese",
+        "source_artifact": "EV-20261116-dataset-detectrl-x",
+        "source_artifact_sha256": "02d7a2757322504a4ae32400a07678e3a064da3bbd91886c3c641d08f0677f9c",
+        "slice_kind": "document",
+        "n_human": 300,
+        "n_ai": 300,
+        "abstentions": 291,
+        "max_human_score": 0.4997,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 300,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.012643,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 300,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.012643,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "DetectRL-X",
+        "slice_id": "language:english",
+        "source_artifact": "EV-20261116-dataset-detectrl-x",
+        "source_artifact_sha256": "02d7a2757322504a4ae32400a07678e3a064da3bbd91886c3c641d08f0677f9c",
+        "slice_kind": "document",
+        "n_human": 300,
+        "n_ai": 300,
+        "abstentions": 120,
+        "max_human_score": 0.4495,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 300,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.012643,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 300,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.012643,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "DetectRL-X",
+        "slice_id": "language:french",
+        "source_artifact": "EV-20261116-dataset-detectrl-x",
+        "source_artifact_sha256": "02d7a2757322504a4ae32400a07678e3a064da3bbd91886c3c641d08f0677f9c",
+        "slice_kind": "document",
+        "n_human": 300,
+        "n_ai": 300,
+        "abstentions": 67,
+        "max_human_score": 0.4875,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 300,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.012643,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 300,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.012643,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "DetectRL-X",
+        "slice_id": "language:german",
+        "source_artifact": "EV-20261116-dataset-detectrl-x",
+        "source_artifact_sha256": "02d7a2757322504a4ae32400a07678e3a064da3bbd91886c3c641d08f0677f9c",
+        "slice_kind": "document",
+        "n_human": 300,
+        "n_ai": 300,
+        "abstentions": 43,
+        "max_human_score": 0.3756,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 300,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.012643,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 300,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.012643,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "DetectRL-X",
+        "slice_id": "language:portuguese",
+        "source_artifact": "EV-20261116-dataset-detectrl-x",
+        "source_artifact_sha256": "02d7a2757322504a4ae32400a07678e3a064da3bbd91886c3c641d08f0677f9c",
+        "slice_kind": "document",
+        "n_human": 300,
+        "n_ai": 300,
+        "abstentions": 99,
+        "max_human_score": 0.455,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 300,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.012643,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 300,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.012643,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "DetectRL-X",
+        "slice_id": "language:russian",
+        "source_artifact": "EV-20261116-dataset-detectrl-x",
+        "source_artifact_sha256": "02d7a2757322504a4ae32400a07678e3a064da3bbd91886c3c641d08f0677f9c",
+        "slice_kind": "document",
+        "n_human": 300,
+        "n_ai": 300,
+        "abstentions": 3,
+        "max_human_score": 0.4717,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 300,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.012643,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 300,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.012643,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "DetectRL-X",
+        "slice_id": "language:spanish",
+        "source_artifact": "EV-20261116-dataset-detectrl-x",
+        "source_artifact_sha256": "02d7a2757322504a4ae32400a07678e3a064da3bbd91886c3c641d08f0677f9c",
+        "slice_kind": "document",
+        "n_human": 300,
+        "n_ai": 300,
+        "abstentions": 136,
+        "max_human_score": 0.505,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 300,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.012643,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 300,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.012643,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "GhostWriter",
+        "slice_id": "pooled",
+        "source_artifact": "EV-20261116-dataset-ghostwriter",
+        "source_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f",
+        "source_slice_id": "ghostwriter-pooled",
+        "slice_kind": "document",
+        "n_human": 354,
+        "n_ai": 507,
+        "abstentions": 392,
+        "max_human_score": 0.674,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 354,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0107,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 507,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0075,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        },
+        "record_id": "evr-20261116-ghostwriter-builtin-heuristic"
+      },
+      {
+        "dataset": "GhostWriter",
+        "slice_id": "agent-deepseek-r1:1.5b",
+        "source_artifact": "EV-20261116-dataset-ghostwriter",
+        "source_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f",
+        "source_slice_id": "ghostwriter-agent-deepseek-r1:1.5b",
+        "slice_kind": "document",
+        "n_human": 354,
+        "n_ai": 3,
+        "abstentions": 189,
+        "max_human_score": 0.674,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 354,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0107,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 3,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.5615,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_ai=3 is below the 100-row minimum (paired native TPR is thin)"
+          ]
+        }
+      },
+      {
+        "dataset": "GhostWriter",
+        "slice_id": "agent-deepseek-r1:32b",
+        "source_artifact": "EV-20261116-dataset-ghostwriter",
+        "source_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f",
+        "source_slice_id": "ghostwriter-agent-deepseek-r1:32b",
+        "slice_kind": "document",
+        "n_human": 354,
+        "n_ai": 3,
+        "abstentions": 188,
+        "max_human_score": 0.674,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 354,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0107,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 3,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.5615,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_ai=3 is below the 100-row minimum (paired native TPR is thin)"
+          ]
+        }
+      },
+      {
+        "dataset": "GhostWriter",
+        "slice_id": "agent-gemma2:9b",
+        "source_artifact": "EV-20261116-dataset-ghostwriter",
+        "source_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f",
+        "source_slice_id": "ghostwriter-agent-gemma2:9b",
+        "slice_kind": "document",
+        "n_human": 354,
+        "n_ai": 251,
+        "abstentions": 270,
+        "max_human_score": 0.674,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 354,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0107,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 251,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0151,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "GhostWriter",
+        "slice_id": "agent-gpt-4-turbo",
+        "source_artifact": "EV-20261116-dataset-ghostwriter",
+        "source_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f",
+        "source_slice_id": "ghostwriter-agent-gpt-4-turbo",
+        "slice_kind": "document",
+        "n_human": 354,
+        "n_ai": 1,
+        "abstentions": 187,
+        "max_human_score": 0.674,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 354,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0107,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 1,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.7935,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_ai=1 is below the 100-row minimum (paired native TPR is thin)"
+          ]
+        }
+      },
+      {
+        "dataset": "GhostWriter",
+        "slice_id": "agent-gpt-4o-mini",
+        "source_artifact": "EV-20261116-dataset-ghostwriter",
+        "source_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f",
+        "source_slice_id": "ghostwriter-agent-gpt-4o-mini",
+        "slice_kind": "document",
+        "n_human": 354,
+        "n_ai": 228,
+        "abstentions": 298,
+        "max_human_score": 0.674,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 354,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0107,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 228,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0166,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "GhostWriter",
+        "slice_id": "agent-nemotron",
+        "source_artifact": "EV-20261116-dataset-ghostwriter",
+        "source_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f",
+        "source_slice_id": "ghostwriter-agent-nemotron",
+        "slice_kind": "document",
+        "n_human": 354,
+        "n_ai": 5,
+        "abstentions": 186,
+        "max_human_score": 0.674,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 354,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0107,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 5,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.4345,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_ai=5 is below the 100-row minimum (paired native TPR is thin)"
+          ]
+        }
+      },
+      {
+        "dataset": "GhostWriter",
+        "slice_id": "agent-o3-mini",
+        "source_artifact": "EV-20261116-dataset-ghostwriter",
+        "source_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f",
+        "source_slice_id": "ghostwriter-agent-o3-mini",
+        "slice_kind": "document",
+        "n_human": 354,
+        "n_ai": 1,
+        "abstentions": 186,
+        "max_human_score": 0.674,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 354,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0107,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 1,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.7935,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_ai=1 is below the 100-row minimum (paired native TPR is thin)"
+          ]
+        }
+      },
+      {
+        "dataset": "GhostWriter",
+        "slice_id": "agent-phi3:3.8b",
+        "source_artifact": "EV-20261116-dataset-ghostwriter",
+        "source_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f",
+        "source_slice_id": "ghostwriter-agent-phi3:3.8b",
+        "slice_kind": "document",
+        "n_human": 354,
+        "n_ai": 15,
+        "abstentions": 190,
+        "max_human_score": 0.674,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 354,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0107,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 15,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.2039,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_ai=15 is below the 100-row minimum (paired native TPR is thin)"
+          ]
+        }
+      },
+      {
+        "dataset": "GhostWriter",
+        "slice_id": "domain-arxiv_papers",
+        "source_artifact": "EV-20261116-dataset-ghostwriter",
+        "source_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f",
+        "source_slice_id": "ghostwriter-domain-arxiv_papers",
+        "slice_kind": "document",
+        "n_human": 26,
+        "n_ai": 29,
+        "abstentions": 46,
+        "max_human_score": 0.4744,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 26,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1287,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 29,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.117,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=26 is below the 100-row minimum for a supported slice",
+            "n_ai=29 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.1287, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "GhostWriter",
+        "slice_id": "domain-blog_authorship_corpus",
+        "source_artifact": "EV-20261116-dataset-ghostwriter",
+        "source_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f",
+        "source_slice_id": "ghostwriter-domain-blog_authorship_corpus",
+        "slice_kind": "document",
+        "n_human": 51,
+        "n_ai": 64,
+        "abstentions": 59,
+        "max_human_score": 0.5685,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 51,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.07,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 64,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0566,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=51 is below the 100-row minimum for a supported slice",
+            "n_ai=64 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.07, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "GhostWriter",
+        "slice_id": "domain-bundestag",
+        "source_artifact": "EV-20261116-dataset-ghostwriter",
+        "source_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f",
+        "source_slice_id": "ghostwriter-domain-bundestag",
+        "slice_kind": "document",
+        "n_human": 57,
+        "n_ai": 76,
+        "abstentions": 33,
+        "max_human_score": 0.4607,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 57,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0631,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 76,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0481,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=57 is below the 100-row minimum for a supported slice",
+            "n_ai=76 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.0631, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "GhostWriter",
+        "slice_id": "domain-cnn_news",
+        "source_artifact": "EV-20261116-dataset-ghostwriter",
+        "source_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f",
+        "source_slice_id": "ghostwriter-domain-cnn_news",
+        "slice_kind": "document",
+        "n_human": 44,
+        "n_ai": 62,
+        "abstentions": 30,
+        "max_human_score": 0.448,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 44,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0803,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 62,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0583,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=44 is below the 100-row minimum for a supported slice",
+            "n_ai=62 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.0803, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "GhostWriter",
+        "slice_id": "domain-euro_court_cases",
+        "source_artifact": "EV-20261116-dataset-ghostwriter",
+        "source_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f",
+        "source_slice_id": "ghostwriter-domain-euro_court_cases",
+        "slice_kind": "document",
+        "n_human": 26,
+        "n_ai": 27,
+        "abstentions": 38,
+        "max_human_score": 0.4927,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 26,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1287,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 27,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1246,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=26 is below the 100-row minimum for a supported slice",
+            "n_ai=27 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.1287, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "GhostWriter",
+        "slice_id": "domain-house_of_commons",
+        "source_artifact": "EV-20261116-dataset-ghostwriter",
+        "source_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f",
+        "source_slice_id": "ghostwriter-domain-house_of_commons",
+        "slice_kind": "document",
+        "n_human": 44,
+        "n_ai": 61,
+        "abstentions": 64,
+        "max_human_score": 0.4776,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 44,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0803,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 61,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0592,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=44 is below the 100-row minimum for a supported slice",
+            "n_ai=61 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.0803, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "GhostWriter",
+        "slice_id": "domain-student_essays",
+        "source_artifact": "EV-20261116-dataset-ghostwriter",
+        "source_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f",
+        "source_slice_id": "ghostwriter-domain-student_essays",
+        "slice_kind": "document",
+        "n_human": 106,
+        "n_ai": 165,
+        "abstentions": 114,
+        "max_human_score": 0.674,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 106,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.035,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 165,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0228,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "GhostWriter",
+        "slice_id": "lang-de-DE",
+        "source_artifact": "EV-20261116-dataset-ghostwriter",
+        "source_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f",
+        "source_slice_id": "ghostwriter-lang-de-DE",
+        "slice_kind": "document",
+        "n_human": 57,
+        "n_ai": 78,
+        "abstentions": 34,
+        "max_human_score": 0.4607,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 57,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0631,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 78,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0469,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=57 is below the 100-row minimum for a supported slice",
+            "n_ai=78 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.0631, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "GhostWriter",
+        "slice_id": "lang-en-EN",
+        "source_artifact": "EV-20261116-dataset-ghostwriter",
+        "source_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f",
+        "source_slice_id": "ghostwriter-lang-en-EN",
+        "slice_kind": "document",
+        "n_human": 297,
+        "n_ai": 429,
+        "abstentions": 358,
+        "max_human_score": 0.674,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 297,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0128,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 429,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0089,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        }
+      },
+      {
+        "dataset": "OpAI-Bench",
+        "slice_id": "pooled",
+        "source_artifact": "EV-20261116-dataset-opai-bench",
+        "source_artifact_sha256": "3cefa40f00282bb10184d8576b90058085533a449efb118b87f04be416c71969",
+        "source_slice_id": "opai-bench-pooled",
+        "slice_kind": "document",
+        "n_human": 146,
+        "n_ai": 147,
+        "abstentions": 129,
+        "max_human_score": 0.625,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 146,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0256,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 147,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0255,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": true,
+          "blockers": []
+        },
+        "record_id": "evr-20261116-opai-bench-builtin-heuristic"
+      },
+      {
+        "dataset": "OpAI-Bench",
+        "slice_id": "abstracts",
+        "source_artifact": "EV-20261116-dataset-opai-bench",
+        "source_artifact_sha256": "3cefa40f00282bb10184d8576b90058085533a449efb118b87f04be416c71969",
+        "source_slice_id": "opai-bench-abstracts",
+        "slice_kind": "document",
+        "n_human": 38,
+        "n_ai": 37,
+        "abstentions": 30,
+        "max_human_score": 0.4415,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 38,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0918,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 37,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0941,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=38 is below the 100-row minimum for a supported slice",
+            "n_ai=37 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.0918, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "OpAI-Bench",
+        "slice_id": "essays",
+        "source_artifact": "EV-20261116-dataset-opai-bench",
+        "source_artifact_sha256": "3cefa40f00282bb10184d8576b90058085533a449efb118b87f04be416c71969",
+        "source_slice_id": "opai-bench-essays",
+        "slice_kind": "document",
+        "n_human": 37,
+        "n_ai": 39,
+        "abstentions": 27,
+        "max_human_score": 0.625,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 37,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0941,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 39,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0897,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=37 is below the 100-row minimum for a supported slice",
+            "n_ai=39 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.0941, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "OpAI-Bench",
+        "slice_id": "generator-gemini-2.5-flash",
+        "source_artifact": "EV-20261116-dataset-opai-bench",
+        "source_artifact_sha256": "3cefa40f00282bb10184d8576b90058085533a449efb118b87f04be416c71969",
+        "source_slice_id": "opai-bench-generator-gemini-2.5-flash",
+        "slice_kind": "document",
+        "n_human": 146,
+        "n_ai": 75,
+        "abstentions": 99,
+        "max_human_score": 0.625,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 146,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0256,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 75,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0487,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_ai=75 is below the 100-row minimum (paired native TPR is thin)"
+          ]
+        }
+      },
+      {
+        "dataset": "OpAI-Bench",
+        "slice_id": "generator-gpt-5.4",
+        "source_artifact": "EV-20261116-dataset-opai-bench",
+        "source_artifact_sha256": "3cefa40f00282bb10184d8576b90058085533a449efb118b87f04be416c71969",
+        "source_slice_id": "opai-bench-generator-gpt-5.4",
+        "slice_kind": "document",
+        "n_human": 146,
+        "n_ai": 32,
+        "abstentions": 88,
+        "max_human_score": 0.625,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 146,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0256,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 32,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1072,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_ai=32 is below the 100-row minimum (paired native TPR is thin)"
+          ]
+        }
+      },
+      {
+        "dataset": "OpAI-Bench",
+        "slice_id": "generator-gpt-5.4-nano",
+        "source_artifact": "EV-20261116-dataset-opai-bench",
+        "source_artifact_sha256": "3cefa40f00282bb10184d8576b90058085533a449efb118b87f04be416c71969",
+        "source_slice_id": "opai-bench-generator-gpt-5.4-nano",
+        "slice_kind": "document",
+        "n_human": 146,
+        "n_ai": 40,
+        "abstentions": 88,
+        "max_human_score": 0.625,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 146,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0256,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 40,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0876,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_ai=40 is below the 100-row minimum (paired native TPR is thin)"
+          ]
+        }
+      },
+      {
+        "dataset": "OpAI-Bench",
+        "slice_id": "news",
+        "source_artifact": "EV-20261116-dataset-opai-bench",
+        "source_artifact_sha256": "3cefa40f00282bb10184d8576b90058085533a449efb118b87f04be416c71969",
+        "source_slice_id": "opai-bench-news",
+        "slice_kind": "document",
+        "n_human": 34,
+        "n_ai": 34,
+        "abstentions": 12,
+        "max_human_score": 0.4445,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 34,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1015,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 34,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.1015,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=34 is below the 100-row minimum for a supported slice",
+            "n_ai=34 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.1015, which exceeds the ceiling 0.05"
+          ]
+        }
+      },
+      {
+        "dataset": "OpAI-Bench",
+        "slice_id": "reports",
+        "source_artifact": "EV-20261116-dataset-opai-bench",
+        "source_artifact_sha256": "3cefa40f00282bb10184d8576b90058085533a449efb118b87f04be416c71969",
+        "source_slice_id": "opai-bench-reports",
+        "slice_kind": "document",
+        "n_human": 37,
+        "n_ai": 37,
+        "abstentions": 60,
+        "max_human_score": 0.5037,
+        "operating_point": "builtin-heuristic native verdict (analyze_text); no score threshold",
+        "fpr_native_wilson": {
+          "k": 0,
+          "n": 37,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0941,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "tpr_native_wilson": {
+          "k": 0,
+          "n": 37,
+          "value": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.0941,
+          "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+        },
+        "assessment": {
+          "can_support_fpr_claim": false,
+          "blockers": [
+            "n_human=37 is below the 100-row minimum for a supported slice",
+            "n_ai=37 is below the 100-row minimum (paired native TPR is thin)",
+            "Wilson fpr_native ci_upper is 0.0941, which exceeds the ceiling 0.05"
+          ]
+        }
+      }
+    ],
+    "unmeasured_slices": [
+      {
+        "dataset": "RAID",
+        "slice_id": "decoding:greedy",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 1937,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry decoding=None; this decoding slice has no human rows by construction"
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "decoding:sampling",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 1941,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry decoding=None; this decoding slice has no human rows by construction"
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "length:<80 words (below detector floor)",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 189,
+        "fpr_native_wilson": null,
+        "reason": "no human rows in this length bucket in the W8 final-test set (all 121 final-test human rows are >= 80 words)"
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "model:chatgpt",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 228,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry model=human; this generator slice has no human rows by construction"
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "model:cohere",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 223,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry model=human; this generator slice has no human rows by construction"
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "model:cohere-chat",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 223,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry model=human; this generator slice has no human rows by construction"
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "model:gpt2",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 459,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry model=human; this generator slice has no human rows by construction"
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "model:gpt3",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 222,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry model=human; this generator slice has no human rows by construction"
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "model:gpt4",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 235,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry model=human; this generator slice has no human rows by construction"
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "model:llama-chat",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 459,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry model=human; this generator slice has no human rows by construction"
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "model:mistral",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 454,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry model=human; this generator slice has no human rows by construction"
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "model:mistral-chat",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 460,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry model=human; this generator slice has no human rows by construction"
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "model:mpt",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 448,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry model=human; this generator slice has no human rows by construction"
+      },
+      {
+        "dataset": "RAID",
+        "slice_id": "model:mpt-chat",
+        "source_artifact": "EV-20261116-dataset-raid",
+        "source_artifact_sha256": "fce89889efc7b03e528150d51a53d9d94a7ca71e6ad93ddc9094cc96f07e38c7",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 467,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry model=human; this generator slice has no human rows by construction"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "generator_family:BLOOM",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 7,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry no generator family; this family slice has no human rows by construction"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "generator_family:Flan-T5",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 43,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry no generator family; this family slice has no human rows by construction"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "generator_family:GLM-130B",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 9,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry no generator family; this family slice has no human rows by construction"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "generator_family:GPT-3 (davinci)",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 44,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry no generator family; this family slice has no human rows by construction"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "generator_family:GPT-3.5-turbo",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 22,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry no generator family; this family slice has no human rows by construction"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "generator_family:GPT-J",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 6,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry no generator family; this family slice has no human rows by construction"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "generator_family:GPT-NeoX",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 10,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry no generator family; this family slice has no human rows by construction"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "generator_family:LLaMA",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 39,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry no generator family; this family slice has no human rows by construction"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "generator_family:OPT",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 79,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry no generator family; this family slice has no human rows by construction"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "generator_family:T0",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 18,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: human rows carry no generator family; this family slice has no human rows by construction"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "task:continuation",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 240,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: the task label applies to machine rows; no human row carries this task label in the W8 final-test set"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "task:specified",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 17,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: the task label applies to machine rows; no human row carries this task label in the W8 final-test set"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "task:topical",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 20,
+        "fpr_native_wilson": null,
+        "reason": "AI-only cross-cut: the task label applies to machine rows; no human row carries this task label in the W8 final-test set"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:cnn_gpt4",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 2,
+        "fpr_native_wilson": null,
+        "reason": "no human rows sampled in this OOD testbed in the W8 final-test set (AI rows only)"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:cnn_gpt4_para",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 2,
+        "fpr_native_wilson": null,
+        "reason": "no human rows sampled in this OOD testbed in the W8 final-test set (AI rows only)"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:dialogsum_gpt4",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 2,
+        "fpr_native_wilson": null,
+        "reason": "no human rows sampled in this OOD testbed in the W8 final-test set (AI rows only)"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:dialogsum_gpt4_para",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 2,
+        "fpr_native_wilson": null,
+        "reason": "no human rows sampled in this OOD testbed in the W8 final-test set (AI rows only)"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:imdb_gpt4",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 2,
+        "fpr_native_wilson": null,
+        "reason": "no human rows sampled in this OOD testbed in the W8 final-test set (AI rows only)"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:imdb_gpt4_para",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 2,
+        "fpr_native_wilson": null,
+        "reason": "no human rows sampled in this OOD testbed in the W8 final-test set (AI rows only)"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:pubmed_gpt4",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 2,
+        "fpr_native_wilson": null,
+        "reason": "no human rows sampled in this OOD testbed in the W8 final-test set (AI rows only)"
+      },
+      {
+        "dataset": "MAGE",
+        "slice_id": "testbed:pubmed_gpt4_para",
+        "source_artifact": "EV-20261116-dataset-mage",
+        "source_artifact_sha256": "0e082f042eea3bdeffd5af8a3441acdd0c63e34cc9568c79bef5cc0d59b817a4",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 2,
+        "fpr_native_wilson": null,
+        "reason": "no human rows sampled in this OOD testbed in the W8 final-test set (AI rows only)"
+      },
+      {
+        "dataset": "Beemo",
+        "slice_id": "kind:gpt-4o_P1",
+        "source_artifact": "EV-20261116-dataset-beemo",
+        "source_artifact_sha256": "4a0f291ac5f14086583cdb4d89c3448c5e9fab3f9a00c0291fada7ad30e70849",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 437,
+        "fpr_native_wilson": null,
+        "reason": "AI-only kind by construction: single-class slice with no human rows in the W8 final-test set (human rows carry kind human / human_edits)"
+      },
+      {
+        "dataset": "Beemo",
+        "slice_id": "kind:gpt-4o_P2",
+        "source_artifact": "EV-20261116-dataset-beemo",
+        "source_artifact_sha256": "4a0f291ac5f14086583cdb4d89c3448c5e9fab3f9a00c0291fada7ad30e70849",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 437,
+        "fpr_native_wilson": null,
+        "reason": "AI-only kind by construction: single-class slice with no human rows in the W8 final-test set (human rows carry kind human / human_edits)"
+      },
+      {
+        "dataset": "Beemo",
+        "slice_id": "kind:gpt-4o_P3",
+        "source_artifact": "EV-20261116-dataset-beemo",
+        "source_artifact_sha256": "4a0f291ac5f14086583cdb4d89c3448c5e9fab3f9a00c0291fada7ad30e70849",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 437,
+        "fpr_native_wilson": null,
+        "reason": "AI-only kind by construction: single-class slice with no human rows in the W8 final-test set (human rows carry kind human / human_edits)"
+      },
+      {
+        "dataset": "Beemo",
+        "slice_id": "kind:llama-3.1-70b_P1",
+        "source_artifact": "EV-20261116-dataset-beemo",
+        "source_artifact_sha256": "4a0f291ac5f14086583cdb4d89c3448c5e9fab3f9a00c0291fada7ad30e70849",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 437,
+        "fpr_native_wilson": null,
+        "reason": "AI-only kind by construction: single-class slice with no human rows in the W8 final-test set (human rows carry kind human / human_edits)"
+      },
+      {
+        "dataset": "Beemo",
+        "slice_id": "kind:llama-3.1-70b_P2",
+        "source_artifact": "EV-20261116-dataset-beemo",
+        "source_artifact_sha256": "4a0f291ac5f14086583cdb4d89c3448c5e9fab3f9a00c0291fada7ad30e70849",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 437,
+        "fpr_native_wilson": null,
+        "reason": "AI-only kind by construction: single-class slice with no human rows in the W8 final-test set (human rows carry kind human / human_edits)"
+      },
+      {
+        "dataset": "Beemo",
+        "slice_id": "kind:llama-3.1-70b_P3",
+        "source_artifact": "EV-20261116-dataset-beemo",
+        "source_artifact_sha256": "4a0f291ac5f14086583cdb4d89c3448c5e9fab3f9a00c0291fada7ad30e70849",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 437,
+        "fpr_native_wilson": null,
+        "reason": "AI-only kind by construction: single-class slice with no human rows in the W8 final-test set (human rows carry kind human / human_edits)"
+      },
+      {
+        "dataset": "Beemo",
+        "slice_id": "kind:model_output",
+        "source_artifact": "EV-20261116-dataset-beemo",
+        "source_artifact_sha256": "4a0f291ac5f14086583cdb4d89c3448c5e9fab3f9a00c0291fada7ad30e70849",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 437,
+        "fpr_native_wilson": null,
+        "reason": "AI-only kind by construction: single-class slice with no human rows in the W8 final-test set (human rows carry kind human / human_edits)"
+      },
+      {
+        "dataset": "GhostWriter",
+        "slice_id": "domain-gutenberg",
+        "source_artifact": "EV-20261116-dataset-ghostwriter",
+        "source_artifact_sha256": "2a67ecadaef71eef1f114bfc57b4bc4cb3dbbd7a826f83943088e6b0f7bbc75f",
+        "source_slice_id": "ghostwriter-domain-gutenberg",
+        "slice_kind": "document",
+        "n_human": 0,
+        "n_ai": 23,
+        "fpr_native_wilson": null,
+        "reason": "no human rows in the W8 final-test set for this slice: all 12 pooled human gutenberg rows fell into fit (7) and dev (5) under the frozen hash partition (worker C report \u00a78)"
+      }
+    ],
+    "pooled_documents_only": {
+      "k": 0,
+      "n": 4194,
+      "value": 0.0,
+      "ci_lower": 0.0,
+      "ci_upper": 0.0009151369599081586,
+      "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci"
+    },
+    "worst_slice_wilson_ci_upper": 0.5615,
+    "worst_document_slice_wilson_ci_upper": 0.5615
+  },
+  "drops": [
+    {
+      "item": "Beemo / DetectRL-X per-generator pooled cross-cuts",
+      "reason": "by_generator_pooled is pooled across the fit, validation and final-test partitions, not a final-test slice; no per-generator final-test breakdown exists in either artifact, so there is no final-test per-generator slice to aggregate"
+    },
+    {
+      "item": "Beemo / DetectRL-X pooled by-category / by-kind / by-domain / by-language cross-cuts",
+      "reason": "by_category_pooled, by_kind_pooled, by_domain_pooled and by_lang_pooled are pooled across partitions, not final-test slices; only their final-test counterparts are aggregated"
+    },
+    {
+      "item": "DetectRL-X by_split_pooled",
+      "reason": "pooled across the train/test source splits and across partitions; not a final-test slice"
+    },
+    {
+      "item": "OpAI-Bench segment slice (evr-20261107-opai-bench-builtin-heuristic)",
+      "reason": "segment-level slice (sentences, not documents): a different unit, not a W8 final-test slice; assessed separately and never pooled with document slices"
+    },
+    {
+      "item": "human populations and regimes outside the measured slices",
+      "reason": "non-English document text outside DetectRL-X/GhostWriter, ESL human text, texts below 80 words, generators newer than each record's declared vintage \u2014 none of these are in the measured slices"
+    },
+    {
+      "item": "Python 3.11, 3.13, 3.14, 3.15",
+      "reason": "measured on the local interpreter only; CI covers the matrix"
+    }
+  ],
+  "badge": "available",
+  "detector_version": "0.1.0",
+  "notes": "Pooling is NOT legitimate as the gate statistic. The slices differ in regime (raw vs human-edited), language (en vs mul 8-language vs en+de), domain, generator vintage and editing; pooling hides that heterogeneity. The pooled 0/4194 number is reported for completeness only. The release gate must use the per-slice worst Wilson ci_upper among the document slices \u2014 a single pooled number would let a large slice (DetectRL-X, n=2400) mask a thin slice (MAGE testbed:dialogsum, n=3, Wilson upper 0.5615).\n\nWorst document slice: MAGE testbed:dialogsum, 0/3 human rows verdict ai_like, Wilson 95% upper 0.5615. It is tied with MAGE testbed:pubmed (0/3, upper 0.5615); the alphabetically-first slice wins the tie-break, per worker C's precedent (GhostWriter arxiv_papers vs euro_court_cases, both 0/26, upper 0.1287). The worst slice is worst by small-n Wilson bound, not by observed false positives: every slice in this aggregation has k_fp = 0.\n\nStill unknown:\n- Worst-slice human FPR as a *supported* claim: the worst document slice (MAGE testbed:dialogsum, n_human=3, Wilson upper 0.5615) fails the FPR bar outright (n_human below the 100-row minimum; Wilson upper above the 0.05 ceiling). The report-card lead ('worst-slice human FPR = unknown') changes only by a parent decision; this artifact does not change it.\n- Human FPR on slices the W8 final-test sets do not cover at all: the 43 unmeasured slices listed in unmeasured_slices (n_human = 0 in final-test), non-English document text outside DetectRL-X/GhostWriter, ESL human text, texts below 80 words, generators newer than each record's declared vintage, and human populations outside the declared ones.\n- Whether the zero observed false positives persist on larger human samples: every Wilson upper bound here is a bound on zero events, not a measured positive rate.\n\nThis artifact aggregates the W8 final-test measurements; it is not a new claim and it does not change the report-card lead: the gate reads results[\"worst_slice_human_fpr\"] for the lead, and this artifact deliberately carries no such key \u2014 0.5615 is the Wilson 95% upper bound on a 0/3 rate (MAGE testbed:dialogsum), not a measured FPR point rate. No claim cites this record; the worst-slice human FPR as a supported claim remains unknown."
+}
