@@ -103,7 +103,7 @@ def test_candidate_acceptance_asserts_healthcheck_config():
     assert "Config.Healthcheck.StartPeriod" in run
     assert "5000000000" in run  # 5s in nanoseconds
     assert "Config.Healthcheck.Retries" in run
-    assert '"3"' in run or "= \"3\"" in run or "== 3" in run or " = 3" in run
+    assert '"3"' in run or '= "3"' in run or "== 3" in run or " = 3" in run
 
 
 def test_candidate_acceptance_polls_for_healthy_status():

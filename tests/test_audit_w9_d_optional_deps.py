@@ -101,7 +101,10 @@ def test_api_main_prints_install_hint_without_uvicorn(monkeypatch, capsys):
     with pytest.raises(SystemExit) as excinfo:
         api.main()
     assert excinfo.value.code == 1
-    assert "error: Install API support with: pip install 'textforensics[api]'" in capsys.readouterr().err
+    assert (
+        "error: Install API support with: pip install 'textforensics[api]'"
+        in capsys.readouterr().err
+    )
 
 
 def test_cli_serve_prints_install_hint_without_uvicorn(monkeypatch, capsys):
@@ -111,7 +114,10 @@ def test_cli_serve_prints_install_hint_without_uvicorn(monkeypatch, capsys):
     monkeypatch.setitem(sys.modules, "uvicorn", None)
     monkeypatch.setattr(sys, "argv", ["textforensics", "serve"])
     assert main() == 3
-    assert "error: Install API support with: pip install 'textforensics[api]'" in capsys.readouterr().err
+    assert (
+        "error: Install API support with: pip install 'textforensics[api]'"
+        in capsys.readouterr().err
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -127,7 +133,9 @@ def test_web_ui_import_raises_actionable_error_without_fastapi():
     # ModuleNotFoundError); reload back afterwards.
     sys.modules["fastapi"] = None
     try:
-        with pytest.raises(RuntimeError, match=r"Install web UI support with: pip install 'textforensics\[api\]'"):
+        with pytest.raises(
+            RuntimeError, match=r"Install web UI support with: pip install 'textforensics\[api\]'"
+        ):
             importlib.reload(web_main)
     finally:
         sys.modules.pop("fastapi", None)
@@ -142,7 +150,10 @@ def test_web_ui_main_prints_install_hint_without_uvicorn(monkeypatch, capsys):
     with pytest.raises(SystemExit) as excinfo:
         web_main.main()
     assert excinfo.value.code == 1
-    assert "error: Install web UI support with: pip install 'textforensics[api]'" in capsys.readouterr().err
+    assert (
+        "error: Install web UI support with: pip install 'textforensics[api]'"
+        in capsys.readouterr().err
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -162,11 +173,11 @@ def test_diagnostics_engine_fails_with_install_hint_without_psutil():
     """Creating the diagnostics engine without psutil names the extra."""
     import textforensics.diagnostics as diag
 
-    with _blocked_import("psutil", "textforensics.diagnostics"):
-        with pytest.raises(
-            RuntimeError, match=r"pip install 'textforensics\[diagnostics\]'"
-        ):
-            diag.create_diagnostics_engine()
+    with (
+        _blocked_import("psutil", "textforensics.diagnostics"),
+        pytest.raises(RuntimeError, match=r"pip install 'textforensics\[diagnostics\]'"),
+    ):
+        diag.create_diagnostics_engine()
 
 
 # ---------------------------------------------------------------------------
@@ -188,9 +199,7 @@ def test_ollama_session_fails_with_install_hint_without_aiohttp():
 
     with _blocked_import("aiohttp", "textforensics.ollama"):
         client = ollama_mod.OllamaClient(ollama_mod.OllamaConfig())
-        with pytest.raises(
-            RuntimeError, match=r"pip install 'textforensics\[ollama\]'"
-        ):
+        with pytest.raises(RuntimeError, match=r"pip install 'textforensics\[ollama\]'"):
             asyncio.run(client.__aenter__())
 
 
@@ -199,9 +208,7 @@ def test_ollama_session_fails_with_install_hint_without_aiohttp():
 # ---------------------------------------------------------------------------
 
 
-def test_run_fuzz_direct_target_names_fuzzing_extra_without_atheris(
-    isolated_run_fuzz, monkeypatch
-):
+def test_run_fuzz_direct_target_names_fuzzing_extra_without_atheris(isolated_run_fuzz, monkeypatch):
     """Direct fuzzing without atheris must name the [fuzzing] extra."""
     monkeypatch.setitem(sys.modules, "atheris", None)
     target = isolated_run_fuzz.FUZZ_TARGETS["text_parsing"]
