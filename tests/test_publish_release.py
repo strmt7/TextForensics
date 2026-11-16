@@ -787,3 +787,172 @@ def test_no_publication_mode_invokes_zero_remote_writes(
     ]
 
     recorder.assert_no_remote_writes()
+
+# --- W10: upload --dry-run (TESTED no-publication mode) ----------------------
+#
+# The rehearsal must route the EXACT confirmation through the same code
+# path a real release would take (confirmation -> typed manifest ->
+# checksums -> SBOM structure -> cosign signature verification -> tag
+# binding) but stop before `gh release create`. These tests are written
+# RED first: `upload --dry-run` does not exist yet, so parse_args raises
+# SystemExit(2) until the mode is implemented.
+
+
+def _run_upload_dry_run(pub, fx, monkeypatch, confirmation="RELEASE", identity=True, cosign=True):
+    if confirmation is None:
+        monkeypatch.delenv("RELEASE_CONFIRMATION", raising=False)
+    else:
+        monkeypatch.setenv("RELEASE_CONFIRMATION", confirmation)
+    monkeypatch.setattr(pub, "find_cosign", lambda: "/usr/bin/cosign" if cosign else None)
+    args = pub.build_parser().parse_args(_upload_args(fx, extra=["--dry-run"], identity=identity))
+    return pub.cmd_upload(args)
+
+
+def test_upload_dry_run_succeeds_with_complete_valid_manifest(
+    pub, valid_dist, recorder, monkeypatch
+):
+    """W10: the no-publication mode exits 0 for a fully valid release
+    candidate, having run every pre-publication check, and invokes zero
+    remote writes -- in particular never `gh release create`."""
+    rc = _run_upload_dry_run(pub, valid_dist, monkeypatch)
+    assert rc == 0
+    recorder.assert_no_remote_writes()
+    assert not any(c[:3] == ["gh", "release", "create"] for c in recorder.calls)
+
+
+def test_upload_dry_run_never_reaches_gh_release_create_even_if_it_would_fail(
+    pub, valid_dist, recorder, monkeypatch
+):
+    """W10: even when `gh release create` is rigged to fail, the dry run
+    still exits 0 -- proving the remote-writing command is never reached,
+    not merely that it happened to succeed."""
+    recorder.fail_gh_create = True
+    rc = _run_upload_dry_run(pub, valid_dist, monkeypatch)
+    assert rc == 0
+    assert not any(c[:3] == ["gh", "release", "create"] for c in recorder.calls)
+
+
+def test_upload_dry_run_fails_when_asset_removed_from_manifest(
+    pub, valid_dist, recorder, monkeypatch
+):
+    """W10 demo (a): removal of a mandatory asset from the manifest
+    fails the dry run before any remote write."""
+    valid_dist["wheel"].unlink()
+    rc = _run_upload_dry_run(pub, valid_dist, monkeypatch)
+    assert rc == 1
+    recorder.assert_no_remote_writes()
+
+
+def test_upload_dry_run_fails_when_asset_tampered(pub, valid_dist, recorder, monkeypatch):
+    """W10 demo (b): tampered asset content (digest mismatch against
+    SHA256SUMS) fails the dry run before any remote write."""
+    valid_dist["wheel"].write_bytes(b"tampered-wheel-bytes")
+    rc = _run_upload_dry_run(pub, valid_dist, monkeypatch)
+    assert rc == 1
+    recorder.assert_no_remote_writes()
+
+
+def test_upload_dry_run_fails_when_source_sha_mismatched(
+    pub, valid_dist, recorder, monkeypatch
+):
+    """W10 demo (c): a --source-sha that is not the commit the tag
+    resolves to fails the dry run before any remote write."""
+    args = pub.build_parser().parse_args(
+        [
+            "upload",
+            "--notes",
+            str(valid_dist["notes"]),
+            "--dist-dir",
+            str(valid_dist["dist"]),
+            "--provenance-dir",
+            str(valid_dist["prov"]),
+            "--tag",
+            TAG,
+            "--version",
+            VERSION,
+            "--source-sha",
+            "d" * 40,
+            "--expected-identity",
+            EXPECTED_IDENTITY,
+            "--expected-issuer",
+            EXPECTED_ISSUER,
+            "--dry-run",
+        ]
+    )
+    monkeypatch.setenv("RELEASE_CONFIRMATION", "RELEASE")
+    monkeypatch.setattr(pub, "find_cosign", lambda: "/usr/bin/cosign")
+    rc = pub.cmd_upload(args)
+    assert rc == 1
+    recorder.assert_no_remote_writes()
+
+
+def test_upload_dry_run_fails_when_tag_mismatched(pub, valid_dist, recorder, monkeypatch):
+    """W10 demo (d): a tag that resolves to a different commit than the
+    artifact source SHA fails the dry run before any remote write."""
+    monkeypatch.setattr(
+        sys.modules["publish_release"],
+        "run_git",
+        lambda *args: "d" * 40,  # tag exists but points elsewhere
+    )
+    rc = _run_upload_dry_run(pub, valid_dist, monkeypatch)
+    assert rc == 1
+    recorder.assert_no_remote_writes()
+
+
+def test_upload_dry_run_fails_when_version_mismatched(
+    pub, valid_dist, recorder, monkeypatch
+):
+    """W10 demo (e): a --version that does not match the asset names in
+    the manifest fails the dry run before any remote write."""
+    args = pub.build_parser().parse_args(
+        [
+            "upload",
+            "--notes",
+            str(valid_dist["notes"]),
+            "--dist-dir",
+            str(valid_dist["dist"]),
+            "--provenance-dir",
+            str(valid_dist["prov"]),
+            "--tag",
+            TAG,
+            "--version",
+            "9.9.8",
+            "--source-sha",
+            SOURCE_SHA,
+            "--expected-identity",
+            EXPECTED_IDENTITY,
+            "--expected-issuer",
+            EXPECTED_ISSUER,
+            "--dry-run",
+        ]
+    )
+    monkeypatch.setenv("RELEASE_CONFIRMATION", "RELEASE")
+    monkeypatch.setattr(pub, "find_cosign", lambda: "/usr/bin/cosign")
+    rc = pub.cmd_upload(args)
+    assert rc == 1
+    recorder.assert_no_remote_writes()
+
+
+def test_upload_dry_run_fails_when_confirmation_missing(
+    pub, valid_dist, recorder, monkeypatch
+):
+    """W10 demo (f): the dry run routes the EXACT confirmation step, so
+    a missing confirmation fails it exactly as it fails a real upload."""
+    rc = _run_upload_dry_run(pub, valid_dist, monkeypatch, confirmation=None)
+    assert rc == 1
+    recorder.assert_no_remote_writes()
+
+
+def test_upload_dry_run_fails_when_signature_check_fails(
+    pub, valid_dist, recorder, monkeypatch
+):
+    """W10 demo (g, upload level): a failed check -- here cosign
+    rejecting a signature -- fails the dry run before any remote write.
+    (The promotion-gate classes of failed / skipped / stale checks are
+    covered by tests/test_promotion_gate.py and re-proved end to end by
+    scripts/rehearse_no_publication.py.)"""
+    recorder.fail_cosign_verify = True
+    rc = _run_upload_dry_run(pub, valid_dist, monkeypatch)
+    assert rc == 1
+    recorder.assert_no_remote_writes()
+    assert not any(c[:3] == ["gh", "release", "create"] for c in recorder.calls)

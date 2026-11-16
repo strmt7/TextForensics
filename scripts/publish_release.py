@@ -26,6 +26,13 @@ Subcommands used by .github/workflows/release.yml:
               (asset list + per-asset download) and comparing digests; a
               read-back failure is reported as a failed upload, never as
               a success.
+              ``--dry-run`` (W10 rehearsal) runs this exact pre-publication
+              path -- confirmation, typed manifest, checksums, SBOM
+              structure, cosign signature verification, tag binding --
+              and then stops: it prints the release plan and exits 0
+              without launching `gh release create` or any other remote
+              write. A dry run that fails any check exits 1 exactly as
+              a real upload would, before any remote write.
   verify-upload
               Read-only re-verification of an already-published release:
               rebuilds the manifest, re-verifies checksums, SBOM structure,
@@ -839,6 +846,21 @@ def cmd_upload(args: argparse.Namespace) -> int:
     if not verify_tag_binding(tag, source_sha):
         return 1
 
+    # (5b) W10 no-publication mode: every check above has now run on the
+    # exact code path a real upload takes. Stop here: print the plan and
+    # exit 0 without launching `gh release create` or any other remote
+    # write. A dry run that reaches this point has proven the candidate
+    # would be publishable; a candidate that fails any check above has
+    # already exited 1, exactly as a real upload would.
+    if getattr(args, "dry_run", False):
+        assets = manifest.all_assets()
+        print(f"DRY-RUN: release {tag} (textforensics v{version}) from {source_sha}")
+        print(f"DRY-RUN: confirmation {CONFIRMATION_ENV} verified; {len(assets)} asset(s) checked:")
+        for asset in assets:
+            print(f"DRY-RUN:   - {asset}")
+        print("DRY-RUN: no release was created, no tag was pushed, no remote write was made.")
+        return 0
+
     # Only now, with every check passed, launch the remote-writing command.
     assets = manifest.all_assets()
     title = f"textforensics v{version}"
@@ -1070,6 +1092,14 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Expected OIDC issuer for cosign verify-blob (required; "
         "https://token.actions.githubusercontent.com in CI).",
+    )
+    p_upload.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="No-publication rehearsal mode (W10): run the exact "
+        "pre-publication checks (confirmation, manifest, checksums, "
+        "SBOM structure, signatures, tag binding) and print the release "
+        "plan without launching `gh release create` or any remote write.",
     )
     p_upload.set_defaults(func=cmd_upload)
 
