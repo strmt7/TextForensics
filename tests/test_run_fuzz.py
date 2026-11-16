@@ -67,7 +67,7 @@ def test_child_exit_2_without_crash_artifact_fails_the_run(isolated_run_fuzz, tm
         "elapsed": 0.1,
     }
     with (
-        mock.patch.object(isolated_run_fuzz, "generate_corpus", return_value=None),
+        mock.patch.object(isolated_run_fuzz, "generate_corpus", return_value=True),
         mock.patch.object(isolated_run_fuzz, "run_atheris_target", return_value=error_result),
         mock.patch.object(
             sys,

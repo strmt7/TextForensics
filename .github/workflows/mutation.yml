@@ -303,6 +303,22 @@ jobs:
               if [ "$surviving" -gt 0 ]; then
                 status="⚠️ Surviving mutants"
               fi
+              if [ "$timeout" -gt 0 ]; then
+                status="⚠️ Timeouts"
+              fi
               echo "| $name | $status | $surviving | $killed | $timeout |" >> $GITHUB_STEP_SUMMARY
             fi
           done
+
+      - name: Fail if any mutation job failed
+        # ENG-07: the report job used to stay green while recording a
+        # failure in mutation-status.json. A 'fail' status in that
+        # file fails this job; skipped / not_applicable (full mutation
+        # on push) do not.
+        run: |
+          FAILED=$(python -c "import json; s = json.load(open('mutation-status.json', encoding='utf-8')); print(' '.join(j for j, i in s['jobs'].items() if i['status'] == 'fail'))")
+          if [ -n "$FAILED" ]; then
+            echo "::error::Mutation jobs failed: $FAILED"
+            exit 1
+          fi
+          echo "No mutation job failed."

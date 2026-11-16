@@ -128,3 +128,39 @@ affected_versions = ["24.0"]
 fixed_in = "26.2"
 reason = "pip 24.0 is the dev virtualenv's own installer, not a shipped dependency; no pip version is pinned by the project. Doubly-encoded package URLs from indexes could install files to arbitrary locations; requires a malicious index (and materially impacts only `pip download --only-binary`). Cleared by rebuilding the venv with pip >= 26.2."
 review_by = "2027-02-06"
+
+# EXPECTED SKIPS (ENG-11, audit W7)
+# -------------------------------
+# One entry per package pip-audit reports with a `skip_reason` instead
+# of auditing it. A skip is an explicit, recorded state: the gate
+# (scripts/check_pip_audit.py) classifies every reported dependency
+# as audited / skipped / unresolved, requires the counts to reconcile
+# (total == audited + skipped + unresolved), and FAILS (exit 1) on
+# any skipped package with no entry here. A recorded skip whose
+# package is audited in a run is dormant (reported, not failed); a
+# recorded skip still present past its review date fails, like an
+# expired finding entry — a skip can never rot into a permanent
+# ignore. There are no blanket ignores: a new skipped package fails
+# until a human records it here with a reason and a review date.
+#
+# ENTRY FIELDS
+# ------------
+# - package: distribution name as reported by pip-audit.
+# - reason: why pip-audit cannot audit this package.
+# - review_by: date (YYYY-MM-DD) by which a human must re-check this
+#   entry.
+#
+# MEASURED 2026-11-16 (dev venv, pip-audit 2.10.1): the installed
+# audit reports 128 dependencies (127 audited, 1 skipped,
+# 0 unresolved) and the pinned-requirements audit 118 (117 audited,
+# 1 skipped, 0 unresolved). The single skip in both is the project
+# itself, below — the editable install is not on PyPI, so pip-audit
+# reports "Dependency not found on PyPI and could not be audited:
+# textforensics (0.2.0)". It is not a third-party dependency and
+# carries no advisory record; if it is ever published to PyPI the
+# entry goes dormant and a human removes it.
+
+[[skip]]
+package = "textforensics"
+reason = "The project itself, installed editable from the repo; not published on PyPI, so pip-audit has no advisory record to audit it against ('Dependency not found on PyPI and could not be audited'). Not a third-party dependency. If textforensics is ever published to PyPI, this entry goes dormant and must be removed."
+review_by = "2027-02-06"

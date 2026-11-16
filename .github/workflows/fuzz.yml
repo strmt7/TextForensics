@@ -144,8 +144,11 @@ jobs:
           python -m pip install --no-deps -e ".[dev,fuzzing]"
 
       - name: Generate initial corpus
+        # ENG-07: the old `|| true` swallowed a generator failure, so
+        # the weekly run fuzzed unseeded and read as a normal run.
+        # A failed generation fails the job.
         run: |
-          python tests/fuzz/generate_corpus.py --output-dir tests/fuzz/corpus || true
+          python tests/fuzz/generate_corpus.py --output-dir tests/fuzz/corpus
 
       - name: Run extended fuzz (direct atheris)
         env:
@@ -186,7 +189,11 @@ jobs:
     steps:
       - name: Report results
         run: |
-          echo "Fuzz testing completed."
+          # ENG-07: the old summary printed "Fuzz testing completed."
+          # unconditionally, even when the regression job had failed
+          # or been cancelled. It reports the real result and fails
+          # when the regression job did not succeed.
+          echo "Fuzz regression result: ${{ needs.fuzz-regression.result }}"
           echo ""
           echo "Artifacts (14-day retention):"
           echo "  - fuzz-crashes-py3.11"
@@ -195,3 +202,8 @@ jobs:
           echo ""
           echo "Check artifacts for crash input files. Reproduce locally with:"
           echo "  python scripts/run_fuzz.py --target <name> --method direct"
+          if [ "${{ needs.fuzz-regression.result }}" != "success" ]; then
+            echo "::error::Fuzz regression did not succeed (result: ${{ needs.fuzz-regression.result }})."
+            exit 1
+          fi
+          echo "Fuzz testing completed with no regressions."

@@ -2369,7 +2369,7 @@
     "properties": [
       {
         "name": "generator",
-        "value": "generate_sbom.py 1.0.2"
+        "value": "generate_sbom.py 1.1.0"
       },
       {
         "name": "pyprojectSha256",
@@ -2382,17 +2382,21 @@
       {
         "name": "scope",
         "value": "resolved dependency closure of requirements-pinned.txt as installed"
+      },
+      {
+        "name": "targetEnvironment",
+        "value": "python_version=3.12; sys_platform=linux; platform_machine=x86_64; implementation_name=cpython; extras=api,cli-rich,dev,diagnostics,enterprise,mcp,ollama"
       }
     ],
     "tools": [
       {
         "name": "generate_sbom.py",
         "vendor": "TextForensics",
-        "version": "1.0.2"
+        "version": "1.1.0"
       }
     ]
   },
-  "serialNumber": "urn:uuid:4167597a-3b93-531b-acb1-2ae994121c29",
+  "serialNumber": "urn:uuid:6151c546-a74a-557e-b1e7-cd03237dd0a9",
   "specVersion": "1.6",
   "version": 1
 }

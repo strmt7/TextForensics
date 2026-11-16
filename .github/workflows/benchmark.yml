@@ -218,6 +218,9 @@ jobs:
           # ENG-13: error, not warn — a main run must never publish an
           # empty "baseline" artifact; later runs resolve it and would
           # fail confusingly at download/compare instead of here.
+          # ENG-07: a main run that produces no baseline artifact must
+          # fail the upload, not warn and publish nothing for the next
+          # run's comparison to resolve against.
           if-no-files-found: error
           retention-days: 365
 
@@ -247,4 +250,22 @@ jobs:
             echo '```' >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
           fi
-          echo "Artifacts uploaded with 90-day retention (baseline: 365 days)." >> "$GITHUB_STEP_SUMMARY"
+          # ENG-07: the old summary claimed "Artifacts uploaded"
+          # unconditionally. Report only what exists, and the
+          # comparison status (passed/failed/skipped) as recorded.
+          if [ -f comparison-status.json ]; then
+            echo "### Comparison status" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat comparison-status.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No comparison status was recorded (comparison did not run)." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          for artifact in benchmark-results.json pytest-benchmark.json pytest-performance.json pytest-performance-comparison.json comparison-status.json; do
+            if [ -f "$artifact" ]; then
+              echo "- Artifact present: $artifact" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- Artifact missing (not uploaded): $artifact" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done

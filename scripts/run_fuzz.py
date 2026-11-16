@@ -233,6 +233,26 @@ atheris.Fuzz()
     elapsed = time.time() - start
     result["elapsed"] = round(elapsed, 1)
 
+    # ENG-07: zero-work success. A child that exits 0 after ~0s when
+    # asked to fuzz for minutes did no fuzzing (the old -runs=0 class:
+    # the direct step used to exit in ~0.1s per target and read as a
+    # clean run). A real libFuzzer run lasts about the requested
+    # duration; an instant exit is an instrumentation/startup failure
+    # and must be recorded as an error. The guard applies only to
+    # real durations (>= 60s); short test-scale runs are unaffected.
+    if (
+        result["error"] is None
+        and proc.returncode == 0
+        and duration_seconds >= 60
+        and elapsed < 0.5 * duration_seconds
+    ):
+        result["error"] = (
+            f"atheris child exited after {elapsed:.1f}s with status 0 "
+            f"but was asked to fuzz for {duration_seconds}s — no "
+            "fuzzing work was executed"
+        )
+        print(f"  [error] {result['error']}")
+
     # Count crash artifacts
     if crashes_dir.exists():
         crash_files = _crash_files(crashes_dir)
@@ -275,11 +295,17 @@ def run_pytest_targets() -> bool:
     return result.returncode == 0
 
 
-def generate_corpus() -> None:
-    """Generate initial corpus if it doesn't exist."""
+def generate_corpus() -> bool:
+    """Generate initial corpus if it doesn't exist.
+
+    Returns True when a corpus is present afterwards (already existed
+    or generation succeeded), False when generation was attempted and
+    failed. ENG-07: a failed generation used to print "[warn]" and let
+    the run continue with no seed corpus; the caller must fail closed.
+    """
     if CORPUS_DIR.exists() and any(CORPUS_DIR.iterdir()):
         print(f"Corpus already exists at {CORPUS_DIR}")
-        return
+        return True
 
     print(f"Generating initial corpus in {CORPUS_DIR}")
     generator = FUZZ_DIR / "generate_corpus.py"
@@ -292,11 +318,12 @@ def generate_corpus() -> None:
             cwd=str(REPO_ROOT),
         )
         if proc.returncode != 0:
-            print(f"  [warn] Corpus generation warning: {proc.stderr[:200]}")
-        else:
-            print("  Corpus generation complete.")
-    else:
-        print(f"  [warn] Corpus generator not found at {generator}")
+            print(f"  [error] Corpus generation failed: {proc.stderr[:200]}")
+            return False
+        print("  Corpus generation complete.")
+        return True
+    print(f"  [error] Corpus generator not found at {generator}")
+    return False
 
 
 def main() -> int:
@@ -337,7 +364,11 @@ def main() -> int:
 
     ARTIFACTS_DIR = args.artifacts_dir
 
-    generate_corpus()
+    # ENG-07: a failed corpus generation (no seed corpus at all) fails
+    # the run instead of fuzzing unseeded and reading as a clean run.
+    if not generate_corpus():
+        print("run_fuzz: corpus generation failed and no corpus exists; failing the run.")
+        return 1
 
     # Determine targets to run
     if args.target == "all":

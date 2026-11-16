@@ -47,11 +47,10 @@ jobs:
       - name: Compile Python sources
         run: python -m compileall -q src tests
 
-      # ENG-07(2): the forked-isolation flag was removed: pytest-forked
-      # is not a declared dev dependency, so the suite failed collection
-      # with "unrecognized arguments". The suite must run with the
-      # declared tooling; forked isolation can be re-added only with a
-      # verified pytest-forked declaration and a passing run.
+      # ENG-07: the full suite runs unexcluded. The old
+      # `--ignore=tests/test_docs.py` excluded a passing test file
+      # from the suite (CI Core already runs it green); excluding
+      # test files is not how coverage is repaired.
       - name: Run full pytest suite
         id: test-results
         run: |
@@ -61,7 +60,6 @@ jobs:
             --tb=short \
             --strict-markers \
             -W error \
-            --ignore=tests/test_docs.py \
             2>&1 | tee "${RUNNER_TEMP}/pytest-output.log"
 
       - name: Upload test artifacts on failure
@@ -101,9 +99,11 @@ jobs:
           python -m pip install --no-deps -e ".[dev]"
 
       - name: Run tests with coverage
+        # ENG-07: no --ignore here either (see the full-suite job):
+        # the coverage run measures the whole suite, test_docs.py
+        # included.
         run: |
-          coverage run -m pytest tests \
-            --ignore=tests/test_docs.py
+          coverage run -m pytest tests
 
       - name: Generate coverage report with thresholds
         # Gate 75%: this job installs `.[dev]` only (core-only), so it
@@ -169,11 +169,17 @@ jobs:
           python -c "import markdown; markdown.markdown(open('README.md').read())"
 
       - name: Build documentation
+        # ENG-07: the old `if [ -d "docs" ]` guard made this step
+        # succeed doing nothing when docs/ was absent. docs/ is a
+        # required input: its absence fails, and the build must
+        # produce HTML files (an empty build is not a pass).
         run: |
-          if [ -d "docs" ]; then
-            mkdir -p docs/_build
-            sphinx-build -b html docs docs/_build/html
-          fi
+          test -d docs || { echo "::error::docs/ directory is missing; cannot build documentation."; exit 1; }
+          mkdir -p docs/_build
+          sphinx-build -b html docs docs/_build/html
+          HTML_COUNT=$(find docs/_build/html -name '*.html' | wc -l)
+          echo "Built HTML files: $HTML_COUNT"
+          test "$HTML_COUNT" -gt 0 || { echo "::error::sphinx-build produced no HTML files."; exit 1; }
 
       - name: Verify schema documentation
         run: |
@@ -181,11 +187,16 @@ jobs:
           import json
           from pathlib import Path
           schemas = Path('src/textforensics/schemas')
-          for schema_file in schemas.glob('*.json'):
+          files = sorted(schemas.glob('*.json'))
+          # ENG-07: an empty glob used to pass vacuously (zero files
+          # validated). At least one schema must be validated.
+          assert files, 'no schema files found under src/textforensics/schemas'
+          for schema_file in files:
               with open(schema_file) as f:
                   data = json.load(f)
               assert '\$schema' in data or 'schema' in data or 'type' in data, f'Missing schema key in {schema_file}'
               print(f'Validated: {schema_file.name}')
+          print(f'Validated {len(files)} schema files')
           "
 
       - name: Upload docs artifacts
@@ -193,8 +204,11 @@ jobs:
         if: always()
         with:
           name: documentation-${{ github.sha }}
-          path: |
-            coverage.json
+          # ENG-07: the old upload named coverage.json, a file this
+          # job never produces (a different job does). Upload the
+          # HTML this job built; a missing build fails the upload.
+          path: docs/_build/html
+          if-no-files-found: error
           retention-days: 30
 
   # ==========================================================================
@@ -227,16 +241,38 @@ jobs:
       - name: Resolve runtime dependencies
         run: |
           .audit-env/bin/python -m pip freeze | grep -viE '(^textforensics([= @]|$)|#egg=textforensics)' > audit-requirements.txt
+          # ENG-07/ENG-11: an empty freeze file would make pip-audit
+          # report zero findings for zero packages and pass. The
+          # audit input must be non-empty and counted.
+          COUNT=$(wc -l < audit-requirements.txt)
+          echo "audit-requirements.txt: $COUNT packages"
+          test "$COUNT" -gt 0 || { echo "::error::audit-requirements.txt is empty; nothing would be audited."; exit 1; }
 
       - name: Run pip-audit with zero tolerance
         run: |
           # pip-audit and bandit come from the hash-pinned lockfile
           # installed above (pip-audit 2.10.1, bandit 1.9.4).
 
-          # Strict dependency audit - fail on any vulnerability
-          .audit-env/bin/pip-audit --strict --no-deps -r audit-requirements.txt
+          # Strict dependency audit - fail on any vulnerability.
+          # JSON output is kept so the next step can validate audit
+          # COVERAGE (ENG-11): --strict fails on findings, but a
+          # skipped package would still read as zero findings.
+          .audit-env/bin/pip-audit --strict --no-deps -r audit-requirements.txt \
+            --format json -o pip-audit-deep.json
 
-          # Bandit security scan
+      - name: Validate pip-audit coverage
+        # ENG-11: every package in pip-audit-deep.json must be in a
+        # known coverage state (audited/skipped/unresolved, counts
+        # reconciling); an unrecorded skip or an unresolved package
+        # fails this step (scripts/check_pip_audit.py --from-json).
+        run: |
+          python scripts/check_pip_audit.py --from-json pip-audit-deep.json
+
+      - name: Run bandit security scan
+        # ENG-07: bandit used to run in the same step as pip-audit,
+        # so a pip-audit failure masked the bandit result entirely.
+        # It runs as its own step so both scans gate independently.
+        run: |
           .audit-env/bin/bandit -r src -ll -ii
 
       - name: Generate SBOM for audit
@@ -256,6 +292,7 @@ jobs:
           name: vulnerability-audit-${{ github.sha }}
           path: |
             audit-requirements.txt
+            pip-audit-deep.json
             sbom-audit.json
           retention-days: 30
 
@@ -287,7 +324,13 @@ jobs:
       - name: Build distributions
         run: python -m build
 
-      - name: Validate distribution signatures
+      - name: Validate distribution integrity
+        # ENG-07: this step used to be named "Validate distribution
+        # signatures" while verifying no signature (cosign/sigstore
+        # verification is the repository-integrity job's work). It
+        # validates twine integrity and verifies the checksums it
+        # generates — a checksum file that is never verified proves
+        # nothing.
         run: |
           # Verify distribution integrity with twine
           twine check dist/*
@@ -295,6 +338,9 @@ jobs:
           # Generate checksums
           sha256sum dist/* > dist/SHA256SUMS
           cat dist/SHA256SUMS
+
+          # Verify the checksums just generated.
+          (cd dist && sha256sum -c SHA256SUMS)
 
       - name: Generate SBOM
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0 (2026-03-19 tip, Syft v1.42.3)
@@ -373,13 +419,22 @@ jobs:
           import jsonschema
 
           schemas_dir = Path('src/textforensics/schemas')
-          for schema_file in schemas_dir.glob('*.json'):
+          schema_files = sorted(schemas_dir.glob('*.json'))
+          # ENG-07: an empty glob used to pass vacuously (zero files
+          # validated). At least one schema must be validated, and the
+          # validated list is written to the report file the upload
+          # step below attaches (it used to upload a file no step
+          # created).
+          assert schema_files, 'no schema files found under src/textforensics/schemas'
+          lines = []
+          for schema_file in schema_files:
               with open(schema_file) as f:
                   schema = json.load(f)
 
               # Validate schema structure
               jsonschema.Draft202012Validator.check_schema(schema)
               print(f"✓ {schema_file.name} is valid JSON Schema")
+              lines.append(f"{schema_file.name}: valid JSON Schema")
 
               # Check for required fields
               if '$id' in schema or 'title' in schema:
@@ -388,6 +443,10 @@ jobs:
                   print(f"  → Has {len(schema['properties'])} properties")
               if 'required' in schema:
                   print(f"  → Has {len(schema['required'])} required fields")
+          Path('schemas-validation-report.txt').write_text(
+              f"Validated {len(schema_files)} schema files\n" + "\n".join(lines) + "\n",
+              encoding='utf-8',
+          )
           PY
 
       - name: Test schema instances against schemas
@@ -425,7 +484,10 @@ jobs:
           name: schema-validation-${{ github.sha }}
           path: schemas-validation-report.txt
           retention-days: 30
-          if-no-files-found: warn
+          # ENG-07: the old upload used if-no-files-found: warn on a
+          # file no step created. The file is now written by the
+          # validation step above; a missing report fails the upload.
+          if-no-files-found: error
 
   # ==========================================================================
   # 7. CLI SMOKE TESTS ACROSS ALL COMMANDS
@@ -470,9 +532,13 @@ jobs:
           printf 'I wrote this text myself after testing the system yesterday.' | textforensics report --json > report-output.json
           python -c "import json; data = json.load(open('report-output.json')); assert 'verdict' in data or 'trust_map' in data"
 
-      - name: Test compare command (if available)
+      - name: Test compare command
+        # ENG-07: `compare` EXISTS (src/textforensics/cli.py), so the
+        # old `|| echo "compare command not available"` masked a
+        # broken compare command as "not available". It runs plainly
+        # now: a failing --help fails the job.
         run: |
-          textforensics compare --help 2>/dev/null || echo "compare command not available"
+          textforensics compare --help
 
       - name: Test CLI with various options
         run: |
@@ -554,6 +620,9 @@ jobs:
           assert "schema" in data.get("input", {}) or "input_hash" in data
 
           print("All API contract tests passed")
+          with open("api-contract-report.txt", "w", encoding="utf-8") as report:
+              report.write("API contract tests passed\n")
+              report.write("endpoints: / /healthz /v1/scan /v1/report\n")
           PY
 
       - name: Upload API test artifacts
@@ -563,7 +632,9 @@ jobs:
           name: api-contract-${{ github.sha }}
           path: api-contract-report.txt
           retention-days: 30
-          if-no-files-found: warn
+          # ENG-07: the file is written by the contract step above; a
+          # missing report fails the upload instead of warning.
+          if-no-files-found: error
 
   # ==========================================================================
   # 9. PERFORMANCE BENCHMARKS
@@ -625,8 +696,16 @@ jobs:
           with open("benchmark-results.json", "w") as f:
               json.dump(benchmark_data, f, indent=2)
 
+          # ENG-07: the old code printed WARNING and exited 0 when the
+          # threshold failed, so a performance regression read as a
+          # green benchmark. A threshold breach fails the job. (The
+          # 0.5s/1k-chars value itself is unchanged — it is an audit
+          # contract, not a tuned value.)
           if not benchmark_data["passed"]:
-              print(f"WARNING: Performance degraded below threshold")
+              raise SystemExit(
+                  f"Performance threshold breached: {actual_time:.4f}s per "
+                  f"1000 chars exceeds {max_time_per_1k_chars}s"
+              )
           PY
 
       - name: Store benchmark comparison
@@ -693,10 +772,15 @@ jobs:
           python-version: "3.12"
 
       - name: Install and test Windows
+        # ENG-07: Git Bash (not PowerShell) so a failing install fails
+        # the step instead of being masked — the same false-pass
+        # pattern B4 fixed in ci.yml's os-smoke job.
+        shell: bash
         run: |
           python -m pip install --require-hashes -r requirements-hashed.txt
           python -m pip install --no-deps -e ".[dev]"
-          textforensics --version
+          textforensics --version > windows-verification.txt
+          cat windows-verification.txt
 
       - name: Upload Windows verification
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -704,7 +788,9 @@ jobs:
           name: cross-platform-windows-${{ github.sha }}
           path: windows-verification.txt
           retention-days: 30
-          if-no-files-found: warn
+          # ENG-07: the file is written by the step above; a missing
+          # verification file fails the upload instead of warning.
+          if-no-files-found: error
 
   cross-platform-macos:
     name: Cross-Platform - macOS
@@ -725,7 +811,8 @@ jobs:
         run: |
           python -m pip install --require-hashes -r requirements-hashed.txt
           python -m pip install --no-deps -e ".[dev]"
-          textforensics --version
+          textforensics --version > macos-verification.txt
+          cat macos-verification.txt
 
       - name: Upload macOS verification
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -733,14 +820,20 @@ jobs:
           name: cross-platform-macos-${{ github.sha }}
           path: macos-verification.txt
           retention-days: 30
-          if-no-files-found: warn
+          # ENG-07: the file is written by the step above; a missing
+          # verification file fails the upload instead of warning.
+          if-no-files-found: error
 
   # ==========================================================================
   # VERIFICATION SUMMARY
   # ==========================================================================
   verification-summary:
     name: Verification Summary Report
-    needs: [test-suite-all-features, coverage-verification, documentation-verification, vulnerability-audit, release-provenance, schema-validation, cli-smoke-tests, api-contract-testing, performance-benchmarks]
+    # ENG-07: the cross-platform jobs used to be claimed "Completed"
+    # in the summary without being in `needs` at all — their results
+    # were never consulted. They are required here, and the summary
+    # fails when any required job did not succeed.
+    needs: [test-suite-all-features, coverage-verification, documentation-verification, vulnerability-audit, release-provenance, schema-validation, cli-smoke-tests, api-contract-testing, performance-benchmarks, cross-platform-verification, cross-platform-windows, cross-platform-macos]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: always()
@@ -750,31 +843,59 @@ jobs:
 
       - name: Generate verification summary
         run: |
-          cat <<'EOF' > verification-summary-${{ github.sha }}.txt
-          ============================================================
-          TEXTFORENSICS ENTERPRISE DEEP VERIFICATION REPORT
-          ============================================================
-          SHA: ${{ github.sha }}
-          Run ID: ${{ github.run_id }}
-          Run Number: ${{ github.run_number }}
-          Event: ${{ github.event_name }}
-          Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-          VERIFICATION JOBS COMPLETED:
-          - test-suite-all-features: Completed
-          - coverage-verification: Completed
-          - documentation-verification: Completed
-          - vulnerability-audit: Completed
-          - release-provenance: Completed
-          - schema-validation: Completed
-          - cli-smoke-tests: Completed
-          - api-contract-testing: Completed
-          - performance-benchmarks: Completed
-          - cross-platform-verification: Completed
-
-          This file serves as evidence of comprehensive verification.
-          ============================================================
-          EOF
+          # ENG-07: the old summary printed "Completed" for every job
+          # unconditionally, including jobs that had failed or never
+          # ran. Statuses below are the real needs.*.result values,
+          # and any non-success fails this job.
+          {
+            echo "============================================================"
+            echo "TEXTFORENSICS ENTERPRISE DEEP VERIFICATION REPORT"
+            echo "============================================================"
+            echo "SHA: ${{ github.sha }}"
+            echo "Run ID: ${{ github.run_id }}"
+            echo "Run Number: ${{ github.run_number }}"
+            echo "Event: ${{ github.event_name }}"
+            echo "Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            echo ""
+            echo "VERIFICATION JOB RESULTS:"
+            echo "- test-suite-all-features: ${{ needs.test-suite-all-features.result }}"
+            echo "- coverage-verification: ${{ needs.coverage-verification.result }}"
+            echo "- documentation-verification: ${{ needs.documentation-verification.result }}"
+            echo "- vulnerability-audit: ${{ needs.vulnerability-audit.result }}"
+            echo "- release-provenance: ${{ needs.release-provenance.result }}"
+            echo "- schema-validation: ${{ needs.schema-validation.result }}"
+            echo "- cli-smoke-tests: ${{ needs.cli-smoke-tests.result }}"
+            echo "- api-contract-testing: ${{ needs.api-contract-testing.result }}"
+            echo "- performance-benchmarks: ${{ needs.performance-benchmarks.result }}"
+            echo "- cross-platform-verification: ${{ needs.cross-platform-verification.result }}"
+            echo "- cross-platform-windows: ${{ needs.cross-platform-windows.result }}"
+            echo "- cross-platform-macos: ${{ needs.cross-platform-macos.result }}"
+            echo ""
+            echo "This file serves as evidence of comprehensive verification."
+            echo "============================================================"
+          } > verification-summary-${{ github.sha }}.txt
+          cat verification-summary-${{ github.sha }}.txt
+          FAILED=0
+          for RESULT in \
+            "${{ needs.test-suite-all-features.result }}" \
+            "${{ needs.coverage-verification.result }}" \
+            "${{ needs.documentation-verification.result }}" \
+            "${{ needs.vulnerability-audit.result }}" \
+            "${{ needs.release-provenance.result }}" \
+            "${{ needs.schema-validation.result }}" \
+            "${{ needs.cli-smoke-tests.result }}" \
+            "${{ needs.api-contract-testing.result }}" \
+            "${{ needs.performance-benchmarks.result }}" \
+            "${{ needs.cross-platform-verification.result }}" \
+            "${{ needs.cross-platform-windows.result }}" \
+            "${{ needs.cross-platform-macos.result }}"; do
+            if [ "$RESULT" != "success" ]; then FAILED=1; fi
+          done
+          if [ "$FAILED" = "1" ]; then
+            echo "::error::One or more verification jobs did not succeed; see the summary above."
+            exit 1
+          fi
+          echo "All verification jobs succeeded."
 
       - name: Upload verification summary
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

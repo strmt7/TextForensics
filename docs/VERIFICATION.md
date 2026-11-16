@@ -225,10 +225,31 @@ reason, review date). Exit 0: every finding baselined. Exit 2: a
 new finding (new package, new vulnerability id, or new affected
 version). Exit 1: configuration error, or a still-present finding
 whose baseline entry is past its review date. There are no blanket
-ignores and no `--ignore` flags. The gate is owned by
-`.github/workflows/supply-chain.yml` (single `pip-audit-gate` job:
-push to `main`, PRs touching dependency files, weekly Monday
-04:23 UTC); the former duplicate zero-tolerance jobs
+ignores and no `--ignore` flags.
+
+Coverage (ENG-11, audit W7, 2026-11-16): every dependency
+pip-audit reports is classified into exactly one coverage state —
+`audited` (a vulns list was returned, possibly empty), `skipped`
+(a `skip_reason` was returned), or `unresolved` (a named entry
+with neither) — and the counts reconcile per source
+(`total == audited + skipped + unresolved`). The gate report
+(`pip-audit-gate.json`, schema
+`textforensics.pip-audit-gate/v2`) lists every package with its
+state. A skipped package passes only when a `[[skip]]` entry in
+the baseline records it (package, reason, review date); an
+unrecorded skip, an unresolved package, an expired recorded skip,
+malformed audit output, or a run with no coverage data at all
+fails with exit 1 — a skip is an explicit, recorded state, never
+silently zero vulnerabilities. The one recorded skip is the
+project itself (`textforensics`, editable, not on PyPI).
+`scripts/check_pip_audit.py --from-json <file>` validates the
+coverage of an existing pip-audit JSON file the same way; the
+deep-verification job uses it after its own direct `pip-audit
+--strict` run, so a skipped package there fails too.
+
+The gate is owned by `.github/workflows/supply-chain.yml` (single
+`pip-audit-gate` job: push to `main`, PRs touching dependency files,
+weekly Monday 04:23 UTC); the former duplicate zero-tolerance jobs
 (`pip-audit --path . || exit 1`) and the never-failing
 `dependency-audit.yml` job are deleted.
 `enterprise-deep-verification.yml` keeps its own weekly
@@ -268,6 +289,14 @@ pinned audit 0 findings); a planted new finding (temporary
 requirements file pinning `cryptography==42.0.8`, never a real
 pin) exits 2. Comparison logic is unit-tested in
 `tests/test_pip_audit_gate.py`.
+
+Coverage measured live (2026-11-16, dev venv, pip-audit 2.10.1,
+audit W7): installed audit 128 dependencies (127 audited,
+1 skipped — the project itself — 0 unresolved), pinned audit 118
+(117 audited, 1 skipped, 0 unresolved); gate exits 0 with the
+recorded skip. Planted defects fail as designed: an unrecorded
+skipped package and an unresolved entry each exit 1
+(`--from-json` mode and the live gate alike).
 
 **25 findings in 3 packages** (2026-11-06 measurement, kept as a
 dated record):

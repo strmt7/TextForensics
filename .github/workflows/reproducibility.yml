@@ -274,7 +274,7 @@ jobs:
             echo "PASS: All reproducibility checks passed."
             echo "- Wheel builds are deterministic with SOURCE_DATE_EPOCH=1704067200"
             echo "- PYTHONHASHSEED=0 ensures consistent hashing"
-            echo "- Pinned build deps (setuptools 79.0.1, wheel 0.45.1) for stable output"
+            echo "- Pinned build deps from requirements-tools-hashed.txt for stable output"
             echo "- CLI/case-file/detector outputs are deterministic after jq-filtering runtime fields"
           else
             echo "FAIL: One or more reproducibility checks failed."

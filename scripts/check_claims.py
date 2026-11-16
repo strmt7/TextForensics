@@ -1095,6 +1095,12 @@ def main(argv: list[str] | None = None) -> int:
     except (FileNotFoundError, ValueError) as e:
         print(f"CI FAILED: {e}")
         return 1
+    # ENG-07: zero claims is zero executed work, never a pass. An
+    # emptied CLAIMS.yaml used to print "0 passed, 0 failed" and exit
+    # 0; the gate must fail when there is nothing to verify.
+    if not claims:
+        print("CI FAILED: CLAIMS.yaml contains no claims — nothing was verified.")
+        return 1
     print(f"Found {len(claims)} claims\n")
 
     try:

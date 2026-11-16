@@ -186,5 +186,72 @@ jobs:
         with:
           name: probe-runs-${{ github.run_id }}
           path: ${{ env.PROBE_RUNS_DIR }}/run-*.json
-          if-no-files-found: warn
+          # ENG-07: when the corpus is available a probe run must have
+          # produced manifests; a missing manifest fails the upload
+          # instead of warning.
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Record probe-run status
+        # ENG-07: the job used to go green with no record at all when
+        # the corpus was absent (the normal case on a GitHub-hosted
+        # runner) — indistinguishable from a probe that ran. This step
+        # always writes a machine-readable status file distinguishing
+        # 'pass' (probe ran, manifests produced) from 'skipped'
+        # (corpus absent, nothing ran).
+        if: always()
+        env:
+          CORPUS_AVAILABLE: ${{ steps.corpus.outputs.available }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          available = os.environ.get("CORPUS_AVAILABLE", "false") == "true"
+          runs_dir = Path(os.environ["PROBE_RUNS_DIR"])
+          runs = sorted(p.name for p in runs_dir.glob("run-*.json")) if runs_dir.exists() else []
+          if available:
+              status = "pass" if runs else "fail"
+              reason = (
+                  f"probe ran; {len(runs)} run manifest(s) produced"
+                  if runs
+                  else "corpus available but no run manifest was produced"
+              )
+          else:
+              status = "skipped"
+              reason = (
+                  "probe corpus not available on this runner; real probe runs "
+                  "execute on the corpus host (see docs/OBSERVATORY.md)"
+              )
+          record = {
+              "schema": "textforensics.probe-status/v1",
+              "sha": os.environ.get("GITHUB_SHA", ""),
+              "event": os.environ.get("EVENT_NAME", ""),
+              "corpus_available": available,
+              "status": status,
+              "runs_produced": len(runs),
+              "reason": reason,
+          }
+          Path("probe-status.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(record, indent=2))
+          PY
+          # A dispatched run is an explicit operator request: corpus
+          # absent means the requested work did not happen, so the job
+          # fails instead of going green with a skipped status. A
+          # scheduled run on a runner without the corpus is the
+          # documented no-op (the corpus host runs the real probe).
+          if [ "${{ steps.corpus.outputs.available }}" != "true" ] && [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "::error::Dispatched probe run requested but the probe corpus is not available on this runner; no probe work executed."
+            exit 1
+          fi
+
+      - name: Upload probe-run status
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: probe-status-${{ github.run_id }}
+          path: probe-status.json
+          if-no-files-found: error
           retention-days: 90

@@ -4,40 +4,64 @@
 Scope
 -----
 The SBOM lists the *resolved dependency closure of requirements-pinned.txt*
-as installed: the extras named on that file's editable ``-e .[...]`` line,
-plus every package named directly in the file (e.g. ``atheris``,
-``bandit``, ``pip-audit``, which are not part of any pyproject extra),
-plus their transitive ``Requires-Dist`` closure. Since 2026-11-10 the
-file is an exact-pin lockfile naming the whole closure, so the root
-component's ``dependsOn`` lists the full locked closure; the true
-direct/transitive graph is in the per-component ``dependsOn`` edges.
-The project itself is the ``metadata.component`` (``textforensics``).
-In addition, the SBOM lists the third-party assets vendored into the
-shipped package (ENG-15; see ``VENDORED_ASSETS``): Chart.js and the
-@kurkle/color it bundles, as ``library`` components with npm purls,
-SPDX licences, the SHA-256 of the shipped bytes, and ``vendored``
-properties. Install tooling appears only
-where it is genuinely required: ``setuptools`` and ``wheel`` are direct
-pins in requirements-pinned.txt. ``pip`` is EXCLUDED from the closure
-(see ``EXCLUDED_DISTRIBUTIONS``): it enters only as a transitive edge
-(``pip-audit`` depends on ``pip-api``, which requires ``pip``), but the
-version recorded would be the venv's bundled installer pip, which
-requirements-pinned.txt does not pin (24.0 in a fresh canonical venv
-against 26.3 in the worker's environment) — including it made ``--check``
-fail in the canonical environment and flap on runner-image pip updates.
+for the ACTUAL selected platform and extras (ENG-12): the extras named
+on that file's editable ``-e .[...]`` line, plus every package named
+directly in the file (e.g. ``atheris``, ``bandit``, ``pip-audit``,
+which are not part of any pyproject extra), plus their transitive
+``Requires-Dist`` closure evaluated with FULL PEP 508 marker semantics
+against the target environment (Python version, platform, and the
+extras requested for each package). A requirement applies only when
+its marker holds for the environment and, for ``extra == ...`` markers,
+when that extra was requested for the package that declares it -- so
+``fastapi[standard]``-only or ``setuptools[test]``-only edges never
+enter the closure merely because the target happens to be installed
+(the old name-only traversal wrongly included typer, opentelemetry-sdk
+and friends whenever they were present in the generating environment).
+A mandatory transitive that is missing, or an installed version that
+does not satisfy an applicable specifier, FAILS generation (exit 1):
+a partial-environment SBOM is not a release bill of materials merely
+because generation succeeds. Since 2026-11-10 the file is an exact-pin
+lockfile naming the whole closure, so the root component's
+``dependsOn`` lists the full locked closure; the true direct/transitive
+graph is in the per-component ``dependsOn`` edges. The project itself
+is the ``metadata.component`` (``textforensics``). In addition, the
+SBOM lists the third-party assets vendored into the shipped package
+(ENG-15; see ``VENDORED_ASSETS``): Chart.js and the @kurkle/color it
+bundles, as ``library`` components with npm purls, SPDX licences, the
+SHA-256 of the shipped bytes, and ``vendored`` properties. Install
+tooling appears only where it is genuinely required: ``setuptools``
+and ``wheel`` are direct pins in requirements-pinned.txt. ``pip`` is
+EXCLUDED from the closure (see ``EXCLUDED_DISTRIBUTIONS``): it enters
+only as a transitive edge (``pip-audit`` depends on ``pip-api``, which
+requires ``pip``), but the version recorded would be the venv's
+bundled installer pip, which requirements-pinned.txt does not pin
+(24.0 in a fresh canonical venv against 26.3 in the worker's
+environment) -- including it made ``--check`` fail in the canonical
+environment and flap on runner-image pip updates. The SBOM records
+the target environment it was generated for (``targetEnvironment``
+property: Python version, platform, machine, implementation, selected
+extras) and the root requirements excluded by marker evaluation
+(``markerExcludedRequirements``), so the closure is auditable without
+re-running the generator.
 
-Why stdlib only
----------------
-No new dependency is introduced. The CycloneDX document is plain JSON
-with a fixed schema shape (``bomFormat``/``specVersion``/``serialNumber``/
-``metadata``/``components``/``dependencies``), so emitting it with
-``json.dumps(..., sort_keys=True)`` is exact and auditable. The
-``cyclonedx-python-lib`` already present in the dev/audit environment is
-used only as an independent cross-check in ``tests/test_generate_sbom.py``
-(``Bom.from_json(...).validate()``), never as a generation input, because
-its CLI embeds wall-clock timestamps and tool versions that vary per run,
-and it resolves from the requirements file rather than from the installed
-environment whose versions the SBOM records.
+Why packaging, not stdlib only
+------------------------------
+PEP 508 requirement parsing and marker evaluation are exactly what
+the ``packaging`` library implements (and what pip uses); a hand-rolled
+marker evaluator would be a second, divergent implementation of a
+subtle grammar. ``packaging`` is pinned in requirements-pinned.txt
+(and present in every venv pip creates), so the generator depends on
+it with no new dependency. The CycloneDX document itself is still
+plain JSON with a fixed schema shape (``bomFormat``/``specVersion``/
+``serialNumber``/``metadata``/``components``/``dependencies``), so
+emitting it with ``json.dumps(..., sort_keys=True)`` is exact and
+auditable. The ``cyclonedx-python-lib`` already present in the dev/audit
+environment is used only as an independent cross-check in
+``tests/test_generate_sbom.py`` (``Bom.from_json(...).validate()``),
+never as a generation input, because its CLI embeds wall-clock
+timestamps and tool versions that vary per run, and it resolves from
+the requirements file rather than from the installed environment
+whose versions the SBOM records.
 
 Reproducibility
 ---------------
@@ -68,10 +92,9 @@ deterministic. The canonical generation environment is
 *ranges*, so a fresh install could resolve to newer upstream releases and
 stale the SBOM with no repo change; the lockfile decision is recorded in
 SECURITY.md ("Python dependency pinning policy"). Regenerating in a
-partial environment does not fail: uninstalled root packages are omitted
-from ``components`` and listed in ``metadata.properties`` as
-``unresolvedDependencies``, so the output stays honest and the CI
-staleness check (which runs in the full install) will report it stale.
+partial environment FAILS (ENG-12): a missing mandatory dependency or
+an unsatisfiable specifier exits 1 with the missing package named, so
+no partial SBOM is ever written or checked in.
 
 Usage
 -----
@@ -96,7 +119,11 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
-GENERATOR_VERSION = "1.0.2"
+from packaging.markers import default_environment
+from packaging.requirements import InvalidRequirement, Requirement
+from packaging.version import InvalidVersion, Version
+
+GENERATOR_VERSION = "1.1.0"
 GENERATOR_NAME = "generate_sbom.py"
 SPEC_VERSION = "1.6"
 PROJECT_URL = "https://github.com/strmt7/TextForensics"
@@ -126,6 +153,11 @@ class Distribution:
     version: str
     requires: list[str] = field(default_factory=list)  # Normalized names.
     license_expression: str | None = None
+    # Raw ``Requires-Dist`` strings, as declared in the distribution
+    # metadata. The closure evaluates these with full PEP 508 marker
+    # semantics (ENG-12); ``requires`` is the name-only fallback used
+    # when raw strings are unavailable (synthetic/test distributions).
+    requirements: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -271,6 +303,65 @@ def parse_pinned_requirements(path: Path) -> tuple[set[str], set[str]]:
     return extras, pinned_names
 
 
+def pinned_requirements(path: Path) -> list[Requirement]:
+    """Parse requirements-pinned.txt into full PEP 508 requirements.
+
+    Unlike :func:`parse_pinned_requirements` this keeps version
+    specifiers and markers (ENG-12): a pinned line whose marker is
+    false on the target platform is not part of the closure. Inline
+    ``#`` comments are stripped before parsing.
+    """
+    requirements: list[Requirement] = []
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.split("#", 1)[0].strip()
+        if not line or line.startswith("-e ") or line.startswith("-e\t"):
+            continue
+        if line.startswith("-"):
+            raise ValueError(
+                f"Unsupported line in {path}: {raw_line!r} "
+                "(only the '-e .[...]' line may start with '-')"
+            )
+        try:
+            requirements.append(Requirement(line))
+        except InvalidRequirement as exc:
+            raise ValueError(f"Cannot parse pinned requirement {raw_line!r}: {exc}") from exc
+    return requirements
+
+
+def target_environment() -> dict[str, str]:
+    """Return the marker environment of the generating interpreter.
+
+    This is the ACTUAL platform the closure is generated for: the
+    live interpreter's Python version, platform, machine and
+    implementation (``packaging.markers.default_environment``). The
+    canonical SBOM is generated in a fresh Python 3.12.3 / Linux /
+    x86_64 venv, so the recorded target is that platform.
+    """
+    return default_environment()
+
+
+def requirement_applies(
+    requirement: Requirement, requested_extras: set[str] | frozenset[str], environment: dict
+) -> bool:
+    """Whether a PEP 508 requirement applies to the selected closure.
+
+    A requirement without a marker always applies. A requirement with
+    a marker applies when the marker holds for the environment with
+    ``extra`` set to one of the extras requested for the package that
+    declares it (or to ``""`` for unconditional evaluation): this is
+    pip's semantics — ``extra == "test"`` on one of setuptools'
+    requirements means "needed when setuptools[test] is requested",
+    not "needed when the root project requests the test extra".
+    """
+    if requirement.marker is None:
+        return True
+    candidates = set(requested_extras) | {""}
+    return any(
+        requirement.marker.evaluate({**environment, "extra": extra})
+        for extra in candidates
+    )
+
+
 def load_pyproject(path: Path) -> dict:
     """Load pyproject.toml and return its ``[project]`` table."""
     with path.open("rb") as handle:
@@ -301,6 +392,51 @@ def root_requirement_names(project: dict, extras: set[str], pinned_names: set[st
     return names
 
 
+def root_requirements(
+    project: dict,
+    extras: set[str],
+    pinned: list[Requirement],
+    environment: dict,
+) -> tuple[dict[str, set[str]], set[str]]:
+    """Return the marker-aware closure roots (ENG-12).
+
+    Returns ``(requested, marker_excluded)``: ``requested`` maps each
+    normalized root name to the extras requested for it (from the
+    requirement that pulled it in), and ``marker_excluded`` is the set
+    of root names whose every declaring requirement has a marker that
+    is false for the selected platform/extras — e.g. atheris on
+    Python 3.11/3.15, where its ``python_version`` marker is false.
+    A name that is excluded in one context but included in another
+    is included (it is not marker-excluded).
+    """
+    requested: dict[str, set[str]] = {}
+    excluded: set[str] = set()
+
+    def _add(requirement: Requirement, declaring_extras: set[str]) -> None:
+        name = normalize_name(requirement.name)
+        if name in EXCLUDED_DISTRIBUTIONS:
+            return
+        if requirement_applies(requirement, declaring_extras, environment):
+            requested.setdefault(name, set()).update(requirement.extras)
+        else:
+            excluded.add(name)
+
+    for spec in project.get("dependencies", []) or []:
+        _add(Requirement(str(spec)), {""})
+    optional = project.get("optional-dependencies", {}) or {}
+    for extra in sorted(extras):
+        if extra not in optional:
+            raise ValueError(
+                f"Extra {extra!r} from requirements-pinned.txt is not in pyproject.toml"
+            )
+        for spec in optional[extra] or []:
+            _add(Requirement(str(spec)), {extra})
+    for requirement in pinned:
+        _add(requirement, {""})
+    marker_excluded = {name for name in excluded if name not in requested}
+    return requested, marker_excluded
+
+
 def live_distributions() -> dict[str, Distribution]:
     """Return installed distributions keyed by normalized name."""
     installed: dict[str, Distribution] = {}
@@ -311,7 +447,8 @@ def live_distributions() -> dict[str, Distribution]:
             continue
         name = normalize_name(display)
         requires: list[str] = []
-        for req in dist.requires or []:
+        raw_requirements = list(dist.requires or [])
+        for req in raw_requirements:
             parsed = parse_requirement_name(req)
             if parsed:
                 requires.append(parsed)
@@ -321,6 +458,7 @@ def live_distributions() -> dict[str, Distribution]:
             version=dist.version,
             requires=sorted(set(requires)),
             license_expression=expression or None,
+            requirements=raw_requirements,
         )
     return installed
 
@@ -382,6 +520,7 @@ def apply_freeze(
                     version=version,
                     requires=existing.requires,
                     license_expression=existing.license_expression,
+                    requirements=existing.requirements,
                 )
             else:
                 merged[name] = Distribution(name=name, version=version)
@@ -397,30 +536,78 @@ def apply_freeze(
     return merged
 
 
+def _requirement_strings(distribution: Distribution) -> list[str]:
+    """Return the raw requirement strings for a distribution.
+
+    Prefers the recorded ``Requires-Dist`` strings (full PEP 508);
+    falls back to the name-only ``requires`` list for synthetic
+    distributions that carry no raw strings.
+    """
+    if distribution.requirements:
+        return list(distribution.requirements)
+    return list(distribution.requires)
+
+
+def _version_satisfies(version: str, requirement: Requirement) -> bool:
+    """Whether an installed version satisfies a requirement specifier."""
+    if not requirement.specifier:
+        return True
+    try:
+        return Version(version) in requirement.specifier
+    except InvalidVersion as exc:
+        raise ValueError(
+            f"Installed version {version!r} for {requirement.name} is not a valid version"
+        ) from exc
+
+
 def dependency_closure(
-    roots: set[str], installed: dict[str, Distribution]
+    roots: set[str] | dict[str, set[str]],
+    installed: dict[str, Distribution],
+    *,
+    environment: dict | None = None,
 ) -> tuple[set[str], set[str]]:
     """Walk Requires-Dist edges from ``roots`` over installed packages.
 
-    Returns ``(included, unresolved)``: normalized names in the closure
-    and *root* names that are not installed. A transitive edge is followed
-    only when its target is installed, which is also how environment
-    markers are honoured (a marker-false dependency is not installed).
-    A missing transitive target is therefore never "unresolved": it is an
-    optional extra or a marker-guarded dependency of an installed
-    package (setuptools alone declares ~50 such ``extra == "test"``
-    edges), and omitting it is correct. Only a missing *root* — a package
-    requirements-pinned.txt or pyproject.toml declares — is reported.
+    ``roots`` is either a set of names (no extras requested for any
+    root) or a mapping of name -> extras requested for that root (the
+    marker-aware form produced by :func:`root_requirements`).
+    ``environment`` is the target marker environment (default: the
+    live interpreter's, see :func:`target_environment`).
+
+    Returns ``(included, unresolved)``: normalized names in the
+    closure and names of MANDATORY dependencies that are missing —
+    roots and transitives alike. A requirement is mandatory when its
+    full PEP 508 marker holds for the target environment and for the
+    extras requested for the package that declares it; a marker-false
+    requirement (unselected extra, other platform, other Python) is
+    not a dependency of the selected closure and its absence is not
+    unresolved. Raises ValueError on an unparseable requirement or
+    on an installed version that does not satisfy an applicable
+    specifier — either is a broken closure, and the caller (see
+    :func:`generate`) fails the gate instead of emitting a partial
+    SBOM.
     """
+    env = environment if environment is not None else target_environment()
+    if isinstance(roots, dict):
+        requested_extras: dict[str, set[str]] = {
+            normalize_name(name): set(extras) for name, extras in roots.items()
+        }
+    else:
+        requested_extras = {normalize_name(name): set() for name in roots}
     included: set[str] = set()
     unresolved: set[str] = set()
-    queue = sorted(roots)
-    seen: set[str] = set()
+    violations: list[str] = []
+    # Fixpoint over requested extras: following an edge can request
+    # new extras for its target (``foo[bar]``), which can in turn
+    # activate that target's ``extra == "bar"`` requirements.
+    processed: dict[str, frozenset[str]] = {}
+    queue = sorted(requested_extras)
     while queue:
         name = queue.pop(0)
-        if name in seen:
+        current = frozenset(requested_extras.get(name, set()))
+        if processed.get(name) == current:
             continue
-        seen.add(name)
+        processed[name] = current
         # Install tooling, not a shipped dependency: excluded from the
         # closure entirely (no component, no edges), even when a root
         # requires it. See EXCLUDED_DISTRIBUTIONS.
@@ -428,13 +615,38 @@ def dependency_closure(
             continue
         dist = installed.get(name)
         if dist is None:
-            if name in roots:
-                unresolved.add(name)
+            unresolved.add(name)
             continue
         included.add(name)
-        for dep in dist.requires:
-            if dep not in seen:
-                queue.append(dep)
+        for req_string in _requirement_strings(dist):
+            try:
+                requirement = Requirement(req_string)
+            except InvalidRequirement as exc:
+                raise ValueError(
+                    f"Unparseable requirement {req_string!r} declared by {name}: {exc}"
+                ) from exc
+            target = normalize_name(requirement.name)
+            if target in EXCLUDED_DISTRIBUTIONS:
+                continue
+            if not requirement_applies(requirement, current, env):
+                continue
+            target_dist = installed.get(target)
+            if target_dist is None:
+                unresolved.add(target)
+                continue
+            if not _version_satisfies(target_dist.version, requirement):
+                violations.append(
+                    f"{name} requires {requirement} but {target}=={target_dist.version} "
+                    "is installed"
+                )
+            before = set(requested_extras.get(target, set()))
+            requested_extras.setdefault(target, set()).update(requirement.extras)
+            if requested_extras[target] != before or target not in processed:
+                queue.append(target)
+    if violations:
+        raise ValueError(
+            "SBOM closure has unsatisfiable requirements: " + "; ".join(sorted(violations))
+        )
     return included, unresolved
 
 
@@ -460,6 +672,9 @@ def build_bom(
     pinned_sha256: str,
     pyproject_sha256: str,
     vendored: tuple[list[dict], list[dict]] = ([], []),
+    environment: dict | None = None,
+    extras: set[str] = frozenset(),
+    marker_excluded: set[str] = frozenset(),
 ) -> dict:
     """Build the CycloneDX 1.6 BOM document (without the serial number)."""
     root_ref = bom_ref(project_name, project_version)
@@ -511,6 +726,27 @@ def build_bom(
         {"name": "requirementsPinnedSha256", "value": pinned_sha256},
         {"name": "pyprojectSha256", "value": pyproject_sha256},
     ]
+    if environment is not None:
+        # The actual selected platform/extras identity this closure
+        # was generated for (ENG-12) — not the ambient developer
+        # environment's versions or wall clock.
+        target = "; ".join(
+            [
+                f"python_version={environment.get('python_version', '')}",
+                f"sys_platform={environment.get('sys_platform', '')}",
+                f"platform_machine={environment.get('platform_machine', '')}",
+                f"implementation_name={environment.get('implementation_name', '')}",
+                f"extras={','.join(sorted(extras))}",
+            ]
+        )
+        properties.append({"name": "targetEnvironment", "value": target})
+    if marker_excluded:
+        properties.append(
+            {
+                "name": "markerExcludedRequirements",
+                "value": ", ".join(sorted(marker_excluded)),
+            }
+        )
     if unresolved:
         properties.append(
             {"name": "unresolvedDependencies", "value": ", ".join(sorted(unresolved))}
@@ -559,10 +795,17 @@ def render_bom(bom: dict) -> str:
 
 
 def generate(root: Path, freeze_file: Path | None = None) -> tuple[str, int, set[str]]:
-    """Generate the SBOM text; returns (text, component count, unresolved)."""
+    """Generate the SBOM text; returns (text, component count, unresolved).
+
+    ENG-12: raises ValueError when the closure is incomplete — a
+    missing mandatory dependency (root or transitive) or an installed
+    version that does not satisfy an applicable specifier. A partial
+    SBOM is never returned: callers (see :func:`main`) fail the gate.
+    On success ``unresolved`` is empty.
+    """
     pinned_path = root / "requirements-pinned.txt"
     pyproject_path = root / "pyproject.toml"
-    extras, pinned_names = parse_pinned_requirements(pinned_path)
+    extras, _pinned_names = parse_pinned_requirements(pinned_path)
     project = load_pyproject(pyproject_path)
     project_name = str(project["name"])
     project_version = str(project["version"])
@@ -572,27 +815,40 @@ def generate(root: Path, freeze_file: Path | None = None) -> tuple[str, int, set
         if isinstance(license_value, dict)
         else "AGPL-3.0-or-later"
     )
-    roots = root_requirement_names(project, extras, pinned_names)
+    environment = target_environment()
+    requested, marker_excluded = root_requirements(
+        project, extras, pinned_requirements(pinned_path), environment
+    )
     project_key = normalize_name(project_name)
-    roots.discard(project_key)
+    requested.pop(project_key, None)
     installed = live_distributions()
     if freeze_file is not None:
         installed = apply_freeze(
             installed, parse_freeze_file(freeze_file), project_name, project_version
         )
-    included, unresolved = dependency_closure(roots, installed)
+    included, unresolved = dependency_closure(requested, installed, environment=environment)
+    if unresolved:
+        raise ValueError(
+            "SBOM closure is incomplete: missing mandatory dependencies: "
+            + ", ".join(sorted(unresolved))
+            + " (install the full requirements-pinned.txt closure; a "
+            "partial environment cannot produce a release SBOM)"
+        )
     vendored = vendored_components(root)
     bom = build_bom(
         project_name=project_name,
         project_version=project_version,
         project_license=project_license,
-        roots=roots,
+        roots=set(requested),
         included=included,
         unresolved=unresolved,
         installed=installed,
         pinned_sha256=sha256_file(pinned_path),
         pyproject_sha256=sha256_file(pyproject_path),
         vendored=vendored,
+        environment=environment,
+        extras=extras,
+        marker_excluded=marker_excluded,
     )
     return render_bom(bom), len(included) + len(vendored[0]), unresolved
 
@@ -631,12 +887,6 @@ def main(argv: list[str] | None = None) -> int:
     except (ValueError, FileNotFoundError, OSError) as exc:
         print(f"generate_sbom: {exc}", file=sys.stderr)
         return 1
-    if unresolved:
-        print(
-            "generate_sbom: warning: unresolved dependencies (not installed, "
-            f"omitted from components): {', '.join(sorted(unresolved))}",
-            file=sys.stderr,
-        )
     if args.check:
         if not output.exists():
             print(f"generate_sbom: stale: {output} does not exist", file=sys.stderr)

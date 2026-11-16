@@ -215,18 +215,63 @@ def test_root_requirement_names(tmp_path):
         sbom.root_requirement_names(project, {"nope"}, set())
 
 
-def test_dependency_closure_follows_only_installed():
+def test_dependency_closure_missing_transitive_is_unresolved():
+    """ENG-12: a missing transitive is UNRESOLVED, not silently skipped.
+    The old contract treated every absent transitive as an optional /
+    marker-false dependency and omitted it; a mandatory transitive that
+    is absent must be reported so generation can fail closed."""
     installed = {
-        "aaa": sbom.Distribution("aaa", "1.0.0", ["bbb", "missing-dep"]),
-        "bbb": sbom.Distribution("bbb", "2.0.0", ["aaa"]),
+        "aaa": sbom.Distribution(
+            "aaa", "1.0.0", ["bbb", "missing-dep"], requirements=["bbb>=2", "missing-dep>=1"]
+        ),
+        "bbb": sbom.Distribution("bbb", "2.0.0", ["aaa"], requirements=["aaa>=1"]),
         "zzz": sbom.Distribution("zzz", "9.0.0", []),
     }
     included, unresolved = sbom.dependency_closure({"aaa", "gone"}, installed)
     assert included == {"aaa", "bbb"}
-    # Only missing *roots* are unresolved; a missing transitive edge
-    # (missing-dep, an optional/marker-guarded dep of aaa) is skipped.
-    assert unresolved == {"gone"}
+    # Both the missing root and the missing mandatory transitive are
+    # unresolved; only a marker-false edge may be skipped (see below).
+    assert unresolved == {"gone", "missing-dep"}
     assert "zzz" not in included
+
+
+def test_dependency_closure_marker_false_transitive_is_skipped():
+    """ENG-12: a transitive required only under a false marker (here an
+    unselected extra) is NOT unresolved — it is correctly absent from
+    the selected platform/extras closure."""
+    installed = {
+        "aaa": sbom.Distribution(
+            "aaa",
+            "1.0.0",
+            ["bbb", "test-only"],
+            requirements=["bbb>=2", 'test-only>=1; extra == "test"'],
+        ),
+        "bbb": sbom.Distribution("bbb", "2.0.0", [], requirements=[]),
+    }
+    included, unresolved = sbom.dependency_closure({"aaa"}, installed)
+    assert included == {"aaa", "bbb"}
+    assert unresolved == set()
+    # The same edge applies when the declaring package's "test" extra
+    # IS requested: then the missing target is unresolved.
+    included, unresolved = sbom.dependency_closure({"aaa": {"test"}}, installed)
+    assert included == {"aaa", "bbb"}
+    assert unresolved == {"test-only"}
+
+
+def test_dependency_closure_platform_marker_false_is_skipped():
+    """ENG-12: a transitive required only on another platform is not
+    unresolved on this platform."""
+    installed = {
+        "aaa": sbom.Distribution(
+            "aaa",
+            "1.0.0",
+            ["win-only"],
+            requirements=['win-only>=1; sys_platform == "win32"'],
+        ),
+    }
+    included, unresolved = sbom.dependency_closure({"aaa"}, installed)
+    assert included == {"aaa"}
+    assert unresolved == set()
 
 
 def test_dependency_closure_excludes_pip():
@@ -287,14 +332,103 @@ def test_serial_number_changes_with_content(tmp_path):
     assert json.loads(text1)["serialNumber"] != json.loads(text2)["serialNumber"]
 
 
-def test_unresolved_dependencies_are_listed_not_hidden(tmp_path):
+def test_missing_mandatory_transitive_fails_generation(tmp_path):
+    """ENG-12: a deliberately dropped mandatory transitive fails the
+    gate — generate() raises and main() exits 1 instead of emitting an
+    SBOM that silently omits it."""
+    freeze = _fake_repo(tmp_path)
+    # Fake a mandatory edge aaa -> dropped-dep by monkeypatching the
+    # live distributions the generator sees: aaa requires a package
+    # that is neither installed nor frozen.
+    original = sbom.live_distributions
+    try:
+        sbom.live_distributions = lambda: {  # type: ignore[method-assign]
+            "aaa": sbom.Distribution(
+                "aaa", "1.0.0", ["dropped-dep"], requirements=["dropped-dep>=1"]
+            ),
+            "bbb": sbom.Distribution("bbb", "2.0.0", []),
+            "ccc": sbom.Distribution("ccc", "3.0.0", []),
+            "ddd": sbom.Distribution("ddd", "4.0.0", []),
+        }
+        with pytest.raises(ValueError, match="dropped-dep"):
+            sbom.generate(tmp_path, freeze)
+        assert sbom.main(["--root", str(tmp_path), "--freeze-file", str(freeze)]) == 1
+    finally:
+        sbom.live_distributions = original
+
+
+def test_unresolved_dependencies_fail_generation(tmp_path):
+    """ENG-12: unresolved roots are a failed gate, not a warning with
+    an emitted SBOM. (Replaces the old 'listed not hidden' contract,
+    which emitted a partial SBOM and exited 0.)"""
     freeze = _fake_repo(tmp_path)
     (tmp_path / "freeze.txt").write_text("aaa==1.0.0\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="bbb"):
+        sbom.generate(tmp_path, freeze)
+    assert sbom.main(["--root", str(tmp_path), "--freeze-file", str(freeze)]) == 1
+
+
+def test_specifier_violation_fails_generation(tmp_path, monkeypatch):
+    """ENG-12: an installed version that does not satisfy an applicable
+    requirement specifier is a broken closure and fails the gate.
+    (The requirement excludes the frozen bbb 2.0.0, so the freeze
+    override cannot mask the violation.)"""
+    freeze = _fake_repo(tmp_path)
+    monkeypatch.setattr(
+        sbom,
+        "live_distributions",
+        lambda: {
+            "aaa": sbom.Distribution(
+                "aaa", "1.0.0", ["bbb"], requirements=["bbb>=3"]
+            ),
+            "bbb": sbom.Distribution("bbb", "2.0.0", []),
+            "ccc": sbom.Distribution("ccc", "3.0.0", []),
+            "ddd": sbom.Distribution("ddd", "4.0.0", []),
+        },
+    )
+    with pytest.raises(ValueError, match="bbb"):
+        sbom.generate(tmp_path, freeze)
+
+
+def test_marker_false_requirement_excluded_from_roots(tmp_path, monkeypatch):
+    """ENG-12: a pinned requirement whose marker is false on the target
+    platform is not a root of the closure (atheris on 3.11/3.15)."""
+    freeze = _fake_repo(tmp_path)
+    (tmp_path / "requirements-pinned.txt").write_text(
+        "-e .[dev,api]\n"
+        "ddd>=4,<5\n"
+        'win-only==1.0.0; sys_platform == "win32"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        sbom,
+        "live_distributions",
+        lambda: {
+            "aaa": sbom.Distribution("aaa", "1.0.0", []),
+            "bbb": sbom.Distribution("bbb", "2.0.0", []),
+            "ccc": sbom.Distribution("ccc", "3.0.0", []),
+            "ddd": sbom.Distribution("ddd", "4.0.0", []),
+            "win-only": sbom.Distribution("win-only", "1.0.0", []),
+        },
+    )
     text, count, unresolved = sbom.generate(tmp_path, freeze)
-    assert count == 1
-    assert unresolved == {"bbb", "ccc", "ddd"}
+    assert unresolved == set()
+    names = [c["name"] for c in json.loads(text)["components"]]
+    assert names == ["aaa", "bbb", "ccc", "ddd"]
     props = {p["name"]: p["value"] for p in json.loads(text)["metadata"]["properties"]}
-    assert props["unresolvedDependencies"] == "bbb, ccc, ddd"
+    assert "win-only" in props.get("markerExcludedRequirements", "")
+
+
+def test_bom_records_target_environment(tmp_path):
+    """ENG-12: the SBOM records the actual selected platform/extras
+    identity it was generated for, not the ambient developer env."""
+    freeze = _fake_repo(tmp_path)
+    text, _, _ = sbom.generate(tmp_path, freeze)
+    props = {p["name"]: p["value"] for p in json.loads(text)["metadata"]["properties"]}
+    target = props["targetEnvironment"]
+    assert "python_version=3.12" in target
+    assert "sys_platform=linux" in target
+    assert "extras=api,dev" in target
 
 
 def test_check_mode_passes_when_fresh_and_fails_when_stale(tmp_path, capsys):
