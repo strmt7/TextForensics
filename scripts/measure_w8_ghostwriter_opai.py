@@ -623,14 +623,28 @@ def fetch_ghostwriter_sample(*, workers: int = DEFAULT_WORKERS) -> tuple[list, l
     for row, offset in zip(normalized, offsets, strict=True):
         digest = content_hash(row.text)
         if digest in old_hashes:
-            excluded.append({"offset": offset, "content_hash": digest, "label": row.label})
+            excluded.append({
+                "offset": offset, "content_hash": digest, "label": row.label,
+                "source_id": row.source_id,
+                "reason": "duplicates a U1 document by content hash",
+            })
             continue
         if digest in seen:
-            raise ValueError(f"duplicate content hash inside the new sample at offset {offset}")
+            # Same class as the U1 cache's own 2 internal duplicates:
+            # the split itself repeats texts. Drop the repeat (keep
+            # first in offset order) and record it — by identity,
+            # never by detector score. Raising here would discard a
+            # 2000-row fetch over a documented corpus property.
+            excluded.append({
+                "offset": offset, "content_hash": digest, "label": row.label,
+                "source_id": row.source_id,
+                "reason": "exact content duplicate of an earlier row in this sample; kept once",
+            })
+            continue
         seen.add(digest)
         kept.append(row)
     if excluded:
-        print(f"[gw] !!! EXCLUDED {len(excluded)} rows duplicating U1 documents by content hash")
+        print(f"[gw] !!! EXCLUDED {len(excluded)} rows duplicating U1/sample documents by content hash")
         for entry in excluded:
             print(f"[gw]   excluded offset {entry['offset']} label={entry['label']}")
 
@@ -652,6 +666,19 @@ def fetch_ghostwriter_sample(*, workers: int = DEFAULT_WORKERS) -> tuple[list, l
     )
     checkpoint.unlink(missing_ok=True)
     print(f"[gw] removed raw checkpoint {checkpoint.name}")
+    if excluded:
+        # Persist fetch-time exclusions next to the cache so the run
+        # artifact can account for every fetched row, not just the kept ones.
+        excluded_path = root / "ghostwriter" / GW_CONFIG / "train-2000.excluded.json"
+        excluded_path.write_text(
+            json.dumps(
+                {"cache_file": GW_NEW_FILENAME, "excluded": excluded},
+                indent=2, sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        print(f"[gw] wrote fetch exclusions -> {excluded_path.name}")
     return kept, offsets, excluded, cache_sha
 
 
@@ -1217,6 +1244,22 @@ def build_ghostwriter_pool() -> tuple[list, list[dict], list[dict], dict[str, st
     )
     pooled = list(u1) + list(c2000)
     kept, drops = dedupe_by_content(pooled, pool_label="gw")
+    excluded_path = root / "ghostwriter" / "default" / "train-2000.excluded.json"
+    if excluded_path.exists():
+        # Fetch-time exclusions (U1 duplicates + in-sample repeats)
+        # never entered the cache; account for them here so every
+        # fetched row is counted exactly once.
+        fetch_excluded = json.loads(excluded_path.read_text(encoding="utf-8"))["excluded"]
+        for entry in fetch_excluded:
+            drops.append({
+                "source_id": entry.get("source_id"),
+                "content_hash": entry["content_hash"],
+                "label": entry["label"],
+                "offset": entry["offset"],
+                "origin": "fetch",
+                "reason": "fetch-time exclusion: " + entry.get("reason", ""),
+            })
+        print(f"[gw] accounted for {len(fetch_excluded)} fetch-time exclusion(s)")
     cache_file_of = {r.source_id: "train.jsonl" for r in u1}
     cache_file_of.update({r.source_id: GW_NEW_FILENAME for r in c2000})
     sources = [
