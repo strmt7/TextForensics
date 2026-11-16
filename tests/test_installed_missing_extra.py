@@ -205,11 +205,10 @@ def _assert_clean_missing_extra_failure(
     )
     assert result.stdout == "", f"expected empty stdout, got:\n{result.stdout}"
     assert "Traceback" not in result.stderr, (
-        "missing-extra failure must not print a traceback:\n" f"{result.stderr}"
+        f"missing-extra failure must not print a traceback:\n{result.stderr}"
     )
     assert "ModuleNotFoundError" not in result.stderr, (
-        "missing-extra failure must not leak a raw ModuleNotFoundError:\n"
-        f"{result.stderr}"
+        f"missing-extra failure must not leak a raw ModuleNotFoundError:\n{result.stderr}"
     )
     lines = result.stderr.strip().splitlines()
     assert lines == [expected_line], (
@@ -249,9 +248,7 @@ class TestBareConsoleScripts:
 class TestWebHonoursEnvBind:
     """W9 F2: the installed ``textforensics-web`` binds TEXTFORENSICS_PORT."""
 
-    def test_web_binds_env_port(
-        self, api_venv: tuple[Path, dict[str, str]]
-    ) -> None:
+    def test_web_binds_env_port(self, api_venv: tuple[Path, dict[str, str]]) -> None:
         venv_dir, clean_env = api_venv
         port = _free_port()
         env = dict(clean_env)
@@ -314,9 +311,7 @@ class TestServeWebEnvBind:
         assert call_kwargs["host"] == "127.0.0.1"
         assert call_kwargs["port"] == port
 
-    def test_serve_web_explicit_args_override_env(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_serve_web_explicit_args_override_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from textforensics.web_ui.main import serve_web
 
         monkeypatch.setenv("TEXTFORENSICS_HOST", "127.0.0.1")
@@ -328,9 +323,7 @@ class TestServeWebEnvBind:
         assert call_kwargs["host"] == "127.0.0.1"
         assert call_kwargs["port"] == 9997
 
-    def test_serve_web_defaults_without_env(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_serve_web_defaults_without_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from textforensics.web_ui.main import serve_web
 
         monkeypatch.delenv("TEXTFORENSICS_HOST", raising=False)
@@ -361,9 +354,7 @@ class TestEntryPointMainCleanExit:
             web_main.main()
         assert str(excinfo.value.code) == WEB_INSTALL_HINT
 
-    def test_web_main_reraises_other_runtime_errors(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_web_main_reraises_other_runtime_errors(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from textforensics.web_ui import main as web_main
 
         monkeypatch.setattr(
@@ -384,9 +375,7 @@ class TestEntryPointMainCleanExit:
             api.main()
         assert str(excinfo.value.code) == API_INSTALL_HINT
 
-    def test_api_main_reraises_other_runtime_errors(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_api_main_reraises_other_runtime_errors(self, monkeypatch: pytest.MonkeyPatch) -> None:
         import textforensics.api as api
 
         monkeypatch.setattr(
