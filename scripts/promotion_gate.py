@@ -24,8 +24,7 @@ prefix matching covers matrix jobs, where EVERY matched run must pass):
 - pinned:             CI / Pinned requirements install
 - locked-sbom:        CI / Checked-in SBOM is not stale
 - installed-web:      CI / Build and wheel-install (installed-distribution
-                       checks; the web-UI resource defect ENG-01 is W6-owned
-                       and the job's own coverage of it is limited)
+                       checks incl. the installed web app; ENG-01 fixed in W6)
 - pip-audit:          Supply-chain security / pip-audit gate
 - supply-chain-sbom:  Supply-chain security / Software Bill of Materials
 - reproducibility:    Reproducibility / Build Reproducibility

@@ -268,3 +268,62 @@ class TestNoWorkflowInstallsUnpinnedBuildInput:
                 "installing a hash-pinned lockfile (ENG-10: the build "
                 "inputs would be ambient, not the pinned profile)"
             )
+
+
+class TestNoWorkflowBuildInputIsFloating:
+    """ENG-10 (W7 remainder): the pip-install rule above is not the
+    whole build chain. A workflow build input that resolves floating
+    (a `:latest` container image, a locally built wheel re-installed
+    with dependency resolution) is an unpinned build input too."""
+
+    def test_local_wheel_installs_are_no_deps(self):
+        """Re-installing a wheel built earlier in the same workflow must
+        not resolve dependencies from the index: without --no-deps pip
+        resolves the wheel's declared dependencies floating."""
+        bad = []
+        for workflow in sorted(WORKFLOWS_DIR.glob("*.yml")):
+            text = workflow.read_text(encoding="utf-8")
+            for number, line in enumerate(text.splitlines(), start=1):
+                if "pip install" in line and "dist/*.whl" in line and "--no-deps" not in line:
+                    bad.append((workflow.name, number, line.strip()))
+        assert not bad, "workflow re-installs a local wheel without --no-deps:\\n" + "\\n".join(
+            f"  {f}:{n}: {line}" for f, n, line in bad
+        )
+
+    def test_no_workflow_references_a_latest_image(self):
+        """No workflow may reference a `:latest` image tag: the tag is
+        mutable, so the build input changes without any repo change."""
+        bad = []
+        for workflow in sorted(WORKFLOWS_DIR.glob("*.yml")):
+            text = workflow.read_text(encoding="utf-8")
+            for number, line in enumerate(text.splitlines(), start=1):
+                stripped = line.strip()
+                if stripped.startswith("#") or ":latest" not in line:
+                    continue
+                bad.append((workflow.name, number, stripped))
+        assert not bad, "workflow references a floating :latest image:\\n" + "\\n".join(
+            f"  {f}:{n}: {line}" for f, n, line in bad
+        )
+
+    def test_buildkit_driver_image_is_digest_pinned(self):
+        """The docker-container builder image is a build input: it must
+        be pinned to an exact version AND digest (moby/buildkit), never
+        a floating tag. setup-buildx-action itself is SHA-pinned; the
+        image it pulls must be pinned too."""
+        import re
+
+        pattern = re.compile(r"image=(moby/buildkit:[^\s]+)")
+        found: list[str] = []
+        bad: list[str] = []
+        for workflow in sorted(WORKFLOWS_DIR.glob("*.yml")):
+            text = workflow.read_text(encoding="utf-8")
+            for number, line in enumerate(text.splitlines(), start=1):
+                for match in pattern.finditer(line):
+                    value = match.group(1)
+                    found.append(value)
+                    if not re.fullmatch(r"moby/buildkit:v\d+\.\d+\.\d+@sha256:[0-9a-f]{64}", value):
+                        bad.append((workflow.name, number, value))
+        assert found, "no buildkit driver image found in any workflow"
+        assert not bad, "buildkit driver image is not version+digest pinned:\\n" + "\\n".join(
+            f"  {f}:{n}: {value}" for f, n, value in bad
+        )

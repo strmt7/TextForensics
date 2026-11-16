@@ -22,6 +22,34 @@ The dependency-free core does not bundle third-party runtime packages, but optio
 
 Each dependency remains governed by its own license.
 
+## Vendored JavaScript assets (ENG-15)
+
+The web console vendors two third-party JavaScript libraries in a
+single bundle — no third-party JavaScript is fetched from a CDN, so
+the page works local-first:
+
+| Library | Version | Licence | Shipped file |
+| --- | --- | --- | --- |
+| Chart.js | 4.4.1 | MIT | `src/textforensics/web_ui/static/chart.umd.min.js` |
+| @kurkle/color (bundled inside the Chart.js UMD build) | 0.3.2 | MIT | same file |
+
+The full MIT licence texts for both libraries — copyright lines,
+permission notice, and disclaimer, copied verbatim from each
+package's upstream `LICENSE.md` — are retained in
+`src/textforensics/web_ui/static/THIRD-PARTY-NOTICES.txt`, shipped
+alongside the bundle. The notices file and the bundle are included in
+every redistribution format that carries the web UI: the source
+tarball, the sdist, the wheel (package data), and the container image.
+Both assets are recorded in `sbom/textforensics.cdx.json` as CycloneDX
+library components with npm purls, MIT licences, and the SHA-256 of
+the shipped bytes.
+
+The archive/license inventory test
+(`tests/test_audit_w7_c_license_inventory.py`) verifies the notices
+text, the sdist/wheel contents, and the SBOM records; a vendored asset
+whose notices are missing or whose SBOM record drifts from the shipped
+bytes fails the suite instead of shipping silently.
+
 Before a commercial release:
 - generate/review the dependency inventory;
 - check license compatibility;

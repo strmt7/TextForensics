@@ -74,6 +74,14 @@ jobs:
         run: |
           python -m pytest tests/test_performance.py --benchmark-only --benchmark-min-rounds=5 --benchmark-json=pytest-performance.json
 
+      # ENG-13: stamp the results with their environment identity (code
+      # SHA, Python, pinned-lockfile digest) BEFORE they are compared
+      # or uploaded as a baseline. Without the stamp a later comparison
+      # cannot prove an identical pinned environment and must refuse.
+      - name: Stamp benchmark results with environment identity
+        run: |
+          python scripts/performance_baseline.py stamp --results pytest-performance.json
+
       - name: Run legacy pytest-benchmark suite (if available)
         run: |
           if python -c "import pytest_benchmark" 2>/dev/null; then
@@ -89,12 +97,24 @@ jobs:
       # baseline-ref input is explicitly empty, and that is reported as
       # status=skipped with a reason — never as a pass. The baseline is
       # the latest successful benchmark run on the resolved ref; its run
-      # id is recorded so the comparison is against one immutable run,
-      # not "whatever artifact happens to exist". Baselines are
-      # published from main runs only (artifact performance-baseline-main);
-      # a ref with no successful run (or no such artifact) fails closed.
+      # id AND head SHA are recorded so the comparison is against one
+      # immutable run, not "whatever artifact happens to exist", and
+      # the artifact's presence on that run is verified here (a run
+      # with no performance-baseline-main artifact fails closed).
+      # Baselines are published from main runs only (artifact
+      # performance-baseline-main); a ref with no successful run (or no
+      # such artifact) fails closed.
+      #
+      # BOOTSTRAP: no successful benchmark run exists yet, so the first
+      # run after this lands cannot resolve a baseline. Bootstrap once
+      # with a workflow_dispatch on main whose baseline-ref input is
+      # explicitly empty: comparison is skipped for that run and the
+      # upload step below publishes the first stamped baseline; later
+      # runs resolve and compare against it.
       - name: Resolve baseline run
         id: resolve-baseline
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           RAW_REF="${{ github.event.inputs.baseline-ref }}"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -z "$RAW_REF" ]; then
@@ -106,15 +126,28 @@ jobs:
           REF="${RAW_REF:-main}"
           echo "status=required" >> "$GITHUB_OUTPUT"
           echo "ref=$REF" >> "$GITHUB_OUTPUT"
-          RUN_ID="$(gh api "repos/${{ github.repository }}/actions/workflows/benchmark.yml/runs?branch=${REF}&status=success&per_page=1" --jq '.workflow_runs[0].id // empty')"
+          RUNS_ENDPOINT="repos/${{ github.repository }}/actions/workflows/benchmark.yml/runs?branch=${REF}&status=success&per_page=1"
+          RUN_ID="$(gh api "$RUNS_ENDPOINT" --jq '.workflow_runs[0].id // empty')"
           if [ -z "$RUN_ID" ]; then
             echo "::error::No successful benchmark run found on ref '${REF}'; cannot resolve an immutable baseline. Run the benchmark workflow on '${REF}' first so a baseline artifact is published."
             exit 1
           fi
+          BASELINE_SHA="$(gh api "$RUNS_ENDPOINT" --jq '.workflow_runs[0].head_sha // empty')"
+          if [ -z "$BASELINE_SHA" ]; then
+            echo "::error::Resolved run ${RUN_ID} on ref '${REF}' has no head SHA; cannot prove the baseline's code identity."
+            exit 1
+          fi
+          ARTIFACT_COUNT="$(gh api "repos/${{ github.repository }}/actions/runs/${RUN_ID}/artifacts?per_page=100" --jq '[.artifacts[] | select(.name == "performance-baseline-main")] | length')"
+          if [ "$ARTIFACT_COUNT" = "0" ]; then
+            echo "::error::Resolved run ${RUN_ID} on ref '${REF}' (head ${BASELINE_SHA}) has no performance-baseline-main artifact. Baselines are published from main runs only; run the benchmark workflow on '${REF}' first so a baseline artifact is published."
+            exit 1
+          fi
           echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
-          echo "Resolved baseline: ref=${REF} run_id=${RUN_ID}"
+          echo "baseline_sha=$BASELINE_SHA" >> "$GITHUB_OUTPUT"
+          echo "Resolved baseline: ref=${REF} run_id=${RUN_ID} head_sha=${BASELINE_SHA}"
 
       - name: Download performance baseline for comparison
+        if: steps.resolve-baseline.outputs.status == 'required'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2 (validated: gh api repos/actions/download-artifact/commits/<sha> returns 200)
         with:
           name: performance-baseline-main
@@ -134,7 +167,22 @@ jobs:
             printf '{"status": "error", "reason": "baseline artifact missing pytest-performance.json", "run_id": "%s", "ref": "%s", "compared": 0}\n' "${{ steps.resolve-baseline.outputs.run_id }}" "${{ steps.resolve-baseline.outputs.ref }}" > comparison-status.json
             exit 1
           fi
-          echo "Comparing against baseline from run ${{ steps.resolve-baseline.outputs.run_id }} (ref ${{ steps.resolve-baseline.outputs.ref }})"
+          echo "Comparing against baseline from run ${{ steps.resolve-baseline.outputs.run_id }} (ref ${{ steps.resolve-baseline.outputs.ref }}, head ${{ steps.resolve-baseline.outputs.baseline_sha }})"
+          # ENG-13: the fail-closed helper gates comparability FIRST
+          # (matched workload identities, means present, identical
+          # pinned environment, predeclared slices, baseline from the
+          # resolved run). The pytest-benchmark compare flag alone is
+          # vacuous on zero overlap, so it runs only after the helper
+          # has proven the comparison is real.
+          if ! python scripts/performance_baseline.py compare \
+            --baseline baseline/pytest-performance.json \
+            --current pytest-performance.json \
+            --expected-benchmarks-file scripts/benchmark-slices.txt \
+            --expected-baseline-code-sha "${{ steps.resolve-baseline.outputs.baseline_sha }}"; then
+            echo "::error::Baseline comparison refused: the baseline is missing, stale, or incomparable (see the helper output above)."
+            printf '{"status": "error", "reason": "baseline incomparable", "run_id": "%s", "ref": "%s", "compared": 0}\n' "${{ steps.resolve-baseline.outputs.run_id }}" "${{ steps.resolve-baseline.outputs.ref }}" > comparison-status.json
+            exit 1
+          fi
           python -m pytest tests/test_performance.py --benchmark-only --benchmark-min-rounds=5 \
             --benchmark-compare=baseline/pytest-performance.json \
             --benchmark-compare-fail=mean:1.20 \
@@ -167,7 +215,10 @@ jobs:
         with:
           name: performance-baseline-main
           path: pytest-performance.json
-          if-no-files-found: warn
+          # ENG-13: error, not warn — a main run must never publish an
+          # empty "baseline" artifact; later runs resolve it and would
+          # fail confusingly at download/compare instead of here.
+          if-no-files-found: error
           retention-days: 365
 
       - name: Summary

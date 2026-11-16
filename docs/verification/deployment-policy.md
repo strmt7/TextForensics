@@ -79,20 +79,27 @@ service safe to expose.
 
 ## 4. Container deployment
 
-- Image: `Dockerfile`, `python:3.12-slim`, multi-arch
-  linux/amd64 + linux/arm64, published to GHCR by
-  `.github/workflows/container.yml` on qualifying main pushes.
+- Image: `Dockerfile`, `python:3.15-slim` (digest-pinned), multi-arch
+  linux/amd64 + linux/arm64, built by `.github/workflows/container.yml`.
 - The hardened `compose.yaml` example uses loopback publishing, a
   read-only root filesystem, dropped Linux capabilities,
   `no-new-privileges`, and tmpfs for `/tmp`.
-- **Limitation (audit ENG-14):** container publication bypasses
-  release acceptance — a qualifying main push builds and immediately
-  pushes `latest`, version and short-SHA tags with no dependency on
-  the test/claims/security/package/reproducibility jobs and no
-  post-build running-image acceptance step. The container is
-  therefore not a governed release artifact at the audit baseline,
-  and the image SBOM scans the source tree (`path: .`), not the
-  built image digest.
+- **Promotion boundary (audit ENG-14; W0, signed-release rule W7):**
+  a main push builds a candidate image ONLY — nothing is pushed and
+  no mutable tag (`latest`, version, short-SHA) is written. Promotion
+  happens only via an explicit `workflow_dispatch` with confirmation
+  exactly `PROMOTE`, after the exact-SHA acceptance gate passes for
+  the candidate SHA, after a signed GitHub Release is verified to
+  exist for that SHA (`scripts/verify_signed_release.py`: the release
+  tag must point at the candidate SHA, the release must not be a
+  draft, and it must carry a `.sig`/`.bundle` signature asset), and
+  after the rebuilt image passes running-image acceptance (health
+  endpoint, non-root, read-only, installed web resources). The image
+  SBOM is generated for the built image by digest, never the source
+  tree. At the audit baseline the opposite was true — a qualifying
+  main push built and immediately pushed the mutable tags with no
+  dependency on the test/claims/security/package/reproducibility jobs
+  and no post-build acceptance; that behaviour is closed.
 - In-container HEALTHCHECK behaviour is unverified (live-host
   verification, 2026-11-08); `docker run` itself is blocked on the
   build VM by a host/cell restriction, not a repo defect.

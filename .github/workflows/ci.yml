@@ -206,7 +206,7 @@ jobs:
           assert any(name.endswith("schemas/forensic-bundle.schema.json") for name in names)
           assert any("/licenses/LICENSE" in name for name in names), names
           PY
-      - run: python -m pip install --force-reinstall dist/*.whl
+      - run: python -m pip install --force-reinstall --no-deps dist/*.whl
       - run: python -m pip check
       - run: textforensics --version
       - name: Verify packaged schemas

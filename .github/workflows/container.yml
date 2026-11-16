@@ -11,9 +11,13 @@ name: Container
 #   via an explicit workflow_dispatch with confirmation exactly `PROMOTE`
 #   and a candidate SHA, AFTER the exact-SHA acceptance gate
 #   (scripts/promotion_gate.py, same required set as the release workflow)
-#   passes for that SHA, AND after the rebuilt image passes post-build
-#   running-image acceptance. Promotion rebuilds from the exact candidate
-#   SHA; byte-identical rebuild is ENG-03/W6-owned and is NOT claimed here.
+#   passes for that SHA, AFTER a signed GitHub Release is verified to
+#   exist for that SHA (scripts/verify_signed_release.py — the release
+#   tag must point at the candidate SHA, the release must not be a
+#   draft, and it must carry a .sig/.bundle signature asset), AND after
+#   the rebuilt image passes post-build running-image acceptance.
+#   Promotion rebuilds from the exact candidate SHA; byte-identical
+#   rebuild is ENG-03/W6-owned and is NOT claimed here.
 # - SBOM/attestation bind to the immutable image digest and the tested
 #   source SHA, never to the source tree (`path: .`).
 #
@@ -91,10 +95,26 @@ jobs:
             --repo "${{ github.repository }}" \
             --extra-required "candidate-build=Container / Build candidate image (no push)"
 
+      # ENG-14 (W7): the acceptance gate proves the checks passed; this
+      # proves a SIGNED release exists for the candidate SHA. A
+      # candidate that was never published as a signed release must not
+      # be promoted to mutable tags, however green its checks are.
+      # Refuses (exit 1) when no release/tag exists for the candidate,
+      # the tag points elsewhere, the release is a draft, or it carries
+      # no signature asset; exit 2 when the check cannot be evaluated.
+      - name: Verify signed release exists for candidate SHA
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/verify_signed_release.py \
+            --sha "${{ github.event.inputs.candidate-sha || github.sha }}" \
+            --repo "${{ github.repository }}"
+
   # Candidate build: build ONLY (no push, no mutable tags). Runs on every
-  # trigger. Post-build running-image acceptance runs here; the web-UI
-  # resources probe is KNOWN-RED until W6 fixes ENG-01 (web templates /
-  # static are not packaged) and correctly fails the candidate until then.
+  # trigger. Post-build running-image acceptance runs here, including the
+  # installed-web-resources probe (ENG-01, fixed in W6: web templates /
+  # static are packaged, and the candidate build is green on main
+  # 7d2112c, CI run 43811471270).
   build-candidate:
     name: Build candidate image (no push)
     runs-on: ubuntu-latest
@@ -124,7 +144,12 @@ jobs:
         with:
           driver: docker-container
           driver-opts: |
-            image=moby/buildkit:latest
+            # ENG-10: the builder image is a build input and must be
+            # pinned to an exact version AND digest, never :latest.
+            # moby/buildkit v0.35.0, digest verified 2026-11-16 via
+            # the Docker Hub API and an independent registry
+            # manifest HEAD (multi-arch index: linux/amd64+arm64).
+            image=moby/buildkit:v0.35.0@sha256:aa632b921ef07411d2cb77292cd34213d4f7b384001d6fceef1e1f25bf9752bb
 
       # Multi-arch candidate build. push: false -- nothing leaves the
       # runner. The immutable digest is the candidate identity.
@@ -199,7 +224,7 @@ jobs:
           test -n "$USER_ID" && test "$USER_ID" != "root" && test "$USER_ID" != "0"
           # Read-only execution: the container above ran with --read-only.
           docker inspect -f '{{ .HostConfig.ReadonlyRootfs }}' tf-acceptance | grep -qx true
-          # Installed web resources present (ENG-01; KNOWN-RED until W6):
+          # Installed web resources present (ENG-01, fixed in W6):
           # the web console must construct from the installed files.
           docker run --rm --entrypoint python "$IMAGE" \
             -c "from textforensics.web_ui.main import create_web_app; create_web_app(); print('installed web app constructs OK')"
@@ -262,12 +287,29 @@ jobs:
           echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Promoting textforensics v${VERSION} from ${{ github.event.inputs.candidate-sha || github.sha }}"
 
+      # ENG-14 (W7): defense in depth — the promote job itself
+      # re-verifies the signed release before any step that can push,
+      # so a future edit to the promotion-gate wiring cannot silently
+      # promote an unsigned candidate.
+      - name: Verify signed release exists for candidate SHA
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/verify_signed_release.py \
+            --sha "${{ github.event.inputs.candidate-sha || github.sha }}" \
+            --repo "${{ github.repository }}"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
           driver: docker-container
           driver-opts: |
-            image=moby/buildkit:latest
+            # ENG-10: the builder image is a build input and must be
+            # pinned to an exact version AND digest, never :latest.
+            # moby/buildkit v0.35.0, digest verified 2026-11-16 via
+            # the Docker Hub API and an independent registry
+            # manifest HEAD (multi-arch index: linux/amd64+arm64).
+            image=moby/buildkit:v0.35.0@sha256:aa632b921ef07411d2cb77292cd34213d4f7b384001d6fceef1e1f25bf9752bb
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0

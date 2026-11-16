@@ -1,0 +1,22 @@
+# Predeclared benchmark slices (ENG-13).
+#
+# The pytest-benchmark workload names that a baseline comparison must
+# cover. The comparison helper (scripts/performance_baseline.py compare
+# --expected-benchmarks-file scripts/benchmark-slices.txt) fails when
+# any name on this list has no matched result, so a renamed/dropped
+# workload can never silently shrink the compared set. This list must
+# equal the set of `benchmark`-fixture tests in tests/test_performance.py;
+# tests/test_performance_baseline.py::test_benchmark_slices_match_test_file
+# enforces that.
+test_scan_100_words
+test_scan_1000_words
+test_scan_10000_words
+test_report_100_words
+test_report_1000_words
+test_report_10000_words
+test_case_export_100_words
+test_case_export_1000_words
+test_case_export_10000_words
+test_detector_100_words
+test_detector_1000_words
+test_detector_10000_words

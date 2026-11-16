@@ -51,7 +51,14 @@ Gate-status vocabulary (shared W0 contract): `pass`, `fail`, `skipped`,
   explicit `workflow_dispatch` with confirmation exactly `PROMOTE` and a
   candidate SHA, AFTER the `promotion-gate` job passes for that SHA (same
   required set as releases, plus the candidate-build check for that SHA),
-  AND after the rebuilt image passes running-image acceptance again.**
+  AFTER a signed GitHub Release is verified to exist for that SHA
+  (`scripts/verify_signed_release.py`, ENG-14/W7: the release tag
+  `v<version>` must resolve to exactly the candidate SHA, the release
+  must not be a draft, and it must carry at least one `.sig`/`.bundle`
+  signature asset — a candidate that was never published as a signed
+  release is refused however green its checks are; the promote job
+  re-verifies the signed release itself before any push step), AND after
+  the rebuilt image passes running-image acceptance again.**
   Promotion rebuilds from the exact candidate SHA; byte-identical rebuild
   is ENG-03/W6-owned and is NOT claimed here.
 - **Automated main snapshots are NOT public.** Safe default implemented:
@@ -79,6 +86,15 @@ EVERY leg to pass. The authoritative list lives in
 | `integrity-provenance` | Repository Integrity / Build Provenance | build provenance |
 | `deep-verification` | Enterprise Deep Verification / Full Test Suite (matrix) | full test suite, deep verification |
 
+Container promotion additionally requires a **signed release** for the
+candidate SHA (not a check-run, so not in the table above):
+`scripts/verify_signed_release.py` proves the release tag `v<version>`
+resolves to exactly the candidate SHA, the release exists and is not a
+draft, and it carries a `.sig`/`.bundle` signature asset. The check
+runs in the `promotion-gate` job (a failure blocks promotion via
+`needs`) and again in the `promote` job before any push step. Exit
+codes mirror the gate: 0 allowed, 1 refused, 2 unevaluated.
+
 The integrity and deep-verification workflows run on schedule /
 `workflow_dispatch`, not on push: dispatch them for the candidate SHA
 before promoting. Until their check-runs exist for that SHA the gate
@@ -87,11 +103,11 @@ reports `unavailable` and blocks promotion. That is intentional.
 Known limits of this gate (not hidden): the gate verifies that the
 *checks ran and passed* for the exact SHA; it cannot repair defects in
 the checks themselves. Known check-content defects owned by later waves:
-ENG-01 (installed web resources — the `Build and wheel-install` job does
-not construct the web app; W6), ENG-03 (reproducibility comparison is
-non-gating in its own workflow; W6), ENG-07 (integrity placeholder
-verifications; W0/W7). The release job's own installed-web smoke test
-covers ENG-01 at the release path directly.
+ENG-07 (integrity placeholder verifications; W0/W7). ENG-01 (installed
+web resources) and ENG-03 (reproducibility comparison) were closed in
+W6: the `Build and wheel-install` job now covers the installed web app,
+and the reproducibility comparison gates. The release job's own
+installed-web smoke test covers ENG-01 at the release path directly.
 
 ## Upload boundary — `scripts/publish_release.py` (ENG-05/ENG-06)
 
@@ -154,6 +170,11 @@ identity.
    whether and when to authorize a release.
 
 ## Known-red / open items from this wave
+
+> W7 update: the two ENG-01 items below were CLOSED in W6 (web
+> templates/static are packaged; the container candidate build is green
+> on main 7d2112c, CI run 43811471270). They are kept here as the W0
+> record of what was red at the time.
 
 - **Installed-web smoke in `release.yml` is KNOWN-RED until W6 fixes
   ENG-01** (web templates/static are not packaged in the wheel, so

@@ -56,6 +56,48 @@ except ImportError:  # pragma: no cover - optional dependency
 
 BENCHMARK_SCHEMA = "textforensics.performance-benchmark/v1"
 
+
+def _environment_identity(*, repo_root: Path | None = None) -> dict[str, Any]:
+    """Identity this benchmark run must carry to be comparable later.
+
+    Mirrors scripts/performance_baseline.build_environment_identity
+    (kept local so this script stays standalone): the git HEAD measured,
+    the interpreter version, and the SHA-256 of the pinned lockfile
+    (requirements-hashed.txt). A result without this block cannot prove
+    it used identical pinned code/environment, and a later comparison
+    must refuse it (ENG-13).
+    """
+    import hashlib
+    import subprocess
+
+    root = repo_root or Path(__file__).resolve().parent.parent
+    code_sha: str | None = None
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=30,
+        )
+        code_sha = result.stdout.strip() or None
+    except (subprocess.SubprocessError, OSError):
+        code_sha = None
+    lockfile = root / "requirements-hashed.txt"
+    lockfile_sha256: str | None = None
+    try:
+        lockfile_sha256 = hashlib.sha256(lockfile.read_bytes()).hexdigest()
+    except OSError:
+        lockfile_sha256 = None
+    return {
+        "code_sha": code_sha,
+        "python_version": ".".join(str(v) for v in sys.version_info[:3]),
+        "platform": sys.platform,
+        "lockfile": lockfile.name,
+        "lockfile_sha256": lockfile_sha256,
+    }
+
+
 # Deterministic, locale-neutral sample text. Repeated to reach the
 # requested word count so timing scales predictably with input size.
 _SENTENCE = (
@@ -343,6 +385,9 @@ def main(argv: list[str] | None = None) -> int:
         include_api=not args.skip_api,
     )
     results["benchmark_script_version"] = "1.0.0"
+    # ENG-13: record the pinned code/environment identity with the
+    # results, so a later comparison can refuse a mismatched baseline.
+    results["environment"] = _environment_identity()
 
     try:
         from textforensics._build_info import get_version
