@@ -1,0 +1,138 @@
+{
+  "citation": "Dugan et al., RAID: A Shared Benchmark for Robust Evaluation of Machine-Generated Text Detectors, ACL 2024.",
+  "corpus": "raid",
+  "detector": {
+    "detector_id": "textforensics/builtin-heuristic",
+    "detector_version": "0.1.0",
+    "operating_point": "native categorical verdict; no score threshold; no calibration"
+  },
+  "disjointness": [
+    {
+      "against": "validation (EV-20261108-dataset-raid)",
+      "disjoint": true,
+      "errors": [],
+      "shared_samples": 0,
+      "verified": true
+    },
+    {
+      "against": "raid/train U1 sample (n=3000)",
+      "disjoint": true,
+      "errors": [],
+      "shared_samples": 0,
+      "verified": true
+    },
+    {
+      "against": "raid_test/test (n=50, unlabelled)",
+      "disjoint": true,
+      "errors": [],
+      "shared_samples": 0,
+      "verified": true
+    }
+  ],
+  "environment_lock": {
+    "requirements-hashed.txt": "258c7244c999f3b7e345b2e1c00a7a297cabcbd348dc23dc9a0ad8b4992a0745",
+    "requirements-pinned.txt": "1c80c465cd5d43d38414aed0a14639e70dc7c9aaa2cb7d07228491f4c56cf9e0"
+  },
+  "exclusions": [
+    {
+      "item": "final-test human row source_id=38752115-d62f-4e08-80df-0f5975315fbe",
+      "reason": "same human source document as a validation human row: the identical human text would be evaluated twice",
+      "text_sha256_prefix": "64e26a50199e0de3"
+    }
+  ],
+  "gates": {
+    "bootstrap_resamples": 1000,
+    "bootstrap_seed": 20261116,
+    "fpr_wilson_upper_max": 0.05,
+    "min_n_human": 100
+  },
+  "hf_id": "liamdugan/raid",
+  "inclusion": {
+    "final_test_exact_duplicates_dropped": 0,
+    "final_test_label_counts": {
+      "0": 121,
+      "1": 3878
+    },
+    "final_test_rows_after_exact_dedupe": 4000,
+    "final_test_rows_after_leakage_exclusions": 3999,
+    "final_test_rows_fetched": 4000,
+    "leakage_exclusions": 1,
+    "validation_exact_duplicates_dropped": 0,
+    "validation_label_counts": {
+      "0": 171,
+      "1": 5829
+    },
+    "validation_rows_after_exact_dedupe": 6000,
+    "validation_rows_in_cache": 6000
+  },
+  "licence": {
+    "licence": "MIT",
+    "licence_note": "Verified 2026-11-06 from the HF API record (license:mit), GitHub repo metadata (MIT) and the LICENSE file (Copyright (c) 2024- Liam Dugan). Caveat: the MIT text covers the distribution; the underlying human source texts (arXiv, NYT, Reddit, IMDb, Wikipedia, books, code, Czech/German news) carry their own upstream licences, which RAID does not address. Retain the copyright notice in copies. HF parquet conversion is partial (endpoint reports partial=true; viewer exposes the first 5 GB) \u2014 row counts are the loaded counts, not estimates.",
+    "licence_status": "verified",
+    "permitted_use": "local non-commercial evaluation only; no redistribution; no raw text in the repo",
+    "reverified": "2026-11-16 (live: HF API cardData + GitHub repo metadata)"
+  },
+  "manifest_id": "EV-20261116-raid-manifest",
+  "near_duplicate_check": {
+    "max_word_8gram_jaccard": 0.1647,
+    "n_excluded": 1,
+    "pairs_checked_same_source_id": 5070,
+    "pairs_jaccard_over_0_5": 0,
+    "threshold_exclude": 0.8
+  },
+  "paper": "Dugan et al., ACL 2024, arXiv:2405.07940",
+  "partitions": {
+    "dev": null,
+    "final_test": {
+      "cache_file": "raid/raid/train-4000-w8.jsonl",
+      "cache_filename": "train-4000-w8.jsonl",
+      "cache_sha256": "82e63be8c95e157dcb9d41ebecd71025f20d74d6e323bd11399238f8897c7ac1",
+      "config": "raid",
+      "fetched_fresh": false,
+      "n_ai": 3878,
+      "n_human": 121,
+      "n_rows": 4000,
+      "n_rows_after_exclusions": 3999,
+      "n_target": 4000,
+      "n_unlabelled": 0,
+      "offsets_first_5": [
+        1,
+        568,
+        1136,
+        1703,
+        2271
+      ],
+      "offsets_last_5": [
+        2267163,
+        2267731,
+        2268298,
+        2268866,
+        2269433
+      ],
+      "offsets_sha256": "1c6588383b5205de66764db988aad5855882117f7b61399a9323ab1e5ed214ee",
+      "phase_shift": 1,
+      "sampling": "strided, phase-shifted",
+      "shift_rule": "smallest shift with zero row-index overlap vs U1 3000-grid and +189 6000-grid",
+      "split": "train",
+      "split_rows_total": 2270000,
+      "topup": null
+    },
+    "fit": null,
+    "note": "train/dev/selection/fit are EMPTY BY DESIGN: no threshold, calibration or selection decision is made from any data; the detector's operating point is fixed by the detector itself.",
+    "selection": null,
+    "train": null,
+    "validation": {
+      "cache_file": "raid/raid/train-6000.jsonl",
+      "cache_sha256": "59cf57c4db6778dad065cc78c4b4f92c54544d57652aa30606c307c3f81d44d3",
+      "config": "raid",
+      "n_ai": 5829,
+      "n_human": 171,
+      "n_rows": 6000,
+      "prior_run": "EV-20261108-dataset-raid",
+      "split": "train"
+    }
+  },
+  "run_id": "EV-20261116-dataset-raid",
+  "schema": "textforensics.w8-manifest/v1",
+  "status": "frozen"
+}

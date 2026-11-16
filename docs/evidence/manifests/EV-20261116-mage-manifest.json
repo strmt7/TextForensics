@@ -1,0 +1,122 @@
+{
+  "citation": "Li et al., MAGE: Machine-generated Text Detection in the Wild, arXiv:2305.13242.",
+  "corpus": "mage",
+  "detector": {
+    "detector_id": "textforensics/builtin-heuristic",
+    "detector_version": "0.1.0",
+    "operating_point": "native categorical verdict; no score threshold; no calibration"
+  },
+  "disjointness": [
+    {
+      "against": "validation (EV-20261106-dataset-mage)",
+      "disjoint": true,
+      "errors": [],
+      "shared_samples": 0,
+      "verified": true
+    },
+    {
+      "against": "mage/default validation sample (n=50)",
+      "disjoint": true,
+      "errors": [],
+      "shared_samples": 0,
+      "verified": true
+    }
+  ],
+  "environment_lock": {
+    "requirements-hashed.txt": "258c7244c999f3b7e345b2e1c00a7a297cabcbd348dc23dc9a0ad8b4992a0745",
+    "requirements-pinned.txt": "1c80c465cd5d43d38414aed0a14639e70dc7c9aaa2cb7d07228491f4c56cf9e0"
+  },
+  "exclusions": [],
+  "gates": {
+    "bootstrap_resamples": 1000,
+    "bootstrap_seed": 20261116,
+    "fpr_wilson_upper_max": 0.05,
+    "min_n_human": 100
+  },
+  "hf_id": "yaful/MAGE",
+  "inclusion": {
+    "final_test_exact_duplicates_dropped": 0,
+    "final_test_label_counts": {
+      "0": 299,
+      "1": 301
+    },
+    "final_test_rows_after_exact_dedupe": 600,
+    "final_test_rows_after_leakage_exclusions": 600,
+    "final_test_rows_fetched": 600,
+    "leakage_exclusions": 0,
+    "validation_exact_duplicates_dropped": 0,
+    "validation_label_counts": {
+      "0": 117,
+      "1": 283
+    },
+    "validation_rows_after_exact_dedupe": 400,
+    "validation_rows_in_cache": 400
+  },
+  "licence": {
+    "licence": "Apache-2.0 (LICENSE file, repo metadata, HF tag); README badge asserts CC BY 4.0 \u2014 record both, attribute the authors",
+    "licence_note": "Verified 2026-11-06: LICENSE file, GitHub metadata and HF API tag all say Apache-2.0, but the README licence badge reads CC BY 4.0. Both readings are permissive (no NC/ND/research-only restriction), so local evaluation is permitted under either; attribute the MAGE authors in any case. Upstream caveat as with RAID: human texts come from 10 source datasets whose own licences are not stated.",
+    "licence_status": "verified",
+    "permitted_use": "local non-commercial evaluation only; no redistribution; no raw text in the repo",
+    "reverified": "2026-11-16 (live: HF API cardData + GitHub repo metadata)"
+  },
+  "manifest_id": "EV-20261116-mage-manifest",
+  "near_duplicate_check": {
+    "n_excluded": 0,
+    "note": "MAGE source_id is the first 16 hex of the text SHA-256, so content-hash disjointness (0 shared samples) is source disjointness; no separate near-duplicate pass applies."
+  },
+  "paper": "Li et al., arXiv:2305.13242",
+  "partitions": {
+    "dev": null,
+    "final_test": {
+      "cache_file": "mage/default/test-600-w8.jsonl",
+      "cache_filename": "test-600-w8.jsonl",
+      "cache_sha256": "c0e4750a9b99e19ccd94b97190693e9404f22fbe29f1ad1e8328385cdb7eb20f",
+      "config": "default",
+      "fetched_fresh": false,
+      "n_ai": 301,
+      "n_human": 299,
+      "n_rows": 600,
+      "n_rows_after_exclusions": 600,
+      "n_target": 600,
+      "n_unlabelled": 0,
+      "offsets_first_5": [
+        0,
+        101,
+        202,
+        303,
+        404
+      ],
+      "offsets_last_5": [
+        60236,
+        60338,
+        60439,
+        60540,
+        60641
+      ],
+      "offsets_sha256": "10e8ce0d2fbe11147cabc1cc2c922b8e3598497cf88767cdc24e6c70e1571a08",
+      "phase_shift": 0,
+      "sampling": "strided",
+      "shift_rule": "unshifted strided grid; no prior test-split sample exists",
+      "split": "test",
+      "split_rows_total": 60743,
+      "topup": null
+    },
+    "fit": null,
+    "note": "train/dev/selection/fit are EMPTY BY DESIGN: no threshold, calibration or selection decision is made from any data; the detector's operating point is fixed by the detector itself.",
+    "selection": null,
+    "train": null,
+    "validation": {
+      "cache_file": "mage/default/train.jsonl",
+      "cache_sha256": "8969989f35f6affbfc07d1b6846e9acdb481790b964563289342aa075d06eba3",
+      "config": "default",
+      "n_ai": 283,
+      "n_human": 117,
+      "n_rows": 400,
+      "prior_run": "EV-20261106-dataset-mage",
+      "split": "train"
+    }
+  },
+  "run_id": "EV-20261116-dataset-mage",
+  "schema": "textforensics.w8-manifest/v1",
+  "status": "frozen"
+}

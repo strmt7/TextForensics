@@ -1,0 +1,4654 @@
+{
+  "badge": "available",
+  "code_version": "756ea4110525f91edff3ab9dfece6972d69e8833",
+  "command": "python scripts/qualify_w8_raid_mage.py",
+  "detector_version": "0.1.0",
+  "drops": [
+    {
+      "item": "full-corpus evaluation",
+      "reason": "sample only: validation n=6000 + final-test n=3999 normalised rows from 2270000 split rows"
+    },
+    {
+      "item": "Python 3.11, 3.13, 3.14, 3.15",
+      "reason": "measured on the local interpreter only; CI covers the matrix"
+    },
+    {
+      "item": "train/test threshold selection",
+      "reason": "no threshold was fitted on any sample; AUROC/TPR@FPR are threshold-free and the native verdict has no threshold"
+    },
+    {
+      "item": "train/dev/selection/fit partitions",
+      "reason": "empty by design \u2014 nothing is fitted, calibrated or selected"
+    },
+    {
+      "item": "raid_test/test (50 rows)",
+      "reason": "unlabelled in the CSV distribution (label None on every row): coverage/abstention probe and disjointness target only, never scored as a class"
+    },
+    {
+      "item": "RAID extra split (2,039,100 rows) and non-train domains",
+      "reason": "not evaluated in this wave: the served train split holds 4 domains (abstracts/books/news/poetry); other domains and non-English (Czech/German) material live in extra/test and are an explicit coverage gap"
+    },
+    {
+      "item": "1 leakage-excluded final-test rows",
+      "reason": "human-source overlap / near-duplicate vs validation (see exclusions)"
+    }
+  ],
+  "environment": {
+    "extras": "fastapi, typer, uvicorn, starlette, jinja2, mcp",
+    "platform": "linux",
+    "python": "3.12.3"
+  },
+  "evidence_record_id": "EV-20261116-dataset-raid",
+  "kind": "command",
+  "results": {
+    "dataset": "raid",
+    "detector": "textforensics/builtin-heuristic",
+    "detector_family": "stylometric-heuristic",
+    "detector_version": "0.1.0",
+    "determinism_self_check": {
+      "final_test_scored_twice": true,
+      "identical_scores_and_verdicts": true,
+      "n_rows": 3999
+    },
+    "deterministic": true,
+    "disjointness": [
+      {
+        "against": "validation (EV-20261108-dataset-raid)",
+        "disjoint": true,
+        "errors": [],
+        "shared_samples": 0,
+        "verified": true
+      },
+      {
+        "against": "raid/train U1 sample (n=3000)",
+        "disjoint": true,
+        "errors": [],
+        "shared_samples": 0,
+        "verified": true
+      },
+      {
+        "against": "raid_test/test (n=50, unlabelled)",
+        "disjoint": true,
+        "errors": [],
+        "shared_samples": 0,
+        "verified": true
+      }
+    ],
+    "environment_lock": {
+      "requirements-hashed.txt": "258c7244c999f3b7e345b2e1c00a7a297cabcbd348dc23dc9a0ad8b4992a0745",
+      "requirements-pinned.txt": "1c80c465cd5d43d38414aed0a14639e70dc7c9aaa2cb7d07228491f4c56cf9e0"
+    },
+    "exclusions": [
+      {
+        "item": "final-test human row source_id=38752115-d62f-4e08-80df-0f5975315fbe",
+        "reason": "same human source document as a validation human row: the identical human text would be evaluated twice",
+        "text_sha256_prefix": "64e26a50199e0de3"
+      }
+    ],
+    "final_test": {
+      "cache_sha256": "82e63be8c95e157dcb9d41ebecd71025f20d74d6e323bd11399238f8897c7ac1",
+      "slices_primary": [
+        {
+          "abstention_rate": 0.5059,
+          "abstentions": 2023,
+          "auprc": {
+            "ci_lower": 0.9763,
+            "ci_upper": 0.9852,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.981
+          },
+          "auprc_baseline_prevalence": 0.9697,
+          "auroc": {
+            "ci_lower": 0.5494,
+            "ci_upper": 0.6324,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.5926
+          },
+          "coverage": 0.4941,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0308,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 121,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [],
+          "max_human_score": 0.5805,
+          "meets_gate": true,
+          "n_ai": 3878,
+          "n_ai_clusters": 2889,
+          "n_detection_errors": 0,
+          "n_human": 121,
+          "n_human_clusters": 121,
+          "n_labelled": 3999,
+          "n_rows": 3999,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.5805,
+              "mean": 0.2869,
+              "median": 0.2772,
+              "min": 0.058,
+              "n": 121
+            },
+            "machine": {
+              "max": 0.84,
+              "mean": 0.3321,
+              "median": 0.3193,
+              "min": 0.0,
+              "n": 3878
+            }
+          },
+          "slice_id": "pooled",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.0439,
+            "ci_upper": 0.1471,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0508
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.0464,
+            "ci_upper": 0.2523,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.1418
+          },
+          "tpr_native": {
+            "ci_lower": 0.0159,
+            "ci_upper": 0.0247,
+            "k": 77,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 3878,
+            "value": 0.0199
+          }
+        },
+        {
+          "abstention_rate": 0.5746,
+          "abstentions": 751,
+          "auprc": {
+            "ci_lower": 0.9717,
+            "ci_upper": 0.9883,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9805
+          },
+          "auprc_baseline_prevalence": 0.9709,
+          "auroc": {
+            "ci_lower": 0.5114,
+            "ci_upper": 0.6692,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.5904
+          },
+          "coverage": 0.4254,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0918,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 38,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=38 < 100",
+            "Wilson upper 0.0918 > 0.05"
+          ],
+          "max_human_score": 0.5805,
+          "meets_gate": false,
+          "n_ai": 1269,
+          "n_ai_clusters": 907,
+          "n_detection_errors": 0,
+          "n_human": 38,
+          "n_human_clusters": 38,
+          "n_labelled": 1307,
+          "n_rows": 1307,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.5805,
+              "mean": 0.3085,
+              "median": 0.2923,
+              "min": 0.0753,
+              "n": 38
+            },
+            "machine": {
+              "max": 0.84,
+              "mean": 0.3478,
+              "median": 0.3332,
+              "min": 0.0,
+              "n": 1269
+            }
+          },
+          "slice_id": "domain:abstracts",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.0371,
+            "ci_upper": 0.1515,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0473
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.039,
+            "ci_upper": 0.2934,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0473
+          },
+          "tpr_native": {
+            "ci_lower": 0.016,
+            "ci_upper": 0.0326,
+            "k": 29,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 1269,
+            "value": 0.0229
+          }
+        },
+        {
+          "abstention_rate": 0.4848,
+          "abstentions": 639,
+          "auprc": {
+            "ci_lower": 0.9756,
+            "ci_upper": 0.9889,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9828
+          },
+          "auprc_baseline_prevalence": 0.9697,
+          "auroc": {
+            "ci_lower": 0.5469,
+            "ci_upper": 0.6764,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.6157
+          },
+          "coverage": 0.5152,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0876,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 40,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=40 < 100",
+            "Wilson upper 0.0876 > 0.05"
+          ],
+          "max_human_score": 0.5805,
+          "meets_gate": false,
+          "n_ai": 1278,
+          "n_ai_clusters": 964,
+          "n_detection_errors": 0,
+          "n_human": 40,
+          "n_human_clusters": 40,
+          "n_labelled": 1318,
+          "n_rows": 1318,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.5805,
+              "mean": 0.2636,
+              "median": 0.2516,
+              "min": 0.058,
+              "n": 40
+            },
+            "machine": {
+              "max": 0.7273,
+              "mean": 0.3206,
+              "median": 0.3125,
+              "min": 0.0006,
+              "n": 1278
+            }
+          },
+          "slice_id": "domain:books",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.0406,
+            "ci_upper": 0.276,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0516
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.0451,
+            "ci_upper": 0.3763,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.2324
+          },
+          "tpr_native": {
+            "ci_lower": 0.0083,
+            "ci_upper": 0.0212,
+            "k": 17,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 1278,
+            "value": 0.0133
+          }
+        },
+        {
+          "abstention_rate": 0.4617,
+          "abstentions": 608,
+          "auprc": {
+            "ci_lower": 0.97,
+            "ci_upper": 0.9858,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9789
+          },
+          "auprc_baseline_prevalence": 0.9704,
+          "auroc": {
+            "ci_lower": 0.4651,
+            "ci_upper": 0.6,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.5364
+          },
+          "coverage": 0.5383,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0897,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 39,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=39 < 100",
+            "Wilson upper 0.0897 > 0.05"
+          ],
+          "max_human_score": 0.5805,
+          "meets_gate": false,
+          "n_ai": 1278,
+          "n_ai_clusters": 965,
+          "n_detection_errors": 0,
+          "n_human": 39,
+          "n_human_clusters": 39,
+          "n_labelled": 1317,
+          "n_rows": 1317,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.5805,
+              "mean": 0.303,
+              "median": 0.2931,
+              "min": 0.1361,
+              "n": 39
+            },
+            "machine": {
+              "max": 0.7273,
+              "mean": 0.3281,
+              "median": 0.3059,
+              "min": 0.0,
+              "n": 1278
+            }
+          },
+          "slice_id": "domain:news",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.0411,
+            "ci_upper": 0.22,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0524
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.0451,
+            "ci_upper": 0.3362,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.1401
+          },
+          "tpr_native": {
+            "ci_lower": 0.0146,
+            "ci_upper": 0.0306,
+            "k": 27,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 1278,
+            "value": 0.0211
+          }
+        },
+        {
+          "abstention_rate": 0.4386,
+          "abstentions": 25,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=4, n_ai=53",
+          "coverage": 0.5614,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.4899,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 4,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=4 < 100",
+            "Wilson upper 0.4899 > 0.05"
+          ],
+          "max_human_score": 0.2023,
+          "meets_gate": false,
+          "n_ai": 53,
+          "n_ai_clusters": 53,
+          "n_detection_errors": 0,
+          "n_human": 4,
+          "n_human_clusters": 4,
+          "n_labelled": 57,
+          "n_rows": 57,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.2023,
+              "mean": 0.1561,
+              "median": 0.1618,
+              "min": 0.0984,
+              "n": 4
+            },
+            "machine": {
+              "max": 0.7814,
+              "mean": 0.3307,
+              "median": 0.3142,
+              "min": 0.0143,
+              "n": 53
+            }
+          },
+          "slice_id": "domain:poetry",
+          "tpr_native": {
+            "ci_lower": 0.0297,
+            "ci_upper": 0.1786,
+            "k": 4,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 53,
+            "value": 0.0755
+          }
+        }
+      ],
+      "slices_secondary": [
+        {
+          "abstention_rate": 0.5178,
+          "abstentions": 1152,
+          "auprc": {
+            "ci_lower": 0.9822,
+            "ci_upper": 0.9906,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9865
+          },
+          "auprc_baseline_prevalence": 0.9721,
+          "auroc": {
+            "ci_lower": 0.5993,
+            "ci_upper": 0.6942,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.6474
+          },
+          "coverage": 0.4822,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0583,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 62,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=62 < 100",
+            "Wilson upper 0.0583 > 0.05"
+          ],
+          "max_human_score": 0.5805,
+          "meets_gate": false,
+          "n_ai": 2163,
+          "n_ai_clusters": 1778,
+          "n_detection_errors": 0,
+          "n_human": 62,
+          "n_human_clusters": 62,
+          "n_labelled": 2225,
+          "n_rows": 2225,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.5805,
+              "mean": 0.2734,
+              "median": 0.2733,
+              "min": 0.0984,
+              "n": 62
+            },
+            "machine": {
+              "max": 0.84,
+              "mean": 0.3519,
+              "median": 0.3405,
+              "min": 0.0,
+              "n": 2163
+            }
+          },
+          "slice_id": "length:200-499 words",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.0759,
+            "ci_upper": 0.3459,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0865
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.0879,
+            "ci_upper": 0.4406,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.3449
+          },
+          "tpr_native": {
+            "ci_lower": 0.0282,
+            "ci_upper": 0.0438,
+            "k": 76,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 2163,
+            "value": 0.0351
+          }
+        },
+        {
+          "abstention_rate": 0.7647,
+          "abstentions": 13,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=17, n_ai=0",
+          "coverage": 0.2353,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.1843,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 17,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=17 < 100",
+            "Wilson upper 0.1843 > 0.05"
+          ],
+          "max_human_score": 0.5191,
+          "meets_gate": false,
+          "n_ai": 0,
+          "n_ai_clusters": 0,
+          "n_detection_errors": 0,
+          "n_human": 17,
+          "n_human_clusters": 17,
+          "n_labelled": 17,
+          "n_rows": 17,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.5191,
+              "mean": 0.3284,
+              "median": 0.3345,
+              "min": 0.058,
+              "n": 17
+            },
+            "machine": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            }
+          },
+          "slice_id": "length:500+ words",
+          "tpr_native": null
+        },
+        {
+          "abstention_rate": 0.4298,
+          "abstentions": 674,
+          "auprc": {
+            "ci_lower": 0.9695,
+            "ci_upper": 0.987,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9788
+          },
+          "auprc_baseline_prevalence": 0.9732,
+          "auroc": {
+            "ci_lower": 0.4823,
+            "ci_upper": 0.6465,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.5617
+          },
+          "coverage": 0.5702,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0838,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 42,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=42 < 100",
+            "Wilson upper 0.0838 > 0.05"
+          ],
+          "max_human_score": 0.5805,
+          "meets_gate": false,
+          "n_ai": 1526,
+          "n_ai_clusters": 1335,
+          "n_detection_errors": 0,
+          "n_human": 42,
+          "n_human_clusters": 42,
+          "n_labelled": 1568,
+          "n_rows": 1568,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.5805,
+              "mean": 0.2899,
+              "median": 0.2686,
+              "min": 0.0753,
+              "n": 42
+            },
+            "machine": {
+              "max": 0.7814,
+              "mean": 0.3062,
+              "median": 0.2997,
+              "min": 0.0124,
+              "n": 1526
+            }
+          },
+          "slice_id": "length:80-199 words",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.0033,
+            "ci_upper": 0.086,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0066
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.0033,
+            "ci_upper": 0.1693,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0066
+          },
+          "tpr_native": {
+            "ci_lower": 0.0001,
+            "ci_upper": 0.0037,
+            "k": 1,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 1526,
+            "value": 0.0007
+          }
+        },
+        {
+          "abstention_rate": 0.9735,
+          "abstentions": 184,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=189",
+          "coverage": 0.0265,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 189,
+          "n_ai_clusters": 183,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 189,
+          "n_rows": 189,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.5805,
+              "mean": 0.3145,
+              "median": 0.3031,
+              "min": 0.0636,
+              "n": 189
+            }
+          },
+          "slice_id": "length:<80 words (below detector floor)",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0199,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 189,
+            "value": 0.0
+          }
+        },
+        {
+          "abstention_rate": 0.7588,
+          "abstentions": 173,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=228",
+          "coverage": 0.2412,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 228,
+          "n_ai_clusters": 228,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 228,
+          "n_rows": 228,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.5814,
+              "mean": 0.3776,
+              "median": 0.3717,
+              "min": 0.1068,
+              "n": 228
+            }
+          },
+          "slice_id": "model:chatgpt",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0166,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 228,
+            "value": 0.0
+          }
+        },
+        {
+          "abstention_rate": 0.4709,
+          "abstentions": 105,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=223",
+          "coverage": 0.5291,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 223,
+          "n_ai_clusters": 223,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 223,
+          "n_rows": 223,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.6332,
+              "mean": 0.3167,
+              "median": 0.3062,
+              "min": 0.0729,
+              "n": 223
+            }
+          },
+          "slice_id": "model:cohere",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0169,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 223,
+            "value": 0.0
+          }
+        },
+        {
+          "abstention_rate": 0.4978,
+          "abstentions": 111,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=223",
+          "coverage": 0.5022,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 223,
+          "n_ai_clusters": 223,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 223,
+          "n_rows": 223,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.6304,
+              "mean": 0.3283,
+              "median": 0.307,
+              "min": 0.0415,
+              "n": 223
+            }
+          },
+          "slice_id": "model:cohere-chat",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0169,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 223,
+            "value": 0.0
+          }
+        },
+        {
+          "abstention_rate": 0.3595,
+          "abstentions": 165,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=459",
+          "coverage": 0.6405,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 459,
+          "n_ai_clusters": 451,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 459,
+          "n_rows": 459,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.7273,
+              "mean": 0.3378,
+              "median": 0.2858,
+              "min": 0.0,
+              "n": 459
+            }
+          },
+          "slice_id": "model:gpt2",
+          "tpr_native": {
+            "ci_lower": 0.0572,
+            "ci_upper": 0.1067,
+            "k": 36,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 459,
+            "value": 0.0784
+          }
+        },
+        {
+          "abstention_rate": 0.6757,
+          "abstentions": 150,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=222",
+          "coverage": 0.3243,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 222,
+          "n_ai_clusters": 222,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 222,
+          "n_rows": 222,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.6738,
+              "mean": 0.3507,
+              "median": 0.3297,
+              "min": 0.0707,
+              "n": 222
+            }
+          },
+          "slice_id": "model:gpt3",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.017,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 222,
+            "value": 0.0
+          }
+        },
+        {
+          "abstention_rate": 0.5702,
+          "abstentions": 134,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=235",
+          "coverage": 0.4298,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 235,
+          "n_ai_clusters": 235,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 235,
+          "n_rows": 235,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.5805,
+              "mean": 0.3448,
+              "median": 0.3271,
+              "min": 0.1316,
+              "n": 235
+            }
+          },
+          "slice_id": "model:gpt4",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0161,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 235,
+            "value": 0.0
+          }
+        },
+        {
+          "abstention_rate": 0.2975,
+          "abstentions": 36,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=121, n_ai=0",
+          "coverage": 0.7025,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0308,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 121,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [],
+          "max_human_score": 0.5805,
+          "meets_gate": true,
+          "n_ai": 0,
+          "n_ai_clusters": 0,
+          "n_detection_errors": 0,
+          "n_human": 121,
+          "n_human_clusters": 121,
+          "n_labelled": 121,
+          "n_rows": 121,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.5805,
+              "mean": 0.2869,
+              "median": 0.2772,
+              "min": 0.058,
+              "n": 121
+            },
+            "machine": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            }
+          },
+          "slice_id": "model:human",
+          "tpr_native": null
+        },
+        {
+          "abstention_rate": 0.5861,
+          "abstentions": 269,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=459",
+          "coverage": 0.4139,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 459,
+          "n_ai_clusters": 451,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 459,
+          "n_rows": 459,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.6334,
+              "mean": 0.3485,
+              "median": 0.3398,
+              "min": 0.0265,
+              "n": 459
+            }
+          },
+          "slice_id": "model:llama-chat",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0083,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 459,
+            "value": 0.0
+          }
+        },
+        {
+          "abstention_rate": 0.3326,
+          "abstentions": 151,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=454",
+          "coverage": 0.6674,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 454,
+          "n_ai_clusters": 445,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 454,
+          "n_rows": 454,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.7273,
+              "mean": 0.3051,
+              "median": 0.253,
+              "min": 0.0,
+              "n": 454
+            }
+          },
+          "slice_id": "model:mistral",
+          "tpr_native": {
+            "ci_lower": 0.027,
+            "ci_upper": 0.0644,
+            "k": 19,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 454,
+            "value": 0.0419
+          }
+        },
+        {
+          "abstention_rate": 0.6217,
+          "abstentions": 286,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=460",
+          "coverage": 0.3783,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 460,
+          "n_ai_clusters": 451,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 460,
+          "n_rows": 460,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.7814,
+              "mean": 0.3517,
+              "median": 0.3491,
+              "min": 0.0721,
+              "n": 460
+            }
+          },
+          "slice_id": "model:mistral-chat",
+          "tpr_native": {
+            "ci_lower": 0.0004,
+            "ci_upper": 0.0122,
+            "k": 1,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 460,
+            "value": 0.0022
+          }
+        },
+        {
+          "abstention_rate": 0.4353,
+          "abstentions": 195,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=448",
+          "coverage": 0.5647,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 448,
+          "n_ai_clusters": 441,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 448,
+          "n_rows": 448,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.84,
+              "mean": 0.3027,
+              "median": 0.2373,
+              "min": 0.015,
+              "n": 448
+            }
+          },
+          "slice_id": "model:mpt",
+          "tpr_native": {
+            "ci_lower": 0.0309,
+            "ci_upper": 0.0706,
+            "k": 21,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 448,
+            "value": 0.0469
+          }
+        },
+        {
+          "abstention_rate": 0.531,
+          "abstentions": 248,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=467",
+          "coverage": 0.469,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 467,
+          "n_ai_clusters": 463,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 467,
+          "n_rows": 467,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.5805,
+              "mean": 0.3173,
+              "median": 0.307,
+              "min": 0.0352,
+              "n": 467
+            }
+          },
+          "slice_id": "model:mpt-chat",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0082,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 467,
+            "value": 0.0
+          }
+        },
+        {
+          "abstention_rate": 0.4985,
+          "abstentions": 164,
+          "auprc": {
+            "ci_lower": 0.9712,
+            "ci_upper": 0.9939,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 1,
+            "value": 0.9839
+          },
+          "auprc_baseline_prevalence": 0.9696,
+          "auroc": {
+            "ci_lower": 0.4925,
+            "ci_upper": 0.7403,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 1,
+            "value": 0.6197
+          },
+          "coverage": 0.5015,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2775,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 10,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=10 < 100",
+            "Wilson upper 0.2775 > 0.05"
+          ],
+          "max_human_score": 0.3712,
+          "meets_gate": false,
+          "n_ai": 319,
+          "n_ai_clusters": 306,
+          "n_detection_errors": 0,
+          "n_human": 10,
+          "n_human_clusters": 10,
+          "n_labelled": 329,
+          "n_rows": 329,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.3712,
+              "mean": 0.2767,
+              "median": 0.2685,
+              "min": 0.1622,
+              "n": 10
+            },
+            "machine": {
+              "max": 0.7273,
+              "mean": 0.3212,
+              "median": 0.3183,
+              "min": 0.0,
+              "n": 319
+            }
+          },
+          "slice_id": "attack:alternative_spelling",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.2671,
+            "ci_upper": 0.5263,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 1,
+            "value": 0.3103
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.2671,
+            "ci_upper": 0.5263,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 1,
+            "value": 0.3103
+          },
+          "tpr_native": {
+            "ci_lower": 0.0128,
+            "ci_upper": 0.0487,
+            "k": 8,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 319,
+            "value": 0.0251
+          }
+        },
+        {
+          "abstention_rate": 0.4755,
+          "abstentions": 155,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=8, n_ai=318",
+          "coverage": 0.5245,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.3244,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 8,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=8 < 100",
+            "Wilson upper 0.3244 > 0.05"
+          ],
+          "max_human_score": 0.4267,
+          "meets_gate": false,
+          "n_ai": 318,
+          "n_ai_clusters": 312,
+          "n_detection_errors": 0,
+          "n_human": 8,
+          "n_human_clusters": 8,
+          "n_labelled": 326,
+          "n_rows": 326,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.4267,
+              "mean": 0.273,
+              "median": 0.2884,
+              "min": 0.1095,
+              "n": 8
+            },
+            "machine": {
+              "max": 0.7273,
+              "mean": 0.3234,
+              "median": 0.317,
+              "min": 0.0124,
+              "n": 318
+            }
+          },
+          "slice_id": "attack:article_deletion",
+          "tpr_native": {
+            "ci_lower": 0.0194,
+            "ci_upper": 0.0609,
+            "k": 11,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 318,
+            "value": 0.0346
+          }
+        },
+        {
+          "abstention_rate": 0.1879,
+          "abstentions": 62,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=8, n_ai=322",
+          "coverage": 0.8121,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.3244,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 8,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=8 < 100",
+            "Wilson upper 0.3244 > 0.05"
+          ],
+          "max_human_score": 0.2499,
+          "meets_gate": false,
+          "n_ai": 322,
+          "n_ai_clusters": 316,
+          "n_detection_errors": 0,
+          "n_human": 8,
+          "n_human_clusters": 8,
+          "n_labelled": 330,
+          "n_rows": 330,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.2499,
+              "mean": 0.1638,
+              "median": 0.154,
+              "min": 0.0753,
+              "n": 8
+            },
+            "machine": {
+              "max": 0.7273,
+              "mean": 0.1984,
+              "median": 0.162,
+              "min": 0.0,
+              "n": 322
+            }
+          },
+          "slice_id": "attack:homoglyph",
+          "tpr_native": {
+            "ci_lower": 0.0017,
+            "ci_upper": 0.0224,
+            "k": 2,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 322,
+            "value": 0.0062
+          }
+        },
+        {
+          "abstention_rate": 0.3769,
+          "abstentions": 124,
+          "auprc": {
+            "ci_lower": 0.967,
+            "ci_upper": 0.993,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9818
+          },
+          "auprc_baseline_prevalence": 0.9635,
+          "auroc": {
+            "ci_lower": 0.5221,
+            "ci_upper": 0.7767,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.6502
+          },
+          "coverage": 0.6231,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2425,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 12,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=12 < 100",
+            "Wilson upper 0.2425 > 0.05"
+          ],
+          "max_human_score": 0.348,
+          "meets_gate": false,
+          "n_ai": 317,
+          "n_ai_clusters": 309,
+          "n_detection_errors": 0,
+          "n_human": 12,
+          "n_human_clusters": 12,
+          "n_labelled": 329,
+          "n_rows": 329,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.348,
+              "mean": 0.2327,
+              "median": 0.2393,
+              "min": 0.058,
+              "n": 12
+            },
+            "machine": {
+              "max": 0.7152,
+              "mean": 0.2921,
+              "median": 0.2782,
+              "min": 0.0236,
+              "n": 317
+            }
+          },
+          "slice_id": "attack:insert_paragraphs",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.1855,
+            "ci_upper": 0.6564,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.2303
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.1855,
+            "ci_upper": 0.6564,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.2303
+          },
+          "tpr_native": {
+            "ci_lower": 0.0017,
+            "ci_upper": 0.0227,
+            "k": 2,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 317,
+            "value": 0.0063
+          }
+        },
+        {
+          "abstention_rate": 0.5,
+          "abstentions": 185,
+          "auprc": {
+            "ci_lower": 0.9607,
+            "ci_upper": 0.993,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9794
+          },
+          "auprc_baseline_prevalence": 0.9649,
+          "auroc": {
+            "ci_lower": 0.4868,
+            "ci_upper": 0.7713,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.6349
+          },
+          "coverage": 0.5,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2281,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 13,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=13 < 100",
+            "Wilson upper 0.2281 > 0.05"
+          ],
+          "max_human_score": 0.5205,
+          "meets_gate": false,
+          "n_ai": 357,
+          "n_ai_clusters": 355,
+          "n_detection_errors": 0,
+          "n_human": 13,
+          "n_human_clusters": 13,
+          "n_labelled": 370,
+          "n_rows": 370,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.5205,
+              "mean": 0.2667,
+              "median": 0.2402,
+              "min": 0.0984,
+              "n": 13
+            },
+            "machine": {
+              "max": 0.7814,
+              "mean": 0.3267,
+              "median": 0.3227,
+              "min": 0.0143,
+              "n": 357
+            }
+          },
+          "slice_id": "attack:none",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.0748,
+            "ci_upper": 0.5956,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.1036
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.0748,
+            "ci_upper": 0.6017,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.1036
+          },
+          "tpr_native": {
+            "ci_lower": 0.0153,
+            "ci_upper": 0.0508,
+            "k": 10,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 357,
+            "value": 0.028
+          }
+        },
+        {
+          "abstention_rate": 0.5061,
+          "abstentions": 167,
+          "auprc": {
+            "ci_lower": 0.9745,
+            "ci_upper": 0.9941,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9854
+          },
+          "auprc_baseline_prevalence": 0.9697,
+          "auroc": {
+            "ci_lower": 0.5396,
+            "ci_upper": 0.7183,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.6272
+          },
+          "coverage": 0.4939,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2775,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 10,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=10 < 100",
+            "Wilson upper 0.2775 > 0.05"
+          ],
+          "max_human_score": 0.3345,
+          "meets_gate": false,
+          "n_ai": 320,
+          "n_ai_clusters": 308,
+          "n_detection_errors": 0,
+          "n_human": 10,
+          "n_human_clusters": 10,
+          "n_labelled": 330,
+          "n_rows": 330,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.3345,
+              "mean": 0.2824,
+              "median": 0.2949,
+              "min": 0.2063,
+              "n": 10
+            },
+            "machine": {
+              "max": 0.7273,
+              "mean": 0.3299,
+              "median": 0.3247,
+              "min": 0.0,
+              "n": 320
+            }
+          },
+          "slice_id": "attack:number",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.4057,
+            "ci_upper": 0.6019,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.4531
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.4057,
+            "ci_upper": 0.6019,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.4531
+          },
+          "tpr_native": {
+            "ci_lower": 0.0127,
+            "ci_upper": 0.0485,
+            "k": 8,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 320,
+            "value": 0.025
+          }
+        },
+        {
+          "abstention_rate": 0.5562,
+          "abstentions": 183,
+          "auprc": {
+            "ci_lower": 0.9632,
+            "ci_upper": 0.9919,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 1,
+            "value": 0.9789
+          },
+          "auprc_baseline_prevalence": 0.9666,
+          "auroc": {
+            "ci_lower": 0.4337,
+            "ci_upper": 0.7006,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 1,
+            "value": 0.5742
+          },
+          "coverage": 0.4438,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2588,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 11,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=11 < 100",
+            "Wilson upper 0.2588 > 0.05"
+          ],
+          "max_human_score": 0.3857,
+          "meets_gate": false,
+          "n_ai": 318,
+          "n_ai_clusters": 302,
+          "n_detection_errors": 0,
+          "n_human": 11,
+          "n_human_clusters": 11,
+          "n_labelled": 329,
+          "n_rows": 329,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.3857,
+              "mean": 0.3066,
+              "median": 0.2824,
+              "min": 0.2131,
+              "n": 11
+            },
+            "machine": {
+              "max": 0.7183,
+              "mean": 0.3379,
+              "median": 0.3221,
+              "min": 0.0866,
+              "n": 318
+            }
+          },
+          "slice_id": "attack:paraphrase",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.226,
+            "ci_upper": 0.4393,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 1,
+            "value": 0.2704
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.226,
+            "ci_upper": 0.4393,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 1,
+            "value": 0.2704
+          },
+          "tpr_native": {
+            "ci_lower": 0.0067,
+            "ci_upper": 0.0363,
+            "k": 5,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 318,
+            "value": 0.0157
+          }
+        },
+        {
+          "abstention_rate": 0.5138,
+          "abstentions": 168,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=9, n_ai=318",
+          "coverage": 0.4862,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2992,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 9,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=9 < 100",
+            "Wilson upper 0.2992 > 0.05"
+          ],
+          "max_human_score": 0.3798,
+          "meets_gate": false,
+          "n_ai": 318,
+          "n_ai_clusters": 309,
+          "n_detection_errors": 0,
+          "n_human": 9,
+          "n_human_clusters": 9,
+          "n_labelled": 327,
+          "n_rows": 327,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.3798,
+              "mean": 0.261,
+              "median": 0.245,
+              "min": 0.1658,
+              "n": 9
+            },
+            "machine": {
+              "max": 0.7273,
+              "mean": 0.3317,
+              "median": 0.3202,
+              "min": 0.0253,
+              "n": 318
+            }
+          },
+          "slice_id": "attack:perplexity_misspelling",
+          "tpr_native": {
+            "ci_lower": 0.0107,
+            "ci_upper": 0.0447,
+            "k": 7,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 318,
+            "value": 0.022
+          }
+        },
+        {
+          "abstention_rate": 0.4756,
+          "abstentions": 156,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=7, n_ai=321",
+          "coverage": 0.5244,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.3543,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 7,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=7 < 100",
+            "Wilson upper 0.3543 > 0.05"
+          ],
+          "max_human_score": 0.4228,
+          "meets_gate": false,
+          "n_ai": 321,
+          "n_ai_clusters": 309,
+          "n_detection_errors": 0,
+          "n_human": 7,
+          "n_human_clusters": 7,
+          "n_labelled": 328,
+          "n_rows": 328,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.4228,
+              "mean": 0.2724,
+              "median": 0.2607,
+              "min": 0.1954,
+              "n": 7
+            },
+            "machine": {
+              "max": 0.84,
+              "mean": 0.3217,
+              "median": 0.3126,
+              "min": 0.0,
+              "n": 321
+            }
+          },
+          "slice_id": "attack:synonym",
+          "tpr_native": {
+            "ci_lower": 0.0148,
+            "ci_upper": 0.0524,
+            "k": 9,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 321,
+            "value": 0.028
+          }
+        },
+        {
+          "abstention_rate": 0.5,
+          "abstentions": 165,
+          "auprc": {
+            "ci_lower": 0.9504,
+            "ci_upper": 0.9867,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9696
+          },
+          "auprc_baseline_prevalence": 0.9636,
+          "auroc": {
+            "ci_lower": 0.3644,
+            "ci_upper": 0.5536,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.4547
+          },
+          "coverage": 0.5,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2425,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 12,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=12 < 100",
+            "Wilson upper 0.2425 > 0.05"
+          ],
+          "max_human_score": 0.4067,
+          "meets_gate": false,
+          "n_ai": 318,
+          "n_ai_clusters": 306,
+          "n_detection_errors": 0,
+          "n_human": 12,
+          "n_human_clusters": 12,
+          "n_labelled": 330,
+          "n_rows": 330,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.4067,
+              "mean": 0.3296,
+              "median": 0.3283,
+              "min": 0.2606,
+              "n": 12
+            },
+            "machine": {
+              "max": 0.7273,
+              "mean": 0.3188,
+              "median": 0.3129,
+              "min": 0.015,
+              "n": 318
+            }
+          },
+          "slice_id": "attack:upper_lower",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.1801,
+            "ci_upper": 0.3877,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.2201
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.1801,
+            "ci_upper": 0.3877,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.2201
+          },
+          "tpr_native": {
+            "ci_lower": 0.0032,
+            "ci_upper": 0.0274,
+            "k": 3,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 318,
+            "value": 0.0094
+          }
+        },
+        {
+          "abstention_rate": 0.4855,
+          "abstentions": 167,
+          "auprc": {
+            "ci_lower": 0.9762,
+            "ci_upper": 0.9947,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9865
+          },
+          "auprc_baseline_prevalence": 0.9651,
+          "auroc": {
+            "ci_lower": 0.5976,
+            "ci_upper": 0.8072,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.7012
+          },
+          "coverage": 0.5145,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2425,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 12,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=12 < 100",
+            "Wilson upper 0.2425 > 0.05"
+          ],
+          "max_human_score": 0.3721,
+          "meets_gate": false,
+          "n_ai": 332,
+          "n_ai_clusters": 328,
+          "n_detection_errors": 0,
+          "n_human": 12,
+          "n_human_clusters": 12,
+          "n_labelled": 344,
+          "n_rows": 344,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.3721,
+              "mean": 0.2515,
+              "median": 0.2729,
+              "min": 0.1361,
+              "n": 12
+            },
+            "machine": {
+              "max": 0.7273,
+              "mean": 0.3401,
+              "median": 0.3266,
+              "min": 0.0412,
+              "n": 332
+            }
+          },
+          "slice_id": "attack:whitespace",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.314,
+            "ci_upper": 0.631,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.3584
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.3142,
+            "ci_upper": 0.631,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.3584
+          },
+          "tpr_native": {
+            "ci_lower": 0.0208,
+            "ci_upper": 0.0621,
+            "k": 12,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 332,
+            "value": 0.0361
+          }
+        },
+        {
+          "abstention_rate": 1.0,
+          "abstentions": 327,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=9, n_ai=318",
+          "coverage": 0.0,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2992,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 9,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=9 < 100",
+            "Wilson upper 0.2992 > 0.05"
+          ],
+          "max_human_score": 0.5805,
+          "meets_gate": false,
+          "n_ai": 318,
+          "n_ai_clusters": 311,
+          "n_detection_errors": 0,
+          "n_human": 9,
+          "n_human_clusters": 9,
+          "n_labelled": 327,
+          "n_rows": 327,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.5805,
+              "mean": 0.5293,
+              "median": 0.5191,
+              "min": 0.4577,
+              "n": 9
+            },
+            "machine": {
+              "max": 0.5805,
+              "mean": 0.5454,
+              "median": 0.5498,
+              "min": 0.3334,
+              "n": 318
+            }
+          },
+          "slice_id": "attack:zero_width_space",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0119,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 318,
+            "value": 0.0
+          }
+        },
+        {
+          "abstention_rate": 0.2975,
+          "abstentions": 36,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=121, n_ai=0",
+          "coverage": 0.7025,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0308,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 121,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [],
+          "max_human_score": 0.5805,
+          "meets_gate": true,
+          "n_ai": 0,
+          "n_ai_clusters": 0,
+          "n_detection_errors": 0,
+          "n_human": 121,
+          "n_human_clusters": 121,
+          "n_labelled": 121,
+          "n_rows": 121,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.5805,
+              "mean": 0.2869,
+              "median": 0.2772,
+              "min": 0.058,
+              "n": 121
+            },
+            "machine": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            }
+          },
+          "slice_id": "decoding:None",
+          "tpr_native": null
+        },
+        {
+          "abstention_rate": 0.5927,
+          "abstentions": 1148,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=1937",
+          "coverage": 0.4073,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 1937,
+          "n_ai_clusters": 1670,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 1937,
+          "n_rows": 1937,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.84,
+              "mean": 0.3774,
+              "median": 0.3545,
+              "min": 0.005,
+              "n": 1937
+            }
+          },
+          "slice_id": "decoding:greedy",
+          "tpr_native": {
+            "ci_lower": 0.0319,
+            "ci_upper": 0.0494,
+            "k": 77,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 1937,
+            "value": 0.0398
+          }
+        },
+        {
+          "abstention_rate": 0.4323,
+          "abstentions": 839,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=1941",
+          "coverage": 0.5677,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 1941,
+          "n_ai_clusters": 1678,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 1941,
+          "n_rows": 1941,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.6334,
+              "mean": 0.2869,
+              "median": 0.2875,
+              "min": 0.0,
+              "n": 1941
+            }
+          },
+          "slice_id": "decoding:sampling",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.002,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 1941,
+            "value": 0.0
+          }
+        }
+      ],
+      "worst_slice": {
+        "fpr_value": 0.0,
+        "fpr_wilson_upper": 0.0918,
+        "k_fp": 0,
+        "n_human": 38,
+        "slice_id": "domain:abstracts"
+      }
+    },
+    "hf_id": "liamdugan/raid",
+    "inclusion": {
+      "final_test_exact_duplicates_dropped": 0,
+      "final_test_label_counts": {
+        "0": 121,
+        "1": 3878
+      },
+      "final_test_rows_after_exact_dedupe": 4000,
+      "final_test_rows_after_leakage_exclusions": 3999,
+      "final_test_rows_fetched": 4000,
+      "leakage_exclusions": 1,
+      "validation_exact_duplicates_dropped": 0,
+      "validation_label_counts": {
+        "0": 171,
+        "1": 5829
+      },
+      "validation_rows_after_exact_dedupe": 6000,
+      "validation_rows_in_cache": 6000
+    },
+    "licence": "MIT",
+    "licence_reverification": {
+      "licence": "MIT",
+      "licence_note": "Verified 2026-11-06 from the HF API record (license:mit), GitHub repo metadata (MIT) and the LICENSE file (Copyright (c) 2024- Liam Dugan). Caveat: the MIT text covers the distribution; the underlying human source texts (arXiv, NYT, Reddit, IMDb, Wikipedia, books, code, Czech/German news) carry their own upstream licences, which RAID does not address. Retain the copyright notice in copies. HF parquet conversion is partial (endpoint reports partial=true; viewer exposes the first 5 GB) \u2014 row counts are the loaded counts, not estimates.",
+      "licence_status": "verified",
+      "permitted_use": "local non-commercial evaluation only; no redistribution; no raw text in the repo",
+      "reverified": "2026-11-16 (live: HF API cardData + GitHub repo metadata)"
+    },
+    "manifest": {
+      "path": "docs/evidence/manifests/EV-20261116-raid-manifest.json",
+      "sha256": "09f1e738aaf442773f5708379433d461f71a67cbb87e56151a7ad0b14e5786e3"
+    },
+    "near_duplicate_check": {
+      "max_word_8gram_jaccard": 0.1647,
+      "n_excluded": 1,
+      "pairs_checked_same_source_id": 5070,
+      "pairs_jaccard_over_0_5": 0,
+      "threshold_exclude": 0.8
+    },
+    "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold; no calibration",
+    "predeclared_gates": {
+      "fpr_wilson_upper_max": 0.05,
+      "min_n_human": 100
+    },
+    "seeds": {
+      "bootstrap_seed": 20261116
+    },
+    "validation_remeasurement": {
+      "cache_sha256": "59cf57c4db6778dad065cc78c4b4f92c54544d57652aa30606c307c3f81d44d3",
+      "prior_run": "EV-20261108-dataset-raid",
+      "reproduction_check": {
+        "note": "Same frozen rows re-measured on the W7 code (17b8951 lineage); AUROC/TPR@FPR are threshold-free so small differences come only from code changes between the prior run and this run, not from tuning.",
+        "prior_auroc": 0.5958,
+        "prior_run": "EV-20261108-dataset-raid",
+        "prior_tpr_at_fpr_0_01": 0.0571,
+        "prior_tpr_at_fpr_0_05": 0.1414,
+        "remeasured_auroc": 0.5958,
+        "remeasured_tpr_at_fpr_0_01": 0.0571,
+        "remeasured_tpr_at_fpr_0_05": 0.1414
+      },
+      "slices_primary": [
+        {
+          "abstention_rate": 0.5038,
+          "abstentions": 3023,
+          "auprc": {
+            "ci_lower": 0.9785,
+            "ci_upper": 0.9854,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9821
+          },
+          "auprc_baseline_prevalence": 0.9715,
+          "auroc": {
+            "ci_lower": 0.5634,
+            "ci_upper": 0.6318,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.5958
+          },
+          "coverage": 0.4962,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.022,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 171,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [],
+          "max_human_score": 0.6159,
+          "meets_gate": true,
+          "n_ai": 5829,
+          "n_ai_clusters": 3711,
+          "n_detection_errors": 0,
+          "n_human": 171,
+          "n_human_clusters": 170,
+          "n_labelled": 6000,
+          "n_rows": 6000,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.6159,
+              "mean": 0.2853,
+              "median": 0.2757,
+              "min": 0.0758,
+              "n": 171
+            },
+            "machine": {
+              "max": 0.8545,
+              "mean": 0.3333,
+              "median": 0.3192,
+              "min": 0.0,
+              "n": 5829
+            }
+          },
+          "slice_id": "pooled",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.0435,
+            "ci_upper": 0.1419,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0571
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.11,
+            "ci_upper": 0.2623,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.1414
+          },
+          "tpr_native": {
+            "ci_lower": 0.0185,
+            "ci_upper": 0.026,
+            "k": 128,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 5829,
+            "value": 0.022
+          }
+        },
+        {
+          "abstention_rate": 0.5786,
+          "abstentions": 1134,
+          "auprc": {
+            "ci_lower": 0.978,
+            "ci_upper": 0.9889,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9837
+          },
+          "auprc_baseline_prevalence": 0.973,
+          "auroc": {
+            "ci_lower": 0.5462,
+            "ci_upper": 0.6736,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.6103
+          },
+          "coverage": 0.4214,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0676,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 53,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=53 < 100",
+            "Wilson upper 0.0676 > 0.05"
+          ],
+          "max_human_score": 0.5805,
+          "meets_gate": false,
+          "n_ai": 1907,
+          "n_ai_clusters": 1144,
+          "n_detection_errors": 0,
+          "n_human": 53,
+          "n_human_clusters": 53,
+          "n_labelled": 1960,
+          "n_rows": 1960,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.5805,
+              "mean": 0.2964,
+              "median": 0.2873,
+              "min": 0.0772,
+              "n": 53
+            },
+            "machine": {
+              "max": 0.8545,
+              "mean": 0.3484,
+              "median": 0.3363,
+              "min": 0.0,
+              "n": 1907
+            }
+          },
+          "slice_id": "domain:abstracts",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.0502,
+            "ci_upper": 0.1492,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0598
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.0584,
+            "ci_upper": 0.3159,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.1384
+          },
+          "tpr_native": {
+            "ci_lower": 0.0163,
+            "ci_upper": 0.0296,
+            "k": 42,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 1907,
+            "value": 0.022
+          }
+        },
+        {
+          "abstention_rate": 0.4656,
+          "abstentions": 921,
+          "auprc": {
+            "ci_lower": 0.9754,
+            "ci_upper": 0.9882,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9826
+          },
+          "auprc_baseline_prevalence": 0.9722,
+          "auroc": {
+            "ci_lower": 0.5399,
+            "ci_upper": 0.6604,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.6
+          },
+          "coverage": 0.5344,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0653,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 55,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=55 < 100",
+            "Wilson upper 0.0653 > 0.05"
+          ],
+          "max_human_score": 0.5805,
+          "meets_gate": false,
+          "n_ai": 1923,
+          "n_ai_clusters": 1257,
+          "n_detection_errors": 0,
+          "n_human": 55,
+          "n_human_clusters": 54,
+          "n_labelled": 1978,
+          "n_rows": 1978,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.5805,
+              "mean": 0.2714,
+              "median": 0.2542,
+              "min": 0.0758,
+              "n": 55
+            },
+            "machine": {
+              "max": 0.7273,
+              "mean": 0.3192,
+              "median": 0.3096,
+              "min": 0.0,
+              "n": 1923
+            }
+          },
+          "slice_id": "domain:books",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.0389,
+            "ci_upper": 0.1435,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0473
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.041,
+            "ci_upper": 0.3124,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.1305
+          },
+          "tpr_native": {
+            "ci_lower": 0.0131,
+            "ci_upper": 0.0252,
+            "k": 35,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 1923,
+            "value": 0.0182
+          }
+        },
+        {
+          "abstention_rate": 0.4701,
+          "abstentions": 929,
+          "auprc": {
+            "ci_lower": 0.9763,
+            "ci_upper": 0.9876,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9825
+          },
+          "auprc_baseline_prevalence": 0.9727,
+          "auroc": {
+            "ci_lower": 0.5164,
+            "ci_upper": 0.6385,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.5773
+          },
+          "coverage": 0.5299,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0664,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 54,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=54 < 100",
+            "Wilson upper 0.0664 > 0.05"
+          ],
+          "max_human_score": 0.5498,
+          "meets_gate": false,
+          "n_ai": 1922,
+          "n_ai_clusters": 1234,
+          "n_detection_errors": 0,
+          "n_human": 54,
+          "n_human_clusters": 54,
+          "n_labelled": 1976,
+          "n_rows": 1976,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.5498,
+              "mean": 0.2878,
+              "median": 0.2809,
+              "min": 0.0941,
+              "n": 54
+            },
+            "machine": {
+              "max": 0.8296,
+              "mean": 0.333,
+              "median": 0.3083,
+              "min": 0.0008,
+              "n": 1922
+            }
+          },
+          "slice_id": "domain:news",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.1077,
+            "ci_upper": 0.1643,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.1207
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.1186,
+            "ci_upper": 0.3361,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.1504
+          },
+          "tpr_native": {
+            "ci_lower": 0.0184,
+            "ci_upper": 0.0324,
+            "k": 47,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 1922,
+            "value": 0.0245
+          }
+        },
+        {
+          "abstention_rate": 0.4535,
+          "abstentions": 39,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=9, n_ai=77",
+          "coverage": 0.5465,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2992,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 9,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=9 < 100",
+            "Wilson upper 0.2992 > 0.05"
+          ],
+          "max_human_score": 0.6159,
+          "meets_gate": false,
+          "n_ai": 77,
+          "n_ai_clusters": 76,
+          "n_detection_errors": 0,
+          "n_human": 9,
+          "n_human_clusters": 9,
+          "n_labelled": 86,
+          "n_rows": 86,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.6159,
+              "mean": 0.2899,
+              "median": 0.2693,
+              "min": 0.1457,
+              "n": 9
+            },
+            "machine": {
+              "max": 0.7273,
+              "mean": 0.3228,
+              "median": 0.2909,
+              "min": 0.0,
+              "n": 77
+            }
+          },
+          "slice_id": "domain:poetry",
+          "tpr_native": {
+            "ci_lower": 0.0204,
+            "ci_upper": 0.1261,
+            "k": 4,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 77,
+            "value": 0.0519
+          }
+        }
+      ],
+      "slices_secondary": [
+        {
+          "abstention_rate": 0.5145,
+          "abstentions": 1744,
+          "auprc": {
+            "ci_lower": 0.9805,
+            "ci_upper": 0.989,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.985
+          },
+          "auprc_baseline_prevalence": 0.972,
+          "auroc": {
+            "ci_lower": 0.5921,
+            "ci_upper": 0.6774,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.636
+          },
+          "coverage": 0.4855,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0389,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 95,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=95 < 100"
+          ],
+          "max_human_score": 0.6159,
+          "meets_gate": false,
+          "n_ai": 3295,
+          "n_ai_clusters": 2532,
+          "n_detection_errors": 0,
+          "n_human": 95,
+          "n_human_clusters": 94,
+          "n_labelled": 3390,
+          "n_rows": 3390,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.6159,
+              "mean": 0.2808,
+              "median": 0.2624,
+              "min": 0.0758,
+              "n": 95
+            },
+            "machine": {
+              "max": 0.8545,
+              "mean": 0.3544,
+              "median": 0.3428,
+              "min": 0.0,
+              "n": 3295
+            }
+          },
+          "slice_id": "length:200-499 words",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.0718,
+            "ci_upper": 0.207,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0792
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.0908,
+            "ci_upper": 0.3477,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.2018
+          },
+          "tpr_native": {
+            "ci_lower": 0.0325,
+            "ci_upper": 0.0457,
+            "k": 127,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 3295,
+            "value": 0.0385
+          }
+        },
+        {
+          "abstention_rate": 0.619,
+          "abstentions": 13,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=21, n_ai=0",
+          "coverage": 0.381,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.1546,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 21,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=21 < 100",
+            "Wilson upper 0.1546 > 0.05"
+          ],
+          "max_human_score": 0.5498,
+          "meets_gate": false,
+          "n_ai": 0,
+          "n_ai_clusters": 0,
+          "n_detection_errors": 0,
+          "n_human": 21,
+          "n_human_clusters": 21,
+          "n_labelled": 21,
+          "n_rows": 21,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.5498,
+              "mean": 0.3345,
+              "median": 0.3267,
+              "min": 0.0916,
+              "n": 21
+            },
+            "machine": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            }
+          },
+          "slice_id": "length:500+ words",
+          "tpr_native": null
+        },
+        {
+          "abstention_rate": 0.4284,
+          "abstentions": 987,
+          "auprc": {
+            "ci_lower": 0.9776,
+            "ci_upper": 0.9887,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9834
+          },
+          "auprc_baseline_prevalence": 0.9761,
+          "auroc": {
+            "ci_lower": 0.5017,
+            "ci_upper": 0.6405,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.5725
+          },
+          "coverage": 0.5716,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0653,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 55,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=55 < 100",
+            "Wilson upper 0.0653 > 0.05"
+          ],
+          "max_human_score": 0.5805,
+          "meets_gate": false,
+          "n_ai": 2249,
+          "n_ai_clusters": 1785,
+          "n_detection_errors": 0,
+          "n_human": 55,
+          "n_human_clusters": 55,
+          "n_labelled": 2304,
+          "n_rows": 2304,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.5805,
+              "mean": 0.2742,
+              "median": 0.2761,
+              "min": 0.0772,
+              "n": 55
+            },
+            "machine": {
+              "max": 0.7182,
+              "mean": 0.3047,
+              "median": 0.2973,
+              "min": 0.0,
+              "n": 2249
+            }
+          },
+          "slice_id": "length:80-199 words",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.0031,
+            "ci_upper": 0.1753,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0058
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.0058,
+            "ci_upper": 0.3272,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0627
+          },
+          "tpr_native": {
+            "ci_lower": 0.0001,
+            "ci_upper": 0.0025,
+            "k": 1,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 2249,
+            "value": 0.0004
+          }
+        },
+        {
+          "abstention_rate": 0.9789,
+          "abstentions": 279,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=285",
+          "coverage": 0.0211,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 285,
+          "n_ai_clusters": 277,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 285,
+          "n_rows": 285,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.6334,
+              "mean": 0.3158,
+              "median": 0.3096,
+              "min": 0.0687,
+              "n": 285
+            }
+          },
+          "slice_id": "length:<80 words (below detector floor)",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0133,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 285,
+            "value": 0.0
+          }
+        },
+        {
+          "abstention_rate": 0.7278,
+          "abstentions": 254,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=349",
+          "coverage": 0.2722,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 349,
+          "n_ai_clusters": 349,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 349,
+          "n_rows": 349,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.5805,
+              "mean": 0.3794,
+              "median": 0.3802,
+              "min": 0.0986,
+              "n": 349
+            }
+          },
+          "slice_id": "model:chatgpt",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0109,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 349,
+            "value": 0.0
+          }
+        },
+        {
+          "abstention_rate": 0.509,
+          "abstentions": 169,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=332",
+          "coverage": 0.491,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 332,
+          "n_ai_clusters": 332,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 332,
+          "n_rows": 332,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.7136,
+              "mean": 0.3248,
+              "median": 0.3165,
+              "min": 0.0821,
+              "n": 332
+            }
+          },
+          "slice_id": "model:cohere",
+          "tpr_native": {
+            "ci_lower": 0.0005,
+            "ci_upper": 0.0169,
+            "k": 1,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 332,
+            "value": 0.003
+          }
+        },
+        {
+          "abstention_rate": 0.5074,
+          "abstentions": 171,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=337",
+          "coverage": 0.4926,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 337,
+          "n_ai_clusters": 337,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 337,
+          "n_rows": 337,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.7537,
+              "mean": 0.3309,
+              "median": 0.3154,
+              "min": 0.0235,
+              "n": 337
+            }
+          },
+          "slice_id": "model:cohere-chat",
+          "tpr_native": {
+            "ci_lower": 0.0005,
+            "ci_upper": 0.0166,
+            "k": 1,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 337,
+            "value": 0.003
+          }
+        },
+        {
+          "abstention_rate": 0.3623,
+          "abstentions": 250,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=690",
+          "coverage": 0.6377,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 690,
+          "n_ai_clusters": 667,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 690,
+          "n_rows": 690,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.7273,
+              "mean": 0.3395,
+              "median": 0.2646,
+              "min": 0.0,
+              "n": 690
+            }
+          },
+          "slice_id": "model:gpt2",
+          "tpr_native": {
+            "ci_lower": 0.0772,
+            "ci_upper": 0.1215,
+            "k": 67,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 690,
+            "value": 0.0971
+          }
+        },
+        {
+          "abstention_rate": 0.6776,
+          "abstentions": 227,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=335",
+          "coverage": 0.3224,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 335,
+          "n_ai_clusters": 335,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 335,
+          "n_rows": 335,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.7182,
+              "mean": 0.3597,
+              "median": 0.3464,
+              "min": 0.1157,
+              "n": 335
+            }
+          },
+          "slice_id": "model:gpt3",
+          "tpr_native": {
+            "ci_lower": 0.0005,
+            "ci_upper": 0.0167,
+            "k": 1,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 335,
+            "value": 0.003
+          }
+        },
+        {
+          "abstention_rate": 0.631,
+          "abstentions": 212,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=336",
+          "coverage": 0.369,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 336,
+          "n_ai_clusters": 336,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 336,
+          "n_rows": 336,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.6275,
+              "mean": 0.3497,
+              "median": 0.3407,
+              "min": 0.1044,
+              "n": 336
+            }
+          },
+          "slice_id": "model:gpt4",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0113,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 336,
+            "value": 0.0
+          }
+        },
+        {
+          "abstention_rate": 0.3041,
+          "abstentions": 52,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=171, n_ai=0",
+          "coverage": 0.6959,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.022,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 171,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [],
+          "max_human_score": 0.6159,
+          "meets_gate": true,
+          "n_ai": 0,
+          "n_ai_clusters": 0,
+          "n_detection_errors": 0,
+          "n_human": 171,
+          "n_human_clusters": 170,
+          "n_labelled": 171,
+          "n_rows": 171,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.6159,
+              "mean": 0.2853,
+              "median": 0.2757,
+              "min": 0.0758,
+              "n": 171
+            },
+            "machine": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            }
+          },
+          "slice_id": "model:human",
+          "tpr_native": null
+        },
+        {
+          "abstention_rate": 0.592,
+          "abstentions": 412,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=696",
+          "coverage": 0.408,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 696,
+          "n_ai_clusters": 667,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 696,
+          "n_rows": 696,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.7013,
+              "mean": 0.3551,
+              "median": 0.3451,
+              "min": 0.0502,
+              "n": 696
+            }
+          },
+          "slice_id": "model:llama-chat",
+          "tpr_native": {
+            "ci_lower": 0.0003,
+            "ci_upper": 0.0081,
+            "k": 1,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 696,
+            "value": 0.0014
+          }
+        },
+        {
+          "abstention_rate": 0.3537,
+          "abstentions": 243,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=687",
+          "coverage": 0.6463,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 687,
+          "n_ai_clusters": 668,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 687,
+          "n_rows": 687,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.7764,
+              "mean": 0.3136,
+              "median": 0.2535,
+              "min": 0.0,
+              "n": 687
+            }
+          },
+          "slice_id": "model:mistral",
+          "tpr_native": {
+            "ci_lower": 0.0236,
+            "ci_upper": 0.0515,
+            "k": 24,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 687,
+            "value": 0.0349
+          }
+        },
+        {
+          "abstention_rate": 0.5766,
+          "abstentions": 399,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=692",
+          "coverage": 0.4234,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 692,
+          "n_ai_clusters": 662,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 692,
+          "n_rows": 692,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.8296,
+              "mean": 0.3459,
+              "median": 0.3365,
+              "min": 0.0301,
+              "n": 692
+            }
+          },
+          "slice_id": "model:mistral-chat",
+          "tpr_native": {
+            "ci_lower": 0.0015,
+            "ci_upper": 0.0127,
+            "k": 3,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 692,
+            "value": 0.0043
+          }
+        },
+        {
+          "abstention_rate": 0.4139,
+          "abstentions": 286,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=691",
+          "coverage": 0.5861,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 691,
+          "n_ai_clusters": 669,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 691,
+          "n_rows": 691,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.8545,
+              "mean": 0.296,
+              "median": 0.2348,
+              "min": 0.0,
+              "n": 691
+            }
+          },
+          "slice_id": "model:mpt",
+          "tpr_native": {
+            "ci_lower": 0.0306,
+            "ci_upper": 0.0613,
+            "k": 30,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 691,
+            "value": 0.0434
+          }
+        },
+        {
+          "abstention_rate": 0.5088,
+          "abstentions": 348,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=684",
+          "coverage": 0.4912,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 684,
+          "n_ai_clusters": 652,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 684,
+          "n_rows": 684,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.6334,
+              "mean": 0.3108,
+              "median": 0.3031,
+              "min": 0.0,
+              "n": 684
+            }
+          },
+          "slice_id": "model:mpt-chat",
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0056,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 684,
+            "value": 0.0
+          }
+        },
+        {
+          "abstention_rate": 0.5273,
+          "abstentions": 261,
+          "auprc": {
+            "ci_lower": 0.9623,
+            "ci_upper": 0.9893,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.977
+          },
+          "auprc_baseline_prevalence": 0.9697,
+          "auroc": {
+            "ci_lower": 0.3996,
+            "ci_upper": 0.6072,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.5058
+          },
+          "coverage": 0.4727,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2039,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 15,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=15 < 100",
+            "Wilson upper 0.2039 > 0.05"
+          ],
+          "max_human_score": 0.4564,
+          "meets_gate": false,
+          "n_ai": 480,
+          "n_ai_clusters": 457,
+          "n_detection_errors": 0,
+          "n_human": 15,
+          "n_human_clusters": 15,
+          "n_labelled": 495,
+          "n_rows": 495,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.4564,
+              "mean": 0.3272,
+              "median": 0.3243,
+              "min": 0.2563,
+              "n": 15
+            },
+            "machine": {
+              "max": 0.8296,
+              "mean": 0.337,
+              "median": 0.323,
+              "min": 0.0175,
+              "n": 480
+            }
+          },
+          "slice_id": "attack:alternative_spelling",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.1411,
+            "ci_upper": 0.3917,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.1688
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.142,
+            "ci_upper": 0.3934,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.1688
+          },
+          "tpr_native": {
+            "ci_lower": 0.0128,
+            "ci_upper": 0.0406,
+            "k": 11,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 480,
+            "value": 0.0229
+          }
+        },
+        {
+          "abstention_rate": 0.5173,
+          "abstentions": 254,
+          "auprc": {
+            "ci_lower": 0.9684,
+            "ci_upper": 0.9907,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9806
+          },
+          "auprc_baseline_prevalence": 0.9695,
+          "auroc": {
+            "ci_lower": 0.4681,
+            "ci_upper": 0.6397,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.557
+          },
+          "coverage": 0.4827,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2039,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 15,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=15 < 100",
+            "Wilson upper 0.2039 > 0.05"
+          ],
+          "max_human_score": 0.4103,
+          "meets_gate": false,
+          "n_ai": 476,
+          "n_ai_clusters": 460,
+          "n_detection_errors": 0,
+          "n_human": 15,
+          "n_human_clusters": 15,
+          "n_labelled": 491,
+          "n_rows": 491,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.4103,
+              "mean": 0.2986,
+              "median": 0.298,
+              "min": 0.1911,
+              "n": 15
+            },
+            "machine": {
+              "max": 0.7273,
+              "mean": 0.3237,
+              "median": 0.3238,
+              "min": 0.0,
+              "n": 476
+            }
+          },
+          "slice_id": "attack:article_deletion",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.1807,
+            "ci_upper": 0.4378,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.2164
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.1822,
+            "ci_upper": 0.4393,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.2164
+          },
+          "tpr_native": {
+            "ci_lower": 0.0176,
+            "ci_upper": 0.0488,
+            "k": 14,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 476,
+            "value": 0.0294
+          }
+        },
+        {
+          "abstention_rate": 0.1903,
+          "abstentions": 94,
+          "auprc": {
+            "ci_lower": 0.9558,
+            "ci_upper": 0.9918,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9768
+          },
+          "auprc_baseline_prevalence": 0.9696,
+          "auroc": {
+            "ci_lower": 0.4179,
+            "ci_upper": 0.7089,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.5759
+          },
+          "coverage": 0.8097,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2039,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 15,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=15 < 100",
+            "Wilson upper 0.2039 > 0.05"
+          ],
+          "max_human_score": 0.5226,
+          "meets_gate": false,
+          "n_ai": 479,
+          "n_ai_clusters": 461,
+          "n_detection_errors": 0,
+          "n_human": 15,
+          "n_human_clusters": 15,
+          "n_labelled": 494,
+          "n_rows": 494,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.5226,
+              "mean": 0.179,
+              "median": 0.1443,
+              "min": 0.0758,
+              "n": 15
+            },
+            "machine": {
+              "max": 0.6986,
+              "mean": 0.202,
+              "median": 0.1645,
+              "min": 0.0095,
+              "n": 479
+            }
+          },
+          "slice_id": "attack:homoglyph",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.0458,
+            "ci_upper": 0.4354,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0647
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.0458,
+            "ci_upper": 0.4403,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0647
+          },
+          "tpr_native": {
+            "ci_lower": 0.0021,
+            "ci_upper": 0.0183,
+            "k": 3,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 479,
+            "value": 0.0063
+          }
+        },
+        {
+          "abstention_rate": 0.4004,
+          "abstentions": 197,
+          "auprc": {
+            "ci_lower": 0.9825,
+            "ci_upper": 0.9965,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9903
+          },
+          "auprc_baseline_prevalence": 0.9756,
+          "auroc": {
+            "ci_lower": 0.5734,
+            "ci_upper": 0.8095,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.7023
+          },
+          "coverage": 0.5996,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2425,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 12,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=12 < 100",
+            "Wilson upper 0.2425 > 0.05"
+          ],
+          "max_human_score": 0.3155,
+          "meets_gate": false,
+          "n_ai": 480,
+          "n_ai_clusters": 467,
+          "n_detection_errors": 0,
+          "n_human": 12,
+          "n_human_clusters": 12,
+          "n_labelled": 492,
+          "n_rows": 492,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.3155,
+              "mean": 0.2143,
+              "median": 0.2036,
+              "min": 0.0945,
+              "n": 12
+            },
+            "machine": {
+              "max": 0.6996,
+              "mean": 0.2968,
+              "median": 0.2803,
+              "min": 0.0,
+              "n": 480
+            }
+          },
+          "slice_id": "attack:insert_paragraphs",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.3571,
+            "ci_upper": 0.6173,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.3979
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.3571,
+            "ci_upper": 0.6173,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.3979
+          },
+          "tpr_native": {
+            "ci_lower": 0.0004,
+            "ci_upper": 0.0117,
+            "k": 1,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 480,
+            "value": 0.0021
+          }
+        },
+        {
+          "abstention_rate": 0.5,
+          "abstentions": 277,
+          "auprc": {
+            "ci_lower": 0.9753,
+            "ci_upper": 0.9935,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9858
+          },
+          "auprc_baseline_prevalence": 0.9693,
+          "auroc": {
+            "ci_lower": 0.5608,
+            "ci_upper": 0.757,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.6656
+          },
+          "coverage": 0.5,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.1843,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 17,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=17 < 100",
+            "Wilson upper 0.1843 > 0.05"
+          ],
+          "max_human_score": 0.4173,
+          "meets_gate": false,
+          "n_ai": 537,
+          "n_ai_clusters": 521,
+          "n_detection_errors": 0,
+          "n_human": 17,
+          "n_human_clusters": 17,
+          "n_labelled": 554,
+          "n_rows": 554,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.4173,
+              "mean": 0.2561,
+              "median": 0.2475,
+              "min": 0.106,
+              "n": 17
+            },
+            "machine": {
+              "max": 0.7273,
+              "mean": 0.3285,
+              "median": 0.3217,
+              "min": 0.0,
+              "n": 537
+            }
+          },
+          "slice_id": "attack:none",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.1798,
+            "ci_upper": 0.4694,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.2123
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.1822,
+            "ci_upper": 0.4742,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.2123
+          },
+          "tpr_native": {
+            "ci_lower": 0.0228,
+            "ci_upper": 0.0546,
+            "k": 19,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 537,
+            "value": 0.0354
+          }
+        },
+        {
+          "abstention_rate": 0.5091,
+          "abstentions": 251,
+          "auprc": {
+            "ci_lower": 0.982,
+            "ci_upper": 0.9969,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9908
+          },
+          "auprc_baseline_prevalence": 0.9797,
+          "auroc": {
+            "ci_lower": 0.5402,
+            "ci_upper": 0.7621,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.6689
+          },
+          "coverage": 0.4909,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2775,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 10,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=10 < 100",
+            "Wilson upper 0.2775 > 0.05"
+          ],
+          "max_human_score": 0.4155,
+          "meets_gate": false,
+          "n_ai": 483,
+          "n_ai_clusters": 464,
+          "n_detection_errors": 0,
+          "n_human": 10,
+          "n_human_clusters": 10,
+          "n_labelled": 493,
+          "n_rows": 493,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.4155,
+              "mean": 0.2643,
+              "median": 0.2505,
+              "min": 0.1898,
+              "n": 10
+            },
+            "machine": {
+              "max": 0.7273,
+              "mean": 0.329,
+              "median": 0.3246,
+              "min": 0.0,
+              "n": 483
+            }
+          },
+          "slice_id": "attack:number",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.1743,
+            "ci_upper": 0.7122,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.207
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.1743,
+            "ci_upper": 0.7122,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.207
+          },
+          "tpr_native": {
+            "ci_lower": 0.0113,
+            "ci_upper": 0.0377,
+            "k": 10,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 483,
+            "value": 0.0207
+          }
+        },
+        {
+          "abstention_rate": 0.5293,
+          "abstentions": 262,
+          "auprc": {
+            "ci_lower": 0.9713,
+            "ci_upper": 0.9925,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.983
+          },
+          "auprc_baseline_prevalence": 0.9657,
+          "auroc": {
+            "ci_lower": 0.5426,
+            "ci_upper": 0.7722,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.6613
+          },
+          "coverage": 0.4707,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.1843,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 17,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=17 < 100",
+            "Wilson upper 0.1843 > 0.05"
+          ],
+          "max_human_score": 0.4071,
+          "meets_gate": false,
+          "n_ai": 478,
+          "n_ai_clusters": 442,
+          "n_detection_errors": 0,
+          "n_human": 17,
+          "n_human_clusters": 17,
+          "n_labelled": 495,
+          "n_rows": 495,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.4071,
+              "mean": 0.2682,
+              "median": 0.2572,
+              "min": 0.142,
+              "n": 17
+            },
+            "machine": {
+              "max": 0.7225,
+              "mean": 0.3324,
+              "median": 0.3152,
+              "min": 0.0684,
+              "n": 478
+            }
+          },
+          "slice_id": "attack:paraphrase",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.187,
+            "ci_upper": 0.4692,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.2218
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.1876,
+            "ci_upper": 0.4873,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.2218
+          },
+          "tpr_native": {
+            "ci_lower": 0.0045,
+            "ci_upper": 0.0243,
+            "k": 5,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 478,
+            "value": 0.0105
+          }
+        },
+        {
+          "abstention_rate": 0.4929,
+          "abstentions": 242,
+          "auprc": {
+            "ci_lower": 0.9727,
+            "ci_upper": 0.9921,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9832
+          },
+          "auprc_baseline_prevalence": 0.9633,
+          "auroc": {
+            "ci_lower": 0.5683,
+            "ci_upper": 0.7386,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.6545
+          },
+          "coverage": 0.5071,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.1759,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 18,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=18 < 100",
+            "Wilson upper 0.1759 > 0.05"
+          ],
+          "max_human_score": 0.3905,
+          "meets_gate": false,
+          "n_ai": 473,
+          "n_ai_clusters": 462,
+          "n_detection_errors": 0,
+          "n_human": 18,
+          "n_human_clusters": 18,
+          "n_labelled": 491,
+          "n_rows": 491,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.3905,
+              "mean": 0.2692,
+              "median": 0.2586,
+              "min": 0.137,
+              "n": 18
+            },
+            "machine": {
+              "max": 0.7273,
+              "mean": 0.3359,
+              "median": 0.3246,
+              "min": 0.0,
+              "n": 473
+            }
+          },
+          "slice_id": "attack:perplexity_misspelling",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.2576,
+            "ci_upper": 0.5589,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.2981
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.2589,
+            "ci_upper": 0.5809,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.2981
+          },
+          "tpr_native": {
+            "ci_lower": 0.0275,
+            "ci_upper": 0.0644,
+            "k": 20,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 473,
+            "value": 0.0423
+          }
+        },
+        {
+          "abstention_rate": 0.4329,
+          "abstentions": 213,
+          "auprc": {
+            "ci_lower": 0.9749,
+            "ci_upper": 0.9939,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9853
+          },
+          "auprc_baseline_prevalence": 0.9776,
+          "auroc": {
+            "ci_lower": 0.4327,
+            "ci_upper": 0.6515,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.5424
+          },
+          "coverage": 0.5671,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2588,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 11,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=11 < 100",
+            "Wilson upper 0.2588 > 0.05"
+          ],
+          "max_human_score": 0.3631,
+          "meets_gate": false,
+          "n_ai": 481,
+          "n_ai_clusters": 456,
+          "n_detection_errors": 0,
+          "n_human": 11,
+          "n_human_clusters": 11,
+          "n_labelled": 492,
+          "n_rows": 492,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.3631,
+              "mean": 0.2906,
+              "median": 0.3124,
+              "min": 0.2041,
+              "n": 11
+            },
+            "machine": {
+              "max": 0.8545,
+              "mean": 0.3239,
+              "median": 0.3041,
+              "min": 0.0308,
+              "n": 481
+            }
+          },
+          "slice_id": "attack:synonym",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.2825,
+            "ci_upper": 0.4431,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.3222
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.2825,
+            "ci_upper": 0.4431,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.3222
+          },
+          "tpr_native": {
+            "ci_lower": 0.0222,
+            "ci_upper": 0.0559,
+            "k": 17,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 481,
+            "value": 0.0353
+          }
+        },
+        {
+          "abstention_rate": 0.4604,
+          "abstentions": 227,
+          "auprc": {
+            "ci_lower": 0.9682,
+            "ci_upper": 0.991,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9808
+          },
+          "auprc_baseline_prevalence": 0.9716,
+          "auroc": {
+            "ci_lower": 0.4386,
+            "ci_upper": 0.6318,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.5387
+          },
+          "coverage": 0.5396,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2153,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 14,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=14 < 100",
+            "Wilson upper 0.2153 > 0.05"
+          ],
+          "max_human_score": 0.4106,
+          "meets_gate": false,
+          "n_ai": 479,
+          "n_ai_clusters": 458,
+          "n_detection_errors": 0,
+          "n_human": 14,
+          "n_human_clusters": 14,
+          "n_labelled": 493,
+          "n_rows": 493,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.4106,
+              "mean": 0.296,
+              "median": 0.2863,
+              "min": 0.1747,
+              "n": 14
+            },
+            "machine": {
+              "max": 0.7537,
+              "mean": 0.3183,
+              "median": 0.3112,
+              "min": 0.0128,
+              "n": 479
+            }
+          },
+          "slice_id": "attack:upper_lower",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.1845,
+            "ci_upper": 0.4098,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.2192
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.1846,
+            "ci_upper": 0.4116,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.2192
+          },
+          "tpr_native": {
+            "ci_lower": 0.0191,
+            "ci_upper": 0.051,
+            "k": 15,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 479,
+            "value": 0.0313
+          }
+        },
+        {
+          "abstention_rate": 0.4874,
+          "abstentions": 252,
+          "auprc": {
+            "ci_lower": 0.9671,
+            "ci_upper": 0.9941,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9832
+          },
+          "auprc_baseline_prevalence": 0.971,
+          "auroc": {
+            "ci_lower": 0.52,
+            "ci_upper": 0.7772,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.6553
+          },
+          "coverage": 0.5126,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2039,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 15,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=15 < 100",
+            "Wilson upper 0.2039 > 0.05"
+          ],
+          "max_human_score": 0.6159,
+          "meets_gate": false,
+          "n_ai": 502,
+          "n_ai_clusters": 489,
+          "n_detection_errors": 0,
+          "n_human": 15,
+          "n_human_clusters": 15,
+          "n_labelled": 517,
+          "n_rows": 517,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.6159,
+              "mean": 0.2634,
+              "median": 0.2803,
+              "min": 0.0941,
+              "n": 15
+            },
+            "machine": {
+              "max": 0.7273,
+              "mean": 0.3274,
+              "median": 0.3161,
+              "min": 0.0008,
+              "n": 502
+            }
+          },
+          "slice_id": "attack:whitespace",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.0298,
+            "ci_upper": 0.494,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0458
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.0298,
+            "ci_upper": 0.499,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0458
+          },
+          "tpr_native": {
+            "ci_lower": 0.0152,
+            "ci_upper": 0.0438,
+            "k": 13,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 502,
+            "value": 0.0259
+          }
+        },
+        {
+          "abstention_rate": 1.0,
+          "abstentions": 493,
+          "auprc": {
+            "ci_lower": 0.9853,
+            "ci_upper": 0.9967,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.9914
+          },
+          "auprc_baseline_prevalence": 0.9757,
+          "auroc": {
+            "ci_lower": 0.4551,
+            "ci_upper": 0.7226,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.5961
+          },
+          "coverage": 0.0,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.2425,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 12,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [
+            "n_human=12 < 100",
+            "Wilson upper 0.2425 > 0.05"
+          ],
+          "max_human_score": 0.5805,
+          "meets_gate": false,
+          "n_ai": 481,
+          "n_ai_clusters": 460,
+          "n_detection_errors": 0,
+          "n_human": 12,
+          "n_human_clusters": 12,
+          "n_labelled": 493,
+          "n_rows": 493,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.5805,
+              "mean": 0.537,
+              "median": 0.5191,
+              "min": 0.5191,
+              "n": 12
+            },
+            "machine": {
+              "max": 0.5805,
+              "mean": 0.5453,
+              "median": 0.5498,
+              "min": 0.3958,
+              "n": 481
+            }
+          },
+          "slice_id": "attack:zero_width_space",
+          "tpr_at_fpr_0_01": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.498,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0
+          },
+          "tpr_at_fpr_0_05": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.498,
+            "method": "bootstrap, 1000 resamples, seed 20261116",
+            "resamples_skipped": 0,
+            "value": 0.0
+          },
+          "tpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.0079,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 481,
+            "value": 0.0
+          }
+        },
+        {
+          "abstention_rate": 0.3041,
+          "abstentions": 52,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=171, n_ai=0",
+          "coverage": 0.6959,
+          "fpr_native": {
+            "ci_lower": 0.0,
+            "ci_upper": 0.022,
+            "k": 0,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 171,
+            "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+            "value": 0.0
+          },
+          "gate_blockers": [],
+          "max_human_score": 0.6159,
+          "meets_gate": true,
+          "n_ai": 0,
+          "n_ai_clusters": 0,
+          "n_detection_errors": 0,
+          "n_human": 171,
+          "n_human_clusters": 170,
+          "n_labelled": 171,
+          "n_rows": 171,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": 0.6159,
+              "mean": 0.2853,
+              "median": 0.2757,
+              "min": 0.0758,
+              "n": 171
+            },
+            "machine": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            }
+          },
+          "slice_id": "decoding:None",
+          "tpr_native": null
+        },
+        {
+          "abstention_rate": 0.5914,
+          "abstentions": 1725,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=2917",
+          "coverage": 0.4086,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 2917,
+          "n_ai_clusters": 2346,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 2917,
+          "n_rows": 2917,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.8545,
+              "mean": 0.3771,
+              "median": 0.3552,
+              "min": 0.0,
+              "n": 2917
+            }
+          },
+          "slice_id": "decoding:greedy",
+          "tpr_native": {
+            "ci_lower": 0.0358,
+            "ci_upper": 0.0505,
+            "k": 124,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 2917,
+            "value": 0.0425
+          }
+        },
+        {
+          "abstention_rate": 0.4279,
+          "abstentions": 1246,
+          "auprc": null,
+          "auroc": null,
+          "auroc_not_computed": "both classes need >= 10 rows; n_human=0, n_ai=2912",
+          "coverage": 0.5721,
+          "fpr_native": null,
+          "max_human_score": 0.0,
+          "n_ai": 2912,
+          "n_ai_clusters": 2322,
+          "n_detection_errors": 0,
+          "n_human": 0,
+          "n_human_clusters": 0,
+          "n_labelled": 2912,
+          "n_rows": 2912,
+          "n_unlabelled": 0,
+          "operating_point": "builtin-heuristic native verdict (analyze_text via BuiltinHeuristicDetector.detect); no score threshold",
+          "score_by_label": {
+            "human": {
+              "max": null,
+              "mean": null,
+              "median": null,
+              "min": null,
+              "n": 0
+            },
+            "machine": {
+              "max": 0.7537,
+              "mean": 0.2895,
+              "median": 0.2874,
+              "min": 0.0,
+              "n": 2912
+            }
+          },
+          "slice_id": "decoding:sampling",
+          "tpr_native": {
+            "ci_lower": 0.0005,
+            "ci_upper": 0.0035,
+            "k": 4,
+            "method": "Wilson score interval, 95% (z=1.96), textforensics.probe_metrics.wilson_ci",
+            "n": 2912,
+            "value": 0.0014
+          }
+        }
+      ]
+    }
+  },
+  "run_date": "2026-11-16",
+  "schema": "textforensics.run-artifact/v1"
+}
