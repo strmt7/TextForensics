@@ -6,6 +6,11 @@ A third party runs it against a sealed ``.zip`` bundle:
 
     python3 verify.py bundle.zip [--expect-digest <hex>] [--public-key <hex-or-path>]
 
+``--public-key`` accepts a bare 64-hex public key, a file holding 64
+hex characters or exactly 32 raw bytes, or a keygen JSON public-key
+file (``{algorithm, identity, keyid, public_key_b64, role}``) as
+written by ``case keygen --public-out``.
+
 It performs the container checks, the seal checks, the signature check
 (if a signature is present), the timestamp check (if a token is
 present), the case-file checks and the checklist re-derivation, then
@@ -2414,15 +2419,68 @@ def verify_bundle_bytes(data, *, expected_digest=None, public_key=None):
 
 
 def _load_public_key(value):
-    """Load a 32-byte Ed25519 public key from hex text or a file path."""
+    """Load a 32-byte Ed25519 public key from hex text or a file path.
+
+    Accepted forms, in order:
+
+    - a file holding exactly 32 raw bytes;
+    - a keygen JSON public-key file (as written by
+      ``case keygen --public-out``): a JSON object with a
+      ``public_key_b64`` field holding canonical standard base64 of
+      32 bytes.  A declared ``algorithm`` must be ``ed25519`` and a
+      declared ``keyid`` must be the SHA-256 fingerprint of the key —
+      anything else is refused, so an arbitrary JSON object is never
+      mistaken for a key;
+    - a file holding 64 hex characters, or a bare 64-hex string.
+
+    A private sealing-key file (a JSON object with a ``seed_b64``
+    field) is refused outright: pass the public-key file instead.
+    The private half must never be accepted as a ``--public-key``
+    argument by this verifier (W9 B-F1).
+    """
     import os
 
     if os.path.exists(value):
         with open(value, "rb") as handle:
             raw = handle.read()
-        text = raw.decode("ascii", "ignore").strip()
         if len(raw) == 32:
             return raw
+        try:
+            parsed = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            parsed = None
+        if isinstance(parsed, dict):
+            if parsed.get("seed_b64"):
+                raise ValueError(
+                    "public key file holds a private sealing key; pass the "
+                    "public-key file written by `case keygen --public-out` instead"
+                )
+            if "public_key_b64" in parsed:
+                algorithm = parsed.get("algorithm")
+                if algorithm is not None and algorithm != "ed25519":
+                    raise ValueError(
+                        "public key file has unsupported algorithm: "
+                        f"{algorithm!r}"
+                    )
+                encoded = parsed["public_key_b64"]
+                if not isinstance(encoded, str):
+                    raise ValueError("public key file public_key_b64 is not a string")
+                try:
+                    key = _b64decode_strict(encoded)
+                except ValueError as exc:
+                    raise ValueError(
+                        "public key file has an invalid public_key_b64"
+                    ) from exc
+                if len(key) != 32:
+                    raise ValueError("public key file does not hold a 32-byte key")
+                keyid = parsed.get("keyid")
+                if keyid is not None and keyid != _sha256(key):
+                    raise ValueError("public key file keyid does not match the key")
+                return key
+            raise ValueError(
+                "public key file is a JSON object without a public_key_b64 field"
+            )
+        text = raw.decode("ascii", "ignore").strip()
         data = bytes.fromhex(text)
         if len(data) == 32:
             return data
@@ -2447,7 +2505,8 @@ def main(argv=None):
     parser.add_argument(
         "--public-key",
         default=None,
-        help="Ed25519 public key as 64 hex chars, or a path to a key file",
+        help="Ed25519 public key as 64 hex chars, or a path to a key file "
+        "(64 hex chars, 32 raw bytes, or a keygen JSON public-key file)",
     )
     args = parser.parse_args(argv)
     try:
