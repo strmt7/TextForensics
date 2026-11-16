@@ -62222,19 +62222,6 @@ annotation = "str | None"
 reason = "Postponed-evaluation annotation (arg of read_sample_cache): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour."
 
 [[equivalent]]
-id = "textforensics.datasets:core/ReplaceComparisonOperator_NotEq_IsNot:7"
-module = "textforensics.datasets"
-operator = "core/ReplaceComparisonOperator_NotEq_IsNot"
-occurrence = 7
-start_pos = [2148, 36]
-end_pos = [2148, 38]
-function = "read_sample_cache"
-kind = "domain-equivalent"
-source_text = "!="
-source_fingerprint = "19cf6cd7a9116c1b89899373e64c84d669391891bfc7f641666b0b6336c6f5be"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Domain-equivalent mutant (read_sample_cache): `filename != Path(filename).name` -> `is not` in the plain-filename check. Same pathlib identity argument as NotEq_IsNot:6 — `Path(x).name is x` for every single-component name, so `is not` coincides with `!=` on every input."
-
-[[equivalent]]
 id = "textforensics.detection_cache:core/NumberReplacer:62"
 module = "textforensics.detection_cache"
 operator = "core/NumberReplacer"

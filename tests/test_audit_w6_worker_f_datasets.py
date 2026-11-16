@@ -39,6 +39,7 @@ from textforensics.datasets import (
     NormalizedRow,
     get_spec,
     map_row,
+    read_sample_cache,
     write_sample_cache,
 )
 from textforensics.ledger import canonical_text_sha256
@@ -91,6 +92,41 @@ class TestDatasetsW6Killers(unittest.TestCase):
             )
             self.assertTrue(path.is_file())
             self.assertEqual(path.name, "other.jsonl")
+
+    def test_read_sample_cache_accepts_runtime_built_plain_filename(self):
+        # Parent decision on the W4 baseline twin (occ 7): the
+        # read_sample_cache NotEq_IsNot entry carried the same wrong
+        # justification as the write_sample_cache occ 6 entry (dropped
+        # in the W6 refresh) — `Path(x).name is x` is not
+        # identity-stable. This test kills it the same way: a str
+        # subclass filename is never identical to the plain str
+        # returned by Path(...).name, so the mutant (identity
+        # comparison) rejects a valid plain filename with ValueError
+        # while the original (value comparison) accepts it.
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+
+            class PlainName(str):
+                pass
+
+            filename = PlainName("other.jsonl")
+            write_sample_cache(
+                get_spec("beemo"),
+                "default",
+                "train",
+                [_row("hello world this is a test")],
+                cache_dir=root,
+                filename=filename,
+            )
+            rows = read_sample_cache(
+                get_spec("beemo"),
+                "default",
+                "train",
+                cache_dir=root,
+                filename=filename,
+            )
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0].text, "hello world this is a test")
 
 
 if __name__ == "__main__":
