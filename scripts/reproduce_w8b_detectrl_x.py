@@ -188,7 +188,7 @@ def _shingles(text: str) -> set[str]:
     toks = _tokens(text)
     if len(toks) < SHINGLE_N:
         return {"\x00" + " ".join(toks)}
-    return {" ".join(toks[i:i + SHINGLE_N]) for i in range(len(toks) - SHINGLE_N + 1)}
+    return {" ".join(toks[i : i + SHINGLE_N]) for i in range(len(toks) - SHINGLE_N + 1)}
 
 
 def _shingle_hashes(text: str) -> set[int]:
@@ -527,7 +527,9 @@ def _group_slices(
 
 
 def _load_cache_jsonl(path: Path) -> list[dict]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
 
 
 def _verify_partition(rows: list[dict], assignment: dict[int, str]) -> dict:
@@ -563,7 +565,9 @@ def validate_run_artifact(artifact: dict) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="measure and compare only; write nothing")
+    parser.add_argument(
+        "--check", action="store_true", help="measure and compare only; write nothing"
+    )
     parser.add_argument("--output", default=None, help="artifact path")
     args = parser.parse_args(argv)
 
@@ -574,7 +578,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  - {item}", file=sys.stderr)
         return 2
 
-    b_artifact_path = WORKER_B_ROOT / "docs" / "evidence" / "runs" / "EV-20261116-dataset-detectrl-x.json"
+    b_artifact_path = (
+        WORKER_B_ROOT / "docs" / "evidence" / "runs" / "EV-20261116-dataset-detectrl-x.json"
+    )
     if not b_artifact_path.exists():
         raise ValueError(f"Worker B DetectRL-X artifact missing: {b_artifact_path}")
     b_artifact = json.loads(b_artifact_path.read_text(encoding="utf-8"))
@@ -616,25 +622,35 @@ def main(argv: list[str] | None = None) -> int:
     print("[detectrl_x] verifying raw source file ...", flush=True)
     raw_path = download_detectrl_x()
     verify_detectrl_x_file(raw_path)
-    check("raw file size", raw_path.stat().st_size == DETECTRL_X_BYTES,
-          f"{raw_path.stat().st_size} vs {DETECTRL_X_BYTES}")
-    check("raw file sha256", _sha256_file(raw_path) == DETECTRL_X_SHA256,
-          f"{_sha256_file(raw_path)[:12]} vs {DETECTRL_X_SHA256[:12]}")
+    check(
+        "raw file size",
+        raw_path.stat().st_size == DETECTRL_X_BYTES,
+        f"{raw_path.stat().st_size} vs {DETECTRL_X_BYTES}",
+    )
+    check(
+        "raw file sha256",
+        _sha256_file(raw_path) == DETECTRL_X_SHA256,
+        f"{_sha256_file(raw_path)[:12]} vs {DETECTRL_X_SHA256[:12]}",
+    )
     print("[detectrl_x] streaming one pass: strided sample ...", flush=True)
     train_indexed, test_indexed, counts = sample_detectrl_x_rows(
         raw_path,
         sample_offsets(DETECTRL_X_TRAIN_TOTAL, DETECTRL_X_TRAIN_N),
         sample_offsets(DETECTRL_X_TEST_TOTAL, DETECTRL_X_TEST_N),
     )
-    check("file counts verified",
-          counts["train"] == DETECTRL_X_TRAIN_TOTAL and counts["test"] == DETECTRL_X_TEST_TOTAL,
-          json.dumps(counts, sort_keys=True))
-    check("sampled source rows",
-          len(train_indexed) == DETECTRL_X_TRAIN_N and len(test_indexed) == DETECTRL_X_TEST_N,
-          f"train {len(train_indexed)} test {len(test_indexed)}")
+    check(
+        "file counts verified",
+        counts["train"] == DETECTRL_X_TRAIN_TOTAL and counts["test"] == DETECTRL_X_TEST_TOTAL,
+        json.dumps(counts, sort_keys=True),
+    )
+    check(
+        "sampled source rows",
+        len(train_indexed) == DETECTRL_X_TRAIN_N and len(test_indexed) == DETECTRL_X_TEST_N,
+        f"train {len(train_indexed)} test {len(test_indexed)}",
+    )
 
     # --- 2. Re-map every sampled row (drops collected, never hidden) ---
-    spec = get_spec("detectrl_x")
+    _spec = get_spec("detectrl_x")
     rows: list[dict] = []
     drops: list[dict] = []
     field_sets: Counter[str] = Counter()
@@ -688,8 +704,11 @@ def main(argv: list[str] | None = None) -> int:
                         "meta": dict(norm.meta),
                     }
                 )
-    check("mapped normalised rows", len(rows) == 24000 - 2 * len(drops),
-          f"{len(rows)} rows, {len(drops)} mapper drops")
+    check(
+        "mapped normalised rows",
+        len(rows) == 24000 - 2 * len(drops),
+        f"{len(rows)} rows, {len(drops)} mapper drops",
+    )
     deep_compare("drops_from_mapping", drops, b["drops_from_mapping"])
     compare("n_mapping_drops", len(drops), b["n_mapping_drops"])
 
@@ -701,16 +720,25 @@ def main(argv: list[str] | None = None) -> int:
         ("test", test_rows, "test-w8.jsonl"),
     ):
         cache_path = CACHE_ROOT / "detectrl_x" / "binary" / fname
-        manifest_path = CACHE_ROOT / "detectrl_x" / "binary" / fname.replace(".jsonl", ".manifest.json")
+        manifest_path = (
+            CACHE_ROOT / "detectrl_x" / "binary" / fname.replace(".jsonl", ".manifest.json")
+        )
         cache_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        check(f"cache {fname} sha256 matches its manifest",
-              _sha256_file(cache_path) == cache_manifest["file_sha256"],
-              _sha256_file(cache_path)[:12])
-        check(f"cache {fname} sha256 matches artifact provenance",
-              _sha256_file(cache_path) == b["provenance"]["cache"][split]["file_sha256"],
-              _sha256_file(cache_path)[:12])
-        check(f"cache {fname} rows", cache_manifest["rows"] == len(split_rows),
-              f"{cache_manifest['rows']} vs {len(split_rows)}")
+        check(
+            f"cache {fname} sha256 matches its manifest",
+            _sha256_file(cache_path) == cache_manifest["file_sha256"],
+            _sha256_file(cache_path)[:12],
+        )
+        check(
+            f"cache {fname} sha256 matches artifact provenance",
+            _sha256_file(cache_path) == b["provenance"]["cache"][split]["file_sha256"],
+            _sha256_file(cache_path)[:12],
+        )
+        check(
+            f"cache {fname} rows",
+            cache_manifest["rows"] == len(split_rows),
+            f"{cache_manifest['rows']} vs {len(split_rows)}",
+        )
         cached = _load_cache_jsonl(cache_path)
         mismatches = 0
         for cached_row, mine in zip(cached, split_rows, strict=True):
@@ -721,8 +749,11 @@ def main(argv: list[str] | None = None) -> int:
                 or dict(cached_row["meta"]) != mine["meta"]
             ):
                 mismatches += 1
-        check(f"cache {fname} rows identical to fresh mapping", mismatches == 0,
-              f"{mismatches} mismatches / {len(cached)} rows")
+        check(
+            f"cache {fname} rows identical to fresh mapping",
+            mismatches == 0,
+            f"{mismatches} mismatches / {len(cached)} rows",
+        )
 
     # --- 4. Inspection block, re-derived ---
     shared_human_texts = human_text_hashes_train & human_text_hashes_test
@@ -789,11 +820,13 @@ def main(argv: list[str] | None = None) -> int:
     for i, part in assignment.items():
         rows[i]["partition"] = part
     partition_check = _verify_partition(rows, assignment)
-    check("partition complete and leak-free",
-          partition_check["complete"]
-          and partition_check["shared_components_across_partitions"] == 0
-          and partition_check["shared_exact_texts_across_partitions"] == 0,
-          json.dumps(partition_check, sort_keys=True))
+    check(
+        "partition complete and leak-free",
+        partition_check["complete"]
+        and partition_check["shared_components_across_partitions"] == 0
+        and partition_check["shared_exact_texts_across_partitions"] == 0,
+        json.dumps(partition_check, sort_keys=True),
+    )
     near_duplicates = {
         "method": (
             "union-find over shared human-text identity plus word-8-shingle "
@@ -821,21 +854,36 @@ def main(argv: list[str] | None = None) -> int:
     # Partition manifests: per-row cluster + partition, counts, SHAs.
     manifest_refs = {}
     for part in ("fit", "validation", "final-test"):
-        mpath = WORKER_B_ROOT / "docs" / "evidence" / "manifests" / f"EV-20261116-detectrl-x-{part}.json"
+        mpath = (
+            WORKER_B_ROOT
+            / "docs"
+            / "evidence"
+            / "manifests"
+            / f"EV-20261116-detectrl-x-{part}.json"
+        )
         check(f"manifest {part} exists", mpath.exists(), str(mpath))
         manifest = json.loads(mpath.read_text(encoding="utf-8"))
-        manifest_refs[part] = {"path": str(mpath.relative_to(WORKER_B_ROOT)),
-                               "sha256": _sha256_file(mpath)}
+        manifest_refs[part] = {
+            "path": str(mpath.relative_to(WORKER_B_ROOT)),
+            "sha256": _sha256_file(mpath),
+        }
         part_rows = [r for r in rows if r["partition"] == part]
-        check(f"manifest {part} n_rows", manifest["n_rows"] == len(part_rows),
-              f"{manifest['n_rows']} vs {len(part_rows)}")
-        check(f"manifest {part} n_human/n_ai",
-              manifest["n_human"] == sum(1 for r in part_rows if r["label"] == 0)
-              and manifest["n_ai"] == sum(1 for r in part_rows if r["label"] == 1),
-              f"{manifest['n_human']}/{manifest['n_ai']}")
-        check(f"manifest {part} n_components",
-              manifest["n_components"] == len({r["cluster"] for r in part_rows}),
-              str(manifest["n_components"]))
+        check(
+            f"manifest {part} n_rows",
+            manifest["n_rows"] == len(part_rows),
+            f"{manifest['n_rows']} vs {len(part_rows)}",
+        )
+        check(
+            f"manifest {part} n_human/n_ai",
+            manifest["n_human"] == sum(1 for r in part_rows if r["label"] == 0)
+            and manifest["n_ai"] == sum(1 for r in part_rows if r["label"] == 1),
+            f"{manifest['n_human']}/{manifest['n_ai']}",
+        )
+        check(
+            f"manifest {part} n_components",
+            manifest["n_components"] == len({r["cluster"] for r in part_rows}),
+            str(manifest["n_components"]),
+        )
         by_sid = {r["source_id"]: r for r in part_rows}
         mismatches = 0
         for entry in manifest["entries"]:
@@ -849,11 +897,16 @@ def main(argv: list[str] | None = None) -> int:
                 or entry["kind"] != mine["kind"]
             ):
                 mismatches += 1
-        check(f"manifest {part} entries match recomputation", mismatches == 0,
-              f"{mismatches} mismatches / {len(manifest['entries'])} entries")
-        check(f"manifest {part} covers exactly its rows",
-              set(by_sid) == {e["source_id"] for e in manifest["entries"]},
-              f"{len(by_sid)} rows vs {len(manifest['entries'])} entries")
+        check(
+            f"manifest {part} entries match recomputation",
+            mismatches == 0,
+            f"{mismatches} mismatches / {len(manifest['entries'])} entries",
+        )
+        check(
+            f"manifest {part} covers exactly its rows",
+            set(by_sid) == {e["source_id"] for e in manifest["entries"]},
+            f"{len(by_sid)} rows vs {len(manifest['entries'])} entries",
+        )
     partition = {
         "method": (
             "whole components, stratified by language, deterministic hash order, "
@@ -897,12 +950,24 @@ def main(argv: list[str] | None = None) -> int:
     final_test = [r for r in rows if r["partition"] == "final-test"]
     pooled = slice_metrics(rows, bootstrap=True, cluster_bootstrap=False, rng=rng)
     final_test_metrics = slice_metrics(final_test, bootstrap=True, cluster_bootstrap=True, rng=rng)
-    by_lang_pooled = _group_slices(rows, key="lang", bootstrap=True, cluster_bootstrap=False, rng=rng)
-    by_domain_pooled = _group_slices(rows, key="domain", bootstrap=True, cluster_bootstrap=False, rng=rng)
-    by_generator_pooled = _group_slices(rows, key="model", bootstrap=True, cluster_bootstrap=False, rng=rng)
-    by_split_pooled = _group_slices(rows, key="split", bootstrap=True, cluster_bootstrap=False, rng=rng)
-    by_lang_final_test = _group_slices(final_test, key="lang", bootstrap=True, cluster_bootstrap=False, rng=rng)
-    by_domain_final_test = _group_slices(final_test, key="domain", bootstrap=False, cluster_bootstrap=False, rng=rng)
+    by_lang_pooled = _group_slices(
+        rows, key="lang", bootstrap=True, cluster_bootstrap=False, rng=rng
+    )
+    by_domain_pooled = _group_slices(
+        rows, key="domain", bootstrap=True, cluster_bootstrap=False, rng=rng
+    )
+    by_generator_pooled = _group_slices(
+        rows, key="model", bootstrap=True, cluster_bootstrap=False, rng=rng
+    )
+    by_split_pooled = _group_slices(
+        rows, key="split", bootstrap=True, cluster_bootstrap=False, rng=rng
+    )
+    by_lang_final_test = _group_slices(
+        final_test, key="lang", bootstrap=True, cluster_bootstrap=False, rng=rng
+    )
+    by_domain_final_test = _group_slices(
+        final_test, key="domain", bootstrap=False, cluster_bootstrap=False, rng=rng
+    )
     # Independent AUROC cross-check (pairwise vs rank form) on pooled + final-test.
     for tag, items in (("pooled", rows), ("final_test", final_test)):
         labels = [it["label"] for it in items]
@@ -921,12 +986,16 @@ def main(argv: list[str] | None = None) -> int:
 
     # --- 8. Fixed blocks: provenance, licence, worst-slice context, locks, drops ---
     compare("provenance.source_file", DETECTRL_X_FILE, b["provenance"]["source_file"])
-    compare("provenance.source_file_sha256", DETECTRL_X_SHA256, b["provenance"]["source_file_sha256"])
+    compare(
+        "provenance.source_file_sha256", DETECTRL_X_SHA256, b["provenance"]["source_file_sha256"]
+    )
     compare("provenance.source_file_bytes", DETECTRL_X_BYTES, b["provenance"]["source_file_bytes"])
     deep_compare("provenance.split_rows_verified", counts, b["provenance"]["split_rows_verified"])
-    deep_compare("provenance.sampled_source_rows",
-                 {"train": DETECTRL_X_TRAIN_N, "test": DETECTRL_X_TEST_N},
-                 b["provenance"]["sampled_source_rows"])
+    deep_compare(
+        "provenance.sampled_source_rows",
+        {"train": DETECTRL_X_TRAIN_N, "test": DETECTRL_X_TEST_N},
+        b["provenance"]["sampled_source_rows"],
+    )
     compare("detector", BuiltinHeuristicDetector.detector_id, b["detector"])
     compare("detector_version", BuiltinHeuristicDetector.detector_version, b["detector_version"])
     compare("detector_family", "stylometric-heuristic", b["detector_family"])
@@ -936,16 +1005,22 @@ def main(argv: list[str] | None = None) -> int:
     # worst slice, already closed in Phase 5) — checked for presence
     # and content, not recomputed, because it contains no
     # DetectRL-X numbers of its own.
-    compare("worst_slice_context.detectrl_x_pooled_n_human",
-            sum(1 for r in rows if r["label"] == 0),
-            b["worst_slice_context"]["detectrl_x_pooled_n_human"])
-    compare("worst_slice_context.detectrl_x_final_test_n_human",
-            sum(1 for r in final_test if r["label"] == 0),
-            b["worst_slice_context"]["detectrl_x_final_test_n_human"])
-    check("worst_slice_context.note present and references OpAI-Bench",
-          isinstance(b["worst_slice_context"]["note"], str)
-          and "OpAI-Bench" in b["worst_slice_context"]["note"]
-          and "0.064196" in b["worst_slice_context"]["note"])
+    compare(
+        "worst_slice_context.detectrl_x_pooled_n_human",
+        sum(1 for r in rows if r["label"] == 0),
+        b["worst_slice_context"]["detectrl_x_pooled_n_human"],
+    )
+    compare(
+        "worst_slice_context.detectrl_x_final_test_n_human",
+        sum(1 for r in final_test if r["label"] == 0),
+        b["worst_slice_context"]["detectrl_x_final_test_n_human"],
+    )
+    check(
+        "worst_slice_context.note present and references OpAI-Bench",
+        isinstance(b["worst_slice_context"]["note"], str)
+        and "OpAI-Bench" in b["worst_slice_context"]["note"]
+        and "0.064196" in b["worst_slice_context"]["note"],
+    )
     lock = {}
     for name in ("requirements-pinned.txt", "requirements-hashed.txt"):
         p = REPO_ROOT / name
@@ -1010,16 +1085,22 @@ def main(argv: list[str] | None = None) -> int:
     # only that the record is dated today and records B's verdict
     # verbatim as un-re-verified provenance, not as an agreed field.
     compare("licence_reverified.date", RUN_DATE, b["licence_reverified"]["date"])
-    check("licence_reverified.verdict present (not independently re-verified)",
-          isinstance(b["licence_reverified"].get("verdict"), str)
-          and len(b["licence_reverified"]["verdict"]) > 0)
+    check(
+        "licence_reverified.verdict present (not independently re-verified)",
+        isinstance(b["licence_reverified"].get("verdict"), str)
+        and len(b["licence_reverified"]["verdict"]) > 0,
+    )
 
     n_agree = sum(1 for c in comparison if c["agree"])
-    print(f"comparison: {n_agree}/{len(comparison)} fields agree; {len(discrepancies)} discrepancies",
-          flush=True)
+    print(
+        f"comparison: {n_agree}/{len(comparison)} fields agree; {len(discrepancies)} discrepancies",
+        flush=True,
+    )
     for d in discrepancies:
-        print(f"  DISCREPANCY {d['field']}: reproduction={d['reproduction']} worker_b={d['worker_b']}",
-              flush=True)
+        print(
+            f"  DISCREPANCY {d['field']}: reproduction={d['reproduction']} worker_b={d['worker_b']}",
+            flush=True,
+        )
     n_checks_pass = sum(1 for c in checks if c["passed"])
     print(f"identity checks: {n_checks_pass}/{len(checks)} pass", flush=True)
     for c in checks:
@@ -1033,7 +1114,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         freeze = subprocess.run(
             [sys.executable, "-m", "pip", "freeze"],
-            capture_output=True, text=True, check=True, timeout=60,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=60,
         )
         env_lock["extras"] = freeze.stdout.strip()
     except Exception as exc:  # noqa: BLE001
@@ -1088,11 +1172,15 @@ def main(argv: list[str] | None = None) -> int:
             "verdict": verdict,
         },
         "drops": [
-            {"item": "Worker B fit/validation partitions (scored, but headline is final-test)",
-             "reason": "pooled metrics are reproduced; the headline comparison is the "
-                       "final-test holdout, which influenced no decision"},
-            {"item": "Full-corpus evaluation (249,600 normalised rows)",
-             "reason": "expanded stratified sample only; see the reproduced artifact's drops"},
+            {
+                "item": "Worker B fit/validation partitions (scored, but headline is final-test)",
+                "reason": "pooled metrics are reproduced; the headline comparison is the "
+                "final-test holdout, which influenced no decision",
+            },
+            {
+                "item": "Full-corpus evaluation (249,600 normalised rows)",
+                "reason": "expanded stratified sample only; see the reproduced artifact's drops",
+            },
         ],
         "badge": "available",
         "detector_version": BuiltinHeuristicDetector.detector_version,

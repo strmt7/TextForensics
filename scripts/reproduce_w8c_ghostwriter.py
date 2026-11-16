@@ -71,8 +71,12 @@ from textforensics.detectors import BuiltinHeuristicDetector  # noqa: E402
 RUN_DATE = "2026-11-16"
 ARTIFACT_ID = "EV-20261116-reproduction-ghostwriter"
 RUN_ARTIFACT_SCHEMA = "textforensics.run-artifact/v1"
-C_MANIFEST = Path("/home/hatch/workspace/TextForensics-rewrite/docs/evidence/manifests/EV-20261116-dataset-ghostwriter-partitions.json")
-C_ARTIFACT = Path("/home/hatch/workspace/TextForensics-rewrite/docs/evidence/runs/EV-20261116-dataset-ghostwriter.json")
+C_MANIFEST = Path(
+    "/home/hatch/workspace/TextForensics-rewrite/docs/evidence/manifests/EV-20261116-dataset-ghostwriter-partitions.json"
+)
+C_ARTIFACT = Path(
+    "/home/hatch/workspace/TextForensics-rewrite/docs/evidence/runs/EV-20261116-dataset-ghostwriter.json"
+)
 CACHE_ROOT = Path.home() / ".cache" / "textforensics" / "datasets" / "ghostwriter" / "default"
 BOOTSTRAP_SEED = 20261116
 BOOTSTRAP_RESAMPLES = 1000
@@ -89,9 +93,7 @@ def _sha256_file(path: Path) -> str:
 def _content_hash(text: str) -> str:
     """Content hash per the repo benchmark construction: sha256 of the
     compact JSON {"text": text}."""
-    content = json.dumps(
-        {"text": text}, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-    )
+    content = json.dumps({"text": text}, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
@@ -102,6 +104,7 @@ def _code_version() -> str:
 
 
 # --- Independent metric implementations (written here, from definitions) ---
+
 
 def wilson(k: int, n: int, *, z: float = Z_95) -> tuple[float, float]:
     if n < 1 or not 0 <= k <= n:
@@ -170,8 +173,9 @@ def tpr_at_fpr(labels: list[int], scores: list[float], target: float) -> float:
     return best
 
 
-def cluster_bootstrap(metric: str, labels: list[int], scores: list[float],
-                      group_ids: list[str]) -> dict:
+def cluster_bootstrap(
+    metric: str, labels: list[int], scores: list[float], group_ids: list[str]
+) -> dict:
     def metric_on(lab, sco):
         if metric == "auroc":
             return auroc_pairwise(lab, sco)
@@ -244,11 +248,22 @@ def slice_metrics(slice_id: str, labels, scores, verdicts, group_ids) -> dict:
 
     def rate(k, n):
         if n == 0:
-            return {"k": k, "n": 0, "value": None, "ci_lower": None, "ci_upper": None,
-                    "not_computed": "no rows of this class in the slice"}
+            return {
+                "k": k,
+                "n": 0,
+                "value": None,
+                "ci_lower": None,
+                "ci_upper": None,
+                "not_computed": "no rows of this class in the slice",
+            }
         lo, hi = wilson(k, n)
-        return {"k": k, "n": n, "value": round(k / n, 4),
-                "ci_lower": round(lo, 4), "ci_upper": round(hi, 4)}
+        return {
+            "k": k,
+            "n": n,
+            "value": round(k / n, 4),
+            "ci_lower": round(lo, 4),
+            "ci_upper": round(hi, 4),
+        }
 
     out = {
         "slice_id": slice_id,
@@ -263,7 +278,9 @@ def slice_metrics(slice_id: str, labels, scores, verdicts, group_ids) -> dict:
         "abstentions": abstentions,
         "score_by_label": {
             "human": score_summary([s for lab, s in zip(labels, scores, strict=True) if lab == 0]),
-            "machine": score_summary([s for lab, s in zip(labels, scores, strict=True) if lab == 1]),
+            "machine": score_summary(
+                [s for lab, s in zip(labels, scores, strict=True) if lab == 1]
+            ),
         },
     }
     if min(n_human, n_ai) >= 10:
@@ -281,22 +298,43 @@ def threshold_sensitivity(human_scores, human_reliabilities) -> dict:
     n = len(human_scores)
     entries = []
     for threshold in PERTURBED_THRESHOLDS:
-        k = sum(1 for s, r in zip(human_scores, human_reliabilities, strict=True)
-                if s >= threshold and r >= RELIABILITY_FLOOR)
+        k = sum(
+            1
+            for s, r in zip(human_scores, human_reliabilities, strict=True)
+            if s >= threshold and r >= RELIABILITY_FLOOR
+        )
         if n == 0:
-            entries.append({"threshold": threshold, "k": k, "n": 0, "rate": None,
-                            "ci_lower": None, "ci_upper": None,
-                            "not_computed": "no human rows in the slice"})
+            entries.append(
+                {
+                    "threshold": threshold,
+                    "k": k,
+                    "n": 0,
+                    "rate": None,
+                    "ci_lower": None,
+                    "ci_upper": None,
+                    "not_computed": "no human rows in the slice",
+                }
+            )
             continue
         lo, hi = wilson(k, n)
-        entries.append({"threshold": threshold, "k": k, "n": n,
-                        "rate": round(k / n, 4), "ci_lower": round(lo, 4), "ci_upper": round(hi, 4)})
+        entries.append(
+            {
+                "threshold": threshold,
+                "k": k,
+                "n": n,
+                "rate": round(k / n, 4),
+                "ci_lower": round(lo, 4),
+                "ci_upper": round(hi, 4),
+            }
+        )
     return {
         "native_threshold": NATIVE_THRESHOLD,
         "reliability_floor": RELIABILITY_FLOOR,
         "max_human_score": round(max(human_scores), 4) if human_scores else None,
         "within_below_threshold": {
-            str(delta): sum(1 for s in human_scores if NATIVE_THRESHOLD - delta <= s < NATIVE_THRESHOLD)
+            str(delta): sum(
+                1 for s in human_scores if NATIVE_THRESHOLD - delta <= s < NATIVE_THRESHOLD
+            )
             for delta in (0.01, 0.02, 0.05)
         },
         "human_scores_at_or_above_threshold": sum(1 for s in human_scores if s >= NATIVE_THRESHOLD),
@@ -306,6 +344,7 @@ def threshold_sensitivity(human_scores, human_reliabilities) -> dict:
 
 # --- Near-duplicate grouping (independent implementation of the documented procedure) ---
 
+
 def _normalize(text: str) -> str:
     return " ".join(text.lower().split())
 
@@ -314,7 +353,7 @@ def _word_shingles(normalized: str, k: int = 8) -> set[str]:
     words = normalized.split()
     if len(words) < k:
         return set()
-    return {" ".join(words[i:i + k]) for i in range(len(words) - k + 1)}
+    return {" ".join(words[i : i + k]) for i in range(len(words) - k + 1)}
 
 
 def _jaccard(a: set[str], b: set[str]) -> float:
@@ -380,12 +419,16 @@ def group_rows(texts: list[str]) -> dict[int, str]:
 
 
 def load_cache_jsonl(path: Path) -> list[dict]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--check", action="store_true", help="measure and compare only; write nothing")
+    parser.add_argument(
+        "--check", action="store_true", help="measure and compare only; write nothing"
+    )
     parser.add_argument("--output", default=None, help="artifact path")
     args = parser.parse_args(argv)
 
@@ -407,21 +450,28 @@ def main(argv: list[str] | None = None) -> int:
     for source in manifest["sources"]:
         path = CACHE_ROOT / source["cache_file"]
         actual_sha = _sha256_file(path)
-        check(f"cache sha256 {source['cache_file']}",
-              actual_sha == source["file_sha256"],
-              f"{actual_sha[:12]}... vs manifest {source['file_sha256'][:12]}...")
+        check(
+            f"cache sha256 {source['cache_file']}",
+            actual_sha == source["file_sha256"],
+            f"{actual_sha[:12]}... vs manifest {source['file_sha256'][:12]}...",
+        )
         rows = load_cache_jsonl(path)
-        check(f"cache row count {source['cache_file']}",
-              len(rows) == source["rows"], f"{len(rows)} vs {source['rows']}")
+        check(
+            f"cache row count {source['cache_file']}",
+            len(rows) == source["rows"],
+            f"{len(rows)} vs {source['rows']}",
+        )
         cache_by_file[source["cache_file"]] = rows
 
     by_source: dict[str, dict] = {}
-    for fname, rows in cache_by_file.items():
+    for _fname, rows in cache_by_file.items():
         for r in rows:
             by_source[r["source_id"]] = r
-    check("manifest rows all resolve to a cache row",
-          all(m["source_id"] in by_source for m in manifest["rows"]),
-          f"{len(manifest['rows'])} manifest rows")
+    check(
+        "manifest rows all resolve to a cache row",
+        all(m["source_id"] in by_source for m in manifest["rows"]),
+        f"{len(manifest['rows'])} manifest rows",
+    )
 
     # --- 2. Content dedup re-derivation ---
     pooled = cache_by_file["train.jsonl"] + cache_by_file["train-2000.jsonl"]
@@ -431,30 +481,48 @@ def main(argv: list[str] | None = None) -> int:
     for r in pooled:
         digest = _content_hash(r["text"])
         if digest in seen:
-            drops.append({"source_id": r["source_id"], "content_hash": digest,
-                          "duplicates_kept_source_id": seen[digest], "label": r["label"]})
+            drops.append(
+                {
+                    "source_id": r["source_id"],
+                    "content_hash": digest,
+                    "duplicates_kept_source_id": seen[digest],
+                    "label": r["label"],
+                }
+            )
             continue
         seen[digest] = r["source_id"]
         kept.append(r)
     check("pooled rows before dedup is 2498", len(pooled) == 2498, f"{len(pooled)}")
     check("content dedup drops exactly 2 rows", len(drops) == 2, f"{len(drops)}")
     check("kept rows after dedup is 2496", len(kept) == 2496, f"{len(kept)}")
-    c_drops = [d for d in c_results["inclusion_drop_counts"]["dropped_duplicate_rows"]
-               if "origin" not in d]
-    check("dedup drops match artifact (source_id + kept id)",
-          {(d["source_id"], d["duplicates_kept_source_id"]) for d in drops}
-          == {(d["source_id"], d["duplicates_kept_source_id"]) for d in c_drops},
-          json.dumps(drops))
-    excluded = json.loads((CACHE_ROOT / "train-2000.excluded.json").read_text(encoding="utf-8"))["excluded"]
-    c_fetch = [d for d in c_results["inclusion_drop_counts"]["dropped_duplicate_rows"]
-               if d.get("origin") == "fetch"]
-    check("fetch-time exclusions match artifact (2)",
-          len(excluded) == 2 and
-          {(e["source_id"], e["content_hash"]) for e in excluded}
-          == {(d["source_id"], d["content_hash"]) for d in c_fetch},
-          f"{len(excluded)} excluded")
-    check("rows_pooled is 2500 (2496 kept + 4 drops)",
-          c_results["inclusion_drop_counts"]["rows_pooled"] == 2500)
+    c_drops = [
+        d for d in c_results["inclusion_drop_counts"]["dropped_duplicate_rows"] if "origin" not in d
+    ]
+    check(
+        "dedup drops match artifact (source_id + kept id)",
+        {(d["source_id"], d["duplicates_kept_source_id"]) for d in drops}
+        == {(d["source_id"], d["duplicates_kept_source_id"]) for d in c_drops},
+        json.dumps(drops),
+    )
+    excluded = json.loads((CACHE_ROOT / "train-2000.excluded.json").read_text(encoding="utf-8"))[
+        "excluded"
+    ]
+    c_fetch = [
+        d
+        for d in c_results["inclusion_drop_counts"]["dropped_duplicate_rows"]
+        if d.get("origin") == "fetch"
+    ]
+    check(
+        "fetch-time exclusions match artifact (2)",
+        len(excluded) == 2
+        and {(e["source_id"], e["content_hash"]) for e in excluded}
+        == {(d["source_id"], d["content_hash"]) for d in c_fetch},
+        f"{len(excluded)} excluded",
+    )
+    check(
+        "rows_pooled is 2500 (2496 kept + 4 drops)",
+        c_results["inclusion_drop_counts"]["rows_pooled"] == 2500,
+    )
 
     # --- 3. Grouping recomputation ---
     print("recomputing near-duplicate groups ...", flush=True)
@@ -463,9 +531,13 @@ def main(argv: list[str] | None = None) -> int:
     n_groups = len(set(group_of.values()))
     check("near-duplicate group count is 2493", n_groups == 2493, f"{n_groups}")
     group_mismatch = sum(
-        1 for m in manifest["rows"] if group_of.get(m["source_id"]) != m["group_key"])
-    check("per-row group_key matches manifest for all rows", group_mismatch == 0,
-          f"{group_mismatch} mismatches / {len(manifest['rows'])} rows")
+        1 for m in manifest["rows"] if group_of.get(m["source_id"]) != m["group_key"]
+    )
+    check(
+        "per-row group_key matches manifest for all rows",
+        group_mismatch == 0,
+        f"{group_mismatch} mismatches / {len(manifest['rows'])} rows",
+    )
 
     # --- 4. Per-row identity + partition ---
     mismatches = {"label": 0, "content_hash": 0, "slice": 0, "partition": 0, "cache_file": 0}
@@ -482,16 +554,23 @@ def main(argv: list[str] | None = None) -> int:
         if partition_of(m["group_key"]) != m["partition"]:
             mismatches["partition"] += 1
     cache_file_of = {r["source_id"]: "train.jsonl" for r in cache_by_file["train.jsonl"]}
-    cache_file_of.update({r["source_id"]: "train-2000.jsonl" for r in cache_by_file["train-2000.jsonl"]})
+    cache_file_of.update(
+        {r["source_id"]: "train-2000.jsonl" for r in cache_by_file["train-2000.jsonl"]}
+    )
     for m in manifest["rows"]:
         if cache_file_of.get(m["source_id"]) != m["cache_file"]:
             mismatches["cache_file"] += 1
     for field, count in mismatches.items():
-        check(f"manifest {field} matches cache/rule for all rows", count == 0,
-              f"{count} mismatches / {len(manifest['rows'])} rows")
+        check(
+            f"manifest {field} matches cache/rule for all rows",
+            count == 0,
+            f"{count} mismatches / {len(manifest['rows'])} rows",
+        )
     counts: dict[str, dict] = {}
     for m in manifest["rows"]:
-        c = counts.setdefault(m["partition"], {"rows": 0, "n_human": 0, "n_ai": 0, "n_unlabelled": 0})
+        c = counts.setdefault(
+            m["partition"], {"rows": 0, "n_human": 0, "n_ai": 0, "n_unlabelled": 0}
+        )
         c["rows"] += 1
         if m["label"] == 0:
             c["n_human"] += 1
@@ -499,61 +578,83 @@ def main(argv: list[str] | None = None) -> int:
             c["n_ai"] += 1
         else:
             c["n_unlabelled"] += 1
-    check("partition counts match manifest counts", counts == manifest["counts"],
-          json.dumps(counts, sort_keys=True))
-    check("partition manifest sha matches artifact record",
-          manifest_sha == c_results["partition"]["manifest_sha256"],
-          f"{manifest_sha[:12]} vs {c_results['partition']['manifest_sha256'][:12]}")
+    check(
+        "partition counts match manifest counts",
+        counts == manifest["counts"],
+        json.dumps(counts, sort_keys=True),
+    )
+    check(
+        "partition manifest sha matches artifact record",
+        manifest_sha == c_results["partition"]["manifest_sha256"],
+        f"{manifest_sha[:12]} vs {c_results['partition']['manifest_sha256'][:12]}",
+    )
     group_partitions: dict[str, set] = defaultdict(set)
     for m in manifest["rows"]:
         group_partitions[m["group_key"]].add(m["partition"])
     spanning = {g: sorted(p) for g, p in group_partitions.items() if len(p) > 1}
-    check("no near-duplicate group spans two partitions", not spanning,
-          f"{len(group_partitions)} groups, {len(spanning)} spanning")
-    check("artifact near_duplicate_groups is 2493",
-          c_results["inclusion_drop_counts"]["near_duplicate_groups"] == 2493)
+    check(
+        "no near-duplicate group spans two partitions",
+        not spanning,
+        f"{len(group_partitions)} groups, {len(spanning)} spanning",
+    )
+    check(
+        "artifact near_duplicate_groups is 2493",
+        c_results["inclusion_drop_counts"]["near_duplicate_groups"] == 2493,
+    )
 
     # --- 5. Final-test disjoint from validation split ---
     dev_rows = load_cache_jsonl(CACHE_ROOT / "validation.jsonl")
     val_hashes = {_content_hash(r["text"]) for r in dev_rows}
     final_hashes = {m["content_hash"] for m in manifest["rows"] if m["partition"] == "final-test"}
-    check("final-test disjoint from validation split by content hash",
-          not (final_hashes & val_hashes), f"{len(final_hashes & val_hashes)} shared hashes")
+    check(
+        "final-test disjoint from validation split by content hash",
+        not (final_hashes & val_hashes),
+        f"{len(final_hashes & val_hashes)} shared hashes",
+    )
 
     # --- 6. U1 registry reproduction check ---
     detector = BuiltinHeuristicDetector()
     u1_labelled = [r for r in cache_by_file["train.jsonl"] if r["label"] is not None]
     u1_verdicts = [detector.detect(r["text"]).verdict for r in u1_labelled]
-    u1_counts = {"n_human": sum(1 for r in u1_labelled if r["label"] == 0),
-                 "n_ai": sum(1 for r in u1_labelled if r["label"] == 1),
-                 "abstentions": sum(1 for v in u1_verdicts if v == "abstain")}
-    check("U1 registry counts reproduce (137 human / 210 AI / 162 abstentions)",
-          u1_counts == {"n_human": 137, "n_ai": 210, "abstentions": 162},
-          json.dumps(u1_counts))
+    u1_counts = {
+        "n_human": sum(1 for r in u1_labelled if r["label"] == 0),
+        "n_ai": sum(1 for r in u1_labelled if r["label"] == 1),
+        "abstentions": sum(1 for v in u1_verdicts if v == "abstain"),
+    }
+    check(
+        "U1 registry counts reproduce (137 human / 210 AI / 162 abstentions)",
+        u1_counts == {"n_human": 137, "n_ai": 210, "abstentions": 162},
+        json.dumps(u1_counts),
+    )
 
     # --- 7. Score the final-test labelled rows ---
-    final_labelled = [m for m in manifest["rows"]
-                      if m["partition"] == "final-test" and m["label"] is not None]
+    final_labelled = [
+        m for m in manifest["rows"] if m["partition"] == "final-test" and m["label"] is not None
+    ]
     scored = []
     for m in final_labelled:
         r = by_source[m["source_id"]]
         pred = detector.detect(r["text"])
-        scored.append({
-            "source_id": m["source_id"],
-            "label": int(m["label"]),
-            "score": float(pred.score),
-            "reliability": float(pred.reliability),
-            "verdict": str(pred.verdict),
-            "group": m["group_key"],
-            "domain": str(r["meta"].get("domain")),
-            "lang": str(r["meta"].get("lang")),
-            "agent": str(r["meta"].get("agent")),
-        })
-    check("final-test labelled count is 861 (354 human / 507 AI)",
-          len(scored) == 861
-          and sum(1 for s in scored if s["label"] == 0) == 354
-          and sum(1 for s in scored if s["label"] == 1) == 507,
-          f"n={len(scored)}")
+        scored.append(
+            {
+                "source_id": m["source_id"],
+                "label": int(m["label"]),
+                "score": float(pred.score),
+                "reliability": float(pred.reliability),
+                "verdict": str(pred.verdict),
+                "group": m["group_key"],
+                "domain": str(r["meta"].get("domain")),
+                "lang": str(r["meta"].get("lang")),
+                "agent": str(r["meta"].get("agent")),
+            }
+        )
+    check(
+        "final-test labelled count is 861 (354 human / 507 AI)",
+        len(scored) == 861
+        and sum(1 for s in scored if s["label"] == 0) == 354
+        and sum(1 for s in scored if s["label"] == 1) == 507,
+        f"n={len(scored)}",
+    )
 
     # --- 8. Recompute slices exactly as Worker C grouped them ---
     human_rows = [s for s in scored if s["label"] == 0]
@@ -584,12 +685,20 @@ def main(argv: list[str] | None = None) -> int:
     # Ties keep the first slice in sorted-grouping order (stable sort by
     # the upper bound only, exactly as Worker C's summarize_slices does).
     ranked = [
-        (m["fpr_native"]["ci_upper"], name) for name, m in recomputed.items()
+        (m["fpr_native"]["ci_upper"], name)
+        for name, m in recomputed.items()
         if m["n_human"] >= 10 and m["fpr_native"]["ci_upper"] is not None
     ]
     ranked.sort(key=lambda t: t[0], reverse=True)
-    worst = {"slice_id": ranked[0][1], "fpr_wilson_upper": ranked[0][0],
-             "n_human": recomputed[ranked[0][1]]["n_human"]} if ranked else None
+    worst = (
+        {
+            "slice_id": ranked[0][1],
+            "fpr_wilson_upper": ranked[0][0],
+            "n_human": recomputed[ranked[0][1]]["n_human"],
+        }
+        if ranked
+        else None
+    )
 
     # Threshold sensitivity on final-test human rows.
     sensitivity = threshold_sensitivity(
@@ -608,8 +717,9 @@ def main(argv: list[str] | None = None) -> int:
     _new_human = [r for r in human_rows if cache_file_of[r["source_id"]] != "train.jsonl"]
     _new_scores = [r["score"] for r in _new_human]
     _new_max = round(max(_new_scores), 4) if _new_scores else None
-    _new_k066 = sum(1 for r in _new_human
-                    if r["score"] >= 0.66 and r["reliability"] >= RELIABILITY_FLOOR)
+    _new_k066 = sum(
+        1 for r in _new_human if r["score"] >= 0.66 and r["reliability"] >= RELIABILITY_FLOOR
+    )
     sensitivity_detail = {
         "top_human_row": {
             "score": round(float(_top["score"]), 4),
@@ -655,64 +765,107 @@ def main(argv: list[str] | None = None) -> int:
         if mine is None or theirs is None:
             compare(f"slices.{name}.present", mine is not None, theirs is not None)
             continue
-        for field in ("slice_id", "n_human", "n_ai", "n_human_groups", "n_ai_groups",
-                      "coverage", "abstention_rate", "abstentions"):
+        for field in (
+            "slice_id",
+            "n_human",
+            "n_ai",
+            "n_human_groups",
+            "n_ai_groups",
+            "coverage",
+            "abstention_rate",
+            "abstentions",
+        ):
             compare(f"slices.{name}.{field}", mine[field], theirs[field])
         for rate in ("fpr_native", "tpr_native"):
             for sub in ("k", "n", "value", "ci_lower", "ci_upper"):
                 compare(f"slices.{name}.{rate}.{sub}", mine[rate].get(sub), theirs[rate].get(sub))
             if "not_computed" in mine[rate] or "not_computed" in theirs[rate]:
-                compare(f"slices.{name}.{rate}.not_computed",
-                        mine[rate].get("not_computed"), theirs[rate].get("not_computed"))
+                compare(
+                    f"slices.{name}.{rate}.not_computed",
+                    mine[rate].get("not_computed"),
+                    theirs[rate].get("not_computed"),
+                )
         for lab in ("human", "machine"):
             for sub in ("n", "mean", "median", "min", "max"):
-                compare(f"slices.{name}.score_by_label.{lab}.{sub}",
-                        mine["score_by_label"][lab][sub], theirs["score_by_label"][lab][sub])
+                compare(
+                    f"slices.{name}.score_by_label.{lab}.{sub}",
+                    mine["score_by_label"][lab][sub],
+                    theirs["score_by_label"][lab][sub],
+                )
         for metric in ("auroc", "auprc", "tpr_at_1pct_fpr", "tpr_at_5pct_fpr"):
             if metric in mine and metric in theirs:
-                for sub in ("value", "ci_lower", "ci_upper", "resamples", "resamples_skipped_no_class"):
+                for sub in (
+                    "value",
+                    "ci_lower",
+                    "ci_upper",
+                    "resamples",
+                    "resamples_skipped_no_class",
+                ):
                     compare(f"slices.{name}.{metric}.{sub}", mine[metric][sub], theirs[metric][sub])
             else:
                 compare(f"slices.{name}.{metric}.present", metric in mine, metric in theirs)
-                if "ranking_metrics_not_computed" in mine or "ranking_metrics_not_computed" in theirs:
-                    compare(f"slices.{name}.ranking_metrics_not_computed",
-                            mine.get("ranking_metrics_not_computed"),
-                            theirs.get("ranking_metrics_not_computed"))
+                if (
+                    "ranking_metrics_not_computed" in mine
+                    or "ranking_metrics_not_computed" in theirs
+                ):
+                    compare(
+                        f"slices.{name}.ranking_metrics_not_computed",
+                        mine.get("ranking_metrics_not_computed"),
+                        theirs.get("ranking_metrics_not_computed"),
+                    )
     # Threshold sensitivity.
     c_sens = c_results["threshold_sensitivity"]
-    for field in ("native_threshold", "reliability_floor", "max_human_score",
-                  "within_below_threshold", "human_scores_at_or_above_threshold"):
+    for field in (
+        "native_threshold",
+        "reliability_floor",
+        "max_human_score",
+        "within_below_threshold",
+        "human_scores_at_or_above_threshold",
+    ):
         compare(f"threshold_sensitivity.{field}", sensitivity[field], c_sens[field])
-    for i, (my_e, th_e) in enumerate(zip(sensitivity["sensitivity"], c_sens["sensitivity"])):
+    for i, (my_e, th_e) in enumerate(
+        zip(sensitivity["sensitivity"], c_sens["sensitivity"], strict=False)
+    ):
         for sub in ("threshold", "k", "n", "rate", "ci_lower", "ci_upper"):
             compare(f"threshold_sensitivity.sensitivity[{i}].{sub}", my_e[sub], th_e[sub])
     # The detail dict (added by Worker C in aa7eb50) is fully
     # recomputable from the scored rows; compare every field.
     c_detail = c_results["threshold_sensitivity_detail"]
-    for field in ("new_sample_human_rows_in_final_test", "new_sample_max_human_score",
-                  "new_sample_k_at_threshold_0_66", "interpretation"):
+    for field in (
+        "new_sample_human_rows_in_final_test",
+        "new_sample_max_human_score",
+        "new_sample_k_at_threshold_0_66",
+        "interpretation",
+    ):
         compare(f"threshold_sensitivity_detail.{field}", sensitivity_detail[field], c_detail[field])
     for sub in ("score", "reliability", "domain", "lang", "source_id", "cache_file", "is_u1_row"):
-        compare(f"threshold_sensitivity_detail.top_human_row.{sub}",
-                sensitivity_detail["top_human_row"][sub], c_detail["top_human_row"][sub])
+        compare(
+            f"threshold_sensitivity_detail.top_human_row.{sub}",
+            sensitivity_detail["top_human_row"][sub],
+            c_detail["top_human_row"][sub],
+        )
     # The note is a hardcoded literal in Worker C's script, not a
     # computed value: it can only be checked for presence and for
     # consistency with the recomputed detail numbers (fresh max 0.6496
     # and the 1/354 flip count), not recomputed itself.
     _note = c_results["threshold_sensitivity_note"]
     _note_numbers_consistent = (
-        f"{sensitivity_detail['new_sample_max_human_score']}" in _note
-        and "1/354" in _note
+        f"{sensitivity_detail['new_sample_max_human_score']}" in _note and "1/354" in _note
     )
     compare("threshold_sensitivity_note.present", isinstance(_note, str) and len(_note) > 0, True)
-    compare("threshold_sensitivity_note.numbers_consistent_with_detail",
-            _note_numbers_consistent, True)
+    compare(
+        "threshold_sensitivity_note.numbers_consistent_with_detail", _note_numbers_consistent, True
+    )
     n_agree = sum(1 for c in comparison if c["agree"])
-    print(f"comparison: {n_agree}/{len(comparison)} fields agree; "
-          f"{len(discrepancies)} discrepancies", flush=True)
+    print(
+        f"comparison: {n_agree}/{len(comparison)} fields agree; {len(discrepancies)} discrepancies",
+        flush=True,
+    )
     for d in discrepancies:
-        print(f"  DISCREPANCY {d['field']}: reproduction={d['reproduction']} worker_c={d['worker_c']}",
-              flush=True)
+        print(
+            f"  DISCREPANCY {d['field']}: reproduction={d['reproduction']} worker_c={d['worker_c']}",
+            flush=True,
+        )
 
     all_checks_pass = all(c["passed"] for c in checks)
     verdict = "AGREE" if (not discrepancies and all_checks_pass) else "DISCREPANCY"
@@ -722,8 +875,11 @@ def main(argv: list[str] | None = None) -> int:
         print("check mode: no artifact file written")
         return 0 if verdict == "AGREE" else 1
 
-    output = Path(args.output) if args.output else (
-        REPO_ROOT / "docs" / "evidence" / "runs" / f"{ARTIFACT_ID}.json")
+    output = (
+        Path(args.output)
+        if args.output
+        else (REPO_ROOT / "docs" / "evidence" / "runs" / f"{ARTIFACT_ID}.json")
+    )
     environment_extras = subprocess.run(
         [sys.executable, "-m", "pip", "freeze"], capture_output=True, text=True, check=True
     ).stdout.strip()
@@ -764,8 +920,11 @@ def main(argv: list[str] | None = None) -> int:
             "partition_counts": counts,
             "group_count": n_groups,
             "groups_spanning_partitions": spanning,
-            "evaluation": {"slices": recomputed, "worst_slice": worst,
-                           "n_final_test_labelled": len(scored)},
+            "evaluation": {
+                "slices": recomputed,
+                "worst_slice": worst,
+                "n_final_test_labelled": len(scored),
+            },
             "threshold_sensitivity": sensitivity,
             "threshold_sensitivity_detail": sensitivity_detail,
             "comparison": comparison,
@@ -773,12 +932,16 @@ def main(argv: list[str] | None = None) -> int:
             "verdict": verdict,
         },
         "drops": [
-            {"item": "Worker C fit/dev partitions",
-             "reason": "reproduction scores the final-test holdout only; fit/dev rows are "
-                       "verified for identity, grouping and partition correctness but not scored"},
-            {"item": "Fusion (label 2 / unlabelled) chunk rows",
-             "reason": "rows with no binary label are excluded from binary metrics, as in "
-                       "Worker C's artifact"},
+            {
+                "item": "Worker C fit/dev partitions",
+                "reason": "reproduction scores the final-test holdout only; fit/dev rows are "
+                "verified for identity, grouping and partition correctness but not scored",
+            },
+            {
+                "item": "Fusion (label 2 / unlabelled) chunk rows",
+                "reason": "rows with no binary label are excluded from binary metrics, as in "
+                "Worker C's artifact",
+            },
         ],
         "badge": "available",
         "detector_version": "0.1.0",

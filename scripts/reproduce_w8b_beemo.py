@@ -63,9 +63,13 @@ from textforensics.detectors import BuiltinHeuristicDetector  # noqa: E402
 RUN_DATE = "2026-11-16"
 ARTIFACT_ID = "EV-20261116-reproduction-beemo"
 RUN_ARTIFACT_SCHEMA = "textforensics.run-artifact/v1"
-B_ARTIFACT = Path("/home/hatch/workspace/TextForensics-w8-b/docs/evidence/runs/EV-20261116-dataset-beemo.json")
+B_ARTIFACT = Path(
+    "/home/hatch/workspace/TextForensics-w8-b/docs/evidence/runs/EV-20261116-dataset-beemo.json"
+)
 B_MANIFESTS = Path("/home/hatch/workspace/TextForensics-w8-b/docs/evidence/manifests")
-CACHE_FILE = Path.home() / ".cache" / "textforensics" / "datasets" / "beemo" / "default" / "train-full.jsonl"
+CACHE_FILE = (
+    Path.home() / ".cache" / "textforensics" / "datasets" / "beemo" / "default" / "train-full.jsonl"
+)
 BOOTSTRAP_SEED = 20261116
 N_BOOTSTRAP = 1000
 SHINGLE_N = 8
@@ -80,7 +84,9 @@ def _sha256_file(path: Path) -> str:
 
 def _canonical_text_sha256(text: str) -> str:
     """SHA-256 of the canonical-LF representation (CRLF/CR -> LF)."""
-    return hashlib.sha256(text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")).hexdigest()
+    return hashlib.sha256(
+        text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+    ).hexdigest()
 
 
 def _code_version() -> str:
@@ -90,6 +96,7 @@ def _code_version() -> str:
 
 
 # --- Independent metric implementations (written here, from definitions) ---
+
 
 def wilson(k: int, n: int, *, z: float = 1.96) -> tuple[float, float]:
     if n < 1 or not 0 <= k <= n:
@@ -161,8 +168,12 @@ def roc_metrics(labels: list[int], scores: list[float]) -> dict[str, float]:
         for target in best:
             if fpr <= target and recall > best[target]:
                 best[target] = recall
-    return {"auroc": auroc, "auprc": ap,
-            "tpr_at_fpr_0_01": best[0.01], "tpr_at_fpr_0_05": best[0.05]}
+    return {
+        "auroc": auroc,
+        "auprc": ap,
+        "tpr_at_fpr_0_01": best[0.01],
+        "tpr_at_fpr_0_05": best[0.05],
+    }
 
 
 def bootstrap_ci(labels: list[int], scores: list[float], rng: random.Random) -> dict | None:
@@ -188,8 +199,10 @@ def bootstrap_ci(labels: list[int], scores: list[float], rng: random.Random) -> 
     out: dict = {}
     for k in keys:
         vals = sorted(draws[k])
-        out[k] = [round(vals[int(0.025 * len(vals))], 4),
-                  round(vals[int(0.975 * len(vals)) - 1], 4)]
+        out[k] = [
+            round(vals[int(0.025 * len(vals))], 4),
+            round(vals[int(0.975 * len(vals)) - 1], 4),
+        ]
     out["resamples"] = [len(draws["auroc"]), skipped]
     return out
 
@@ -224,17 +237,22 @@ def cluster_bootstrap_ci(items: list[dict], rng: random.Random) -> dict | None:
 
     def _ci(vals: list[float]) -> list[float]:
         vals = sorted(vals)
-        return [round(vals[int(0.025 * len(vals))], 4),
-                round(vals[int(0.975 * len(vals)) - 1], 4)]
+        return [round(vals[int(0.025 * len(vals))], 4), round(vals[int(0.975 * len(vals)) - 1], 4)]
 
     if not fprs:
         return None
-    return {"fpr_native": _ci(fprs), "tpr_native": _ci(tprs), "auroc": _ci(aurocs),
-            "resamples_kept": len(fprs), "resamples_skipped": skipped}
+    return {
+        "fpr_native": _ci(fprs),
+        "tpr_native": _ci(tprs),
+        "auroc": _ci(aurocs),
+        "resamples_kept": len(fprs),
+        "resamples_skipped": skipped,
+    }
 
 
-def slice_metrics(items: list[dict], *, bootstrap: bool, cluster_bootstrap: bool,
-                  rng: random.Random) -> dict:
+def slice_metrics(
+    items: list[dict], *, bootstrap: bool, cluster_bootstrap: bool, rng: random.Random
+) -> dict:
     labels = [it["label"] for it in items]
     scores = [it["score"] for it in items]
     n_human = sum(1 for x in labels if x == 0)
@@ -255,7 +273,8 @@ def slice_metrics(items: list[dict], *, bootstrap: bool, cluster_bootstrap: bool
     if roc is not None:
         pairwise = auroc_pairwise(labels, scores)
         assert abs(pairwise - roc["auroc"]) < 1e-9, (
-            f"AUROC implementations disagree: pairwise={pairwise} rank={roc['auroc']}")
+            f"AUROC implementations disagree: pairwise={pairwise} rank={roc['auroc']}"
+        )
     human_scores = [it["score"] for it in items if it["label"] == 0]
     ai_scores = [it["score"] for it in items if it["label"] == 1]
     out: dict = {
@@ -282,13 +301,17 @@ def slice_metrics(items: list[dict], *, bootstrap: bool, cluster_bootstrap: bool
             "median": round(statistics.median(human_scores), 4),
             "min": round(min(human_scores), 4),
             "max": round(max(human_scores), 4),
-        } if human_scores else None,
+        }
+        if human_scores
+        else None,
         "score_machine": {
             "mean": round(statistics.fmean(ai_scores), 4),
             "median": round(statistics.median(ai_scores), 4),
             "min": round(min(ai_scores), 4),
             "max": round(max(ai_scores), 4),
-        } if ai_scores else None,
+        }
+        if ai_scores
+        else None,
         "operating_point": OPERATING_POINT,
     }
     if bootstrap:
@@ -298,24 +321,33 @@ def slice_metrics(items: list[dict], *, bootstrap: bool, cluster_bootstrap: bool
     return out
 
 
-def group_slices(rows: list[dict], *, key: str, bootstrap: bool,
-                 rng: random.Random) -> dict[str, dict]:
+def group_slices(
+    rows: list[dict], *, key: str, bootstrap: bool, rng: random.Random
+) -> dict[str, dict]:
     groups: dict[str, list[dict]] = defaultdict(list)
     for row in rows:
         groups[str(row[key])].append(row)
     out = {}
     for name in sorted(groups):
         items = groups[name]
-        if min(sum(1 for it in items if it["label"] == 0),
-               sum(1 for it in items if it["label"] == 1)) < 10:
+        if (
+            min(
+                sum(1 for it in items if it["label"] == 0),
+                sum(1 for it in items if it["label"] == 1),
+            )
+            < 10
+        ):
             out[name] = slice_metrics(items, bootstrap=False, cluster_bootstrap=False, rng=rng)
-            out[name]["note"] = ("bootstrap CIs omitted: a class has fewer than 10 rows in this slice")
+            out[name]["note"] = (
+                "bootstrap CIs omitted: a class has fewer than 10 rows in this slice"
+            )
         else:
             out[name] = slice_metrics(items, bootstrap=bootstrap, cluster_bootstrap=False, rng=rng)
     return out
 
 
 # --- Near-duplicate components (independent implementation) ---
+
 
 def _tokens(text: str) -> list[str]:
     return " ".join(text.split()).lower().split()
@@ -325,7 +357,7 @@ def _shingles(text: str) -> set[str]:
     toks = _tokens(text)
     if len(toks) < SHINGLE_N:
         return {"\x00" + " ".join(toks)}
-    return {" ".join(toks[i:i + SHINGLE_N]) for i in range(len(toks) - SHINGLE_N + 1)}
+    return {" ".join(toks[i : i + SHINGLE_N]) for i in range(len(toks) - SHINGLE_N + 1)}
 
 
 def _shingle_hashes(text: str) -> set[int]:
@@ -385,12 +417,14 @@ def build_components(rows: list[dict]) -> tuple[list[list[int]], list[dict]]:
                 continue
             exact = _jaccard(_shingles(rows[i]["text"]), _shingles(rows[j]["text"]))
             if exact >= NEAR_DUP_JACCARD:
-                near_dup_pairs.append({
-                    "row_a": rows[j]["source_id"],
-                    "row_b": rows[i]["source_id"],
-                    "jaccard": round(exact, 4),
-                    "same_group": rows[j]["group_key"] == rows[i]["group_key"],
-                })
+                near_dup_pairs.append(
+                    {
+                        "row_a": rows[j]["source_id"],
+                        "row_b": rows[i]["source_id"],
+                        "jaccard": round(exact, 4),
+                        "same_group": rows[j]["group_key"] == rows[i]["group_key"],
+                    }
+                )
                 uf.union(i, j)
         for h in row_hashes:
             postings[h].append(i)
@@ -442,7 +476,9 @@ def assign_partitions(rows: list[dict], components: list[list[int]]) -> dict[int
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--check", action="store_true", help="measure and compare only; write nothing")
+    parser.add_argument(
+        "--check", action="store_true", help="measure and compare only; write nothing"
+    )
     parser.add_argument("--output", default=None, help="artifact path")
     args = parser.parse_args(argv)
 
@@ -455,8 +491,9 @@ def main(argv: list[str] | None = None) -> int:
     findings: list[dict] = []
 
     def check(name: str, ok: bool, detail: str = "", *, finding: bool = False) -> None:
-        checks.append({"check": name, "passed": bool(ok), "detail": str(detail),
-                       "finding": finding})
+        checks.append(
+            {"check": name, "passed": bool(ok), "detail": str(detail), "finding": finding}
+        )
         print(f"[{'PASS' if ok else 'FAIL'}] {name} {detail}", flush=True)
         if finding and not ok:
             findings.append({"check": name, "detail": str(detail)})
@@ -469,23 +506,39 @@ def main(argv: list[str] | None = None) -> int:
 
     # --- 1. Cache file ---
     cache_sha = _sha256_file(CACHE_FILE)
-    check("cache sha256 train-full.jsonl", cache_sha == b["provenance"]["cache"]["file_sha256"],
-          f"{cache_sha[:12]}... vs artifact {b['provenance']['cache']['file_sha256'][:12]}...")
-    raw_rows = [json.loads(line) for line in CACHE_FILE.read_text(encoding="utf-8").splitlines() if line.strip()]
-    check("cache row count 19683", len(raw_rows) == 19683 == b["provenance"]["cache"]["rows"],
-          f"{len(raw_rows)} rows")
-    check("cache row count matches provenance rows", len(raw_rows) == b["provenance"]["cache"]["rows"])
+    check(
+        "cache sha256 train-full.jsonl",
+        cache_sha == b["provenance"]["cache"]["file_sha256"],
+        f"{cache_sha[:12]}... vs artifact {b['provenance']['cache']['file_sha256'][:12]}...",
+    )
+    raw_rows = [
+        json.loads(line)
+        for line in CACHE_FILE.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    check(
+        "cache row count 19683",
+        len(raw_rows) == 19683 == b["provenance"]["cache"]["rows"],
+        f"{len(raw_rows)} rows",
+    )
+    check(
+        "cache row count matches provenance rows", len(raw_rows) == b["provenance"]["cache"]["rows"]
+    )
     rows: list[dict] = []
     for r in raw_rows:
-        rows.append({
-            "source_id": r["source_id"], "text": r["text"], "label": int(r["label"]),
-            "kind": str(r["meta"].get("kind")),
-            "stratum": str(r["meta"].get("category")),
-            "group_key": "prompt:" + str(r["meta"].get("prompt_id")),
-            "text_sha256": _canonical_text_sha256(r["text"]),
-            "category": str(r["meta"].get("category")),
-            "generator": str(r["meta"].get("generator")),
-        })
+        rows.append(
+            {
+                "source_id": r["source_id"],
+                "text": r["text"],
+                "label": int(r["label"]),
+                "kind": str(r["meta"].get("kind")),
+                "stratum": str(r["meta"].get("category")),
+                "group_key": "prompt:" + str(r["meta"].get("prompt_id")),
+                "text_sha256": _canonical_text_sha256(r["text"]),
+                "category": str(r["meta"].get("category")),
+                "generator": str(r["meta"].get("generator")),
+            }
+        )
 
     # --- 2. Manifests: entries vs cache; SHAs vs artifact ---
     manifests: dict[str, dict] = {}
@@ -513,74 +566,102 @@ def main(argv: list[str] | None = None) -> int:
             if r["stratum"] != e["stratum"]:
                 manifest_mismatch["stratum"] += 1
     for field, count in manifest_mismatch.items():
-        check(f"manifest entries {field}: 0 mismatches", count == 0,
-              f"{count} / {len(all_entries)} entries")
-    check("manifests cover all 19683 rows exactly once",
-          len(all_entries) == 19683 and len({e["source_id"] for _, e in all_entries}) == 19683,
-          f"{len(all_entries)} entries")
+        check(
+            f"manifest entries {field}: 0 mismatches",
+            count == 0,
+            f"{count} / {len(all_entries)} entries",
+        )
+    check(
+        "manifests cover all 19683 rows exactly once",
+        len(all_entries) == 19683 and len({e["source_id"] for _, e in all_entries}) == 19683,
+        f"{len(all_entries)} entries",
+    )
     for part, m in manifests.items():
         ref = b["partition"]["manifests"][part]["sha256"]
         current_matches = manifest_shas[part] == ref
         recon = dict(m)
         recon["code_version"] = b_artifact["code_version"]
         recon_sha = hashlib.sha256(
-            (json.dumps(recon, indent=2, sort_keys=True) + "\n").encode("utf-8")).hexdigest()
+            (json.dumps(recon, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        ).hexdigest()
         # FINDING (not a metrics failure): the manifests on disk were
         # re-frozen under code_version 895577c after the artifact was
         # written at 4881e15, so the artifact's recorded SHA no longer
         # matches the current file. The entries are unchanged (see the
         # reconstruction check below, which reproduces the recorded SHA
         # exactly). The artifact's manifest pointers are therefore stale.
-        check(f"manifest {part} sha matches artifact reference (current file)",
-              current_matches, f"current {manifest_shas[part][:12]} vs recorded {ref[:12]}",
-              finding=True)
-        check(f"manifest {part} entries identical to artifact-time file "
-              f"(reconstructed with artifact code_version)",
-              recon_sha == ref, f"reconstructed {recon_sha[:12]} vs recorded {ref[:12]}")
+        check(
+            f"manifest {part} sha matches artifact reference (current file)",
+            current_matches,
+            f"current {manifest_shas[part][:12]} vs recorded {ref[:12]}",
+            finding=True,
+        )
+        check(
+            f"manifest {part} entries identical to artifact-time file "
+            f"(reconstructed with artifact code_version)",
+            recon_sha == ref,
+            f"reconstructed {recon_sha[:12]} vs recorded {ref[:12]}",
+        )
 
     # --- 3. Components (independent recomputation) ---
     print("building near-duplicate components ...", flush=True)
     components, near_dup_pairs = build_components(rows)
     comp_sizes = Counter(len(c) for c in components)
     check("component count is 2187", len(components) == 2187, f"{len(components)}")
-    check("component size histogram is {9: 2187}",
-          dict(comp_sizes) == {9: 2187}, json.dumps(dict(comp_sizes), sort_keys=True))
+    check(
+        "component size histogram is {9: 2187}",
+        dict(comp_sizes) == {9: 2187},
+        json.dumps(dict(comp_sizes), sort_keys=True),
+    )
     comp_id_of: dict[int, str] = {}
     for members in components:
         cid = _component_id(rows, members)
         for j in members:
             comp_id_of[j] = cid
     manifest_cluster: dict[str, str] = {}
-    for part, m in manifests.items():
+    for _part, m in manifests.items():
         for e in m["entries"]:
             manifest_cluster[e["source_id"]] = e["cluster_id"]
     cluster_mismatch = sum(
-        1 for i, r in enumerate(rows) if manifest_cluster.get(r["source_id"]) != comp_id_of[i])
-    check("per-row cluster_id matches recomputed components", cluster_mismatch == 0,
-          f"{cluster_mismatch} mismatches / {len(rows)} rows")
+        1 for i, r in enumerate(rows) if manifest_cluster.get(r["source_id"]) != comp_id_of[i]
+    )
+    check(
+        "per-row cluster_id matches recomputed components",
+        cluster_mismatch == 0,
+        f"{cluster_mismatch} mismatches / {len(rows)} rows",
+    )
     total_pairs = len(near_dup_pairs)
     within = sum(1 for p in near_dup_pairs if p["same_group"])
     across = total_pairs - within
     exact_within = sum(1 for p in near_dup_pairs if p["jaccard"] == 1.0 and p["same_group"])
     exact_across = sum(1 for p in near_dup_pairs if p["jaccard"] == 1.0 and not p["same_group"])
     check("near-dup pairs J>=0.8 total is 311", total_pairs == 311, f"{total_pairs}")
-    check("near-dup pairs within-group is 311 (artifact says 'cross-prompt' 311)",
-          within == 311, f"within={within} across={across}")
+    check(
+        "near-dup pairs within-group is 311 (artifact says 'cross-prompt' 311)",
+        within == 311,
+        f"within={within} across={across}",
+    )
     check("near-dup pairs across prompts is 0", across == 0, f"across={across}")
-    check("exact-duplicate (J=1.0) pairs within-group is 218", exact_within == 218,
-          f"{exact_within}")
-    check("exact-duplicate (J=1.0) pairs across groups is 0", exact_across == 0,
-          f"{exact_across}")
+    check(
+        "exact-duplicate (J=1.0) pairs within-group is 218", exact_within == 218, f"{exact_within}"
+    )
+    check("exact-duplicate (J=1.0) pairs across groups is 0", exact_across == 0, f"{exact_across}")
     sample = b["near_duplicates"]["near_dup_pairs_sample"]
     pair_set = {(p["row_a"], p["row_b"], p["jaccard"]) for p in near_dup_pairs}
-    sample_present = all(
-        (s["row_a"], s["row_b"], s["jaccard"]) in pair_set for s in sample)
-    check("artifact near-dup sample pairs are all in recomputed pair set",
-          sample_present, f"{len(sample)} sample pairs")
-    check("artifact near_duplicates.n_components is 2187",
-          b["near_duplicates"]["n_components"] == 2187)
-    check("artifact near_duplicates.component_size_histogram is {9: 2187}",
-          b["near_duplicates"]["component_size_histogram"] == {"9": 2187})
+    sample_present = all((s["row_a"], s["row_b"], s["jaccard"]) in pair_set for s in sample)
+    check(
+        "artifact near-dup sample pairs are all in recomputed pair set",
+        sample_present,
+        f"{len(sample)} sample pairs",
+    )
+    check(
+        "artifact near_duplicates.n_components is 2187",
+        b["near_duplicates"]["n_components"] == 2187,
+    )
+    check(
+        "artifact near_duplicates.component_size_histogram is {9: 2187}",
+        b["near_duplicates"]["component_size_histogram"] == {"9": 2187},
+    )
 
     # --- 4. Partition (independent re-derivation) ---
     print("re-deriving partition assignment ...", flush=True)
@@ -590,18 +671,25 @@ def main(argv: list[str] | None = None) -> int:
         for e in m["entries"]:
             part_of[e["source_id"]] = part
     part_mismatch = sum(
-        1 for i, r in enumerate(rows) if part_of.get(r["source_id"]) != assignment[i])
-    check("per-row partition matches frozen manifests", part_mismatch == 0,
-          f"{part_mismatch} mismatches / {len(rows)} rows")
+        1 for i, r in enumerate(rows) if part_of.get(r["source_id"]) != assignment[i]
+    )
+    check(
+        "per-row partition matches frozen manifests",
+        part_mismatch == 0,
+        f"{part_mismatch} mismatches / {len(rows)} rows",
+    )
     for part in ("fit", "validation", "final-test"):
         mine_n = sum(1 for i in range(len(rows)) if assignment[i] == part)
         mine_h = sum(1 for i in range(len(rows)) if assignment[i] == part and rows[i]["label"] == 0)
         mine_a = sum(1 for i in range(len(rows)) if assignment[i] == part and rows[i]["label"] == 1)
         mine_c = len({comp_id_of[i] for i in range(len(rows)) if assignment[i] == part})
         theirs = b["partition"]["counts"][part]
-        check(f"partition counts {part}",
-              (mine_n, mine_h, mine_a, mine_c) == (theirs["n"], theirs["n_human"], theirs["n_ai"], theirs["n_components"]),
-              f"mine {(mine_n, mine_h, mine_a, mine_c)} vs artifact {(theirs['n'], theirs['n_human'], theirs['n_ai'], theirs['n_components'])}")
+        check(
+            f"partition counts {part}",
+            (mine_n, mine_h, mine_a, mine_c)
+            == (theirs["n"], theirs["n_human"], theirs["n_ai"], theirs["n_components"]),
+            f"mine {(mine_n, mine_h, mine_a, mine_c)} vs artifact {(theirs['n'], theirs['n_human'], theirs['n_ai'], theirs['n_components'])}",
+        )
     for i, r in enumerate(rows):
         r["cluster"] = comp_id_of[i]
         r["partition"] = assignment[i]
@@ -609,30 +697,46 @@ def main(argv: list[str] | None = None) -> int:
     # --- 5. Inspection counts ---
     insp = b["inspection"]
     check("inspection raw_rows_fetched 2187", insp["raw_rows_fetched"] == 2187)
-    prompt_ids = {json.loads(l)["meta"]["prompt_id"] for l in
-                  CACHE_FILE.read_text(encoding="utf-8").splitlines() if l.strip()}
-    check("inspection prompt_ids_unique 2187 (recomputed)", len(prompt_ids) == 2187,
-          f"{len(prompt_ids)}")
+    prompt_ids = {
+        json.loads(line)["meta"]["prompt_id"]
+        for line in CACHE_FILE.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    }
+    check(
+        "inspection prompt_ids_unique 2187 (recomputed)",
+        len(prompt_ids) == 2187,
+        f"{len(prompt_ids)}",
+    )
     # Inspection counts are per RAW row (2,187); the cache holds 9
     # normalised rows per raw row, so cache counts must be exactly 9x
     # the inspection counts (verified 2026-11-16: 1845/9=205, 5265/9=585,
     # ... — a direct equality check would be a script bug, not a
     # Worker B discrepancy).
-    check("inspection categories match cache at 9x (per-raw-row counts)",
-          {k: v // 9 for k, v in sorted(Counter(r["category"] for r in rows).items())}
-          == dict(sorted(insp["categories"].items()))
-          and all(v % 9 == 0 for v in Counter(r["category"] for r in rows).values()),
-          json.dumps(dict(sorted(Counter(r['category'] for r in rows).items()))))
-    check("inspection generators match cache at 9x (per-raw-row counts)",
-          {k: v // 9 for k, v in sorted(Counter(r["generator"] for r in rows).items())}
-          == dict(sorted(insp["generators"].items()))
-          and all(v % 9 == 0 for v in Counter(r["generator"] for r in rows).values()))
-    check("inspection kinds match cache",
-          dict(sorted(Counter(r["kind"] for r in rows).items())) == dict(sorted(insp["kinds"].items())))
-    check("inspection actual_variants_per_raw_row is 9.0",
-          insp["actual_variants_per_raw_row"] == 9.0)
-    check("drops_from_mapping is empty, n_mapping_drops 0",
-          b["drops_from_mapping"] == [] and b["n_mapping_drops"] == 0)
+    check(
+        "inspection categories match cache at 9x (per-raw-row counts)",
+        {k: v // 9 for k, v in sorted(Counter(r["category"] for r in rows).items())}
+        == dict(sorted(insp["categories"].items()))
+        and all(v % 9 == 0 for v in Counter(r["category"] for r in rows).values()),
+        json.dumps(dict(sorted(Counter(r["category"] for r in rows).items()))),
+    )
+    check(
+        "inspection generators match cache at 9x (per-raw-row counts)",
+        {k: v // 9 for k, v in sorted(Counter(r["generator"] for r in rows).items())}
+        == dict(sorted(insp["generators"].items()))
+        and all(v % 9 == 0 for v in Counter(r["generator"] for r in rows).values()),
+    )
+    check(
+        "inspection kinds match cache",
+        dict(sorted(Counter(r["kind"] for r in rows).items()))
+        == dict(sorted(insp["kinds"].items())),
+    )
+    check(
+        "inspection actual_variants_per_raw_row is 9.0", insp["actual_variants_per_raw_row"] == 9.0
+    )
+    check(
+        "drops_from_mapping is empty, n_mapping_drops 0",
+        b["drops_from_mapping"] == [] and b["n_mapping_drops"] == 0,
+    )
 
     # --- 6. Score all rows; determinism spot check ---
     print("scoring all rows with a fresh detector ...", flush=True)
@@ -648,11 +752,16 @@ def main(argv: list[str] | None = None) -> int:
         again = detector.detect(r["text"])
         if float(again.score) != r["score"] or str(again.verdict) != r["verdict"]:
             mismatches += 1
-    check("determinism spot check: 20 rows, 0 mismatches",
-          len(sample_rows) == 20 and mismatches == 0,
-          f"{len(sample_rows)} rows, {mismatches} mismatches")
-    compare("determinism_spot_check", {"rows_rechecked": len(sample_rows), "mismatches": mismatches},
-            b["determinism_spot_check"])
+    check(
+        "determinism spot check: 20 rows, 0 mismatches",
+        len(sample_rows) == 20 and mismatches == 0,
+        f"{len(sample_rows)} rows, {mismatches} mismatches",
+    )
+    compare(
+        "determinism_spot_check",
+        {"rows_rechecked": len(sample_rows), "mismatches": mismatches},
+        b["determinism_spot_check"],
+    )
 
     # --- 7. Recompute slices in Worker B's exact rng order ---
     print("recomputing slices (shared rng, seed 20261116) ...", flush=True)
@@ -667,11 +776,27 @@ def main(argv: list[str] | None = None) -> int:
     by_cat_ft = group_slices(final_test, key="category", bootstrap=True, rng=rng)
 
     def compare_slice(path: str, mine: dict, theirs: dict) -> None:
-        for field in ("n", "n_human", "n_ai", "k_fp_native", "k_tp_native", "fpr_native",
-                      "fpr_native_wilson_95", "tpr_native", "tpr_native_wilson_95",
-                      "auroc", "auprc", "auprc_baseline_prevalence", "tpr_at_fpr_0_01",
-                      "tpr_at_fpr_0_05", "coverage", "abstentions", "abstention_rate",
-                      "max_human_score", "operating_point"):
+        for field in (
+            "n",
+            "n_human",
+            "n_ai",
+            "k_fp_native",
+            "k_tp_native",
+            "fpr_native",
+            "fpr_native_wilson_95",
+            "tpr_native",
+            "tpr_native_wilson_95",
+            "auroc",
+            "auprc",
+            "auprc_baseline_prevalence",
+            "tpr_at_fpr_0_01",
+            "tpr_at_fpr_0_05",
+            "coverage",
+            "abstentions",
+            "abstention_rate",
+            "max_human_score",
+            "operating_point",
+        ):
             compare(f"{path}.{field}", mine.get(field), theirs.get(field))
         for lab in ("score_human", "score_machine"):
             for sub in ("mean", "median", "min", "max"):
@@ -690,13 +815,19 @@ def main(argv: list[str] | None = None) -> int:
     for name in sorted(set(by_kind_pooled) | set(b["by_kind_pooled"])):
         compare_slice(f"by_kind_pooled.{name}", by_kind_pooled[name], b["by_kind_pooled"][name])
     for name in sorted(set(by_cat_pooled) | set(b["by_category_pooled"])):
-        compare_slice(f"by_category_pooled.{name}", by_cat_pooled[name], b["by_category_pooled"][name])
+        compare_slice(
+            f"by_category_pooled.{name}", by_cat_pooled[name], b["by_category_pooled"][name]
+        )
     for name in sorted(set(by_gen_pooled) | set(b["by_generator_pooled"])):
-        compare_slice(f"by_generator_pooled.{name}", by_gen_pooled[name], b["by_generator_pooled"][name])
+        compare_slice(
+            f"by_generator_pooled.{name}", by_gen_pooled[name], b["by_generator_pooled"][name]
+        )
     for name in sorted(set(by_kind_ft) | set(b["by_kind_final_test"])):
         compare_slice(f"by_kind_final_test.{name}", by_kind_ft[name], b["by_kind_final_test"][name])
     for name in sorted(set(by_cat_ft) | set(b["by_category_final_test"])):
-        compare_slice(f"by_category_final_test.{name}", by_cat_ft[name], b["by_category_final_test"][name])
+        compare_slice(
+            f"by_category_final_test.{name}", by_cat_ft[name], b["by_category_final_test"][name]
+        )
 
     # --- 8. Dependency lock + partition verification block ---
     lock = {}
@@ -705,18 +836,29 @@ def main(argv: list[str] | None = None) -> int:
         if p.exists():
             lock[name] = _sha256_file(p)
     compare("dependency_lock", lock, b["dependency_lock"])
-    compare("partition.verification", b["partition"]["verification"],
-            {"partitions": ["final-test", "fit", "validation"], "rows_assigned": 19683,
-             "rows_total": 19683, "complete": True,
-             "shared_components_across_partitions": 0,
-             "shared_exact_texts_across_partitions": 0})
+    compare(
+        "partition.verification",
+        b["partition"]["verification"],
+        {
+            "partitions": ["final-test", "fit", "validation"],
+            "rows_assigned": 19683,
+            "rows_total": 19683,
+            "complete": True,
+            "shared_components_across_partitions": 0,
+            "shared_exact_texts_across_partitions": 0,
+        },
+    )
 
     n_agree = sum(1 for c in comparison if c["agree"])
-    print(f"comparison: {n_agree}/{len(comparison)} fields agree; "
-          f"{len(discrepancies)} discrepancies", flush=True)
+    print(
+        f"comparison: {n_agree}/{len(comparison)} fields agree; {len(discrepancies)} discrepancies",
+        flush=True,
+    )
     for d in discrepancies:
-        print(f"  DISCREPANCY {d['field']}: reproduction={d['reproduction']} worker_b={d['worker_b']}",
-              flush=True)
+        print(
+            f"  DISCREPANCY {d['field']}: reproduction={d['reproduction']} worker_b={d['worker_b']}",
+            flush=True,
+        )
 
     # FINDING (only if the artifact still carries the old labels): the
     # 4881e15 artifact labelled all 311 near-duplicate pairs
@@ -726,13 +868,17 @@ def main(argv: list[str] | None = None) -> int:
     # in commit 895577c and regenerated the artifact; the finding below
     # fires only if the old labels are still present.
     if "cross_prompt_near_dup_pairs" in b["near_duplicates"]:
-        findings.append({
-            "check": "near-duplicate pair labelling in artifact",
-            "detail": ("artifact reports 'cross_prompt_near_dup_pairs': 311 and "
-                       "'exact_duplicate_texts_across_groups': 218, but all 311 "
-                       "pairs (218 exact) are within one prompt's 9 variants; "
-                       "0 pairs are across prompts"),
-        })
+        findings.append(
+            {
+                "check": "near-duplicate pair labelling in artifact",
+                "detail": (
+                    "artifact reports 'cross_prompt_near_dup_pairs': 311 and "
+                    "'exact_duplicate_texts_across_groups': 218, but all 311 "
+                    "pairs (218 exact) are within one prompt's 9 variants; "
+                    "0 pairs are across prompts"
+                ),
+            }
+        )
 
     all_checks_pass = all(c["passed"] or c.get("finding") for c in checks)
     if discrepancies or not all_checks_pass:
@@ -747,8 +893,11 @@ def main(argv: list[str] | None = None) -> int:
         print("check mode: no artifact file written")
         return 0 if verdict in ("AGREE", "AGREE_WITH_FINDINGS") else 1
 
-    output = Path(args.output) if args.output else (
-        REPO_ROOT / "docs" / "evidence" / "runs" / f"{ARTIFACT_ID}.json")
+    output = (
+        Path(args.output)
+        if args.output
+        else (REPO_ROOT / "docs" / "evidence" / "runs" / f"{ARTIFACT_ID}.json")
+    )
     environment_extras = subprocess.run(
         [sys.executable, "-m", "pip", "freeze"], capture_output=True, text=True, check=True
     ).stdout.strip()
@@ -768,7 +917,9 @@ def main(argv: list[str] | None = None) -> int:
             "reproduces": "EV-20261116-dataset-beemo",
             "reproduces_artifact_sha256": b_artifact_sha,
             "reproduces_artifact_code_version": b_artifact["code_version"],
-            "reproduces_manifests": {p: manifest_shas[p] for p in ("fit", "validation", "final-test")},
+            "reproduces_manifests": {
+                p: manifest_shas[p] for p in ("fit", "validation", "final-test")
+            },
             "detector": "textforensics/builtin-heuristic",
             "detector_family": "stylometric-heuristic",
             "detector_version": "0.1.0",
@@ -806,9 +957,11 @@ def main(argv: list[str] | None = None) -> int:
             "verdict": verdict,
         },
         "drops": [
-            {"item": "Worker B fit/validation partitions (scored, but headline is final-test)",
-             "reason": "pooled metrics are reproduced; the headline comparison is the "
-                       "final-test holdout, which influenced no decision"},
+            {
+                "item": "Worker B fit/validation partitions (scored, but headline is final-test)",
+                "reason": "pooled metrics are reproduced; the headline comparison is the "
+                "final-test holdout, which influenced no decision",
+            },
         ],
         "badge": "available",
         "detector_version": "0.1.0",

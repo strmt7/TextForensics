@@ -101,12 +101,16 @@ PRIOR_TPR_AT_1PCT = 0.0571
 PRIOR_TPR_AT_5PCT = 0.1414
 FINAL_CACHE_REL = ("raid", "raid", "train-4000-w8.jsonl")
 EXTRA_TARGETS = [
-    {"cache_rel": ("raid", "raid", "train.jsonl"),
-     "sha256": "f689a30963024b2dc1fa159f2888e1d2ba36e68263d467ab7f73db5d9e780c00",
-     "label": "raid/train U1 sample (n=3000)"},
-    {"cache_rel": ("raid", "raid_test", "test.jsonl"),
-     "sha256": "bf2b73d5a45c299b3ce0dae8f9369b80fc08f165fa5f5b7173f35754bdec570a",
-     "label": "raid_test/test (n=50, unlabelled)"},
+    {
+        "cache_rel": ("raid", "raid", "train.jsonl"),
+        "sha256": "f689a30963024b2dc1fa159f2888e1d2ba36e68263d467ab7f73db5d9e780c00",
+        "label": "raid/train U1 sample (n=3000)",
+    },
+    {
+        "cache_rel": ("raid", "raid_test", "test.jsonl"),
+        "sha256": "bf2b73d5a45c299b3ce0dae8f9369b80fc08f165fa5f5b7173f35754bdec570a",
+        "label": "raid_test/test (n=50, unlabelled)",
+    },
 ]
 
 
@@ -125,7 +129,9 @@ def _canonical_hash(text: str) -> str:
 
 
 def _load_cache_jsonl(path: Path) -> list[dict]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
 
 
 def _code_version() -> str:
@@ -135,6 +141,7 @@ def _code_version() -> str:
 
 
 # --- Independent metric implementations (written here, not imported) ---
+
 
 def wilson_ci(k: int, n: int, z: float = Z_95) -> tuple[float, float]:
     """Wilson score interval, 95%, from the formula."""
@@ -149,8 +156,8 @@ def wilson_ci(k: int, n: int, z: float = Z_95) -> tuple[float, float]:
 
 def auroc_pairwise(labels: list[int], scores: list[float]) -> float:
     """AUROC by pairwise Mann-Whitney counting (wins + 0.5 * ties)."""
-    pos = [s for s, lab in zip(scores, labels) if lab == 1]
-    neg = [s for s, lab in zip(scores, labels) if lab == 0]
+    pos = [s for s, lab in zip(scores, labels, strict=False) if lab == 1]
+    neg = [s for s, lab in zip(scores, labels, strict=False) if lab == 0]
     if not pos or not neg:
         raise ValueError("auroc needs both classes present")
     wins = 0.0
@@ -230,9 +237,13 @@ def tpr_at_fpr(labels: list[int], scores: list[float], target_fpr: float) -> flo
     return best
 
 
-def bootstrap_ci(pairs: list[tuple[int, float]], fn, *,
-                 seed: int = BOOTSTRAP_SEED,
-                 resamples: int = BOOTSTRAP_RESAMPLES) -> dict | None:
+def bootstrap_ci(
+    pairs: list[tuple[int, float]],
+    fn,
+    *,
+    seed: int = BOOTSTRAP_SEED,
+    resamples: int = BOOTSTRAP_RESAMPLES,
+) -> dict | None:
     """Percentile bootstrap 95% CI, following Worker A's convention:
     fresh Random(seed) per call, resamples via rng.randrange(n),
     ValueError resamples skipped and counted, None when the full-sample
@@ -289,9 +300,12 @@ def score_summary(scores: list[float]) -> dict:
     }
 
 
-def cluster_bootstrap_fpr(human_clusters: list[tuple[str, int]], *,
-                          seed: int = BOOTSTRAP_SEED,
-                          resamples: int = BOOTSTRAP_RESAMPLES) -> dict | None:
+def cluster_bootstrap_fpr(
+    human_clusters: list[tuple[str, int]],
+    *,
+    seed: int = BOOTSTRAP_SEED,
+    resamples: int = BOOTSTRAP_RESAMPLES,
+) -> dict | None:
     """Cluster bootstrap 95% CI for human FPR; None when k_fp == 0."""
     clusters: dict[str, list[int]] = defaultdict(list)
     for cluster_id, is_fp in human_clusters:
@@ -322,6 +336,7 @@ def cluster_bootstrap_fpr(human_clusters: list[tuple[str, int]], *,
 
 
 # --- Slice construction (same groupings as the predeclared lists) ---
+
 
 def length_bucket(words: int) -> str:
     if words < 80:
@@ -380,23 +395,33 @@ def slice_metrics(slice_id: str, measured: list[dict]) -> dict:
         result["fpr_native"]["operating_point"] = result["operating_point"]
         result["meets_gate"] = len(human) >= MIN_N_HUMAN and fpr["ci_upper"] <= FPR_UPPER_MAX
         result["gate_blockers"] = [
-            b for b, bad in (
+            b
+            for b, bad in (
                 (f"n_human={len(human)} < {MIN_N_HUMAN}", len(human) < MIN_N_HUMAN),
-                (f"Wilson upper {fpr['ci_upper']} > {FPR_UPPER_MAX}", fpr["ci_upper"] > FPR_UPPER_MAX),
-            ) if bad
+                (
+                    f"Wilson upper {fpr['ci_upper']} > {FPR_UPPER_MAX}",
+                    fpr["ci_upper"] > FPR_UPPER_MAX,
+                ),
+            )
+            if bad
         ]
     if len(human) >= 10 and len(ai) >= 10:
         result["auroc"] = bootstrap_ci(pairs, auroc_pairwise)
         result["auprc"] = bootstrap_ci(pairs, auprc_stepwise)
         result["auprc_baseline_prevalence"] = round(len(ai) / len(labelled), 4)
-        result["tpr_at_fpr_0_01"] = bootstrap_ci(pairs, lambda labs, scs: tpr_at_fpr(labs, scs, 0.01))
-        result["tpr_at_fpr_0_05"] = bootstrap_ci(pairs, lambda labs, scs: tpr_at_fpr(labs, scs, 0.05))
+        result["tpr_at_fpr_0_01"] = bootstrap_ci(
+            pairs, lambda labs, scs: tpr_at_fpr(labs, scs, 0.01)
+        )
+        result["tpr_at_fpr_0_05"] = bootstrap_ci(
+            pairs, lambda labs, scs: tpr_at_fpr(labs, scs, 0.05)
+        )
     else:
         result["auroc"] = None
         result["auprc"] = None
         result["auroc_not_computed"] = (
             f"both classes need >= 10 rows; n_human={len(human)}, n_ai={len(ai)}"
-            if labelled else "no labelled rows in this slice"
+            if labelled
+            else "no labelled rows in this slice"
         )
     cluster_fpr = cluster_bootstrap_fpr(
         [(cluster_key(m), 1 if m["verdict"] == "ai_like" else 0) for m in human]
@@ -429,7 +454,8 @@ def build_slices(measured: list[dict]) -> tuple[list[dict], list[dict]]:
 
 def worst_human_slice(slices: list[dict]) -> dict | None:
     candidates = [
-        s for s in slices
+        s
+        for s in slices
         if s["slice_id"] != "pooled" and s["fpr_native"] is not None and s["n_human"] >= 10
     ]
     if not candidates:
@@ -443,13 +469,15 @@ def worst_human_slice(slices: list[dict]) -> dict | None:
         "fpr_wilson_upper": worst["fpr_native"]["ci_upper"],
     }
 
+
 # --- Reproduction helpers ---
+
 
 def _word_ngrams(text: str, n: int = 8) -> set[str]:
     words = text.split()
     if len(words) < n:
         return {" ".join(words)} if words else set()
-    return {" ".join(words[i:i + n]) for i in range(len(words) - n + 1)}
+    return {" ".join(words[i : i + n]) for i in range(len(words) - n + 1)}
 
 
 def _jaccard(a: set[str], b: set[str]) -> float:
@@ -627,7 +655,9 @@ def _env_lock(repo_root: Path) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="measure and compare only; write nothing")
+    parser.add_argument(
+        "--check", action="store_true", help="measure and compare only; write nothing"
+    )
     parser.add_argument("--output", default=None, help="artifact path")
     args = parser.parse_args(argv)
 
@@ -677,16 +707,23 @@ def main(argv: list[str] | None = None) -> int:
 
     # --- 1. Frozen validation cache: SHA, rows, label counts ---
     val_cache_path = CACHE_ROOT.joinpath(*VAL_CACHE_REL)
-    check("validation cache sha256 matches FROZEN",
-          _sha256_file(val_cache_path) == VAL_SHA256,
-          f"{_sha256_file(val_cache_path)[:12]} vs {VAL_SHA256[:12]}")
+    check(
+        "validation cache sha256 matches FROZEN",
+        _sha256_file(val_cache_path) == VAL_SHA256,
+        f"{_sha256_file(val_cache_path)[:12]} vs {VAL_SHA256[:12]}",
+    )
     val_rows_raw = _load_cache_jsonl(val_cache_path)
-    check("validation cache row count", len(val_rows_raw) == VAL_ROWS,
-          f"{len(val_rows_raw)} vs {VAL_ROWS}")
+    check(
+        "validation cache row count",
+        len(val_rows_raw) == VAL_ROWS,
+        f"{len(val_rows_raw)} vs {VAL_ROWS}",
+    )
     val_counts_raw = Counter(r["label"] for r in val_rows_raw)
-    check("validation cache label counts",
-          val_counts_raw.get(0, 0) == VAL_HUMAN and val_counts_raw.get(1, 0) == VAL_AI,
-          dict(val_counts_raw))
+    check(
+        "validation cache label counts",
+        val_counts_raw.get(0, 0) == VAL_HUMAN and val_counts_raw.get(1, 0) == VAL_AI,
+        dict(val_counts_raw),
+    )
     val_rows, val_dupes = _dedupe_exact(val_rows_raw)
     val_counts = Counter(r["label"] for r in val_rows)
 
@@ -700,32 +737,52 @@ def main(argv: list[str] | None = None) -> int:
     }
     shift = _find_shift(RAID_TRAIN_TOTAL, RAID_FINAL_N, [u1_offsets, old_offsets])
     final_offsets = _shifted_offsets(RAID_TRAIN_TOTAL, RAID_FINAL_N, shift)
-    check("final-test phase shift re-derives", shift == ft["phase_shift"],
-          f"recomputed {shift} vs manifest {ft['phase_shift']}")
-    check("final-test offsets sha256 re-derives",
-          _sha256_text(json.dumps(final_offsets)) == ft["offsets_sha256"],
-          f"{_sha256_text(json.dumps(final_offsets))[:12]} vs {ft['offsets_sha256'][:12]}")
-    check("final-test offsets first/last 5",
-          final_offsets[:5] == ft["offsets_first_5"] and final_offsets[-5:] == ft["offsets_last_5"],
-          f"{final_offsets[:5]} / {final_offsets[-5:]}")
+    check(
+        "final-test phase shift re-derives",
+        shift == ft["phase_shift"],
+        f"recomputed {shift} vs manifest {ft['phase_shift']}",
+    )
+    check(
+        "final-test offsets sha256 re-derives",
+        _sha256_text(json.dumps(final_offsets)) == ft["offsets_sha256"],
+        f"{_sha256_text(json.dumps(final_offsets))[:12]} vs {ft['offsets_sha256'][:12]}",
+    )
+    check(
+        "final-test offsets first/last 5",
+        final_offsets[:5] == ft["offsets_first_5"] and final_offsets[-5:] == ft["offsets_last_5"],
+        f"{final_offsets[:5]} / {final_offsets[-5:]}",
+    )
     final_cache_path = CACHE_ROOT / "raid" / ft["config"] / ft["cache_filename"]
-    check("final-test cache sha256 matches manifest",
-          _sha256_file(final_cache_path) == ft["cache_sha256"],
-          f"{_sha256_file(final_cache_path)[:12]} vs {ft['cache_sha256'][:12]}")
-    check("final-test cache sha256 matches artifact",
-          _sha256_file(final_cache_path) == a_results["final_test"]["cache_sha256"],
-          _sha256_file(final_cache_path)[:12])
-    check("manifest top-up is null (n_human >= 100, no top-up fired)",
-          ft.get("topup") is None, str(ft.get("topup")))
+    check(
+        "final-test cache sha256 matches manifest",
+        _sha256_file(final_cache_path) == ft["cache_sha256"],
+        f"{_sha256_file(final_cache_path)[:12]} vs {ft['cache_sha256'][:12]}",
+    )
+    check(
+        "final-test cache sha256 matches artifact",
+        _sha256_file(final_cache_path) == a_results["final_test"]["cache_sha256"],
+        _sha256_file(final_cache_path)[:12],
+    )
+    check(
+        "manifest top-up is null (n_human >= 100, no top-up fired)",
+        ft.get("topup") is None,
+        str(ft.get("topup")),
+    )
     final_rows_raw = _load_cache_jsonl(final_cache_path)
-    check("final-test fetched rows == n_target", len(final_rows_raw) == RAID_FINAL_N,
-          f"{len(final_rows_raw)} vs {RAID_FINAL_N}")
+    check(
+        "final-test fetched rows == n_target",
+        len(final_rows_raw) == RAID_FINAL_N,
+        f"{len(final_rows_raw)} vs {RAID_FINAL_N}",
+    )
     final_rows_pre, final_dupes = _dedupe_exact(final_rows_raw)
 
     # --- 3. Disjointness (independent content-hash set intersections) ---
     shared_val = _content_hashes(final_rows_pre) & _content_hashes(val_rows)
-    check("final-test disjoint from validation (content-hash sets)",
-          len(shared_val) == 0, f"{len(shared_val)} shared hashes")
+    check(
+        "final-test disjoint from validation (content-hash sets)",
+        len(shared_val) == 0,
+        f"{len(shared_val)} shared hashes",
+    )
     disjointness = [
         {
             "against": f"validation ({PRIOR_RUN})",
@@ -737,12 +794,18 @@ def main(argv: list[str] | None = None) -> int:
     ]
     for target in EXTRA_TARGETS:
         other = CACHE_ROOT.joinpath(*target["cache_rel"])
-        check(f"disjointness target sha {target['label']}",
-              _sha256_file(other) == target["sha256"], _sha256_file(other)[:12])
+        check(
+            f"disjointness target sha {target['label']}",
+            _sha256_file(other) == target["sha256"],
+            _sha256_file(other)[:12],
+        )
         other_rows = _load_cache_jsonl(other)
         shared_t = _content_hashes(final_rows_pre) & _content_hashes(other_rows)
-        check(f"disjoint vs {target['label']} (content-hash sets)",
-              len(shared_t) == 0, f"{len(shared_t)} shared hashes")
+        check(
+            f"disjoint vs {target['label']} (content-hash sets)",
+            len(shared_t) == 0,
+            f"{len(shared_t)} shared hashes",
+        )
         disjointness.append(
             {
                 "against": target["label"],
@@ -760,14 +823,17 @@ def main(argv: list[str] | None = None) -> int:
     final_counts = Counter(r["label"] for r in final_rows)
     deep_compare("exclusions", exclusions, a_results["exclusions"])
     deep_compare("near_duplicate_check", near_dup_report, a_results["near_duplicate_check"])
-    deep_compare("manifest.near_duplicate_check", near_dup_report,
-                 a_manifest.get("near_duplicate_check"))
+    deep_compare(
+        "manifest.near_duplicate_check", near_dup_report, a_manifest.get("near_duplicate_check")
+    )
     deep_compare("manifest.exclusions", exclusions, a_manifest.get("exclusions"))
 
     # --- 5. Fresh scoring (validation + final-test), determinism double-score ---
     detector = BuiltinHeuristicDetector()
-    print(f"[raid] scoring validation ({len(val_rows)} rows) + final-test ({len(final_rows)} rows) ...",
-          flush=True)
+    print(
+        f"[raid] scoring validation ({len(val_rows)} rows) + final-test ({len(final_rows)} rows) ...",
+        flush=True,
+    )
     val_measured = measure_rows(detector, val_rows)
     final_measured = measure_rows(detector, final_rows)
     final_measured_again = measure_rows(detector, final_rows)
@@ -778,16 +844,24 @@ def main(argv: list[str] | None = None) -> int:
     check("determinism self-check (final-test scored twice)", deterministic)
     n_det_errors = sum(1 for m in final_measured if m["error"] is not None)
     check("final-test detection errors == 0", n_det_errors == 0, str(n_det_errors))
-    deep_compare("determinism_self_check",
-                 {"final_test_scored_twice": True, "n_rows": len(final_rows),
-                  "identical_scores_and_verdicts": deterministic},
-                 a_results["determinism_self_check"])
+    deep_compare(
+        "determinism_self_check",
+        {
+            "final_test_scored_twice": True,
+            "n_rows": len(final_rows),
+            "identical_scores_and_verdicts": deterministic,
+        },
+        a_results["determinism_self_check"],
+    )
 
     # --- 6. Slices (primary + secondary) + worst slice ---
     val_primary, val_secondary = build_slices(val_measured)
     final_primary, final_secondary = build_slices(final_measured)
     worst = worst_human_slice(final_primary)
-    for tag, measured in (("final_test.pooled", final_measured), ("validation.pooled", val_measured)):
+    for tag, measured in (
+        ("final_test.pooled", final_measured),
+        ("validation.pooled", val_measured),
+    ):
         labelled = [m for m in measured if m["label"] is not None and m["error"] is None]
         labels = [m["label"] for m in labelled]
         scores = [m["score"] for m in labelled]
@@ -796,18 +870,28 @@ def main(argv: list[str] | None = None) -> int:
         ap_row = round(auprc_stepwise(labels, scores), 6)
         ap_grp = round(_auprc_tie_grouped(labels, scores), 6)
         cross_checks[tag] = {
-            "auroc_pairwise": pw, "auroc_rank": rk,
-            "auprc_per_row": ap_row, "auprc_tie_grouped": ap_grp,
+            "auroc_pairwise": pw,
+            "auroc_rank": rk,
+            "auprc_per_row": ap_row,
+            "auprc_tie_grouped": ap_grp,
         }
         check(f"{tag} AUROC pairwise == rank form", pw == rk, f"{pw} vs {rk}")
-    deep_compare("validation_remeasurement.slices_primary", val_primary,
-                 a_results["validation_remeasurement"]["slices_primary"])
-    deep_compare("validation_remeasurement.slices_secondary", val_secondary,
-                 a_results["validation_remeasurement"]["slices_secondary"])
-    deep_compare("final_test.slices_primary", final_primary,
-                 a_results["final_test"]["slices_primary"])
-    deep_compare("final_test.slices_secondary", final_secondary,
-                 a_results["final_test"]["slices_secondary"])
+    deep_compare(
+        "validation_remeasurement.slices_primary",
+        val_primary,
+        a_results["validation_remeasurement"]["slices_primary"],
+    )
+    deep_compare(
+        "validation_remeasurement.slices_secondary",
+        val_secondary,
+        a_results["validation_remeasurement"]["slices_secondary"],
+    )
+    deep_compare(
+        "final_test.slices_primary", final_primary, a_results["final_test"]["slices_primary"]
+    )
+    deep_compare(
+        "final_test.slices_secondary", final_secondary, a_results["final_test"]["slices_secondary"]
+    )
     deep_compare("final_test.worst_slice", worst, a_results["final_test"]["worst_slice"])
 
     # --- 7. Inclusion, reproduction check, manifest, seeds/gates, drops ---
@@ -846,19 +930,33 @@ def main(argv: list[str] | None = None) -> int:
         "AUROC/TPR@FPR are threshold-free so small differences come only from "
         "code changes between the prior run and this run, not from tuning.",
     }
-    deep_compare("validation_remeasurement.reproduction_check", reproduction,
-                 a_results["validation_remeasurement"]["reproduction_check"])
-    compare("validation_remeasurement.prior_run", PRIOR_RUN,
-            a_results["validation_remeasurement"]["prior_run"])
-    compare("validation_remeasurement.cache_sha256", VAL_SHA256,
-            a_results["validation_remeasurement"]["cache_sha256"])
+    deep_compare(
+        "validation_remeasurement.reproduction_check",
+        reproduction,
+        a_results["validation_remeasurement"]["reproduction_check"],
+    )
+    compare(
+        "validation_remeasurement.prior_run",
+        PRIOR_RUN,
+        a_results["validation_remeasurement"]["prior_run"],
+    )
+    compare(
+        "validation_remeasurement.cache_sha256",
+        VAL_SHA256,
+        a_results["validation_remeasurement"]["cache_sha256"],
+    )
     compare("manifest.sha256", manifest_sha, a_results["manifest"]["sha256"])
-    compare("manifest.path", f"docs/evidence/manifests/{a_manifest_path.name}",
-            a_results["manifest"]["path"])
+    compare(
+        "manifest.path",
+        f"docs/evidence/manifests/{a_manifest_path.name}",
+        a_results["manifest"]["path"],
+    )
     deep_compare("seeds", {"bootstrap_seed": BOOTSTRAP_SEED}, a_results["seeds"])
-    deep_compare("predeclared_gates",
-                 {"min_n_human": MIN_N_HUMAN, "fpr_wilson_upper_max": FPR_UPPER_MAX},
-                 a_results["predeclared_gates"])
+    deep_compare(
+        "predeclared_gates",
+        {"min_n_human": MIN_N_HUMAN, "fpr_wilson_upper_max": FPR_UPPER_MAX},
+        a_results["predeclared_gates"],
+    )
     deep_compare("environment_lock", _env_lock(REPO_ROOT), a_results["environment_lock"])
     drops = [
         {
@@ -899,11 +997,15 @@ def main(argv: list[str] | None = None) -> int:
     deep_compare("drops", drops, a_artifact.get("drops"))
 
     n_agree = sum(1 for c in comparison if c["agree"])
-    print(f"comparison: {n_agree}/{len(comparison)} fields agree; {len(discrepancies)} discrepancies",
-          flush=True)
+    print(
+        f"comparison: {n_agree}/{len(comparison)} fields agree; {len(discrepancies)} discrepancies",
+        flush=True,
+    )
     for d in discrepancies:
-        print(f"  DISCREPANCY {d['field']}: reproduction={d['reproduction']} worker_a={d['worker_a']}",
-              flush=True)
+        print(
+            f"  DISCREPANCY {d['field']}: reproduction={d['reproduction']} worker_a={d['worker_a']}",
+            flush=True,
+        )
     n_checks_pass = sum(1 for c in checks if c["passed"])
     print(f"identity checks: {n_checks_pass}/{len(checks)} pass", flush=True)
     for c in checks:
@@ -917,8 +1019,11 @@ def main(argv: list[str] | None = None) -> int:
         print("check mode: no artifact file written")
         return 0 if verdict == "AGREE" else 1
 
-    output = Path(args.output) if args.output else (
-        REPO_ROOT / "docs" / "evidence" / "runs" / f"{ARTIFACT_ID}.json")
+    output = (
+        Path(args.output)
+        if args.output
+        else (REPO_ROOT / "docs" / "evidence" / "runs" / f"{ARTIFACT_ID}.json")
+    )
     environment_extras = subprocess.run(
         [sys.executable, "-m", "pip", "freeze"], capture_output=True, text=True, check=True
     ).stdout.strip()
@@ -965,7 +1070,9 @@ def main(argv: list[str] | None = None) -> int:
                 "cache_sha256": VAL_SHA256,
                 "rows_in_cache": len(val_rows_raw),
                 "rows_after_dedupe": len(val_rows),
-                "label_counts": {str(k): v for k, v in sorted(val_counts.items(), key=lambda kv: str(kv[0]))},
+                "label_counts": {
+                    str(k): v for k, v in sorted(val_counts.items(), key=lambda kv: str(kv[0]))
+                },
                 "exact_duplicates_dropped": len(val_dupes),
                 "pooled": val_primary[0],
             },
@@ -974,7 +1081,9 @@ def main(argv: list[str] | None = None) -> int:
                 "rows_fetched": RAID_FINAL_N,
                 "rows_after_dedupe": len(final_rows) + len(exclusions),
                 "rows_after_exclusions": len(final_rows),
-                "label_counts": {str(k): v for k, v in sorted(final_counts.items(), key=lambda kv: str(kv[0]))},
+                "label_counts": {
+                    str(k): v for k, v in sorted(final_counts.items(), key=lambda kv: str(kv[0]))
+                },
                 "exact_duplicates_dropped": len(final_dupes),
                 "leakage_exclusions": len(exclusions),
                 "phase_shift": shift,
@@ -990,10 +1099,14 @@ def main(argv: list[str] | None = None) -> int:
             "verdict": verdict,
         },
         "drops": [
-            {"item": "Worker A fit/dev/selection partitions",
-             "reason": "empty by design — nothing is fitted, calibrated or selected"},
-            {"item": "RAID extra split and non-train domains",
-             "reason": "not evaluated in this wave; see the reproduced artifact's drops"},
+            {
+                "item": "Worker A fit/dev/selection partitions",
+                "reason": "empty by design — nothing is fitted, calibrated or selected",
+            },
+            {
+                "item": "RAID extra split and non-train domains",
+                "reason": "not evaluated in this wave; see the reproduced artifact's drops",
+            },
         ],
         "badge": "available",
         "detector_version": "0.1.0",

@@ -224,7 +224,10 @@ def _self_test() -> list[str]:
         problems.append("auroc_rank perfect != 1.0")
     if abs(auroc_pairwise([1, 0, 1, 0], [0.9, 0.8, 0.7, 0.1]) - 0.75) > 1e-12:
         problems.append("auroc_pairwise known case != 0.75")
-    if abs(auprc_distinct_thresholds([1, 0, 1, 0], [0.9, 0.8, 0.7, 0.1]) - (1.0 + 2.0 / 3.0) / 2.0) > 1e-12:
+    if (
+        abs(auprc_distinct_thresholds([1, 0, 1, 0], [0.9, 0.8, 0.7, 0.1]) - (1.0 + 2.0 / 3.0) / 2.0)
+        > 1e-12
+    ):
         problems.append("auprc known case != 0.8333")
     lo, hi = wilson(0, 200)
     if abs(hi - 0.018846) > 1e-6:
@@ -236,7 +239,9 @@ def _self_test() -> list[str]:
 
 
 def load_cache_jsonl(path: Path) -> list[dict]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
 
 
 def measure_record(record: dict, registry: dict, detector: BuiltinHeuristicDetector) -> dict:
@@ -272,7 +277,9 @@ def measure_record(record: dict, registry: dict, detector: BuiltinHeuristicDetec
                 labels.append(int(label))
                 if int(label) == 0:
                     n_human += 1
-                    max_human_score = score if max_human_score is None else max(max_human_score, score)
+                    max_human_score = (
+                        score if max_human_score is None else max(max_human_score, score)
+                    )
                     if verdict == "ai_like":
                         k_fp += 1
                 else:
@@ -395,7 +402,9 @@ def validate_run_artifact(artifact: dict) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="measure and compare only; write nothing")
+    parser.add_argument(
+        "--check", action="store_true", help="measure and compare only; write nothing"
+    )
     parser.add_argument("--output", default=None, help="artifact path")
     args = parser.parse_args(argv)
 
@@ -406,7 +415,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  - {item}", file=sys.stderr)
         return 2
 
-    registry = json.loads((REPO_ROOT / "docs" / "validation" / "registry.json").read_text(encoding="utf-8"))
+    registry = json.loads(
+        (REPO_ROOT / "docs" / "validation" / "registry.json").read_text(encoding="utf-8")
+    )
     detector = BuiltinHeuristicDetector()
     slices: list[dict] = []
     for record in registry["records"]:
@@ -420,16 +431,23 @@ def main(argv: list[str] | None = None) -> int:
         s["fpr_native_wilson"]["ci_upper"] for s in slices if s["slice_kind"] == "document"
     )
     worst_upper = max(s["fpr_native_wilson"]["ci_upper"] for s in slices)
-    print(f"slices: {len(slices)}; FPR reproduces {n_fpr_ok}/{len(slices)}; "
-          f"TPR reproduces {n_tpr_ok}/{len(slices)}; AUROC agrees to 4dp {n_auroc_ok}/{len(slices)}; "
-          f"Wilson FPR upper matches predeclaration {n_wilson_ok}/{len(slices)}")
-    print(f"worst document-slice Wilson upper: {worst_doc_upper:.6f}; worst overall: {worst_upper:.6f}")
+    print(
+        f"slices: {len(slices)}; FPR reproduces {n_fpr_ok}/{len(slices)}; "
+        f"TPR reproduces {n_tpr_ok}/{len(slices)}; AUROC agrees to 4dp {n_auroc_ok}/{len(slices)}; "
+        f"Wilson FPR upper matches predeclaration {n_wilson_ok}/{len(slices)}"
+    )
+    print(
+        f"worst document-slice Wilson upper: {worst_doc_upper:.6f}; worst overall: {worst_upper:.6f}"
+    )
 
     env_lock: dict = {"platform": platform.system(), "python": platform.python_version()}
     try:
         freeze = subprocess.run(
             [sys.executable, "-m", "pip", "freeze"],
-            capture_output=True, text=True, check=True, timeout=60,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=60,
         )
         env_lock["extras"] = freeze.stdout.strip()
     except Exception as exc:  # noqa: BLE001

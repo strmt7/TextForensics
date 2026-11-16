@@ -39,7 +39,6 @@ import argparse
 import hashlib
 import importlib.util
 import json
-import math
 import platform
 import random
 import subprocess
@@ -51,6 +50,8 @@ REPO_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).parent))
 
+from w8e_ood_corpus import OOD_SLICES  # noqa: E402
+
 from textforensics.config import Settings, validate_text_input  # noqa: E402
 from textforensics.datasets import cache_path, get_spec, read_sample_cache  # noqa: E402
 from textforensics.detectors import (  # noqa: E402
@@ -59,7 +60,6 @@ from textforensics.detectors import (  # noqa: E402
 )
 from textforensics.engine import analyze_text  # noqa: E402
 from textforensics.probe_metrics import wilson_ci  # noqa: E402
-from w8e_ood_corpus import OOD_SLICES  # noqa: E402
 
 RUN_DATE = "2026-11-16"
 ARTIFACT_ID = "EV-20261116-ood-short-refusal"
@@ -358,12 +358,8 @@ def measure_template_probe(detector: BuiltinHeuristicDetector) -> dict:
         "k_ai_like": sum(1 for it in items if it["verdict"] == "ai_like"),
         "k_human_like": sum(1 for it in items if it["verdict"] == "human_like"),
         "k_abstain": sum(1 for it in items if it["verdict"] == "abstain"),
-        "rate_ai_like": rate_with_ci(
-            sum(1 for it in items if it["verdict"] == "ai_like"), n
-        ),
-        "abstention_rate": _round6(
-            sum(1 for it in items if it["verdict"] == "abstain") / n
-        ),
+        "rate_ai_like": rate_with_ci(sum(1 for it in items if it["verdict"] == "ai_like"), n),
+        "abstention_rate": _round6(sum(1 for it in items if it["verdict"] == "abstain") / n),
         "mean_score": _round6(sum(it["score"] for it in items) / n),
         "min_score": _round6(min(it["score"] for it in items)),
         "max_score": _round6(max(it["score"] for it in items)),
@@ -397,12 +393,12 @@ def measure_short_text(detector: BuiltinHeuristicDetector) -> dict:
         rows = read_sample_cache(spec, slice_def["config"], slice_def["split"])
         labelled = [r for r in rows if r.label in (0, 1)]
         # Deterministic sample: sort by source_id, first N per class.
-        humans = sorted(
-            (r for r in labelled if int(r.label) == 0), key=lambda r: str(r.source_id)
-        )[:SHORT_CAP_PER_CLASS]
-        ais = sorted(
-            (r for r in labelled if int(r.label) == 1), key=lambda r: str(r.source_id)
-        )[:SHORT_CAP_PER_CLASS]
+        humans = sorted((r for r in labelled if int(r.label) == 0), key=lambda r: str(r.source_id))[
+            :SHORT_CAP_PER_CLASS
+        ]
+        ais = sorted((r for r in labelled if int(r.label) == 1), key=lambda r: str(r.source_id))[
+            :SHORT_CAP_PER_CLASS
+        ]
         sample = humans + ais
         budgets: list[dict] = []
         for budget in SHORT_BUDGETS + ["full"]:
@@ -437,8 +433,7 @@ def measure_short_text(detector: BuiltinHeuristicDetector) -> dict:
                     "auroc": _round6(auroc(scores, labels)),
                     "auprc": _round6(auprc(scores, labels)),
                     "mean_score_human": _round6(
-                        sum(s for s, y in zip(scores, labels, strict=True) if y == 0)
-                        / n_human
+                        sum(s for s, y in zip(scores, labels, strict=True) if y == 0) / n_human
                     ),
                     "mean_score_ai": _round6(
                         sum(s for s, y in zip(scores, labels, strict=True) if y == 1) / n_ai
@@ -482,9 +477,7 @@ NONDETERMINISTIC_KEYS = {"runtime_ms", "request_id", "generated_at_utc"}
 def _scrub(value):
     if isinstance(value, dict):
         return {
-            key: _scrub(item)
-            for key, item in value.items()
-            if key not in NONDETERMINISTIC_KEYS
+            key: _scrub(item) for key, item in value.items() if key not in NONDETERMINISTIC_KEYS
         }
     if isinstance(value, list):
         return [_scrub(item) for item in value]
@@ -624,19 +617,38 @@ def measure_refusals() -> dict:
         )
     except Exception as exc:  # noqa: BLE001 - record, do not fail the run
         api_cases.append(
-            {"layer": "api", "case": "testclient_unavailable", "error": f"{type(exc).__name__}: {exc}"}
+            {
+                "layer": "api",
+                "case": "testclient_unavailable",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
         )
 
     # CLI layer via subprocess (canonical venv python).
     cli_cases: list[dict] = []
-    cli_python = str(Path.home() / "workspace" / "TextForensics-rewrite" / ".venv" / "bin" / "python3")
+    cli_python = str(
+        Path.home() / "workspace" / "TextForensics-rewrite" / ".venv" / "bin" / "python3"
+    )
     with tempfile.TemporaryDirectory() as tmp:
         binary_path = Path(tmp) / "binary.bin"
         binary_path.write_bytes(b"\xff\xfe\x00\x01 not utf-8 \x80\x81")
         for case_id, argv in [
             ("empty_text", ["-m", "textforensics.cli", "scan", "--text", "", "--json"]),
-            ("short_text", ["-m", "textforensics.cli", "scan", "--text", "Hello world, this is a test.", "--json"]),
-            ("binary_file", ["-m", "textforensics.cli", "scan", "--file", str(binary_path), "--json"]),
+            (
+                "short_text",
+                [
+                    "-m",
+                    "textforensics.cli",
+                    "scan",
+                    "--text",
+                    "Hello world, this is a test.",
+                    "--json",
+                ],
+            ),
+            (
+                "binary_file",
+                ["-m", "textforensics.cli", "scan", "--file", str(binary_path), "--json"],
+            ),
         ]:
             proc = subprocess.run(
                 [cli_python, *argv],
@@ -657,7 +669,9 @@ def measure_refusals() -> dict:
                     "exit_code": proc.returncode,
                     "stderr": proc.stderr.strip()[:500],
                     "stdout_is_json": parsed is not None,
-                    "stdout_verdict": (parsed or {}).get("verdict") if isinstance(parsed, dict) else None,
+                    "stdout_verdict": (parsed or {}).get("verdict")
+                    if isinstance(parsed, dict)
+                    else None,
                     "stdout_head": stdout[:300],
                 }
             )
@@ -690,7 +704,12 @@ def measure_refusals() -> dict:
             "exception_message": str(exc)[:500],
         }
 
-    return {"cases": cases, "api_cases": api_cases, "cli_cases": cli_cases, "bundle_case": bundle_case}
+    return {
+        "cases": cases,
+        "api_cases": api_cases,
+        "cli_cases": cli_cases,
+        "bundle_case": bundle_case,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -729,7 +748,9 @@ def validate_run_artifact(artifact: dict) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="measure and validate only; write nothing")
+    parser.add_argument(
+        "--check", action="store_true", help="measure and validate only; write nothing"
+    )
     parser.add_argument("--output", default=None, help="artifact path")
     args = parser.parse_args(argv)
 
@@ -831,11 +852,17 @@ def main(argv: list[str] | None = None) -> int:
     }
 
     errors = validate_run_artifact(artifact)
-    print(f"ood slices: {len(ood['slices'])}, pooled FPR k={ood['pooled']['k_ai_like']}/{ood['pooled']['n']}")
+    print(
+        f"ood slices: {len(ood['slices'])}, pooled FPR k={ood['pooled']['k_ai_like']}/{ood['pooled']['n']}"
+    )
     print(f"template probe: k_ai_like={template['k_ai_like']}/{template['n']}")
-    print(f"ood determinism: {determinism['items_checked']} checked, {len(determinism['mismatches'])} mismatches")
+    print(
+        f"ood determinism: {determinism['items_checked']} checked, {len(determinism['mismatches'])} mismatches"
+    )
     print(f"short-text slices: {len(short['slices'])}")
-    print(f"refusal cases: {len(refusals['cases'])} + {len(refusals['api_cases'])} api + {len(refusals['cli_cases'])} cli")
+    print(
+        f"refusal cases: {len(refusals['cases'])} + {len(refusals['api_cases'])} api + {len(refusals['cli_cases'])} cli"
+    )
     print(f"run-artifact/v1 validation errors: {len(errors)}")
     for error in errors:
         print(f"  - {error}")

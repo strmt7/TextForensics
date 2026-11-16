@@ -68,6 +68,9 @@ WORKER_A_ROOT = Path.home() / "workspace" / "TextForensics-rewrite"
 sys.path.insert(0, str(REPO_ROOT / "src"))
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
+from measure_datasets import auroc as repo_auroc  # noqa: E402
+from measure_datasets import tpr_at_fpr  # noqa: E402
+
 from textforensics.benchmark import check_disjointness, fingerprint_dataset  # noqa: E402
 from textforensics.datasets import (  # noqa: E402
     canonical_text_sha256,
@@ -76,7 +79,6 @@ from textforensics.datasets import (  # noqa: E402
 )
 from textforensics.detectors import BuiltinHeuristicDetector  # noqa: E402
 from textforensics.probe_metrics import wilson_ci as repo_wilson_ci  # noqa: E402
-from measure_datasets import auroc as repo_auroc, tpr_at_fpr  # noqa: E402
 
 RUN_DATE = "2026-11-16"
 ARTIFACT_ID = "EV-20261116-reproduction-raid-mage"
@@ -292,8 +294,13 @@ def _self_test() -> list[str]:
 # --- Worker A metric replication (same stream, same conventions) ---
 
 
-def _bootstrap_ci(pairs: list[tuple[int, float]], fn, *, seed: int = BOOTSTRAP_SEED,
-                  resamples: int = BOOTSTRAP_RESAMPLES) -> dict | None:
+def _bootstrap_ci(
+    pairs: list[tuple[int, float]],
+    fn,
+    *,
+    seed: int = BOOTSTRAP_SEED,
+    resamples: int = BOOTSTRAP_RESAMPLES,
+) -> dict | None:
     """Percentile bootstrap 95% CI, replicating Worker A's stream
     exactly: a fresh random.Random(seed) per call, rng.randrange(n)
     draws, percentile [int(0.025*m)-1] / [int(0.975*m)]."""
@@ -349,9 +356,12 @@ def _score_summary(scores: list[float]) -> dict:
     }
 
 
-def _cluster_bootstrap_fpr(human_clusters: list[tuple[str, int]], *,
-                           seed: int = BOOTSTRAP_SEED,
-                           resamples: int = BOOTSTRAP_RESAMPLES) -> dict | None:
+def _cluster_bootstrap_fpr(
+    human_clusters: list[tuple[str, int]],
+    *,
+    seed: int = BOOTSTRAP_SEED,
+    resamples: int = BOOTSTRAP_RESAMPLES,
+) -> dict | None:
     clusters: dict[str, list[int]] = defaultdict(list)
     for cluster_id, is_fp in human_clusters:
         clusters[cluster_id].append(is_fp)
@@ -382,7 +392,7 @@ def _cluster_bootstrap_fpr(human_clusters: list[tuple[str, int]], *,
 
 def _word_ngrams(text: str, n: int = 8) -> set[str]:
     words = text.split()
-    return {" ".join(words[i:i + n]) for i in range(max(0, len(words) - n + 1))}
+    return {" ".join(words[i : i + n]) for i in range(max(0, len(words) - n + 1))}
 
 
 def _jaccard(a: set[str], b: set[str]) -> float:
@@ -466,7 +476,9 @@ def measure_rows(detector, rows: list[dict]) -> list[dict]:
     return out
 
 
-def slice_metrics(slice_id: str, measured: list[dict], *, cluster_key, bootstrap: bool = True) -> dict:
+def slice_metrics(
+    slice_id: str, measured: list[dict], *, cluster_key, bootstrap: bool = True
+) -> dict:
     labelled = [m for m in measured if m["label"] is not None and m["error"] is None]
     human = [m for m in labelled if m["label"] == 0]
     ai = [m for m in labelled if m["label"] == 1]
@@ -634,7 +646,9 @@ def _worst_human_slice(slices: list[dict]) -> dict | None:
 
 
 def _load_cache_jsonl(path: Path) -> list[dict]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
 
 
 def _dedupe_exact(rows: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -742,8 +756,12 @@ def _auroc_cross_checks(pairs: list[tuple[int, float]]) -> dict:
     labels = [lab for lab, _ in pairs]
     scores = [s for _, s in pairs]
     if sum(labels) == 0 or sum(labels) == len(labels):
-        return {"auroc_pairwise": None, "auroc_rank_repo": None,
-                "auprc_stepwise": None, "auprc_per_row": None}
+        return {
+            "auroc_pairwise": None,
+            "auroc_rank_repo": None,
+            "auprc_stepwise": None,
+            "auprc_per_row": None,
+        }
     return {
         "auroc_pairwise": _round6(auroc_pairwise(labels, scores)),
         "auroc_rank_repo": _round6(repo_auroc(labels, scores)),
@@ -752,11 +770,21 @@ def _auroc_cross_checks(pairs: list[tuple[int, float]]) -> dict:
     }
 
 
-def reproduce_corpus(key: str, detector, comparison: list[dict], discrepancies: list[dict],
-                     checks: list[dict], cross_checks: dict) -> dict:
+def reproduce_corpus(
+    key: str,
+    detector,
+    comparison: list[dict],
+    discrepancies: list[dict],
+    checks: list[dict],
+    cross_checks: dict,
+) -> dict:
     prefix = f"{key}."
-    a_results_path = WORKER_A_ROOT / "docs" / "evidence" / "runs" / f"EV-20261116-dataset-{key}.json"
-    a_manifest_path = WORKER_A_ROOT / "docs" / "evidence" / "manifests" / f"EV-20261116-{key}-manifest.json"
+    a_results_path = (
+        WORKER_A_ROOT / "docs" / "evidence" / "runs" / f"EV-20261116-dataset-{key}.json"
+    )
+    a_manifest_path = (
+        WORKER_A_ROOT / "docs" / "evidence" / "manifests" / f"EV-20261116-{key}-manifest.json"
+    )
     if not a_results_path.exists():
         raise ValueError(f"{key}: Worker A artifact missing: {a_results_path}")
     if not a_manifest_path.exists():
@@ -772,8 +800,9 @@ def reproduce_corpus(key: str, detector, comparison: list[dict], discrepancies: 
 
     def compare(path: str, mine, theirs) -> None:
         same = mine == theirs
-        comparison.append({"field": prefix + path, "reproduction": mine, "worker_a": theirs,
-                           "agree": same})
+        comparison.append(
+            {"field": prefix + path, "reproduction": mine, "worker_a": theirs, "agree": same}
+        )
         if not same:
             discrepancies.append({"field": prefix + path, "reproduction": mine, "worker_a": theirs})
 
@@ -798,16 +827,23 @@ def reproduce_corpus(key: str, detector, comparison: list[dict], discrepancies: 
     # --- 1. Frozen validation cache: SHA, rows, label counts ---
     info = FROZEN[key]
     val_cache_path = CACHE_ROOT.joinpath(*info["cache_rel"])
-    check("validation cache sha256 matches FROZEN",
-          _sha256_file(val_cache_path) == info["sha256"],
-          f"{_sha256_file(val_cache_path)[:12]} vs {info['sha256'][:12]}")
+    check(
+        "validation cache sha256 matches FROZEN",
+        _sha256_file(val_cache_path) == info["sha256"],
+        f"{_sha256_file(val_cache_path)[:12]} vs {info['sha256'][:12]}",
+    )
     val_rows_raw = _load_cache_jsonl(val_cache_path)
-    check("validation cache row count", len(val_rows_raw) == info["rows"],
-          f"{len(val_rows_raw)} vs {info['rows']}")
+    check(
+        "validation cache row count",
+        len(val_rows_raw) == info["rows"],
+        f"{len(val_rows_raw)} vs {info['rows']}",
+    )
     val_counts_raw = Counter(r["label"] for r in val_rows_raw)
-    check("validation cache label counts",
-          val_counts_raw.get(0, 0) == info["n_human"] and val_counts_raw.get(1, 0) == info["n_ai"],
-          dict(val_counts_raw))
+    check(
+        "validation cache label counts",
+        val_counts_raw.get(0, 0) == info["n_human"] and val_counts_raw.get(1, 0) == info["n_ai"],
+        dict(val_counts_raw),
+    )
     val_rows, val_dupes = _dedupe_exact(val_rows_raw)
     val_counts = Counter(r["label"] for r in val_rows)
 
@@ -822,45 +858,67 @@ def reproduce_corpus(key: str, detector, comparison: list[dict], discrepancies: 
         }
         shift = _find_shift(RAID_TRAIN_TOTAL, RAID_FINAL_N, [u1_offsets, old_offsets])
         final_offsets = _shifted_offsets(RAID_TRAIN_TOTAL, RAID_FINAL_N, shift)
-        total, n_target = RAID_TRAIN_TOTAL, RAID_FINAL_N
+        _total, n_target = RAID_TRAIN_TOTAL, RAID_FINAL_N
     else:
         shift = 0
         final_offsets = sample_offsets(MAGE_TEST_TOTAL, MAGE_FINAL_N)
-        total, n_target = MAGE_TEST_TOTAL, MAGE_FINAL_N
-    check("final-test phase shift re-derives", shift == ft["phase_shift"],
-          f"recomputed {shift} vs manifest {ft['phase_shift']}")
-    check("final-test offsets sha256 re-derives",
-          _sha256_text(json.dumps(final_offsets)) == ft["offsets_sha256"],
-          f"{_sha256_text(json.dumps(final_offsets))[:12]} vs {ft['offsets_sha256'][:12]}")
-    check("final-test offsets first/last 5",
-          final_offsets[:5] == ft["offsets_first_5"] and final_offsets[-5:] == ft["offsets_last_5"],
-          f"{final_offsets[:5]} / {final_offsets[-5:]}")
+        _total, n_target = MAGE_TEST_TOTAL, MAGE_FINAL_N
+    check(
+        "final-test phase shift re-derives",
+        shift == ft["phase_shift"],
+        f"recomputed {shift} vs manifest {ft['phase_shift']}",
+    )
+    check(
+        "final-test offsets sha256 re-derives",
+        _sha256_text(json.dumps(final_offsets)) == ft["offsets_sha256"],
+        f"{_sha256_text(json.dumps(final_offsets))[:12]} vs {ft['offsets_sha256'][:12]}",
+    )
+    check(
+        "final-test offsets first/last 5",
+        final_offsets[:5] == ft["offsets_first_5"] and final_offsets[-5:] == ft["offsets_last_5"],
+        f"{final_offsets[:5]} / {final_offsets[-5:]}",
+    )
     final_cache_path = CACHE_ROOT / key / ft["config"] / ft["cache_filename"]
-    check("final-test cache sha256 matches manifest",
-          _sha256_file(final_cache_path) == ft["cache_sha256"],
-          f"{_sha256_file(final_cache_path)[:12]} vs {ft['cache_sha256'][:12]}")
-    check("final-test cache sha256 matches artifact",
-          _sha256_file(final_cache_path) == a_results["final_test"]["cache_sha256"],
-          _sha256_file(final_cache_path)[:12])
-    check("manifest top-up is null (n_human >= 100, no top-up fired)",
-          ft.get("topup") is None, str(ft.get("topup")))
+    check(
+        "final-test cache sha256 matches manifest",
+        _sha256_file(final_cache_path) == ft["cache_sha256"],
+        f"{_sha256_file(final_cache_path)[:12]} vs {ft['cache_sha256'][:12]}",
+    )
+    check(
+        "final-test cache sha256 matches artifact",
+        _sha256_file(final_cache_path) == a_results["final_test"]["cache_sha256"],
+        _sha256_file(final_cache_path)[:12],
+    )
+    check(
+        "manifest top-up is null (n_human >= 100, no top-up fired)",
+        ft.get("topup") is None,
+        str(ft.get("topup")),
+    )
     final_rows_raw = _load_cache_jsonl(final_cache_path)
-    check("final-test fetched rows == n_target", len(final_rows_raw) == n_target,
-          f"{len(final_rows_raw)} vs {n_target}")
+    check(
+        "final-test fetched rows == n_target",
+        len(final_rows_raw) == n_target,
+        f"{len(final_rows_raw)} vs {n_target}",
+    )
     final_rows, final_dupes = _dedupe_exact(final_rows_raw)
-    final_counts_pre = Counter(r["label"] for r in final_rows)
+    _final_counts_pre = Counter(r["label"] for r in final_rows)
 
     # --- 3. Disjointness: repo functions + independent content-hash sets ---
     final_fp = fingerprint_dataset(final_cache_path, key, split=ft["split"])
     val_fp = fingerprint_dataset(val_cache_path, key, split="train")
     val_check = check_disjointness(final_cache_path, final_fp, val_cache_path, val_fp)
-    check("final-test disjoint from validation (repo check)",
-          val_check["disjoint"] and val_check["verified"],
-          f"disjoint={val_check['disjoint']} verified={val_check['verified']} "
-          f"shared={val_check['shared_samples']}")
+    check(
+        "final-test disjoint from validation (repo check)",
+        val_check["disjoint"] and val_check["verified"],
+        f"disjoint={val_check['disjoint']} verified={val_check['verified']} "
+        f"shared={val_check['shared_samples']}",
+    )
     shared_mine = _content_hashes(final_rows) & _content_hashes(val_rows)
-    check("final-test disjoint from validation (independent content-hash sets)",
-          len(shared_mine) == 0, f"{len(shared_mine)} shared hashes")
+    check(
+        "final-test disjoint from validation (independent content-hash sets)",
+        len(shared_mine) == 0,
+        f"{len(shared_mine)} shared hashes",
+    )
     disjointness = [
         {
             "against": f"validation ({info['prior_run']})",
@@ -872,17 +930,25 @@ def reproduce_corpus(key: str, detector, comparison: list[dict], discrepancies: 
     ]
     for target in EXTRA_TARGETS[key]:
         other = CACHE_ROOT.joinpath(*target["cache_rel"])
-        check(f"disjointness target sha {target['label']}",
-              _sha256_file(other) == target["sha256"], _sha256_file(other)[:12])
+        check(
+            f"disjointness target sha {target['label']}",
+            _sha256_file(other) == target["sha256"],
+            _sha256_file(other)[:12],
+        )
         fp2 = fingerprint_dataset(other, key, split=target["split"])
         t_check = check_disjointness(final_cache_path, final_fp, other, fp2)
-        check(f"disjoint vs {target['label']}",
-              t_check["disjoint"] and t_check["verified"],
-              f"shared={t_check['shared_samples']}")
+        check(
+            f"disjoint vs {target['label']}",
+            t_check["disjoint"] and t_check["verified"],
+            f"shared={t_check['shared_samples']}",
+        )
         other_rows = _load_cache_jsonl(other)
         shared_t = _content_hashes(final_rows) & _content_hashes(other_rows)
-        check(f"disjoint vs {target['label']} (independent content-hash sets)",
-              len(shared_t) == 0, f"{len(shared_t)} shared hashes")
+        check(
+            f"disjoint vs {target['label']} (independent content-hash sets)",
+            len(shared_t) == 0,
+            f"{len(shared_t)} shared hashes",
+        )
         disjointness.append(
             {
                 "against": target["label"],
@@ -911,13 +977,16 @@ def reproduce_corpus(key: str, detector, comparison: list[dict], discrepancies: 
         }
     deep_compare("exclusions", exclusions, a_results["exclusions"])
     deep_compare("near_duplicate_check", near_dup_report, a_results["near_duplicate_check"])
-    deep_compare("manifest.near_duplicate_check", near_dup_report,
-                 a_manifest.get("near_duplicate_check"))
+    deep_compare(
+        "manifest.near_duplicate_check", near_dup_report, a_manifest.get("near_duplicate_check")
+    )
     deep_compare("manifest.exclusions", exclusions, a_manifest.get("exclusions"))
 
     # --- 5. Fresh scoring (validation + final-test), determinism double-score ---
-    print(f"[{key}] scoring validation ({len(val_rows)} rows) + final-test ({len(final_rows)} rows) ...",
-          flush=True)
+    print(
+        f"[{key}] scoring validation ({len(val_rows)} rows) + final-test ({len(final_rows)} rows) ...",
+        flush=True,
+    )
     val_measured = measure_rows(detector, val_rows)
     final_measured = measure_rows(detector, final_rows)
     final_measured_again = measure_rows(detector, final_rows)
@@ -928,10 +997,15 @@ def reproduce_corpus(key: str, detector, comparison: list[dict], discrepancies: 
     check("determinism self-check (final-test scored twice)", deterministic)
     n_det_errors = sum(1 for m in final_measured if m["error"] is not None)
     check("final-test detection errors == 0", n_det_errors == 0, str(n_det_errors))
-    deep_compare("determinism_self_check",
-                 {"final_test_scored_twice": True, "n_rows": len(final_rows),
-                  "identical_scores_and_verdicts": deterministic},
-                 a_results["determinism_self_check"])
+    deep_compare(
+        "determinism_self_check",
+        {
+            "final_test_scored_twice": True,
+            "n_rows": len(final_rows),
+            "identical_scores_and_verdicts": deterministic,
+        },
+        a_results["determinism_self_check"],
+    )
 
     # --- 6. Slices (primary + secondary) + worst slice ---
     val_primary, val_secondary = _build_slices(key, val_measured)
@@ -940,22 +1014,35 @@ def reproduce_corpus(key: str, detector, comparison: list[dict], discrepancies: 
     # Independent AUROC/AUPRC cross-checks on the pooled final-test slice
     # (and on the pooled validation slice): pairwise AUROC vs repo rank
     # AUROC, stepwise AUPRC vs Worker A's per-row AUPRC.
-    for tag, measured in (("final_test.pooled", final_measured), ("validation.pooled", val_measured)):
+    for tag, measured in (
+        ("final_test.pooled", final_measured),
+        ("validation.pooled", val_measured),
+    ):
         labelled = [m for m in measured if m["label"] is not None and m["error"] is None]
         pairs = [(m["label"], m["score"]) for m in labelled]
         cc = _auroc_cross_checks(pairs)
         cross_checks[f"{key}.{tag}"] = cc
-        check(f"{tag} AUROC pairwise == repo rank form",
-              cc["auroc_pairwise"] == cc["auroc_rank_repo"],
-              f"{cc['auroc_pairwise']} vs {cc['auroc_rank_repo']}")
-    deep_compare("validation_remeasurement.slices_primary", val_primary,
-                 a_results["validation_remeasurement"]["slices_primary"])
-    deep_compare("validation_remeasurement.slices_secondary", val_secondary,
-                 a_results["validation_remeasurement"]["slices_secondary"])
-    deep_compare("final_test.slices_primary", final_primary,
-                 a_results["final_test"]["slices_primary"])
-    deep_compare("final_test.slices_secondary", final_secondary,
-                 a_results["final_test"]["slices_secondary"])
+        check(
+            f"{tag} AUROC pairwise == repo rank form",
+            cc["auroc_pairwise"] == cc["auroc_rank_repo"],
+            f"{cc['auroc_pairwise']} vs {cc['auroc_rank_repo']}",
+        )
+    deep_compare(
+        "validation_remeasurement.slices_primary",
+        val_primary,
+        a_results["validation_remeasurement"]["slices_primary"],
+    )
+    deep_compare(
+        "validation_remeasurement.slices_secondary",
+        val_secondary,
+        a_results["validation_remeasurement"]["slices_secondary"],
+    )
+    deep_compare(
+        "final_test.slices_primary", final_primary, a_results["final_test"]["slices_primary"]
+    )
+    deep_compare(
+        "final_test.slices_secondary", final_secondary, a_results["final_test"]["slices_secondary"]
+    )
     deep_compare("final_test.worst_slice", worst, a_results["final_test"]["worst_slice"])
 
     # --- 7. Inclusion, reproduction check, manifest, seeds/gates, drops ---
@@ -994,20 +1081,33 @@ def reproduce_corpus(key: str, detector, comparison: list[dict], discrepancies: 
         "AUROC/TPR@FPR are threshold-free so small differences come only from "
         "code changes between the prior run and this run, not from tuning.",
     }
-    deep_compare("validation_remeasurement.reproduction_check", reproduction,
-                 a_results["validation_remeasurement"]["reproduction_check"])
-    compare("validation_remeasurement.prior_run", info["prior_run"],
-            a_results["validation_remeasurement"]["prior_run"])
-    compare("validation_remeasurement.cache_sha256", info["sha256"],
-            a_results["validation_remeasurement"]["cache_sha256"])
-    compare("manifest.sha256", _sha256_file(a_manifest_path),
-            a_results["manifest"]["sha256"])
-    compare("manifest.path", f"docs/evidence/manifests/{a_manifest_path.name}",
-            a_results["manifest"]["path"])
+    deep_compare(
+        "validation_remeasurement.reproduction_check",
+        reproduction,
+        a_results["validation_remeasurement"]["reproduction_check"],
+    )
+    compare(
+        "validation_remeasurement.prior_run",
+        info["prior_run"],
+        a_results["validation_remeasurement"]["prior_run"],
+    )
+    compare(
+        "validation_remeasurement.cache_sha256",
+        info["sha256"],
+        a_results["validation_remeasurement"]["cache_sha256"],
+    )
+    compare("manifest.sha256", _sha256_file(a_manifest_path), a_results["manifest"]["sha256"])
+    compare(
+        "manifest.path",
+        f"docs/evidence/manifests/{a_manifest_path.name}",
+        a_results["manifest"]["path"],
+    )
     deep_compare("seeds", {"bootstrap_seed": BOOTSTRAP_SEED}, a_results["seeds"])
-    deep_compare("predeclared_gates",
-                 {"min_n_human": MIN_N_HUMAN, "fpr_wilson_upper_max": FPR_UPPER_MAX},
-                 a_results["predeclared_gates"])
+    deep_compare(
+        "predeclared_gates",
+        {"min_n_human": MIN_N_HUMAN, "fpr_wilson_upper_max": FPR_UPPER_MAX},
+        a_results["predeclared_gates"],
+    )
     # Drops live on the artifact RECORD (not in results): reconstruct
     # Worker A's exact drops list (four fixed items, corpus-specific
     # items, then the val + final exact-duplicate drops) and compare.
@@ -1080,7 +1180,9 @@ def reproduce_corpus(key: str, detector, comparison: list[dict], discrepancies: 
             "cache_sha256": info["sha256"],
             "rows_in_cache": len(val_rows_raw),
             "rows_after_dedupe": len(val_rows),
-            "label_counts": {str(k): v for k, v in sorted(val_counts.items(), key=lambda kv: str(kv[0]))},
+            "label_counts": {
+                str(k): v for k, v in sorted(val_counts.items(), key=lambda kv: str(kv[0]))
+            },
             "exact_duplicates_dropped": len(val_dupes),
             "pooled": val_primary[0],
         },
@@ -1089,7 +1191,9 @@ def reproduce_corpus(key: str, detector, comparison: list[dict], discrepancies: 
             "rows_fetched": n_target,
             "rows_after_dedupe": len(final_rows) + len(exclusions),
             "rows_after_exclusions": len(final_rows),
-            "label_counts": {str(k): v for k, v in sorted(final_counts.items(), key=lambda kv: str(kv[0]))},
+            "label_counts": {
+                str(k): v for k, v in sorted(final_counts.items(), key=lambda kv: str(kv[0]))
+            },
             "exact_duplicates_dropped": len(final_dupes),
             "leakage_exclusions": len(exclusions),
             "phase_shift": shift,
@@ -1106,7 +1210,9 @@ def reproduce_corpus(key: str, detector, comparison: list[dict], discrepancies: 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="measure and compare only; write nothing")
+    parser.add_argument(
+        "--check", action="store_true", help="measure and compare only; write nothing"
+    )
     parser.add_argument("--only", choices=["raid", "mage"], default=None)
     parser.add_argument("--output", default=None, help="artifact path")
     args = parser.parse_args(argv)
@@ -1127,15 +1233,21 @@ def main(argv: list[str] | None = None) -> int:
     corpora: dict[str, dict] = {}
     for key in keys:
         print(f"=== reproducing {key} ===", flush=True)
-        corpora[key] = reproduce_corpus(key, detector, comparison, discrepancies, checks, cross_checks)
+        corpora[key] = reproduce_corpus(
+            key, detector, comparison, discrepancies, checks, cross_checks
+        )
 
     n_agree = sum(1 for c in comparison if c["agree"])
     n_checks_pass = sum(1 for c in checks if c["passed"])
-    print(f"comparison: {n_agree}/{len(comparison)} fields agree; {len(discrepancies)} discrepancies",
-          flush=True)
+    print(
+        f"comparison: {n_agree}/{len(comparison)} fields agree; {len(discrepancies)} discrepancies",
+        flush=True,
+    )
     for d in discrepancies:
-        print(f"  DISCREPANCY {d['field']}: reproduction={d['reproduction']} worker_a={d['worker_a']}",
-              flush=True)
+        print(
+            f"  DISCREPANCY {d['field']}: reproduction={d['reproduction']} worker_a={d['worker_a']}",
+            flush=True,
+        )
     print(f"identity checks: {n_checks_pass}/{len(checks)} pass", flush=True)
     for c in checks:
         if not c["passed"]:
@@ -1148,7 +1260,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         freeze = subprocess.run(
             [sys.executable, "-m", "pip", "freeze"],
-            capture_output=True, text=True, check=True, timeout=60,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=60,
         )
         env_lock["extras"] = freeze.stdout.strip()
     except Exception as exc:  # noqa: BLE001
@@ -1193,10 +1308,14 @@ def main(argv: list[str] | None = None) -> int:
             "verdict": verdict,
         },
         "drops": [
-            {"item": "Worker A fit/dev/selection partitions",
-             "reason": "empty by design — nothing is fitted, calibrated or selected"},
-            {"item": "Unlabelled rows",
-             "reason": "no binary label; excluded from binary FPR/TPR/AUROC/AUPRC, as in Worker A's artifacts"},
+            {
+                "item": "Worker A fit/dev/selection partitions",
+                "reason": "empty by design — nothing is fitted, calibrated or selected",
+            },
+            {
+                "item": "Unlabelled rows",
+                "reason": "no binary label; excluded from binary FPR/TPR/AUROC/AUPRC, as in Worker A's artifacts",
+            },
         ],
         "badge": "available",
         "detector_version": detector.detector_version,
