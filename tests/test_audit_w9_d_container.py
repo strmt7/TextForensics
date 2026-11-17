@@ -97,11 +97,15 @@ def test_candidate_acceptance_asserts_healthcheck_config():
     """Candidate acceptance must assert the image HEALTHCHECK parameters."""
     run = _acceptance_run(_workflow(), "build-candidate")
     assert "Config.Healthcheck.Interval" in run
-    assert "30000000000" in run  # 30s in nanoseconds
+    # docker inspect -f prints Go duration strings ("30s"), NOT
+    # nanoseconds (nanoseconds appear only in raw JSON output). The
+    # nanosecond literals used here before ("30000000000") always failed:
+    # the template prints "30s", so the comparison never matched.
+    assert '"30s"' in run
     assert "Config.Healthcheck.Timeout" in run
-    assert "3000000000" in run  # 3s in nanoseconds
+    assert '"3s"' in run
     assert "Config.Healthcheck.StartPeriod" in run
-    assert "5000000000" in run  # 5s in nanoseconds
+    assert '"5s"' in run
     assert "Config.Healthcheck.Retries" in run
     assert '"3"' in run or '= "3"' in run or "== 3" in run or " = 3" in run
 
@@ -134,9 +138,11 @@ def test_promote_acceptance_asserts_healthcheck_config():
     """Promote acceptance must assert the same HEALTHCHECK parameters."""
     run = _acceptance_run(_workflow(), "promote")
     assert "Config.Healthcheck.Interval" in run
-    assert "30000000000" in run
+    assert '"30s"' in run
     assert "Config.Healthcheck.Timeout" in run
-    assert "3000000000" in run
+    assert '"3s"' in run
+    assert "Config.Healthcheck.StartPeriod" in run
+    assert '"5s"' in run
     assert "Config.Healthcheck.Retries" in run
 
 

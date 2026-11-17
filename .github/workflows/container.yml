@@ -234,11 +234,13 @@ jobs:
           test "$(docker run --rm --read-only --entrypoint id "$IMAGE" -u)" != "0"
           # Read-only execution: the container above ran with --read-only.
           docker inspect -f '{{ .HostConfig.ReadonlyRootfs }}' tf-acceptance | grep -qx true
-          # HEALTHCHECK config (W9-D): exact parameters from
-          # Dockerfile:75 — durations are nanoseconds in image config.
-          test "$(docker inspect -f '{{ .Config.Healthcheck.Interval }}' "$IMAGE")" = "30000000000"
-          test "$(docker inspect -f '{{ .Config.Healthcheck.Timeout }}' "$IMAGE")" = "3000000000"
-          test "$(docker inspect -f '{{ .Config.Healthcheck.StartPeriod }}' "$IMAGE")" = "5000000000"
+          # HEALTHCHECK config (W9-D): exact parameters from Dockerfile:75.
+          # docker inspect -f prints Go duration strings ("30s"), NOT
+          # nanoseconds (nanoseconds appear only in raw JSON output).
+          # The nanosecond literals used here before always failed.
+          test "$(docker inspect -f '{{ .Config.Healthcheck.Interval }}' "$IMAGE")" = "30s"
+          test "$(docker inspect -f '{{ .Config.Healthcheck.Timeout }}' "$IMAGE")" = "3s"
+          test "$(docker inspect -f '{{ .Config.Healthcheck.StartPeriod }}' "$IMAGE")" = "5s"
           test "$(docker inspect -f '{{ .Config.Healthcheck.Retries }}' "$IMAGE")" = "3"
           docker inspect -f '{{ .Config.Healthcheck.Test }}' "$IMAGE" | grep -q "healthz"
           # HEALTHCHECK in-container (W9-D): poll until the daemon
@@ -397,11 +399,13 @@ jobs:
           test "$USER_ID" = "textforensics:textforensics"
           test "$(docker run --rm --read-only --entrypoint id "$IMAGE" -u)" != "0"
           docker inspect -f '{{ .HostConfig.ReadonlyRootfs }}' tf-promote-acceptance | grep -qx true
-          # HEALTHCHECK config (W9-D): exact parameters from
-          # Dockerfile:75 — durations are nanoseconds in image config.
-          test "$(docker inspect -f '{{ .Config.Healthcheck.Interval }}' "$IMAGE")" = "30000000000"
-          test "$(docker inspect -f '{{ .Config.Healthcheck.Timeout }}' "$IMAGE")" = "3000000000"
-          test "$(docker inspect -f '{{ .Config.Healthcheck.StartPeriod }}' "$IMAGE")" = "5000000000"
+          # HEALTHCHECK config (W9-D): exact parameters from Dockerfile:75.
+          # docker inspect -f prints Go duration strings ("30s"), NOT
+          # nanoseconds (nanoseconds appear only in raw JSON output).
+          # The nanosecond literals used here before always failed.
+          test "$(docker inspect -f '{{ .Config.Healthcheck.Interval }}' "$IMAGE")" = "30s"
+          test "$(docker inspect -f '{{ .Config.Healthcheck.Timeout }}' "$IMAGE")" = "3s"
+          test "$(docker inspect -f '{{ .Config.Healthcheck.StartPeriod }}' "$IMAGE")" = "5s"
           test "$(docker inspect -f '{{ .Config.Healthcheck.Retries }}' "$IMAGE")" = "3"
           docker inspect -f '{{ .Config.Healthcheck.Test }}' "$IMAGE" | grep -q "healthz"
           # HEALTHCHECK in-container (W9-D): poll until the daemon
