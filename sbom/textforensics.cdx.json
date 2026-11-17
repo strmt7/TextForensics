@@ -2372,12 +2372,16 @@
         "value": "generate_sbom.py 1.1.0"
       },
       {
+        "name": "markerExcludedRequirements",
+        "value": "backports-tarfile, colorama, importlib-metadata, lazy-importer, pywin32, pywin32-ctypes, zipp"
+      },
+      {
         "name": "pyprojectSha256",
         "value": "f4400f8b1ec25475e60fe083eda29080138e880e829eaef0f640b211448d4b28"
       },
       {
         "name": "requirementsPinnedSha256",
-        "value": "1c80c465cd5d43d38414aed0a14639e70dc7c9aaa2cb7d07228491f4c56cf9e0"
+        "value": "17b141520f349b075bdb3917bc43b7b4f1be49da9e77e409ab7a8775e4c30533"
       },
       {
         "name": "scope",
@@ -2396,7 +2400,7 @@
       }
     ]
   },
-  "serialNumber": "urn:uuid:6151c546-a74a-557e-b1e7-cd03237dd0a9",
+  "serialNumber": "urn:uuid:e464fa56-5459-56ba-8f41-2857771a0449",
   "specVersion": "1.6",
   "version": 1
 }
