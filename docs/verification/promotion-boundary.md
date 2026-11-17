@@ -194,6 +194,19 @@ here. This workflow uses the repository's existing keyless Sigstore
 identity, and the upload/verify-upload steps verify against exactly
 that identity (see step 5).
 
+**No-publication rehearsal (W10):** `upload --dry-run` runs the exact
+same pre-publication path (steps 1–7 above), then prints the release plan
+and exits 0 without launching `gh release create`. It is the TESTED
+no-publication mode for the publishing boundary: the rehearsal
+(`scripts/rehearse_no_publication.py`) drives it with a control (exit 0)
+and nine planted-defect demos — asset removed, tampered asset, mismatched
+source SHA, mismatched tag, mismatched version, missing confirmation,
+failed check, skipped check, stale check — each failing closed with
+exit 1 and zero remote writes (verified by before/after `gh api`
+read-back: releases, tags, and remote branches unchanged). The dry-run
+mode shares the boundary code path with the real upload; it is not a
+separate re-implementation.
+
 ## What is NOT decided here (human-only decisions)
 
 1. **Signing/TSA trust identity and credential policy** (ENG-06 boundary):
