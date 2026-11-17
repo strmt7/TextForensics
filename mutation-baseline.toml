@@ -80,6 +80,18 @@
 # changed. See
 # hidden_files/audit-cifix2-b-refresh-report.md and
 # hidden_files/audit-cifix2-f2-proof/datasets-match.json.
+# F2 RE-PROOF ENTRIES (CI-FIX-3 refresh, 2026-11-17, head 8446546): 24
+# entries appended after the Worker-B new-mutant proof
+# (cifix3-c-exec session, 164 items: 117 killed, 47 survived, 0
+# incompetent): the 23 killable survivors were killed by new kill
+# tests in tests/test_probe_metrics.py (re-proved in the
+# cifix3-c-exec2 session) and these 24 are proven equivalent — 22
+# postponed-evaluation annotation `|`s in _check_json_nesting_depth
+# (same PEP 563 proof as the strict_json_loads entries) and 2
+# `*,` -> `/` Mul_Div markers (same call-site-survey proof as the
+# existing require_integer:0 entry). 0 unexplained. See
+# hidden_files/audit-cifix3-c-report.md and
+# hidden_files/audit-cifix3-f-proof/probe_metrics-exec.jsonl.
 # POSITION REFRESH (CI-FIX-3, 2026-11-17, head 8446546 = Worker A
 # container fix + Worker B fuzz/depth-bound fix):
 # Worker B (9a8b9ab) bounded JSON nesting depth at 100 in
@@ -86875,3 +86887,293 @@ kind = "unobservable-value"
 source_text = "or"
 source_fingerprint = "2f539f2354ed0a6af15b7723dcae3da6fdce569b0af008eaf5c609f39407b877"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
 reason = "Unobservable value in verify: `if len(public_key) != 32 or len(signature) != 64:` -> `and`. The guards are redundant with the downstream None checks: a non-32-byte public key makes _decode_point return None and a non-64-byte signature makes _decode_scalar return None, so verify returns False for exactly the same inputs whether one length is bad or both; the `or` never changes the return value."
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Add:3"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 3
+start_pos = [211, 14]
+end_pos = [211, 15]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitAnd:3"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 3
+start_pos = [211, 14]
+end_pos = [211, 15]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitXor:3"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 3
+start_pos = [211, 14]
+end_pos = [211, 15]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Div:3"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 3
+start_pos = [211, 14]
+end_pos = [211, 15]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_FloorDiv:3"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 3
+start_pos = [211, 14]
+end_pos = [211, 15]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_LShift:3"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 3
+start_pos = [211, 14]
+end_pos = [211, 15]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mod:3"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 3
+start_pos = [211, 14]
+end_pos = [211, 15]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mul:3"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 3
+start_pos = [211, 14]
+end_pos = [211, 15]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Pow:3"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 3
+start_pos = [211, 14]
+end_pos = [211, 15]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_RShift:3"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 3
+start_pos = [211, 14]
+end_pos = [211, 15]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Sub:3"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 3
+start_pos = [211, 14]
+end_pos = [211, 15]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Add:4"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 4
+start_pos = [211, 22]
+end_pos = [211, 23]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitAnd:4"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 4
+start_pos = [211, 22]
+end_pos = [211, 23]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitXor:4"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 4
+start_pos = [211, 22]
+end_pos = [211, 23]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Div:4"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 4
+start_pos = [211, 22]
+end_pos = [211, 23]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_FloorDiv:4"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 4
+start_pos = [211, 22]
+end_pos = [211, 23]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_LShift:4"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 4
+start_pos = [211, 22]
+end_pos = [211, 23]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mod:4"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 4
+start_pos = [211, 22]
+end_pos = [211, 23]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mul:4"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 4
+start_pos = [211, 22]
+end_pos = [211, 23]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Pow:4"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 4
+start_pos = [211, 22]
+end_pos = [211, 23]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_RShift:4"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 4
+start_pos = [211, 22]
+end_pos = [211, 23]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Sub:4"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 4
+start_pos = [211, 22]
+end_pos = [211, 23]
+function = "_check_json_nesting_depth"
+kind = "arg"
+annotation = "str | bytes | bytearray"
+reason = "Postponed-evaluation annotation (arg of _check_json_nesting_depth): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour. (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_Div:1"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_Mul_Div"
+occurrence = 1
+start_pos = [211, 35]
+end_pos = [211, 36]
+function = "_check_json_nesting_depth"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "32201d453351451b08e7bf7b80af5253ba64b74f8e684bbc8873b5d564e034ea"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_check_json_nesting_depth): `*,` -> `/,` (keyword-only marker to positional-only marker). The only in-repo call sites are strict_json_loads (`_check_json_nesting_depth(text)`) and strict_json_dumps (`_check_json_value_depth(value)`) — both pass the first argument positionally and omit max_depth entirely; no call passes text/value by keyword and none passes max_depth positionally, so the positional-only restriction on the preceding parameter is never used and the newly allowed positional max_depth is never exercised. Same proof as the existing `*,` Mul_Div entries (require_integer:0, is_ai_like:3). (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run; the other 10 Mul_* replacements at this site are killed.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_Div:2"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_Mul_Div"
+occurrence = 2
+start_pos = [246, 40]
+end_pos = [246, 41]
+function = "_check_json_value_depth"
+kind = "domain-equivalent"
+source_text = "*"
+source_fingerprint = "5dfa11d4c6ce6dbdc971c6657f7484454232b38f3d7a9ef5926cde2a2760ea82"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
+reason = "Domain-equivalent mutant (_check_json_value_depth): `*,` -> `/,` (keyword-only marker to positional-only marker). The only in-repo call sites are strict_json_loads (`_check_json_nesting_depth(text)`) and strict_json_dumps (`_check_json_value_depth(value)`) — both pass the first argument positionally and omit max_depth entirely; no call passes text/value by keyword and none passes max_depth positionally, so the positional-only restriction on the preceding parameter is never used and the newly allowed positional max_depth is never exercised. Same proof as the existing `*,` Mul_Div entries (require_integer:0, is_ai_like:3). (CI-FIX-3 refresh proof: cifix3-c-exec session, survivor of the new-mutant proof run; the other 10 Mul_* replacements at this site are killed.)"
