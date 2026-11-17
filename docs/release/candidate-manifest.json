@@ -55,9 +55,9 @@
       "path": "sbom/textforensics.cdx.json",
       "role": "CycloneDX 1.6 SBOM of the candidate (122 components); deterministic UUIDv5 serialNumber derived from the content digest.",
       "sbom_components": 122,
-      "sbom_serial_number": "urn:uuid:6151c546-a74a-557e-b1e7-cd03237dd0a9",
-      "sha256": "53dcd764427ee066ebea77d8d76a8bb5248c2f4416ecee9b2be47b2302d857bb",
-      "size_bytes": 52869,
+      "sbom_serial_number": "urn:uuid:e464fa56-5459-56ba-8f41-2857771a0449",
+      "sha256": "87100a14c90c19d4b665723dfe25a43cb59005c85eb9b0be0f313ffdec1bb688",
+      "size_bytes": 53045,
       "verification": "python scripts/generate_sbom.py --check in the full requirements-pinned.txt closure (must exit 0: SBOM fresh for this source tree); sha256sum at candidate.source_sha. Note: the check exits 1 in a partial venv missing atheris/wheel \u2014 that is an environment limitation, not an SBOM defect."
     }
   ],
