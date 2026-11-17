@@ -22,11 +22,21 @@
 #   3. <venv>/bin/python -m pip freeze > freeze.txt; rewrite the
 #      "Transitive (locked)" section from freeze.txt (drop the editable
 #      textforensics line); prune lines nothing requires anymore.
+#      WARNING: a freeze is a SINGLE-environment snapshot (the venv's
+#      Python and platform). Never rewrite the section from it without
+#      preserving the marker-gated lines below: they are required only
+#      on other Pythons/platforms, so no 3.12/Linux freeze lists them
+#      — and dropping them broke every 3.11 and every Windows install
+#      (2026-11-17, CI run 44017091376: backports.tarfile, colorama).
+#      After any change, run `python3 scripts/generate_hashed_lock.py
+#      --check` (it verifies the closure on Python 3.11-3.15 x
+#      Linux/Windows/macOS) and regenerate requirements-hashed.txt with
+#      `python3 scripts/generate_hashed_lock.py`.
 #   4. Regenerate the SBOM in the same venv:
 #      <venv>/bin/python scripts/generate_sbom.py; commit SBOM + lockfile
 #      together. If pre-commit flags the two SBOM SHA properties, update
 #      only those two .secrets.baseline entries (see docs/QUALITY_GATES.md).
-#   5. Run the gates: claims (33/33), schemas (12 OK), pre-commit (13/13),
+#   5. Run the gates: claims (33/33), schemas (14 OK), pre-commit (13/13),
 #      tests/test_generate_sbom.py.
 # Dependabot (pip, weekly, .github/dependabot.yml) proposes bumps as PRs;
 # this repo works main-only, so apply them as direct main commits, never
@@ -106,6 +116,18 @@ jsonschema==4.26.0
 # dependencies: do not hand-edit versions here to add a feature.
 # To update: bump the == line, reinstall in a fresh venv, re-freeze,
 # and rewrite this section from the new freeze (see header).
+#
+# Marker-gated transitives (CI-FIX 2026-11-17): the entries below
+# carry an environment marker because their parent requires them only
+# on some supported Python/platform combination. A freeze taken on
+# 3.12/Linux never lists them, which is how they went missing and
+# broke every 3.11 job (backports.tarfile, importlib-metadata) and
+# every Windows job (colorama, pywin32, pywin32-ctypes). pip skips a
+# marker-false line, so these install exactly where they are needed
+# and nowhere else. Versions are the ones pip's resolver picks
+# (highest satisfying the parents' specifiers). Do NOT drop them in a
+# freeze rewrite (see header step 3); scripts/generate_hashed_lock.py
+# --check verifies the full grid closure and fails if any is missing.
 aiohappyeyeballs==2.7.1
 aiosignal==1.4.0
 annotated-doc==0.0.5
@@ -113,6 +135,7 @@ annotated-types==0.8.0
 anybadge==1.18.0
 anyio==4.16.0
 attrs==26.1.0
+backports-tarfile==1.2.0; python_version < "3.12"  # transitive pin; parent: jaraco-context
 boolean-py==5.0
 cachecontrol==0.14.4
 certifi==2026.10.23
@@ -120,6 +143,7 @@ cffi==2.1.1
 cfgv==3.5.0
 charset-normalizer==3.5.2
 click==8.5.1
+colorama==0.4.6; sys_platform == "win32"  # transitive pin; parents: build, pytest, bandit
 cyclonedx-python-lib==11.12.0
 decorator==5.3.1
 defusedxml==0.7.1
@@ -137,6 +161,7 @@ httpx2==2.16.0
 id==1.6.1
 identify==2.6.20
 idna==3.20
+importlib-metadata==10.2.0; python_version < "3.12"  # transitive pin; parent: keyring
 iniconfig==2.3.1
 jaraco-classes==3.4.0
 jaraco-context==6.1.2
@@ -145,6 +170,7 @@ jeepney==0.9.0
 jsonschema-specifications==2025.9.1
 keyring==25.7.0
 license-expression==30.4.4
+lazy-importer==0.1.0; python_version < "3.12"  # transitive pin; parent: importlib-metadata
 markdown-it-py==4.2.0
 markupsafe==3.0.4
 mcp-types==2.3.0
@@ -174,6 +200,8 @@ pyparsing==3.3.3
 pyproject-hooks==1.3.3
 python-discovery==1.9.5
 python-multipart==0.0.33
+pywin32==312; sys_platform == "win32"  # transitive pin; parent: mcp
+pywin32-ctypes==0.2.3; sys_platform == "win32"  # transitive pin; parent: keyring
 pyyaml==6.0.3
 readme-renderer==46.0
 referencing==0.37.0
@@ -198,3 +226,4 @@ urllib3==2.8.0
 virtualenv==21.15.6
 yarl==1.25.1
 yattag==1.16.1
+zipp==4.1.2; python_version < "3.12"  # transitive pin; parent: importlib-metadata
