@@ -223,27 +223,37 @@ def build_source_tarball(repo: Path, sha: str, version: str, dist_dir: Path) -> 
     return target
 
 
-def build_notes(venv_python: Path, repo: Path, sha: str, candidate_dir: Path) -> tuple[Path, Path]:
+def build_notes(
+    venv_python: Path, repo: Path, sha: str, candidate_dir: Path, workdir: Path
+) -> tuple[Path, Path]:
     """Generate release notes with publish_release.py changelog.
 
-    The changelog reads git history, so it runs in the source repo
-    (whose HEAD must be exactly the candidate SHA -- guarded here),
-    not in the git-archive checkout, which carries no .git directory.
+    The changelog reads git history, so it runs in a detached worktree
+    at exactly the candidate SHA (not in the git-archive checkout,
+    which carries no .git directory, and not in the caller's repo,
+    whose HEAD may be any branch). The worktree is removed afterwards.
     The notes embed a generation timestamp, so they are NOT
     byte-reproducible across runs; the second verifier compares them
     modulo the ``Generated:`` line instead of by digest.
     """
-    head = run(["git", "-C", str(repo), "rev-parse", "HEAD"]).stdout.strip()
-    if head != sha:
-        raise RuntimeError(
-            f"repo HEAD {head} != candidate SHA {sha}; refusing to "
-            "generate notes from a different history"
+    wt = workdir / "notes-worktree"
+    if wt.exists():
+        run(["git", "-C", str(repo), "worktree", "remove", "--force", str(wt)])
+    run(["git", "-C", str(repo), "worktree", "add", "--detach", str(wt), sha])
+    try:
+        notes_out = candidate_dir.parent / "release-notes.md"
+        run(
+            [
+                str(venv_python),
+                "scripts/publish_release.py",
+                "changelog",
+                "--output",
+                str(notes_out),
+            ],
+            cwd=wt,
         )
-    notes_out = candidate_dir.parent / "release-notes.md"
-    run(
-        [str(venv_python), "scripts/publish_release.py", "changelog", "--output", str(notes_out)],
-        cwd=repo,
-    )
+    finally:
+        run(["git", "-C", str(repo), "worktree", "remove", "--force", str(wt)])
     notes = notes_out
     target = candidate_dir / "release-notes.md"
     shutil.copyfile(notes, target)
@@ -437,7 +447,7 @@ def main(argv: list[str] | None = None) -> int:
         print("building source tarball ...")
         source = build_source_tarball(repo, args.sha, version, dist_dir)
         print("generating release notes ...")
-        notes, notes_checksum = build_notes(venv_python, repo, args.sha, candidate_dir)
+        notes, notes_checksum = build_notes(venv_python, repo, args.sha, candidate_dir, workdir)
         for path in (*built, source):
             shutil.copyfile(path, candidate_dir / path.name)
         print("generating SBOMs with Syft ...")

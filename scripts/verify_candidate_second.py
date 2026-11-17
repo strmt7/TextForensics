@@ -307,16 +307,31 @@ def compare_tarballs(rebuilt: Path, reference: Path, label: str) -> list[str]:
     return [f"{label}: member contents differ: {differing[:5]}"]
 
 
-def regenerate_notes(venv_python: Path, repo: Path, sha: str, out_path: Path) -> Path:
-    """Regenerate release notes from the source repo (HEAD must be the
-    candidate SHA) and return the generated file."""
-    head = run_checked(["git", "-C", str(repo), "rev-parse", "HEAD"]).stdout.strip()
-    if head != sha:
-        raise Unevaluated(f"repo HEAD {head} != candidate SHA {sha}; cannot regenerate notes")
-    run_checked(
-        [str(venv_python), "scripts/publish_release.py", "changelog", "--output", str(out_path)],
-        cwd=repo,
-    )
+def regenerate_notes(
+    venv_python: Path, repo: Path, sha: str, out_path: Path, workdir: Path
+) -> Path:
+    """Regenerate release notes from a detached worktree at exactly the
+    candidate SHA and return the generated file. A worktree is used
+    (rather than requiring the caller's repo HEAD to be the candidate)
+    so the verifier is independent of whatever branch the caller has
+    checked out. The worktree is removed afterwards."""
+    wt = workdir / "notes-worktree"
+    if wt.exists():
+        run(["git", "-C", str(repo), "worktree", "remove", "--force", str(wt)])
+    run_checked(["git", "-C", str(repo), "worktree", "add", "--detach", str(wt), sha])
+    try:
+        run_checked(
+            [
+                str(venv_python),
+                "scripts/publish_release.py",
+                "changelog",
+                "--output",
+                str(out_path),
+            ],
+            cwd=wt,
+        )
+    finally:
+        run(["git", "-C", str(repo), "worktree", "remove", "--force", str(wt)])
     return out_path
 
 
@@ -493,7 +508,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
             record("source-sha", "fail", f"--source-sha {args.source_sha} != manifest {sha}")
             return finish(checks, blockers, args, manifest)
         if tag != f"v{version}":
-            record("tag-version", "fail", f"manifest tag {tag!r} != v{version!r}")
+            record("tag-version", "fail", f"manifest tag {tag!r} != 'v{version}'")
             return finish(checks, blockers, args, manifest)
         record("tag-version", "pass", f"tag {tag} matches version {version}")
 
@@ -645,7 +660,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
         )
 
         # --- release notes (regenerated, modulo Generated: line) ---------
-        regen = regenerate_notes(venv_python, repo, sha, workdir / "notes-regen.md")
+        regen = regenerate_notes(venv_python, repo, sha, workdir / "notes-regen.md", workdir)
         manifest_notes = (asset_dir / "release-notes.md").read_text(encoding="utf-8")
         if strip_generated_line(regen.read_text(encoding="utf-8")) != strip_generated_line(
             manifest_notes
@@ -964,16 +979,17 @@ def cmd_self_test(args: argparse.Namespace) -> int:
     ) -> None:
         code, output = _run_verifier(script, argv, env_extra)
         ok = code == expect_exit and expect_text in output
-        results.append(
-            {
-                "case": name,
-                "expected_exit": expect_exit,
-                "actual_exit": code,
-                "expect_text": expect_text,
-                "matched": expect_text in output,
-                "pass": ok,
-            }
-        )
+        entry: dict = {
+            "case": name,
+            "expected_exit": expect_exit,
+            "actual_exit": code,
+            "expect_text": expect_text,
+            "matched": expect_text in output,
+            "pass": ok,
+        }
+        if not ok:
+            entry["output_tail"] = output.strip().splitlines()[-8:]
+        results.append(entry)
         print(
             f"[{'PASS' if ok else 'FAIL':<4}] {name}: exit {code} "
             f"(expected {expect_exit}); text matched: {expect_text in output}"
@@ -1073,7 +1089,7 @@ def cmd_self_test(args: argparse.Namespace) -> int:
     case(
         "mismatched tag (v9.9.9)",
         1,
-        "!= v0.2.0",
+        "!= 'v0.2.0'",
         verify_argv(case_dir, case_assets, case_dir / "candidate-manifest.json", ["--asset-only"]),
     )
 
@@ -1085,7 +1101,7 @@ def cmd_self_test(args: argparse.Namespace) -> int:
     case(
         "mismatched version (9.9.9)",
         1,
-        "!= v9.9.9",
+        "!= 'v9.9.9'",
         verify_argv(case_dir, case_assets, case_dir / "candidate-manifest.json", ["--asset-only"]),
     )
 
