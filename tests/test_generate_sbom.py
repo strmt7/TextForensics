@@ -16,6 +16,7 @@ import tomllib
 from pathlib import Path
 
 import pytest
+from packaging.markers import default_environment
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 
@@ -490,6 +491,82 @@ def test_vendored_assets_included_when_file_present(tmp_path):
     assert chart_dep["dependsOn"] == ["npm:@kurkle/color@0.3.2"]
 
 
+def _expected_real_repo_components(environment=None):
+    """Derive the expected real-repo SBOM components from the lockfile.
+
+    Returns ``(pypi_names, vendored_count)`` for a marker environment
+    (default: the running interpreter's target environment).
+    ``requirements-pinned.txt`` is an exact-pin lockfile naming the
+    whole dependency closure, so the PyPI components are exactly the
+    pinned requirements whose marker holds in the environment —
+    evaluated with the generator's own marker semantics — and the
+    vendored components are exactly the ``VENDORED_ASSETS`` whose file
+    exists under the repo root. The count therefore legitimately
+    varies by Python version and platform: the lockfile carries
+    marker-gated pins (``backports-tarfile`` / ``importlib-metadata`` /
+    ``lazy-importer`` / ``zipp`` only below 3.12, ``atheris`` only on
+    3.12–3.14, ``colorama`` / ``pywin32`` / ``pywin32-ctypes`` only on
+    Windows). Deriving the expectation from the lockfile means a
+    future dependency change updates it automatically; a hardcoded
+    122 failed in CI on 3.11 (125) and on 3.15 (121).
+    """
+    environment = environment if environment is not None else sbom.target_environment()
+    pinned = sbom.pinned_requirements(REPO_ROOT / "requirements-pinned.txt")
+    applicable = {
+        sbom.normalize_name(req.name)
+        for req in pinned
+        if sbom.requirement_applies(req, {""}, environment)
+    }
+    vendored, _deps = sbom.vendored_components(REPO_ROOT)
+    return applicable, len(vendored)
+
+
+def test_expected_sbom_count_by_python_version():
+    """The lockfile-marker derivation reproduces the CI-observed counts.
+
+    Fake Linux/CPython marker environments for 3.11–3.15, evaluated
+    against the current lockfile: 125 components on 3.11 (123 PyPI +
+    2 vendored), 122 on 3.12–3.14 (120 + 2), 121 on 3.15 (119 + 2).
+    The differences are structural, not just totals: 3.11 gains the
+    four below-3.12 transitives and loses atheris; 3.15 only loses
+    atheris. Update this table when the lockfile's version-gated set
+    changes.
+    """
+
+    def _env(python_version: str) -> dict:
+        env = default_environment()
+        env["python_version"] = python_version
+        env["python_full_version"] = f"{python_version}.0"
+        env["implementation_version"] = f"{python_version}.0"
+        env["sys_platform"] = "linux"
+        env["os_name"] = "posix"
+        env["platform_system"] = "Linux"
+        return env
+
+    counts = {}
+    names_by_version = {}
+    for version in ("3.11", "3.12", "3.13", "3.14", "3.15"):
+        names, vendored = _expected_real_repo_components(_env(version))
+        names_by_version[version] = names
+        counts[version] = len(names) + vendored
+    assert counts == {
+        "3.11": 125,
+        "3.12": 122,
+        "3.13": 122,
+        "3.14": 122,
+        "3.15": 121,
+    }
+    assert names_by_version["3.11"] - names_by_version["3.12"] == {
+        "backports-tarfile",
+        "importlib-metadata",
+        "lazy-importer",
+        "zipp",
+    }
+    assert names_by_version["3.12"] - names_by_version["3.11"] == {"atheris"}
+    assert names_by_version["3.12"] - names_by_version["3.15"] == {"atheris"}
+    assert names_by_version["3.15"] - names_by_version["3.12"] == set()
+
+
 def test_real_repo_generation(tmp_path):
     """Real-repo run; skips unless the full pinned install is present."""
     installed = sbom.live_distributions()
@@ -536,10 +613,23 @@ def test_real_repo_generation(tmp_path):
     # Vendored assets (ENG-15): the Chart.js bundle and the
     # @kurkle/color it bundles, with MIT licences, npm purls, and the
     # SHA-256 of the shipped file; the root component depends on them.
-    # 122 = 120 locked packages installed on this platform + 2 vendored
-    # (127 locked total; 7 are marker-gated for other Pythons/platforms
-    # and excluded from this platform's closure).
-    assert len(bom["components"]) == 122
+    # The component count is version/platform-dependent (see
+    # _expected_real_repo_components): the SBOM is the resolved closure
+    # for the RUNNING interpreter, so the expectation is derived from
+    # the lockfile's markers for this environment, not hardcoded — a
+    # hardcoded 122 failed in CI on 3.11 (125) and 3.15 (121). The set
+    # comparison below is the real correctness check: the PyPI
+    # components must be exactly the applicable pinned set, so a
+    # silently dropped (or extra) package fails here even if the count
+    # coincidentally matched.
+    expected_pypi, expected_vendored = _expected_real_repo_components()
+    assert len(bom["components"]) == len(expected_pypi) + expected_vendored
+    pypi_names = {
+        sbom.normalize_name(c["name"])
+        for c in bom["components"]
+        if str(c.get("purl", "")).startswith("pkg:pypi/")
+    }
+    assert pypi_names == expected_pypi
     vendored_file = REPO_ROOT / "src" / "textforensics" / "web_ui" / "static" / "chart.umd.min.js"
     vendored_sha = hashlib.sha256(vendored_file.read_bytes()).hexdigest()
     by_name = {c["name"]: c for c in bom["components"]}
