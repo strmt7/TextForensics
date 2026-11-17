@@ -939,6 +939,14 @@ class EquivalentBaselineTests(unittest.TestCase):
     #: 383 -> 389, 403 -> 409, 461 -> 467); the flat position
     #: count is unchanged at 1336 (6 removed, 6 added).
     #: No module is new.
+    #: The CI-FIX-2 refresh (415 entries re-derived on the
+    #: cifix2-a head 0a1cf11, 0 dropped) moved 57 flat positions
+    #: in 1 module (textforensics.policy, every entry +22 lines
+    #: for the _is_known_tier helper); the flat position count
+    #: is unchanged at 1336 (57 removed, 57 added — 3 of the 60
+    #: policy positions are shift-fixed points within the module,
+    #: so the grouped count stays 1342 and the shared count is 6).
+    #: No module is new.
     EXPECTED_POSITIONS = {
         # textforensics._build_info (32 positions).
         (71, 33),
@@ -1762,66 +1770,66 @@ class EquivalentBaselineTests(unittest.TestCase):
         (894, 22),
         (895, 14),
         # textforensics.policy (60 positions).
-        (120, 34),
-        (120, 50),
-        (139, 30),
-        (139, 41),
-        (139, 57),
-        (153, 37),
-        (173, 45),
-        (173, 60),
-        (173, 71),
-        (193, 16),
-        (193, 27),
-        (194, 27),
-        (230, 18),
-        (232, 59),
-        (281, 46),
-        (316, 74),
-        (332, 8),
-        (333, 20),
-        (333, 31),
-        (334, 25),
+        (142, 34),
+        (142, 50),
+        (161, 30),
+        (161, 41),
+        (161, 57),
+        (175, 37),
+        (195, 45),
+        (195, 60),
+        (195, 71),
+        (215, 16),
+        (215, 27),
+        (216, 27),
+        (252, 18),
+        (254, 59),
+        (303, 46),
+        (338, 74),
         (354, 8),
         (355, 20),
         (355, 31),
-        (364, 48),
-        (370, 8),
-        (371, 20),
-        (371, 31),
-        (453, 43),
-        (453, 58),
-        (453, 69),
-        (468, 18),
-        (469, 35),
-        (487, 16),
-        (487, 27),
-        (548, 31),
-        (549, 33),
-        (682, 20),
-        (682, 31),
-        (713, 32),
-        (715, 33),
-        (725, 48),
-        (725, 49),
-        (728, 34),
-        (728, 53),
-        (955, 19),
-        (1112, 29),
-        (1163, 25),
-        (1164, 19),
-        (1165, 23),
-        (1230, 39),
-        (1322, 40),
-        (1362, 29),
-        (1374, 85),
-        (1395, 32),
-        (1523, 33),
-        (1524, 35),
-        (1534, 41),
-        (1547, 43),
-        (1554, 35),
-        (1598, 15),
+        (356, 25),
+        (376, 8),
+        (377, 20),
+        (377, 31),
+        (386, 48),
+        (392, 8),
+        (393, 20),
+        (393, 31),
+        (475, 43),
+        (475, 58),
+        (475, 69),
+        (490, 18),
+        (491, 35),
+        (509, 16),
+        (509, 27),
+        (570, 31),
+        (571, 33),
+        (704, 20),
+        (704, 31),
+        (735, 32),
+        (737, 33),
+        (747, 48),
+        (747, 49),
+        (750, 34),
+        (750, 53),
+        (977, 19),
+        (1134, 29),
+        (1185, 25),
+        (1186, 19),
+        (1187, 23),
+        (1252, 39),
+        (1344, 40),
+        (1384, 29),
+        (1396, 85),
+        (1417, 32),
+        (1545, 33),
+        (1546, 35),
+        (1556, 41),
+        (1569, 43),
+        (1576, 35),
+        (1620, 15),
         # textforensics.probe_metrics (58 positions).
         (114, 27),
         (114, 43),
@@ -3088,11 +3096,12 @@ class EquivalentBaselineTests(unittest.TestCase):
         )
         # The two lru_cache entries share one position and function.
         # (W2 moved the decorator L668:19 -> L821:19; W4 moved it
-        # L821:19 -> L955:19 and renumbered the pair 22/23 -> 12/13.)
-        at_955_19 = [e for e in unobservable if tuple(e["start_pos"]) == (955, 19)]
-        self.assertEqual(len(at_955_19), 2)
-        self.assertEqual({e["occurrence"] for e in at_955_19}, {12, 13})
-        self.assertEqual(len({e["source_fingerprint"] for e in at_955_19}), 1)
+        # L821:19 -> L955:19 and renumbered the pair 22/23 -> 12/13;
+        # CI-FIX-2 moved it L955:19 -> L977:19, occurrences unchanged.)
+        at_977_19 = [e for e in unobservable if tuple(e["start_pos"]) == (977, 19)]
+        self.assertEqual(len(at_977_19), 2)
+        self.assertEqual({e["occurrence"] for e in at_977_19}, {12, 13})
+        self.assertEqual(len({e["source_fingerprint"] for e in at_977_19}), 1)
         # The seven benchmark unobservable entries: the four chunk-size
         # entries share one function (dataset_sha256) across two positions,
         # plus the three sort_keys entries in _compute_content_hash /
@@ -3742,7 +3751,7 @@ class EquivalentBaselineTests(unittest.TestCase):
             "plus the W4 re-proof append (ExceptionReplacer 11, "
             "NumberReplacer 1/6/7, Eq_LtE 10/14, ReplaceTrueWithFalse "
             "17, Delete_USub 0, USub_Not 0, USub_UAdd 0, and the new "
-            "USub_Invert 0 at (725, 48) in "
+            "USub_Invert 0 at (747, 48) in "
             "CapabilityPolicyEngine.evaluate)",
         )
         self.assertEqual(
@@ -3766,28 +3775,28 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(
             {tuple(e["start_pos"]) for e in policy_domain},
             {
-                (173, 45),
-                (230, 18),
-                (232, 59),
-                (332, 8),
+                (195, 45),
+                (252, 18),
+                (254, 59),
                 (354, 8),
-                (364, 48),
-                (370, 8),
-                (453, 43),
-                (468, 18),
-                (469, 35),
-                (548, 31),
-                (549, 33),
-                (713, 32),
-                (725, 48),
-                (725, 49),
-                (728, 34),
-                (728, 53),
-                (1112, 29),
-                (1322, 40),
-                (1362, 29),
-                (1395, 32),
-                (1598, 15),
+                (376, 8),
+                (386, 48),
+                (392, 8),
+                (475, 43),
+                (490, 18),
+                (491, 35),
+                (570, 31),
+                (571, 33),
+                (735, 32),
+                (747, 48),
+                (747, 49),
+                (750, 34),
+                (750, 53),
+                (1134, 29),
+                (1344, 40),
+                (1384, 29),
+                (1417, 32),
+                (1620, 15),
             },
         )
         self.assertEqual(
@@ -4641,7 +4650,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         The entry is built with the runner's own helpers (enclosing
         function + fingerprint from the current policy.py source) at
         the real position of the `2` in `"validated": 2`
-        (CapabilityPolicyEngine.evaluate, L715:33) — the dispatch for
+        (CapabilityPolicyEngine.evaluate, L737:33) — the dispatch for
         the new runtime kind must accept it exactly like an
         unreachable-condition entry.
         """
@@ -4649,15 +4658,15 @@ class EquivalentBaselineTests(unittest.TestCase):
 
         source = (self.project_root / "src" / "textforensics" / "policy.py").read_text()
         tree = ast.parse(source)
-        name, node = self.runner._enclosing_function(tree, 715, 33)
+        name, node = self.runner._enclosing_function(tree, 737, 33)
         self.assertEqual(name, "CapabilityPolicyEngine.evaluate")
         entry = {
             "id": "test:unobservable-value",
             "module": "textforensics.policy",
             "operator": "core/NumberReplacer",
             "occurrence": 4,
-            "start_pos": [715, 33],
-            "end_pos": [715, 34],
+            "start_pos": [737, 33],
+            "end_pos": [737, 34],
             "function": name,
             "kind": "unobservable-value",
             "reason": "synthetic test entry",
@@ -4672,14 +4681,14 @@ class EquivalentBaselineTests(unittest.TestCase):
 
         Built with the runner's own helpers at the real position of the
         `2` in `"validated": 2` (CapabilityPolicyEngine.evaluate,
-        L715:33); the reason names the proof shape (closed-domain value
+        L737:33); the reason names the proof shape (closed-domain value
         identity), as the kind requires.
         """
         import ast
 
         source = (self.project_root / "src" / "textforensics" / "policy.py").read_text()
         tree = ast.parse(source)
-        name, node = self.runner._enclosing_function(tree, 715, 33)
+        name, node = self.runner._enclosing_function(tree, 737, 33)
         self.assertEqual(name, "CapabilityPolicyEngine.evaluate")
         return {
             "id": "test:domain-equivalent",
@@ -4690,8 +4699,8 @@ class EquivalentBaselineTests(unittest.TestCase):
             # occurrence 4, and a synthetic entry sharing its match key
             # would be shadowed by it in classify_baseline.
             "occurrence": 999,
-            "start_pos": [715, 33],
-            "end_pos": [715, 34],
+            "start_pos": [737, 33],
+            "end_pos": [737, 34],
             "function": name,
             "kind": "domain-equivalent",
             "reason": (
@@ -4936,7 +4945,7 @@ class EquivalentBaselineTests(unittest.TestCase):
     def test_decorator_position_entry_validates(self):
         """A runtime entry on a decorator line re-validates.
 
-        The `4` in `@lru_cache(maxsize=4)` (L955:19) sits on the
+        The `4` in `@lru_cache(maxsize=4)` (L977:19) sits on the
         decorator line, above the `def` line: the enclosing-function
         lookup and the function fingerprint must both cover the
         decorator, or the entry for it could never validate.
@@ -4945,15 +4954,15 @@ class EquivalentBaselineTests(unittest.TestCase):
 
         source = (self.project_root / "src" / "textforensics" / "policy.py").read_text()
         tree = ast.parse(source)
-        name, node = self.runner._enclosing_function(tree, 955, 19)
+        name, node = self.runner._enclosing_function(tree, 977, 19)
         self.assertEqual(name, "_load_enterprise_policy_schema")
         entry = {
             "id": "test:decorator-position",
             "module": "textforensics.policy",
             "operator": "core/NumberReplacer",
             "occurrence": 12,
-            "start_pos": [955, 19],
-            "end_pos": [955, 20],
+            "start_pos": [977, 19],
+            "end_pos": [977, 20],
             "function": name,
             "kind": "unobservable-value",
             "reason": "synthetic test entry",
@@ -4966,7 +4975,7 @@ class EquivalentBaselineTests(unittest.TestCase):
         # change the fingerprint.
         changed = source.replace("@lru_cache(maxsize=4)", "@lru_cache(maxsize=9)", 1)
         changed_tree = ast.parse(changed)
-        _, changed_node = self.runner._enclosing_function(changed_tree, 955, 19)
+        _, changed_node = self.runner._enclosing_function(changed_tree, 977, 19)
         self.assertNotEqual(
             self.runner._function_fingerprint(changed, changed_node),
             entry["source_fingerprint"],
