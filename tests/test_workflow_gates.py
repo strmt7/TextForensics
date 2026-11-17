@@ -401,3 +401,49 @@ def test_pydantic_is_declared_in_dev_extra():
         "but is not declared in the dev extra; CI Core (pip install -e "
         "'.[dev]') fails collection with ModuleNotFoundError"
     )
+
+
+# ---------------------------------------------------------------------------
+# CI-FIX (container.yml, fefd81e): driver-opts must be k=v only
+# ---------------------------------------------------------------------------
+
+
+def test_driver_opts_contains_only_key_value_options():
+    """Every driver-opts value must be valid k=v options only.
+
+    Regression: container.yml passed the ENG-10 explanation as `#`
+    comment lines inside the driver-opts block scalar. YAML block
+    scalars are literal — the comments reached setup-buildx-action
+    verbatim, which passes each line to `docker buildx create
+    --driver-opt`, and buildx rejected the first comment line with
+    "invalid value ... expecting k=v", so builder creation failed on
+    the fefd81e head (Container job). Comments belong outside the
+    value, as YAML comments; the value itself holds only k=v lines.
+    """
+    import re
+
+    kv = re.compile(r"^[A-Za-z0-9_.-]+=.+$")
+    found = []
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
+        for job_name, job in (workflow.get("jobs") or {}).items():
+            for step in job.get("steps") or []:
+                value = (step.get("with") or {}).get("driver-opts")
+                if value is None:
+                    continue
+                found.append((path.name, job_name, str(value)))
+                for line in str(value).splitlines():
+                    line = line.strip()
+                    assert line, f"{path.name}:{job_name} driver-opts has a blank line"
+                    assert not line.startswith("#"), (
+                        f"{path.name}:{job_name} driver-opts contains a comment "
+                        f"line {line!r}; buildx rejects non-k=v options"
+                    )
+                    assert kv.match(line), (
+                        f"{path.name}:{job_name} driver-opts line {line!r} is not a k=v option"
+                    )
+    assert found, "no driver-opts value found in any workflow"
+    assert len(found) == 2, (
+        f"expected exactly 2 driver-opts blocks (build-candidate, promote), "
+        f"found {len(found)}: {[(n, j) for n, j, _ in found]}"
+    )
