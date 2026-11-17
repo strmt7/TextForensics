@@ -287,8 +287,9 @@ with `--no-deps -e .[extras]` (which Scorecard does not flag).
   suite instead of shipping a stale image.
 - **Regenerate the hashed lockfile after any
   `requirements-pinned.txt` change** (generator
-  `~/workspace/gen_hashed_lock.py`:
-  `python3 ~/workspace/gen_hashed_lock.py < requirements-pinned.txt > requirements-hashed.txt`),
+  `scripts/generate_hashed_lock.py`:
+  `python3 scripts/generate_hashed_lock.py`; use `--check` to verify
+  the transitive closure across the CI grid without writing),
   in the same commit; a stale hashed lockfile fails the install with a
   hash mismatch rather than resolving silently. The same applies to
   `requirements-tools-hashed.txt` after any tools-package change.
