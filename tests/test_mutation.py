@@ -1436,18 +1436,18 @@ class EquivalentBaselineTests(unittest.TestCase):
         (2053, 20),
         (2054, 22),
         (2055, 18),
-        (2128, 20),
-        (2129, 18),
-        (2300, 45),
-        (2325, 21),
-        (2344, 21),
-        (2352, 35),
-        (2352, 43),
-        (2456, 25),
-        (2466, 71),
-        (2466, 73),
-        (2509, 29),
-        (2512, 19),
+        (2135, 20),
+        (2136, 18),
+        (2314, 45),
+        (2339, 21),
+        (2358, 21),
+        (2366, 35),
+        (2366, 43),
+        (2470, 25),
+        (2480, 71),
+        (2480, 73),
+        (2523, 29),
+        (2526, 19),
         # textforensics.detection_cache (21 positions).
         (89, 40),
         (305, 44),
@@ -3220,18 +3220,20 @@ class EquivalentBaselineTests(unittest.TestCase):
         self.assertEqual(len({e["source_fingerprint"] for e in casefile_unobs}), 4)
         # The fourteen datasets entries (F4 re-proof append
         # 2026-11-13): 11 Sub_* + 2 NumberReplacer in the dead
-        # `if not expect_element` branch message at datasets.py:2466
+        # `if not expect_element` branch message at datasets.py:2480
         # (occ 7/200/201) and 1 ReplaceFalseWithTrue for the
-        # write-only expect_element flag at datasets.py:2509 (occ 8),
+        # write-only expect_element flag at datasets.py:2523 (occ 8),
         # all in iter_detectrl_x_rows, hence one fingerprint.
         # (W6: the refresh moved the sites +10 lines.)
+        # (CI-FIX-2: Worker B moved the sites +14 lines
+        # 2466 -> 2480, 2509 -> 2523.)
         datasets_unobs = [e for e in unobservable if e["module"] == "textforensics.datasets"]
         self.assertEqual(len(datasets_unobs), 14)
         self.assertEqual({e["occurrence"] for e in datasets_unobs}, {7, 8, 200, 201})
         self.assertEqual({e["function"] for e in datasets_unobs}, {"iter_detectrl_x_rows"})
         self.assertEqual(
             {tuple(e["start_pos"]) for e in datasets_unobs},
-            {(2466, 71), (2466, 73), (2509, 29)},
+            {(2480, 71), (2480, 73), (2523, 29)},
         )
         self.assertEqual({e["source_text"] for e in datasets_unobs}, {"-", "1", "False"})
         self.assertEqual(len({e["source_fingerprint"] for e in datasets_unobs}), 1)
@@ -3374,12 +3376,12 @@ class EquivalentBaselineTests(unittest.TestCase):
                 (1559, 41),
                 (1561, 37),
                 (1566, 20),
-                (2300, 45),
-                (2325, 21),
-                (2344, 21),
-                (2352, 43),
-                (2456, 25),
-                (2512, 19),
+                (2314, 45),
+                (2339, 21),
+                (2358, 21),
+                (2366, 43),
+                (2470, 25),
+                (2526, 19),
             },
         )
         self.assertEqual(
