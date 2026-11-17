@@ -76,14 +76,15 @@ def _ensure_source_sha_available(source_sha):
     if not _is_shallow_checkout():
         raise AssertionError(f"source_sha {source_sha} is not a commit")
     try:
-        fetched = _git(
-            "fetch", "--no-tags", "--depth=1", "origin", source_sha, timeout=120
-        )
+        fetched = _git("fetch", "--no-tags", "--depth=1", "origin", source_sha, timeout=120)
     except Exception:
         fetched = None
-    if fetched is not None and fetched.returncode == 0:
-        if _git("cat-file", "-e", f"{source_sha}^{{commit}}").returncode == 0:
-            return
+    if (
+        fetched is not None
+        and fetched.returncode == 0
+        and _git("cat-file", "-e", f"{source_sha}^{{commit}}").returncode == 0
+    ):
+        return
     raise unittest.SkipTest(
         f"shallow checkout: source_sha {source_sha} is not present "
         "locally and could not be fetched from origin, so the "
