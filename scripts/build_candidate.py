@@ -142,7 +142,13 @@ def read_version(checkout: Path) -> str:
 
 
 def fresh_checkout(repo: Path, sha: str, dest: Path) -> Path:
-    """Extract exactly <sha> via git archive (no working-tree state)."""
+    """Extract exactly <sha> via git archive (no working-tree state).
+
+    Starts from an empty directory: a previous build in the same
+    directory leaves egg-info/ and build/ behind, and rebuilding over
+    those leftovers produces a different wheel."""
+    if dest.exists():
+        shutil.rmtree(dest)
     dest.mkdir(parents=True, exist_ok=True)
     archive = subprocess.run(
         ["git", "-C", str(repo), "archive", sha],

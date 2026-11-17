@@ -213,6 +213,12 @@ def validate_manifest_schema(manifest: dict) -> list[str]:
 
 
 def fresh_checkout(repo: Path, sha: str, dest: Path) -> Path:
+    # A "fresh" checkout starts from an empty directory: a previous
+    # build in the same directory leaves egg-info/ and build/ behind,
+    # and rebuilding over those leftovers produces a different wheel
+    # (found by the self-test control case: 207d6dcd... vs 0ee0d5c8...).
+    if dest.exists():
+        shutil.rmtree(dest)
     dest.mkdir(parents=True, exist_ok=True)
     archive = subprocess.run(
         ["git", "-C", str(repo), "archive", sha],
@@ -238,6 +244,8 @@ def fresh_checkout(repo: Path, sha: str, dest: Path) -> Path:
 
 
 def fresh_venv(python: str, venv_dir: Path, tools_lockfile: Path, tmpdir: Path) -> Path:
+    if venv_dir.exists():
+        shutil.rmtree(venv_dir)
     run_checked([python, "-m", "venv", str(venv_dir)])
     venv_python = venv_dir / "bin" / "python"
     env = dict(os.environ)
@@ -257,6 +265,9 @@ def build_once(venv_python: Path, checkout: Path, out_dir: Path, tmpdir: Path) -
     env["TMPDIR"] = str(tmpdir)
     env["PIP_NO_CACHE_DIR"] = "1"
     out_dir.mkdir(parents=True, exist_ok=True)
+    for stale in out_dir.iterdir():
+        if stale.is_file():
+            stale.unlink()
     run_checked(
         [
             str(venv_python),
