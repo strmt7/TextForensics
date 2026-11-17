@@ -30,6 +30,7 @@ from textforensics.policy import (
     EvidenceTier,
     PolicyRevisionFloor,
     _claim_is_effective,
+    _is_known_tier,
     _policy_floor_lock,
     _validate_admitted_policy,
     _validate_policy_rules,
@@ -60,6 +61,23 @@ def test_claim_is_effective_rejects_unsupported_tier() -> None:
     claim = _readable_claim()
     object.__setattr__(claim, "tier", "bogus")
     assert _claim_is_effective(claim) is False
+
+
+def test_is_known_tier_is_version_safe_and_fail_closed() -> None:
+    """``_is_known_tier`` is the version-safe replacement for
+    ``tier in EvidenceTier``: on Python < 3.12 the ``in`` check raises
+    ``TypeError`` for a non-member (CI-FIX-2, Core 3.11). Only a genuine
+    member counts — a raw member *value* string such as ``"readable"``
+    is NOT a known tier (the 3.12+ ``in`` operator would say True), so
+    behaviour is identical on 3.11–3.15 and any bypassed-construction
+    string tier fails closed."""
+    assert _is_known_tier(EvidenceTier.READABLE) is True
+    assert _is_known_tier(EvidenceTier.TOOL_BACKED) is True
+    assert _is_known_tier(EvidenceTier.VALIDATED) is True
+    assert _is_known_tier("bogus") is False
+    assert _is_known_tier("readable") is False
+    assert _is_known_tier(None) is False
+    assert _is_known_tier(1) is False
 
 
 def test_ledger_to_trust_dimension_positional_or_keyword() -> None:

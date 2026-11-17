@@ -87,6 +87,28 @@ class EvidenceLabel(Enum):
     EXECUTED = "executed"  # check actually run and recorded
 
 
+def _is_known_tier(tier: object) -> bool:
+    """Return ``True`` iff `tier` is a genuine :class:`EvidenceTier` member.
+
+    Version-safe membership test, used wherever a claim tier is checked
+    at a decision boundary. ``tier in EvidenceTier`` raises ``TypeError``
+    on Python < 3.12 for any non-member — the pre-3.12
+    ``EnumType.__contains__`` only accepts Enum members (CPython
+    gh-88123 changed it in 3.12 to return ``False`` instead; see
+    https://docs.python.org/3/library/enum.html, ``EnumType.__contains__``:
+    "Before Python 3.12, a ``TypeError`` is raised if a non-Enum-member
+    is used in a containment check"). ``isinstance`` is identical on
+    every supported Python version and, unlike the 3.12+ ``in``
+    operator, does not treat a raw member *value* string such as
+    ``"readable"`` as a known tier: only a genuine member counts, so a
+    string left by bypassed construction fails closed on all versions
+    (``CapabilityClaim.__post_init__`` coerces valid strings at
+    construction, so a raw string tier can only exist via bypassed
+    construction — exactly the malformed case the guard exists for).
+    """
+    return isinstance(tier, EvidenceTier)
+
+
 @dataclass(slots=True)
 class EvidenceRef:
     """Reference to evidence backing a claim."""
@@ -223,7 +245,7 @@ def _claim_is_effective(
     """
     # S22/§4.2.2 item 1: an unsupported tier is never effective,
     # whatever it claims.
-    if claim.tier not in EvidenceTier:
+    if not _is_known_tier(claim.tier):
         return False
     if claim_is_expired(claim, today=today):
         return False
@@ -547,7 +569,7 @@ def ledger_to_trust_dimension(
 
     has_validated = any(c.tier == EvidenceTier.VALIDATED for c in effective)
     has_tool_backed = any(c.tier == EvidenceTier.TOOL_BACKED for c in effective)
-    has_known_tier = any(c.tier in EvidenceTier for c in effective)
+    has_known_tier = any(_is_known_tier(c.tier) for c in effective)
 
     if has_validated:
         state = "supported"
