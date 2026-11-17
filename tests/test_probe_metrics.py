@@ -176,3 +176,78 @@ def test_holm_adjusted_known_values():
         pm.holm_adjusted([])
     with pytest.raises(ValueError):
         pm.holm_adjusted([1.2])
+
+
+# ---------------------------------------------------------------------------
+# Strict-JSON depth bound (CI-FIX-3, Worker B: Fuzz Regression RecursionError)
+#
+# The Fuzz Testing workflow crashed on Python 3.12 with
+# ``RecursionError: maximum recursion depth exceeded`` in the
+# ``json_parsing`` target: a deeply nested input parsed fine through
+# ``json.loads`` (on 3.12 the C scanner accepts nesting far deeper
+# than the Python recursion limit) and then crashed the recursive
+# ``reject_nonfinite_value`` walk inside ``strict_json_loads``, and
+# the same input crashed PyYAML's recursive composer via the YAML
+# path. The strict-JSON helpers now enforce an explicit depth limit
+# of 100 levels — the same bound ``verify.py`` (C12),
+# ``_standalone_verify.py`` and ``datasets.py`` already use — and
+# fail closed with ``ValueError``, never ``RecursionError``.
+# ---------------------------------------------------------------------------
+
+
+def _nested_list(depth: int) -> list:
+    value: list = []
+    for _ in range(depth - 1):
+        value = [value]
+    return value
+
+
+def _nested_dict(depth: int) -> dict:
+    value: dict | int = 1
+    for _ in range(depth):
+        value = {"a": value}
+    return value  # type: ignore[return-value]
+
+
+def test_strict_json_depth_limit_is_100():
+    assert pm.MAX_JSON_DEPTH == 100
+
+
+def test_strict_json_loads_accepts_depth_at_limit():
+    assert pm.strict_json_loads("[" * 100 + "]" * 100) == _nested_list(100)
+    assert pm.strict_json_loads('{"a": ' * 99 + "1" + "}" * 99) == _nested_dict(99)
+
+
+def test_strict_json_loads_rejects_over_nested_input():
+    # One level past the limit is rejected, not parsed.
+    with pytest.raises(ValueError, match="depth"):
+        pm.strict_json_loads("[" * 101 + "]" * 101)
+    with pytest.raises(ValueError, match="depth"):
+        pm.strict_json_loads('{"a": ' * 101 + "1" + "}" * 101)
+    # Far past the limit — the depth that crashed the fuzzer — is a
+    # structured ValueError, never a RecursionError.
+    with pytest.raises(ValueError, match="depth"):
+        pm.strict_json_loads("[" * 2000 + "]" * 2000)
+
+
+def test_reject_nonfinite_value_is_iterative_and_depth_bounded():
+    # A value nested far past the Python recursion limit must be
+    # rejected with ValueError, never crash with RecursionError.
+    with pytest.raises(ValueError, match="depth"):
+        pm.reject_nonfinite_value(_nested_list(2000))
+    with pytest.raises(ValueError, match="depth"):
+        pm.reject_nonfinite_value(_nested_dict(2000))
+    # At the limit it still walks fine.
+    assert pm.reject_nonfinite_value(_nested_list(100)) is None
+    assert pm.reject_nonfinite_value(_nested_dict(100)) is None
+    # The nonfinite rejection itself is unchanged, including the path
+    # in the message.
+    with pytest.raises(ValueError, match=r"non-finite number at value\['a'\]\[1\]"):
+        pm.reject_nonfinite_value({"a": [1.0, float("nan")]})
+    assert pm.reject_nonfinite_value({"a": 1.0, "b": None, "c": True, "d": "x"}) is None
+
+
+def test_strict_json_dumps_rejects_over_nested_value():
+    with pytest.raises(ValueError, match="depth"):
+        pm.strict_json_dumps(_nested_list(101))
+    assert pm.strict_json_dumps(_nested_list(100)) == "[" * 100 + "]" * 100

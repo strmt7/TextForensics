@@ -127,6 +127,17 @@ JSON_INPUTS = [
     pytest.param(b"not json", id="not_json"),
     pytest.param(b"{invalid}", id="malformed"),
     pytest.param('{"text": "🚀🌟"}'.encode(), id="unicode_json"),
+    # CI-FIX-3 (Worker B): deeply nested inputs crashed the Fuzz
+    # Regression job with RecursionError (atheris status 77) — JSON is
+    # also valid YAML, so the same input crashed PyYAML's recursive
+    # composer in _fuzz_yaml, and the recursive nonfinite walk in
+    # strict_json_loads. TestOneInput must reject them cleanly.
+    pytest.param(b"[" * 2000 + b"]" * 2000, id="deeply_nested_list"),
+    pytest.param(b'{"a": ' * 500 + b"1" + b"}" * 500, id="deeply_nested_dict"),
+    pytest.param(
+        ("\n".join("  " * i + f"k{i}:" for i in range(500)) + "\n" + "  " * 500 + "1").encode(),
+        id="deeply_nested_yaml",
+    ),
 ]
 
 SCORE_INPUTS = [

@@ -65,6 +65,7 @@ from __future__ import annotations
 import bisect
 import json
 import math
+import re
 from collections.abc import Mapping
 from typing import Any
 
@@ -77,6 +78,26 @@ _PSI_EPSILON = 1e-4  # Smoothing for empty PSI bins (Evidently convention).
 # ---------------------------------------------------------------------------
 
 SCORE_DIRECTIONS = ("higher_means_ai", "lower_means_ai", "not_applicable", "unknown")
+
+MAX_JSON_DEPTH = 100
+"""Maximum JSON nesting depth accepted by the strict-JSON helpers.
+
+The bound is enforced explicitly, independent of the ``json``
+module's recursion behaviour, which is Python-version-dependent:
+on 3.11 the C scanner shares the ~1000 Python recursion limit, on
+3.12+ it has its own, much larger C budget, and on 3.14+ deeply
+nested input no longer raises ``RecursionError`` at all — so
+relying on ``RecursionError`` to bound depth silently accepts
+hostile nesting on newer Pythons. A limit of 100 is far above any
+legitimate input this tool produces (case files, manifests and
+calibration artifacts nest a handful of levels; the deepest
+legitimate structures are roughly ten levels) and far below every
+Python's recursion budget, so the same input is rejected on every
+supported version. Same value as ``verify.MAX_JSON_DEPTH`` (C12),
+``_standalone_verify.MAX_JSON_DEPTH`` and
+``datasets._DETECTRL_X_MAX_NESTING_DEPTH`` — one convention,
+not a per-module tuning.
+"""
 
 
 def normalize_score_direction(value: Any) -> str:
@@ -129,30 +150,120 @@ def require_integer(
 
 
 def reject_nonfinite_value(value: Any, name: str = "value", _path: str | None = None) -> None:
-    """Recursively reject nonfinite floats anywhere in ``value``.
+    """Reject nonfinite floats anywhere in ``value``.
 
     Walks mappings, sequences and sets; every float must be finite.
     Booleans, ``None`` and strings are not numbers and pass. Raises
     ``ValueError`` naming the offending path, or returns ``None``.
+
+    Iterative (explicit stack, no recursion) and depth-bounded: a
+    value nested past :const:`MAX_JSON_DEPTH` raises ``ValueError``
+    instead of a ``RecursionError``. The walk used to recurse once
+    per nesting level, so on Python 3.12 — where ``json.loads``
+    accepts nesting far deeper than the ~1000-frame Python recursion
+    limit — a 1000+-deep input parsed fine and then crashed this
+    walk; that crash escaped the ``json_parsing`` fuzz target
+    (CI-FIX-3). The traversal order is the same depth-first
+    pre-order as the recursive version, so the first nonfinite float
+    reported (and its path) is unchanged.
     """
-    path = _path if _path is not None else name
-    if isinstance(value, float):
-        if not math.isfinite(value):
-            raise ValueError(f"non-finite number at {path}: {value!r}.")
-        return
-    if isinstance(value, Mapping):
-        for key, item in value.items():
-            reject_nonfinite_value(item, name, f"{path}[{key!r}]")
-        return
-    if isinstance(value, (list, tuple, set, frozenset)):
-        for index, item in enumerate(value):
-            reject_nonfinite_value(item, name, f"{path}[{index}]")
-        return
+    root_path = _path if _path is not None else name
+    stack: list[tuple[Any, str, int]] = [(value, root_path, 1)]
+    while stack:
+        current, path, depth = stack.pop()
+        if isinstance(current, float):
+            if not math.isfinite(current):
+                raise ValueError(f"non-finite number at {path}: {current!r}.")
+            continue
+        if isinstance(current, Mapping):
+            if depth > MAX_JSON_DEPTH:
+                raise ValueError(
+                    f"JSON nesting depth exceeds the {MAX_JSON_DEPTH}-level limit at {path}."
+                )
+            children = [(item, f"{path}[{key!r}]", depth + 1) for key, item in current.items()]
+            stack.extend(reversed(children))
+            continue
+        if isinstance(current, (list, tuple, set, frozenset)):
+            if depth > MAX_JSON_DEPTH:
+                raise ValueError(
+                    f"JSON nesting depth exceeds the {MAX_JSON_DEPTH}-level limit at {path}."
+                )
+            children = [(item, f"{path}[{index}]", depth + 1) for index, item in enumerate(current)]
+            stack.extend(reversed(children))
+            continue
     return None
 
 
 def _reject_json_constant(token: str) -> Any:
     raise ValueError(f"non-finite JSON constant {token!r} is not valid JSON.")
+
+
+# A JSON string literal, or an unterminated string running to the end
+# of the (possibly partial) buffer. Used to strip string contents
+# before counting bracket depth, so brackets inside strings are not
+# mistaken for structure. Same technique as
+# ``datasets._check_raw_json_nesting_depth``.
+_JSON_STRING_RE = re.compile(r'"(?:\\.|[^"\\])*"' r'|"(?:\\.|[^"\\])*$')
+_JSON_BRACKET_RE = re.compile(r"[{}\[\]]")
+
+
+def _check_json_nesting_depth(
+    text: str | bytes | bytearray, *, max_depth: int = MAX_JSON_DEPTH
+) -> None:
+    """Reject raw JSON text whose bracket nesting exceeds ``max_depth``.
+
+    Runs before ``json`` decodes the text, so a hostile deeply nested
+    document is rejected without the decoder first building the
+    nested structure in memory. The bound is enforced explicitly,
+    independent of the ``json`` module's recursion behaviour, which
+    is Python-version-dependent: on 3.11 the C scanner shares the
+    ~1000 Python recursion limit, on 3.12+ it has its own, much
+    larger C budget, and on 3.14+ deeply nested input no longer
+    raises ``RecursionError`` at all — so relying on ``RecursionError``
+    to bound depth silently accepts hostile nesting on newer
+    Pythons. A ``ValueError`` here is a structured rejection, never
+    a bare recursion exception escaping the parser.
+    """
+    if isinstance(text, (bytes, bytearray)):
+        # Bracket and quote bytes are ASCII, and ASCII bytes never
+        # occur inside a multi-byte UTF-8 sequence, so decoding with
+        # errors ignored cannot mis-count structure.
+        scan = bytes(text).decode("utf-8", errors="ignore")
+    else:
+        scan = text
+    stripped = _JSON_STRING_RE.sub("", scan)
+    depth = 0
+    for match in _JSON_BRACKET_RE.finditer(stripped):
+        if match.group() in "[{":
+            depth += 1
+            if depth > max_depth:
+                raise ValueError(f"JSON nesting depth exceeds the {max_depth}-level limit.")
+        else:
+            depth -= 1
+    return None
+
+
+def _check_json_value_depth(value: Any, *, max_depth: int = MAX_JSON_DEPTH) -> None:
+    """Reject a decoded/in-memory value nested past ``max_depth``.
+
+    Backstop for the raw-text scan: if a value ever reaches this
+    point deeper than the limit (built in memory, or decoded by a
+    non-strict loader), it is still rejected. Iterative, so the
+    check itself cannot recurse. A flat object has depth 1; each
+    nested container adds one level.
+    """
+    stack: list[tuple[Any, int]] = [(value, 1)]
+    while stack:
+        current, depth = stack.pop()
+        if isinstance(current, Mapping):
+            if depth > max_depth:
+                raise ValueError(f"JSON nesting depth exceeds the {max_depth}-level limit.")
+            stack.extend((child, depth + 1) for child in current.values())
+        elif isinstance(current, (list, tuple, set, frozenset)):
+            if depth > max_depth:
+                raise ValueError(f"JSON nesting depth exceeds the {max_depth}-level limit.")
+            stack.extend((child, depth + 1) for child in current)
+    return None
 
 
 def strict_json_loads(text: str | bytes | bytearray) -> Any:
@@ -163,7 +274,14 @@ def strict_json_loads(text: str | bytes | bytearray) -> Any:
     ``inf``. Both are rejected here: a nonfinite token is never valid
     JSON, so it raises ``ValueError`` instead of producing a float
     that later fabricates a finite metric.
+
+    Nesting depth is bounded explicitly at :const:`MAX_JSON_DEPTH`
+    (100 levels): the raw text is scanned before decoding, and the
+    decoded value is re-checked by the iterative
+    :func:`reject_nonfinite_value` walk. An over-nested document
+    raises ``ValueError``, never ``RecursionError``.
     """
+    _check_json_nesting_depth(text)
     result = json.loads(text, parse_constant=_reject_json_constant)
     reject_nonfinite_value(result)
     return result
@@ -174,7 +292,14 @@ def strict_json_dumps(value: Any, **kwargs: Any) -> str:
 
     A nonfinite float raises ``ValueError`` instead of emitting a
     literal ``NaN`` / ``Infinity`` token that no strict parser accepts.
+
+    Nesting depth is bounded explicitly at :const:`MAX_JSON_DEPTH`
+    (100 levels), checked iteratively before encoding: the C encoder
+    recurses on nesting too, so an over-nested value raises
+    ``ValueError`` here instead of a version-dependent
+    ``RecursionError`` from the encoder.
     """
+    _check_json_value_depth(value)
     return json.dumps(value, allow_nan=False, **kwargs)
 
 

@@ -34,10 +34,26 @@ except ImportError:
 
 
 def _fuzz_json(text: str) -> None:
-    """Fuzz JSON parsing paths."""
+    """Fuzz JSON parsing paths.
+
+    The parse goes through the repo's bounded strict-JSON entry
+    point (:func:`textforensics.probe_metrics.strict_json_loads`,
+    depth limit ``MAX_JSON_DEPTH`` = 100, ``ValueError`` on excess)
+    instead of bare ``json.loads``: the stdlib decoder has no depth
+    knob and its recursion behaviour is Python-version-dependent, so
+    a deeply nested input used to crash this target with
+    ``RecursionError`` (CI-FIX-3 — Fuzz Regression on Python 3.12,
+    atheris status 77). Over-nested or nonfinite input is invalid
+    input and is rejected here, never a crash. That also keeps this
+    target exercising the bounded parser, so a future removal of the
+    depth bound would crash the fuzzer again instead of passing
+    silently.
+    """
+    from textforensics.probe_metrics import strict_json_loads
+
     try:
-        parsed = json.loads(text)
-    except (json.JSONDecodeError, UnicodeDecodeError):
+        parsed = strict_json_loads(text)
+    except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
         return
 
     if not isinstance(parsed, dict):
@@ -140,6 +156,19 @@ def _fuzz_yaml(text: str) -> None:
     try:
         parsed = yaml.safe_load(text)
     except yaml.YAMLError:
+        return
+    except RecursionError:
+        # PyYAML's composer recurses once per nesting level and offers
+        # no max-depth option, and JSON is valid YAML, so a deeply
+        # nested input reaches this parser too and exhausts the stack
+        # around ~500 levels (CI-FIX-3 — the other half of the Fuzz
+        # Regression RecursionError). The repo has no YAML parser of
+        # its own to bound, so at this harness boundary hostile
+        # nesting is invalid input and is rejected. This is not the
+        # fix for the repo's JSON paths — that is the depth bound in
+        # probe_metrics.strict_json_loads, exercised by _fuzz_json
+        # above — it only stops a third-party parser with no depth
+        # knob from reading as a crash.
         return
 
     if parsed is None:
