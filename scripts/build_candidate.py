@@ -84,8 +84,7 @@ MANIFEST_FORMAT = "textforensics-candidate-manifest/1"
 # the value below is the policy the release workflow would assert, and
 # is recorded here as an expectation, not as a verified signature.
 EXPECTED_KEYLESS_IDENTITY = (
-    "https://github.com/strmt7/TextForensics/"
-    ".github/workflows/release.yml@refs/heads/main"
+    "https://github.com/strmt7/TextForensics/.github/workflows/release.yml@refs/heads/main"
 )
 EXPECTED_KEYLESS_ISSUER = "https://token.actions.githubusercontent.com"
 
@@ -107,15 +106,25 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def run(argv: list[str], *, cwd: Path | None = None, env: dict | None = None,
-        input_text: str | None = None) -> subprocess.CompletedProcess:
+def run(
+    argv: list[str],
+    *,
+    cwd: Path | None = None,
+    env: dict | None = None,
+    input_text: str | None = None,
+) -> subprocess.CompletedProcess:
     """Run a child; raise on failure with the tail of its output.
 
     stdin is DEVNULL: no child may block on an interactive prompt
     (cosign treats an empty COSIGN_PASSWORD as unset and prompts)."""
     proc = subprocess.run(
-        argv, cwd=str(cwd) if cwd else None, env=env,
-        capture_output=True, text=True, input=input_text, timeout=1800,
+        argv,
+        cwd=str(cwd) if cwd else None,
+        env=env,
+        capture_output=True,
+        text=True,
+        input=input_text,
+        timeout=1800,
         stdin=subprocess.DEVNULL if input_text is None else None,
     )
     if proc.returncode != 0:
@@ -137,7 +146,8 @@ def fresh_checkout(repo: Path, sha: str, dest: Path) -> Path:
     dest.mkdir(parents=True, exist_ok=True)
     archive = subprocess.run(
         ["git", "-C", str(repo), "archive", sha],
-        capture_output=True, timeout=600,
+        capture_output=True,
+        timeout=600,
     )
     if archive.returncode != 0 or not archive.stdout:
         raise RuntimeError(f"git archive {sha} failed: {archive.stderr.decode()[:300]}")
@@ -164,8 +174,7 @@ def fresh_venv(python: str, venv_dir: Path, tools_lockfile: Path) -> Path:
     env["PIP_NO_CACHE_DIR"] = "1"
     env["TMPDIR"] = str(venv_dir.parent)
     run(
-        [str(venv_python), "-m", "pip", "install", "--require-hashes",
-         "-r", str(tools_lockfile)],
+        [str(venv_python), "-m", "pip", "install", "--require-hashes", "-r", str(tools_lockfile)],
         env=env,
     )
     return venv_python
@@ -182,9 +191,18 @@ def build_distributions(venv_python: Path, checkout: Path, dist_dir: Path) -> li
         if stale.is_file():
             stale.unlink()
     run(
-        [str(venv_python), "-m", "build", "--no-isolation",
-         "--wheel", "--sdist", "--outdir", str(dist_dir)],
-        cwd=checkout, env=env,
+        [
+            str(venv_python),
+            "-m",
+            "build",
+            "--no-isolation",
+            "--wheel",
+            "--sdist",
+            "--outdir",
+            str(dist_dir),
+        ],
+        cwd=checkout,
+        env=env,
     )
     built = sorted(dist_dir.iterdir())
     if len(built) != 2 or not any(p.suffix == ".whl" for p in built):
@@ -195,17 +213,17 @@ def build_distributions(venv_python: Path, checkout: Path, dist_dir: Path) -> li
 def build_source_tarball(repo: Path, sha: str, version: str, dist_dir: Path) -> Path:
     target = dist_dir / f"textforensics-{version}-source.tar.gz"
     proc = subprocess.run(
-        ["git", "-C", str(repo), "archive", "--format=tar.gz",
-         "-o", str(target), sha],
-        capture_output=True, text=True, timeout=600,
+        ["git", "-C", str(repo), "archive", "--format=tar.gz", "-o", str(target), sha],
+        capture_output=True,
+        text=True,
+        timeout=600,
     )
     if proc.returncode != 0:
         raise RuntimeError(f"git archive tarball failed: {proc.stderr[:300]}")
     return target
 
 
-def build_notes(venv_python: Path, repo: Path, sha: str,
-                 candidate_dir: Path) -> tuple[Path, Path]:
+def build_notes(venv_python: Path, repo: Path, sha: str, candidate_dir: Path) -> tuple[Path, Path]:
     """Generate release notes with publish_release.py changelog.
 
     The changelog reads git history, so it runs in the source repo
@@ -223,8 +241,7 @@ def build_notes(venv_python: Path, repo: Path, sha: str,
         )
     notes_out = candidate_dir.parent / "release-notes.md"
     run(
-        [str(venv_python), "scripts/publish_release.py", "changelog",
-         "--output", str(notes_out)],
+        [str(venv_python), "scripts/publish_release.py", "changelog", "--output", str(notes_out)],
         cwd=repo,
     )
     notes = notes_out
@@ -276,14 +293,15 @@ def sign_all(key: Path, payloads: list[Path]) -> None:
     module docstring)."""
     for payload in payloads:
         raw = subprocess.run(
-            ["openssl", "pkeyutl", "-sign", "-inkey", str(key),
-             "-rawin", "-in", str(payload)],
-            capture_output=True, timeout=120, stdin=subprocess.DEVNULL,
+            ["openssl", "pkeyutl", "-sign", "-inkey", str(key), "-rawin", "-in", str(payload)],
+            capture_output=True,
+            timeout=120,
+            stdin=subprocess.DEVNULL,
         )
         if raw.returncode != 0:
             raise RuntimeError(
-                f"openssl sign failed for {payload.name}: "
-                f"{raw.stderr.decode()[:200]}")
+                f"openssl sign failed for {payload.name}: {raw.stderr.decode()[:200]}"
+            )
         import base64
 
         sig_path = payload.with_suffix(payload.suffix + ".sig")
@@ -301,17 +319,20 @@ def write_sha256sums(candidate_dir: Path) -> Path:
     return sums
 
 
-def build_manifest(candidate_dir: Path, *, version: str, sha: str, tag: str,
-                   build_info: dict, signer: dict) -> dict:
+def build_manifest(
+    candidate_dir: Path, *, version: str, sha: str, tag: str, build_info: dict, signer: dict
+) -> dict:
     assets = []
     for path in sorted(candidate_dir.iterdir()):
         if not path.is_file():
             continue
-        assets.append({
-            "name": path.name,
-            "sha256": sha256_file(path),
-            "size": path.stat().st_size,
-        })
+        assets.append(
+            {
+                "name": path.name,
+                "sha256": sha256_file(path),
+                "size": path.stat().st_size,
+            }
+        )
     return {
         "format": MANIFEST_FORMAT,
         "version": version,
@@ -343,14 +364,17 @@ def main(argv: list[str] | None = None) -> int:
     global SOURCE_DATE_EPOCH
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sha", required=True, help="Full candidate source SHA")
-    parser.add_argument("--repo", default=None,
-                        help="Path to a git repo to archive from (default: this repo)")
-    parser.add_argument("--workdir", required=True,
-                        help="Absolute workdir on workspace disk, outside any repo")
+    parser.add_argument(
+        "--repo", default=None, help="Path to a git repo to archive from (default: this repo)"
+    )
+    parser.add_argument(
+        "--workdir", required=True, help="Absolute workdir on workspace disk, outside any repo"
+    )
     parser.add_argument("--cosign", default="cosign", help="cosign binary")
     parser.add_argument("--syft", default="syft", help="syft binary")
-    parser.add_argument("--python", default="/usr/bin/python3.12",
-                        help="System Python for the fresh venv")
+    parser.add_argument(
+        "--python", default="/usr/bin/python3.12", help="System Python for the fresh venv"
+    )
     parser.add_argument("--source-date-epoch", default=SOURCE_DATE_EPOCH)
     args = parser.parse_args(argv)
 
@@ -363,22 +387,28 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     cosign = shutil.which(args.cosign) or args.cosign
     if not cosign or not shutil.which(cosign):
-        for candidate in (Path.home() / "workspace" / ".local" / "bin" / "cosign",
-                          Path.home() / ".local" / "bin" / "cosign"):
+        for candidate in (
+            Path.home() / "workspace" / ".local" / "bin" / "cosign",
+            Path.home() / ".local" / "bin" / "cosign",
+        ):
             if candidate.exists():
                 cosign = str(candidate)
                 break
     syft = shutil.which(args.syft) or args.syft
     if not syft or not shutil.which(syft):
-        for candidate in (Path.home() / "workspace" / ".local" / "bin" / "syft",
-                          Path.home() / ".local" / "bin" / "syft"):
+        for candidate in (
+            Path.home() / "workspace" / ".local" / "bin" / "syft",
+            Path.home() / ".local" / "bin" / "syft",
+        ):
             if candidate.exists():
                 syft = str(candidate)
                 break
     for tool, path in (("cosign", cosign), ("syft", syft)):
         if not path or not shutil.which(path):
-            print(f"error: {tool} binary not found: {args.cosign if tool == 'cosign' else args.syft}",
-                  file=sys.stderr)
+            print(
+                f"error: {tool} binary not found: {args.cosign if tool == 'cosign' else args.syft}",
+                file=sys.stderr,
+            )
             return 2
 
     workdir.mkdir(parents=True, exist_ok=True)
@@ -393,8 +423,7 @@ def main(argv: list[str] | None = None) -> int:
         tag = f"v{version}"
         print(f"version {version}, tag {tag}")
         print("fresh venv + pinned tools lockfile ...")
-        venv_python = fresh_venv(
-            args.python, venv_dir, checkout / "requirements-tools-hashed.txt")
+        venv_python = fresh_venv(args.python, venv_dir, checkout / "requirements-tools-hashed.txt")
         versions = {}
         for mod in ("build", "setuptools", "wheel"):
             proc = run([str(venv_python), "-m", "pip", "show", mod])
@@ -414,24 +443,35 @@ def main(argv: list[str] | None = None) -> int:
         print("generating SBOMs with Syft ...")
         syft_proc = run([syft, "version"])
         syft_version = next(
-            (ln.split(":", 1)[1].strip() for ln in syft_proc.stdout.splitlines()
-             if ln.startswith("Version:")), "unknown")
+            (
+                ln.split(":", 1)[1].strip()
+                for ln in syft_proc.stdout.splitlines()
+                if ln.startswith("Version:")
+            ),
+            "unknown",
+        )
         cdx, spdx = build_sboms(syft, dist_dir, candidate_dir)
         print("signing payloads with an ephemeral local Ed25519 key ...")
         key, pub = generate_keypair(workdir / "keys")
-        payloads = [
-            candidate_dir / p.name for p in (*built, source)
-        ] + [cdx, spdx, notes]
+        payloads = [candidate_dir / p.name for p in (*built, source)] + [cdx, spdx, notes]
         sign_all(key, payloads)
         print("writing SHA256SUMS ...")
         write_sha256sums(candidate_dir)
         pub_sha = sha256_file(pub)
         cosign_proc = run([cosign, "version"])
         cosign_version = next(
-            (ln.split(":", 1)[1].strip() for ln in cosign_proc.stdout.splitlines()
-             if ln.startswith("GitVersion:")), "unknown")
+            (
+                ln.split(":", 1)[1].strip()
+                for ln in cosign_proc.stdout.splitlines()
+                if ln.startswith("GitVersion:")
+            ),
+            "unknown",
+        )
         manifest = build_manifest(
-            candidate_dir, version=version, sha=args.sha, tag=tag,
+            candidate_dir,
+            version=version,
+            sha=args.sha,
+            tag=tag,
             build_info={
                 "source_date_epoch": int(SOURCE_DATE_EPOCH),
                 "python": run([str(venv_python), "--version"]).stdout.strip(),

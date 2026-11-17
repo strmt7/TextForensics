@@ -52,8 +52,7 @@ def _good_manifest():
         "tag": "v0.2.0",
         "build": {},
         "assets": [
-            {"name": "textforensics-0.2.0-py3-none-any.whl",
-             "sha256": "0" * 64, "size": 10},
+            {"name": "textforensics-0.2.0-py3-none-any.whl", "sha256": "0" * 64, "size": 10},
             {"name": "SHA256SUMS", "sha256": "1" * 64, "size": 20},
         ],
         "checksums_file": "SHA256SUMS",
@@ -182,16 +181,16 @@ def test_strip_generated_line(verifier):
 def test_bundle_structure_keyless_ok(verifier, tmp_path):
     bundle = tmp_path / "x.bundle"
     bundle.write_text(
-        json.dumps({"verificationMaterial": {}, "dsseEnvelope": {}}),
-        encoding="utf-8")
+        json.dumps({"verificationMaterial": {}, "dsseEnvelope": {}}), encoding="utf-8"
+    )
     assert verifier.validate_bundle_structure(bundle) is None
 
 
 def test_bundle_structure_local_key_ok(verifier, tmp_path):
     bundle = tmp_path / "x.bundle"
     bundle.write_text(
-        json.dumps({"verificationMaterial": {}, "messageSignature": {}}),
-        encoding="utf-8")
+        json.dumps({"verificationMaterial": {}, "messageSignature": {}}), encoding="utf-8"
+    )
     assert verifier.validate_bundle_structure(bundle) is None
 
 
@@ -211,8 +210,10 @@ def test_bundle_structure_no_verification_material_fails(verifier, tmp_path):
 
 
 def _all_pass_runs(verifier):
-    return [{"name": prefix, "status": "completed", "conclusion": "success",
-             "head_sha": SHA} for prefix in verifier.REQUIRED_CHECKS]
+    return [
+        {"name": prefix, "status": "completed", "conclusion": "success", "head_sha": SHA}
+        for prefix in verifier.REQUIRED_CHECKS
+    ]
 
 
 def test_check_runs_all_pass(verifier):
@@ -252,8 +253,7 @@ def test_check_runs_missing_blocks(verifier):
 
 def test_check_runs_matrix_legs_all_must_pass(verifier):
     runs = _all_pass_runs(verifier)
-    runs.append({**runs[1], "name": runs[1]["name"] + " 3.11",
-                 "conclusion": "failure"})
+    runs.append({**runs[1], "name": runs[1]["name"] + " 3.11", "conclusion": "failure"})
     blockers = verifier.evaluate_check_runs(runs, SHA)
     assert len(blockers) == 1
     assert "did not pass" in blockers[0]
@@ -277,13 +277,27 @@ def cosign_keypair(tmp_path):
     if shutil.which("openssl") is None:
         pytest.skip("openssl binary not on PATH")
     subprocess.run(
-        ["openssl", "genpkey", "-algorithm", "ed25519",
-         "-out", str(tmp_path / "cosign.key")],
-        capture_output=True, check=True, stdin=subprocess.DEVNULL, timeout=120)
+        ["openssl", "genpkey", "-algorithm", "ed25519", "-out", str(tmp_path / "cosign.key")],
+        capture_output=True,
+        check=True,
+        stdin=subprocess.DEVNULL,
+        timeout=120,
+    )
     subprocess.run(
-        ["openssl", "pkey", "-in", str(tmp_path / "cosign.key"),
-         "-pubout", "-out", str(tmp_path / "cosign.pub")],
-        capture_output=True, check=True, stdin=subprocess.DEVNULL, timeout=120)
+        [
+            "openssl",
+            "pkey",
+            "-in",
+            str(tmp_path / "cosign.key"),
+            "-pubout",
+            "-out",
+            str(tmp_path / "cosign.pub"),
+        ],
+        capture_output=True,
+        check=True,
+        stdin=subprocess.DEVNULL,
+        timeout=120,
+    )
     return cosign, tmp_path / "cosign.key", tmp_path / "cosign.pub"
 
 
@@ -292,9 +306,12 @@ def _sign(key, payload: Path) -> Path:
     import base64
 
     raw = subprocess.run(
-        ["openssl", "pkeyutl", "-sign", "-inkey", str(key),
-         "-rawin", "-in", str(payload)],
-        capture_output=True, check=True, stdin=subprocess.DEVNULL, timeout=120)
+        ["openssl", "pkeyutl", "-sign", "-inkey", str(key), "-rawin", "-in", str(payload)],
+        capture_output=True,
+        check=True,
+        stdin=subprocess.DEVNULL,
+        timeout=120,
+    )
     sig = payload.with_suffix(payload.suffix + ".sig")
     sig.write_bytes(base64.b64encode(raw.stdout) + b"\n")
     return sig
@@ -308,28 +325,40 @@ def test_cosign_verify_blob_real_path_accepts(verifier, tmp_path, cosign_keypair
     # Local-key verification uses the public key + --insecure-ignore-tlog
     # (rehearsal signatures are never Rekor-logged; see module docstring).
     ok, detail = verifier.verify_cosign_blob(
-        cosign, payload=payload, sig=sig, bundle=None,
-        key=pub, identity=None, issuer=None, insecure_ignore_tlog=True)
+        cosign,
+        payload=payload,
+        sig=sig,
+        bundle=None,
+        key=pub,
+        identity=None,
+        issuer=None,
+        insecure_ignore_tlog=True,
+    )
     assert ok, detail
     assert detail == "Verified OK"
 
 
-def test_cosign_verify_blob_rejects_tampered_payload(
-        verifier, tmp_path, cosign_keypair):
+def test_cosign_verify_blob_rejects_tampered_payload(verifier, tmp_path, cosign_keypair):
     cosign, key, pub = cosign_keypair
     payload = tmp_path / "payload.bin"
     payload.write_bytes(b"candidate bytes")
     sig = _sign(key, payload)
     payload.write_bytes(b"candidate BYTEs")
     ok, detail = verifier.verify_cosign_blob(
-        cosign, payload=payload, sig=sig, bundle=None,
-        key=pub, identity=None, issuer=None, insecure_ignore_tlog=True)
+        cosign,
+        payload=payload,
+        sig=sig,
+        bundle=None,
+        key=pub,
+        identity=None,
+        issuer=None,
+        insecure_ignore_tlog=True,
+    )
     assert not ok
     assert "rejected" in detail
 
 
-def test_cosign_verify_blob_rejects_wrong_key(
-        verifier, tmp_path, cosign_keypair):
+def test_cosign_verify_blob_rejects_wrong_key(verifier, tmp_path, cosign_keypair):
     cosign, key, pub = cosign_keypair
     payload = tmp_path / "payload.bin"
     payload.write_bytes(b"candidate bytes")
@@ -338,16 +367,36 @@ def test_cosign_verify_blob_rejects_wrong_key(
     other = tmp_path / "other"
     other.mkdir()
     subprocess.run(
-        ["openssl", "genpkey", "-algorithm", "ed25519",
-         "-out", str(other / "cosign.key")],
-        capture_output=True, check=True, stdin=subprocess.DEVNULL, timeout=120)
+        ["openssl", "genpkey", "-algorithm", "ed25519", "-out", str(other / "cosign.key")],
+        capture_output=True,
+        check=True,
+        stdin=subprocess.DEVNULL,
+        timeout=120,
+    )
     subprocess.run(
-        ["openssl", "pkey", "-in", str(other / "cosign.key"),
-         "-pubout", "-out", str(other / "cosign.pub")],
-        capture_output=True, check=True, stdin=subprocess.DEVNULL, timeout=120)
+        [
+            "openssl",
+            "pkey",
+            "-in",
+            str(other / "cosign.key"),
+            "-pubout",
+            "-out",
+            str(other / "cosign.pub"),
+        ],
+        capture_output=True,
+        check=True,
+        stdin=subprocess.DEVNULL,
+        timeout=120,
+    )
     ok, detail = verifier.verify_cosign_blob(
-        cosign, payload=payload, sig=sig, bundle=None,
-        key=other / "cosign.pub", identity=None, issuer=None,
-        insecure_ignore_tlog=True)
+        cosign,
+        payload=payload,
+        sig=sig,
+        bundle=None,
+        key=other / "cosign.pub",
+        identity=None,
+        issuer=None,
+        insecure_ignore_tlog=True,
+    )
     assert not ok
     assert "rejected" in detail
