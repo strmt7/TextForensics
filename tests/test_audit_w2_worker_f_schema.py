@@ -202,7 +202,7 @@ EXPECTED_PROBE_SCHEMA_LOAD = [
         (
             "raise",
             "ValueError",
-            "Unknown schema 'no-such-schema'. Available: case-file, detector-result, enterprise-policy, evidence-manifest, evidence-record, evidence-registry, forensic-bundle, mixed-origin-report, probe-run, run-artifact, sealed-bundle-manifest, trust-map, validation-registry",
+            "Unknown schema 'no-such-schema'. Available: candidate-manifest, case-file, detector-result, enterprise-policy, evidence-manifest, evidence-record, evidence-registry, forensic-bundle, mixed-origin-report, probe-run, run-artifact, sealed-bundle-manifest, trust-map, validation-registry",
         ),
     ),
     (
