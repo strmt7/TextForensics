@@ -50,33 +50,25 @@ Wave reports (evidence of record for the numbers in §2):
 | W7 (verified, held) | `17b8951` | `hidden_files/audit-w7-report.md` |
 | W8 (verified, held) | `4374990` | `hidden_files/audit-w8-report.md` |
 | W9 (verified, held) | `9b148d4` | `hidden_files/audit-w9-report.md` |
-| W10 (this dossier) | TBD by coordinator | `hidden_files/audit-w10-d-report.md` |
+| W10 (this dossier) | `117e58c` | `hidden_files/audit-w10-report.md` |
 
 ## 2. Gate verdicts
 
-<!-- W10-COORDINATOR: fill in final gate verdicts -->
-<!-- The W10 final verification (fresh checkout of the exact integrated
-     head, per CONTRIBUTING §2.6) has not run yet at dossier time.
-     Replace the TBD cells in §2.1 with the measured results and delete
-     this comment block only when every cell is filled. Do NOT fill a
-     cell from a run on any other head, and do NOT mark a gate pass on
-     a local-only run — CI confirmation is a separate row, not implied. -->
-
-### 2.1 W10 final gates (TO BE FILLED BY THE W10 COORDINATOR)
+### 2.1 W10 final gates (verified, head `117e58c`)
 
 | Gate | Result | Run ID / log |
 | --- | --- | --- |
-| Full suite (fresh checkout, exact head) | TBD — W10 coordinator | TBD |
-| Claims (`scripts/check_claims.py`, 3 consecutive runs) | TBD — W10 coordinator | TBD |
-| Schemas (`scripts/validate_schemas.py`) | TBD — W10 coordinator | TBD |
-| Pre-commit (`pre-commit run --all-files`) | TBD — W10 coordinator | TBD |
-| Mutation baseline re-derived (tomllib) + stale check | TBD — W10 coordinator | TBD |
-| Rehearsal: typed asset manifest + no-publication promotion | TBD — W10 coordinator | TBD |
-| Rehearsal: second clean verifier reproduces the unpublished asset set | TBD — W10 coordinator | TBD |
-| Rehearsal: deliberately bad candidates rejected (removal / tampering / mismatched SHA / tag / version / missing confirmation / failed-skipped-stale required check) | TBD — W10 coordinator | TBD |
-| Cosign positive path (mock-verified only through W9 — W10 rehearsal) | TBD — W10 coordinator | TBD |
+| Full suite (fresh checkout, exact head) | **7111 passed / 0 failed / 3 skipped / 8571 subtests** (753 s; fresh checkout `~/workspace/TextForensics-w10-parent-pv`, workspace-disk basetemp/TMPDIR, cosign on PATH so all 26 verifier tests ran) | `hidden_files/audit-w10-report.md` §5 |
+| Claims (`scripts/check_claims.py`, 3 consecutive runs) | **33 passed, 0 failed** (3 consecutive runs, sequentially, /tmp clean, no suite live) | `hidden_files/audit-w10-report.md` §5 |
+| Schemas (`scripts/validate_schemas.py`) | **14 OK** (13 + `candidate-manifest`, the 14th packaged schema, W10-A) | `hidden_files/audit-w10-report.md` §5 |
+| Pre-commit (`pre-commit run --all-files`) | **13/13 Passed** (tree clean after run) | `hidden_files/audit-w10-report.md` §5 |
+| Mutation baseline re-derived (tomllib) + stale check | **7010 / 7010 unique / 1336 positions / 46 modules / 0 stale**; `test_mutation.py` 65 passed / 8147 subtests; operator Counter 0 diffs; reason-rule violations 0 | `hidden_files/audit-w10-report.md` §5; `hidden_files/audit-w10-f-report.md` |
+| Rehearsal: typed asset manifest + no-publication promotion | **PASS** — typed manifest `docs/release/candidate-manifest.json` (`textforensics.candidate-manifest/v1`, 14th schema); `upload --dry-run` runs the exact pre-publication path and exits 0 without `gh release create`; rehearsal control exit 0, 9 planted-defect demos exit 1, **0 remote writes** (gh api read-back: releases `[]`→`[]`, tags `[]`→`[]`, remote branches only `main`) | `hidden_files/audit-w10-b-report.md`; `hidden_files/audit-w10-b/rehearsal-report.json` |
+| Rehearsal: second clean verifier reproduces the unpublished asset set | **PASS** — coordinator independent rebuild of A's candidate from source `2c72b5a` (fresh detached worktree, fresh outdir, throwaway venv): wheel `50500001…`, sdist `01aa0799…`, source tarball `23a277dc…` all match the manifest; C's verifier direct verify (asset-only) 8 checks pass incl. rebuild byte-identical across two fresh builds | `hidden_files/audit-w10-c-report.md`; `hidden_files/audit-w10-coordinator/rebuild-a-report.json` |
+| Rehearsal: deliberately bad candidates rejected (removal / tampering / mismatched SHA / tag / version / missing confirmation / failed-skipped-stale required check) | **PASS** — B rehearsal **9/9** demos fail closed (exit 1); C verifier self-test **16/16** cases rejected as expected (exit 1, incl. missing signature, wrong signer, stale SHA, extra asset) | `hidden_files/audit-w10-b-report.md`; `hidden_files/audit-w10-c-report.md` |
+| Cosign positive path (mock-verified only through W9 — W10 rehearsal) | **COVERED (real `cosign verify-blob`)** — cosign v3.1.4 (workspace-local, SHA-256 verified against official checksums): local-key 6/6 payloads `Verified OK` (tampered payload + wrong key rejected); keyless cosign release bundle `Verified OK` with certificate identity/issuer (wrong identity rejected, SAN mismatch). **Limitation:** keyless *signing* (`cosign sign-blob --bundle`) cannot complete on this VM — Rekor/TSA POSTs time out (egress proxy blocks POSTs to Sigstore hosts); keyless signing + DSSE provenance remain **CI-only** with the exact CI proof plan in the W10 report §6. Keyless identity remains a human-only decision (open). | `hidden_files/audit-w10-c-report.md` §4 |
 | Report-card lead | `unknown` — W10 does not change it (see §4.3) | `docs/evidence/report-card.md` |
-| CI on the merged head | TBD — CI has never run on the staging branch; first true check is CI after the final merge (see §5.1) | TBD |
+| CI on the merged head | **Not yet run** — CI has never run on the staging branch; first true check is CI after the final merge (see §5.1) | — |
 
 ### 2.2 W9 — end-to-end qualification (verified, head `9b148d4`)
 
@@ -371,8 +363,27 @@ fixed; 6 still open; 6 new. Inventory:
 
 ### 5.3 Release-process items (W10 rehearsal / owner decisions)
 
-- **Cosign positive path mock-verified only** (no cosign binary on
-  the audit VM) — W10 rehearsal item; §2.1 records the outcome.
+- **Cosign positive path — COVERED with the real binary in W10**
+  (cosign v3.1.4, workspace-local, SHA-256 verified against official
+  checksums; `verify-blob` local-key 6/6 `Verified OK`, keyless release
+  bundle `Verified OK`). **Remaining:** keyless *signing* cannot run on
+  this VM (Rekor/TSA POSTs time out — egress proxy blocks POSTs to
+  Sigstore hosts), so keyless signing + DSSE provenance are CI-only
+  with the exact CI proof plan in `hidden_files/audit-w10-report.md`
+  §6. The keyless identity remains a human-only decision (open).
+- **Two candidate-manifest formats exist (W10 coordination decision).**
+  The shipped manifest is `docs/release/candidate-manifest.json`
+  (`textforensics.candidate-manifest/v1`, the 14th packaged schema) —
+  the candidate record. The second verifier
+  (`scripts/verify_candidate_second.py`) uses its own release-manifest
+  format (`textforensics-candidate-manifest/1`, with tag / signatures /
+  checksums / release notes), which a candidate record cannot supply
+  (no tag exists yet; keyless identity is a human decision; signing is
+  CI-only). The verifier was NOT weakened to accept a second format;
+  instead the coordinator independently rebuilt A's candidate from
+  source `2c72b5a` and confirmed all three digests match the manifest
+  (§2.1). Unifying the formats is post-release work, after the tag +
+  signing identity exist.
 - **Signer identity is the workflow identity**
   (`https://github.com/<owner>/<repo>/.github/workflows/release.yml@<ref>`
   with the GitHub Actions OIDC issuer). The human-only
