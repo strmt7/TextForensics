@@ -933,6 +933,12 @@ class EquivalentBaselineTests(unittest.TestCase):
     #: while the old (1809, 73) collision dissolved, so the
     #: grouped count stays 1342 and the shared count is 6).
     #: No module is new.
+    #: The W10 refresh (26 entries re-derived on the audit-w10-f
+    #: head b4ad46c, 0 dropped) moved 6 flat positions in 1
+    #: module (textforensics.schema: 94 -> 95, 357 -> 363,
+    #: 383 -> 389, 403 -> 409, 461 -> 467); the flat position
+    #: count is unchanged at 1336 (6 removed, 6 added).
+    #: No module is new.
     EXPECTED_POSITIONS = {
         # textforensics._build_info (32 positions).
         (71, 33),
@@ -2041,12 +2047,12 @@ class EquivalentBaselineTests(unittest.TestCase):
         (498, 17),
         (506, 17),
         # textforensics.schema (6 positions).
-        (94, 27),
-        (94, 43),
-        (357, 60),
-        (383, 48),
-        (403, 69),
-        (461, 19),
+        (95, 27),
+        (95, 43),
+        (363, 60),
+        (389, 48),
+        (409, 69),
+        (467, 19),
         # textforensics.sealed_bundle (34 positions).
         (208, 4),
         (209, 24),
