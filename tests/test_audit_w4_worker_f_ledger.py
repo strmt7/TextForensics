@@ -408,8 +408,12 @@ def test_authorizes_transition_equal_lengths_is_not_extension() -> None:
 
 def test_authorizes_transition_large_equal_lengths_is_not_extension() -> None:
     """An equal chain is not a strict extension even at lengths where
-    ``len(...) is len(...)`` is False (300 > the small-int cache)."""
-    hashes = ["a" * 64] * 300
+    ``len(...) is len(...)`` is False (2000 is above the small-int
+    cache on every supported Python: CPython cached -5..256 through
+    3.14, and 3.15 raised the cache to -5..1024, so 300/257 — the
+    values this test used before — are cached singletons on 3.15
+    and the ``is not`` premise fails there)."""
+    hashes = ["a" * 64] * 2000
     chain = CalibrationChain()
     for h in hashes:
         chain.append(h)

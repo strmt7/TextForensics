@@ -157,9 +157,17 @@ def test_w8_successors_match_originals_except_path_fields():
                     orig_value = orig_value[key]
                     succ_value = succ_value[key]
             if path.endswith("cache_file"):
-                assert succ_value == orig_value.replace(home + "/.cache/", "$HOME/.cache/"), (
-                    f"{name}:{path}"
-                )
+                # Home-directory independent: the original records
+                # some account's home (<home>/.cache/... — recorded
+                # as /home/hatch, while CI runs as /home/runner), so
+                # the expected minimized form must be derived from
+                # the original value itself, not from the executing
+                # account's home (Path.home()). The successor keeps
+                # only the `$HOME/.cache/...` tail.
+                assert "/.cache/" in orig_value, f"{name}:{path}"
+                assert orig_value.startswith("/"), f"{name}:{path}"
+                tail = orig_value.split("/.cache/", 1)[1]
+                assert succ_value == f"$HOME/.cache/{tail}", f"{name}:{path}"
             else:  # detail: repo-relative tail of the original path
                 tail = orig_value.split("docs/evidence/", 1)[1]
                 assert succ_value == f"docs/evidence/{tail}", f"{name}:{path}"

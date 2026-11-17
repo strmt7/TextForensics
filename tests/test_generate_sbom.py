@@ -422,7 +422,13 @@ def test_bom_records_target_environment(tmp_path):
     text, _, _ = sbom.generate(tmp_path, freeze)
     props = {p["name"]: p["value"] for p in json.loads(text)["metadata"]["properties"]}
     target = props["targetEnvironment"]
-    assert "python_version=3.12" in target
+    # The generator records the RUNNING interpreter's version
+    # (packaging.markers.default_environment), so the test must
+    # accept the running version — hardcoding 3.12 fails on
+    # 3.13/3.14/3.15, where the record correctly carries that
+    # version instead.
+    expected_python = f"python_version={sys.version_info.major}.{sys.version_info.minor}"
+    assert expected_python in target
     assert "sys_platform=linux" in target
     assert "extras=api,dev" in target
 

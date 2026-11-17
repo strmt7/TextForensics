@@ -37,6 +37,60 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _git(*args, timeout=30):
+    """Run git in the repo root; return the CompletedProcess."""
+    import subprocess
+
+    return subprocess.run(
+        ["git", *args],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=timeout,
+    )
+
+
+def _is_shallow_checkout():
+    result = _git("rev-parse", "--is-shallow-repository")
+    return result.returncode == 0 and result.stdout.strip() == "true"
+
+
+def _ensure_source_sha_available(source_sha):
+    """Make ``source_sha`` resolvable in this checkout, or skip.
+
+    A depth-1 checkout (the CI default) does not contain the
+    candidate source commit even though it is a real commit on main,
+    so ``git cat-file -e <sha>^{commit}`` fails there. In that case
+    fetch just that commit from the remote (GitHub serves
+    arbitrary-SHA fetches) and re-check, so the manifest is still
+    verified against its real source commit in CI. Skip only when
+    the checkout is shallow AND the fetch fails (no remote /
+    offline): the check is then unverifiable here, not failed. In a
+    full checkout a missing object is a real failure and raises.
+    """
+    import unittest
+
+    if _git("cat-file", "-e", f"{source_sha}^{{commit}}").returncode == 0:
+        return
+    if not _is_shallow_checkout():
+        raise AssertionError(f"source_sha {source_sha} is not a commit")
+    try:
+        fetched = _git(
+            "fetch", "--no-tags", "--depth=1", "origin", source_sha, timeout=120
+        )
+    except Exception:
+        fetched = None
+    if fetched is not None and fetched.returncode == 0:
+        if _git("cat-file", "-e", f"{source_sha}^{{commit}}").returncode == 0:
+            return
+    raise unittest.SkipTest(
+        f"shallow checkout: source_sha {source_sha} is not present "
+        "locally and could not be fetched from origin, so the "
+        "manifest cannot be verified against its source commit here"
+    )
+
+
 class CandidateManifestSchemaTests(unittest.TestCase):
     """The 14th packaged schema: load, version, dispatch, rejection."""
 
@@ -153,17 +207,10 @@ class CommittedCandidateManifestTests(unittest.TestCase):
         self.assertTrue(repro["source_archive"]["identical"])
 
     def test_source_sha_is_a_real_commit(self):
-        import subprocess
-
         source_sha = self.manifest["candidate"]["source_sha"]
-        result = subprocess.run(
-            ["git", "cat-file", "-e", f"{source_sha}^{{commit}}"],
-            cwd=str(REPO_ROOT),
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        self.assertEqual(result.returncode, 0, f"source_sha {source_sha} is not a commit")
+        # Shallow-checkout tolerant: fetches the commit from the
+        # remote when needed (see _ensure_source_sha_available).
+        _ensure_source_sha_available(source_sha)
 
     def test_in_repo_asset_digests_and_sizes_match_disk(self):
         for asset in self.manifest["assets"]:
@@ -188,6 +235,9 @@ class CommittedCandidateManifestTests(unittest.TestCase):
 
         profile = self.manifest["candidate"]["build_profile"]
         source_sha = self.manifest["candidate"]["source_sha"]
+        # Shallow-checkout tolerant: fetches the commit from the
+        # remote when needed, so `git show <sha>:...` below can run.
+        _ensure_source_sha_available(source_sha)
         result = subprocess.run(
             ["git", "show", f"{source_sha}:requirements-tools-hashed.txt"],
             cwd=str(REPO_ROOT),

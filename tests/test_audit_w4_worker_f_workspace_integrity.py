@@ -19,10 +19,11 @@ Kill notes (each test names the mutant it kills):
   wrong reason (e.g. a tampered index that also breaks the entry
   hash).
 - The ``is not`` mutants need inputs past the CPython small-int
-  cache (indices > 256 are distinct objects) or an equal-but-distinct
-  string object; the tests assert that premise explicitly so a
-  platform where it does not hold fails loudly instead of passing
-  vacuously.
+  cache (indices > 1024 are distinct objects on every supported
+  Python — the cache was -5..256 through 3.14 and 3.15 raised it
+  to -5..1024) or an equal-but-distinct string object; the tests
+  assert that premise explicitly so a platform where it does not
+  hold fails loudly instead of passing vacuously.
 """
 
 import hashlib
@@ -111,16 +112,20 @@ class TestVerifyChainSurvivors:
 
     def test_large_index_identity_is_not_equality(self):
         """Indices past the small-int cache are compared by value,
-        not identity: a 300-entry chain verifies (kills NotEq->IsNot
+        not identity: a 2001-entry chain verifies (kills NotEq->IsNot
         [253, 27] occ 0)."""
-        chain = _chain(300)
+        chain = _chain(2001)
         # Premise: the stored index and the enumerate counter are
-        # distinct objects past 256 (CPython caches only -5..256).
-        # Written as `is not int("257")`, not `is not 257`: the
-        # literal form is F632 (identity comparison with a constant)
-        # and the fresh int from int() is a distinct object either
-        # way, so the premise — and the kill — is unchanged.
-        assert chain.entries[257].index is not int("257")
+        # distinct objects past the cache. CPython cached only
+        # -5..256 through 3.14, but 3.15 raised the small-int cache
+        # to -5..1024 (_PY_NSMALLPOSINTS 1025, gh-133059), so the
+        # value must be above 1024 on every supported Python: 2000
+        # is, 257/300 no longer are. Written as `is not
+        # int("2000")`, not `is not 2000`: the literal form is F632
+        # (identity comparison with a constant) and the fresh int
+        # from int() is a distinct object either way, so the premise
+        # — and the kill — is unchanged.
+        assert chain.entries[2000].index is not int("2000")
         assert chain.verify_chain() == (True, None)
 
     def test_entry_hash_below_computed_reported(self):
@@ -190,13 +195,14 @@ class TestFromDictSurvivors:
     def test_from_dict_accepts_large_indices(self):
         """Indices past the small-int cache load by value, not
         identity (kills NotEq->IsNot [318, 27] occ 6)."""
-        chain = _chain(300)
+        chain = _chain(2001)
         # Premise as above: the stored index is a distinct object
-        # from a freshly built 257 (see test_large_index_identity_
-        # is_not_equality for why the literal form is avoided).
-        assert chain.entries[257].index is not int("257")
+        # from a freshly built 2000 (see test_large_index_identity_
+        # is_not_equality for why the literal form is avoided, and
+        # why the value must be above the 3.15 cache top of 1024).
+        assert chain.entries[2000].index is not int("2000")
         loaded = AuditChain.from_dict(chain.to_dict())
-        assert len(loaded.entries) == 300
+        assert len(loaded.entries) == 2001
         assert loaded.verify_chain() == (True, None)
 
     def test_from_dict_rejects_larger_chain_hash(self):
