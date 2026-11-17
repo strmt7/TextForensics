@@ -329,8 +329,6 @@ def test_strict_json_dumps_rejects_over_nested_dict():
     # replacements that only differ at exactly depth 100
     # (Gt_Eq/Gt_GtE/Gt_Is:4) survived. A 100-deep dict must dump and
     # a 101-deep dict must raise, mirroring the list tests.
-    assert pm.strict_json_dumps(_nested_dict(100)) == (
-        '{"a": ' * 100 + "1" + "}" * 100
-    )
+    assert pm.strict_json_dumps(_nested_dict(100)) == ('{"a": ' * 100 + "1" + "}" * 100)
     with pytest.raises(ValueError, match="depth"):
         pm.strict_json_dumps(_nested_dict(101))
